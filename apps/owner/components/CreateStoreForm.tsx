@@ -88,7 +88,7 @@ export function CreateStoreForm() {
   }
 
   return (
-    <form className="form-grid" onSubmit={handleSubmit}>
+    <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
       <label className="field">
         <span>Magaza adi</span>
         <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />

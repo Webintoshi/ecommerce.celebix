@@ -17,31 +17,35 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="auth-shell">
       <section>
-        <div className="logo-text" style={{ fontSize: 32, marginBottom: 24 }}>
-          Celebi<span>x</span>
-        </div>
-        <span className="section-kicker">Owner Girisi</span>
-        <h1 className="title auth-title" style={{ marginTop: 12 }}>
-          Owner paneline giris yap
+        <img
+          src="https://celebix.co/Logo/koyu%20logo.svg"
+          alt="Celebix"
+          className="logo-img logo-img-lg"
+          style={{ marginBottom: 20 }}
+        />
+        <h1 style={{ margin: "0 0 10px", fontSize: 32, fontWeight: 700 }}>
+          Owner Panel
         </h1>
-        <p className="muted" style={{ maxWidth: 420, marginTop: 12 }}>
-          Ilk kaydolan owner hesabi otomatik super admin olur. Sonraki kullanicilar affiliate veya ekip hesabi olarak
-          atanir.
+        <p style={{ margin: 0, color: "var(--text-muted)", maxWidth: 320 }}>
+          Tum e-ticaret projelerini tek panelden yonet.
         </p>
+      </section>
+
+      <section className="auth-panel">
+        <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 600 }}>
+          Giris yap
+        </h2>
+        <OwnerAuthForm />
         {params.error === "missing_confirmation_token" ? (
-          <p className="form-error" style={{ marginTop: 16 }}>
+          <p className="form-error" style={{ marginTop: 12 }}>
             Onay linki eksik veya bozuk geldi.
           </p>
         ) : null}
         {params.error === "confirmation_failed" ? (
-          <p className="form-error" style={{ marginTop: 16 }}>
+          <p className="form-error" style={{ marginTop: 12 }}>
             E-posta onayi tamamlanamadi. Linki tekrar dene.
           </p>
         ) : null}
-      </section>
-
-      <section className="auth-panel">
-        <OwnerAuthForm />
       </section>
     </main>
   );

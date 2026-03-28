@@ -18,7 +18,7 @@ export function SignOutButton() {
   }
 
   return (
-    <button type="button" className="button button-secondary" onClick={handleClick} disabled={isPending}>
+    <button type="button" className="button button-ghost" style={{ width: "100%" }} onClick={handleClick} disabled={isPending}>
       {isPending ? "Cikis..." : "Cikis yap"}
     </button>
   );

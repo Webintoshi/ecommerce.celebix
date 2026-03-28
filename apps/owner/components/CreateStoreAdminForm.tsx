@@ -65,7 +65,7 @@ export function CreateStoreAdminForm({ storeSlug }: CreateStoreAdminFormProps) {
   }
 
   return (
-    <form className="form-grid" onSubmit={handleSubmit}>
+    <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
       <label className="field">
         <span>Ad soyad</span>
         <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Magaza yoneticisi" required />
