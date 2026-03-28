@@ -43,21 +43,25 @@ export default async function OwnerDashboardPage() {
     }),
     { revenue: 0, orders: 0, customers: 0 }
   );
+
   const projectRef = getOwnerSupabaseProjectRef();
+  const featuredStore = stores[0] ?? null;
 
   return (
     <main className="page-shell">
       <section className="hero">
-        <div className="panel">
+        <div className="panel hero-copy">
           <div className="topbar">
             <span className="eyebrow">Celebix Panel</span>
             <SignOutButton />
           </div>
-          <h1 className="title">Tum projeleri tek owner panelden yonet.</h1>
-          <p className="muted">
-            Giris yapan kullanici: <strong>{auth.profile.full_name || auth.user.email}</strong> | rol:{" "}
-            <strong>{superAdmin ? "super_admin" : "affiliate_admin"}</strong>
+
+          <h1 className="title">Projeleri karistirmadan, tek owner panelden yonet.</h1>
+          <p className="muted hero-description">
+            Store acilislarini, storefront baslangiclarini, affiliate dagitimini ve altyapi baglantilarini tek
+            ekranda gor. Burasi artik sadece metrik gosteren bir sayfa degil, dogrudan yon verdigin merkez panel.
           </p>
+
           <div className="actions">
             {superAdmin ? (
               <Link className="button button-primary" href="/stores/new">
@@ -65,7 +69,7 @@ export default async function OwnerDashboardPage() {
               </Link>
             ) : null}
             <a className="button button-secondary" href="#projects">
-              Projeleri gor
+              Projeleri ac
             </a>
             {superAdmin ? (
               <a className="button button-secondary" href="#affiliates">
@@ -73,37 +77,113 @@ export default async function OwnerDashboardPage() {
               </a>
             ) : null}
           </div>
-        </div>
 
-        <div className="panel">
-          <h2 className="section-title">Kontrol Plane Durumu</h2>
-          <div className="metric-grid metric-grid-tight">
-            <div className="metric-card">
-              <div className="metric-label">Proje sayisi</div>
-              <div className="metric-value">{stores.length}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Toplam ciro</div>
-              <div className="metric-value metric-value-small">{formatCurrency(totals.revenue)}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Toplam siparis</div>
-              <div className="metric-value">{totals.orders}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Toplam musteri</div>
-              <div className="metric-value">{totals.customers}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Owner Supabase</div>
-              <div className="metric-value metric-value-small">{projectRef ?? "-"}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Affiliate hesabi</div>
-              <div className="metric-value">{superAdmin ? affiliates.length : "Projeye gore"}</div>
-            </div>
+          <div className="hero-summary">
+            <article className="hero-summary-card">
+              <span className="metric-label">Kullanici</span>
+              <strong>{auth.profile.full_name || auth.user.email}</strong>
+              <span className="muted">Rol: {superAdmin ? "super_admin" : "affiliate_admin"}</span>
+            </article>
+
+            <article className="hero-summary-card">
+              <span className="metric-label">Proje sayisi</span>
+              <strong>{stores.length}</strong>
+              <span className="muted">Owner panelde gorunen toplam store</span>
+            </article>
+
+            <article className="hero-summary-card">
+              <span className="metric-label">Toplam ciro</span>
+              <strong>{formatCurrency(totals.revenue)}</strong>
+              <span className="muted">Tum store metrikleri bir arada</span>
+            </article>
           </div>
         </div>
+
+        <div className="panel spotlight-card">
+          <span className="section-kicker">One cikan proje</span>
+
+          {featuredStore ? (
+            <>
+              <div className="spotlight-head">
+                <div>
+                  <span className="store-meta">{featuredStore.themeLabel}</span>
+                  <h2 className="section-title spotlight-title">{featuredStore.name}</h2>
+                </div>
+                <span className="pill pill-strong">{featuredStore.status}</span>
+              </div>
+
+              <p className="store-domain spotlight-domain">{featuredStore.storefrontDomain}</p>
+              <p className="muted">
+                Girer girmez ilk gordugun alan bu olsun: hangi store aktif, siradaki aksiyon ne, storefront ne
+                durumda.
+              </p>
+
+              <div className="spotlight-stat-strip">
+                <div>
+                  <strong>{featuredStore.productCount}</strong>
+                  <span>urun</span>
+                </div>
+                <div>
+                  <strong>{featuredStore.orderCount}</strong>
+                  <span>siparis</span>
+                </div>
+                <div>
+                  <strong>{featuredStore.customerCount}</strong>
+                  <span>musteri</span>
+                </div>
+                <div>
+                  <strong>{formatCurrency(featuredStore.totalRevenue)}</strong>
+                  <span>ciro</span>
+                </div>
+              </div>
+
+              <div className="actions">
+                <Link className="button button-primary" href={`/stores/${featuredStore.slug}`}>
+                  Proje detayina git
+                </Link>
+                {superAdmin ? (
+                  <LaunchStorefrontButton slug={featuredStore.slug} currentStatus={featuredStore.storefrontStatus} />
+                ) : null}
+              </div>
+
+              <div className="actions compact-actions">
+                <span className="pill">storefront: {featuredStore.storefrontStatus}</span>
+                <span className="pill">admin: {featuredStore.adminDomain}</span>
+              </div>
+            </>
+          ) : (
+            <div className="empty-state">
+              <h2 className="section-title">Henuz proje gorunmuyor</h2>
+              <p className="muted">Ilk store kaydi olusunca owner panel burayi otomatik dolduracak.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="status-strip">
+        <article className="status-card">
+          <span className="metric-label">Owner Supabase</span>
+          <strong>{projectRef ?? "-"}</strong>
+          <span className="muted">Control plane veritabani</span>
+        </article>
+
+        <article className="status-card">
+          <span className="metric-label">Supabase bootstrap</span>
+          <strong>{supabaseBootstrap.configured ? "Hazir" : "Bekliyor"}</strong>
+          <span className="muted">Yeni store kurulum otomasyonu</span>
+        </article>
+
+        <article className="status-card">
+          <span className="metric-label">R2 bootstrap</span>
+          <strong>{r2Bootstrap.configured ? "Hazir" : "Bekliyor"}</strong>
+          <span className="muted">Storage ve gorsel altyapisi</span>
+        </article>
+
+        <article className="status-card">
+          <span className="metric-label">Affiliate hesaplari</span>
+          <strong>{superAdmin ? affiliates.length : "Projeye gore"}</strong>
+          <span className="muted">Yetki dagitimi ve komisyon erisimi</span>
+        </article>
       </section>
 
       {dashboardError ? (
@@ -120,14 +200,19 @@ export default async function OwnerDashboardPage() {
       <section id="projects" className="panel">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Yonetim</h2>
-            <p className="muted">Her proje icin ciro, urun, musteri ve storefront durumunu buradan gorursun.</p>
+            <span className="section-kicker">Projeler</span>
+            <h2 className="section-title">Tum store listesi</h2>
+            <p className="muted">Her proje icin alan adini, durumu, ciroyu ve sonraki aksiyonu burada gorursun.</p>
           </div>
-          <div className="actions no-margin">
-            <span className="pill">Supabase: {supabaseBootstrap.configured ? "hazir" : "bekliyor"}</span>
-            <span className="pill">R2: {r2Bootstrap.configured ? "hazir" : "bekliyor"}</span>
-          </div>
+          {superAdmin ? <span className="pill pill-strong">{stores.length} proje</span> : null}
         </div>
+
+        {stores.length === 0 ? (
+          <div className="empty-state">
+            <h3>Gorunecek proje yok</h3>
+            <p className="muted">Yeni proje olustur dugmesi ile ilk store kaydini acabilir veya mevcut store senkronunu yenileyebilirsin.</p>
+          </div>
+        ) : null}
 
         <div className="store-grid">
           {stores.map((store) => (
@@ -137,10 +222,11 @@ export default async function OwnerDashboardPage() {
                   <span className="store-meta">{store.themeLabel}</span>
                   <h3>{store.name}</h3>
                 </div>
-                <span className="pill">{store.status}</span>
+                <span className="pill pill-strong">{store.status}</span>
               </div>
 
-              <p className="muted">{store.storefrontDomain}</p>
+              <p className="store-domain">{store.storefrontDomain}</p>
+              <p className="muted">Admin: {store.adminDomain}</p>
 
               <div className="mini-metric-grid">
                 <div>
@@ -161,19 +247,18 @@ export default async function OwnerDashboardPage() {
                 </div>
               </div>
 
-              <div className="actions">
+              <div className="actions compact-actions">
+                <span className="pill">storefront: {store.storefrontStatus}</span>
+                {store.storefrontAppDir ? <span className="pill">{store.storefrontAppDir}</span> : null}
+                <span className="pill">bekleyen siparis: {store.pendingOrderCount}</span>
+                {!superAdmin && store.commissionRate !== null ? <span className="pill">komisyon: %{store.commissionRate}</span> : null}
+              </div>
+
+              <div className="actions store-card-footer">
                 <Link className="button button-secondary" href={`/stores/${store.slug}`}>
                   Detaylari ac
                 </Link>
                 {superAdmin ? <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} /> : null}
-              </div>
-
-              <div className="actions">
-                <span className="pill">storefront: {store.storefrontStatus}</span>
-                {store.storefrontAppDir ? <span className="pill">{store.storefrontAppDir}</span> : null}
-                {!superAdmin && store.commissionRate !== null ? (
-                  <span className="pill">komisyon: %{store.commissionRate}</span>
-                ) : null}
               </div>
             </article>
           ))}
@@ -183,7 +268,8 @@ export default async function OwnerDashboardPage() {
       {superAdmin ? (
         <section id="affiliates" className="info-grid">
           <div className="info-card">
-            <h2 className="section-title">Affiliate sistemi</h2>
+            <span className="section-kicker">Affiliate</span>
+            <h2 className="section-title">Gelir ortaklari</h2>
             <p className="muted">
               Buradan affiliate kullanicisi olusturup proje bazli komisyon tanimlarsin. O kullanici owner paneline
               girdiginde sadece atanmis projelerini gorur.
@@ -192,6 +278,7 @@ export default async function OwnerDashboardPage() {
           </div>
 
           <div className="info-card">
+            <span className="section-kicker">Hesaplar</span>
             <h2 className="section-title">Kayitli affiliate hesaplari</h2>
             <div className="stack-list">
               {affiliates.length === 0 ? <p className="muted">Henuz affiliate hesabi yok.</p> : null}
