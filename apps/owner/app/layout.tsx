@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Celebix Panel",
-  description: "Celebix E-ticaret owner control plane"
+  title: "Celebix Owner Panel",
+  description: "Tum e-ticaret projelerini tek panelden yonet."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
