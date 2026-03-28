@@ -3,7 +3,7 @@ import { OwnerAuthForm } from "@/components/OwnerAuthForm";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
 
 interface LoginPageProps {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -23,6 +23,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Ilk kaydolan owner hesabi otomatik super admin olur. Sonraki kullanicilar affiliate veya ekip hesabi olarak
           atanir.
         </p>
+        {params.error === "missing_confirmation_token" ? (
+          <p className="form-error">Onay linki eksik veya bozuk geldi.</p>
+        ) : null}
+        {params.error === "confirmation_failed" ? (
+          <p className="form-error">E-posta onayi tamamlanamadi. Linki tekrar dene.</p>
+        ) : null}
       </section>
 
       <section className="auth-panel">

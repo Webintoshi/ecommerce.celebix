@@ -63,7 +63,7 @@ export function OwnerAuthForm() {
         return;
       }
 
-      setNotice("Hesap olusturuldu. E-posta dogrulamasi gerekiyorsa Supabase mail kutusunu kontrol et.");
+      setNotice("Hesap olusturuldu. E-posta dogrulamasi aciksa maildeki linke tikla, sonra buradan giris yap.");
     });
   }
 
