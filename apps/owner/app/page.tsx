@@ -19,9 +19,18 @@ function formatCurrency(value: number): string {
 export default async function OwnerDashboardPage() {
   const auth = await requireOwnerAuth("/");
   const superAdmin = isSuperAdmin(auth);
-  const [stores, affiliates, supabaseBootstrap, r2Bootstrap] = await Promise.all([
-    listDashboardStores(auth),
-    superAdmin ? listAffiliates() : Promise.resolve([]),
+  let dashboardError: string | null = null;
+  let stores: Awaited<ReturnType<typeof listDashboardStores>> = [];
+  let affiliates: Awaited<ReturnType<typeof listAffiliates>> = [];
+
+  try {
+    stores = await listDashboardStores(auth);
+    affiliates = superAdmin ? await listAffiliates() : [];
+  } catch (error) {
+    dashboardError = error instanceof Error ? error.message : "Owner dashboard verisi yuklenemedi.";
+  }
+
+  const [supabaseBootstrap, r2Bootstrap] = await Promise.all([
     getSupabaseBootstrapStatus(),
     getR2BootstrapStatus()
   ]);
@@ -96,6 +105,17 @@ export default async function OwnerDashboardPage() {
           </div>
         </div>
       </section>
+
+      {dashboardError ? (
+        <section className="panel" style={{ marginBottom: 24 }}>
+          <h2 className="section-title">Dashboard Hatasi</h2>
+          <p className="form-error">{dashboardError}</p>
+          <p className="muted">
+            Bu hata genelde owner Supabase service role yetkisi, tablo senkronu veya store metrik sorgularindan biri
+            basarisiz oldugunda gorunur.
+          </p>
+        </section>
+      ) : null}
 
       <section id="projects" className="panel">
         <div className="section-header">
