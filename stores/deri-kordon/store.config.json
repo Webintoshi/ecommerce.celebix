@@ -1,0 +1,57 @@
+{
+  "name": "Deri Kordon",
+  "slug": "deri-kordon",
+  "status": "draft",
+  "theme": {
+    "key": "leather",
+    "label": "Leather",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "El yapimi deri kordon ve aksesuarlar",
+    "supportEmail": "destek@derikordon.test",
+    "supportPhone": "+90 532 000 00 00",
+    "senderEmail": "noreply@derikordon.test",
+    "smsSenderTitle": "DERIKORDON",
+    "defaultProductBrand": "Deri Kordon"
+  },
+  "domains": {
+    "storefront": "deri-kordon.test",
+    "admin": "admin.deri-kordon.test"
+  },
+  "owner": {
+    "createdBy": "cli-bootstrap",
+    "notes": "CLI uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "xtmbphiyoeqnuajstnut",
+    "url": "https://xtmbphiyoeqnuajstnut.supabase.co",
+    "storage": "separate-project-per-store"
+  },
+  "bootstrap": {
+    "createdAt": "2026-03-27T00:00:00.000Z",
+    "envTemplatePath": "stores/deri-kordon/admin.env.example",
+    "adminEnvLocalPath": "stores/deri-kordon/admin.env.local",
+    "organizationSlug": "jzhvbqbjyrljtdrbvyqg",
+    "provisionedAt": "2026-03-28T00:23:53.023Z",
+    "supabaseProvisioning": "configured"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms"
+  ],
+  "r2": {
+    "bucketName": "deri-kordon-assets",
+    "publicUrl": "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev",
+    "managedDomain": "pub-4a729225991f4b33aa7ab5c294391cec.r2.dev",
+    "provisionedAt": "2026-03-28T11:40:18.326Z",
+    "provisioning": "configured"
+  }
+}

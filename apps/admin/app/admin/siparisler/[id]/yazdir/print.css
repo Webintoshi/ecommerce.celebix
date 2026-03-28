@@ -1,0 +1,12 @@
+@media print {
+  body {
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+}

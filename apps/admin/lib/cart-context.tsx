@@ -1,0 +1,265 @@
+"use client";
+
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { CartItem, CartContextType } from "@/types/cart";
+import { Product, ProductVariant } from "@/types/product";
+import { CartCustomizationPayload } from "@/types/product-customization";
+import { SHIPPING_THRESHOLD, SHIPPING_COST } from "@/lib/constants";
+import { getSessionId } from "@/lib/tracking";
+
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => stableStringify(v)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function createCustomizationFingerprint(
+  customization?: CartCustomizationPayload
+): string {
+  if (!customization) return "standard";
+  return stableStringify({
+    schema_id: customization.schema_id,
+    selections: customization.selections.map((selection) => ({
+      step_key: selection.step_key,
+      value: selection.value,
+    })),
+    price: customization.price_breakdown?.final_price ?? 0,
+  });
+}
+
+function createCartItemId(
+  productId: string,
+  variantId: string,
+  customizationFingerprint: string
+): string {
+  return `${productId}:${variantId}:${customizationFingerprint}`;
+}
+
+function getCartItemUnitPrice(
+  variant: ProductVariant,
+  customization?: CartCustomizationPayload
+): number {
+  return customization?.price_breakdown?.final_price ?? variant.price;
+}
+
+function loadCartFromStorage(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  
+  const savedCart = localStorage.getItem("celebix_cart");
+  if (!savedCart) return [];
+  
+  try {
+    const parsedCart = JSON.parse(savedCart) as CartItem[];
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const hasInvalidIds = parsedCart.some(
+      (item) => !uuidRegex.test(item.productId) || !uuidRegex.test(item.variantId)
+    );
+
+    if (hasInvalidIds) {
+      console.warn("Legacy cart data detected (invalid UUIDs). Clearing cart.");
+      localStorage.removeItem("celebix_cart");
+      return [];
+    }
+    
+    return parsedCart.map((item) => {
+      const customizationFingerprint =
+        item.customizationFingerprint ||
+        createCustomizationFingerprint(item.customization);
+      return {
+        ...item,
+        id:
+          item.id ||
+          createCartItemId(item.productId, item.variantId, customizationFingerprint),
+        customizationFingerprint,
+        unitPrice:
+          typeof item.unitPrice === "number"
+            ? item.unitPrice
+            : getCartItemUnitPrice(item.variant, item.customization),
+      };
+    });
+  } catch (e) {
+    console.error("Failed to parse cart data", e);
+    return [];
+  }
+}
+
+function getOrCreateSessionId(): string {
+  return getSessionId();
+}
+
+async function saveToAbandonedCart(items: CartItem[]) {
+  if (items.length === 0) return;
+  
+  try {
+    const sessionId = getOrCreateSessionId();
+    const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    
+    const response = await fetch('/api/abandoned-carts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        items: items.map(item => ({
+          product_id: item.productId,
+          variant_id: item.variantId,
+          name: item.product.name,
+          price: item.unitPrice,
+          quantity: item.quantity,
+          weight: item.variant.weight,
+          image: item.product.images?.[0] || "",
+          customization: item.customization || null,
+        })),
+        total,
+        item_count: items.reduce((sum, item) => sum + item.quantity, 0),
+        is_anonymous: true,
+        status: 'active'
+      })
+    });
+    
+    const result = await response.json();
+    console.log("Sepet kaydedildi:", result);
+    
+    if (!result.success) {
+      console.error("Sepet kaydetme hatası:", result.error);
+    }
+  } catch (error) {
+    console.error("Failed to save abandoned cart:", error);
+  }
+}
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>(loadCartFromStorage);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(true);
+  const [lastAddedItem, setLastAddedItem] = useState<CartItem | null>(null);
+
+  // Save cart to localStorage and database whenever items change
+  useEffect(() => {
+    localStorage.setItem("celebix_cart", JSON.stringify(items));
+    // Also save to abandoned carts database
+    saveToAbandonedCart(items);
+  }, [items]);
+
+  const addToCart = (
+    product: Product,
+    variant: ProductVariant,
+    quantity: number = 1,
+    customization?: CartCustomizationPayload
+  ) => {
+    const customizationFingerprint = createCustomizationFingerprint(customization);
+    const itemId = createCartItemId(product.id, variant.id, customizationFingerprint);
+    const unitPrice = getCartItemUnitPrice(variant, customization);
+
+    const newItem: CartItem = {
+      id: itemId,
+      productId: product.id,
+      variantId: variant.id,
+      quantity,
+      unitPrice,
+      product,
+      variant,
+      customization,
+      customizationFingerprint,
+    };
+
+    setItems((prev) => {
+      const existingItem = prev.find((item) => item.id === itemId);
+
+      if (existingItem) {
+        return prev.map((item) =>
+          item.id === itemId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      }
+
+      return [...prev, newItem];
+    });
+
+    setLastAddedItem(newItem);
+    setIsOpen(true);
+  };
+
+  const removeFromCart = (itemId: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== itemId));
+    if (lastAddedItem?.id === itemId) {
+      setLastAddedItem(null);
+    }
+  };
+
+  const updateQuantity = (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(itemId);
+      return;
+    }
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const clearCart = () => {
+    setItems([]);
+    setLastAddedItem(null);
+  };
+
+  const getItemQuantity = (productId: string, variantId: string) => {
+    return items
+      .filter((item) => item.productId === productId && item.variantId === variantId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  const getTotalItems = () => {
+    return items.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  const subtotal = items.reduce(
+    (total, item) => total + item.unitPrice * item.quantity,
+    0
+  );
+
+  const shipping = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+
+  const total = subtotal + shipping;
+
+  return (
+    <CartContext.Provider
+      value={{
+        items,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        getItemQuantity,
+        getTotalItems,
+        subtotal,
+        shipping,
+        total,
+        isOpen,
+        setIsOpen,
+        lastAddedItem,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export function useCart() {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
+}

@@ -1,0 +1,275 @@
+/* Print Styles for Order Detail Page */
+@media print {
+  /* Hide elements that shouldn't appear in print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show print-specific elements */
+  .print-show,
+  .hidden.print\:block {
+    display: block !important;
+  }
+
+  /* Reset body and remove background colors */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Main container adjustments */
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide admin sidebar and other UI elements */
+  .admin-sidebar,
+  .bg-\[var\(--sidebar-bg\)\],
+  nav,
+  button:not(.print-show),
+  a:not(.print-show) {
+    display: none !important;
+  }
+
+  /* Card styling for print */
+  .bg-white,
+  .rounded-3xl,
+  .shadow-sm,
+  .border {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    break-inside: avoid;
+  }
+
+  /* Typography for print */
+  * {
+    color: black !important;
+  }
+
+  .text-primary,
+  .text-gray-900,
+  .text-gray-700,
+  .text-gray-600,
+  .text-gray-500 {
+    color: black !important;
+  }
+
+  .text-emerald-600,
+  .text-blue-600,
+  .text-red-600,
+  .text-amber-600,
+  .text-purple-600,
+  .text-indigo-600 {
+    color: black !important;
+  }
+
+  /* Background colors for print */
+  .bg-primary,
+  .bg-emerald-50,
+  .bg-blue-50,
+  .bg-red-50,
+  .bg-amber-50,
+  .bg-purple-50,
+  .bg-indigo-50,
+  .bg-gray-50,
+  .bg-gradient-to-r,
+  .bg-gradient-to-b {
+    background: white !important;
+  }
+
+  /* Spacing adjustments */
+  .space-y-8 > * + *,
+  .space-y-6 > * + *,
+  .space-y-5 > * + *,
+  .space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  .gap-8,
+  .gap-6,
+  .gap-5,
+  .gap-4,
+  .gap-3,
+  .gap-2 {
+    gap: 0.5rem !important;
+  }
+
+  /* Padding adjustments */
+  .p-8,
+  .p-6,
+  .p-4,
+  .p-3 {
+    padding: 0.5rem !important;
+  }
+
+  .px-8,
+  .px-6,
+  .px-4,
+  .px-3 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .py-8,
+  .py-6,
+  .py-4,
+  .py-3,
+  .py-2 {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+
+  /* Grid adjustments for print */
+  .grid-cols-1,
+  .grid-cols-2,
+  .grid-cols-3,
+  .lg\:col-span-2 {
+    grid-column: span 1 !important;
+  }
+
+  .lg\:grid-cols-2,
+  .lg\:grid-cols-3,
+  .md\:grid-cols-2,
+  .grid {
+    display: block !important;
+  }
+
+  /* Show all expanded content */
+  [class*="collapse"],
+  [class*="expand"] {
+    display: block !important;
+    max-height: none !important;
+  }
+
+  /* Images */
+  img {
+    max-width: 2cm !important;
+    max-height: 2cm !important;
+  }
+
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+
+  /* Hide icons that are decorative */
+  svg:not(.print-show) {
+    display: none !important;
+  }
+
+  /* Status badges - simplified */
+  .rounded-full,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl {
+    border-radius: 2px !important;
+    padding: 2px 6px !important;
+    border: 1px solid #ccc !important;
+  }
+
+  /* Headers */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+  }
+
+  /* Links */
+  a {
+    text-decoration: underline;
+    color: black !important;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+  }
+
+  /* Hide action buttons and interactive elements */
+  button,
+  input,
+  textarea,
+  select {
+    display: none !important;
+  }
+
+  /* Print header */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid black;
+  }
+
+  .print-header h1 {
+    font-size: 18pt;
+    margin: 0;
+  }
+
+  .print-header p {
+    font-size: 10pt;
+    margin: 0.25rem 0;
+  }
+
+  /* Print footer */
+  .print-footer {
+    display: block !important;
+    text-align: center;
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #ccc;
+    font-size: 8pt;
+  }
+
+  /* Order items table */
+  .order-item {
+    display: table-row !important;
+    border-bottom: 1px solid #ccc;
+    padding: 0.25rem 0;
+  }
+
+  .order-item > * {
+    display: table-cell !important;
+    padding: 0.25rem 0.5rem;
+  }
+
+  /* Summary section */
+  .order-summary {
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    border-top: 2px solid black;
+  }
+
+  .order-summary > * {
+    display: flex !important;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+
+  /* Status timeline - simplified */
+  .status-timeline {
+    display: none !important;
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "celebix-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:owner": "npm run dev --workspace @celebix/owner",
+    "dev:admin": "npm run dev --workspace @celebix/admin",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "create:store": "node ./scripts/create-store.mjs"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3"
+  }
+}
