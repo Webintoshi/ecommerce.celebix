@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
 import { requireOwnerAuth } from "@/lib/owner-auth";
@@ -11,24 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const headersList = await headers();
-  const pathname = headersList.get("next-url") || "";
-  const isLoginPage = pathname === "/login" || pathname.startsWith("/login");
-
-  if (isLoginPage) {
-    return (
-      <html lang="tr">
-        <body>{children}</body>
-      </html>
-    );
-  }
-
   let auth: Awaited<ReturnType<typeof requireOwnerAuth>> | null = null;
   try {
     auth = await requireOwnerAuth();
   } catch {
     // Auth yoksa requireOwnerAuth zaten redirect eder.
-    // Bu catch bloğu tip güvenliği için.
   }
 
   const userName = auth?.profile.full_name || auth?.user.email || "";
@@ -48,7 +34,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </Link>
             </div>
             <nav className="sidebar-nav">
-              <Link href="/" className={`sidebar-link ${pathname === "/" ? "active" : ""}`}>
+              <Link href="/" className="sidebar-link">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" />
                   <rect x="14" y="3" width="7" height="7" />
@@ -57,14 +43,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </svg>
                 Dashboard
               </Link>
-              <Link href="/stores/new" className={`sidebar-link ${pathname.startsWith("/stores/new") ? "active" : ""}`}>
+              <Link href="/stores/new" className="sidebar-link">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 Yeni Proje
               </Link>
-              <Link href="/affiliates" className={`sidebar-link ${pathname.startsWith("/affiliates") ? "active" : ""}`}>
+              <Link href="/affiliates" className="sidebar-link">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                   <circle cx="9" cy="7" r="4" />
