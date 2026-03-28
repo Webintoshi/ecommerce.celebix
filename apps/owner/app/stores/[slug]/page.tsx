@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
+import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
 import { getStoreDetail } from "@/lib/control-plane";
@@ -112,6 +113,23 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="info-card">
+          <h2 className="section-title">Store adminleri</h2>
+          <div className="stack-list">
+            {store.storeAdmins.length === 0 ? <p className="muted">Bu projeye atanmis store admin yok.</p> : null}
+            {store.storeAdmins.map((admin) => (
+              <article key={admin.id} className="inline-card">
+                <div>
+                  <strong>{admin.fullName || admin.email}</strong>
+                  <p className="muted">{admin.email}</p>
+                  {admin.taskDefinition ? <p className="muted">{admin.taskDefinition}</p> : null}
+                </div>
+                <span className="pill">{admin.role}</span>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="info-card">
           <h2 className="section-title">Affiliate erisimi</h2>
           <div className="stack-list">
             {store.affiliateAssignments.length === 0 ? <p className="muted">Bu projeye atanmis affiliate yok.</p> : null}
@@ -134,6 +152,14 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
         </section>
       ) : null}
+
+      <section className="panel">
+        <h2 className="section-title">Bu projeye store admin ata</h2>
+        <p className="muted" style={{ marginBottom: 16 }}>
+          Buradan atanmis magazaya ozel admin hesabini olusturabilir veya gecici sifresini yenileyebilirsin.
+        </p>
+        <CreateStoreAdminForm storeSlug={store.slug} />
+      </section>
     </main>
   );
 }

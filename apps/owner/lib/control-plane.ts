@@ -58,6 +58,16 @@ interface OwnerStoreAccessRow {
   created_at: string;
 }
 
+type StoreAdminRole = "super_admin" | "product_manager" | "content_creator" | "order_manager";
+
+interface StoreAdminProfileRow {
+  id: string;
+  full_name: string | null;
+  role: StoreAdminRole;
+  task_definition: string | null;
+  created_at: string;
+}
+
 interface StoreMetricsSnapshot {
   productCount: number;
   orderCount: number;
@@ -102,6 +112,15 @@ export interface AffiliateSummary {
   }>;
 }
 
+export interface StoreAdminSummary {
+  id: string;
+  email: string;
+  fullName: string | null;
+  role: StoreAdminRole;
+  taskDefinition: string | null;
+  createdAt: string | null;
+}
+
 export interface StoreDetailSummary extends DashboardStoreSummary {
   supportEmail: string | null;
   supportPhone: string | null;
@@ -120,6 +139,7 @@ export interface StoreDetailSummary extends DashboardStoreSummary {
     fullName: string | null;
     commissionRate: number;
   }>;
+  storeAdmins: StoreAdminSummary[];
 }
 
 function resolveStoreEnvPath(store: StoreConfig): string {
@@ -174,6 +194,47 @@ function createStoreServiceClient(store: StoreConfig): SupabaseClient | null {
       autoRefreshToken: false,
       persistSession: false
     }
+  });
+}
+
+async function listStoreAdminsForConfig(store: StoreConfig): Promise<StoreAdminSummary[]> {
+  const client = createStoreServiceClient(store);
+
+  if (!client) {
+    return [];
+  }
+
+  const { data: profilesData, error: profilesError } = await client
+    .from("profiles")
+    .select("id, full_name, role, task_definition, created_at")
+    .order("created_at", { ascending: false });
+
+  if (profilesError) {
+    throw new Error(profilesError.message);
+  }
+
+  const {
+    data: { users },
+    error: usersError,
+  } = await client.auth.admin.listUsers();
+
+  if (usersError) {
+    throw new Error(usersError.message);
+  }
+
+  const profiles = (profilesData as StoreAdminProfileRow[]) ?? [];
+
+  return profiles.map((profile) => {
+    const user = users.find((entry) => entry.id === profile.id);
+
+    return {
+      id: profile.id,
+      email: user?.email || "unknown",
+      fullName: profile.full_name,
+      role: profile.role,
+      taskDefinition: profile.task_definition,
+      createdAt: profile.created_at ?? null,
+    };
   });
 }
 
@@ -547,6 +608,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
   }
 
   const metadata = (storeRow.metadata ?? {}) as Record<string, unknown>;
+  const storeConfig = getStoreConfig(slug);
+  const storeAdmins = storeConfig ? await listStoreAdminsForConfig(storeConfig) : [];
 
   return {
     ...current,
@@ -569,7 +632,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
       email: profileMap.get(access.profile_id)?.email ?? "unknown",
       fullName: profileMap.get(access.profile_id)?.full_name ?? null,
       commissionRate: access.commission_rate
-    }))
+    })),
+    storeAdmins
   };
 }
 
@@ -661,5 +725,111 @@ export async function createOrAssignAffiliate(input: {
   return {
     profileId,
     email: normalizedEmail
+  };
+}
+
+export async function createOrAssignStoreAdmin(
+  context: OwnerAuthContext,
+  input: {
+    email: string;
+    fullName?: string;
+    password: string;
+    storeSlug: string;
+    role: StoreAdminRole;
+    taskDefinition?: string;
+  }
+): Promise<{ userId: string; email: string; created: boolean }> {
+  const allowedStore = (await listDashboardStores(context)).find((store) => store.slug === input.storeSlug);
+
+  if (!allowedStore) {
+    throw new Error("Bu store icin yonetici atama yetkin yok.");
+  }
+
+  const storeConfig = getStoreConfig(input.storeSlug);
+
+  if (!storeConfig) {
+    throw new Error("Store konfigurasyonu bulunamadi.");
+  }
+
+  const client = createStoreServiceClient(storeConfig);
+
+  if (!client) {
+    throw new Error("Store Supabase baglantisi hazir degil.");
+  }
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const password = input.password.trim();
+  const fullName = input.fullName?.trim() || "";
+  const taskDefinition = input.taskDefinition?.trim() || null;
+
+  if (!normalizedEmail || !password || !input.role) {
+    throw new Error("Tum store admin alanlari zorunludur.");
+  }
+
+  const {
+    data: { users },
+    error: usersError,
+  } = await client.auth.admin.listUsers();
+
+  if (usersError) {
+    throw new Error(usersError.message);
+  }
+
+  const existingUser = users.find((entry) => entry.email?.toLowerCase() === normalizedEmail);
+  let userId = existingUser?.id || "";
+  let created = false;
+
+  if (!existingUser) {
+    const { data: createdUser, error: createUserError } = await client.auth.admin.createUser({
+      email: normalizedEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName
+      }
+    });
+
+    if (createUserError || !createdUser.user) {
+      throw new Error(createUserError?.message || "Store admin hesabi olusturulamadi.");
+    }
+
+    userId = createdUser.user.id;
+    created = true;
+  } else {
+    const { error: updateUserError } = await client.auth.admin.updateUserById(existingUser.id, {
+      password,
+      user_metadata: {
+        ...(existingUser.user_metadata || {}),
+        full_name: fullName
+      }
+    });
+
+    if (updateUserError) {
+      throw new Error(updateUserError.message);
+    }
+  }
+
+  const { error: profileError } = await client.from("profiles").upsert(
+    {
+      id: userId,
+      full_name: fullName,
+      role: input.role,
+      task_definition: taskDefinition
+    },
+    { onConflict: "id" }
+  );
+
+  if (profileError) {
+    if (created) {
+      await client.auth.admin.deleteUser(userId);
+    }
+
+    throw new Error(profileError.message);
+  }
+
+  return {
+    userId,
+    email: normalizedEmail,
+    created
   };
 }
