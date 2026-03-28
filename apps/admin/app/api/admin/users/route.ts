@@ -1,181 +1,169 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuthContext } from "@/lib/admin-auth";
+import { createServerClient } from "@/lib/supabase";
 
-let cachedSupabaseAdmin: SupabaseClient | null = null;
+let cachedSupabaseAdmin: ReturnType<typeof createServerClient> | null = null;
 
-function getSupabaseAdmin(): SupabaseClient {
-    if (cachedSupabaseAdmin) {
-        return cachedSupabaseAdmin;
+function getSupabaseAdmin() {
+  if (!cachedSupabaseAdmin) {
+    cachedSupabaseAdmin = createServerClient();
+  }
+
+  return cachedSupabaseAdmin;
+}
+
+async function getBootstrapState() {
+  const supabaseAdmin = getSupabaseAdmin();
+  const {
+    data: { users },
+    error,
+  } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    isFirstUser: (users?.length ?? 0) === 0,
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    if (request.nextUrl.searchParams.get("bootstrap") === "1") {
+      const bootstrapState = await getBootstrapState();
+      return NextResponse.json({ success: true, ...bootstrapState });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-    if (!supabaseUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
+    const auth = await getAdminAuthContext();
+    if (!auth || auth.profile.role !== "super_admin") {
+      return NextResponse.json({ success: false, error: "Bu listeyi gormek icin super admin olman gerekir." }, { status: 403 });
     }
 
-    if (!serviceRoleKey) {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (profilesError) {
+      throw profilesError;
     }
 
-    try {
-        new URL(supabaseUrl);
-    } catch {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is malformed.");
+    const {
+      data: { users },
+      error: usersError,
+    } = await supabaseAdmin.auth.admin.listUsers();
+
+    if (usersError) {
+      throw usersError;
     }
 
-    cachedSupabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
+    const admins = (profiles ?? []).map((profile) => {
+      const user = users.find((entry) => entry.id === profile.id);
+      return {
+        ...profile,
+        email: user?.email || "Unknown",
+      };
     });
 
-    return cachedSupabaseAdmin;
+    return NextResponse.json({ success: true, admins });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function GET() {
-    try {
-        const supabaseAdmin = getSupabaseAdmin();
+export async function POST(request: NextRequest) {
+  try {
+    const bootstrapState = await getBootstrapState();
+    const auth = bootstrapState.isFirstUser ? null : await getAdminAuthContext();
 
-        const { data: profiles, error: profilesError } = await supabaseAdmin
-            .from("profiles")
-            .select("*")
-            .order("created_at", { ascending: false });
-
-        if (profilesError) throw profilesError;
-
-        const {
-            data: { users },
-            error: usersError,
-        } = await supabaseAdmin.auth.admin.listUsers();
-
-        if (usersError) throw usersError;
-
-        const admins = (profiles ?? []).map((profile) => {
-            const user = users.find((u) => u.id === profile.id);
-            return {
-                ...profile,
-                email: user?.email || "Unknown",
-            };
-        });
-
-        return NextResponse.json({ success: true, admins });
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    if (!bootstrapState.isFirstUser && (!auth || auth.profile.role !== "super_admin")) {
+      return NextResponse.json({ success: false, error: "Sadece super admin yeni yonetici ekleyebilir." }, { status: 403 });
     }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const body = await request.json();
+    const { email, password, fullName, role, taskDefinition } = body;
+
+    if (!email || !password || !fullName || !role) {
+      return NextResponse.json({ success: false, error: "Tum alanlar zorunludur." }, { status: 400 });
+    }
+
+    const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    });
+
+    if (createError) {
+      throw createError;
+    }
+
+    if (!userData.user) {
+      throw new Error("Kullanici olusturulamadi.");
+    }
+
+    const assignedRole = bootstrapState.isFirstUser ? "super_admin" : role;
+    const assignedTask = bootstrapState.isFirstUser ? "Sistem Kurucusu" : taskDefinition;
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: userData.user.id,
+      full_name: fullName,
+      role: assignedRole,
+      task_definition: assignedTask,
+    });
+
+    if (profileError) {
+      await supabaseAdmin.auth.admin.deleteUser(userData.user.id);
+      throw profileError;
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: bootstrapState.isFirstUser ? "Ilk yonetici basariyla olusturuldu." : "Yonetici basariyla olusturuldu.",
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function POST(req: NextRequest) {
-    try {
-        const supabaseAdmin = getSupabaseAdmin();
-        const body = await req.json();
-        const { email, password, fullName, role, taskDefinition } = body;
-
-        if (!email || !password || !fullName || !role) {
-            return NextResponse.json({ success: false, error: "Tüm alanlar zorunludur." }, { status: 400 });
-        }
-
-        const {
-            data: { users },
-            error: listError,
-        } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 2 });
-
-        if (listError) throw listError;
-
-        const isFirstUser = users.length === 0;
-
-        if (!isFirstUser) {
-            const authHeader = req.headers.get("Authorization");
-            if (!authHeader) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "Yetkisiz erişim. Kayıtlı yönetici varsa oturum açmalısınız.",
-                    },
-                    { status: 401 }
-                );
-            }
-
-            const token = authHeader.replace("Bearer ", "");
-            const {
-                data: { user },
-                error: authError,
-            } = await supabaseAdmin.auth.getUser(token);
-
-            if (authError || !user) {
-                return NextResponse.json({ success: false, error: "Geçersiz oturum." }, { status: 401 });
-            }
-
-            const { data: requesterProfile } = await supabaseAdmin
-                .from("profiles")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-
-            if (requesterProfile?.role !== "super_admin") {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "Sadece Süper Yöneticiler yeni yönetici ekleyebilir.",
-                    },
-                    { status: 403 }
-                );
-            }
-        }
-
-        const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: { full_name: fullName },
-        });
-
-        if (createError) throw createError;
-        if (!userData.user) throw new Error("Kullanıcı oluşturulamadı.");
-
-        const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-            id: userData.user.id,
-            full_name: fullName,
-            role: isFirstUser ? "super_admin" : role,
-            task_definition: isFirstUser ? "Sistem Kurucusu" : taskDefinition,
-        });
-
-        if (profileError) {
-            await supabaseAdmin.auth.admin.deleteUser(userData.user.id);
-            throw profileError;
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: isFirstUser ? "İlk yönetici başarıyla oluşturuldu." : "Yönetici başarıyla oluşturuldu.",
-        });
-    } catch (error: unknown) {
-        console.log("Create Admin Error:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await getAdminAuthContext();
+    if (!auth || auth.profile.role !== "super_admin") {
+      return NextResponse.json({ success: false, error: "Sadece super admin yonetici silebilir." }, { status: 403 });
     }
-}
 
-export async function DELETE(req: NextRequest) {
-    try {
-        const supabaseAdmin = getSupabaseAdmin();
-        const { searchParams } = new URL(req.url);
-        const id = searchParams.get("id");
+    const id = request.nextUrl.searchParams.get("id");
 
-        if (!id) {
-            return NextResponse.json({ success: false, error: "ID gerekli." }, { status: 400 });
-        }
-
-        const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-
-        if (error) throw error;
-
-        return NextResponse.json({ success: true, message: "Yönetici silindi." });
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID gerekli." }, { status: 400 });
     }
+
+    if (id === auth.user.id) {
+      return NextResponse.json({ success: false, error: "Kendi hesabinizi silemezsiniz." }, { status: 400 });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({ success: true, message: "Yonetici silindi." });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
 }

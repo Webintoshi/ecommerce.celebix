@@ -3,9 +3,9 @@ import Craftgate from "@craftgate/craftgate";
 import { NextRequest, NextResponse } from "next/server";
 import Iyzipay from "iyzipay";
 import Stripe from "stripe";
+import { getAdminAuthContext } from "@/lib/admin-auth";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
-import { createServerClient } from "@/lib/supabase";
 
 function createIyzipayClient(apiKey: string, secretKey: string, uri: string) {
     return new Iyzipay({ apiKey, secretKey, uri });
@@ -79,28 +79,10 @@ function getBaseUrl(request: NextRequest) {
     return new URL(request.url).origin;
 }
 
-async function verifyAuth(request: NextRequest) {
-    const supabase = createServerClient();
-    const authHeader = request.headers.get("Authorization");
-
-    if (!authHeader) {
-        return null;
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-        return null;
-    }
-
-    return user;
-}
-
 export async function POST(request: NextRequest) {
     try {
-        const user = await verifyAuth(request);
-        if (!user) {
+        const auth = await getAdminAuthContext();
+        if (!auth) {
             return NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 });
         }
 

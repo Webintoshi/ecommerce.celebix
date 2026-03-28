@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Shield, Trash2, UserPlus, AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
 import { ROLES, UserRole, getRoleLabel } from "@/lib/permissions";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
-import { supabase } from "@/lib/supabase";
 
 interface AdminUser {
     id: string;
@@ -63,14 +62,10 @@ export default function AdminsPage() {
         }
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
             const res = await fetch("/api/admin/users", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     email: newEmail,
@@ -106,14 +101,8 @@ export default function AdminsPage() {
         if (!confirm(`${email} yöneticisini silmek istediğinize emin misiniz?`)) return;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
             const res = await fetch(`/api/admin/users?id=${id}`, {
-                method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
+                method: "DELETE"
             });
             const data = await res.json();
 

@@ -1,22 +1,16 @@
+"use client";
+
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase-shared";
 
 let browserClient: SupabaseClient | null = null;
 
 export function getBrowserSupabaseClient(): SupabaseClient {
-  if (browserClient) return browserClient;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    throw new Error("Supabase browser env değişkenleri eksik");
+  if (browserClient) {
+    return browserClient;
   }
 
-  browserClient = createBrowserClient(url, anonKey, {
-    cookieOptions: {
-      name: "sb-jlrfjirbtcazhqqnrxfb-auth-token",
-    },
-  });
-
+  browserClient = createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
   return browserClient;
 }

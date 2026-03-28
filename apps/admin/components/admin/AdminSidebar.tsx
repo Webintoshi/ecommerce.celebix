@@ -186,31 +186,69 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
   }, [pathname]);
 
   useEffect(() => {
-    try {
-      const storedEmail = localStorage.getItem("admin_user_email") || undefined;
-      const storedName = localStorage.getItem("admin_user_name");
-      const storedRole = localStorage.getItem("admin_user_role");
+    let mounted = true;
 
-      setUserEmail(storedEmail);
-      setUserName(storedName || (storedEmail?.split("@")[0] ?? "Admin Kullanıcı"));
-      if (
-        storedRole === "super_admin" ||
-        storedRole === "product_manager" ||
-        storedRole === "content_creator" ||
-        storedRole === "order_manager"
-      ) {
-        setRole(storedRole);
-      } else {
-        setRole("super_admin");
+    const loadAdminProfile = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!user) {
+          setUserEmail(undefined);
+          setUserName("Admin Kullanici");
+          setRole("super_admin");
+          return;
+        }
+
+        setUserEmail(user.email || undefined);
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("id", user.id)
+          .maybeSingle<{ full_name: string | null; role: UserRole }>();
+
+        const resolvedRole =
+          profile?.role === "super_admin" ||
+          profile?.role === "product_manager" ||
+          profile?.role === "content_creator" ||
+          profile?.role === "order_manager"
+            ? profile.role
+            : "super_admin";
+
+        setRole(resolvedRole);
+        setUserName(profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin Kullanici");
+      } catch (error) {
+        console.error("AdminSidebar auth load error:", error);
+        if (mounted) {
+          setUserName("Admin Kullanici");
+          setRole("super_admin");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("AdminSidebar localStorage read error:", error);
-      setUserName("Admin Kullanıcı");
-      setRole("super_admin");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    };
+
+    loadAdminProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadAdminProfile();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const filteredItems = useMemo(() => {
     return MENU_ITEMS.filter((item) => {
@@ -227,7 +265,8 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/admin/login");
+    router.refresh();
   };
 
   const handleLinkClick = () => {
