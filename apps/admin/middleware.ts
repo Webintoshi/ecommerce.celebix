@@ -48,41 +48,10 @@ function isProtectedApi(request: NextRequest) {
   return false;
 }
 
-function isBootstrapRoute(request: NextRequest) {
-  return (
-    request.nextUrl.pathname === "/api/admin/users" &&
-    ((request.method === "GET" && request.nextUrl.searchParams.get("bootstrap") === "1") || request.method === "POST")
-  );
-}
-
-async function hasAnyAdminUsers() {
-  const serviceClient = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const {
-    data: { users },
-    error,
-  } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1 });
-
-  if (error) {
-    return true;
-  }
-
-  return (users?.length ?? 0) > 0;
-}
-
 export async function middleware(request: NextRequest) {
   const requiresAuth = isProtectedAdminPage(request.nextUrl.pathname) || isProtectedApi(request);
 
   if (!requiresAuth) {
-    return NextResponse.next();
-  }
-
-  if (isBootstrapRoute(request) && !(await hasAnyAdminUsers())) {
     return NextResponse.next();
   }
 
