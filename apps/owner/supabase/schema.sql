@@ -83,6 +83,14 @@ CREATE TABLE IF NOT EXISTS public.owner_store_access (
   UNIQUE (profile_id, store_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.owner_store_secrets (
+  store_id UUID PRIMARY KEY REFERENCES public.owner_stores(id) ON DELETE CASCADE,
+  supabase_url TEXT,
+  supabase_service_role_key TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.owner_audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id UUID REFERENCES public.owner_profiles(id) ON DELETE SET NULL,
@@ -97,6 +105,7 @@ CREATE INDEX IF NOT EXISTS owner_stores_status_idx ON public.owner_stores(status
 CREATE INDEX IF NOT EXISTS owner_stores_storefront_status_idx ON public.owner_stores(storefront_status);
 CREATE INDEX IF NOT EXISTS owner_store_access_profile_idx ON public.owner_store_access(profile_id);
 CREATE INDEX IF NOT EXISTS owner_store_access_store_idx ON public.owner_store_access(store_id);
+CREATE INDEX IF NOT EXISTS owner_store_secrets_updated_idx ON public.owner_store_secrets(updated_at DESC);
 CREATE INDEX IF NOT EXISTS owner_audit_logs_actor_idx ON public.owner_audit_logs(actor_id);
 CREATE INDEX IF NOT EXISTS owner_audit_logs_created_idx ON public.owner_audit_logs(created_at DESC);
 
@@ -177,6 +186,7 @@ ALTER TABLE public.owner_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_store_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_store_access ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.owner_store_secrets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_audit_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role full access owner_profiles" ON public.owner_profiles;
@@ -246,6 +256,13 @@ FOR ALL
 USING (auth.role() = 'service_role')
 WITH CHECK (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Service role full access owner_store_secrets" ON public.owner_store_secrets;
+CREATE POLICY "Service role full access owner_store_secrets"
+ON public.owner_store_secrets
+FOR ALL
+USING (auth.role() = 'service_role')
+WITH CHECK (auth.role() = 'service_role');
+
 DROP POLICY IF EXISTS "Owner access own read" ON public.owner_store_access;
 CREATE POLICY "Owner access own read"
 ON public.owner_store_access
@@ -280,4 +297,9 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 DROP TRIGGER IF EXISTS owner_stores_updated_at ON public.owner_stores;
 CREATE TRIGGER owner_stores_updated_at
 BEFORE UPDATE ON public.owner_stores
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS owner_store_secrets_updated_at ON public.owner_store_secrets;
+CREATE TRIGGER owner_store_secrets_updated_at
+BEFORE UPDATE ON public.owner_store_secrets
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

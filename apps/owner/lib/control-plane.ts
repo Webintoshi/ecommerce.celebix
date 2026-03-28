@@ -5,6 +5,7 @@ import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import type { OwnerAuthContext, OwnerProfile } from "@/lib/owner-auth";
+import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import {
   getRepoRoot,
   getStoreConfig,
@@ -180,10 +181,11 @@ function parseEnvFile(filePath: string): Record<string, string> {
     }, {});
 }
 
-function createStoreServiceClient(store: StoreConfig): SupabaseClient | null {
+async function createStoreServiceClient(store: StoreConfig): Promise<SupabaseClient | null> {
+  const secretRecord = await getStoreSupabaseSecret(store.slug);
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
-  const url = envMap.NEXT_PUBLIC_SUPABASE_URL || store.supabase.url;
-  const serviceKey = envMap.SUPABASE_SERVICE_ROLE_KEY;
+  const url = secretRecord?.supabase_url || envMap.NEXT_PUBLIC_SUPABASE_URL || store.supabase.url;
+  const serviceKey = secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || url === "configure-in-env" || !serviceKey) {
     return null;
@@ -198,7 +200,7 @@ function createStoreServiceClient(store: StoreConfig): SupabaseClient | null {
 }
 
 async function listStoreAdminsForConfig(store: StoreConfig): Promise<StoreAdminSummary[]> {
-  const client = createStoreServiceClient(store);
+  const client = await createStoreServiceClient(store);
 
   if (!client) {
     return [];
@@ -249,7 +251,7 @@ async function getExactCount(query: PromiseLike<{ count: number | null; error: {
 }
 
 async function collectStoreMetrics(store: StoreConfig): Promise<StoreMetricsSnapshot> {
-  const client = createStoreServiceClient(store);
+  const client = await createStoreServiceClient(store);
 
   if (!client) {
     return {
@@ -751,7 +753,7 @@ export async function createOrAssignStoreAdmin(
     throw new Error("Store konfigurasyonu bulunamadi.");
   }
 
-  const client = createStoreServiceClient(storeConfig);
+  const client = await createStoreServiceClient(storeConfig);
 
   if (!client) {
     throw new Error("Store Supabase baglantisi hazir degil.");

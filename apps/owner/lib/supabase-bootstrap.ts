@@ -7,6 +7,7 @@ import {
   updateStoreSupabaseConfig,
   writeStoreAdminEnvLocal
 } from "@celebix/platform-config";
+import { upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 
 const SUPABASE_MANAGEMENT_API_URL = "https://api.supabase.com/v1";
 const DATABASE_POLL_DELAY_MS = 5000;
@@ -464,6 +465,11 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
 
     const { publicKey, serviceKey } = await waitForProjectApiKeys(projectRef);
     const adminEnvLocalPath = writeStoreAdminEnvLocal(store.slug, buildAdminEnvLocal(store, projectUrl, publicKey, serviceKey));
+    await upsertStoreSupabaseSecret({
+      slug: store.slug,
+      supabaseUrl: projectUrl,
+      supabaseServiceRoleKey: serviceKey
+    });
 
     updateStoreSupabaseConfig(store.slug, {
       projectRef,
