@@ -8,6 +8,16 @@ function requireEnvValue(name: string): string {
   return value;
 }
 
+function requirePublicEnvValue(name: string, value: string | undefined): string {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    throw new Error(`${name} tanimli degil.`);
+  }
+
+  return normalized;
+}
+
 function normalizeUrl(value: string): string {
   const cleaned = value.replace(/^["']|["']$/g, "");
   const normalized = /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
@@ -15,11 +25,13 @@ function normalizeUrl(value: string): string {
 }
 
 export function getOwnerSupabaseUrl(): string {
-  return normalizeUrl(requireEnvValue("NEXT_PUBLIC_OWNER_SUPABASE_URL"));
+  return normalizeUrl(
+    requirePublicEnvValue("NEXT_PUBLIC_OWNER_SUPABASE_URL", process.env.NEXT_PUBLIC_OWNER_SUPABASE_URL)
+  );
 }
 
 export function getOwnerSupabaseAnonKey(): string {
-  return requireEnvValue("NEXT_PUBLIC_OWNER_SUPABASE_ANON_KEY");
+  return requirePublicEnvValue("NEXT_PUBLIC_OWNER_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_OWNER_SUPABASE_ANON_KEY);
 }
 
 export function getOwnerSupabaseServiceRoleKey(): string {
