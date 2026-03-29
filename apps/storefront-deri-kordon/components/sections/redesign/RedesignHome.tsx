@@ -6,25 +6,11 @@ import { HeroSection } from "./HeroSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { CraftsmanshipSection } from "./CraftsmanshipSection";
 import { BestSellersSection } from "./BestSellersSection";
-import { FeaturesSection } from "./FeaturesSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { NewsletterSection } from "./NewsletterSection";
-import { InstagramFeed } from "./InstagramFeed";
-
-interface HeroSlide {
-  id: number;
-  desktop: string;
-  mobile: string;
-  alt: string;
-  link?: string;
-  title?: string;
-  subtitle?: string;
-  buttonText?: string;
-  buttonLink?: string;
-}
 
 interface HomepageData {
-  heroBanners: HeroSlide[];
+  heroBanners: unknown[];
   categories: unknown[];
   products: unknown[];
   promoBanners: unknown[];
@@ -70,41 +56,20 @@ export default function RedesignHome() {
     return (
       <main className="min-h-screen bg-[#F8F8F8]">
         {/* Hero Skeleton */}
-        <div className="w-full aspect-[3/4] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[900px] bg-[#E5E2DE] animate-pulse" />
+        <div className="w-full h-screen min-h-[700px] bg-[#0F1626] animate-pulse" />
         
         {/* Categories Skeleton */}
-        <section className="py-16 lg:py-24">
+        <section className="py-24 lg:py-32 bg-[#FAFAFA]">
           <div className="container-premium">
-            <div className="text-center mb-12">
+            <div className="text-center mb-16">
               <div className="h-4 w-24 bg-[#E5E2DE] rounded-full mx-auto mb-4" />
-              <div className="h-10 w-64 bg-[#E5E2DE] rounded-lg mx-auto" />
+              <div className="h-12 w-64 bg-[#E5E2DE] rounded-lg mx-auto" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="aspect-[4/5] bg-[#E5E2DE] rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Products Skeleton */}
-        <section className="py-16 bg-white">
-          <div className="container-premium">
-            <div className="flex items-center justify-between mb-10">
-              <div className="h-8 w-48 bg-[#E5E2DE] rounded-lg" />
-              <div className="h-10 w-28 bg-[#E5E2DE] rounded-lg" />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-[#F8F8F8] rounded-2xl overflow-hidden">
-                  <div className="aspect-square bg-[#E5E2DE] animate-pulse" />
-                  <div className="p-4 space-y-3">
-                    <div className="h-3 bg-[#E5E2DE] rounded w-1/3" />
-                    <div className="h-5 bg-[#E5E2DE] rounded w-3/4" />
-                    <div className="h-3 bg-[#E5E2DE] rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 lg:gap-6">
+              <div className="lg:col-span-7 lg:row-span-2 aspect-[4/5] bg-[#E5E2DE] rounded-lg animate-pulse" />
+              <div className="lg:col-span-5 h-64 bg-[#E5E2DE] rounded-lg animate-pulse" />
+              <div className="lg:col-span-5 h-64 bg-[#E5E2DE] rounded-lg animate-pulse" />
+              <div className="lg:col-span-12 h-48 bg-[#E5E2DE] rounded-lg animate-pulse" />
             </div>
           </div>
         </section>
@@ -114,26 +79,20 @@ export default function RedesignHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F8F8]">
-      {/* Hero Section - Full-width cinematic */}
-      <HeroSection slides={data?.heroBanners || []} />
+      {/* Hero Section - Cinematic Fullscreen */}
+      <HeroSection />
       
-      {/* Categories Grid - Bento style */}
-      <CategoriesSection initialCategories={data?.categories || []} />
+      {/* Categories Grid - Bento Style */}
+      <CategoriesSection />
       
       {/* Craftsmanship Story */}
       <CraftsmanshipSection />
       
       {/* Best Sellers */}
-      <BestSellersSection initialProducts={data?.products || []} />
-      
-      {/* Features / Quality Promise */}
-      <FeaturesSection />
+      <BestSellersSection />
       
       {/* Testimonials */}
       <TestimonialsSection />
-      
-      {/* Instagram Feed */}
-      <InstagramFeed />
       
       {/* Newsletter */}
       <NewsletterSection />

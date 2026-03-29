@@ -1,281 +1,196 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, ShoppingBag, Star, Watch } from "lucide-react";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { Product } from "@/types/product";
-import { getLimitedProducts } from "@/lib/products";
-import { ROUTES } from "@/lib/constants";
-import { useCart } from "@/lib/cart-context";
-import { useWishlist } from "@/lib/wishlist-context";
-import { toast } from "sonner";
+import { ShoppingBag, Heart, ArrowRight, Star } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface BestSellersSectionProps {
-  initialProducts?: Product[];
-}
-
-// Default placeholder products
-const defaultProducts: Product[] = [
+const products = [
   {
-    id: "1",
-    name: "Heritage Apple Watch Kayışı",
-    slug: "heritage-apple-watch-kayisi",
-    images: [],
-    variants: [{ id: "v1", price: 899, compareAtPrice: 1099, sku: "HW-001" }],
+    id: 1,
+    name: "Classic Leather Watch Strap",
+    subtitle: "Kahverengi Deri",
+    price: 1299,
+    originalPrice: 1599,
     rating: 4.9,
-    reviewCount: 128,
+    reviews: 128,
     badge: "Çok Satan",
+    isNew: false,
   },
   {
-    id: "2",
-    name: "Classic Deri Bileklik",
-    slug: "classic-deri-bileklik",
-    images: [],
-    variants: [{ id: "v2", price: 549, compareAtPrice: null, sku: "CB-001" }],
-    rating: 4.8,
-    reviewCount: 96,
-    badge: "Yeni",
-  },
-  {
-    id: "3",
-    name: "Vintage Kahverengi Kayış",
-    slug: "vintage-kahverengi-kayis",
-    images: [],
-    variants: [{ id: "v3", price: 749, compareAtPrice: 899, sku: "VK-001" }],
-    rating: 4.9,
-    reviewCount: 215,
-    badge: null,
-  },
-  {
-    id: "4",
-    name: "Siyah Kroko Desenli",
-    slug: "siyah-kroko-desenli",
-    images: [],
-    variants: [{ id: "v4", price: 999, compareAtPrice: null, sku: "SK-001" }],
+    id: 2,
+    name: "Apple Watch Heritage Series",
+    subtitle: "Antik Bronz",
+    price: 1899,
     rating: 5.0,
-    reviewCount: 67,
+    reviews: 89,
+    badge: null,
+    isNew: true,
+  },
+  {
+    id: 3,
+    name: "Slim Profile Leather Band",
+    subtitle: "Siyah Deri",
+    price: 999,
+    originalPrice: 1299,
+    rating: 4.8,
+    reviews: 256,
+    badge: "İndirim",
+    isNew: false,
+  },
+  {
+    id: 4,
+    name: "Monogram Special Edition",
+    subtitle: "Kişiselleştirilebilir",
+    price: 2499,
+    rating: 4.9,
+    reviews: 64,
     badge: "Premium",
+    isNew: true,
   },
 ];
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
+export function BestSellersSection() {
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [wishlist, setWishlist] = useState<number[]>([]);
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] },
-  },
-};
-
-function ProductCard({ product, index }: { product: Product; index: number }) {
-  const { addToCart } = useCart();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const [isHovered, setIsHovered] = useState(false);
-  
-  const mainVariant = product.variants[0];
-  const hasDiscount = mainVariant?.compareAtPrice && mainVariant.compareAtPrice > mainVariant.price;
-  const inWishlist = isInWishlist(product.id);
-
-  const handleAddToCart = () => {
-    addToCart(product, mainVariant);
-    toast.success("Sepete eklendi", {
-      description: `${product.name} sepetinize eklendi`,
-    });
-  };
-
-  const handleWishlistToggle = () => {
-    if (inWishlist) {
-      removeFromWishlist(product.id);
-      toast.info("Favorilerden çıkarıldı");
-    } else {
-      addToWishlist(product);
-      toast.success("Favorilere eklendi");
-    }
-  };
-
-  return (
-    <motion.div
-      variants={itemVariants}
-      className="group"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Image Container - Placeholder */}
-      <div className="relative aspect-square rounded-2xl overflow-hidden bg-[#F5F3F0] mb-4">
-        {/* Icon Placeholder */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-24 h-24 rounded-full bg-[#0F1626]/5 flex items-center justify-center">
-            <Watch className="w-12 h-12 text-[#0F1626]/20" />
-          </div>
-        </div>
-        
-        {/* Badge */}
-        {product.badge && (
-          <div className="absolute top-3 left-3 bg-[#8A6B37] text-white text-xs font-medium px-3 py-1 rounded-full">
-            {product.badge}
-          </div>
-        )}
-
-        {/* Discount Badge */}
-        {hasDiscount && (
-          <div className="absolute top-3 right-3 bg-[#0F1626] text-white text-xs font-medium px-3 py-1 rounded-full">
-            {Math.round((1 - mainVariant.price / mainVariant.compareAtPrice!) * 100)}% İndirim
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className={`absolute bottom-3 left-3 right-3 flex gap-2 transition-all duration-300 ${
-          isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleAddToCart();
-            }}
-            className="flex-1 bg-white text-[#0F1626] py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-[#8A6B37] hover:text-white transition-colors"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            Sepete Ekle
-          </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleWishlistToggle();
-            }}
-            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-              inWishlist 
-                ? "bg-[#8A6B37] text-white" 
-                : "bg-white text-[#0F1626] hover:bg-[#8A6B37] hover:text-white"
-            }`}
-          >
-            <Heart className={`w-5 h-5 ${inWishlist ? "fill-current" : ""}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Product Info */}
-      <div className="space-y-2">
-        {/* Rating */}
-        <div className="flex items-center gap-1">
-          <Star className="w-4 h-4 text-[#8A6B37] fill-[#8A6B37]" />
-          <span className="text-sm font-medium text-[#0F1626]">{product.rating || 4.8}</span>
-          <span className="text-sm text-[#0F1626]/40">({product.reviewCount || 0})</span>
-        </div>
-
-        {/* Name */}
-        <Link href={ROUTES.product(product.slug)}>
-          <h3 className="font-medium text-[#0F1626] group-hover:text-[#8A6B37] transition-colors line-clamp-1">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Price */}
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-[#0F1626]">{mainVariant?.price || 0} TL</span>
-          {hasDiscount && (
-            <span className="text-sm text-[#0F1626]/40 line-through">
-              {mainVariant?.compareAtPrice} TL
-            </span>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-export function BestSellersSection({ initialProducts }: BestSellersSectionProps) {
-  const [products, setProducts] = useState<Product[]>(initialProducts || []);
-  const [loading, setLoading] = useState(!initialProducts);
-
-  useEffect(() => {
-    if (initialProducts) {
-      setProducts(initialProducts);
-      setLoading(false);
-      return;
-    }
-
-    async function loadProducts() {
-      try {
-        const data = await getLimitedProducts(8);
-        setProducts(data);
-      } catch (err) {
-        console.error("Failed to load products:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadProducts();
-  }, [initialProducts]);
-
-  const displayProducts = products.length > 0 ? products : defaultProducts;
-
-  if (loading) {
-    return (
-      <section className="py-16 lg:py-24 bg-[#F8F8F8]">
-        <div className="container-premium">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="space-y-3">
-                <div className="aspect-square bg-[#E5E2DE] rounded-2xl animate-pulse" />
-                <div className="h-4 bg-[#E5E2DE] rounded w-1/3 animate-pulse" />
-                <div className="h-5 bg-[#E5E2DE] rounded w-3/4 animate-pulse" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+  const toggleWishlist = (id: number) => {
+    setWishlist(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
-  }
+  };
 
   return (
-    <section className="py-16 lg:py-24 bg-[#F8F8F8]">
+    <section className="py-24 lg:py-32 bg-white">
       <div className="container-premium">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10 lg:mb-12"
+          transition={{ duration: 0.6 }}
+          className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16"
         >
           <div>
-            <span className="inline-block text-[#8A6B37] text-xs font-medium tracking-widest uppercase mb-3">
-              Öne Çıkanlar
+            <span className="inline-flex items-center gap-3 text-[#8A6B37] text-xs font-medium tracking-[0.3em] uppercase mb-6">
+              <span className="w-8 h-px bg-[#8A6B37]" />
+              En Popüler
             </span>
-            <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold text-[#0F1626]">
+            <h2 className="font-serif text-4xl md:text-5xl text-[#0F1626]">
               Çok Satanlar
             </h2>
           </div>
-          <Link
-            href={ROUTES.products}
-            className="inline-flex items-center gap-2 text-[#0F1626] font-medium hover:text-[#8A6B37] transition-colors group"
+          <Link 
+            href="/urunler" 
+            className="group inline-flex items-center gap-2 text-[#0F1626] hover:text-[#8A6B37] transition-colors"
           >
-            Tüm Ürünleri Gör
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            <span className="text-sm tracking-wider uppercase">Tüm Ürünler</span>
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
 
         {/* Products Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6"
-        >
-          {displayProducts.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+          {products.map((product, index) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              onMouseEnter={() => setHoveredId(product.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <div className="group">
+                {/* Image Container */}
+                <div className="relative aspect-[3/4] bg-[#F5F3F0] mb-4 overflow-hidden">
+                  {/* Badges */}
+                  <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                    {product.badge && (
+                      <span className="bg-[#0F1626] text-white text-xs px-3 py-1.5 tracking-wider">
+                        {product.badge}
+                      </span>
+                    )}
+                    {product.isNew && (
+                      <span className="bg-[#8A6B37] text-white text-xs px-3 py-1.5 tracking-wider">
+                        Yeni
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Wishlist Button */}
+                  <button
+                    onClick={() => toggleWishlist(product.id)}
+                    className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#0F1626]"
+                  >
+                    <Heart 
+                      className={cn(
+                        "w-5 h-5 transition-colors",
+                        wishlist.includes(product.id) ? "fill-[#8A6B37] text-[#8A6B37]" : "text-[#0F1626] group-hover:text-white"
+                      )} 
+                    />
+                  </button>
+
+                  {/* Product Image Placeholder */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-32 h-32 rounded-full border-2 border-[#8A6B37]/20 flex items-center justify-center">
+                      <div className="w-24 h-24 rounded-full bg-[#8A6B37]/10 flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" className="w-12 h-12 text-[#8A6B37]/40" fill="none" stroke="currentColor" strokeWidth="1">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 6v6l4 2" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Add */}
+                  <motion.div 
+                    initial={{ y: "100%" }}
+                    animate={{ y: hoveredId === product.id ? 0 : "100%" }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute bottom-0 left-0 right-0 p-4"
+                  >
+                    <button className="w-full bg-[#0F1626] text-white py-3 flex items-center justify-center gap-2 hover:bg-[#8A6B37] transition-colors">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span className="text-sm tracking-wider uppercase">Sepete Ekle</span>
+                    </button>
+                  </motion.div>
+                </div>
+
+                {/* Product Info */}
+                <div className="space-y-2">
+                  <p className="text-[#8A6B37] text-xs tracking-wider uppercase">{product.subtitle}</p>
+                  <h3 className="font-serif text-lg text-[#0F1626] group-hover:text-[#8A6B37] transition-colors">
+                    {product.name}
+                  </h3>
+                  
+                  {/* Rating */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 fill-[#8A6B37] text-[#8A6B37]" />
+                      <span className="text-sm font-medium text-[#0F1626]">{product.rating}</span>
+                    </div>
+                    <span className="text-[#0F1626]/40 text-sm">({product.reviews} değerlendirme)</span>
+                  </div>
+
+                  {/* Price */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-lg font-medium text-[#0F1626]">
+                      {product.price.toLocaleString('tr-TR')} ₺
+                    </span>
+                    {product.originalPrice && (
+                      <span className="text-sm text-[#0F1626]/40 line-through">
+                        {product.originalPrice.toLocaleString('tr-TR')} ₺
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

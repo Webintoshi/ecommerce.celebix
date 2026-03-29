@@ -2,164 +2,135 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Quote, Star } from "lucide-react";
 
 const testimonials = [
   {
     id: 1,
-    name: "Mehmet TAKIM",
-    title: "Çok Beğendim",
-    content: "Ürün beklentilerimi karşıladı. Özenilerek üretildiğini hissediyorsunuz. Deri kalitesi muhteşem, tavsiye ederim.",
+    name: "Ahmet Yılmaz",
+    title: "Mimar",
+    content: "Apple Watch&apos;ıma aldığım deri kayış gerçekten muhteşem. Zamanla rengi daha da güzelleşti ve tam bir karakter kazandı. El işçiliği tartışılmaz.",
     rating: 5,
-    verified: true,
+    location: "İstanbul",
   },
   {
     id: 2,
-    name: "Tuğba Kayabaşı",
-    title: "Güzel fakat lazer yazı...",
-    content: "Güzel ürün, el işçiliği harika. Lazer yazı biraz daha belirgin olabilirdi ama genel olarak memnun kaldım.",
-    rating: 4,
-    verified: true,
+    name: "Zeynep Kaya",
+    title: "İşletme Sahibi",
+    content: "Eşime hediye olarak aldığım monogramlı kordon çok beğenildi. Kişiselleştirme hizmeti ve paketleme harikaydı. Kesinlikle tavsiye ederim.",
+    rating: 5,
+    location: "Ankara",
   },
   {
     id: 3,
-    name: "Övünç Kıray",
-    title: "TEK KELİME YETERLİ...",
-    content: "KALİTE. Deneme amaçlı deri anahtar düzenleyicisi almıştım, şimdi tüm koleksiyonu takip ediyorum.",
+    name: "Mehmet Demir",
+    title: "Grafik Tasarımcı",
+    content: "3 yıldır kullanıyorum, ilk günkü gibi sağlam. Deri kalitesi ve dikiş işçiliği gerçekten premium. Artık başka marka kullanmıyorum.",
     rating: 5,
-    verified: true,
-  },
-  {
-    id: 4,
-    name: "Emre Arslan",
-    title: "teşekkürler",
-    content: "çok kaliteli teşekkürler. İkinci alışverişim ve yine çok memnun kaldım. Kargo da çok hızlıydı.",
-    rating: 5,
-    verified: true,
+    location: "İzmir",
   },
 ];
 
 export function TestimonialsSection() {
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 4;
-  const totalPages = Math.ceil(testimonials.length / itemsPerPage);
+  const [current, setCurrent] = useState(0);
 
-  const nextPage = () => setCurrentPage((prev) => (prev + 1) % totalPages);
-  const prevPage = () => setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
-
-  const currentTestimonials = testimonials.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
+  const next = () => setCurrent((prev) => (prev + 1) % testimonials.length);
+  const prev = () => setCurrent((prev) => (prev - 1 + testimonials.length) % testimonials.length);
 
   return (
-    <section className="py-16 lg:py-24 bg-[#F0F0F0]">
+    <section className="py-24 lg:py-32 bg-[#FAFAFA]">
       <div className="container-premium">
-        {/* Header */}
+        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10"
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
         >
-          <h2 className="font-serif text-3xl md:text-4xl font-semibold text-[#0F1626] mb-2">
-            Güncel Yorumlar
+          <span className="inline-flex items-center gap-3 text-[#8A6B37] text-xs font-medium tracking-[0.3em] uppercase mb-6">
+            <span className="w-8 h-px bg-[#8A6B37]" />
+            Müşteri Yorumları
+            <span className="w-8 h-px bg-[#8A6B37]" />
+          </span>
+          <h2 className="font-serif text-4xl md:text-5xl text-[#0F1626]">
+            Hikayelerimiz
           </h2>
-          <p className="text-[#0F1626]/60">
-            1581 değerlendirmeden
-          </p>
         </motion.div>
 
-        {/* Testimonials Grid */}
-        <div className="relative">
-          {/* Navigation Arrows */}
-          <button
-            onClick={prevPage}
-            className="absolute -left-4 lg:-left-12 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-[#0F1626]/40 hover:text-[#0F1626] transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={nextPage}
-            className="absolute -right-4 lg:-right-12 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-[#0F1626]/40 hover:text-[#0F1626] transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+        {/* Testimonial Slider */}
+        <div className="max-w-4xl mx-auto">
+          <div className="relative">
+            {/* Quote Icon */}
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-[#8A6B37] flex items-center justify-center">
+              <Quote className="w-8 h-8 text-white" />
+            </div>
 
-          {/* Cards Grid */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-            >
-              {currentTestimonials.map((testimonial) => (
-                <div
-                  key={testimonial.id}
-                  className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            {/* Content */}
+            <div className="bg-white border border-[#E5E2DE] pt-16 pb-12 px-8 md:px-16">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={current}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                  className="text-center"
                 >
-                  {/* Top Color Bar */}
-                  <div className="h-1.5 bg-[#8A6B37]" />
-                  
-                  {/* Content */}
-                  <div className="p-5">
-                    {/* Stars */}
-                    <div className="flex justify-center gap-1 mb-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < testimonial.rating
-                              ? "text-[#8A6B37] fill-[#8A6B37]"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* User Name with Verified Badge */}
-                    <div className="flex items-center justify-center gap-1.5 mb-3">
-                      <span className="font-medium text-[#0F1626] text-sm">
-                        {testimonial.name}
-                      </span>
-                      {testimonial.verified && (
-                        <div className="w-4 h-4 rounded-full bg-[#8A6B37]/20 flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-[#8A6B37]" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h4 className="font-semibold text-[#0F1626] text-center mb-2 text-sm truncate">
-                      {testimonial.title}
-                    </h4>
-
-                    {/* Content */}
-                    <p className="text-[#0F1626]/60 text-center text-sm line-clamp-3">
-                      {testimonial.content}
-                    </p>
+                  {/* Rating */}
+                  <div className="flex justify-center gap-1 mb-8">
+                    {[...Array(testimonials[current].rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-[#8A6B37] text-[#8A6B37]" />
+                    ))}
                   </div>
-                </div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        </div>
 
-        {/* Pagination Dots */}
-        <div className="flex justify-center gap-2 mt-8">
-          {[...Array(totalPages)].map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentPage(idx)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                idx === currentPage ? "w-6 bg-[#8A6B37]" : "bg-[#0F1626]/20"
-              }`}
-            />
-          ))}
+                  {/* Quote */}
+                  <blockquote className="font-serif text-xl md:text-2xl lg:text-3xl text-[#0F1626] leading-relaxed mb-10">
+                    &ldquo;{testimonials[current].content}&rdquo;
+                  </blockquote>
+
+                  {/* Author */}
+                  <div>
+                    <p className="font-medium text-[#0F1626] text-lg">{testimonials[current].name}</p>
+                    <p className="text-[#8A6B37] text-sm">{testimonials[current].title}</p>
+                    <p className="text-[#0F1626]/40 text-sm mt-1">{testimonials[current].location}</p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-center gap-4 mt-10">
+                <button
+                  onClick={prev}
+                  className="w-12 h-12 border border-[#E5E2DE] flex items-center justify-center text-[#0F1626] hover:bg-[#0F1626] hover:text-white hover:border-[#0F1626] transition-all"
+                  aria-label="Önceki"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <div className="flex gap-2">
+                  {testimonials.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrent(idx)}
+                      className={`h-2 transition-all duration-300 ${
+                        idx === current ? "w-8 bg-[#8A6B37]" : "w-2 bg-[#E5E2DE]"
+                      }`}
+                      aria-label={`Yorum ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  onClick={next}
+                  className="w-12 h-12 border border-[#E5E2DE] flex items-center justify-center text-[#0F1626] hover:bg-[#0F1626] hover:text-white hover:border-[#0F1626] transition-all"
+                  aria-label="Sonraki"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
