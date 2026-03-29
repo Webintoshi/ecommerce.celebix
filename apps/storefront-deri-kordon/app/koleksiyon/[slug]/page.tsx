@@ -6,10 +6,11 @@ import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductCategory, ProductVariant } from "@/types/product";
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-
 export const revalidate = 300; // 5 dakika ISR
 
 // ============================================================================

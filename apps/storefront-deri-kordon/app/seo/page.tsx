@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { getAllPillarSlugs } from '@/lib/seo-content';
 import { generateWebSiteSchema, generateOrganizationSchema, createJsonLd } from '@/lib/seo-schema';
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: 'SEO Rehberi 2026 | Topikal Otorite Hub',
   description: 'Kapsamlı SEO rehberleri. Teknik SEO, on-page optimizasyon, link building, e-ticaret SEO ve yapay zeka optimizasyonu (GEO) hakkında her şey.',

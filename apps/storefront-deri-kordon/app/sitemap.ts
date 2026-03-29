@@ -2,6 +2,8 @@
 import { MetadataRoute } from 'next';
 import { getAllPublishedContentPaths } from '@/lib/seo-content';
 
+export const dynamic = "force-dynamic";
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://deri-kordon.test';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
