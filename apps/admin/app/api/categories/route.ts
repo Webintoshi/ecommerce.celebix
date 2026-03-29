@@ -102,6 +102,37 @@ function sanitizeString(input: unknown, maxLength: number): string {
     .replace(/[<>]/g, ""); // Basic XSS prevention
 }
 
+const OPTIONAL_CATEGORY_COLUMNS = new Set([
+  "icon",
+  "is_active",
+  "seo_title",
+  "seo_description",
+  "seo_keywords",
+  "faq",
+  "geo_data",
+]);
+
+function getMissingCategoryColumn(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("message" in error)) return null;
+  const message = String(error.message ?? "");
+  const match = message.match(/Could not find the '([^']+)' column of 'categories'/i);
+  return match?.[1] ?? null;
+}
+
+function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
+  payload: T,
+  error: unknown
+): T | null {
+  const missingColumn = getMissingCategoryColumn(error);
+  if (!missingColumn || !OPTIONAL_CATEGORY_COLUMNS.has(missingColumn) || !(missingColumn in payload)) {
+    return null;
+  }
+
+  const nextPayload = { ...payload };
+  delete nextPayload[missingColumn];
+  return nextPayload;
+}
+
 function validateCategoryInput(input: unknown): asserts input is CategoryInput {
   if (typeof input !== "object" || input === null) {
     throw new APIError("Invalid input: expected object", 400, "INVALID_INPUT");
@@ -376,14 +407,24 @@ export async function PUT(request: NextRequest) {
     // Perform update
     const supabase = await getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from("categories")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
+    let data;
+    let updatePayload: Record<string, unknown> = { ...updateData };
 
-    if (error) {
+    while (true) {
+      const result = await supabase
+        .from("categories")
+        .update(updatePayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      data = result.data;
+      const { error } = result;
+
+      if (!error) {
+        break;
+      }
+
       console.error("Category update error:", error);
       
       if (error.code === "PGRST116") {
@@ -393,8 +434,12 @@ export async function PUT(request: NextRequest) {
       if (error.code === "23505") { // Unique violation
         throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
       }
-      
-      throw new APIError("Failed to update category", 500, "UPDATE_ERROR");
+
+      const nextPayload = stripUnsupportedCategoryColumn(updatePayload, error);
+      if (!nextPayload) {
+        throw new APIError("Failed to update category", 500, "UPDATE_ERROR");
+      }
+      updatePayload = nextPayload;
     }
 
     if (!data) {

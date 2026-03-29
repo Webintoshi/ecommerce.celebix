@@ -13,6 +13,37 @@ function getSupabase() {
   return getBrowserSupabaseClient();
 }
 
+const OPTIONAL_CATEGORY_COLUMNS = new Set([
+  "icon",
+  "is_active",
+  "seo_title",
+  "seo_description",
+  "seo_keywords",
+  "faq",
+  "geo_data",
+]);
+
+function getMissingCategoryColumn(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("message" in error)) return null;
+  const message = String(error.message ?? "");
+  const match = message.match(/Could not find the '([^']+)' column of 'categories'/i);
+  return match?.[1] ?? null;
+}
+
+function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
+  payload: T,
+  error: unknown
+): T | null {
+  const missingColumn = getMissingCategoryColumn(error);
+  if (!missingColumn || !OPTIONAL_CATEGORY_COLUMNS.has(missingColumn) || !(missingColumn in payload)) {
+    return null;
+  }
+
+  const nextPayload = { ...payload };
+  delete nextPayload[missingColumn];
+  return nextPayload;
+}
+
 // Supabase'den kategorileri çek (Client-side)
 export async function fetchCategories(): Promise<CategoryInfo[]> {
   const supabase = getSupabase();
@@ -119,8 +150,7 @@ export async function getCategoryById(id: string): Promise<CategoryInfo | undefi
 // Kategori ekle (Admin için)
 export async function addCategory(category: CategoryAdminInput): Promise<void> {
   const supabase = getSupabase();
-
-  const { error } = await supabase.from("categories").insert({
+  let payload: Record<string, unknown> = {
     name: category.name,
     slug: category.slug,
     description: category.description,
@@ -131,18 +161,22 @@ export async function addCategory(category: CategoryAdminInput): Promise<void> {
     is_active: category.is_active !== false,
     seo_title: category.seo_title || null,
     seo_description: category.seo_description || null,
-  });
+  };
 
-  if (error) throw error;
+  while (true) {
+    const { error } = await supabase.from("categories").insert(payload);
+    if (!error) return;
+
+    const nextPayload = stripUnsupportedCategoryColumn(payload, error);
+    if (!nextPayload) throw error;
+    payload = nextPayload;
+  }
 }
 
 // Kategori güncelle (Admin için)
 export async function updateCategory(id: string, updatedCategory: Partial<CategoryAdminInput>): Promise<void> {
   const supabase = getSupabase();
-
-  const { error } = await supabase
-    .from("categories")
-    .update({
+  let payload: Record<string, unknown> = {
       name: updatedCategory.name,
       slug: updatedCategory.slug,
       description: updatedCategory.description,
@@ -153,10 +187,20 @@ export async function updateCategory(id: string, updatedCategory: Partial<Catego
       is_active: updatedCategory.is_active !== false,
       seo_title: updatedCategory.seo_title || null,
       seo_description: updatedCategory.seo_description || null,
-    })
-    .eq("id", id);
+    };
 
-  if (error) throw error;
+  while (true) {
+    const { error } = await supabase
+      .from("categories")
+      .update(payload)
+      .eq("id", id);
+
+    if (!error) return;
+
+    const nextPayload = stripUnsupportedCategoryColumn(payload, error);
+    if (!nextPayload) throw error;
+    payload = nextPayload;
+  }
 }
 
 // Kategori sil (Admin için)
