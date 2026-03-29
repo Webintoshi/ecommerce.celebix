@@ -1,10 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Image as ImageIcon, Loader2, Save, GripVertical, Trash2, Plus, Smartphone } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import {
+    GripVertical,
+    Image as ImageIcon,
+    Loader2,
+    Plus,
+    Save,
+    Smartphone,
+    Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+
+interface HeroOverlay {
+    title: string;
+    subtitle: string;
+    ctaText: string;
+    ctaLink: string;
+    position: "left" | "center" | "right";
+}
+
+interface HeroVideo {
+    desktop: string;
+    mobile: string;
+    poster: string;
+}
 
 interface HeroSlide {
     id: number;
@@ -13,170 +34,144 @@ interface HeroSlide {
     tablet?: string;
     alt: string;
     link?: string;
-    transition?: 'fade' | 'slide' | 'zoom' | 'blur';
-    overlay?: {
-        title: string;
-        subtitle: string;
-        ctaText: string;
-        ctaLink: string;
-        position: 'left' | 'center' | 'right';
-    };
-    video?: {
-        desktop: string;
-        mobile: string;
-        poster: string;
-    };
+    transition?: "fade" | "slide" | "zoom" | "blur";
+    overlay?: HeroOverlay;
+    video?: HeroVideo;
 }
 
 interface HeroSettings {
     slides: HeroSlide[];
 }
 
+const DEFAULT_OVERLAY: HeroOverlay = {
+    title: "",
+    subtitle: "",
+    ctaText: "",
+    ctaLink: "",
+    position: "left",
+};
+
+function createEmptySlide(): HeroSlide {
+    return {
+        id: Date.now(),
+        desktop: "",
+        mobile: "",
+        alt: "",
+        link: "",
+        transition: "fade",
+        overlay: { ...DEFAULT_OVERLAY },
+    };
+}
+
+function normalizeSettings(payload: unknown): HeroSlide[] {
+    if (!payload || typeof payload !== "object") {
+        return [];
+    }
+
+    const slides = (payload as HeroSettings).slides;
+    return Array.isArray(slides) ? slides : [];
+}
+
 export default function HeroBannerSettingsPage() {
     const [slides, setSlides] = useState<HeroSlide[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
-
+    const [uploading, setUploading] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
-        loadSettings();
+        void loadSettings();
     }, []);
 
-    const loadSettings = async () => {
+    async function loadSettings() {
         setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from("settings")
-                .select("value")
-                .eq("key", "hero_banners")
-                .single();
 
-            if (data?.value) {
-                setSlides((data.value as HeroSettings).slides || []);
-            } else {
-                // Initialize with empty or default if needed, but better empty
-                setSlides([]);
+        try {
+            const res = await fetch("/api/settings?key=hero_banners", { cache: "no-store" });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "Hero banner ayarlari yuklenemedi");
             }
+
+            setSlides(normalizeSettings(data.setting?.value));
         } catch (error) {
-            console.error("Error loading settings:", error);
-            toast.error("Ayarlar yüklenirken bir hata oluştu.");
+            console.error("Error loading hero banner settings:", error);
+            toast.error(error instanceof Error ? error.message : "Ayarlar yuklenirken bir hata olustu.");
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const handleSave = async () => {
+    async function handleSave() {
         setSaving(true);
+
         try {
-            const { error } = await supabase
-                .from("settings")
-                .upsert({
+            const res = await fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                     key: "hero_banners",
-                    value: { slides }
-                }, { onConflict: "key" });
-
-            if (error) throw error;
-            toast.success("Ayarlar başarıyla kaydedildi.");
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            toast.error("Kaydedilirken bir hata oluştu.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleAddSlide = () => {
-        const newSlide: HeroSlide = {
-            id: Date.now(),
-            desktop: "",
-            mobile: "",
-            alt: "",
-            link: "",
-            transition: 'fade',
-            overlay: {
-                title: "",
-                subtitle: "",
-                ctaText: "",
-                ctaLink: "",
-                position: 'left',
-            },
-        };
-        setSlides([...slides, newSlide]);
-    };
-
-    const handleRemoveSlide = (id: number) => {
-        setSlides(slides.filter(s => s.id !== id));
-    };
-
-    const handleUpdateSlide = (id: number, field: keyof HeroSlide, value: string) => {
-        setSlides(slides.map(s => s.id === id ? { ...s, [field]: value } : s));
-    };
-
-    const handleUpdateOverlay = (id: number, field: string, value: string) => {
-        setSlides(slides.map(s => {
-            if (s.id === id) {
-                return {
-                    ...s,
-                    overlay: {
-                        ...s.overlay,
-                        [field]: value,
-                    } as HeroSlide['overlay'],
-                };
-            }
-            return s;
-        }));
-    };
-
-    const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, slideId: number, type: 'desktop' | 'mobile' | 'poster') => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const uploadKey = `${slideId}-${type}`;
-        setUploading(prev => ({ ...prev, [uploadKey]: true }));
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', 'hero-banners');
-
-        try {
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
+                    value: { slides },
+                }),
             });
             const data = await res.json();
 
-            if (data.success) {
-                setSlides(slides.map(s => {
-                    if (s.id === slideId) {
-                        return {
-                            ...s,
-                            video: {
-                                ...s.video,
-                                [type]: data.url,
-                            } as HeroSlide['video'],
-                        };
-                    }
-                    return s;
-                }));
-                toast.success('Video yüklendi');
-            } else {
-                throw new Error(data.error);
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "Hero banner ayarlari kaydedilemedi");
             }
-        } catch (error) {
-            console.error('Upload error:', error);
-            toast.error('Video yüklenirken hata oluştu');
-        } finally {
-            setUploading(prev => ({ ...prev, [uploadKey]: false }));
-        }
-    };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, slideId: number, type: "desktop" | "mobile") => {
+            toast.success("Ayarlar basariyla kaydedildi.");
+        } catch (error) {
+            console.error("Error saving hero banner settings:", error);
+            toast.error(error instanceof Error ? error.message : "Kaydedilirken bir hata olustu.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    function handleAddSlide() {
+        setSlides((prev) => [...prev, createEmptySlide()]);
+    }
+
+    function handleRemoveSlide(id: number) {
+        setSlides((prev) => prev.filter((slide) => slide.id !== id));
+    }
+
+    function handleUpdateSlide<K extends keyof HeroSlide>(id: number, field: K, value: HeroSlide[K]) {
+        setSlides((prev) =>
+            prev.map((slide) => (slide.id === id ? { ...slide, [field]: value } : slide)),
+        );
+    }
+
+    function handleUpdateOverlay(
+        id: number,
+        field: keyof HeroOverlay,
+        value: HeroOverlay[keyof HeroOverlay],
+    ) {
+        setSlides((prev) =>
+            prev.map((slide) => {
+                if (slide.id !== id) return slide;
+                return {
+                    ...slide,
+                    overlay: {
+                        ...(slide.overlay ?? DEFAULT_OVERLAY),
+                        [field]: value,
+                    },
+                };
+            }),
+        );
+    }
+
+    async function handleFileUpload(
+        e: React.ChangeEvent<HTMLInputElement>,
+        slideId: number,
+        type: "desktop" | "mobile",
+    ) {
         const file = e.target.files?.[0];
         if (!file) return;
 
         const uploadKey = `${slideId}-${type}`;
-        setUploading(prev => ({ ...prev, [uploadKey]: true }));
+        setUploading((prev) => ({ ...prev, [uploadKey]: true }));
 
         const formData = new FormData();
         formData.append("file", file);
@@ -189,219 +184,214 @@ export default function HeroBannerSettingsPage() {
             });
             const data = await res.json();
 
-            if (data.success) {
-                handleUpdateSlide(slideId, type, data.url);
-                toast.success("Görsel yüklendi.");
-            } else {
-                throw new Error(data.error);
+            if (!res.ok || !data.success || !data.url) {
+                throw new Error(data.error || "Gorsel yuklenemedi");
             }
+
+            handleUpdateSlide(slideId, type, String(data.url));
+            toast.success("Gorsel yuklendi.");
         } catch (error) {
             console.error("Upload error:", error);
-            toast.error("Görsel yüklenirken hata oluştu.");
+            toast.error(error instanceof Error ? error.message : "Gorsel yuklenirken hata olustu.");
         } finally {
-            setUploading(prev => ({ ...prev, [uploadKey]: false }));
+            setUploading((prev) => ({ ...prev, [uploadKey]: false }));
+            e.target.value = "";
         }
-    };
+    }
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <div className="flex min-h-[400px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto pb-20">
+        <div className="mx-auto max-w-5xl space-y-6 pb-20">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Hero Banner Yönetimi</h1>
-                    <p className="text-gray-500 text-sm mt-1">Ana sayfa üst alandaki slayt görsellerini yönetin.</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Hero Banner Yonetimi</h1>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Ana sayfa ust alandaki slayt gorsellerini yonetin.
+                    </p>
                 </div>
                 <button
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-gray-900 px-6 py-2.5 font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
                 >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Kaydet
                 </button>
             </div>
 
             <div className="space-y-6">
                 {slides.map((slide, index) => (
-                    <div key={slide.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group">
-                        <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between">
+                    <div
+                        key={slide.id}
+                        className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                    >
+                        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 p-4">
                             <div className="flex items-center gap-3">
                                 <div className="cursor-grab text-gray-400 hover:text-gray-600">
-                                    <GripVertical className="w-5 h-5" />
+                                    <GripVertical className="h-5 w-5" />
                                 </div>
                                 <span className="font-semibold text-gray-700">Slayt {index + 1}</span>
                             </div>
                             <button
                                 onClick={() => handleRemoveSlide(slide.id)}
-                                className="text-gray-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
+                                className="rounded-md p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                             >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="h-4 w-4" />
                             </button>
                         </div>
 
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Desktop Image */}
+                        <div className="grid grid-cols-1 gap-8 p-6 md:grid-cols-2">
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-gray-700">Masaüstü Görseli (1920x800px)</label>
-                                <div className="relative aspect-[16/9] bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors overflow-hidden group/upload">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Masaustu Gorseli (1920x800px)
+                                </label>
+                                <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-blue-400">
                                     {slide.desktop ? (
                                         <>
-                                            <Image src={slide.desktop} alt="Desktop Preview" fill className="object-cover" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/upload:opacity-100 transition-opacity flex items-center justify-center">
-                                                <label className="cursor-pointer bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
-                                                    Değiştir
-                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, slide.id, "desktop")} />
+                                            <Image
+                                                src={slide.desktop}
+                                                alt="Desktop Preview"
+                                                fill
+                                                className="object-cover"
+                                                unoptimized
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
+                                                <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
+                                                    Degistir
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => void handleFileUpload(e, slide.id, "desktop")}
+                                                    />
                                                 </label>
                                             </div>
                                         </>
                                     ) : (
-                                        <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer">
+                                        <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center">
                                             {uploading[`${slide.id}-desktop`] ? (
-                                                <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                                                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                                             ) : (
                                                 <>
-                                                    <ImageIcon className="w-8 h-8 text-gray-300 mb-2" />
-                                                    <span className="text-sm text-gray-500">Görsel Yükle</span>
+                                                    <ImageIcon className="mb-2 h-8 w-8 text-gray-300" />
+                                                    <span className="text-sm text-gray-500">Gorsel Yukle</span>
                                                 </>
                                             )}
-                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, slide.id, "desktop")} />
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={(e) => void handleFileUpload(e, slide.id, "desktop")}
+                                            />
                                         </label>
                                     )}
                                 </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Veya URL yapıştır: https://..."
-                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const value = (e.target as HTMLInputElement).value;
-                                                if (value) {
-                                                    handleUpdateSlide(slide.id, "desktop", value);
-                                                }
-                                            }
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                                        onClick={(e) => {
-                                            const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                                            if (input.value) {
-                                                handleUpdateSlide(slide.id, "desktop", input.value);
-                                                input.value = '';
-                                            }
-                                        }}
-                                    >
-                                        Ekle
-                                    </button>
-                                </div>
+                                <UrlInput
+                                    placeholder="Veya URL yapistir: https://..."
+                                    onAdd={(value) => handleUpdateSlide(slide.id, "desktop", value)}
+                                />
                             </div>
 
-                            {/* Mobile Image */}
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-gray-700">Mobil Görseli (800x1200px)</label>
-                                <div className="relative aspect-2/3 md:aspect-video bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors overflow-hidden group/upload max-w-[200px] md:max-w-full">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Mobil Gorseli (800x1200px)
+                                </label>
+                                <div className="group/upload relative aspect-2/3 max-w-[200px] overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-blue-400 md:max-w-full md:aspect-video">
                                     {slide.mobile ? (
                                         <>
-                                            <Image src={slide.mobile} alt="Mobile Preview" fill className="object-cover" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/upload:opacity-100 transition-opacity flex items-center justify-center">
-                                                <label className="cursor-pointer bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
-                                                    Değiştir
-                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, slide.id, "mobile")} />
+                                            <Image
+                                                src={slide.mobile}
+                                                alt="Mobile Preview"
+                                                fill
+                                                className="object-cover"
+                                                unoptimized
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
+                                                <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
+                                                    Degistir
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => void handleFileUpload(e, slide.id, "mobile")}
+                                                    />
                                                 </label>
                                             </div>
                                         </>
                                     ) : (
-                                        <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer">
+                                        <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center">
                                             {uploading[`${slide.id}-mobile`] ? (
-                                                <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                                                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                                             ) : (
                                                 <>
-                                                    <Smartphone className="w-8 h-8 text-gray-300 mb-2" />
-                                                    <span className="text-sm text-gray-500">Görsel Yükle</span>
+                                                    <Smartphone className="mb-2 h-8 w-8 text-gray-300" />
+                                                    <span className="text-sm text-gray-500">Gorsel Yukle</span>
                                                 </>
                                             )}
-                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, slide.id, "mobile")} />
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={(e) => void handleFileUpload(e, slide.id, "mobile")}
+                                            />
                                         </label>
                                     )}
                                 </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Veya URL yapıştır: https://..."
-                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const value = (e.target as HTMLInputElement).value;
-                                                if (value) {
-                                                    handleUpdateSlide(slide.id, "mobile", value);
-                                                }
-                                            }
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                                        onClick={(e) => {
-                                            const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                                            if (input.value) {
-                                                handleUpdateSlide(slide.id, "mobile", input.value);
-                                                input.value = '';
-                                            }
-                                        }}
-                                    >
-                                        Ekle
-                                    </button>
-                                </div>
+                                <UrlInput
+                                    placeholder="Veya URL yapistir: https://..."
+                                    onAdd={(value) => handleUpdateSlide(slide.id, "mobile", value)}
+                                />
                             </div>
 
-                            {/* Details */}
-                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:col-span-2 md:grid-cols-2">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Alt Metin (SEO)</label>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                                        Alt Metin (SEO)
+                                    </label>
                                     <input
                                         type="text"
                                         value={slide.alt}
                                         onChange={(e) => handleUpdateSlide(slide.id, "alt", e.target.value)}
                                         placeholder="Orn: Celebix E-ticaret Kampanyasi"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Yonlendirme Linki (Opsiyonel)</label>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                                        Yonlendirme Linki (Opsiyonel)
+                                    </label>
                                     <input
                                         type="text"
-                                        value={slide.link}
+                                        value={slide.link || ""}
                                         onChange={(e) => handleUpdateSlide(slide.id, "link", e.target.value)}
-                                        placeholder="O rn: /urunler/fistik-ezmesi"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                        placeholder="Orn: /urunler/fistik-ezmesi"
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     />
                                 </div>
                             </div>
 
-                            {/* Transition Type */}
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Transition Efekti</label>
+                                <label className="mb-2 block text-sm font-medium text-gray-700">
+                                    Transition Efekti
+                                </label>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['fade', 'slide', 'zoom', 'blur'] as const).map((type) => (
+                                    {(["fade", "slide", "zoom", "blur"] as const).map((type) => (
                                         <button
                                             key={type}
                                             type="button"
-                                            onClick={() => handleUpdateSlide(slide.id, 'transition', type)}
-                                            className={`
-                                                px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all
-                                                ${slide.transition === type
-                                                    ? 'bg-blue-600 text-white shadow-lg'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
-                                            `}
+                                            onClick={() => handleUpdateSlide(slide.id, "transition", type)}
+                                            className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
+                                                slide.transition === type
+                                                    ? "bg-blue-600 text-white shadow-lg"
+                                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                            }`}
                                         >
                                             {type}
                                         </button>
@@ -409,66 +399,84 @@ export default function HeroBannerSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Overlay Content */}
-                            <div className="md:col-span-2 bg-gray-50 rounded-lg p-4">
-                                <h4 className="text-sm font-semibold text-gray-700 mb-3">Overlay Icerik (Gorsel Uzerinde Gosterilen Metinler)</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="rounded-lg bg-gray-50 p-4 md:col-span-2">
+                                <h4 className="mb-3 text-sm font-semibold text-gray-700">
+                                    Overlay Icerik
+                                </h4>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Baslik</label>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                                            Baslik
+                                        </label>
                                         <input
                                             type="text"
-                                            value={slide.overlay?.title || ''}
-                                            onChange={(e) => handleUpdateOverlay(slide.id, 'title', e.target.value)}
+                                            value={slide.overlay?.title || ""}
+                                            onChange={(e) =>
+                                                handleUpdateOverlay(slide.id, "title", e.target.value)
+                                            }
                                             placeholder="Dogal Lezzetin"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Alt Baslik</label>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                                            Alt Baslik
+                                        </label>
                                         <input
                                             type="text"
-                                            value={slide.overlay?.subtitle || ''}
-                                            onChange={(e) => handleUpdateOverlay(slide.id, 'subtitle', e.target.value)}
+                                            value={slide.overlay?.subtitle || ""}
+                                            onChange={(e) =>
+                                                handleUpdateOverlay(slide.id, "subtitle", e.target.value)
+                                            }
                                             placeholder="Tamamen organik, katkisiz"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Buton Metni</label>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                                            Buton Metni
+                                        </label>
                                         <input
                                             type="text"
-                                            value={slide.overlay?.ctaText || ''}
-                                            onChange={(e) => handleUpdateOverlay(slide.id, 'ctaText', e.target.value)}
+                                            value={slide.overlay?.ctaText || ""}
+                                            onChange={(e) =>
+                                                handleUpdateOverlay(slide.id, "ctaText", e.target.value)
+                                            }
                                             placeholder="Kesfet"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Buton Linki</label>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                                            Buton Linki
+                                        </label>
                                         <input
                                             type="text"
-                                            value={slide.overlay?.ctaLink || ''}
-                                            onChange={(e) => handleUpdateOverlay(slide.id, 'ctaLink', e.target.value)}
+                                            value={slide.overlay?.ctaLink || ""}
+                                            onChange={(e) =>
+                                                handleUpdateOverlay(slide.id, "ctaLink", e.target.value)
+                                            }
                                             placeholder="/urunler"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Pozisyon</label>
+                                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                                            Pozisyon
+                                        </label>
                                         <div className="flex gap-2">
-                                            {(['left', 'center', 'right'] as const).map((pos) => (
+                                            {(["left", "center", "right"] as const).map((pos) => (
                                                 <button
                                                     key={pos}
                                                     type="button"
-                                                    onClick={() => handleUpdateOverlay(slide.id, 'position', pos)}
-                                                    className={`
-                                                        px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all
-                                                        ${slide.overlay?.position === pos
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}
-                                                    `}
+                                                    onClick={() => handleUpdateOverlay(slide.id, "position", pos)}
+                                                    className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
+                                                        slide.overlay?.position === pos
+                                                            ? "bg-blue-600 text-white"
+                                                            : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
+                                                    }`}
                                                 >
-                                                    {pos === 'left' ? 'Sol' : pos === 'center' ? 'Orta' : 'Sag'}
+                                                    {pos === "left" ? "Sol" : pos === "center" ? "Orta" : "Sag"}
                                                 </button>
                                             ))}
                                         </div>
@@ -481,12 +489,45 @@ export default function HeroBannerSettingsPage() {
 
                 <button
                     onClick={handleAddSlide}
-                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 font-medium"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-4 font-medium text-gray-500 transition-all hover:border-blue-500 hover:bg-blue-50/50 hover:text-blue-600"
                 >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-5 w-5" />
                     Yeni Slayt Ekle
                 </button>
             </div>
+        </div>
+    );
+}
+
+function UrlInput({ placeholder, onAdd }: { placeholder: string; onAdd: (value: string) => void }) {
+    const [value, setValue] = useState("");
+
+    return (
+        <div className="flex gap-2">
+            <input
+                type="text"
+                value={value}
+                placeholder={placeholder}
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" && value.trim()) {
+                        onAdd(value.trim());
+                        setValue("");
+                    }
+                }}
+            />
+            <button
+                type="button"
+                className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                onClick={() => {
+                    if (!value.trim()) return;
+                    onAdd(value.trim());
+                    setValue("");
+                }}
+            >
+                Ekle
+            </button>
         </div>
     );
 }
