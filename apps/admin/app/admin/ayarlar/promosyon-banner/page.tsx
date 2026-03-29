@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Image as ImageIcon, Loader2, Save, Trash2, Plus, Smartphone, Monitor, Sparkles, Palette, Zap } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 
 interface PromoBanner {
   id: number;
@@ -67,11 +66,8 @@ export default function PromoBannerSettingsPage() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "promo_banners")
-        .single();
+      const res = await fetch("/api/settings?key=promo_banners", { cache: "no-store" });
+      const data = await res.json();
 
       if (data?.value?.banners) {
         setBanners(data.value.banners);

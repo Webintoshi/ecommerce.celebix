@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { HeroSection } from "./ExistingSections";
 import ShopByCategory from "./ShopByCategory";
 import BestSellers from "./BestSellers";
@@ -34,26 +33,18 @@ export default function RedesignHome() {
   useEffect(() => {
     async function fetchHomepageData() {
       try {
-        const supabase = getBrowserSupabaseClient();
+        const response = await fetch("/api/homepage", { cache: "no-store" });
+        const payload = await response.json();
 
-        // Fetch all data in parallel
-        const [
-          { data: heroData },
-          { data: categoriesData },
-          { data: productsData },
-          { data: promoData }
-        ] = await Promise.all([
-          supabase.from("settings").select("value").eq("key", "hero_banners").single(),
-          supabase.from("categories").select("*").eq("is_active", true).order("sort_order", { ascending: true }).limit(6),
-          supabase.from("products").select("*, variants:product_variants(*)").eq("is_active", true).eq("status", "published").limit(8),
-          supabase.from("settings").select("value").eq("key", "promo_banners").single()
-        ]);
+        if (!response.ok) {
+          throw new Error(payload.error || "Anasayfa verileri yuklenemedi.");
+        }
 
         setData({
-          heroBanners: heroData?.value?.slides || [],
-          categories: categoriesData || [],
-          products: productsData || [],
-          promoBanners: promoData?.value?.banners || []
+          heroBanners: Array.isArray(payload.heroBanners) ? payload.heroBanners : [],
+          categories: Array.isArray(payload.categories) ? payload.categories : [],
+          products: Array.isArray(payload.products) ? payload.products : [],
+          promoBanners: Array.isArray(payload.promoBanners) ? payload.promoBanners : [],
         });
       } catch (err) {
         console.error(err);
