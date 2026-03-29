@@ -13,6 +13,27 @@ function getSupabase() {
   return getBrowserSupabaseClient();
 }
 
+async function requestCategoryApi<T = unknown>(
+  input: string,
+  init?: RequestInit
+): Promise<T> {
+  const response = await fetch(input, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.error || "Kategori istegi basarisiz oldu.");
+  }
+
+  return data as T;
+}
+
 const OPTIONAL_CATEGORY_COLUMNS = new Set([
   "icon",
   "is_active",
@@ -44,37 +65,39 @@ function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
   return nextPayload;
 }
 
-// Supabase'den kategorileri çek (Client-side)
+// Supabase'den kategorileri cek (Client-side read)
 export async function fetchCategories(): Promise<CategoryInfo[]> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .order("sort_order", { ascending: true });
+    .from("categories")
+    .select("*")
+    .order("sort_order", { ascending: true });
 
-    if (error) {
-      console.error("Error fetching categories:", error);
-      return [];
-    }
+  if (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
 
-    return data?.map((cat) => ({
+  return (
+    data?.map((cat) => ({
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
       description: cat.description || "",
       image: cat.image || "/placeholder.svg",
-      icon: cat.icon || "📦",
+      icon: cat.icon || "paket",
       productCount: 0,
       parent_id: cat.parent_id,
       sort_order: cat.sort_order || 0,
       is_active: cat.is_active !== false,
       seo_title: cat.seo_title || "",
       seo_description: cat.seo_description || "",
-    })) || [];
+    })) || []
+  );
 }
 
-// Server-side için kategori çekme
+// Server-side icin kategori cekme
 export async function fetchCategoriesServer() {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
@@ -93,7 +116,7 @@ export async function fetchCategoriesServer() {
   return data || [];
 }
 
-// Slug'a göre kategori getir (Client-side)
+// Slug'a gore kategori getir (Client-side read)
 export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
   const supabase = getSupabase();
 
@@ -115,41 +138,37 @@ export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | 
     slug: data.slug,
     description: data.description || "",
     image: data.image || "/placeholder.svg",
-    icon: data.icon || "📦",
+    icon: data.icon || "paket",
     productCount: 0,
   };
 }
 
 // =====================================================
-// ADMIN PANEL FONKSİYONLARI (Supabase ile)
+// ADMIN PANEL FONKSIYONLARI
+// Writes always go through /api/categories so service-role handles RLS.
 // =====================================================
 
-// ID'ye göre kategori getir (Admin için)
 export async function getCategoryById(id: string): Promise<CategoryInfo | undefined> {
-  const supabase = getSupabase();
+  const result = await requestCategoryApi<{ category?: Record<string, unknown> }>(
+    `/api/categories?id=${encodeURIComponent(id)}`,
+    { method: "GET" }
+  ).catch(() => null);
 
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error || !data) return undefined;
+  const data = result?.category;
+  if (!data) return undefined;
 
   return {
-    id: data.id,
-    name: data.name,
-    slug: data.slug,
-    description: data.description || "",
-    image: data.image || "/placeholder.jpg",
-    icon: data.icon || "📦",
+    id: String(data.id),
+    name: String(data.name),
+    slug: String(data.slug),
+    description: String(data.description || ""),
+    image: String(data.image || "/placeholder.jpg"),
+    icon: String(data.icon || "paket"),
     productCount: 0,
   };
 }
 
-// Kategori ekle (Admin için)
 export async function addCategory(category: CategoryAdminInput): Promise<void> {
-  const supabase = getSupabase();
   let payload: Record<string, unknown> = {
     name: category.name,
     slug: category.slug,
@@ -164,64 +183,63 @@ export async function addCategory(category: CategoryAdminInput): Promise<void> {
   };
 
   while (true) {
-    const { error } = await supabase.from("categories").insert(payload);
-    if (!error) return;
-
-    const nextPayload = stripUnsupportedCategoryColumn(payload, error);
-    if (!nextPayload) throw error;
-    payload = nextPayload;
+    try {
+      await requestCategoryApi("/api/categories", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return;
+    } catch (error) {
+      const nextPayload = stripUnsupportedCategoryColumn(payload, error);
+      if (!nextPayload) throw error;
+      payload = nextPayload;
+    }
   }
 }
 
-// Kategori güncelle (Admin için)
 export async function updateCategory(id: string, updatedCategory: Partial<CategoryAdminInput>): Promise<void> {
-  const supabase = getSupabase();
   let payload: Record<string, unknown> = {
-      name: updatedCategory.name,
-      slug: updatedCategory.slug,
-      description: updatedCategory.description,
-      image: updatedCategory.image,
-      icon: updatedCategory.icon,
-      parent_id: updatedCategory.parent_id || null,
-      sort_order: updatedCategory.sort_order || 0,
-      is_active: updatedCategory.is_active !== false,
-      seo_title: updatedCategory.seo_title || null,
-      seo_description: updatedCategory.seo_description || null,
-    };
+    name: updatedCategory.name,
+    slug: updatedCategory.slug,
+    description: updatedCategory.description,
+    image: updatedCategory.image,
+    icon: updatedCategory.icon,
+    parent_id: updatedCategory.parent_id || null,
+    sort_order: updatedCategory.sort_order || 0,
+    is_active: updatedCategory.is_active !== false,
+    seo_title: updatedCategory.seo_title || null,
+    seo_description: updatedCategory.seo_description || null,
+  };
 
   while (true) {
-    const { error } = await supabase
-      .from("categories")
-      .update(payload)
-      .eq("id", id);
-
-    if (!error) return;
-
-    const nextPayload = stripUnsupportedCategoryColumn(payload, error);
-    if (!nextPayload) throw error;
-    payload = nextPayload;
+    try {
+      await requestCategoryApi("/api/categories", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...payload }),
+      });
+      return;
+    } catch (error) {
+      const nextPayload = stripUnsupportedCategoryColumn(payload, error);
+      if (!nextPayload) throw error;
+      payload = nextPayload;
+    }
   }
 }
 
-// Kategori sil (Admin için)
 export async function deleteCategory(id: string): Promise<void> {
-  const supabase = getSupabase();
-
-  const { error } = await supabase.from("categories").delete().eq("id", id);
-  if (error) throw error;
+  await requestCategoryApi(`/api/categories?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
-// ESKİ getCategories - backwards compatibility
 export function getCategories(): CategoryInfo[] {
   console.warn("getCategories() is deprecated. Use fetchCategories() instead.");
   return [];
 }
 
-// ESKİ getCategoryBySlug - backwards compatibility  
 export function getCategoryBySlug(slug: string): CategoryInfo | undefined {
   console.warn("getCategoryBySlug() is deprecated. Use fetchCategoryBySlug() instead.");
   return undefined;
 }
 
-// BOŞ CATEGORIES ARRAY - Artık statik kategori yok!
 export const CATEGORIES: CategoryInfo[] = [];

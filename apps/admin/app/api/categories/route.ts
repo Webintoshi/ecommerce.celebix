@@ -492,6 +492,59 @@ export async function POST(request: NextRequest) {
 
     const supabase = await getSupabaseClient();
 
+    {
+      let insertPayload: Record<string, unknown> = {
+        name: sanitizeString(data.name, 200),
+        slug: sanitizeString(String(data.slug).toLowerCase(), 100),
+        description: data.description ? sanitizeString(String(data.description), 2000) : null,
+        image: data.image ? sanitizeString(String(data.image), 500) : null,
+        icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
+        sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
+        is_active: data.is_active !== false,
+        seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,
+        seo_description: data.seo_description
+          ? sanitizeString(String(data.seo_description), 500)
+          : null,
+        seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
+        faq: Array.isArray(data.faq) ? data.faq : [],
+        geo_data: data.geo_data || { keyTakeaways: [], entities: [] },
+      };
+
+      let createdCategory: unknown = null;
+
+      while (true) {
+        const { data: insertedCategory, error } = await supabase
+          .from("categories")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (!error) {
+          createdCategory = insertedCategory;
+          break;
+        }
+
+        console.error("Category creation error:", error);
+
+        if (error.code === "23505") {
+          throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
+        }
+
+        const nextPayload = stripUnsupportedCategoryColumn(insertPayload, error);
+        if (!nextPayload) {
+          throw new APIError("Failed to create category", 500, "CREATE_ERROR");
+        }
+
+        insertPayload = nextPayload;
+      }
+
+      if (!isValidCategory(createdCategory)) {
+        throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
+      }
+
+      return createSuccessResponse({ category: createdCategory }, 201, false);
+    }
+
     const { data: newCategory, error } = await supabase
       .from("categories")
       .insert({
@@ -553,6 +606,30 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = await getSupabaseClient();
+
+    {
+      let deletePayload: Record<string, unknown> = { is_active: false };
+
+      while (true) {
+        const { error } = await supabase
+          .from("categories")
+          .update(deletePayload)
+          .eq("id", id);
+
+        if (!error) {
+          return createSuccessResponse({}, 200, false);
+        }
+
+        console.error("Category delete error:", error);
+
+        const nextPayload = stripUnsupportedCategoryColumn(deletePayload, error);
+        if (!nextPayload) {
+          throw new APIError("Failed to delete category", 500, "DELETE_ERROR");
+        }
+
+        deletePayload = nextPayload;
+      }
+    }
 
     // Soft delete (set is_active to false)
     const { error } = await supabase
