@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { HeroSection } from "./HeroSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { BestSellersSection } from "./BestSellersSection";
@@ -10,9 +9,14 @@ import { NewsletterSection } from "./NewsletterSection";
 
 interface HeroBannerData {
   id: number;
-  image: string;
-  mobileImage?: string;
-  alt?: string;
+  desktop: string;
+  mobile: string;
+  alt: string;
+  link?: string;
+  title?: string;
+  subtitle?: string;
+  buttonText?: string;
+  buttonLink?: string;
 }
 
 interface HomepageData {
@@ -29,33 +33,18 @@ export default function RedesignHome() {
   useEffect(() => {
     async function fetchHomepageData() {
       try {
-        const supabase = getBrowserSupabaseClient();
+        const response = await fetch("/api/homepage", { cache: "no-store" });
+        const payload = await response.json();
 
-        const [
-          { data: heroData },
-          { data: categoriesData },
-          { data: productsData },
-          { data: promoData }
-        ] = await Promise.all([
-          supabase.from("settings").select("value").eq("key", "hero_banners").single(),
-          supabase.from("categories").select("*").eq("is_active", true).order("sort_order", { ascending: true }).limit(6),
-          supabase.from("products").select("*, variants:product_variants(*)").eq("is_active", true).eq("status", "published").limit(8),
-          supabase.from("settings").select("value").eq("key", "promo_banners").single()
-        ]);
-
-        // Transform hero banners from admin format
-        const heroSlides: HeroBannerData[] = heroData?.value?.slides?.map((slide: unknown, index: number) => ({
-          id: index + 1,
-          image: slide?.image || slide?.desktopImage || slide?.url || "/images/hero/banner-1.jpg",
-          mobileImage: slide?.mobileImage || slide?.image,
-          alt: slide?.alt || slide?.title || "Hero Banner",
-        })) || [];
+        if (!response.ok) {
+          throw new Error(payload.error || "Anasayfa verileri yuklenemedi.");
+        }
 
         setData({
-          heroBanners: heroSlides,
-          categories: categoriesData || [],
-          products: productsData || [],
-          promoBanners: promoData?.value?.banners || []
+          heroBanners: Array.isArray(payload.heroBanners) ? payload.heroBanners : [],
+          categories: Array.isArray(payload.categories) ? payload.categories : [],
+          products: Array.isArray(payload.products) ? payload.products : [],
+          promoBanners: Array.isArray(payload.promoBanners) ? payload.promoBanners : []
         });
       } catch (err) {
         console.error(err);
@@ -94,7 +83,7 @@ export default function RedesignHome() {
   return (
     <main className="min-h-screen bg-[#F8F8F8]">
       {/* Hero Section - Full-width image with transparent header */}
-      <HeroSection banners={data?.heroBanners} />
+      <HeroSection slides={data?.heroBanners} />
       
       {/* Categories Grid - Bento Style */}
       <CategoriesSection />

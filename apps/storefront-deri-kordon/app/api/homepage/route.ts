@@ -1,6 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 
+interface RawHeroSlide {
+    desktop?: string;
+    mobile?: string;
+    image?: string;
+    mobileImage?: string;
+    desktopImage?: string;
+    url?: string;
+    alt?: string;
+    title?: string;
+    subtitle?: string;
+    buttonText?: string;
+    buttonLink?: string;
+    link?: string;
+    overlay?: {
+        title?: string;
+        subtitle?: string;
+        ctaText?: string;
+        ctaLink?: string;
+    };
+}
+
+function normalizeHeroSlides(payload: unknown) {
+    const rawSlides = Array.isArray((payload as { slides?: unknown[] } | null)?.slides)
+        ? ((payload as { slides: unknown[] }).slides as RawHeroSlide[])
+        : [];
+
+    return rawSlides
+        .map((slide, index) => {
+            const desktop =
+                slide.desktop ||
+                slide.image ||
+                slide.desktopImage ||
+                slide.url ||
+                slide.mobile ||
+                slide.mobileImage ||
+                "";
+
+            const mobile =
+                slide.mobile ||
+                slide.mobileImage ||
+                slide.image ||
+                slide.desktop ||
+                slide.desktopImage ||
+                slide.url ||
+                desktop;
+
+            if (!desktop && !mobile) {
+                return null;
+            }
+
+            const title = slide.overlay?.title || slide.title || "";
+            const subtitle = slide.overlay?.subtitle || slide.subtitle || "";
+
+            return {
+                id: index + 1,
+                desktop,
+                mobile: mobile || desktop,
+                alt: slide.alt || title || `Hero Banner ${index + 1}`,
+                link: slide.link || slide.overlay?.ctaLink || undefined,
+                title,
+                subtitle,
+                buttonText: slide.overlay?.ctaText || slide.buttonText || "",
+                buttonLink: slide.overlay?.ctaLink || slide.buttonLink || slide.link || "",
+            };
+        })
+        .filter((slide): slide is NonNullable<typeof slide> => Boolean(slide));
+}
+
 export async function GET(request: NextRequest) {
     try {
         const supabase = createServerClient();
@@ -44,7 +112,7 @@ export async function GET(request: NextRequest) {
         ]);
 
         // Process hero banners
-        const heroBanners = heroBannersData.data?.value?.slides || [];
+        const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
 
         // Process categories
         const categories = (categoriesData.data || []).map(cat => ({
