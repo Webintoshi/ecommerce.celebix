@@ -13,6 +13,8 @@ import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
 
+export const dynamic = "force-dynamic";
+
 /* === PREMIUM TYPOGRAPHY === */
 const inter = Inter({
   subsets: ["latin"],
