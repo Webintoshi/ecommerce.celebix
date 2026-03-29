@@ -167,17 +167,17 @@ export function Header({ transparent = false }: HeaderProps) {
             {/* Logo */}
             <Link
               href={ROUTES.home}
-              className="flex items-center transition-transform duration-300 hover:scale-[1.02] relative"
+              className="relative flex h-10 w-[148px] items-center transition-transform duration-300 hover:scale-[1.02] sm:w-[164px] lg:h-12 lg:w-[188px]"
+              aria-label={logoAlt}
             >
               <Image
                 src={logoSrc}
                 alt={logoAlt}
-                width={200}
-                height={48}
-                className="h-8 w-auto lg:h-10"
+                fill
+                className="object-contain object-left"
                 priority
-                sizes="200px"
-                unoptimized
+                sizes="(max-width: 640px) 148px, (max-width: 1024px) 164px, 188px"
+                unoptimized={logoSrc.startsWith("http")}
               />
             </Link>
 

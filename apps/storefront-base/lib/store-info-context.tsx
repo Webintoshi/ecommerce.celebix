@@ -30,9 +30,17 @@ export function useStoreInfo() {
     return useContext(StoreInfoContext);
 }
 
-export function StoreInfoProvider({ children }: { children: React.ReactNode }) {
-    const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
-    const [loading, setLoading] = useState(true);
+interface StoreInfoProviderProps {
+    children: React.ReactNode;
+    initialStoreInfo?: StoreInfo | null;
+}
+
+export function StoreInfoProvider({
+    children,
+    initialStoreInfo = null,
+}: StoreInfoProviderProps) {
+    const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(initialStoreInfo);
+    const [loading, setLoading] = useState(initialStoreInfo === null);
 
     const fetchStoreInfo = async () => {
         try {
@@ -40,6 +48,8 @@ export function StoreInfoProvider({ children }: { children: React.ReactNode }) {
             const data = await res.json();
             if (data.success && data.storeInfo) {
                 setStoreInfo(data.storeInfo);
+            } else if (!data.success) {
+                throw new Error(data.error || "Store info getirilemedi.");
             }
         } catch (error) {
             console.error("Failed to fetch store info:", error);

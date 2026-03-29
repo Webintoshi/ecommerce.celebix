@@ -9,6 +9,7 @@ import { StoreInfoProvider } from "@/lib/store-info-context";
 import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getStoreInfo } from "@/lib/db/settings";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
@@ -91,12 +92,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
+  const initialStoreInfo = await getStoreInfo();
 
   return (
     <html lang="tr" suppressHydrationWarning className="scroll-smooth">
@@ -134,7 +136,7 @@ export default function RootLayout({
         <PromotionalBannersPreload />
         
         <TrackingProvider>
-          <StoreInfoProvider>
+          <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
             <AuthProvider>
               <CartProvider>
                 <WishlistProvider>

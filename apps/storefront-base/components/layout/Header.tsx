@@ -213,16 +213,16 @@ export function Header() {
         <div className="flex h-16 items-center gap-4 lg:h-20">
           <Link
             href={ROUTES.home}
-            className="flex items-center gap-2 transition-transform duration-300 hover:scale-105"
+            className="relative flex h-10 w-[148px] items-center transition-transform duration-300 hover:scale-105 sm:w-[164px] lg:h-12 lg:w-[188px]"
+            aria-label={logoAlt}
           >
             <Image
               src={logoSrc}
               alt={logoAlt}
-              width={120}
-              height={48}
-              className="h-10 w-auto lg:h-12"
+              fill
+              className="object-contain object-left"
               priority
-              sizes="120px"
+              sizes="(max-width: 640px) 148px, (max-width: 1024px) 164px, 188px"
               unoptimized={logoSrc.startsWith("http")}
             />
           </Link>

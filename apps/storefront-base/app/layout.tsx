@@ -12,6 +12,7 @@ import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getStoreInfo } from "@/lib/db/settings";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
@@ -83,12 +84,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
+  const initialStoreInfo = await getStoreInfo();
 
   return (
     <html lang="tr" suppressHydrationWarning>
@@ -118,7 +120,7 @@ export default function RootLayout({
         ) : null}
         <PromotionalBannersPreload />
         <TrackingProvider>
-          <StoreInfoProvider>
+          <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
             <AuthProvider>
               <CartProvider>
                 <WishlistProvider>

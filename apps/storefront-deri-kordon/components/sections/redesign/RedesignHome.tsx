@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { HeroSection } from "./HeroSection";
 import { CategoriesSection } from "./CategoriesSection";
-import { CraftsmanshipSection } from "./CraftsmanshipSection";
 import { BestSellersSection } from "./BestSellersSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { NewsletterSection } from "./NewsletterSection";
@@ -99,9 +98,6 @@ export default function RedesignHome() {
       
       {/* Categories Grid - Bento Style */}
       <CategoriesSection />
-      
-      {/* Craftsmanship Story */}
-      <CraftsmanshipSection />
       
       {/* Best Sellers */}
       <BestSellersSection />
