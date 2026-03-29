@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Product } from "@/types/product";
 import { addStoredProducts } from "@/lib/product-storage";
 import { parseShopifyCSV } from "@/lib/csv-import";
+import { buildStorefrontProductUrl } from "@/lib/store-runtime";
 
 interface ImportResult {
   success: boolean;
@@ -238,8 +239,9 @@ export default function AutoImportPage() {
                           </div>
                         </div>
                         <Link
-                          href={`/urunler/${product.slug}`}
+                          href={buildStorefrontProductUrl(product.slug)}
                           target="_blank"
+                          rel="noreferrer"
                           className="text-primary hover:underline text-sm"
                         >
                           Görüntüle

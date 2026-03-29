@@ -42,3 +42,13 @@ export const STORE_RUNTIME = {
 export function getStoreRuntime() {
   return STORE_RUNTIME;
 }
+
+export function buildStorefrontUrl(path = "/") {
+  const baseUrl = STORE_RUNTIME.storefrontUrl.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
+export function buildStorefrontProductUrl(slug: string) {
+  return buildStorefrontUrl(`/urunler/${slug}`);
+}

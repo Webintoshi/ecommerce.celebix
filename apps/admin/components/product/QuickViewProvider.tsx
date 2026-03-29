@@ -6,6 +6,7 @@ import { Product } from "@/types/product";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
+import { buildStorefrontProductUrl } from "@/lib/store-runtime";
 import { X, Heart, Star, ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart-context";
@@ -333,7 +334,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
 
               <div className="flex gap-3">
                 <Link
-                  href={`/urun/${product.slug}`}
+                  href={buildStorefrontProductUrl(product.slug)}
                   className="flex-1 py-3 bg-gray-100 text-gray-900 text-center font-semibold rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                 >
                   Ürünü İncele

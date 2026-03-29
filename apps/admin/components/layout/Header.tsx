@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
-import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { STORE_RUNTIME, buildStorefrontProductUrl } from "@/lib/store-runtime";
 import {
   Search,
   Menu,
@@ -314,7 +314,7 @@ export function Header() {
                         {searchResults.map((product) => (
                           <Link
                             key={product.id}
-                            href={ROUTES.product(product.slug)}
+                            href={buildStorefrontProductUrl(product.slug)}
                             className="flex items-center gap-4 p-3 hover:bg-primary/5 rounded-xl transition-colors group"
                             onClick={() => {
                               setIsSearchOpen(false);
@@ -430,7 +430,7 @@ export function Header() {
                           {searchResults.slice(0, 5).map((product) => (
                             <Link
                               key={product.id}
-                              href={ROUTES.product(product.slug)}
+                              href={buildStorefrontProductUrl(product.slug)}
                               className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors"
                               onClick={() => {
                                 setIsMenuOpen(false);

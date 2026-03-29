@@ -6,6 +6,7 @@ import { Star, ShoppingCart, Heart, Eye, ArrowRight } from "lucide-react";
 import { Product } from "@/types/product";
 import { formatPrice } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
+import { buildStorefrontProductUrl } from "@/lib/store-runtime";
 import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useQuickView } from "@/components/product/QuickViewProvider";
@@ -31,7 +32,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
   if (!product.variants || product.variants.length === 0) {
     return (
       <Link 
-        href={`${ROUTES.PRODUCTS}/${product.slug}`}
+        href={buildStorefrontProductUrl(product.slug)}
         className="block group"
       >
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
@@ -172,7 +173,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
   if (viewMode === "list") {
     return (
       <Link
-        href={ROUTES.product(product.slug)}
+        href={buildStorefrontProductUrl(product.slug)}
         className="group block"
         style={{ animationDelay: `${index * 50}ms` }}
       >
@@ -272,7 +273,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
       transition={{ delay: index * 0.05, duration: 0.4 }}
     >
       <Link
-        href={ROUTES.product(product.slug)}
+        href={buildStorefrontProductUrl(product.slug)}
         className="group block"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

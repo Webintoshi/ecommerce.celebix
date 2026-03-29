@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag, Package } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { buildStorefrontProductUrl } from "@/lib/store-runtime";
 
 // Configure Next.js Image for external domains
 const imageLoader = ({ src }: { src: string }) => {
@@ -117,7 +118,9 @@ export function OrderItemsList({
               <div className="flex-1 min-w-0">
                 {item.product?.slug ? (
                   <Link
-                    href={`/urunler/${item.product.slug}`}
+                    href={buildStorefrontProductUrl(item.product.slug)}
+                    target="_blank"
+                    rel="noreferrer"
                     className="font-bold text-gray-900 hover:text-primary transition-colors"
                   >
                     {item.product_name}
