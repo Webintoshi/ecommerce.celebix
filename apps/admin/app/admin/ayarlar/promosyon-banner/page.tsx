@@ -69,8 +69,12 @@ export default function PromoBannerSettingsPage() {
       const res = await fetch("/api/settings?key=promo_banners", { cache: "no-store" });
       const data = await res.json();
 
-      if (data?.value?.banners) {
-        setBanners(data.value.banners);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Promosyon banner ayarlari yuklenemedi.");
+      }
+
+      if (data.setting?.value?.banners) {
+        setBanners(data.setting.value.banners);
       } else {
         setBanners([]);
       }
@@ -85,14 +89,19 @@ export default function PromoBannerSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("settings")
-        .upsert({
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           key: "promo_banners",
           value: { banners }
-        }, { onConflict: "key" });
+        }),
+      });
+      const data = await res.json();
 
-      if (error) throw error;
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Promosyon banner ayarlari kaydedilemedi.");
+      }
       toast.success("Ayarlar başarıyla kaydedildi.");
     } catch (error) {
       console.error("Error saving settings:", error);
