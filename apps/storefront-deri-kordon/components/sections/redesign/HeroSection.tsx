@@ -8,12 +8,17 @@ import Image from "next/image";
 
 interface HeroBanner {
   id: number;
-  image: string;
-  mobileImage?: string;
+  desktop: string;
+  mobile?: string;
   alt: string;
+  title?: string;
+  subtitle?: string;
+  buttonText?: string;
+  buttonLink?: string;
 }
 
 interface HeroSectionProps {
+  slides?: HeroBanner[];
   banners?: HeroBanner[];
 }
 
@@ -21,23 +26,21 @@ interface HeroSectionProps {
 const defaultBanners: HeroBanner[] = [
   {
     id: 1,
-    image: "/images/hero/banner-1.jpg",
-    mobileImage: "/images/hero/banner-1-mobile.jpg",
+    desktop: "/Hero_banner_Bir.jpg",
+    mobile: "/hero-banner-fistik-ezmeleri-mobile.jpg",
     alt: "Premium Deri Ürünler",
   },
 ];
 
-export function HeroSection({ banners }: HeroSectionProps) {
+export function HeroSection({ slides, banners }: HeroSectionProps) {
   const [current, setCurrent] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [direction, setDirection] = useState(0);
   
   // Use provided banners or default
-  const heroBanners = banners && banners.length > 0 ? banners : defaultBanners;
-
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
+  const heroBanners =
+    (slides && slides.length > 0 ? slides : null) ||
+    (banners && banners.length > 0 ? banners : null) ||
+    defaultBanners;
 
   // Auto-slide (optional - can be disabled if only one banner)
   useEffect(() => {
@@ -82,15 +85,10 @@ export function HeroSection({ banners }: HeroSectionProps) {
     }),
   };
 
-  if (!isLoaded) {
-    return (
-      <section className="relative w-full h-[70vh] min-h-[500px] max-h-[900px] bg-[#0F1626]">
-        <div className="absolute inset-0 animate-pulse bg-[#1A2332]" />
-      </section>
-    );
-  }
-
   const currentBanner = heroBanners[current];
+  const desktopSrc = currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop;
+  const mobileSrc =
+    currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc;
 
   return (
     <section className="relative w-full h-[70vh] min-h-[500px] max-h-[900px] overflow-hidden bg-[#0F1626]">
@@ -112,26 +110,28 @@ export function HeroSection({ banners }: HeroSectionProps) {
           {/* Desktop Image */}
           <div className="absolute inset-0 hidden md:block">
             <Image
-              src={currentBanner.image}
+              src={desktopSrc}
               alt={currentBanner.alt}
               fill
               priority
               className="object-cover"
               sizes="100vw"
               quality={90}
+              unoptimized={desktopSrc.startsWith("http")}
             />
           </div>
           
           {/* Mobile Image */}
           <div className="absolute inset-0 md:hidden">
             <Image
-              src={currentBanner.mobileImage || currentBanner.image}
+              src={mobileSrc}
               alt={currentBanner.alt}
               fill
               priority
               className="object-cover"
               sizes="100vw"
               quality={85}
+              unoptimized={mobileSrc.startsWith("http")}
             />
           </div>
           

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 
 interface RawHeroSlide {
+    id?: string | number;
     desktop?: string;
     mobile?: string;
     image?: string;
@@ -22,17 +23,40 @@ interface RawHeroSlide {
     };
 }
 
+interface RawPromoBanner {
+    id?: string | number;
+    image?: string;
+    mobileImage?: string;
+    desktop?: string;
+    mobile?: string;
+    desktopImage?: string;
+    title?: string;
+    subtitle?: string;
+    buttonText?: string;
+    buttonLink?: string;
+    link?: string;
+    order?: number;
+    badge?: string;
+    color?: string;
+    discount?: string;
+    endDate?: string;
+}
+
 function normalizeHeroSlides(payload: unknown) {
-    const rawSlides = Array.isArray((payload as { slides?: unknown[] } | null)?.slides)
-        ? ((payload as { slides: unknown[] }).slides as RawHeroSlide[])
-        : [];
+    const rawSlides = Array.isArray(payload)
+        ? (payload as RawHeroSlide[])
+        : Array.isArray((payload as { slides?: unknown[] } | null)?.slides)
+            ? ((payload as { slides: unknown[] }).slides as RawHeroSlide[])
+            : Array.isArray((payload as { banners?: unknown[] } | null)?.banners)
+                ? ((payload as { banners: unknown[] }).banners as RawHeroSlide[])
+                : [];
 
     return rawSlides
         .map((slide, index) => {
             const desktop =
                 slide.desktop ||
-                slide.image ||
                 slide.desktopImage ||
+                slide.image ||
                 slide.url ||
                 slide.mobile ||
                 slide.mobileImage ||
@@ -53,9 +77,13 @@ function normalizeHeroSlides(payload: unknown) {
 
             const title = slide.overlay?.title || slide.title || "";
             const subtitle = slide.overlay?.subtitle || slide.subtitle || "";
+            const rawId = slide.id;
 
             return {
-                id: index + 1,
+                id:
+                    typeof rawId === "number" || typeof rawId === "string"
+                        ? rawId
+                        : index + 1,
                 desktop,
                 mobile: mobile || desktop,
                 alt: slide.alt || title || `Hero Banner ${index + 1}`,
@@ -69,66 +97,155 @@ function normalizeHeroSlides(payload: unknown) {
         .filter((slide): slide is NonNullable<typeof slide> => Boolean(slide));
 }
 
+function normalizePromoBanners(payload: unknown) {
+    const rawBanners = Array.isArray(payload)
+        ? (payload as RawPromoBanner[])
+        : Array.isArray((payload as { banners?: unknown[] } | null)?.banners)
+            ? ((payload as { banners: unknown[] }).banners as RawPromoBanner[])
+            : Array.isArray((payload as { slides?: unknown[] } | null)?.slides)
+                ? ((payload as { slides: unknown[] }).slides as RawPromoBanner[])
+                : [];
+
+    return rawBanners
+        .map((banner, index) => {
+            const image =
+                banner.image ||
+                banner.desktop ||
+                banner.desktopImage ||
+                banner.mobile ||
+                banner.mobileImage ||
+                "";
+
+            if (!image) {
+                return null;
+            }
+
+            const rawId = banner.id;
+
+            return {
+                id:
+                    typeof rawId === "number" || typeof rawId === "string"
+                        ? rawId
+                        : index + 1,
+                image,
+                mobileImage: banner.mobileImage || banner.mobile || image,
+                title: banner.title || `Kampanya ${index + 1}`,
+                subtitle: banner.subtitle || "",
+                buttonText: banner.buttonText || "Incele",
+                buttonLink: banner.buttonLink || banner.link || "/urunler",
+                order: typeof banner.order === "number" ? banner.order : index + 1,
+                badge: banner.badge,
+                color: banner.color,
+                discount: banner.discount,
+                endDate: banner.endDate,
+            };
+        })
+        .filter((banner): banner is NonNullable<typeof banner> => Boolean(banner));
+}
+
+async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+    const activeQuery = await supabase
+        .from("categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(6);
+
+    if (!activeQuery.error && (activeQuery.data?.length ?? 0) > 0) {
+        return activeQuery.data ?? [];
+    }
+
+    const fallbackQuery = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .limit(6);
+
+    if (fallbackQuery.error) {
+        throw fallbackQuery.error;
+    }
+
+    return fallbackQuery.data ?? [];
+}
+
+async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
+    const strictQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*)")
+        .eq("is_active", true)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+    if (!strictQuery.error && (strictQuery.data?.length ?? 0) > 0) {
+        return strictQuery.data ?? [];
+    }
+
+    const publishedQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*)")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+    if (!publishedQuery.error && (publishedQuery.data?.length ?? 0) > 0) {
+        return publishedQuery.data ?? [];
+    }
+
+    const fallbackQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*)")
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+    if (fallbackQuery.error) {
+        throw fallbackQuery.error;
+    }
+
+    return fallbackQuery.data ?? [];
+}
+
 export async function GET(request: NextRequest) {
     try {
         const supabase = createServerClient();
 
-        // Parallel data fetching for performance
         const [
             heroBannersData,
             categoriesData,
             productsData,
             promoBannersData
         ] = await Promise.all([
-            // Hero banners
             supabase
                 .from("settings")
                 .select("value")
                 .eq("key", "hero_banners")
-                .single(),
-            
-            // Categories
-            supabase
-                .from("categories")
-                .select("*")
-                .eq("is_active", true)
-                .order("sort_order", { ascending: true })
-                .limit(6),
-            
-            // Products - limited to 8
-            supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_active", true)
-                .eq("status", "published")
-                .limit(8),
-            
-            // Promo banners
+                .maybeSingle(),
+            fetchHomepageCategories(supabase),
+            fetchHomepageProducts(supabase),
             supabase
                 .from("settings")
                 .select("value")
                 .eq("key", "promo_banners")
-                .single()
+                .maybeSingle()
         ]);
 
         // Process hero banners
         const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
 
         // Process categories
-        const categories = (categoriesData.data || []).map(cat => ({
+        const categories = (categoriesData || []).map(cat => ({
             id: cat.id,
             name: cat.name,
             slug: cat.slug,
             description: cat.description,
             image: cat.image,
-            productCount: 0 // Can be calculated if needed
+            productCount: typeof cat.product_count === "number" ? cat.product_count : 0
         }));
 
-        // Process products
-        const products = productsData.data || [];
+        const products = productsData || [];
 
         // Process promo banners
-        const promoBanners = promoBannersData.data?.value?.banners || [];
+        const promoBanners = normalizePromoBanners(promoBannersData.data?.value);
 
         return NextResponse.json({
             heroBanners,

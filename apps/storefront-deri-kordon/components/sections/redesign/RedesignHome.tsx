@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { HeroSection } from "./HeroSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { BestSellersSection } from "./BestSellersSection";
+import PromotionalBanners from "./PromotionalBanners";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { NewsletterSection } from "./NewsletterSection";
 
@@ -83,13 +84,16 @@ export default function RedesignHome() {
   return (
     <main className="min-h-screen bg-[#F8F8F8]">
       {/* Hero Section - Full-width image with transparent header */}
-      <HeroSection slides={data?.heroBanners} />
+      <HeroSection slides={data?.heroBanners || []} />
       
       {/* Categories Grid - Bento Style */}
-      <CategoriesSection />
+      <CategoriesSection initialCategories={(data?.categories as never[]) || []} />
       
       {/* Best Sellers */}
-      <BestSellersSection />
+      <BestSellersSection initialProducts={(data?.products as never[]) || []} />
+
+      {/* Promotional Banners */}
+      <PromotionalBanners initialBanners={(data?.promoBanners as never[]) || []} />
       
       {/* Testimonials */}
       <TestimonialsSection />

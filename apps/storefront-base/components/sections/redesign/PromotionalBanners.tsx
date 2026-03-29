@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Percent, Sparkles } from "lucide-react";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export interface PromoBanner {
-  id: number;
+  id: number | string;
   image: string;
   mobileImage?: string;
   title: string;
@@ -47,7 +46,7 @@ function getDefaultBanners(): PromoBanner[] {
       image: "/placeholders/promo-banner-1.svg",
       mobileImage: "/placeholders/promo-banner-1.svg",
       title: "Yeni koleksiyonunu konumlandir",
-      subtitle: "Hazir hero alanı",
+      subtitle: "Hazir hero alani",
       buttonText: "Urunleri gor",
       buttonLink: "/urunler",
       order: 1,
@@ -84,40 +83,89 @@ function getDefaultBanners(): PromoBanner[] {
   ];
 }
 
+function normalizeBanners(payload: unknown): PromoBanner[] {
+  const rawBanners = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { banners?: unknown[] } | null)?.banners)
+      ? (payload as { banners: unknown[] }).banners
+      : [];
+
+  return rawBanners
+    .map((rawBanner, index) => {
+      if (!rawBanner || typeof rawBanner !== "object") {
+        return null;
+      }
+
+      const banner = rawBanner as Partial<PromoBanner> & {
+        desktop?: string;
+        mobile?: string;
+        desktopImage?: string;
+      };
+
+      const image =
+        banner.image ||
+        banner.desktop ||
+        banner.desktopImage ||
+        banner.mobile ||
+        banner.mobileImage ||
+        "";
+
+      if (!image) {
+        return null;
+      }
+
+      return {
+        id: banner.id || index + 1,
+        image,
+        mobileImage: banner.mobileImage || banner.mobile || image,
+        title: banner.title || `Kampanya ${index + 1}`,
+        subtitle: banner.subtitle || "",
+        buttonText: banner.buttonText || "Incele",
+        buttonLink: banner.buttonLink || "/urunler",
+        order: typeof banner.order === "number" ? banner.order : index + 1,
+        badge: banner.badge,
+        color: banner.color,
+        discount: banner.discount,
+        endDate: banner.endDate,
+      };
+    })
+    .filter((banner): banner is PromoBanner => Boolean(banner));
+}
+
+function withDefaults(banners: PromoBanner[]): PromoBanner[] {
+  return banners.map((banner) => ({
+    ...banner,
+    badge: banner.badge || getDefaultBadge(banner.order),
+    color: banner.color || getDefaultColor(banner.order),
+    discount: banner.discount || getDefaultDiscount(banner.order),
+  }));
+}
+
 export default function PromotionalBanners({
   initialBanners = [],
 }: PromotionalBannersProps) {
-  const [banners, setBanners] = useState<PromoBanner[]>(initialBanners);
-  const [loading, setLoading] = useState(!initialBanners.length);
+  const normalizedInitialBanners = withDefaults(normalizeBanners(initialBanners));
+  const [banners, setBanners] = useState<PromoBanner[]>(normalizedInitialBanners);
+  const [loading, setLoading] = useState(normalizedInitialBanners.length === 0);
 
   useEffect(() => {
     async function fetchBanners() {
-      if (initialBanners.length > 0) {
-        setBanners(initialBanners);
+      if (normalizedInitialBanners.length > 0) {
+        setBanners(normalizedInitialBanners);
         setLoading(false);
         return;
       }
 
       try {
-        const supabase = getBrowserSupabaseClient();
-        const { data } = await supabase
-          .from("settings")
-          .select("value")
-          .eq("key", "promo_banners")
-          .single();
+        const response = await fetch("/api/homepage", { cache: "no-store" });
+        const payload = await response.json();
 
-        if (data?.value?.banners?.length) {
-          const mergedBanners = data.value.banners.map((banner: PromoBanner) => ({
-            ...banner,
-            badge: banner.badge || getDefaultBadge(banner.order),
-            color: banner.color || getDefaultColor(banner.order),
-            discount: banner.discount || getDefaultDiscount(banner.order),
-          }));
-
-          setBanners(mergedBanners);
-        } else {
-          setBanners(getDefaultBanners());
+        if (!response.ok) {
+          throw new Error(payload.error || "Promosyon banner verileri yuklenemedi.");
         }
+
+        const normalizedBanners = withDefaults(normalizeBanners(payload.promoBanners));
+        setBanners(normalizedBanners.length > 0 ? normalizedBanners : getDefaultBanners());
       } catch {
         setBanners(getDefaultBanners());
       } finally {
@@ -125,8 +173,8 @@ export default function PromotionalBanners({
       }
     }
 
-    fetchBanners();
-  }, [initialBanners]);
+    void fetchBanners();
+  }, [normalizedInitialBanners]);
 
   if (loading) {
     return (
@@ -175,6 +223,7 @@ export default function PromotionalBanners({
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                   sizes="(max-width: 1024px) 100vw, 62vw"
                   priority
+                  unoptimized={featured.image.startsWith("http")}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
                 <div className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-bold text-white shadow-lg">
@@ -207,6 +256,7 @@ export default function PromotionalBanners({
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                     sizes="(max-width: 1024px) 100vw, 38vw"
+                    unoptimized={banner.image.startsWith("http")}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                   <div className="absolute right-4 top-4 rounded-full border border-white/30 bg-white/20 px-3 py-1 text-sm font-bold text-white backdrop-blur-sm">
