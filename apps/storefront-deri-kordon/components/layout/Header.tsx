@@ -33,7 +33,11 @@ import { useCart } from "@/lib/cart-context";
 import { searchProducts } from "@/lib/products";
 import type { Product, CategoryInfo } from "@/types/product";
 
-export function Header() {
+interface HeaderProps {
+  transparent?: boolean;
+}
+
+export function Header({ transparent = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,33 +119,44 @@ export function Header() {
     setIsSearchOpen(false);
   };
 
+  // Determine header style based on transparent prop and scroll state
+  const isTransparent = transparent && !isScrolled;
+
   return (
     <>
-      {/* Top Bar - Premium Announcement */}
-      <div className="bg-[#0F1626] text-white py-2.5">
-        <div className="container-premium flex items-center justify-center gap-2 text-xs tracking-wider uppercase">
-          <Truck className="h-3.5 w-3.5 text-[#8A6B37]" />
-          <span className="text-white/90">{TOP_BAR_MESSAGE}</span>
+      {/* Top Bar - Hidden when transparent header on hero */}
+      {!isTransparent && (
+        <div className="bg-[#0F1626] text-white py-2.5">
+          <div className="container-premium flex items-center justify-center gap-2 text-xs tracking-wider uppercase">
+            <Truck className="h-3.5 w-3.5 text-[#8A6B37]" />
+            <span className="text-white/90">{TOP_BAR_MESSAGE}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Header */}
       <header 
-        className={`sticky top-0 z-[100] w-full transition-all duration-300 ${
+        className={`${isTransparent ? 'absolute' : 'sticky'} top-0 z-[100] w-full transition-all duration-500 ${
           isScrolled 
             ? "bg-white/95 backdrop-blur-md shadow-sm" 
-            : "bg-white"
+            : isTransparent
+              ? "bg-transparent"
+              : "bg-white"
         }`}
       >
         <div className="container-premium">
           <div className="flex h-16 lg:h-20 items-center justify-between">
             {/* Mobile Menu Button */}
             <button
-              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-[#0F1626]/5 transition-colors"
+              className={`lg:hidden p-2 -ml-2 rounded-lg transition-colors ${
+                isTransparent && !isScrolled 
+                  ? "text-white hover:bg-white/10" 
+                  : "text-[#0F1626] hover:bg-[#0F1626]/5"
+              }`}
               onClick={() => setIsMenuOpen(true)}
               aria-label="Menüyü aç"
             >
-              <Menu className="h-5 w-5 text-[#0F1626]" />
+              <Menu className={`h-5 w-5 ${isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"}`} />
             </button>
 
             {/* Logo */}
@@ -149,7 +164,9 @@ export function Header() {
               href={ROUTES.home}
               className="flex items-center transition-transform duration-300 hover:scale-[1.02]"
             >
-              <span className="font-serif text-xl lg:text-2xl font-semibold text-[#0F1626] tracking-tight">
+              <span className={`font-serif text-xl lg:text-2xl font-semibold tracking-tight transition-colors duration-300 ${
+                isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"
+              }`}>
                 DERİ <span className="text-[#8A6B37]">KORDON</span>
               </span>
             </Link>
@@ -165,10 +182,16 @@ export function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="relative text-sm font-medium text-[#0F1626]/80 hover:text-[#0F1626] transition-colors tracking-wide group"
+                  className={`relative text-sm font-medium transition-colors tracking-wide group ${
+                    isTransparent && !isScrolled 
+                      ? "text-white/80 hover:text-white" 
+                      : "text-[#0F1626]/80 hover:text-[#0F1626]"
+                  }`}
                 >
                   {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-[#8A6B37] transition-all duration-300 group-hover:w-full" />
+                  <span className={`absolute -bottom-1 left-0 w-0 h-[2px] transition-all duration-300 group-hover:w-full ${
+                    isTransparent && !isScrolled ? "bg-white" : "bg-[#8A6B37]"
+                  }`} />
                 </Link>
               ))}
             </nav>
@@ -177,20 +200,28 @@ export function Header() {
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Search */}
               <button
-                className="p-2.5 rounded-lg transition-colors hover:bg-[#0F1626]/5"
+                className={`p-2.5 rounded-lg transition-colors ${
+                  isTransparent && !isScrolled 
+                    ? "text-white hover:bg-white/10" 
+                    : "text-[#0F1626] hover:bg-[#0F1626]/5"
+                }`}
                 onClick={() => setIsSearchOpen(true)}
                 aria-label="Ara"
               >
-                <Search className="h-5 w-5 text-[#0F1626]" />
+                <Search className={`h-5 w-5 ${isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"}`} />
               </button>
 
               {/* Wishlist - Desktop */}
               <Link
                 href={ROUTES.wishlist}
-                className="hidden sm:flex p-2.5 rounded-lg transition-colors hover:bg-[#0F1626]/5 relative"
+                className={`hidden sm:flex p-2.5 rounded-lg transition-colors relative ${
+                  isTransparent && !isScrolled 
+                    ? "text-white hover:bg-white/10" 
+                    : "text-[#0F1626] hover:bg-[#0F1626]/5"
+                }`}
                 aria-label="Favoriler"
               >
-                <Heart className="h-5 w-5 text-[#0F1626]" />
+                <Heart className={`h-5 w-5 ${isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"}`} />
                 {favoritesCount > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-[#8A6B37] text-white text-[10px] font-medium rounded-full flex items-center justify-center">
                     {favoritesCount}
@@ -201,21 +232,31 @@ export function Header() {
               {/* Account - Desktop */}
               <Link
                 href={user ? "/hesap" : ROUTES.login}
-                className="hidden sm:flex p-2.5 rounded-lg transition-colors hover:bg-[#0F1626]/5"
+                className={`hidden sm:flex p-2.5 rounded-lg transition-colors ${
+                  isTransparent && !isScrolled 
+                    ? "text-white hover:bg-white/10" 
+                    : "text-[#0F1626] hover:bg-[#0F1626]/5"
+                }`}
                 aria-label={user ? "Hesabım" : "Giriş Yap"}
               >
-                <User className="h-5 w-5 text-[#0F1626]" />
+                <User className={`h-5 w-5 ${isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"}`} />
               </Link>
 
               {/* Cart */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 rounded-lg bg-[#0F1626] text-white hover:bg-[#0F1626]/90 transition-colors"
+                className={`relative p-2.5 rounded-lg transition-colors ${
+                  isTransparent && !isScrolled 
+                    ? "bg-white text-[#0F1626] hover:bg-white/90" 
+                    : "bg-[#0F1626] text-white hover:bg-[#0F1626]/90"
+                }`}
                 aria-label="Sepet"
               >
                 <ShoppingBag className="h-5 w-5" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#8A6B37] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                  <span className={`absolute -top-1 -right-1 w-5 h-5 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 ${
+                    isTransparent && !isScrolled ? "border-white bg-[#8A6B37]" : "border-white bg-[#8A6B37]"
+                  }`}>
                     {cartItemCount}
                   </span>
                 )}

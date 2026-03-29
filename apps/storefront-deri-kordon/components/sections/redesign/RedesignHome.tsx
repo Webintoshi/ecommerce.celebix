@@ -9,8 +9,15 @@ import { BestSellersSection } from "./BestSellersSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { NewsletterSection } from "./NewsletterSection";
 
+interface HeroBannerData {
+  id: number;
+  image: string;
+  mobileImage?: string;
+  alt?: string;
+}
+
 interface HomepageData {
-  heroBanners: unknown[];
+  heroBanners: HeroBannerData[];
   categories: unknown[];
   products: unknown[];
   promoBanners: unknown[];
@@ -37,8 +44,16 @@ export default function RedesignHome() {
           supabase.from("settings").select("value").eq("key", "promo_banners").single()
         ]);
 
+        // Transform hero banners from admin format
+        const heroSlides: HeroBannerData[] = heroData?.value?.slides?.map((slide: unknown, index: number) => ({
+          id: index + 1,
+          image: slide?.image || slide?.desktopImage || slide?.url || "/images/hero/banner-1.jpg",
+          mobileImage: slide?.mobileImage || slide?.image,
+          alt: slide?.alt || slide?.title || "Hero Banner",
+        })) || [];
+
         setData({
-          heroBanners: heroData?.value?.slides || [],
+          heroBanners: heroSlides,
           categories: categoriesData || [],
           products: productsData || [],
           promoBanners: promoData?.value?.banners || []
@@ -56,7 +71,7 @@ export default function RedesignHome() {
     return (
       <main className="min-h-screen bg-[#F8F8F8]">
         {/* Hero Skeleton */}
-        <div className="w-full h-screen min-h-[700px] bg-[#0F1626] animate-pulse" />
+        <div className="w-full h-[70vh] min-h-[500px] bg-[#0F1626] animate-pulse" />
         
         {/* Categories Skeleton */}
         <section className="py-24 lg:py-32 bg-[#FAFAFA]">
@@ -79,8 +94,8 @@ export default function RedesignHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F8F8]">
-      {/* Hero Section - Cinematic Fullscreen */}
-      <HeroSection />
+      {/* Hero Section - Full-width image with transparent header */}
+      <HeroSection banners={data?.heroBanners} />
       
       {/* Categories Grid - Bento Style */}
       <CategoriesSection />
