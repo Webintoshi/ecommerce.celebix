@@ -12,7 +12,7 @@ interface CategoriesSectionProps {
   initialCategories?: CategoryInfo[];
 }
 
-// Default categories with Lucide icons - 6 items for 3x2 grid
+// Default categories with Lucide icons - 6 items for 3+3 grid
 const defaultCategories = [
   {
     id: "1",
@@ -121,6 +121,10 @@ export function CategoriesSection({ initialCategories }: CategoriesSectionProps)
       }))
     : defaultCategories;
 
+  // Split into two rows
+  const topRow = displayCategories.slice(0, 3);
+  const bottomRow = displayCategories.slice(3, 6);
+
   return (
     <section className="py-16 lg:py-24 bg-[#F8F8F8]">
       <div className="container-premium">
@@ -143,69 +147,127 @@ export function CategoriesSection({ initialCategories }: CategoriesSectionProps)
           </p>
         </motion.div>
 
-        {/* Categories Grid - 3x2 Layout with Fixed 300x400px Size */}
+        {/* Categories Grid - 2 Rows of 3, Horizontal Cards */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="flex flex-wrap justify-center gap-6 lg:gap-8"
+          className="space-y-6"
         >
-          {displayCategories.map((category, index) => {
-            const IconComponent = category.icon;
-            return (
-              <motion.div
-                key={category.id}
-                variants={itemVariants}
-                className="group"
-              >
-                <Link href={ROUTES.category(category.slug)}>
-                  {/* Card Container - Fixed 300x400px */}
-                  <div 
-                    className="relative w-[300px] h-[400px] bg-[#0F1626] rounded-xl lg:rounded-2xl overflow-hidden hover:bg-[#1a2332] transition-colors duration-300"
-                  >
-                    
-                    {/* Content */}
-                    <div className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center">
-                      {/* Icon */}
-                      <div className="w-20 h-20 rounded-full bg-[#8A6B37]/20 flex items-center justify-center mb-6 group-hover:bg-[#8A6B37]/30 transition-colors">
-                        <IconComponent className="w-10 h-10 text-[#8A6B37]" />
+          {/* Top Row */}
+          <div className="flex flex-wrap justify-center gap-6">
+            {topRow.map((category) => {
+              const IconComponent = category.icon;
+              return (
+                <motion.div
+                  key={category.id}
+                  variants={itemVariants}
+                  className="group"
+                >
+                  <Link href={ROUTES.category(category.slug)}>
+                    {/* Card Container - Horizontal 400x300px */}
+                    <div className="relative w-[400px] h-[300px] bg-[#0F1626] rounded-2xl overflow-hidden hover:bg-[#1a2332] transition-colors duration-300">
+                      
+                      {/* Content */}
+                      <div className="absolute inset-0 p-8 flex flex-col items-center justify-center text-center">
+                        {/* Icon */}
+                        <div className="w-16 h-16 rounded-full bg-[#8A6B37]/20 flex items-center justify-center mb-5 group-hover:bg-[#8A6B37]/30 transition-colors">
+                          <IconComponent className="w-8 h-8 text-[#8A6B37]" />
+                        </div>
+                        
+                        {/* Title */}
+                        <h3 className="font-serif font-semibold text-white text-2xl mb-2">
+                          {category.name}
+                        </h3>
+                        
+                        {/* Description */}
+                        <p className="text-white/60 text-base mb-3">
+                          {category.description}
+                        </p>
+                        
+                        {/* Product Count */}
+                        <span className="inline-block text-[#8A6B37] text-xs font-medium tracking-wider uppercase mb-4">
+                          {category.productCount} ÜRÜN
+                        </span>
+
+                        {/* CTA */}
+                        <div className="flex items-center gap-1 text-[#8A6B37] text-sm font-medium opacity-0 transform translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
+                          <span>Keşfet</span>
+                          <ArrowUpRight className="w-4 h-4" />
+                        </div>
                       </div>
-                      
-                      {/* Title */}
-                      <h3 className="font-serif font-semibold text-white text-2xl mb-2">
-                        {category.name}
-                      </h3>
-                      
-                      {/* Description */}
-                      <p className="text-white/60 text-base mb-4">
-                        {category.description}
-                      </p>
-                      
-                      {/* Product Count */}
-                      <span className="inline-block text-[#8A6B37] text-xs font-medium tracking-wider uppercase mb-6">
-                        {category.productCount} Ürün
-                      </span>
 
-                      {/* CTA Button */}
-                      <div className="flex items-center gap-2 text-[#8A6B37] text-sm font-medium opacity-0 transform translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
-                        <span>Keşfet</span>
-                        <ArrowUpRight className="w-4 h-4" />
+                      {/* Hover Arrow - Top Right */}
+                      <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                        <ArrowUpRight className="w-5 h-5 text-white" />
                       </div>
-                    </div>
 
-                    {/* Hover Arrow - Top Right */}
-                    <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                      <ArrowUpRight className="w-5 h-5 text-white" />
+                      {/* Bottom Accent Line */}
+                      <div className="absolute bottom-0 left-0 w-full h-1 bg-[#8A6B37] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                     </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
 
-                    {/* Bottom Accent Line */}
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-[#8A6B37] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
+          {/* Bottom Row */}
+          <div className="flex flex-wrap justify-center gap-6">
+            {bottomRow.map((category) => {
+              const IconComponent = category.icon;
+              return (
+                <motion.div
+                  key={category.id}
+                  variants={itemVariants}
+                  className="group"
+                >
+                  <Link href={ROUTES.category(category.slug)}>
+                    {/* Card Container - Horizontal 400x300px */}
+                    <div className="relative w-[400px] h-[300px] bg-[#0F1626] rounded-2xl overflow-hidden hover:bg-[#1a2332] transition-colors duration-300">
+                      
+                      {/* Content */}
+                      <div className="absolute inset-0 p-8 flex flex-col items-center justify-center text-center">
+                        {/* Icon */}
+                        <div className="w-16 h-16 rounded-full bg-[#8A6B37]/20 flex items-center justify-center mb-5 group-hover:bg-[#8A6B37]/30 transition-colors">
+                          <IconComponent className="w-8 h-8 text-[#8A6B37]" />
+                        </div>
+                        
+                        {/* Title */}
+                        <h3 className="font-serif font-semibold text-white text-2xl mb-2">
+                          {category.name}
+                        </h3>
+                        
+                        {/* Description */}
+                        <p className="text-white/60 text-base mb-3">
+                          {category.description}
+                        </p>
+                        
+                        {/* Product Count */}
+                        <span className="inline-block text-[#8A6B37] text-xs font-medium tracking-wider uppercase mb-4">
+                          {category.productCount} ÜRÜN
+                        </span>
+
+                        {/* CTA */}
+                        <div className="flex items-center gap-1 text-[#8A6B37] text-sm font-medium opacity-0 transform translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
+                          <span>Keşfet</span>
+                          <ArrowUpRight className="w-4 h-4" />
+                        </div>
+                      </div>
+
+                      {/* Hover Arrow - Top Right */}
+                      <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                        <ArrowUpRight className="w-5 h-5 text-white" />
+                      </div>
+
+                      {/* Bottom Accent Line */}
+                      <div className="absolute bottom-0 left-0 w-full h-1 bg-[#8A6B37] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
         </motion.div>
 
         {/* View All Button */}
