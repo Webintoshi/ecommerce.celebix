@@ -115,7 +115,9 @@ const OPTIONAL_CATEGORY_COLUMNS = new Set([
 function getMissingCategoryColumn(error: unknown): string | null {
   if (!error || typeof error !== "object" || !("message" in error)) return null;
   const message = String(error.message ?? "");
-  const match = message.match(/Could not find the '([^']+)' column of 'categories'/i);
+  const match =
+    message.match(/Could not find the '([^']+)' column of 'categories'/i) ||
+    message.match(/column categories\.([a-z_]+) does not exist/i);
   return match?.[1] ?? null;
 }
 
@@ -131,6 +133,10 @@ function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
   const nextPayload = { ...payload };
   delete nextPayload[missingColumn];
   return nextPayload;
+}
+
+function isMissingCategoryColumn(error: unknown, column: string): boolean {
+  return getMissingCategoryColumn(error) === column;
 }
 
 function validateCategoryInput(input: unknown): asserts input is CategoryInput {
@@ -270,6 +276,23 @@ export async function GET(request: NextRequest) {
         .single();
       
       if (error) {
+        if (isMissingCategoryColumn(error, "is_active")) {
+          const fallback = await supabase
+            .from("categories")
+            .select("*")
+            .eq("slug", slug)
+            .single();
+
+          if (fallback.error) {
+            if (fallback.error.code === "PGRST116") {
+              throw new APIError("Category not found", 404, "NOT_FOUND");
+            }
+            throw new APIError("Database error", 500, "DB_ERROR");
+          }
+
+          return createSuccessResponse({ category: fallback.data });
+        }
+
         if (error.code === "PGRST116") {
           throw new APIError("Category not found", 404, "NOT_FOUND");
         }
@@ -291,6 +314,19 @@ export async function GET(request: NextRequest) {
       .order("sort_order", { ascending: true });
     
     if (error) {
+      if (isMissingCategoryColumn(error, "is_active")) {
+        const fallback = await supabase
+          .from("categories")
+          .select("*")
+          .order("sort_order", { ascending: true });
+
+        if (fallback.error) {
+          throw new APIError("Database error", 500, "DB_ERROR");
+        }
+
+        return createSuccessResponse({ categories: fallback.data || [] });
+      }
+
       throw new APIError("Database error", 500, "DB_ERROR");
     }
 

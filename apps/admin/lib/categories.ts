@@ -47,7 +47,9 @@ const OPTIONAL_CATEGORY_COLUMNS = new Set([
 function getMissingCategoryColumn(error: unknown): string | null {
   if (!error || typeof error !== "object" || !("message" in error)) return null;
   const message = String(error.message ?? "");
-  const match = message.match(/Could not find the '([^']+)' column of 'categories'/i);
+  const match =
+    message.match(/Could not find the '([^']+)' column of 'categories'/i) ||
+    message.match(/column categories\.([a-z_]+) does not exist/i);
   return match?.[1] ?? null;
 }
 
@@ -65,73 +67,7 @@ function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
   return nextPayload;
 }
 
-// Supabase'den kategorileri cek (Client-side read)
-export async function fetchCategories(): Promise<CategoryInfo[]> {
-  const supabase = getSupabase();
-
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  if (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-
-  return (
-    data?.map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description || "",
-      image: cat.image || "/placeholder.svg",
-      icon: cat.icon || "paket",
-      productCount: 0,
-      parent_id: cat.parent_id,
-      sort_order: cat.sort_order || 0,
-      is_active: cat.is_active !== false,
-      seo_title: cat.seo_title || "",
-      seo_description: cat.seo_description || "",
-    })) || []
-  );
-}
-
-// Server-side icin kategori cekme
-export async function fetchCategoriesServer() {
-  const { createServerClient } = await import("@/lib/supabase");
-  const supabase = createServerClient();
-
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
-
-  if (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-
-  return data || [];
-}
-
-// Slug'a gore kategori getir (Client-side read)
-export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
-  const supabase = getSupabase();
-
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !data) {
-    console.error("Error fetching category:", error);
-    return null;
-  }
-
+function mapCategory(data: Record<string, any>): CategoryInfo {
   return {
     id: data.id,
     name: data.name,
@@ -140,7 +76,92 @@ export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | 
     image: data.image || "/placeholder.svg",
     icon: data.icon || "paket",
     productCount: 0,
+    parent_id: data.parent_id,
+    sort_order: data.sort_order || 0,
+    is_active: data.is_active !== false,
+    seo_title: data.seo_title || "",
+    seo_description: data.seo_description || "",
   };
+}
+
+// Supabase'den kategorileri cek (Client-side read)
+export async function fetchCategories(): Promise<CategoryInfo[]> {
+  try {
+    const result = await requestCategoryApi<{ categories?: Record<string, unknown>[] }>(
+      "/api/categories",
+      { method: "GET" },
+    );
+    return (result.categories || []).map((category) => mapCategory(category as Record<string, any>));
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    try {
+      const supabase = getSupabase();
+      const { data, error: fallbackError } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (fallbackError) {
+        console.error("Fallback category fetch error:", fallbackError);
+        return [];
+      }
+
+      return (data || []).map((category) => mapCategory(category as Record<string, any>));
+    } catch (fallbackError) {
+      console.error("Fallback category fetch exception:", fallbackError);
+      return [];
+    }
+  }
+}
+
+// Server-side icin kategori cekme
+export async function fetchCategoriesServer() {
+  const { createServerClient } = await import("@/lib/supabase");
+  const supabase = createServerClient();
+
+  const primary = await supabase
+    .from("categories")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (!primary.error) {
+    return primary.data || [];
+  }
+
+  const missingColumn = getMissingCategoryColumn(primary.error);
+  if (missingColumn !== "is_active") {
+    console.error("Error fetching categories:", primary.error);
+    return [];
+  }
+
+  const fallback = await supabase
+    .from("categories")
+    .select("*")
+    .order("sort_order", { ascending: true });
+
+  if (fallback.error) {
+    console.error("Fallback server category fetch error:", fallback.error);
+    return [];
+  }
+
+  return fallback.data || [];
+}
+
+// Slug'a gore kategori getir (Client-side read)
+export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
+  try {
+    const result = await requestCategoryApi<{ category?: Record<string, unknown> }>(
+      `/api/categories?slug=${encodeURIComponent(slug)}`,
+      { method: "GET" },
+    );
+
+    if (!result.category) return null;
+    return mapCategory(result.category as Record<string, any>);
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    return null;
+  }
 }
 
 // =====================================================
@@ -157,15 +178,7 @@ export async function getCategoryById(id: string): Promise<CategoryInfo | undefi
   const data = result?.category;
   if (!data) return undefined;
 
-  return {
-    id: String(data.id),
-    name: String(data.name),
-    slug: String(data.slug),
-    description: String(data.description || ""),
-    image: String(data.image || "/placeholder.jpg"),
-    icon: String(data.icon || "paket"),
-    productCount: 0,
-  };
+  return mapCategory(data);
 }
 
 export async function addCategory(category: CategoryAdminInput): Promise<void> {

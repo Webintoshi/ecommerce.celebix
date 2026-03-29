@@ -26,10 +26,80 @@ type SaveSchemaBody = {
   steps: CustomizationStep[];
 };
 
-type PostBody = CreateSchemaBody | DuplicateSchemaBody | SaveSchemaBody;
+type LegacyCreateSchemaBody = {
+  action?: undefined;
+  name: string;
+  description?: string;
+  slug: string;
+  settings?: Record<string, unknown>;
+};
+
+type PostBody = CreateSchemaBody | DuplicateSchemaBody | SaveSchemaBody | LegacyCreateSchemaBody;
 
 function badRequest(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 400 });
+}
+
+export async function GET(request: NextRequest) {
+  const supabase = createServerClient();
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const includeAssignments = searchParams.get("include") === "assignments";
+
+    if (id) {
+      const { data, error } = await supabase
+        .from("product_customization_schemas")
+        .select(
+          `
+          *,
+          steps:product_customization_steps(
+            *,
+            options:product_customization_options(*)
+          )
+        `,
+        )
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json({ success: true, schema: data });
+    }
+
+    const select = includeAssignments
+      ? `
+        *,
+        steps:product_customization_steps(count),
+        assignments:product_schema_assignments(count)
+      `
+      : `
+        *,
+        steps:product_customization_steps(count)
+      `;
+
+    const { data, error } = await supabase
+      .from("product_customization_schemas")
+      .select(select)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const schemas = (data || []).map((schema: any) => ({
+      ...schema,
+      step_count: schema.steps?.[0]?.count || 0,
+      product_count: schema.assignments?.[0]?.count || 0,
+    }));
+
+    return NextResponse.json({ success: true, schemas });
+  } catch (error: unknown) {
+    const message =
+      error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : "Beklenmeyen bir hata olustu";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -38,7 +108,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PostBody;
 
-    if (body.action === "create") {
+    if (body.action === "create" || (!("action" in body) && "name" in body && "slug" in body)) {
       if (!body.name || !body.slug) {
         return badRequest("name ve slug zorunludur");
       }

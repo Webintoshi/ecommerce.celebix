@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+  createStoredVariantAttribute,
+  deleteStoredVariantAttribute,
+  getStoredVariantAttributeById,
+  getStoredVariantAttributes,
+  isVariantAttributeTableMissing,
+  isVariantAttributeValueTableMissing,
+  updateStoredVariantAttribute,
+} from "@/lib/db/variant-attributes";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
+
+type VariantValueInput =
+  | string
+  | {
+      value?: string;
+      color_code?: string | null;
+      colorCode?: string | null;
+      image_url?: string | null;
+      imageUrl?: string | null;
+      display_order?: number;
+      displayOrder?: number;
+      is_active?: boolean;
+      isActive?: boolean;
+    };
 
 function getMissingColumn(error: unknown, table: string): string | null {
   if (!error || typeof error !== "object" || !("message" in error)) return null;
@@ -77,6 +100,63 @@ function normalizeAttribute(attribute: Record<string, unknown>) {
   };
 }
 
+function normalizeIncomingValue(input: VariantValueInput, index: number) {
+  if (typeof input === "string") {
+    return {
+      value: input.trim(),
+      color_code: null,
+      image_url: null,
+      display_order: index,
+      is_active: true,
+    };
+  }
+
+  const rawValue = typeof input?.value === "string" ? input.value.trim() : "";
+
+  return {
+    value: rawValue,
+    color_code:
+      typeof input?.color_code === "string"
+        ? input.color_code
+        : typeof input?.colorCode === "string"
+          ? input.colorCode
+          : null,
+    image_url:
+      typeof input?.image_url === "string"
+        ? input.image_url
+        : typeof input?.imageUrl === "string"
+          ? input.imageUrl
+          : null,
+    display_order:
+      typeof input?.display_order === "number"
+        ? input.display_order
+        : typeof input?.displayOrder === "number"
+          ? input.displayOrder
+          : index,
+    is_active:
+      typeof input?.is_active === "boolean"
+        ? input.is_active
+        : typeof input?.isActive === "boolean"
+          ? input.isActive
+          : true,
+  };
+}
+
+function extractIncomingValues(
+  values: VariantValueInput[],
+  colorCodes: Record<string, string> = {},
+  imageUrls: Record<string, string> = {},
+) {
+  return values
+    .map((value, index) => normalizeIncomingValue(value, index))
+    .map((value) => ({
+      ...value,
+      color_code: value.color_code || colorCodes[value.value] || null,
+      image_url: value.image_url || imageUrls[value.value] || null,
+    }))
+    .filter((value) => value.value.length > 0);
+}
+
 async function fetchAttributeWithValues(id: string) {
   const supabase = createServerClient();
   const { data, error } = await supabase
@@ -107,6 +187,13 @@ export async function GET(request: NextRequest) {
         const attribute = await fetchAttributeWithValues(id);
         return NextResponse.json({ success: true, attribute });
       } catch (error: any) {
+        if (isVariantAttributeTableMissing(error)) {
+          const attribute = await getStoredVariantAttributeById(id);
+          if (!attribute) {
+            return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+          }
+          return NextResponse.json({ success: true, attribute });
+        }
         return NextResponse.json({ success: false, error: error.message }, { status: 404 });
       }
     }
@@ -123,6 +210,10 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await query;
     if (error) {
+      if (isVariantAttributeTableMissing(error)) {
+        const attributes = await getStoredVariantAttributes();
+        return NextResponse.json({ success: true, attributes });
+      }
       throw error;
     }
 
@@ -153,6 +244,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "En az bir deger gereklidir" }, { status: 400 });
     }
 
+    const normalizedValues = extractIncomingValues(values as VariantValueInput[], colorCodes, imageUrls);
+    if (normalizedValues.length === 0) {
+      return NextResponse.json({ success: false, error: "En az bir gecerli deger gereklidir" }, { status: 400 });
+    }
+
     const supabase = createServerClient();
     const slug = name
       .toLowerCase()
@@ -173,6 +269,14 @@ export async function POST(request: NextRequest) {
         attribute = (data ?? {}) as Record<string, unknown>;
         break;
       }
+      if (isVariantAttributeTableMissing(error)) {
+        const storedAttribute = await createStoredVariantAttribute({
+          name: name.trim(),
+          slug: `${slug}-${Date.now().toString(36)}`,
+          values: normalizedValues,
+        });
+        return NextResponse.json({ success: true, attribute: storedAttribute });
+      }
 
       const nextPayload = stripUnsupportedColumns(
         attributePayload,
@@ -186,15 +290,13 @@ export async function POST(request: NextRequest) {
       attributePayload = nextPayload;
     }
 
-    let valuesToInsert = values
-      .filter((value: string) => value && value.trim())
-      .map((value: string, index: number) => ({
+    let valuesToInsert = normalizedValues.map((value, index) => ({
         attribute_id: String(attribute.id),
-        value: value.trim(),
-        color_code: colorCodes[value.trim()] || null,
-        image_url: imageUrls[value.trim()] || null,
-        display_order: index,
-        is_active: true,
+        value: value.value,
+        color_code: value.color_code,
+        image_url: value.image_url,
+        display_order: typeof value.display_order === "number" ? value.display_order : index,
+        is_active: value.is_active !== false,
       }));
 
     let insertedValues: Record<string, unknown>[] = [];
@@ -203,6 +305,23 @@ export async function POST(request: NextRequest) {
       if (!error) {
         insertedValues = (data || []) as Record<string, unknown>[];
         break;
+      }
+      if (isVariantAttributeValueTableMissing(error)) {
+        const storedAttribute = await updateStoredVariantAttribute(String(attribute.id), (currentAttribute) => ({
+          ...currentAttribute,
+          values: valuesToInsert.map((value, index) => ({
+            id: crypto.randomUUID(),
+            attribute_id: String(attribute?.id),
+            value: String(value.value || ""),
+            color_code: typeof value.color_code === "string" ? value.color_code : null,
+            image_url: typeof value.image_url === "string" ? value.image_url : null,
+            display_order: typeof value.display_order === "number" ? value.display_order : index,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })),
+        }));
+        return NextResponse.json({ success: true, attribute: storedAttribute ?? normalizeAttribute(attribute) });
       }
 
       const nextPayload = stripUnsupportedColumnsFromArray(
@@ -255,6 +374,20 @@ export async function PUT(request: NextRequest) {
         if (!error) {
           break;
         }
+        if (isVariantAttributeTableMissing(error)) {
+          const storedAttribute = await updateStoredVariantAttribute(id, (attribute) => ({
+            ...attribute,
+            ...(updatePayload.name !== undefined ? { name: String(updatePayload.name) } : {}),
+            ...(updatePayload.is_active !== undefined ? { is_active: Boolean(updatePayload.is_active) } : {}),
+          }));
+          if (!storedAttribute) {
+            return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+          }
+          if (!values || !Array.isArray(values)) {
+            return NextResponse.json({ success: true, attribute: storedAttribute });
+          }
+          break;
+        }
 
         const nextPayload = stripUnsupportedColumns(
           updatePayload,
@@ -270,31 +403,93 @@ export async function PUT(request: NextRequest) {
     }
 
     if (values && Array.isArray(values)) {
+      const normalizedValues = extractIncomingValues(values as VariantValueInput[], colorCodes, imageUrls);
       const { data: existingValues, error: existingValuesError } = await supabase
         .from("variant_attribute_values")
         .select("id, value")
         .eq("attribute_id", id);
 
-      if (existingValuesError) {
+      if (existingValuesError && !isVariantAttributeValueTableMissing(existingValuesError)) {
         throw existingValuesError;
       }
 
-      const existingValueMap = new Map((existingValues || []).map((value) => [value.value, value.id]));
-      let newValues = values
-        .filter((value: string) => value && value.trim() && !existingValueMap.has(value.trim()))
-        .map((value: string, index: number) => ({
+      const storedFallback = !existingValues || isVariantAttributeValueTableMissing(existingValuesError);
+      const fallbackAttribute = storedFallback ? await getStoredVariantAttributeById(id) : null;
+      const existingValueMap = new Map(
+        (storedFallback ? fallbackAttribute?.values || [] : existingValues || []).map((value: any) => [value.value, value.id]),
+      );
+
+      let newValues = normalizedValues
+        .filter((value) => value.value && !existingValueMap.has(value.value))
+        .map((value, index) => ({
           attribute_id: id,
-          value: value.trim(),
-          color_code: colorCodes[value.trim()] || null,
-          image_url: imageUrls[value.trim()] || null,
-          display_order: (existingValues?.length || 0) + index,
-          is_active: true,
+          value: value.value,
+          color_code: value.color_code,
+          image_url: value.image_url,
+          display_order:
+            typeof value.display_order === "number"
+              ? value.display_order
+              : (storedFallback ? fallbackAttribute?.values.length || 0 : existingValues?.length || 0) + index,
+          is_active: value.is_active !== false,
         }));
+
+      if (storedFallback) {
+        const storedAttribute = await updateStoredVariantAttribute(id, (attribute) => {
+          const existingValueSet = new Set(attribute.values.map((value) => value.value));
+          const appendedValues = newValues
+            .filter((value) => !existingValueSet.has(String(value.value || "")))
+            .map((value, index) => ({
+              id: crypto.randomUUID(),
+              attribute_id: id,
+              value: String(value.value || ""),
+              color_code: typeof value.color_code === "string" ? value.color_code : null,
+              image_url: typeof value.image_url === "string" ? value.image_url : null,
+              display_order:
+                typeof value.display_order === "number"
+                  ? value.display_order
+                  : attribute.values.length + index,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }));
+          return {
+            ...attribute,
+            values: [...attribute.values, ...appendedValues],
+          };
+        });
+        return NextResponse.json({ success: true, attribute: storedAttribute });
+      }
 
       while (newValues.length > 0) {
         const { error } = await supabase.from("variant_attribute_values").insert(newValues);
         if (!error) {
           break;
+        }
+        if (isVariantAttributeValueTableMissing(error)) {
+          const storedAttribute = await updateStoredVariantAttribute(id, (attribute) => {
+            const existingValueSet = new Set(attribute.values.map((value) => value.value));
+            const appendedValues = newValues
+              .filter((value) => !existingValueSet.has(String(value.value || "")))
+              .map((value, index) => ({
+                id: crypto.randomUUID(),
+                attribute_id: id,
+                value: String(value.value || ""),
+                color_code: typeof value.color_code === "string" ? value.color_code : null,
+                image_url: typeof value.image_url === "string" ? value.image_url : null,
+                display_order:
+                  typeof value.display_order === "number"
+                    ? value.display_order
+                    : attribute.values.length + index,
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }));
+            return {
+              ...attribute,
+              values: [...attribute.values, ...appendedValues],
+            };
+          });
+          return NextResponse.json({ success: true, attribute: storedAttribute });
         }
 
         const nextPayload = stripUnsupportedColumnsFromArray(
@@ -334,6 +529,13 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase.from("variant_attributes").update({ is_active: false }).eq("id", id);
 
     if (error) {
+      if (isVariantAttributeTableMissing(error)) {
+        const deleted = await deleteStoredVariantAttribute(id);
+        if (!deleted) {
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
+      }
       if (getMissingColumn(error, "variant_attributes") === "is_active") {
         await supabase.from("variant_attribute_values").delete().eq("attribute_id", id);
         const { error: deleteError } = await supabase.from("variant_attributes").delete().eq("id", id);

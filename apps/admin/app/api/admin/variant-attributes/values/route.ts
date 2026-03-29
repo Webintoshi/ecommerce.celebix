@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+  addStoredVariantAttributeValue,
+  deleteStoredVariantAttributeValue,
+  getStoredVariantAttributes,
+  isVariantAttributeTableMissing,
+  isVariantAttributeValueTableMissing,
+  updateStoredVariantAttributeValue,
+} from "@/lib/db/variant-attributes";
 
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
 
@@ -19,6 +27,42 @@ function stripUnsupportedColumns<T extends Record<string, unknown>>(payload: T, 
   const nextPayload = { ...payload };
   delete nextPayload[missingColumn];
   return nextPayload;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const attributeId = searchParams.get("attribute_id");
+    const id = searchParams.get("id");
+    const supabase = createServerClient();
+
+    const query = supabase.from("variant_attribute_values").select("*").order("display_order").order("value");
+    const scopedQuery = attributeId ? query.eq("attribute_id", attributeId) : id ? query.eq("id", id) : query;
+    const { data, error } = await scopedQuery;
+
+    if (error) {
+      if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
+        const attributes = await getStoredVariantAttributes();
+        const values = attributes.flatMap((attribute) => attribute.values);
+        const filteredValues = attributeId
+          ? values.filter((value) => value.attribute_id === attributeId)
+          : id
+            ? values.filter((value) => value.id === id)
+            : values;
+        return NextResponse.json({ success: true, values: filteredValues });
+      }
+
+      throw error;
+    }
+
+    return NextResponse.json({ success: true, values: data || [] });
+  } catch (error: any) {
+    console.error("Error fetching attribute values:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to fetch values" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -45,6 +89,19 @@ export async function POST(request: NextRequest) {
 
       if (!error) {
         return NextResponse.json({ success: true, value: data });
+      }
+      if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
+        const createdValue = await addStoredVariantAttributeValue({
+          attribute_id,
+          value: value.trim(),
+          color_code: color_code || null,
+          image_url: image_url || null,
+          display_order: display_order || 0,
+        });
+        if (!createdValue) {
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, value: createdValue });
       }
 
       if (error.code === "23505") {
@@ -95,6 +152,20 @@ export async function PUT(request: NextRequest) {
       if (!error) {
         return NextResponse.json({ success: true, value: data });
       }
+      if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
+        const updatedValue = await updateStoredVariantAttributeValue(id, (currentValue) => ({
+          ...currentValue,
+          ...(value !== undefined ? { value: value.trim() } : {}),
+          ...(color_code !== undefined ? { color_code } : {}),
+          ...(image_url !== undefined ? { image_url } : {}),
+          ...(display_order !== undefined ? { display_order } : {}),
+          ...(is_active !== undefined ? { is_active } : {}),
+        }));
+        if (!updatedValue) {
+          return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, value: updatedValue });
+      }
 
       if (error.code === "23505") {
         return NextResponse.json({ success: false, error: "Bu deger zaten mevcut" }, { status: 409 });
@@ -128,6 +199,13 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase.from("variant_attribute_values").update({ is_active: false }).eq("id", id);
 
     if (error) {
+      if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
+        const deleted = await deleteStoredVariantAttributeValue(id);
+        if (!deleted) {
+          return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, message: "Deger basariyla silindi" });
+      }
       if (getMissingColumn(error) === "is_active") {
         const { error: deleteError } = await supabase.from("variant_attribute_values").delete().eq("id", id);
         if (deleteError) {
