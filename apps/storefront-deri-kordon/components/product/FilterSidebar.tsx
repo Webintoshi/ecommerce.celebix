@@ -4,7 +4,6 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RangeSlider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 
 export interface FilterState {
@@ -27,9 +26,14 @@ interface FilterSidebarProps {
 }
 
 const CATEGORIES = [
-  { value: "fistik-ezmesi", label: "Fıstık Ezmesi" },
-  { value: "findik-ezmesi", label: "Fındık Ezmesi" },
-  { value: "kuruyemis", label: "Kuruyemiş" },
+  { value: "kol-saati-kordonu", label: "Kol Saati Kordonu" },
+  { value: "akilli-saat-kordonu", label: "Akıllı Saat Kordonu" },
+  { value: "deri-bileklik", label: "Deri Bileklik" },
+  { value: "anahtarlik", label: "Anahtarlık" },
+  { value: "kartlik", label: "Kartlık" },
+  { value: "cuzdan", label: "Cüzdan" },
+  { value: "kemer", label: "Kemer" },
+  { value: "canta", label: "Çanta" },
 ];
 
 interface FilterSectionProps {
@@ -42,10 +46,10 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
-    <div className="border-b border-gray-100 pb-4">
+    <div className="border-b border-[#E5E2DE] pb-4">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-sm font-semibold text-gray-900 hover:text-primary transition-colors"
+        className="flex items-center justify-between w-full py-2 text-sm font-medium text-[#0F1626] tracking-wide uppercase hover:text-[#8A6B37] transition-colors"
       >
         {title}
         {isOpen ? (
@@ -54,7 +58,7 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
           <ChevronDown className="w-4 h-4" />
         )}
       </button>
-      {isOpen && <div className="pt-2 space-y-3">{children}</div>}
+      {isOpen && <div className="pt-3 space-y-3">{children}</div>}
     </div>
   );
 }
@@ -94,13 +98,13 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
   };
 
   return (
-    <div className={cn("bg-white rounded-2xl p-5 shadow-sm border border-gray-100", className)}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-900">Filtreler</h2>
+    <div className={cn("bg-white p-6 border border-[#E5E2DE]", className)}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-serif text-xl text-[#0F1626]">Filtreler</h2>
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-primary transition-colors"
+            className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
           >
             Temizle
           </button>
@@ -123,8 +127,8 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
         <FilterSection title="Fiyat Aralığı">
           <RangeSlider
             min={0}
-            max={500}
-            step={10}
+            max={5000}
+            step={50}
             value={filters.priceRange}
             onChange={(value) => onFilterChange({ priceRange: value })}
           />
@@ -132,28 +136,28 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
 
         <FilterSection title="Özellikler">
           <Checkbox
-            label="Vegan"
+            label="El Yapımı"
             checked={filters.vegan}
             onChange={(e) => onFilterChange({ vegan: e.target.checked })}
           />
           <Checkbox
-            label="Şekersiz"
+            label="Vegan Deri"
             checked={filters.sugarFree}
             onChange={(e) => onFilterChange({ sugarFree: e.target.checked })}
           />
           <Checkbox
-            label="Yüksek Proteinli"
+            label="Premium Koleksiyon"
             checked={filters.highProtein}
             onChange={(e) => onFilterChange({ highProtein: e.target.checked })}
           />
           <Checkbox
-            label="Glutensiz"
+            label="Kişiselleştirilebilir"
             checked={filters.glutenFree}
             onChange={(e) => onFilterChange({ glutenFree: e.target.checked })}
           />
         </FilterSection>
 
-        <FilterSection title="Stok & İndirim">
+        <FilterSection title="Stok & İndirim" defaultOpen={false}>
           <Checkbox
             label="Stokta olanlar"
             checked={filters.inStock}
@@ -181,9 +185,14 @@ interface ActiveFiltersProps {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  "fistik-ezmesi": "Fıstık Ezmesi",
-  "findik-ezmesi": "Fındık Ezmesi",
-  kuruyemis: "Kuruyemiş",
+  "kol-saati-kordonu": "Kol Saati Kordonu",
+  "akilli-saat-kordonu": "Akıllı Saat Kordonu",
+  "deri-bileklik": "Deri Bileklik",
+  "anahtarlik": "Anahtarlık",
+  "kartlik": "Kartlık",
+  "cuzdan": "Cüzdan",
+  "kemer": "Kemer",
+  "canta": "Çanta",
 };
 
 export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
@@ -199,37 +208,37 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
     });
   });
 
-  if (filters.priceRange[0] > 0 || filters.priceRange[1] < 500) {
+  if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000) {
     activeFilters.push({
       label: `${filters.priceRange[0]}₺ - ${filters.priceRange[1]}₺`,
-      onRemove: () => onFilterChange({ priceRange: [0, 500] }),
+      onRemove: () => onFilterChange({ priceRange: [0, 5000] }),
     });
   }
 
   if (filters.vegan) {
     activeFilters.push({
-      label: "Vegan",
+      label: "El Yapımı",
       onRemove: () => onFilterChange({ vegan: false }),
     });
   }
 
   if (filters.sugarFree) {
     activeFilters.push({
-      label: "Şekersiz",
+      label: "Vegan Deri",
       onRemove: () => onFilterChange({ sugarFree: false }),
     });
   }
 
   if (filters.highProtein) {
     activeFilters.push({
-      label: "Yüksek Proteinli",
+      label: "Premium Koleksiyon",
       onRemove: () => onFilterChange({ highProtein: false }),
     });
   }
 
   if (filters.glutenFree) {
     activeFilters.push({
-      label: "Glutensiz",
+      label: "Kişiselleştirilebilir",
       onRemove: () => onFilterChange({ glutenFree: false }),
     });
   }
@@ -263,7 +272,7 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
         <button
           key={index}
           onClick={filter.onRemove}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-sm font-medium rounded-full hover:bg-primary/20 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8A6B37]/10 text-[#0F1626] text-sm border border-[#8A6B37]/20 hover:bg-[#8A6B37]/20 transition-colors"
         >
           {filter.label}
           <X className="w-3.5 h-3.5" />

@@ -185,47 +185,52 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF5F5]">
-      {/* Minimal Hero */}
-      <section className="pt-20 pb-8 md:pt-28 md:pb-12">
-        <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Premium Hero */}
+      <section className="pt-20 pb-12 md:pt-28 md:pb-16 bg-[#0F1626]">
+        <div className="container-premium">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-2xl mx-auto"
           >
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7B1113]/10 text-[#7B1113] text-sm font-medium mb-4">
-              <Package className="w-4 h-4" />
-              {initialProducts.length} Ürün
+            <span className="inline-flex items-center gap-3 text-[#8A6B37] text-xs font-medium tracking-[0.3em] uppercase mb-6">
+              <span className="w-8 h-px bg-[#8A6B37]" />
+              Koleksiyon
+              <span className="w-8 h-px bg-[#8A6B37]" />
             </span>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#7B1113] mb-4 tracking-tight">
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl text-white mb-4">
               Tüm Ürünler
             </h1>
-            <p className="text-[#6b4b4c] text-lg">
-              Doğal ve katkısız ürünlerimizi keşfedin
+            <p className="text-white/60 text-lg">
+              Premium deri aksesuar koleksiyonumuzu keşfedin
             </p>
+            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-[#8A6B37]/10 border border-[#8A6B37]/20 text-[#8A6B37] text-sm">
+              <Package className="w-4 h-4" />
+              {initialProducts.length} Ürün
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* Controls Bar */}
-      <section className="sticky top-0 z-40 bg-[#FFF5F5]/95 backdrop-blur-md border-b border-[#7B1113]/10">
-        <div className="container mx-auto px-4 py-4">
+      <section className="sticky top-0 z-40 bg-[#FAFAFA]/95 backdrop-blur-md border-b border-[#E5E2DE]">
+        <div className="container-premium py-4">
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#7B1113]/40" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#0F1626]/40" />
               <input
                 type="text"
                 placeholder="Ürün ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white rounded-xl border border-[#7B1113]/10 text-[#7B1113] placeholder:text-[#7B1113]/40 focus:outline-none focus:ring-2 focus:ring-[#7B1113]/20 focus:border-transparent transition-all"
+                className="w-full pl-12 pr-10 py-3 bg-white border border-[#E5E2DE] text-[#0F1626] placeholder:text-[#0F1626]/40 focus:outline-none focus:border-[#8A6B37] transition-colors"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F3E0E1] text-[#7B1113] flex items-center justify-center hover:bg-[#7B1113] hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-[#0F1626]/10 text-[#0F1626] flex items-center justify-center hover:bg-[#0F1626] hover:text-white transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -239,7 +244,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value as ProductSortOption)}
-                  className="appearance-none bg-white px-4 py-3 pr-10 rounded-xl border border-[#7B1113]/10 text-[#7B1113] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#7B1113]/20 cursor-pointer"
+                  className="appearance-none bg-white px-4 py-3 pr-10 border border-[#E5E2DE] text-[#0F1626] text-sm font-medium focus:outline-none focus:border-[#8A6B37] cursor-pointer"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -247,18 +252,18 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                     </option>
                   ))}
                 </select>
-                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7B1113]/40 rotate-90 pointer-events-none" />
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0F1626]/40 rotate-90 pointer-events-none" />
               </div>
 
               {/* Filter Button (Mobile) */}
               <button
                 onClick={() => setShowMobileFilters(true)}
-                className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white rounded-xl border border-[#7B1113]/10 text-[#7B1113] font-medium text-sm hover:bg-[#7B1113]/5 transition-colors"
+                className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border border-[#E5E2DE] text-[#0F1626] font-medium text-sm hover:border-[#8A6B37] transition-colors"
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 Filtrele
                 {activeFiltersCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#7B1113] text-white text-xs flex items-center justify-center">
+                  <span className="w-5 h-5 bg-[#8A6B37] text-white text-xs flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
                 )}
@@ -271,13 +276,13 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[#7B1113]/10"
+              className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[#E5E2DE]"
             >
-              <span className="text-sm text-[#6b4b4c]">Aktif Filtreler:</span>
+              <span className="text-sm text-[#0F1626]/60">Aktif Filtreler:</span>
               {filters.categories.map((cat) => (
                 <span
                   key={cat}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#7B1113] text-white text-sm rounded-full"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F1626] text-white text-sm"
                 >
                   {cat}
                   <button
@@ -286,7 +291,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                         categories: filters.categories.filter((c) => c !== cat),
                       })
                     }
-                    className="hover:bg-white/20 rounded-full p-0.5"
+                    className="hover:bg-white/20 p-0.5"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -321,7 +326,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
               )}
               <button
                 onClick={clearAllFilters}
-                className="text-sm text-[#7B1113] underline hover:no-underline ml-2"
+                className="text-sm text-[#8A6B37] underline hover:no-underline ml-2"
               >
                 Temizle
               </button>
@@ -331,7 +336,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
       </section>
 
       {/* Main Content */}
-      <section className="container mx-auto px-4 py-8">
+      <section className="container-premium py-8">
         <div className="flex gap-8">
           {/* Sidebar Filters - Desktop */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
@@ -348,8 +353,8 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
           <main className="flex-1 min-w-0">
             {/* Results Count */}
             <div className="flex items-center justify-between mb-6">
-              <p className="text-[#6b4b4c]">
-                <span className="font-semibold text-[#7B1113]">{filteredProducts.length}</span> ürün bulundu
+              <p className="text-[#0F1626]/60">
+                <span className="font-medium text-[#0F1626]">{filteredProducts.length}</span> ürün bulundu
               </p>
             </div>
 
@@ -357,20 +362,20 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-20 bg-white rounded-3xl border border-[#7B1113]/10"
+                className="text-center py-20 bg-white border border-[#E5E2DE]"
               >
-                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[#F3E0E1] flex items-center justify-center">
-                  <Package className="w-10 h-10 text-[#7B1113]/40" />
+                <div className="w-24 h-24 mx-auto mb-6 bg-[#0F1626]/5 flex items-center justify-center">
+                  <Package className="w-10 h-10 text-[#0F1626]/30" />
                 </div>
-                <h3 className="text-xl font-semibold text-[#7B1113] mb-2">
+                <h3 className="font-serif text-2xl text-[#0F1626] mb-2">
                   Ürün Bulunamadı
                 </h3>
-                <p className="text-[#6b4b4c] mb-6">
+                <p className="text-[#0F1626]/60 mb-6">
                   Farklı filtreler denemeyi veya arama yapmayı deneyin
                 </p>
                 <button
                   onClick={clearAllFilters}
-                  className="px-6 py-3 bg-[#7B1113] text-white rounded-full font-medium hover:bg-[#5d0e0f] transition-colors"
+                  className="px-8 py-3 bg-[#8A6B37] text-white font-medium tracking-wider uppercase text-sm hover:bg-[#0F1626] transition-colors"
                 >
                   Filtreleri Temizle
                 </button>
@@ -379,7 +384,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
               <>
                 <motion.div
                   layout
-                  className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6"
+                  className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8"
                 >
                   <AnimatePresence mode="popLayout">
                     {paginatedProducts.map((product, index) => (
@@ -403,7 +408,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#7B1113]/20 text-[#7B1113] hover:bg-[#7B1113] hover:text-white hover:border-[#7B1113] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-10 h-10 flex items-center justify-center border border-[#E5E2DE] text-[#0F1626] hover:bg-[#0F1626] hover:text-white hover:border-[#0F1626] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
@@ -418,15 +423,15 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                       .map((page, index, array) => (
                         <React.Fragment key={page}>
                           {index > 0 && array[index - 1] !== page - 1 && (
-                            <span className="text-[#7B1113]/40">...</span>
+                            <span className="text-[#0F1626]/40">...</span>
                           )}
                           <button
                             onClick={() => handlePageChange(page)}
                             className={cn(
-                              "w-10 h-10 rounded-full font-medium transition-all",
+                              "w-10 h-10 font-medium transition-all",
                               currentPage === page
-                                ? "bg-[#7B1113] text-white"
-                                : "border border-[#7B1113]/20 text-[#7B1113] hover:bg-[#7B1113]/10"
+                                ? "bg-[#0F1626] text-white"
+                                : "border border-[#E5E2DE] text-[#0F1626] hover:border-[#8A6B37]"
                             )}
                           >
                             {page}
@@ -437,7 +442,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="w-10 h-10 flex items-center justify-center rounded-full border border-[#7B1113]/20 text-[#7B1113] hover:bg-[#7B1113] hover:text-white hover:border-[#7B1113] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-10 h-10 flex items-center justify-center border border-[#E5E2DE] text-[#0F1626] hover:bg-[#0F1626] hover:text-white hover:border-[#0F1626] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronRight className="w-5 h-5" />
                     </button>
@@ -463,11 +468,11 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
 
 function FilterTag({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#F3E0E1] text-[#7B1113] text-sm rounded-full">
+    <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8A6B37]/10 text-[#0F1626] text-sm border border-[#8A6B37]/20">
       {label}
       <button
         onClick={onRemove}
-        className="hover:bg-[#7B1113]/20 rounded-full p-0.5 transition-colors"
+        className="hover:bg-[#8A6B37]/20 p-0.5 transition-colors"
       >
         <X className="w-3 h-3" />
       </button>
@@ -479,18 +484,18 @@ export function ProductsPageClient({ initialProducts, categoryCounts }: Products
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#FFF5F5]">
-          <section className="pt-20 pb-8 md:pt-28 md:pb-12">
-            <div className="container mx-auto px-4">
+        <div className="min-h-screen bg-[#FAFAFA]">
+          <section className="pt-20 pb-12 md:pt-28 md:pb-16 bg-[#0F1626]">
+            <div className="container-premium">
               <div className="text-center max-w-2xl mx-auto">
-                <div className="h-8 w-32 bg-[#F3E0E1] rounded-full mx-auto mb-4 animate-pulse" />
-                <div className="h-12 w-64 bg-[#F3E0E1] rounded-lg mx-auto mb-4 animate-pulse" />
-                <div className="h-6 w-96 bg-[#F3E0E1] rounded mx-auto animate-pulse" />
+                <div className="h-4 w-32 bg-white/10 mx-auto mb-6 animate-pulse" />
+                <div className="h-12 w-64 bg-white/10 mx-auto mb-4 animate-pulse" />
+                <div className="h-6 w-96 bg-white/10 mx-auto animate-pulse" />
               </div>
             </div>
           </section>
-          <div className="container mx-auto px-4 py-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+          <div className="container-premium py-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {[...Array(8)].map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}

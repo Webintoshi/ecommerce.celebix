@@ -34,15 +34,15 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
         href={`${ROUTES.PRODUCTS}/${product.slug}`}
         className="block group"
       >
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+        <div className="bg-white border border-[#E5E2DE] hover:border-[#8A6B37]/50 transition-all duration-300 overflow-hidden group-hover:shadow-lg">
           {/* Image */}
-          <div className="relative aspect-square bg-gray-100 overflow-hidden">
+          <div className="relative aspect-square bg-[#FAFAFA] overflow-hidden">
             {(product.images_v2 && product.images_v2.length > 0) ? (
               <Image
                 src={product.images_v2[0].url || product.images_v2[0]}
                 alt={product.name}
                 fill
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               />
             ) : product.images?.[0] ? (
@@ -50,11 +50,11 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                 src={product.images[0]}
                 alt={product.name}
                 fill
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+              <div className="absolute inset-0 flex items-center justify-center text-[#0F1626]/30">
                 <span className="text-sm">Görsel yok</span>
               </div>
             )}
@@ -62,14 +62,14 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
           
           {/* Info */}
           <div className="p-4">
-            <h3 className="font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+            <h3 className="font-medium text-[#0F1626] line-clamp-2 mb-1 group-hover:text-[#8A6B37] transition-colors">
               {product.name}
             </h3>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-[#0F1626]/50 mb-2">
               Varyant seçenekleri için tıklayın
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-gray-400">
+              <span className="text-lg font-bold text-[#0F1626]/30">
                 ---
               </span>
             </div>
@@ -121,47 +121,42 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
             className={cn(
               "w-3 h-3",
               i < Math.floor(rating)
-                ? "fill-amber-400 text-amber-400"
-                : "fill-gray-100 text-gray-200"
+                ? "fill-[#8A6B37] text-[#8A6B37]"
+                : "fill-[#E5E2DE] text-[#E5E2DE]"
             )}
           />
         ))}
       </div>
       {count > 0 && (
-        <span className="text-[11px] text-gray-400">
+        <span className="text-[11px] text-[#0F1626]/40">
           ({count})
         </span>
       )}
     </div>
   );
 
-  // Badges - Modern ve belirgin
+  // Badges - Premium Style
   const ProductBadges = () => (
-    <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+    <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
       {isOutOfStock ? (
-        <span className="px-2.5 py-1 bg-gray-800 text-white text-[10px] font-semibold rounded-md shadow-sm">
+        <span className="px-3 py-1.5 bg-[#0F1626] text-white text-[10px] font-medium tracking-wider uppercase">
           Stok Yok
         </span>
       ) : (
         <>
           {product.new && (
-            <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-semibold rounded-md shadow-sm">
+            <span className="px-3 py-1.5 bg-[#8A6B37] text-white text-[10px] font-medium tracking-wider uppercase">
               Yeni
             </span>
           )}
           {hasDiscount && (
-            <span className="px-2.5 py-1 bg-rose-500 text-white text-[10px] font-semibold rounded-md shadow-sm">
+            <span className="px-3 py-1.5 bg-[#0F1626] text-white text-[10px] font-medium tracking-wider uppercase">
               %{discountPercent} İndirim
             </span>
           )}
-          {product.organic && (
-            <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-md shadow-sm">
-              Organik
-            </span>
-          )}
-          {product.sugarFree && (
-            <span className="px-2.5 py-1 bg-sky-500 text-white text-[10px] font-semibold rounded-md shadow-sm">
-              Şekersiz
+          {product.featured && !hasDiscount && !product.new && (
+            <span className="px-3 py-1.5 bg-[#8A6B37]/10 text-[#8A6B37] border border-[#8A6B37]/20 text-[10px] font-medium tracking-wider uppercase">
+              Öne Çıkan
             </span>
           )}
         </>
@@ -176,10 +171,10 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
         className="group block"
         style={{ animationDelay: `${index * 50}ms` }}
       >
-        <div className="relative bg-stone-50 rounded-2xl overflow-hidden border border-stone-100 hover:border-stone-200 hover:shadow-xl transition-all duration-300">
+        <div className="relative bg-white overflow-hidden border border-[#E5E2DE] hover:border-[#8A6B37]/50 transition-all duration-300">
           <div className="flex">
             {/* Image */}
-            <div className="relative w-36 sm:w-48 flex-shrink-0 bg-white overflow-hidden">
+            <div className="relative w-36 sm:w-48 flex-shrink-0 bg-[#FAFAFA] overflow-hidden">
               <div className="aspect-square">
                 {product.images && product.images.length > 0 ? (
                   <Image
@@ -190,10 +185,8 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl">
-                    {product.category === "fistik-ezmesi" && "🥜"}
-                    {product.category === "findik-ezmesi" && "🌰"}
-                    {product.category === "kuruyemis" && "🥔"}
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-[#0F1626]/20">No Image</span>
                   </div>
                 )}
               </div>
@@ -203,14 +196,14 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
             {/* Content */}
             <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between">
               <div>
-                <p className="text-[11px] text-stone-400 uppercase tracking-wider font-medium mb-1">
+                <p className="text-[11px] text-[#8A6B37] uppercase tracking-wider font-medium mb-1">
                   {product.category.replace("-", " ")}
                 </p>
-                <h3 className="font-bold text-gray-900 mb-2 text-base sm:text-lg leading-tight">
+                <h3 className="font-serif text-[#0F1626] mb-2 text-base sm:text-lg leading-tight group-hover:text-[#8A6B37] transition-colors">
                   {product.name}
                 </h3>
                 <RatingStars rating={product.rating} count={product.reviewCount || 0} />
-                <p className="text-sm text-gray-500 line-clamp-2 mt-2 hidden sm:block">
+                <p className="text-sm text-[#0F1626]/60 line-clamp-2 mt-2 hidden sm:block">
                   {product.shortDescription || product.description}
                 </p>
               </div>
@@ -218,11 +211,11 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
               <div className="flex items-end justify-between mt-4">
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-bold text-primary">
+                    <span className="font-serif text-xl text-[#0F1626]">
                       {formatPrice(displayVariant.price)}
                     </span>
                     {hasDiscount && (
-                      <span className="text-sm text-gray-400 line-through">
+                      <span className="text-sm text-[#0F1626]/40 line-through">
                         {formatPrice(originalPrice)}
                       </span>
                     )}
@@ -233,22 +226,22 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                   <button
                     onClick={handleWishlist}
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                      "w-10 h-10 flex items-center justify-center border transition-all",
                       isWishlisted 
-                        ? "border-rose-200 bg-rose-50 text-rose-500" 
-                        : "border-stone-200 text-gray-400 hover:border-rose-200 hover:text-rose-500"
+                        ? "border-[#8A6B37] bg-[#8A6B37]/10 text-[#8A6B37]" 
+                        : "border-[#E5E2DE] text-[#0F1626]/40 hover:border-[#8A6B37] hover:text-[#8A6B37]"
                     )}
                   >
-                    <Heart className={cn("w-5 h-5", isWishlisted && "fill-rose-500")} />
+                    <Heart className={cn("w-5 h-5", isWishlisted && "fill-[#8A6B37]")} />
                   </button>
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock}
                     className={cn(
-                      "px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all",
+                      "px-6 py-3 font-medium uppercase tracking-wider text-sm flex items-center gap-2 transition-all",
                       isOutOfStock
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-primary text-white hover:bg-primary/90 shadow-lg hover:shadow-xl active:scale-95"
+                        ? "bg-[#E5E2DE] text-[#0F1626]/30 cursor-not-allowed"
+                        : "bg-[#8A6B37] text-white hover:bg-[#0F1626]"
                     )}
                   >
                     <ShoppingCart className="w-4 h-4" />
@@ -263,7 +256,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
     );
   }
 
-  // GRID VIEW - Modern Premium Card
+  // GRID VIEW - Premium Card
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -277,10 +270,10 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="relative bg-white rounded-2xl overflow-hidden border border-stone-100 hover:border-stone-200 hover:shadow-2xl transition-all duration-500">
+        <div className="relative bg-white overflow-hidden border border-[#E5E2DE] hover:border-[#8A6B37]/50 transition-all duration-500 group-hover:shadow-lg">
           
           {/* Image Container */}
-          <div className="relative aspect-square overflow-hidden bg-stone-100">
+          <div className="relative aspect-square overflow-hidden bg-[#FAFAFA]">
             {product.images && product.images.length > 0 ? (
               <>
                 <Image
@@ -309,16 +302,14 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                 )}
               </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-6xl">
-                {product.category === "fistik-ezmesi" && "🥜"}
-                {product.category === "findik-ezmesi" && "🌰"}
-                {product.category === "kuruyemis" && "🥔"}
+              <div className="w-full h-full flex items-center justify-center text-[#0F1626]/10">
+                <span className="text-6xl">🎁</span>
               </div>
             )}
 
             {/* Loading Skeleton */}
             {!imageLoaded && (
-              <div className="absolute inset-0 bg-stone-200 animate-pulse" />
+              <div className="absolute inset-0 bg-[#E5E2DE] animate-pulse" />
             )}
 
             {/* Badges */}
@@ -330,21 +321,21 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
               <button
                 onClick={handleWishlist}
                 className={cn(
-                  "w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110",
+                  "w-9 h-9 flex items-center justify-center transition-all duration-200 hover:scale-110",
                   isWishlisted 
-                    ? "bg-rose-50 text-rose-500" 
-                    : "bg-white/95 backdrop-blur-sm text-gray-500 hover:text-rose-500"
+                    ? "bg-[#8A6B37]/10 text-[#8A6B37] border border-[#8A6B37]" 
+                    : "bg-white/95 backdrop-blur-sm text-[#0F1626]/50 hover:text-[#8A6B37] border border-[#E5E2DE]"
                 )}
                 aria-label={isWishlisted ? "Favorilerden çıkar" : "Favorilere ekle"}
               >
-                <Heart className={cn("w-4 h-4", isWishlisted && "fill-rose-500")} />
+                <Heart className={cn("w-4 h-4", isWishlisted && "fill-[#8A6B37]")} />
               </button>
               
               {/* Quick View - Desktop hover'da görünür */}
               <button
                 onClick={handleQuickView}
                 className={cn(
-                  "w-9 h-9 rounded-full bg-white/95 backdrop-blur-sm text-gray-500 flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:text-primary",
+                  "w-9 h-9 bg-white/95 backdrop-blur-sm text-[#0F1626]/50 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:text-[#8A6B37] border border-[#E5E2DE]",
                   "md:opacity-0 md:translate-x-2 md:group-hover:opacity-100 md:group-hover:translate-x-0",
                   "opacity-100 translate-x-0"
                 )}
@@ -357,22 +348,22 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
             {/* Out of Stock Overlay */}
             {isOutOfStock && (
               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-                <span className="px-4 py-2 bg-gray-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg">
+                <span className="px-4 py-2 bg-[#0F1626] text-white text-xs font-medium uppercase tracking-wider">
                   Stok Tükendi
                 </span>
               </div>
             )}
           </div>
 
-          {/* Content - Hafif Gri Arka Plan */}
-          <div className="p-4 bg-stone-50">
+          {/* Content */}
+          <div className="p-4 bg-[#FAFAFA]">
             {/* Category */}
-            <p className="text-[11px] text-stone-400 uppercase tracking-wider font-medium mb-1">
+            <p className="text-[11px] text-[#8A6B37] uppercase tracking-wider font-medium mb-1">
               {product.category.replace("-", " ")}
             </p>
 
             {/* Name */}
-            <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base leading-snug group-hover:text-primary transition-colors line-clamp-2">
+            <h3 className="font-serif text-[#0F1626] mb-2 text-sm sm:text-base leading-snug group-hover:text-[#8A6B37] transition-colors line-clamp-2">
               {product.name}
             </h3>
 
@@ -383,25 +374,25 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
 
             {/* Price */}
             <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-lg sm:text-xl font-bold text-primary">
+              <span className="font-serif text-lg sm:text-xl text-[#0F1626]">
                 {formatPrice(displayVariant.price)}
               </span>
               {hasDiscount && (
-                <span className="text-sm text-gray-400 line-through">
+                <span className="text-sm text-[#0F1626]/40 line-through">
                   {formatPrice(originalPrice)}
                 </span>
               )}
             </div>
 
-            {/* Fixed Add to Cart Button */}
+            {/* Add to Cart Button */}
             <button
               onClick={handleAddToCart}
               disabled={isOutOfStock}
               className={cn(
-                "w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200",
+                "w-full py-3 font-medium uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all duration-200",
                 isOutOfStock
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-primary text-white hover:bg-primary/90 shadow-lg hover:shadow-xl active:scale-[0.98]"
+                  ? "bg-[#E5E2DE] text-[#0F1626]/30 cursor-not-allowed"
+                  : "bg-[#8A6B37] text-white hover:bg-[#0F1626]"
               )}
               aria-label="Sepete ekle"
             >
