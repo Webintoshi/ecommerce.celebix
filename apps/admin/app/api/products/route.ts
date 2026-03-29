@@ -29,6 +29,91 @@ function logMarketplaceQueueError(error: unknown, context: string) {
     console.error(`Marketplace queue sync failed (${context}):`, error);
 }
 
+const OPTIONAL_PRODUCT_COLUMNS = new Set([
+    "images_v2",
+    "subcategory",
+    "is_active",
+    "is_new",
+    "vegan",
+    "gluten_free",
+    "sugar_free",
+    "high_protein",
+    "rating",
+    "review_count",
+    "status",
+    "is_draft",
+    "published_at",
+    "tax_rate",
+    "brand",
+    "country_of_origin",
+    "sku",
+    "gtin",
+    "dimensions",
+    "related_products",
+    "complementary_products",
+    "seo_keywords",
+    "seo_focus_keyword",
+    "og_image",
+    "canonical_url",
+    "seo_robots",
+    "track_stock",
+    "low_stock_threshold",
+    "nutrition_basis",
+    "serving_size",
+    "serving_per_container",
+    "allergens",
+    "vitamins",
+    "ingredients",
+    "storage_conditions",
+    "shelf_life_days",
+    "calories",
+    "protein",
+    "carbs",
+    "fat",
+    "fiber",
+    "sugar",
+    "saturated_fat",
+    "sodium",
+]);
+
+const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
+    "cost",
+    "barcode",
+    "group_name",
+    "unit",
+    "max_purchase_quantity",
+    "warehouse_location",
+    "images",
+]);
+
+function getMissingTableColumn(error: unknown, tableName: string): string | null {
+    if (!error || typeof error !== "object" || !("message" in error)) return null;
+    const message = String(error.message ?? "");
+    const schemaCacheMatch = message.match(new RegExp(`Could not find the '([^']+)' column of '${tableName}'`, "i"));
+    if (schemaCacheMatch?.[1]) {
+        return schemaCacheMatch[1];
+    }
+
+    const relationMatch = message.match(new RegExp(`column [\"']([^\"']+)[\"'] of relation [\"']${tableName}[\"'] does not exist`, "i"));
+    return relationMatch?.[1] ?? null;
+}
+
+function stripUnsupportedTableColumn<T extends Record<string, unknown>>(
+    payload: T,
+    error: unknown,
+    tableName: string,
+    allowedColumns: Set<string>
+): T | null {
+    const missingColumn = getMissingTableColumn(error, tableName);
+    if (!missingColumn || !allowedColumns.has(missingColumn) || !(missingColumn in payload)) {
+        return null;
+    }
+
+    const nextPayload = { ...payload };
+    delete nextPayload[missingColumn];
+    return nextPayload;
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
@@ -254,9 +339,7 @@ export async function POST(request: NextRequest) {
         const normalizedImages = productData.images || normalizedImagesV2.map((img: Record<string, unknown>) => img.url);
 
         // 3. Ana ürünü oluştur
-        const { data: product, error: productError } = await supabase
-            .from("products")
-            .insert({
+        let productInsertPayload: Record<string, unknown> = {
                 name: productData.name,
                 slug: productData.slug,
                 description: productData.description || null,
@@ -312,13 +395,38 @@ export async function POST(request: NextRequest) {
                 sugar: productData.sugar || 0,
                 saturated_fat: productData.saturated_fat || 0,
                 sodium: productData.sodium || 0,
-            })
-            .select()
-            .single();
+        }
+        let product: ({ id: string } & Record<string, unknown>) | null = null;
 
-        if (productError) {
+        while (true) {
+            const { data: insertedProduct, error: productError } = await supabase
+                .from("products")
+                .insert(productInsertPayload)
+                .select()
+                .single();
+
+            if (!productError) {
+                product = insertedProduct;
+                break;
+            }
+
             console.error("Product insert error:", productError);
-            throw productError;
+            const nextPayload = stripUnsupportedTableColumn(
+                productInsertPayload,
+                productError,
+                "products",
+                OPTIONAL_PRODUCT_COLUMNS
+            );
+
+            if (!nextPayload) {
+                throw productError;
+            }
+
+            productInsertPayload = nextPayload;
+        }
+
+        if (!product || typeof product.id !== "string") {
+            throw new Error("Product insert did not return a valid product ID");
         }
 
         console.log("Product created with ID:", product.id);
@@ -347,13 +455,34 @@ export async function POST(request: NextRequest) {
 
             console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
 
-            const { error: variantsError } = await supabase
-                .from("product_variants")
-                .insert(variantsToInsert);
+            let variantsPayload = variantsToInsert;
 
-            if (variantsError) {
+            while (true) {
+                const { error: variantsError } = await supabase
+                    .from("product_variants")
+                    .insert(variantsPayload);
+
+                if (!variantsError) {
+                    break;
+                }
+
                 console.error("Variants insert error:", variantsError);
-                throw variantsError;
+
+                const nextPayload = variantsPayload
+                    .map((variant) =>
+                        stripUnsupportedTableColumn(
+                            variant as Record<string, unknown>,
+                            variantsError,
+                            "product_variants",
+                            OPTIONAL_PRODUCT_VARIANT_COLUMNS
+                        )
+                    );
+
+                if (nextPayload.some((variant) => variant === null)) {
+                    throw variantsError;
+                }
+
+                variantsPayload = nextPayload as typeof variantsToInsert;
             }
             console.log("Variants inserted successfully");
         } else {
@@ -583,14 +712,32 @@ export async function PUT(request: NextRequest) {
 
         // Ana ürünü güncelle
         if (Object.keys(updateData).length > 0) {
-            const { error: productError } = await supabase
-                .from("products")
-                .update(updateData)
-                .eq("id", id);
+            let productUpdatePayload = updateData;
 
-            if (productError) {
+            while (true) {
+                const { error: productError } = await supabase
+                    .from("products")
+                    .update(productUpdatePayload)
+                    .eq("id", id);
+
+                if (!productError) {
+                    break;
+                }
+
                 console.error("Product update error:", productError);
-                throw new Error(`Product update failed: ${productError.message}`);
+
+                const nextPayload = stripUnsupportedTableColumn(
+                    productUpdatePayload,
+                    productError,
+                    "products",
+                    OPTIONAL_PRODUCT_COLUMNS
+                );
+
+                if (!nextPayload) {
+                    throw new Error(`Product update failed: ${productError.message}`);
+                }
+
+                productUpdatePayload = nextPayload;
             }
         }
 
@@ -676,27 +823,45 @@ export async function PUT(request: NextRequest) {
             const existingVariantsToUpdate = variants.filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-") && !orderedVariantIds.has(String(v.id)));
 
             for (const v of existingVariantsToUpdate) {
-                const { error: updateError } = await supabase
-                    .from("product_variants")
-                    .update({
-                        name: v.name,
-                        weight: String(v.weight || 0),
-                        price: v.price || 0,
-                        original_price: v.original_price || null,
-                        cost: v.cost || null,
-                        stock: v.stock || 0,
-                        sku: v.sku || `EZM-${Date.now().toString(36)}`,
-                        barcode: v.barcode || null,
-                        group_name: v.group_name || null,
-                        unit: v.unit || 'adet',
-                        max_purchase_quantity: v.max_purchase_quantity || null,
-                        warehouse_location: v.warehouse_location || null,
-                        images: v.images || [],
-                    })
-                    .eq("id", v.id);
+                let variantUpdatePayload: Record<string, unknown> = {
+                    name: v.name,
+                    weight: String(v.weight || 0),
+                    price: v.price || 0,
+                    original_price: v.original_price || null,
+                    cost: v.cost || null,
+                    stock: v.stock || 0,
+                    sku: v.sku || `EZM-${Date.now().toString(36)}`,
+                    barcode: v.barcode || null,
+                    group_name: v.group_name || null,
+                    unit: v.unit || 'adet',
+                    max_purchase_quantity: v.max_purchase_quantity || null,
+                    warehouse_location: v.warehouse_location || null,
+                    images: v.images || [],
+                };
 
-                if (updateError) {
+                while (true) {
+                    const { error: updateError } = await supabase
+                        .from("product_variants")
+                        .update(variantUpdatePayload)
+                        .eq("id", v.id);
+
+                    if (!updateError) {
+                        break;
+                    }
+
                     console.error("Variant update error:", updateError);
+                    const nextPayload = stripUnsupportedTableColumn(
+                        variantUpdatePayload,
+                        updateError,
+                        "product_variants",
+                        OPTIONAL_PRODUCT_VARIANT_COLUMNS
+                    );
+
+                    if (!nextPayload) {
+                        throw new Error(`Variant update failed: ${updateError.message}`);
+                    }
+
+                    variantUpdatePayload = nextPayload;
                 }
             }
 
@@ -720,13 +885,34 @@ export async function PUT(request: NextRequest) {
 
                 console.log("Inserting variants:", variantsToInsert);
 
-                const { error: variantsError } = await supabase
-                    .from("product_variants")
-                    .insert(variantsToInsert);
+                let newVariantsPayload = variantsToInsert;
 
-                if (variantsError) {
+                while (true) {
+                    const { error: variantsError } = await supabase
+                        .from("product_variants")
+                        .insert(newVariantsPayload);
+
+                    if (!variantsError) {
+                        break;
+                    }
+
                     console.error("Variants insert error:", variantsError);
-                    throw new Error(`Variants insert failed: ${variantsError.message}`);
+
+                    const nextPayload = newVariantsPayload
+                        .map((variant) =>
+                            stripUnsupportedTableColumn(
+                                variant as Record<string, unknown>,
+                                variantsError,
+                                "product_variants",
+                                OPTIONAL_PRODUCT_VARIANT_COLUMNS
+                            )
+                        );
+
+                    if (nextPayload.some((variant) => variant === null)) {
+                        throw new Error(`Variants insert failed: ${variantsError.message}`);
+                    }
+
+                    newVariantsPayload = nextPayload as typeof variantsToInsert;
                 }
             }
         }
