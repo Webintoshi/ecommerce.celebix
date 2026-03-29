@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     }
 
     const result = await createOrAssignAffiliate({
+      actorId: auth.user.id,
       email,
       fullName: body.fullName,
       password,

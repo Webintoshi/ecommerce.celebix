@@ -5,14 +5,14 @@
   "theme": {
     "key": "leather",
     "label": "Leather",
-    "primaryColor": "#1f2937",
-    "accentColor": "#ea580c",
-    "surfaceColor": "#f8fafc",
-    "headingFont": "\"Times New Roman\", serif",
-    "bodyFont": "system-ui, sans-serif"
+    "primaryColor": "#0F1626",
+    "accentColor": "#8A6B37",
+    "surfaceColor": "#F8F8F8",
+    "headingFont": "\"Playfair Display\", Georgia, serif",
+    "bodyFont": "\"Inter\", system-ui, sans-serif"
   },
   "branding": {
-    "tagline": "El yapimi deri kordon ve aksesuarlar",
+    "tagline": "Roarcraft kalitesinde %100 el yapımı hakiki deri kordonlar",
     "supportEmail": "destek@derikordon.test",
     "supportPhone": "+90 532 000 00 00",
     "senderEmail": "noreply@derikordon.test",
@@ -21,7 +21,7 @@
   },
   "domains": {
     "storefront": "deri-kordon.test",
-    "admin": "admin.deri-kordon.test"
+    "admin": "panel.celebix.co"
   },
   "owner": {
     "createdBy": "cli-bootstrap",
@@ -53,5 +53,10 @@
     "managedDomain": "pub-4a729225991f4b33aa7ab5c294391cec.r2.dev",
     "provisionedAt": "2026-03-28T11:40:18.326Z",
     "provisioning": "configured"
+  },
+  "storefront": {
+    "appDir": "apps/storefront-deri-kordon",
+    "status": "scaffolded",
+    "lastScaffoldedAt": "2026-03-29T10:30:00.000Z"
   }
 }

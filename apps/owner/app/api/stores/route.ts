@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createStore, getStores } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
-import { listDashboardStores, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
+import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 
@@ -65,6 +65,17 @@ export async function POST(request: Request) {
     }
 
     await syncOwnerStoresAndMetrics();
+    await recordOwnerAuditLog({
+      actorId: auth.user.id,
+      action: "store_created",
+      targetType: "store",
+      targetId: result.store.slug,
+      details: {
+        name: result.store.name,
+        domain: result.store.domains.storefront,
+        warnings
+      }
+    });
 
     return NextResponse.json({ ...result, warnings }, { status: 201 });
   } catch (error) {
