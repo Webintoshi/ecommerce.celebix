@@ -15,7 +15,11 @@ export default async function FinancePage() {
         </div>
       </div>
 
-      <div className="metric-row metric-row-5">
+      <div className="metric-row metric-row-6">
+        <div className="metric-box">
+          <div className="metric-box-label">Kurulum geliri</div>
+          <div className="metric-box-value">{formatCurrency(summary.totals.setupRevenue)}</div>
+        </div>
         <div className="metric-box">
           <div className="metric-box-label">Toplam GMV</div>
           <div className="metric-box-value">{formatCurrency(summary.totals.revenue)}</div>
@@ -45,6 +49,7 @@ export default async function FinancePage() {
               <tr>
                 <th>Proje</th>
                 <th>Durum</th>
+                <th>Kurulum</th>
                 <th>GMV</th>
                 <th>Siparis</th>
                 <th>AOV</th>
@@ -62,6 +67,7 @@ export default async function FinancePage() {
                   <td>
                     <span className="pill pill-accent">{row.billingStatus}</span>
                   </td>
+                  <td>{formatCurrency(row.setupRevenue)}</td>
                   <td>{formatCurrency(row.totalRevenue)}</td>
                   <td>{row.orderCount}</td>
                   <td>{formatCurrency(row.averageOrderValue)}</td>

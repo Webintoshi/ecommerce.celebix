@@ -19,6 +19,7 @@ type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" |
 type StorePriority = "normal" | "high" | "critical";
 type BillingStatus = "healthy" | "follow_up" | "hold";
 type HealthLabel = "kritik" | "kurulum" | "operasyonel" | "hazir";
+const STORE_SETUP_REVENUE = 19000;
 
 interface OwnerStoreRow {
   id: string;
@@ -208,6 +209,7 @@ export interface StoreDetailSummary extends DashboardStoreSummary {
 
 export interface OwnerDashboardSummary {
   totals: {
+    setupRevenue: number;
     revenue: number;
     orders: number;
     customers: number;
@@ -250,6 +252,7 @@ export interface FinanceStoreSummary {
   slug: string;
   name: string;
   status: OwnerStoreStatus;
+  setupRevenue: number;
   totalRevenue: number;
   orderCount: number;
   averageOrderValue: number;
@@ -262,6 +265,7 @@ export interface FinanceStoreSummary {
 
 export interface FinanceSummary {
   totals: {
+    setupRevenue: number;
     revenue: number;
     orders: number;
     averageOrderValue: number;
@@ -1001,6 +1005,7 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
   const stores = await listDashboardStores(context);
   const totals = stores.reduce(
     (accumulator, store) => ({
+      setupRevenue: accumulator.setupRevenue + STORE_SETUP_REVENUE,
       revenue: accumulator.revenue + store.totalRevenue,
       orders: accumulator.orders + store.orderCount,
       customers: accumulator.customers + store.customerCount,
@@ -1011,6 +1016,7 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
       affiliateExposure: accumulator.affiliateExposure + (store.totalRevenue * store.totalAffiliateRate) / 100
     }),
     {
+      setupRevenue: 0,
       revenue: 0,
       orders: 0,
       customers: 0,
@@ -1080,12 +1086,14 @@ export async function getFinanceSummary(context: OwnerAuthContext): Promise<Fina
   const stores = await listDashboardStores(context);
   const totals = stores.reduce(
     (accumulator, store) => ({
+      setupRevenue: accumulator.setupRevenue + STORE_SETUP_REVENUE,
       revenue: accumulator.revenue + store.totalRevenue,
       orders: accumulator.orders + store.orderCount,
       pendingOrders: accumulator.pendingOrders + store.pendingOrderCount,
       affiliateExposure: accumulator.affiliateExposure + (store.totalRevenue * store.totalAffiliateRate) / 100
     }),
     {
+      setupRevenue: 0,
       revenue: 0,
       orders: 0,
       pendingOrders: 0,
@@ -1104,6 +1112,7 @@ export async function getFinanceSummary(context: OwnerAuthContext): Promise<Fina
         slug: store.slug,
         name: store.name,
         status: store.status,
+        setupRevenue: STORE_SETUP_REVENUE,
         totalRevenue: store.totalRevenue,
         orderCount: store.orderCount,
         averageOrderValue: store.averageOrderValue,

@@ -17,6 +17,7 @@ export default async function OwnerDashboardPage() {
   }
 
   const totals = dashboard?.totals ?? {
+    setupRevenue: 0,
     revenue: 0,
     orders: 0,
     customers: 0,
@@ -48,16 +49,18 @@ export default async function OwnerDashboardPage() {
 
       <div className="hero-grid">
         <div className="hero-card hero-card-primary">
-          <div className="hero-card-label">Toplam ekosistem cirosu</div>
-          <div className="hero-card-value">{formatCurrency(totals.revenue)}</div>
+          <div className="hero-card-label">Toplam proje geliri</div>
+          <div className="hero-card-value">{formatCurrency(totals.setupRevenue)}</div>
           <p>
-            {totals.activeStores} aktif proje, {totals.liveStorefronts} canli storefront, {totals.pendingOrders} acik operasyon konusu.
+            Her yeni proje 19.000 TL kurulum geliri olarak sayiliyor. Su an {totals.activeStores} aktif proje, {totals.draftStores} taslak proje var.
           </p>
         </div>
         <div className="hero-card">
-          <div className="hero-card-label">Tahmini affiliate yukumlulugu</div>
-          <div className="hero-card-value">{formatCurrency(totals.affiliateExposure)}</div>
-          <p>Atanmis partner ve affiliate komisyonlarinin mevcut ciroya gore tahmini etkisi.</p>
+          <div className="hero-card-label">Toplam ekosistem GMV</div>
+          <div className="hero-card-value">{formatCurrency(totals.revenue)}</div>
+          <p>
+            Magazalarin urettigi toplam siparis hacmi. Tahmini affiliate etkisi: {formatCurrency(totals.affiliateExposure)}.
+          </p>
         </div>
       </div>
 
