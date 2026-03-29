@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
 
 export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
 
 async function getSharp() {
     const sharpModule = await import("sharp");
@@ -163,38 +164,67 @@ export async function POST(request: NextRequest) {
 
         const targetFormat: 'avif' | 'webp' = preferredFormat === 'auto' ? 'avif' : preferredFormat;
 
-        const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+        let uploadBuffer = inputBuffer;
+        let uploadContentType = file.type || "application/octet-stream";
+        let uploadFileName = file.name;
+        let response: Record<string, unknown> = {
+            success: true,
+            originalSize: inputBuffer.length,
+            processedSize: inputBuffer.length,
+            savings: 0,
+            optimized: false,
+        };
+        let processedFormat: 'avif' | 'webp' | null = null;
 
-        const fileName = getFileName(file.name, processed.format);
-        
+        try {
+            const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+            uploadBuffer = processed.buffer;
+            uploadContentType = `image/${processed.format}`;
+            uploadFileName = getFileName(file.name, processed.format);
+            processedFormat = processed.format;
+            response = {
+                ...response,
+                format: processed.format,
+                width: processed.width,
+                height: processed.height,
+                originalSize: processed.originalSize,
+                processedSize: processed.processedSize,
+                savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100),
+                optimized: true,
+            };
+        } catch (optimizationError) {
+            console.error("Image optimization failed, uploading original file instead:", optimizationError);
+            response = {
+                ...response,
+                format: file.type.replace("image/", "") || "original",
+                optimizationWarning: "Image uploaded without optimization",
+            };
+        }
+
         const result = await uploadToR2(
-            processed.buffer,
-            fileName,
-            `image/${processed.format}`,
+            uploadBuffer,
+            uploadFileName,
+            uploadContentType,
             folder
         );
 
-        const response: Record<string, unknown> = {
-            success: true,
+        response = {
+            ...response,
             url: result.url,
             key: result.key,
-            format: processed.format,
-            width: processed.width,
-            height: processed.height,
-            originalSize: processed.originalSize,
-            processedSize: processed.processedSize,
-            savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100)
         };
 
         if (generateThumb) {
             try {
-                const thumbnailBuffer = await generateThumbnail(inputBuffer, folder, processed.format);
-                const thumbFileName = fileName.replace(`.${processed.format}`, `_thumb.${processed.format}`);
+                const thumbnailFormat = processedFormat || "webp";
+                const thumbnailBuffer = await generateThumbnail(inputBuffer, folder, thumbnailFormat);
+                const thumbBaseName = processedFormat ? uploadFileName.replace(`.${thumbnailFormat}`, "") : file.name.replace(/\.[^/.]+$/, "");
+                const thumbFileName = `${thumbBaseName}_thumb.${thumbnailFormat}`;
                 
                 const thumbResult = await uploadToR2(
                     thumbnailBuffer,
                     thumbFileName,
-                    `image/${processed.format}`,
+                    `image/${thumbnailFormat}`,
                     folder
                 );
 
@@ -218,7 +248,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("Upload API error:", error);
         return NextResponse.json(
-            { success: false, error: "Internal server error" },
+            { success: false, error: error instanceof Error ? error.message : "Internal server error" },
             { status: 500 }
         );
     }

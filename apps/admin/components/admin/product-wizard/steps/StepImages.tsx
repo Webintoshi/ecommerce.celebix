@@ -75,7 +75,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
     });
 
     // Parallel upload
-    const uploadPromises = validFiles.map(async (file) => {
+    const uploadPromises = validFiles.map(async (file, uploadIndex) => {
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -86,25 +86,37 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
           body: formData,
         });
 
-        const result = await response.json();
-        
-        if (result.success && result.url) {
-          return { 
+        const result = await response.json().catch(() => null);
+
+        if (response.ok && result?.success && result?.url) {
+          return {
+            success: true as const,
             url: result.url, 
             alt: "", 
             isPrimary: false, 
-            sortOrder: images.length 
+            sortOrder: images.length + uploadIndex,
           };
         }
-        return null;
+        return {
+          success: false as const,
+          fileName: file.name,
+          error: result?.error || "Gorsel yuklenemedi.",
+        };
       } catch (error) {
         console.error('Upload error:', error);
-        return null;
+        return {
+          success: false as const,
+          fileName: file.name,
+          error: error instanceof Error ? error.message : "Gorsel yuklenirken hata olustu.",
+        };
       }
     });
 
     const results = await Promise.all(uploadPromises);
-    const newImages = results.filter((r): r is ProductImage => r !== null);
+    const newImages: ProductImage[] = results
+      .filter((result): result is { success: true; url: string; alt: string; isPrimary: boolean; sortOrder: number } => result.success)
+      .map(({ url, alt, isPrimary, sortOrder }) => ({ url, alt, isPrimary, sortOrder }));
+    const failedUploads = results.filter((result): result is { success: false; fileName: string; error: string } => !result.success);
 
     if (newImages.length > 0) {
       // İlk görsel ana görsel olsun (eğer hiç ana görsel yoksa)
@@ -117,6 +129,11 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
       console.log('StepImages - onChange called with:', updatedImages);
       onChange(updatedImages);
       toast.success(`${newImages.length} görsel yüklendi`);
+    }
+
+    if (failedUploads.length > 0) {
+      const firstFailure = failedUploads[0];
+      toast.error(`${firstFailure.fileName}: ${firstFailure.error}`);
     }
 
     setUploading(false);
