@@ -21,6 +21,9 @@ export function Footer() {
     address: storeInfo.address || CONTACT_INFO.address,
   } : CONTACT_INFO;
 
+  const logoSrc = storeInfo?.logoUrl || "/logo.webp";
+  const logoAlt = storeInfo?.name || SITE_NAME;
+
   const socialLinks = storeInfo ? {
     instagram: storeInfo.socialInstagram || SOCIAL_LINKS.instagram,
     facebook: SOCIAL_LINKS.facebook,
@@ -37,12 +40,13 @@ export function Footer() {
           <div className="lg:col-span-4">
             <Link href="/" className="inline-block mb-5">
               <Image 
-                src="/logo.webp" 
-                alt={SITE_NAME} 
+                src={logoSrc} 
+                alt={logoAlt} 
                 width={110}
                 height={40}
                 className="h-10 w-auto"
                 sizes="110px"
+                unoptimized={logoSrc.startsWith("http")}
               />
             </Link>
             <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-xs">

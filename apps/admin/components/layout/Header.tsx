@@ -26,6 +26,7 @@ import {
 import { SITE_NAME, NAV_LINKS, ROUTES, CONTACT_INFO, SOCIAL_LINKS } from "@/lib/constants";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { CategoryInfo } from "@/types/product";
 
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
@@ -54,6 +55,7 @@ export function Header() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user, signOut } = useAuth();
+  const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
   const cartControls = useAnimation();
   const prevCartCountRef = useRef(cartItemCount);
@@ -135,6 +137,9 @@ export function Header() {
     setIsMenuOpen(false);
   };
 
+  const logoSrc = storeInfo?.logoUrl || "/logo.webp";
+  const logoAlt = storeInfo?.name || SITE_NAME;
+
   // Menu items for navigation
   const menuItems = [
     { icon: Home, label: "Ana Sayfa", href: "/" },
@@ -156,13 +161,14 @@ export function Header() {
           {/* LOGO */}
           <Link href={ROUTES.home} className="flex items-center gap-2 transform hover:scale-105 transition-transform duration-300">
             <Image 
-              src="/logo.webp" 
-              alt={SITE_NAME} 
+              src={logoSrc} 
+              alt={logoAlt} 
               width={120}
               height={48}
               className="h-10 lg:h-12 w-auto"
               priority
               sizes="120px"
+              unoptimized={logoSrc.startsWith("http")}
             />
           </Link>
 
