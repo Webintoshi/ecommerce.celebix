@@ -9,6 +9,7 @@ export interface StoreInfo {
     address: string;
     currency: string;
     timezone: string;
+    logoUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
 }

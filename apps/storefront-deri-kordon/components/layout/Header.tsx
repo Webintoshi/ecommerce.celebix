@@ -23,13 +23,13 @@ import {
   CONTACT_INFO,
   NAV_LINKS,
   ROUTES,
-  SITE_LOGO_PATH,
   SITE_NAME,
   SOCIAL_LINKS,
   TOP_BAR_MESSAGE,
 } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { searchProducts } from "@/lib/products";
 import type { Product, CategoryInfo } from "@/types/product";
 
@@ -47,6 +47,7 @@ export function Header({ transparent = false }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user, signOut } = useAuth();
+  const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
 
   // Scroll detection for header styling
@@ -119,6 +120,9 @@ export function Header({ transparent = false }: HeaderProps) {
     setIsSearchOpen(false);
   };
 
+  const logoSrc = storeInfo?.logoUrl || "";
+  const logoAlt = storeInfo?.name || SITE_NAME;
+
   // Determine header style based on transparent prop and scroll state
   const isTransparent = transparent && !isScrolled;
 
@@ -164,7 +168,19 @@ export function Header({ transparent = false }: HeaderProps) {
               href={ROUTES.home}
               className="flex items-center transition-transform duration-300 hover:scale-[1.02]"
             >
-              <span className={`font-serif text-xl lg:text-2xl font-semibold tracking-tight transition-colors duration-300 ${
+              {logoSrc ? (
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  width={160}
+                  height={52}
+                  className="h-10 w-auto lg:h-12"
+                  priority
+                  sizes="160px"
+                  unoptimized
+                />
+              ) : null}
+              <span className={`${logoSrc ? "hidden " : ""}font-serif text-xl lg:text-2xl font-semibold tracking-tight transition-colors duration-300 ${
                 isTransparent && !isScrolled ? "text-white" : "text-[#0F1626]"
               }`}>
                 DERİ <span className="text-[#8A6B37]">KORDON</span>

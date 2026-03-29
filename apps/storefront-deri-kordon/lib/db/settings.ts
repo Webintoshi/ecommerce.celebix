@@ -122,6 +122,10 @@ export interface StoreInfo {
     address: string;
     currency: string;
     taxRate: number;
+    timezone?: string;
+    logoUrl?: string;
+    socialInstagram?: string;
+    socialTwitter?: string;
 }
 
 /**

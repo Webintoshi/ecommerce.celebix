@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Instagram, Mail, MapPin, Phone, Truck, Shield, Clock, Award } from "lucide-react";
 import {
   CONTACT_INFO,
@@ -25,6 +26,8 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const logoSrc = storeInfo?.logoUrl || "";
+  const logoAlt = storeInfo?.name || SITE_NAME;
 
   const contactInfo = {
     email: storeInfo?.email || CONTACT_INFO.email,
@@ -74,7 +77,18 @@ export function Footer() {
           {/* Brand Column */}
           <div className="lg:col-span-4">
             <Link href="/" className="inline-block mb-6">
-              <span className="font-serif text-2xl font-semibold text-white">
+              {logoSrc ? (
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  width={180}
+                  height={60}
+                  className="h-12 w-auto"
+                  sizes="180px"
+                  unoptimized
+                />
+              ) : null}
+              <span className={`${logoSrc ? "hidden " : ""}font-serif text-2xl font-semibold text-white`}>
                 DERİ <span className="text-[#8A6B37]">KORDON</span>
               </span>
             </Link>

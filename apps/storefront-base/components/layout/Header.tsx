@@ -31,6 +31,7 @@ import {
 } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { searchProducts } from "@/lib/products";
 import type { Product, CategoryInfo } from "@/types/product";
 
@@ -49,6 +50,7 @@ export function Header() {
   const [favoritesCount, setFavoritesCount] = useState(0);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user, signOut } = useAuth();
+  const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
 
   useEffect(() => {
@@ -157,6 +159,9 @@ export function Header() {
     setIsSearchOpen(false);
   };
 
+  const logoSrc = storeInfo?.logoUrl || SITE_LOGO_PATH;
+  const logoAlt = storeInfo?.name || SITE_NAME;
+
   const searchResultsPanel = searchResults.length > 0 && (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
@@ -211,13 +216,14 @@ export function Header() {
             className="flex items-center gap-2 transition-transform duration-300 hover:scale-105"
           >
             <Image
-              src={SITE_LOGO_PATH}
-              alt={SITE_NAME}
+              src={logoSrc}
+              alt={logoAlt}
               width={120}
               height={48}
               className="h-10 w-auto lg:h-12"
               priority
               sizes="120px"
+              unoptimized={logoSrc.startsWith("http")}
             />
           </Link>
 

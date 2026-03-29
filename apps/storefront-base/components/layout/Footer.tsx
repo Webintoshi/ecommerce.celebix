@@ -42,6 +42,8 @@ function FooterLinkList({
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const currentYear = new Date().getFullYear();
+  const logoSrc = storeInfo?.logoUrl || SITE_LOGO_PATH;
+  const logoAlt = storeInfo?.name || SITE_NAME;
 
   const contactInfo = {
     email: storeInfo?.email || CONTACT_INFO.email,
@@ -61,12 +63,13 @@ export function Footer() {
         <div className="lg:col-span-4">
           <Link href="/" className="inline-flex items-center gap-3">
             <Image
-              src={SITE_LOGO_PATH}
-              alt={SITE_NAME}
+              src={logoSrc}
+              alt={logoAlt}
               width={150}
               height={52}
               className="h-11 w-auto"
               sizes="150px"
+              unoptimized={logoSrc.startsWith("http")}
             />
           </Link>
           <p className="mt-5 max-w-sm text-sm leading-7 text-gray-600">{SITE_DESCRIPTION}</p>
