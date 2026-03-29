@@ -24,6 +24,24 @@ interface ValueInput extends VariantAttributeValue {
   isDeleted?: boolean;
 }
 
+async function requestAttributeApi<T = unknown>(input: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.error || "Nitelik islemi basarisiz oldu.");
+  }
+
+  return data as T;
+}
+
 export default function EditVariantAttributePage() {
   const router = useRouter();
   const params = useParams();
@@ -190,9 +208,8 @@ export default function EditVariantAttributePage() {
     try {
       const newValues = values.filter((v) => v.isNew && !v.isDeleted && v.value.trim());
       for (const value of newValues) {
-        await fetch("/api/admin/variant-attributes/values", {
+        await requestAttributeApi("/api/admin/variant-attributes/values", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             attribute_id: attributeId,
             value: value.value,
@@ -204,16 +221,15 @@ export default function EditVariantAttributePage() {
 
       const deletedValues = values.filter((v) => v.isDeleted && !v.isNew);
       for (const value of deletedValues) {
-        await fetch(`/api/admin/variant-attributes/values?id=${value.id}`, {
+        await requestAttributeApi(`/api/admin/variant-attributes/values?id=${value.id}`, {
           method: "DELETE",
         });
       }
 
       const existingValues = values.filter((v) => !v.isNew && !v.isDeleted);
       for (const value of existingValues) {
-        await fetch("/api/admin/variant-attributes/values", {
+        await requestAttributeApi("/api/admin/variant-attributes/values", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: value.id,
             value: value.value,
@@ -223,9 +239,8 @@ export default function EditVariantAttributePage() {
         });
       }
 
-      await fetch("/api/admin/variant-attributes", {
+      await requestAttributeApi("/api/admin/variant-attributes", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: attributeId,
           name: name.trim(),

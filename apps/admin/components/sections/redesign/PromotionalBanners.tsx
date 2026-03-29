@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { ChevronLeft, ChevronRight, ArrowRight, Sparkles, Percent, Clock } from "lucide-react";
 
 export interface PromoBanner {
@@ -55,16 +54,16 @@ export default function PromotionalBanners({ initialBanners = [] }: PromotionalB
       }
 
       try {
-        const supabase = getBrowserSupabaseClient();
+        const response = await fetch("/api/settings?key=promo_banners", { cache: "no-store" });
+        const data = await response.json().catch(() => null);
+        const payload = Array.isArray(data?.setting?.value)
+          ? data.setting.value
+          : Array.isArray(data?.setting?.value?.banners)
+            ? data.setting.value.banners
+            : [];
 
-        const { data } = await supabase
-          .from("settings")
-          .select("value")
-          .eq("key", "promo_banners")
-          .single();
-
-        if (data?.value?.banners) {
-          const mergedBanners = data.value.banners.map((banner: PromoBanner) => ({
+        if (payload.length > 0) {
+          const mergedBanners = payload.map((banner: PromoBanner) => ({
             ...banner,
             badge: banner.badge || getDefaultBadge(banner.order),
             color: banner.color || getDefaultColor(banner.order),

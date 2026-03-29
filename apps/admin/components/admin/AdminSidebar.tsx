@@ -207,13 +207,11 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
 
         setUserEmail(user.email || undefined);
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, role")
-          .eq("id", user.id)
-          .maybeSingle<{ full_name: string | null; role: UserRole }>();
+        const response = await fetch("/api/admin/me", { cache: "no-store" });
+        const result = await response.json().catch(() => null);
+        const profile = result?.success ? result.profile : null;
 
-        const resolvedRole =
+        const resolvedRole: UserRole =
           profile?.role === "super_admin" ||
           profile?.role === "product_manager" ||
           profile?.role === "content_creator" ||
