@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Search, ShoppingBag, User, Menu, X } from "lucide-react";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
@@ -39,7 +38,6 @@ export function Header() {
     >
       <div className="container-premium">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          {/* Mobile Menu Button */}
           <button
             className="lg:hidden p-2 -ml-2"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -48,14 +46,12 @@ export function Header() {
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          {/* Logo */}
           <Link href={ROUTES.home} className="flex-shrink-0">
             <span className="font-serif text-xl lg:text-2xl font-medium text-neutral-900">
               {storeInfo?.name || SITE_NAME}
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-10">
             {navItems.map((item) => (
               <Link
@@ -68,12 +64,11 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-4">
             <button className="p-2" aria-label="Ara">
               <Search className="w-5 h-5 text-neutral-600" />
             </button>
-            
+
             <Link href={user ? "/hesap" : ROUTES.login} className="hidden sm:block p-2">
               <User className="w-5 h-5 text-neutral-600" />
             </Link>
@@ -90,7 +85,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="lg:hidden bg-white border-t border-neutral-200">
           <nav className="container-premium py-4 space-y-4">

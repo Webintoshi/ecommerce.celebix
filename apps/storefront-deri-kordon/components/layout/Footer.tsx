@@ -22,10 +22,8 @@ export function Footer() {
 
   return (
     <footer className="bg-neutral-900 text-white">
-      {/* Main Footer */}
       <div className="container-premium py-16 lg:py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
-          {/* Brand */}
           <div className="lg:col-span-1">
             <Link href="/" className="inline-block mb-6">
               <span className="font-serif text-2xl font-medium">
@@ -48,7 +46,6 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Navigation */}
           <div>
             <h4 className="font-medium text-sm uppercase tracking-wider mb-6">
               Keşfet
@@ -67,7 +64,6 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Company */}
           <div>
             <h4 className="font-medium text-sm uppercase tracking-wider mb-6">
               Kurumsal
@@ -86,7 +82,6 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
           <div>
             <h4 className="font-medium text-sm uppercase tracking-wider mb-6">
               İletişim
@@ -119,7 +114,6 @@ export function Footer() {
         </div>
       </div>
 
-      {/* Bottom Bar */}
       <div className="border-t border-neutral-800">
         <div className="container-premium py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">

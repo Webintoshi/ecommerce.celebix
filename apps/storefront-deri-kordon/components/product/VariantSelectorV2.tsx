@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 interface Props {
   variants: any[];
@@ -86,40 +87,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
   // Get attribute keys
   const attrKeys = Object.keys(attributeGroups);
   
-  // DEBUG: Show data structure
-  const debugInfo = {
-    variantCount: variants.length,
-    attributeKeys: attrKeys,
-    firstVariantAttrs: variants[0]?.attributes?.map((a: any) => ({
-      name: a.attribute?.name || a.name,
-      value: a.value,
-      hasImage: !!a.image_url,
-      hasColor: !!a.color_code
-    }))
-  };
-  
-  // Force debug to be visible
-  const debugHtml = JSON.stringify(debugInfo, null, 2).replace(/\n/g, '<br/>').replace(/ /g, '&nbsp;');
-
-  // DEBUG: Always show this to understand data structure
-  const showDebug = true; // Force debug for troubleshooting
-  
-  // If no attributes found, show simple variant selector with debug
+  // If no attributes found, show simple variant selector
   if (attrKeys.length === 0) {
     return (
       <div className="space-y-3">
-        {showDebug && (
-          <div className="p-2 bg-red-100 text-xs font-mono rounded text-red-800 mb-2">
-            DEBUG (NO ATTRIBUTES):<br/>
-            variants.length: {variants.length}<br/>
-            firstVariant: {variants[0] ? JSON.stringify({
-              id: variants[0].id,
-              name: variants[0].name,
-              hasAttributes: !!variants[0].attributes,
-              attrLength: variants[0].attributes?.length || 0
-            }) : 'none'}
-          </div>
-        )}
         <div className="flex items-center justify-between">
           <span className="font-medium text-[#7B1113]">Boyut</span>
           <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
@@ -199,7 +170,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       <div className="absolute inset-1 rounded-full overflow-hidden bg-gray-100">
                         {val.image_url ? (
                           <img
-                            src={val.image_url}
+                            src={resolveStorefrontAssetUrl(val.image_url)}
                             alt={val.value}
                             className="w-full h-full object-cover"
                           />

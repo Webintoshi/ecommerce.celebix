@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 interface ImageGalleryProps {
   images: string[];
@@ -23,9 +24,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const safeImages = Array.isArray(images) ? images : [];
   
   // Filter valid images
-  const displayImages = safeImages.filter(img => 
-    img && typeof img === 'string' && img.trim() !== ''
-  );
+  const displayImages = safeImages
+    .filter((img) => img && typeof img === "string" && img.trim() !== "")
+    .map((img) => resolveStorefrontAssetUrl(img))
+    .filter((img) => img.length > 0);
 
   // Reset selected index when images change
   useEffect(() => {

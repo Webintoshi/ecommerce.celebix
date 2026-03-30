@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
 import { useCart } from "@/lib/cart-context";
 import { cn } from "@/lib/utils";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 interface ProductCardProps {
   product: Product;
@@ -15,21 +16,37 @@ interface ProductCardProps {
   viewMode?: "grid" | "list";
 }
 
+function getResolvedProductImages(product: Product) {
+  const legacyImagesV2 = Array.isArray((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2)
+    ? ((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? [])
+      .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
+      .filter((image) => image.length > 0)
+    : [];
+
+  return (Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2)
+    .map((image) => resolveStorefrontAssetUrl(image))
+    .filter((image) => image.length > 0);
+}
+
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const { addToCart } = useCart();
+  const productImages = getResolvedProductImages(product);
+  const primaryImage = productImages[0];
+  const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
 
   if (!product.variants || product.variants.length === 0) {
     return (
-      <Link href={`${ROUTES.PRODUCTS}/${product.slug}`} className="group block">
+      <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="bg-white border border-neutral-200 hover:border-neutral-400 transition-colors">
           <div className="relative aspect-square bg-neutral-100">
-            {product.images?.[0] ? (
+            {primaryImage ? (
               <Image
-                src={product.images[0]}
+                src={primaryImage}
                 alt={product.name}
                 fill
                 className="object-cover"
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm">
@@ -68,12 +85,13 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="flex gap-6 bg-white border border-neutral-200 hover:border-neutral-400 transition-colors p-4">
           <div className="relative w-32 h-32 flex-shrink-0 bg-neutral-100">
-            {product.images?.[0] ? (
+            {primaryImage ? (
               <Image
-                src={product.images[0]}
+                src={primaryImage}
                 alt={product.name}
                 fill
                 className="object-cover"
+                unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">
@@ -112,27 +130,25 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     );
   }
 
-  // Grid View
   return (
     <Link href={ROUTES.product(product.slug)} className="group block">
       <div className="bg-white">
-        {/* Image */}
         <div className="relative aspect-square bg-neutral-100 mb-4 overflow-hidden">
-          {product.images?.[0] ? (
+          {primaryImage ? (
             <Image
-              src={product.images[0]}
+              src={primaryImage}
               alt={product.name}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              unoptimized={usesProxiedPrimaryImage}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm">
               Görsel yok
             </div>
           )}
-          
-          {/* Badge */}
+
           {hasDiscount && (
             <span className="absolute top-3 left-3 bg-neutral-900 text-white text-xs px-2 py-1">
               İndirim
@@ -144,13 +160,12 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             </span>
           )}
         </div>
-        
-        {/* Content */}
+
         <div>
           <h3 className="font-medium text-neutral-900 mb-1 group-hover:text-neutral-600 transition-colors">
             {product.name}
           </h3>
-          
+
           {product.rating > 0 && (
             <div className="flex items-center gap-1 mb-2">
               {[...Array(5)].map((_, i) => (
@@ -166,7 +181,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               ))}
             </div>
           )}
-          
+
           <div className="flex items-center gap-2">
             <span className="font-medium text-neutral-900">
               {formatPrice(displayVariant.price)}
