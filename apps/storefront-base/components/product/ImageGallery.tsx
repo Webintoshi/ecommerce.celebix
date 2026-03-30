@@ -199,6 +199,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           <img
             src={currentImage}
             alt={productName}
+            draggable={false}
             className="max-w-full max-h-full object-contain p-4"
           />
         </motion.div>
@@ -229,6 +230,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               ref={mainImageRef}
               src={currentImage}
               alt={productName}
+              draggable={false}
               className="w-full h-full object-contain"
               loading="eager"
               onLoad={() => setStatus(currentImage, 'loaded')}
@@ -294,6 +296,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 <img
                   src={image}
                   alt={`${productName} - ${index + 1}`}
+                  draggable={false}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -358,6 +361,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             key={selectedIndex}
             src={currentImage}
             alt={`${productName} - Ana Görsel`}
+            draggable={false}
             className={`w-full h-full object-contain transition-opacity duration-300 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
             }`}

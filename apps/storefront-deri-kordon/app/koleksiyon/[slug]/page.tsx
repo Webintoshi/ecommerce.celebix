@@ -279,7 +279,7 @@ function generateCollectionPageSchema(category: Category, products: Product[]): 
       "itemListElement": products.map((product, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": `https://deri-kordon.test/urun/${product.slug}`
+        "url": `https://deri-kordon.test/urunler/${product.slug}`
       }))
     }
   };

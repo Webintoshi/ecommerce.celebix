@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -52,6 +52,7 @@ export function Header() {
   const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
+  const previousBodyOverflowRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadCategories() {
@@ -68,11 +69,20 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = isMenuOpen ? "hidden" : "";
+    if (isMenuOpen) {
+      previousBodyOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
 
-    return () => {
-      document.body.style.overflow = "";
-    };
+      return () => {
+        document.body.style.overflow = previousBodyOverflowRef.current ?? "";
+        previousBodyOverflowRef.current = null;
+      };
+    }
+
+    if (previousBodyOverflowRef.current !== null) {
+      document.body.style.overflow = previousBodyOverflowRef.current;
+      previousBodyOverflowRef.current = null;
+    }
   }, [isMenuOpen]);
 
   useEffect(() => {
@@ -186,6 +196,7 @@ export function Header() {
               <img
                 src={product.images[0] ?? "/placeholder.svg"}
                 alt={product.name}
+                draggable={false}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -435,6 +446,7 @@ export function Header() {
                               <img
                                 src={product.images[0] ?? "/placeholder.svg"}
                                 alt={product.name}
+                                draggable={false}
                                 className="h-12 w-12 rounded-lg bg-gray-100 object-cover"
                               />
                               <div className="min-w-0 flex-1">

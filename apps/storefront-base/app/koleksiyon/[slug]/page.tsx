@@ -278,7 +278,7 @@ function generateCollectionPageSchema(category: Category, products: Product[]): 
       "itemListElement": products.map((product, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": `https://ornek-magaza.celebix.co/urun/${product.slug}`
+        "url": `https://ornek-magaza.celebix.co/urunler/${product.slug}`
       }))
     }
   };

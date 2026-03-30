@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -50,6 +50,7 @@ export function Header({ transparent = false }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
+  const previousBodyOverflowRef = useRef<string | null>(null);
 
   // Scroll detection for header styling
   useEffect(() => {
@@ -74,10 +75,19 @@ export function Header({ transparent = false }: HeaderProps) {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = isMenuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    if (isMenuOpen) {
+      previousBodyOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = previousBodyOverflowRef.current ?? "";
+        previousBodyOverflowRef.current = null;
+      };
+    }
+
+    if (previousBodyOverflowRef.current !== null) {
+      document.body.style.overflow = previousBodyOverflowRef.current;
+      previousBodyOverflowRef.current = null;
+    }
   }, [isMenuOpen]);
 
   useEffect(() => {
@@ -338,6 +348,7 @@ export function Header({ transparent = false }: HeaderProps) {
                               <img
                                 src={product.images[0] ?? "/placeholder.svg"}
                                 alt={product.name}
+                                draggable={false}
                                 className="w-full h-full object-cover"
                               />
                             </div>

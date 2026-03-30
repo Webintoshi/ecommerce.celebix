@@ -57,6 +57,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
   const isOutOfStock = selectedVariant?.stock === 0;
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -65,7 +66,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
     
     return () => {
       document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
 
@@ -151,6 +152,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                   alt={product.name}
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"
+                  draggable={false}
                   className="object-cover"
                   priority
                 />
@@ -333,7 +335,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
 
               <div className="flex gap-3">
                 <Link
-                  href={`/urun/${product.slug}`}
+                  href={`/urunler/${product.slug}`}
                   className="flex-1 py-3 bg-gray-100 text-gray-900 text-center font-semibold rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                 >
                   Ürünü İncele

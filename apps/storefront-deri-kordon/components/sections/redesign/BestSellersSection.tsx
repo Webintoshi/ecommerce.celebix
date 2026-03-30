@@ -122,10 +122,26 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 onMouseEnter={() => setHoveredId(product.id)}
                 onMouseLeave={() => setHoveredId(null)}
+                className="group relative"
               >
-                <Link href={`/urunler/${product.slug}`} className="group block">
+                <button
+                  onClick={() => toggleWishlist(product.id)}
+                  className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center bg-white/90 opacity-0 backdrop-blur-sm transition-opacity duration-300 hover:bg-[#0F1626] group-hover:opacity-100"
+                  aria-label={wishlist.includes(product.id) ? "Favorilerden çıkar" : "Favorilere ekle"}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5 transition-colors",
+                      wishlist.includes(product.id)
+                        ? "fill-[#8A6B37] text-[#8A6B37]"
+                        : "text-[#0F1626] group-hover:text-white",
+                    )}
+                  />
+                </button>
+
+                <Link href={`/urunler/${product.slug}`} className="block">
                   <div className="relative mb-4 aspect-[3/4] overflow-hidden bg-[#F5F3F0]">
-                    <div className="absolute left-4 top-4 z-10 flex flex-col gap-2">
+                    <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
                       {product.featured && (
                         <span className="bg-[#0F1626] px-3 py-1.5 text-xs tracking-wider text-white">
                           Cok Satan
@@ -143,28 +159,12 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
                       )}
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        toggleWishlist(product.id);
-                      }}
-                      className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center bg-white/90 opacity-0 backdrop-blur-sm transition-opacity duration-300 hover:bg-[#0F1626] group-hover:opacity-100"
-                    >
-                      <Heart
-                        className={cn(
-                          "h-5 w-5 transition-colors",
-                          wishlist.includes(product.id)
-                            ? "fill-[#8A6B37] text-[#8A6B37]"
-                            : "text-[#0F1626] group-hover:text-white",
-                        )}
-                      />
-                    </button>
-
                     {primaryImage ? (
                       <Image
                         src={primaryImage}
                         alt={product.name}
                         fill
+                        draggable={false}
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         unoptimized={primaryImage.startsWith("http")}
@@ -192,12 +192,12 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
                       initial={{ y: "100%" }}
                       animate={{ y: hoveredId === product.id ? 0 : "100%" }}
                       transition={{ duration: 0.3 }}
-                      className="absolute bottom-0 left-0 right-0 p-4"
+                      className="pointer-events-none absolute bottom-0 left-0 right-0 p-4"
                     >
-                      <button className="flex w-full items-center justify-center gap-2 bg-[#0F1626] py-3 text-white transition-colors hover:bg-[#8A6B37]">
+                      <div className="flex w-full items-center justify-center gap-2 bg-[#0F1626] py-3 text-white transition-colors">
                         <ShoppingBag className="h-4 w-4" />
                         <span className="text-sm uppercase tracking-wider">Incele</span>
-                      </button>
+                      </div>
                     </motion.div>
                   </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
   const desktopSrc = currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop;
   const mobileSrc =
     currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc;
+  const slideHref = currentBanner.buttonLink?.trim();
 
   return (
     <section className="relative w-full h-[70vh] min-h-[500px] max-h-[900px] overflow-hidden bg-[#0F1626]">
@@ -114,6 +116,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
               alt={currentBanner.alt}
               fill
               priority
+              draggable={false}
               className="object-cover"
               sizes="100vw"
               quality={90}
@@ -128,6 +131,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
               alt={currentBanner.alt}
               fill
               priority
+              draggable={false}
               className="object-cover"
               sizes="100vw"
               quality={85}
@@ -136,9 +140,17 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
           </div>
           
           {/* Subtle Overlay for better header visibility */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
         </motion.div>
       </AnimatePresence>
+
+      {slideHref ? (
+        <Link
+          href={slideHref}
+          className="absolute inset-0 z-10 block"
+          aria-label={currentBanner.buttonText || currentBanner.alt || "Banneri incele"}
+        />
+      ) : null}
 
       {/* Navigation Arrows - Only show if multiple banners */}
       {heroBanners.length > 1 && (
