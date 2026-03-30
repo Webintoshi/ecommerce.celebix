@@ -11,7 +11,7 @@ import { useWishlist } from "@/lib/wishlist-context";
 import { useQuickView } from "@/components/product/QuickViewProvider";
 import { cn } from "@/lib/utils";
 import { useState, useRef } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 
 interface ProductCardProps {
   product: Product;
