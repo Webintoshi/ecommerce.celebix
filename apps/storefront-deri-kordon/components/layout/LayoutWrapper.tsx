@@ -8,14 +8,11 @@ import { CartWrapper } from "@/components/cart/CartWrapper";
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
-  
-  // Enable transparent header only on homepage
-  const isHomePage = pathname === "/";
 
   return (
     <>
       <div className="flex min-h-screen flex-col">
-        {!isAdmin && <Header transparent={isHomePage} />}
+        {!isAdmin && <Header />}
         <main className={isAdmin ? "" : "flex-1"}>{children}</main>
         {!isAdmin && <Footer />}
       </div>
