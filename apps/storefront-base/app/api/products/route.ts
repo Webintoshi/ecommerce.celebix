@@ -63,20 +63,26 @@ export async function GET(request: NextRequest) {
                 .from("products")
                 .select("*, variants:product_variants(*)")
                 .eq("slug", slug)
-                .single();
-            if (error) {
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
+                .order("updated_at", { ascending: false })
+                .order("created_at", { ascending: false })
+                .limit(1);
+            if (error || !data?.[0]) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: error.message 
+                    error: error?.message || "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: data });
+            return NextResponse.json({ success: true, product: data[0] });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
                 .eq("is_featured", true)
                 .limit(10);
             if (error) throw error;
@@ -87,6 +93,8 @@ export async function GET(request: NextRequest) {
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
                 .eq("is_bestseller", true)
                 .limit(10);
             if (error) throw error;
@@ -100,13 +108,17 @@ export async function GET(request: NextRequest) {
             const { count } = await supabase
                 .from("products")
                 .select("*", { count: "exact", head: true })
-                .eq("category", category);
+                .eq("category", category)
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null");
 
             // Get paginated data
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
                 .eq("category", category)
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
                 .range(offset, offset + limit - 1)
                 .order("created_at", { ascending: false });
 
@@ -127,6 +139,8 @@ export async function GET(request: NextRequest) {
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
                 .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
                 .limit(20);
             if (error) throw error;
@@ -139,12 +153,16 @@ export async function GET(request: NextRequest) {
             // Get total count
             const { count } = await supabase
                 .from("products")
-                .select("*", { count: "exact", head: true });
+                .select("*", { count: "exact", head: true })
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null");
 
             // Get paginated data
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
+                .eq("is_active", true)
+                .or("status.eq.published,status.is.null")
                 .range(offset, offset + limit - 1)
                 .order("created_at", { ascending: false });
 

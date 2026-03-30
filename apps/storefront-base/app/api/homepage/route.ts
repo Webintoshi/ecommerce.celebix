@@ -173,7 +173,7 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
         .from("products")
         .select("*, variants:product_variants(*)")
         .eq("is_active", true)
-        .eq("status", "published")
+        .or("status.eq.published,status.is.null")
         .order("created_at", { ascending: false })
         .limit(8);
 

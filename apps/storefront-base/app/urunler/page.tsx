@@ -92,6 +92,7 @@ async function getProducts(): Promise<Product[]> {
         variants:product_variants(*)
       `)
       .eq("is_active", true)
+      .or("status.eq.published,status.is.null")
       .order("created_at", { ascending: false });
     
     if (error) {

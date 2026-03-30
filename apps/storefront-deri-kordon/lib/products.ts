@@ -584,7 +584,7 @@ export async function getAllProducts(): Promise<Product[]> {
     .from("products")
     .select("*, variants:product_variants(*)")
     .eq("is_active", true)
-    .eq("status", "published");
+    .or("status.eq.published,status.is.null");
 
   if (error) {
     console.error("Error fetching products from Supabase:", error);
@@ -602,7 +602,7 @@ export async function getLimitedProducts(limit: number = 8): Promise<Product[]> 
     .from("products")
     .select("*, variants:product_variants(*)")
     .eq("is_active", true)
-    .eq("status", "published")
+    .or("status.eq.published,status.is.null")
     .limit(limit);
 
   if (error) {
@@ -622,7 +622,7 @@ export async function getProductSlug(): Promise<string[]> {
     .from("products")
     .select("slug")
     .eq("is_active", true)
-    .eq("status", "published");
+    .or("status.eq.published,status.is.null");
 
   if (error) {
     console.error("Error fetching product slugs from Supabase:", error);
@@ -641,15 +641,17 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
     .select("*, variants:product_variants(*)")
     .eq("slug", slug)
     .eq("is_active", true)
-    .eq("status", "published")
-    .single();
+    .or("status.eq.published,status.is.null")
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) {
     console.error("Error fetching product by slug from Supabase:", error);
     return undefined;
   }
 
-  return data;
+  return data?.[0];
 }
 
 export function getProductsByCategory(category: string): Product[] {

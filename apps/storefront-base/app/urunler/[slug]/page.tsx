@@ -110,17 +110,21 @@ export default async function ProductDetailPage({
     const supabase = createServerClient();
     
     // Once urunu cek
-    const { data: dbProduct, error: productError } = await supabase
+    const { data: dbProducts, error: productError } = await supabase
       .from("products")
       .select("*")
       .eq("slug", baseSlug)
       .eq("is_active", true)
-      .single();
+      .or("status.eq.published,status.is.null")
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1);
     
     if (productError) {
       console.error('Product fetch error:', productError);
       supabaseError = productError;
-    } else if (dbProduct) {
+    } else if (dbProducts?.[0]) {
+      const dbProduct = dbProducts[0];
       // Ayri olarak varyantlari cek (nitelikleriyle birlikte)
       const { data: variants, error: variantsError } = await supabase
         .from("product_variants")

@@ -149,14 +149,16 @@ export async function GET(request: NextRequest) {
                 .from("products")
                 .select("*, variants:product_variants(*)")
                 .eq("slug", slug)
-                .single();
-            if (error) {
+                .order("updated_at", { ascending: false })
+                .order("created_at", { ascending: false })
+                .limit(1);
+            if (error || !data?.[0]) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: error.message 
+                    error: error?.message || "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: data });
+            return NextResponse.json({ success: true, product: data[0] });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
@@ -311,13 +313,13 @@ export async function POST(request: NextRequest) {
 
         // 1. Slug benzersizlik kontrolü
         if (productData.slug) {
-            const { data: existingProduct } = await supabase
+            const { data: existingProducts } = await supabase
                 .from("products")
                 .select("id")
                 .eq("slug", productData.slug)
-                .single();
+                .limit(1);
 
-            if (existingProduct) {
+            if ((existingProducts?.length ?? 0) > 0) {
                 const uniqueSlug = `${productData.slug}-${Date.now().toString(36)}`;
                 productData.slug = uniqueSlug;
                 console.log("Slug changed to:", uniqueSlug);
@@ -584,14 +586,14 @@ export async function PUT(request: NextRequest) {
 
         // 1. Slug benzersizlik kontrolü (güncelleme sırasında)
         if (updates.slug) {
-            const { data: existingProduct } = await supabase
+            const { data: existingProducts } = await supabase
                 .from("products")
                 .select("id")
                 .eq("slug", updates.slug)
                 .neq("id", id)
-                .single();
+                .limit(1);
 
-            if (existingProduct) {
+            if ((existingProducts?.length ?? 0) > 0) {
                 updates.slug = `${updates.slug}-${Date.now().toString(36)}`;
                 console.log("Slug changed to:", updates.slug);
             }
