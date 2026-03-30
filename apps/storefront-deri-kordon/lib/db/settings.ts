@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 import {
     ShippingIntegrationSettings,
 } from "@/types/shipping-integration";
@@ -126,6 +127,7 @@ export interface StoreInfo {
     logoUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
+    typography?: StoreTypographySettings;
 }
 
 /**

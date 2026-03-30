@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, createContext, useContext } from "react";
+import { buildStoreTypographyCssVariables } from "@celebix/platform-config/src/typography";
+import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 
 export interface StoreInfo {
     name: string;
@@ -12,6 +14,7 @@ export interface StoreInfo {
     logoUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
+    typography?: StoreTypographySettings;
 }
 
 interface StoreInfoContextType {
@@ -61,6 +64,16 @@ export function StoreInfoProvider({
     useEffect(() => {
         fetchStoreInfo();
     }, []);
+
+    useEffect(() => {
+        if (typeof document === "undefined") return;
+
+        const typographyVariables = buildStoreTypographyCssVariables(storeInfo?.typography);
+
+        for (const [key, value] of Object.entries(typographyVariables)) {
+            document.documentElement.style.setProperty(key, value);
+        }
+    }, [storeInfo]);
 
     return (
         <StoreInfoContext.Provider value={{ storeInfo, loading, refetch: fetchStoreInfo }}>

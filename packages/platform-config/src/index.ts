@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+export * from "./typography";
+
 export interface StoreRegistryEntry {
   slug: string;
   name: string;

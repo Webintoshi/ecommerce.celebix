@@ -12,10 +12,24 @@ import {
     Phone,
     Save,
     Store,
+    Type,
     Upload,
 } from "lucide-react";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { toast } from "sonner";
+import {
+    DEFAULT_STORE_TYPOGRAPHY,
+    getFontOptionById,
+    normalizeStoreTypographySettings,
+    STORE_BASE_SIZE_OPTIONS,
+    STORE_BODY_FONT_OPTIONS,
+    STORE_BODY_WEIGHT_OPTIONS,
+    STORE_HEADING_FONT_OPTIONS,
+    STORE_HEADING_SCALE_OPTIONS,
+    STORE_HEADING_WEIGHT_OPTIONS,
+    STORE_LETTER_SPACING_OPTIONS,
+} from "@celebix/platform-config/src/typography";
+import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 
 interface StoreInfo {
     name: string;
@@ -27,6 +41,7 @@ interface StoreInfo {
     logoUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
+    typography?: StoreTypographySettings;
 }
 
 interface AnnouncementSettings {
@@ -46,6 +61,7 @@ const DEFAULT_STORE_INFO: StoreInfo = {
     logoUrl: "",
     socialInstagram: "",
     socialTwitter: "",
+    typography: DEFAULT_STORE_TYPOGRAPHY,
 };
 
 const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
@@ -77,6 +93,7 @@ export default function GeneralSettingsPage() {
                 setFormData({
                     ...DEFAULT_STORE_INFO,
                     ...data.storeInfo,
+                    typography: normalizeStoreTypographySettings(data.storeInfo.typography),
                 });
             }
 
@@ -116,6 +133,19 @@ export default function GeneralSettingsPage() {
     ) {
         const { name, value } = e.target;
         setAnnouncementData((prev) => ({ ...prev, [name]: value }));
+    }
+
+    function handleTypographyChange<Key extends keyof StoreTypographySettings>(
+        key: Key,
+        value: StoreTypographySettings[Key],
+    ) {
+        setFormData((prev) => ({
+            ...prev,
+            typography: {
+                ...normalizeStoreTypographySettings(prev.typography),
+                [key]: value,
+            },
+        }));
     }
 
     async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -162,7 +192,10 @@ export default function GeneralSettingsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     type: "store",
-                    storeInfo: formData,
+                    storeInfo: {
+                        ...formData,
+                        typography: normalizeStoreTypographySettings(formData.typography),
+                    },
                 }),
             });
 
@@ -203,6 +236,16 @@ export default function GeneralSettingsPage() {
             </div>
         );
     }
+
+    const typography = normalizeStoreTypographySettings(formData.typography);
+    const headingPreviewFont = getFontOptionById(typography.headingFamily).previewStack;
+    const bodyPreviewFont = getFontOptionById(typography.bodyFamily).previewStack;
+    const previewBaseSize =
+        STORE_BASE_SIZE_OPTIONS.find((option) => option.id === typography.baseSize)?.value ?? "16px";
+    const previewHeadingScale =
+        Number(STORE_HEADING_SCALE_OPTIONS.find((option) => option.id === typography.headingScale)?.value ?? "1.12");
+    const previewTracking =
+        STORE_LETTER_SPACING_OPTIONS.find((option) => option.id === typography.letterSpacing)?.value ?? "-0.015em";
 
     return (
         <div className="mx-auto min-h-screen max-w-5xl space-y-8 bg-gray-50/50 p-6 md:p-8">
@@ -407,6 +450,195 @@ export default function GeneralSettingsPage() {
                                         <option value="Europe/London">Europe/London (GMT+1)</option>
                                     </select>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <div className="border-b border-gray-100 bg-gray-50/50 p-6">
+                            <h3 className="flex items-center gap-2 font-semibold text-gray-900">
+                                <Type className="h-4 w-4 text-gray-500" />
+                                Tipografi Sistemi
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Baslik ve govde fontlarini ayri yonetin. Bu secimler hero, kategori, urun detay ve
+                                icerik sayfalarinda magazaya uygulanir.
+                            </p>
+                        </div>
+
+                        <div className="space-y-6 p-6">
+                            <div className="rounded-2xl border border-gray-200 bg-[#fbfaf8] p-5">
+                                <div className="mb-4 flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                                            Canli Onizleme
+                                        </p>
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            Tipografi seciminiz storefront icinde bu karaktere yaklasacak.
+                                        </p>
+                                    </div>
+                                    <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                                        {getFontOptionById(typography.headingFamily).label} + {getFontOptionById(typography.bodyFamily).label}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 rounded-2xl border border-white/80 bg-white p-6 shadow-sm">
+                                    <p
+                                        style={{
+                                            fontFamily: headingPreviewFont,
+                                            fontWeight: typography.headingWeight,
+                                            fontSize: `calc(2.25rem * ${previewHeadingScale})`,
+                                            letterSpacing: previewTracking,
+                                            lineHeight: 1.05,
+                                        }}
+                                        className="text-gray-900"
+                                    >
+                                        El isciligiyle guclenen premium vitrin
+                                    </p>
+                                    <p
+                                        style={{
+                                            fontFamily: bodyPreviewFont,
+                                            fontWeight: typography.bodyWeight,
+                                            fontSize: previewBaseSize,
+                                            lineHeight: 1.75,
+                                        }}
+                                        className="max-w-2xl text-gray-600"
+                                    >
+                                        Govde yazisi, urun detaylari ve koleksiyon aciklamalarinda okunabilirligi tasir.
+                                        Dengeli sans aileleri uzun icerikte guvenli, serif basliklar ise marka kimligini
+                                        premium tarafa ceker.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Baslik Fontu</label>
+                                    <select
+                                        value={typography.headingFamily}
+                                        onChange={(event) => handleTypographyChange("headingFamily", event.target.value as StoreTypographySettings["headingFamily"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_HEADING_FONT_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label} - {option.category}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {getFontOptionById(typography.headingFamily).description}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Govde Fontu</label>
+                                    <select
+                                        value={typography.bodyFamily}
+                                        onChange={(event) => handleTypographyChange("bodyFamily", event.target.value as StoreTypographySettings["bodyFamily"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_BODY_FONT_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label} - {option.category}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {getFontOptionById(typography.bodyFamily).description}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Baslik Kalinligi</label>
+                                    <select
+                                        value={typography.headingWeight}
+                                        onChange={(event) => handleTypographyChange("headingWeight", event.target.value as StoreTypographySettings["headingWeight"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_HEADING_WEIGHT_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {STORE_HEADING_WEIGHT_OPTIONS.find((option) => option.id === typography.headingWeight)?.description}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Govde Kalinligi</label>
+                                    <select
+                                        value={typography.bodyWeight}
+                                        onChange={(event) => handleTypographyChange("bodyWeight", event.target.value as StoreTypographySettings["bodyWeight"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_BODY_WEIGHT_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {STORE_BODY_WEIGHT_OPTIONS.find((option) => option.id === typography.bodyWeight)?.description}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Govde Boyutu</label>
+                                    <select
+                                        value={typography.baseSize}
+                                        onChange={(event) => handleTypographyChange("baseSize", event.target.value as StoreTypographySettings["baseSize"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_BASE_SIZE_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {STORE_BASE_SIZE_OPTIONS.find((option) => option.id === typography.baseSize)?.description}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Baslik Olcegi</label>
+                                    <select
+                                        value={typography.headingScale}
+                                        onChange={(event) => handleTypographyChange("headingScale", event.target.value as StoreTypographySettings["headingScale"])}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                    >
+                                        {STORE_HEADING_SCALE_OPTIONS.map((option) => (
+                                            <option key={option.id} value={option.id}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {STORE_HEADING_SCALE_OPTIONS.find((option) => option.id === typography.headingScale)?.description}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-gray-700">Baslik Harf Araligi</label>
+                                <select
+                                    value={typography.letterSpacing}
+                                    onChange={(event) => handleTypographyChange("letterSpacing", event.target.value as StoreTypographySettings["letterSpacing"])}
+                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                >
+                                    {STORE_LETTER_SPACING_OPTIONS.map((option) => (
+                                        <option key={option.id} value={option.id}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    {STORE_LETTER_SPACING_OPTIONS.find((option) => option.id === typography.letterSpacing)?.description}
+                                </p>
                             </div>
                         </div>
                     </div>

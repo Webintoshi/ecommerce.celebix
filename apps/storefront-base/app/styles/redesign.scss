@@ -625,7 +625,7 @@
 
   // Typography - SF Pro Style
   &__subtitle {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--store-font-body);
     font-size: 14px;
     font-weight: 500;
     color: rgba(245, 245, 247, 0.8);
@@ -645,7 +645,7 @@
   }
 
   &__title {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--store-font-heading);
     font-size: 32px;
     font-weight: 600;
     color: #ffffff;
@@ -686,7 +686,7 @@
     color: white;
     border: none;
     border-radius: 980px;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--store-font-body);
     font-size: 15px;
     font-weight: 500;
     letter-spacing: -0.01em;

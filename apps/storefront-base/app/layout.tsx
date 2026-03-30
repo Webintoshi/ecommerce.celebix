@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, Lora } from "next/font/google";
-import localFont from "next/font/local";
+import type { CSSProperties } from "react";
+import {
+  Cormorant_Garamond,
+  DM_Sans,
+  Fraunces,
+  Inter,
+  Manrope,
+  Montserrat,
+  Playfair_Display,
+  Plus_Jakarta_Sans,
+} from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "@/app/styles/redesign.scss";
@@ -16,32 +25,69 @@ import { getStoreInfo } from "@/lib/db/settings";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
+import { buildStoreTypographyCssVariables } from "@celebix/platform-config/src/typography";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "optional",
-  preload: true,
+  display: "swap",
+  preload: false,
 });
 
-const lora = Lora({
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-lora",
-  display: "optional",
-  preload: true,
+  variable: "--font-playfair",
+  display: "swap",
+  preload: false,
+  weight: ["400", "500", "600", "700"],
 });
 
-const quenda = localFont({
-  src: [
-    {
-      path: "./Quenda-Medium.otf",
-      weight: "500",
-      style: "normal",
-    },
-  ],
-  variable: "--font-quenda",
-  display: "optional",
-  preload: true,
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+  preload: false,
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+  preload: false,
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+  preload: false,
+  weight: ["400", "500", "700"],
+});
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-montserrat",
+  display: "swap",
+  preload: false,
+  weight: ["500", "600", "700", "800"],
+});
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-cormorant",
+  display: "swap",
+  preload: false,
+  weight: ["500", "600", "700"],
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+  preload: false,
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -91,9 +137,10 @@ export default async function RootLayout({
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
   const initialStoreInfo = await getStoreInfo();
+  const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
 
   return (
-    <html lang="tr" suppressHydrationWarning>
+    <html lang="tr" suppressHydrationWarning style={typographyStyle}>
       <head>
         {gtmId ? (
           <Script
@@ -105,7 +152,7 @@ export default async function RootLayout({
         ) : null}
       </head>
       <body
-        className={`${quenda.variable} ${lora.variable} ${inter.variable} font-sans antialiased`}
+        className={`${playfair.variable} ${inter.variable} ${manrope.variable} ${plusJakarta.variable} ${dmSans.variable} ${montserrat.variable} ${cormorant.variable} ${fraunces.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
         {gtmId ? (

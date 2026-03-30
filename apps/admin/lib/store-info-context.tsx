@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, createContext, useContext } from "react";
+import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 
 export interface StoreInfo {
     name: string;
@@ -12,6 +13,7 @@ export interface StoreInfo {
     logoUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
+    typography?: StoreTypographySettings;
 }
 
 interface StoreInfoContextType {

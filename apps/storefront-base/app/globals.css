@@ -93,7 +93,16 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --font-sans: var(--font-lora), "Lora", serif;
+  --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
+  --store-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-heading-weight: 700;
+  --store-font-body-weight: 400;
+  --store-font-base-size: 16px;
+  --store-font-heading-scale: 1.12;
+  --store-font-heading-tracking: -0.015em;
+  --store-font-body-tracking: 0em;
+  --font-sans: var(--store-font-body);
+  --font-serif: var(--store-font-heading);
   --font-mono: var(--font-inter), monospace;
 }
 
@@ -111,8 +120,42 @@
 body {
   background: #FAFAFA;
   color: var(--foreground);
-  font-family: var(--font-lora), "Lora", serif;
+  font-family: var(--store-font-body);
+  font-size: var(--store-font-base-size);
+  font-weight: var(--store-font-body-weight);
+  letter-spacing: var(--store-font-body-tracking);
   overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--store-font-heading);
+  font-weight: var(--store-font-heading-weight);
+  letter-spacing: var(--store-font-heading-tracking);
+  line-height: 1.08;
+}
+
+h1 {
+  font-size: calc(2.75rem * var(--store-font-heading-scale));
+}
+
+h2 {
+  font-size: calc(2rem * var(--store-font-heading-scale));
+}
+
+h3 {
+  font-size: calc(1.5rem * var(--store-font-heading-scale));
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--store-font-body);
 }
 
 /* Brand color overrides */
@@ -220,11 +263,11 @@ body {
 
 /* Fallback fonts for faster initial render */
 .font-sans {
-  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--store-font-body);
 }
 
 .font-serif {
-  font-family: var(--font-lora), Georgia, Cambria, "Times New Roman", Times, serif;
+  font-family: var(--store-font-heading);
 }
 
 /* Preload critical images */

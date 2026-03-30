@@ -87,8 +87,16 @@
   --shadow-gold: 0 4px 20px rgba(138, 107, 55, 0.2);
   
   /* === TYPOGRAPHY === */
-  --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;
-  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
+  --store-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-heading-weight: 700;
+  --store-font-body-weight: 400;
+  --store-font-base-size: 16px;
+  --store-font-heading-scale: 1.12;
+  --store-font-heading-tracking: -0.015em;
+  --store-font-body-tracking: 0em;
+  --font-serif: var(--store-font-heading);
+  --font-sans: var(--store-font-body);
   --font-mono: "JetBrains Mono", monospace;
 }
 
@@ -140,19 +148,52 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: 16px;
+  font-family: var(--store-font-body);
+  font-size: var(--store-font-base-size);
+  font-weight: var(--store-font-body-weight);
+  letter-spacing: var(--store-font-body-tracking);
   line-height: 1.6;
   overflow-x: hidden;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--store-font-heading);
+  font-weight: var(--store-font-heading-weight);
+  letter-spacing: var(--store-font-heading-tracking);
+  line-height: 1.08;
+}
+
+h1 {
+  font-size: calc(2.75rem * var(--store-font-heading-scale));
+}
+
+h2 {
+  font-size: calc(2rem * var(--store-font-heading-scale));
+}
+
+h3 {
+  font-size: calc(1.5rem * var(--store-font-heading-scale));
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--store-font-body);
+}
+
 /* === TYPOGRAPHY UTILITIES === */
 .font-serif {
-  font-family: var(--font-serif);
+  font-family: var(--store-font-heading);
 }
 
 .font-sans {
-  font-family: var(--font-sans);
+  font-family: var(--store-font-body);
 }
 
 /* === TEXT STYLES === */
