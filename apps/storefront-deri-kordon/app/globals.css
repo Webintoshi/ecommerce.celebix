@@ -87,8 +87,8 @@
   --shadow-gold: 0 4px 20px rgba(138, 107, 55, 0.2);
   
   /* === TYPOGRAPHY === */
-  --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
-  --store-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-heading: "Playfair Display", Georgia, serif;
+  --store-font-body: "Inter", system-ui, sans-serif;
   --store-font-heading-weight: 700;
   --store-font-body-weight: 400;
   --store-font-base-size: 16px;
@@ -97,7 +97,7 @@
   --store-font-body-tracking: 0em;
   --font-serif: var(--store-font-heading);
   --font-sans: var(--store-font-body);
-  --font-mono: "JetBrains Mono", monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
 }
 
 @theme inline {

@@ -93,8 +93,8 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
-  --store-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-heading: "Playfair Display", Georgia, serif;
+  --store-font-body: "Inter", system-ui, sans-serif;
   --store-font-heading-weight: 700;
   --store-font-body-weight: 400;
   --store-font-base-size: 16px;
@@ -103,7 +103,7 @@
   --store-font-body-tracking: 0em;
   --font-sans: var(--store-font-body);
   --font-serif: var(--store-font-heading);
-  --font-mono: var(--font-inter), monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
 }
 
 /* Custom Utilities for Clean Luxury Design */

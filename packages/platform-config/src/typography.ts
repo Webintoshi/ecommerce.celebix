@@ -31,6 +31,7 @@ export interface TypographyFontOption {
   description: string;
   cssStack: string;
   previewStack: string;
+  stylesheetToken: string;
 }
 
 export interface TypographyChoiceOption<T extends string> {
@@ -46,64 +47,72 @@ const FONT_OPTIONS: TypographyFontOption[] = [
     label: "Inter",
     category: "Modern Sans",
     description: "Temiz, nötr ve e-ticaret arayüzleri için güvenli seçim.",
-    cssStack: 'var(--font-inter), "Inter", system-ui, sans-serif',
+    cssStack: '"Inter", system-ui, sans-serif',
     previewStack: '"Inter", system-ui, sans-serif',
+    stylesheetToken: "Inter:wght@400;500;600;700;800",
   },
   {
     id: "manrope",
     label: "Manrope",
     category: "Premium Sans",
     description: "Biraz daha güçlü ve premium görünen modern sans.",
-    cssStack: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+    cssStack: '"Manrope", system-ui, sans-serif',
     previewStack: '"Manrope", system-ui, sans-serif',
+    stylesheetToken: "Manrope:wght@400;500;600;700;800",
   },
   {
     id: "plus-jakarta",
     label: "Plus Jakarta Sans",
     category: "Refined Sans",
     description: "Yumuşak, çağdaş ve okunabilir sans aile.",
-    cssStack: 'var(--font-plus-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
+    cssStack: '"Plus Jakarta Sans", system-ui, sans-serif',
     previewStack: '"Plus Jakarta Sans", system-ui, sans-serif',
+    stylesheetToken: "Plus+Jakarta+Sans:wght@400;500;600;700;800",
   },
   {
     id: "dm-sans",
     label: "DM Sans",
     category: "Commerce Sans",
     description: "Ürün kartları ve içerik bloklarında dengeli sonuç verir.",
-    cssStack: 'var(--font-dm-sans), "DM Sans", system-ui, sans-serif',
+    cssStack: '"DM Sans", system-ui, sans-serif',
     previewStack: '"DM Sans", system-ui, sans-serif',
+    stylesheetToken: "DM+Sans:wght@400;500;600;700",
   },
   {
     id: "montserrat",
     label: "Montserrat",
     category: "Structured Sans",
     description: "Başlıklarda daha mimari ve güçlü bir duruş verir.",
-    cssStack: 'var(--font-montserrat), "Montserrat", system-ui, sans-serif',
+    cssStack: '"Montserrat", system-ui, sans-serif',
     previewStack: '"Montserrat", system-ui, sans-serif',
+    stylesheetToken: "Montserrat:wght@500;600;700;800",
   },
   {
     id: "playfair",
     label: "Playfair Display",
     category: "Editorial Serif",
     description: "Lüks, klasik ve vitrin odaklı başlıklar için güçlü seçim.",
-    cssStack: 'var(--font-playfair), "Playfair Display", Georgia, serif',
+    cssStack: '"Playfair Display", Georgia, serif',
     previewStack: '"Playfair Display", Georgia, serif',
+    stylesheetToken: "Playfair+Display:wght@500;600;700",
   },
   {
     id: "cormorant",
     label: "Cormorant Garamond",
     category: "Luxury Serif",
     description: "Moda, takı ve premium zanaat markaları için rafine serif.",
-    cssStack: 'var(--font-cormorant), "Cormorant Garamond", Georgia, serif',
+    cssStack: '"Cormorant Garamond", Georgia, serif',
     previewStack: '"Cormorant Garamond", Georgia, serif',
+    stylesheetToken: "Cormorant+Garamond:wght@500;600;700",
   },
   {
     id: "fraunces",
     label: "Fraunces",
     category: "Character Serif",
     description: "Daha karakterli, çağdaş ve dikkat çekici başlıklar üretir.",
-    cssStack: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+    cssStack: '"Fraunces", Georgia, serif',
     previewStack: '"Fraunces", Georgia, serif',
+    stylesheetToken: "Fraunces:wght@500;600;700",
   },
 ];
 
@@ -229,4 +238,15 @@ export function buildStoreTypographyCssVariables(
     "--store-font-heading-tracking": letterSpacing,
     "--store-font-body-tracking": bodyTracking,
   };
+}
+
+export function buildStoreTypographyStylesheetUrl(
+  input?: Partial<StoreTypographySettings> | null,
+): string {
+  const typography = normalizeStoreTypographySettings(input);
+  const usedFonts = Array.from(
+    new Set([typography.headingFamily, typography.bodyFamily].map((fontId) => getFontOptionById(fontId))),
+  );
+  const familyQuery = usedFonts.map((font) => `family=${font.stylesheetToken}`).join("&");
+  return `https://fonts.googleapis.com/css2?${familyQuery}&display=swap`;
 }

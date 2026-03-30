@@ -1,15 +1,5 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
-import {
-  Cormorant_Garamond,
-  DM_Sans,
-  Fraunces,
-  Inter,
-  Manrope,
-  Montserrat,
-  Playfair_Display,
-  Plus_Jakarta_Sans,
-} from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart-context";
@@ -23,73 +13,12 @@ import { getStoreInfo } from "@/lib/db/settings";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
-import { buildStoreTypographyCssVariables } from "@celebix/platform-config/src/typography";
+import {
+  buildStoreTypographyCssVariables,
+  buildStoreTypographyStylesheetUrl,
+} from "@celebix/platform-config/src/typography";
 
 export const dynamic = "force-dynamic";
-
-/* === PREMIUM TYPOGRAPHY === */
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  preload: false,
-});
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-  display: "swap",
-  preload: false,
-  weight: ["400", "500", "600", "700"],
-});
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-manrope",
-  display: "swap",
-  preload: false,
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-  display: "swap",
-  preload: false,
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  display: "swap",
-  preload: false,
-  weight: ["400", "500", "700"],
-});
-
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  variable: "--font-montserrat",
-  display: "swap",
-  preload: false,
-  weight: ["500", "600", "700", "800"],
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  variable: "--font-cormorant",
-  display: "swap",
-  preload: false,
-  weight: ["500", "600", "700"],
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-  preload: false,
-  weight: ["500", "600", "700"],
-});
 
 /* === SEO & METADATA === */
 export const metadata: Metadata = {
@@ -159,13 +88,15 @@ export default async function RootLayout({
   const gtmId = STOREFRONT_RUNTIME.gtmId;
   const initialStoreInfo = await getStoreInfo();
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
+  const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
 
   return (
     <html lang="tr" suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
       <head>
-        {/* Preconnect for Performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preload" href={typographyStylesheetUrl} as="style" />
+        <link rel="stylesheet" href={typographyStylesheetUrl} />
         
         {/* GTM */}
         {gtmId ? (
@@ -177,10 +108,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body
-        className={`${playfair.variable} ${inter.variable} ${manrope.variable} ${plusJakarta.variable} ${dmSans.variable} ${montserrat.variable} ${cormorant.variable} ${fraunces.variable} font-sans antialiased`}
-        suppressHydrationWarning
-      >
+      <body className="font-sans antialiased" suppressHydrationWarning>
         {/* GTM NoScript */}
         {gtmId ? (
           <noscript>
