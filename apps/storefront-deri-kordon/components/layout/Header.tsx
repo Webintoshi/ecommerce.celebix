@@ -51,21 +51,21 @@ export function Header() {
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link href={ROUTES.home} className="flex-shrink-0">
+          <Link href={ROUTES.home} className="flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
-              <div className="relative h-10 w-[140px] sm:h-11 sm:w-[156px] lg:h-12 lg:w-[176px]">
+              <div className="relative h-8 w-[108px] sm:h-9 sm:w-[120px] lg:h-9 lg:w-[132px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 140px, (max-width: 1024px) 156px, 176px"
+                  sizes="(max-width: 640px) 108px, (max-width: 1024px) 120px, 132px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-xl lg:text-2xl font-medium text-neutral-900">
+              <span className="font-serif text-lg lg:text-xl font-medium text-neutral-900">
                 {logoAlt}
               </span>
             )}
