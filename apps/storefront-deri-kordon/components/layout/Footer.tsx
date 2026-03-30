@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { useRef } from "react";
 
 // Trust badges data
