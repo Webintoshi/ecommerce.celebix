@@ -2,8 +2,53 @@
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
 import { getProductBySlug, getProductSlug } from "@/lib/products";
+import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
+
+function normalizeProductVariant(variant: any) {
+  return {
+    ...variant,
+    originalPrice: variant?.originalPrice ?? variant?.original_price ?? undefined,
+    images: Array.isArray(variant?.images) ? variant.images : [],
+  };
+}
+
+function extractProductImages(product: any): string[] {
+  if (Array.isArray(product?.images_v2) && product.images_v2.length > 0) {
+    return product.images_v2
+      .map((image: any) => image?.url)
+      .filter((image: unknown): image is string => typeof image === "string" && image.length > 0);
+  }
+
+  if (Array.isArray(product?.images)) {
+    return product.images.filter(
+      (image: unknown): image is string => typeof image === "string" && image.length > 0
+    );
+  }
+
+  return [];
+}
+
+function normalizeProductForDetail(product: any) {
+  if (!product) {
+    return null;
+  }
+
+  return {
+    ...product,
+    shortDescription: product.shortDescription ?? product.short_description ?? "",
+    reviewCount: product.reviewCount ?? product.review_count ?? 0,
+    featured: product.featured ?? product.is_featured ?? false,
+    new: product.new ?? product.is_new ?? false,
+    seoTitle: product.seoTitle ?? product.seo_title ?? undefined,
+    seoDescription: product.seoDescription ?? product.seo_description ?? undefined,
+    images: extractProductImages(product),
+    variants: Array.isArray(product.variants)
+      ? product.variants.map((variant: any) => normalizeProductVariant(variant))
+      : [],
+  };
+}
 
 // Generate metadata on the server side
 export async function generateMetadata({
@@ -17,7 +62,7 @@ export async function generateMetadata({
   const { baseSlug } = parseProductSlug(slug);
 
   // Get product from static data (fastest)
-  const product = await getProductBySlug(baseSlug);
+  const product = normalizeProductForDetail(await getProductBySlug(baseSlug));
   
   if (!product) {
     return {
@@ -27,8 +72,8 @@ export async function generateMetadata({
   }
 
   // Use seo_title/seo_description if available, fallback to defaults
-  const seoTitle = product.seo_title || `${product.name} | Deri Kordon`;
-  const seoDescription = product.seo_description || product.shortDescription || product.description?.slice(0, 160) || "";
+  const seoTitle = product.seoTitle || `${product.name} | Deri Kordon`;
+  const seoDescription = product.seoDescription || product.shortDescription || product.description?.slice(0, 160) || "";
 
   return {
     title: seoTitle,
@@ -110,15 +155,22 @@ export default async function ProductDetailPage({
     const supabase = createServerClient();
     
     // Once urunu cek
-    const { data: dbProducts, error: productError } = await supabase
-      .from("products")
-      .select("*")
-      .eq("slug", baseSlug)
-      .eq("is_active", true)
-      .or("status.eq.published,status.is.null")
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const { data: dbProducts, error: productError } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("products")
+        .select("*")
+        .eq("slug", baseSlug);
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query
+        .or("status.eq.published,status.is.null")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+    });
     
     if (productError) {
       console.error('Product fetch error:', productError);
@@ -163,19 +215,10 @@ export default async function ProductDetailPage({
       // Debug logging removed
 
       // Transform images_v2 to images format
-      let images: string[] = [];
-      
-      if (dbProduct.images_v2 && Array.isArray(dbProduct.images_v2) && dbProduct.images_v2.length > 0) {
-        images = dbProduct.images_v2.map((img: any) => img?.url).filter(Boolean);
-      }
-      
-      // Fallback to images column if images_v2 is empty
-      if (images.length === 0 && dbProduct.images && Array.isArray(dbProduct.images)) {
-        images = dbProduct.images.filter((img: any) => typeof img === 'string' && img.length > 0);
-      }
+      const images = extractProductImages(dbProduct);
       
       // Transform variants with attributes
-      const transformedVariants = variants?.map((v: any) => {
+      let transformedVariants = variants?.map((v: any) => {
         // Get existing attributes from product_variant_attributes
         let attrs = v.attributes?.map((a: any) => ({
           ...a.attribute_value,
@@ -201,15 +244,24 @@ export default async function ProductDetailPage({
         return {
           ...v,
           originalPrice: v.original_price,
+          images: Array.isArray(v.images) ? v.images : [],
           attributes: attrs,
         };
       }) || [];
 
-      product = {
+      if (transformedVariants.length === 0) {
+        const fallbackProduct = normalizeProductForDetail(await getProductBySlug(baseSlug));
+
+        if (fallbackProduct?.variants?.length) {
+          transformedVariants = fallbackProduct.variants;
+        }
+      }
+
+      product = normalizeProductForDetail({
         ...dbProduct,
         images,
         variants: transformedVariants,
-      } as any;
+      });
     }
   } catch (error) {
     console.error("Failed to fetch product from Supabase:", error);
@@ -218,7 +270,7 @@ export default async function ProductDetailPage({
 
   // 2. SECOND: Fallback to static data if Supabase fails
   if (!product) {
-    product = getProductBySlug(baseSlug);  // Use baseSlug instead of urlSlug
+    product = normalizeProductForDetail(await getProductBySlug(baseSlug));
   }
 
   // 3. If still no product, return 404
@@ -327,4 +379,3 @@ export default async function ProductDetailPage({
     </>
   );
 }
-

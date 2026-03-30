@@ -1,4 +1,5 @@
 ﻿import { createServerClient } from "@/lib/supabase";
+import { runProductsQuery } from "@/lib/products-query-compat";
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 
@@ -85,15 +86,22 @@ async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
   
   try {
-    const { data: products, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        variants:product_variants(*)
-      `)
-      .eq("is_active", true)
-      .or("status.eq.published,status.is.null")
-      .order("created_at", { ascending: false });
+    const { data: products, error } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("products")
+        .select(`
+          *,
+          variants:product_variants(*)
+        `);
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query
+        .or("status.eq.published,status.is.null")
+        .order("created_at", { ascending: false });
+    });
     
     if (error) {
       console.error("Supabase error:", error);
@@ -111,10 +119,20 @@ async function getCategoryCounts() {
   const supabase = createServerClient();
   
   try {
-    const { data: products } = await supabase
-      .from("products")
-      .select("category")
-      .eq("is_active", true);
+    const { data: products, error } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase.from("products").select("category");
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
+
+    if (error) {
+      console.error("Failed to fetch category counts:", error);
+      return {};
+    }
 
     const counts: Record<string, number> = {};
     products?.forEach((p) => {
@@ -141,4 +159,3 @@ export default async function AllProductsPage() {
     />
   );
 }
-

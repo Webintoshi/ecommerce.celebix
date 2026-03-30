@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
+import { runProductsQuery } from "@/lib/products-query-compat";
 import {
     diffProductTags,
     syncProductTagSuggestions,
@@ -59,44 +60,65 @@ export async function GET(request: NextRequest) {
             // Fetch single product by slug from Supabase
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("slug", slug)
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .order("updated_at", { ascending: false })
-                .order("created_at", { ascending: false })
-                .limit(1);
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)")
+                    .eq("slug", slug);
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .order("updated_at", { ascending: false })
+                    .order("created_at", { ascending: false })
+                    .limit(1);
+            });
             if (error || !data?.[0]) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: error?.message || "Product not found"
+                    error: error ? getErrorMessage(error) : "Product not found"
                 }, { status: 404 });
             }
             return NextResponse.json({ success: true, product: data[0] });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .eq("is_featured", true)
-                .limit(10);
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)");
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .eq("is_featured", true)
+                    .limit(10);
+            });
             if (error) throw error;
             products = data || [];
         } else if (bestseller === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .eq("is_bestseller", true)
-                .limit(10);
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)");
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .eq("is_bestseller", true)
+                    .limit(10);
+            });
             if (error) throw error;
             products = data || [];
         } else if (category) {
@@ -105,22 +127,37 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
 
             // Get total count
-            const { count } = await supabase
-                .from("products")
-                .select("*", { count: "exact", head: true })
-                .eq("category", category)
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null");
+            const { count, error: countError } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*", { count: "exact", head: true })
+                    .eq("category", category);
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query.or("status.eq.published,status.is.null");
+            });
+
+            if (countError) throw countError;
 
             // Get paginated data
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("category", category)
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .range(offset, offset + limit - 1)
-                .order("created_at", { ascending: false });
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)")
+                    .eq("category", category);
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .range(offset, offset + limit - 1)
+                    .order("created_at", { ascending: false });
+            });
 
             if (error) throw error;
             return NextResponse.json({
@@ -136,13 +173,20 @@ export async function GET(request: NextRequest) {
         } else if (search) {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
-                .limit(20);
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)");
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+                    .limit(20);
+            });
             if (error) throw error;
             products = data || [];
         } else {
@@ -151,20 +195,35 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
 
             // Get total count
-            const { count } = await supabase
-                .from("products")
-                .select("*", { count: "exact", head: true })
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null");
+            const { count, error: countError } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*", { count: "exact", head: true });
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query.or("status.eq.published,status.is.null");
+            });
+
+            if (countError) throw countError;
 
             // Get paginated data
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_active", true)
-                .or("status.eq.published,status.is.null")
-                .range(offset, offset + limit - 1)
-                .order("created_at", { ascending: false });
+            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+                let query = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)");
+
+                if (includeIsActiveFilter) {
+                    query = query.eq("is_active", true);
+                }
+
+                return query
+                    .or("status.eq.published,status.is.null")
+                    .range(offset, offset + limit - 1)
+                    .order("created_at", { ascending: false });
+            });
 
             if (error) throw error;
 
@@ -863,4 +922,3 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
-

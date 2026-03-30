@@ -1,6 +1,7 @@
 import { Product } from "@/types/product";
 import { getStoredProducts, addStoredProduct, addStoredProducts, deleteStoredProduct, updateStoredProduct, initializeProducts } from "./product-storage";
 import { parseShopifyCSV, importProductsFromCSV } from "./csv-import";
+import { runProductsQuery } from "@/lib/products-query-compat";
 
 export type { Product } from "@/types/product";
 
@@ -580,11 +581,17 @@ if (typeof window !== "undefined") {
 export async function getAllProducts(): Promise<Product[]> {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*)")
-    .eq("is_active", true)
-    .or("status.eq.published,status.is.null");
+  const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("products")
+      .select("*, variants:product_variants(*)");
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query.or("status.eq.published,status.is.null");
+  });
 
   if (error) {
     console.error("Error fetching products from Supabase:", error);
@@ -598,12 +605,19 @@ export async function getAllProducts(): Promise<Product[]> {
 export async function getLimitedProducts(limit: number = 8): Promise<Product[]> {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*)")
-    .eq("is_active", true)
-    .or("status.eq.published,status.is.null")
-    .limit(limit);
+  const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("products")
+      .select("*, variants:product_variants(*)");
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query
+      .or("status.eq.published,status.is.null")
+      .limit(limit);
+  });
 
   if (error) {
     console.error("Error fetching limited products:", error);
@@ -618,11 +632,15 @@ export const PRODUCTS: Product[] = [];
 export async function getProductSlug(): Promise<string[]> {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("slug")
-    .eq("is_active", true)
-    .or("status.eq.published,status.is.null");
+  const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+    let query = supabase.from("products").select("slug");
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query.or("status.eq.published,status.is.null");
+  });
 
   if (error) {
     console.error("Error fetching product slugs from Supabase:", error);
@@ -636,15 +654,22 @@ export async function getProductSlug(): Promise<string[]> {
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*)")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .or("status.eq.published,status.is.null")
-    .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("products")
+      .select("*, variants:product_variants(*)")
+      .eq("slug", slug);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query
+      .or("status.eq.published,status.is.null")
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1);
+  });
 
   if (error) {
     console.error("Error fetching product by slug from Supabase:", error);
