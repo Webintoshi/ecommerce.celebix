@@ -53,19 +53,19 @@ export function Header() {
 
           <Link href={ROUTES.home} className="flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
-              <div className="relative h-8 w-[108px] sm:h-9 sm:w-[120px] lg:h-9 lg:w-[132px]">
+              <div className="relative h-7 w-[92px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 108px, (max-width: 1024px) 120px, 132px"
+                  sizes="(max-width: 640px) 92px, (max-width: 1024px) 104px, 112px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-lg lg:text-xl font-medium text-neutral-900">
+              <span className="font-serif text-base lg:text-lg font-medium text-neutral-900">
                 {logoAlt}
               </span>
             )}
