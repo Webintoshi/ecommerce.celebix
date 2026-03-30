@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Product } from "@/types/product";
-import { formatPrice } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
@@ -12,15 +11,15 @@ interface ProductCardProps {
   product: Product;
   index?: number;
   viewMode?: "grid" | "list";
-  featured?: boolean; // First card can be featured/promo style
 }
 
-// Sample color variants for demo (would come from product data)
+// Sample color variants for demo
 const sampleColors = [
   { name: "Brown", color: "#8B4513" },
   { name: "Black", color: "#1A1A1A" },
   { name: "Tan", color: "#C4956A" },
   { name: "Olive", color: "#556B2F" },
+  { name: "Burgundy", color: "#800020" },
 ];
 
 function getResolvedProductImages(product: Product) {
@@ -37,7 +36,6 @@ function getResolvedProductImages(product: Product) {
 
 // Get product colors from attributes/options
 function getProductColors(product: Product): { name: string; color: string }[] {
-  // Check if product has color attribute/option
   const colorOption = product.options?.find(opt => 
     opt.name.toLowerCase().includes("renk") || 
     opt.name.toLowerCase().includes("color")
@@ -51,11 +49,10 @@ function getProductColors(product: Product): { name: string; color: string }[] {
   }
   
   // Fallback: use sample colors based on product id for consistency
-  const colorCount = 3 + (product.id % 2); // 3 or 4 colors
+  const colorCount = 3 + (product.id % 3); // 3-5 colors
   return sampleColors.slice(0, colorCount);
 }
 
-// Map color names to hex
 function getColorHex(colorName: string): string | null {
   const colorMap: Record<string, string> = {
     "kahverengi": "#8B4513",
@@ -81,7 +78,7 @@ function getColorHex(colorName: string): string | null {
   return colorMap[colorName.toLowerCase()] || null;
 }
 
-export function ProductCard({ product, viewMode = "grid", featured = false }: ProductCardProps) {
+export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
@@ -91,14 +88,14 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
     return (
       <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="bg-white">
-          {/* Image Container - Clean white background */}
-          <div className="relative aspect-[4/5] bg-[#F5F5F5] mb-5 overflow-hidden">
+          {/* Image Container */}
+          <div className="relative aspect-[4/5] bg-[#F5F5F5] mb-4 overflow-hidden">
             {primaryImage ? (
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                className="object-contain p-6 lg:p-8 group-hover:scale-105 transition-transform duration-500"
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 unoptimized={usesProxiedPrimaryImage}
               />
@@ -109,12 +106,11 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
             )}
           </div>
           
-          {/* Product Info */}
+          {/* Product Info - Small title, no price */}
           <div>
-            <h3 className="text-base font-medium text-neutral-900 mb-1 group-hover:text-neutral-600 transition-colors line-clamp-2">
+            <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
               {product.name}
             </h3>
-            <p className="text-sm text-neutral-500">Varyant seçin</p>
           </div>
         </div>
       </Link>
@@ -123,10 +119,6 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
 
   const displayVariant = product.variants[0];
   const isOutOfStock = displayVariant?.stock === 0;
-  const originalPrice = displayVariant?.originalPrice || displayVariant?.price;
-  const hasDiscount = displayVariant?.originalPrice
-    ? displayVariant.originalPrice > displayVariant.price
-    : false;
 
   if (viewMode === "list") {
     return (
@@ -152,32 +144,21 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
               <p className="text-xs uppercase tracking-wider text-neutral-500 mb-1">
                 {product.category}
               </p>
-              <h3 className="font-medium text-lg text-neutral-900 group-hover:text-neutral-600 transition-colors mb-2">
+              <h3 className="font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors mb-2">
                 {product.name}
               </h3>
-              
-              {/* Color variants */}
-              <div className="flex items-center gap-1.5 mt-2">
-                {colors.slice(0, 4).map((color, i) => (
-                  <span
-                    key={i}
-                    className="w-5 h-5 rounded-full border border-neutral-200"
-                    style={{ backgroundColor: color.color }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
             </div>
             
-            <div className="flex items-center gap-3 mt-3">
-              <span className="text-lg font-medium text-neutral-900">
-                {formatPrice(displayVariant.price)}
-              </span>
-              {hasDiscount && (
-                <span className="text-sm text-neutral-400 line-through">
-                  {formatPrice(originalPrice)}
-                </span>
-              )}
+            {/* Color variants */}
+            <div className="flex items-center gap-1.5 mt-2">
+              {colors.slice(0, 4).map((color, i) => (
+                <span
+                  key={i}
+                  className="w-4 h-4 rounded-full border border-neutral-200"
+                  style={{ backgroundColor: color.color }}
+                  title={color.name}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -185,52 +166,11 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
     );
   }
 
-  // Featured/Promo style (like the iPhone 17 card in reference)
-  if (featured) {
-    return (
-      <Link href={ROUTES.product(product.slug)} className="group block">
-        <div className="relative aspect-[3/4] bg-neutral-900 overflow-hidden">
-          {primaryImage ? (
-            <Image
-              src={primaryImage}
-              alt={product.name}
-              fill
-              className="object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              unoptimized={usesProxiedPrimaryImage}
-            />
-          ) : (
-            <div className="absolute inset-0 bg-neutral-800" />
-          )}
-          
-          {/* Dark gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          
-          {/* Promo content */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8">
-            <span className="text-xs uppercase tracking-wider text-white/70 mb-2 block">
-              Yeni Gelen
-            </span>
-            <h3 className="text-2xl lg:text-3xl font-medium text-white mb-2">
-              {product.name.split(" ").slice(0, 3).join(" ")}
-            </h3>
-            <p className="text-white/80 text-sm mb-4">
-              Daha yeni, daha havalı. Deri ürünleri keşfet.
-            </p>
-            <span className="text-xl font-medium text-white">
-              {formatPrice(displayVariant.price)}
-            </span>
-          </div>
-        </div>
-      </Link>
-    );
-  }
-
-  // Standard Grid Card - Roarcraft Style
+  // Standard Grid Card - Roarcraft Style (Small title, no price, color dots)
   return (
     <Link href={ROUTES.product(product.slug)} className="group block">
       <div className="bg-white">
-        {/* Image Container - Light gray background, centered product */}
+        {/* Image Container */}
         <div className="relative aspect-[4/5] bg-[#F5F5F5] mb-4 overflow-hidden">
           {primaryImage ? (
             <Image
@@ -247,21 +187,6 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
             </div>
           )}
 
-          {/* Badges - Subtle top-right */}
-          {(hasDiscount || product.new) && (
-            <div className="absolute top-3 right-3">
-              {hasDiscount ? (
-                <span className="bg-white text-neutral-900 text-xs px-2 py-1 font-medium shadow-sm">
-                  İndirim
-                </span>
-              ) : product.new ? (
-                <span className="bg-white text-neutral-900 text-xs px-2 py-1 font-medium shadow-sm">
-                  Yeni
-                </span>
-              ) : null}
-            </div>
-          )}
-          
           {/* Out of stock overlay */}
           {isOutOfStock && (
             <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
@@ -272,32 +197,20 @@ export function ProductCard({ product, viewMode = "grid", featured = false }: Pr
           )}
         </div>
 
-        {/* Product Info - Clean typography */}
-        <div className="space-y-2">
-          {/* Product Name */}
-          <h3 className="text-[15px] font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
+        {/* Product Info - Small title, no price */}
+        <div className="space-y-3">
+          {/* Product Name - Small */}
+          <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
             {product.name}
           </h3>
 
-          {/* Price */}
-          <div className="flex items-center gap-2">
-            <span className="text-base font-medium text-neutral-900">
-              {formatPrice(displayVariant.price)}
-            </span>
-            {hasDiscount && (
-              <span className="text-sm text-neutral-400 line-through">
-                {formatPrice(originalPrice)}
-              </span>
-            )}
-          </div>
-
-          {/* Color Variants - Small circles */}
-          <div className="flex items-center gap-1.5 pt-1">
+          {/* Color Variants - Small circles below */}
+          <div className="flex items-center justify-center gap-2">
             {colors.slice(0, 4).map((color, i) => (
               <span
                 key={i}
                 className={cn(
-                  "w-4 h-4 rounded-full border cursor-pointer transition-transform hover:scale-110",
+                  "w-3 h-3 rounded-full border cursor-pointer transition-transform hover:scale-110",
                   i === 0 ? "border-neutral-400" : "border-neutral-200"
                 )}
                 style={{ backgroundColor: color.color }}
