@@ -13,7 +13,7 @@ import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/as
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { getTotalItems } = useCart();
+  const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user } = useAuth();
   const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
@@ -92,14 +92,19 @@ export function Header() {
               <User className="w-5 h-5 text-neutral-600" />
             </Link>
 
-            <Link href={ROUTES.cart} className="p-2 relative">
+            <button
+              type="button"
+              className="p-2 relative"
+              aria-label="Sepeti aç"
+              onClick={() => setIsCartOpen(true)}
+            >
               <ShoppingBag className="w-5 h-5 text-neutral-600" />
               {cartItemCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-neutral-900 text-white text-[10px] flex items-center justify-center">
                   {cartItemCount}
                 </span>
               )}
-            </Link>
+            </button>
           </div>
         </div>
       </div>
