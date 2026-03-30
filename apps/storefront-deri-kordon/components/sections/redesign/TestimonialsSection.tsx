@@ -111,7 +111,7 @@ export function TestimonialsSection() {
                       className={cn(
                         "w-4 h-4",
                         i < review.rating
-                          ? "fill-amber-400 text-amber-400"
+                          ? "fill-[#B39A73] text-[#B39A73]"
                           : "fill-neutral-200 text-neutral-200"
                       )}
                     />
@@ -124,8 +124,8 @@ export function TestimonialsSection() {
                     {review.name}
                   </span>
                   {review.verified && (
-                    <span className="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center">
-                      <Check className="w-3 h-3 text-amber-600" />
+                    <span className="w-5 h-5 bg-[#B39A73]/20 rounded-full flex items-center justify-center">
+                      <Check className="w-3 h-3 text-[#B39A73]" />
                     </span>
                   )}
                 </div>
