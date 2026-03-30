@@ -77,25 +77,25 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="bg-white">
-          {/* Image Container */}
-          <div className="relative aspect-[4/5] bg-[#F5F5F5] mb-4 overflow-hidden">
+          {/* Image Container - NO background, image fills entire area */}
+          <div className="relative aspect-[4/5] mb-3 overflow-hidden">
             {primaryImage ? (
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-contain p-6 lg:p-8 group-hover:scale-105 transition-transform duration-500"
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm">
+              <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
                 Görsel yok
               </div>
             )}
           </div>
           
-          {/* Product Info - Small title, no price */}
+          {/* Product Info - Small title */}
           <div>
             <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
               {product.name}
@@ -113,17 +113,17 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="flex gap-6 bg-white p-4">
-          <div className="relative w-32 h-40 flex-shrink-0 bg-[#F5F5F5]">
+          <div className="relative w-32 h-40 flex-shrink-0 overflow-hidden">
             {primaryImage ? (
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-contain p-2"
+                className="object-cover"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">
+              <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
                 Görsel yok
               </div>
             )}
@@ -155,23 +155,23 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     );
   }
 
-  // Standard Grid Card - Roarcraft Style (Small title, no price, color dots)
+  // Standard Grid Card - NO background, image fills entire area
   return (
     <Link href={ROUTES.product(product.slug)} className="group block">
       <div className="bg-white">
-        {/* Image Container */}
-        <div className="relative aspect-[4/5] bg-[#F5F5F5] mb-4 overflow-hidden">
+        {/* Image Container - NO background color */}
+        <div className="relative aspect-[4/5] mb-3 overflow-hidden">
           {primaryImage ? (
             <Image
               src={primaryImage}
               alt={product.name}
               fill
-              className="object-contain p-6 lg:p-8 group-hover:scale-105 transition-transform duration-500"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               unoptimized={usesProxiedPrimaryImage}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm">
+            <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
               Görsel yok
             </div>
           )}
@@ -186,15 +186,15 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           )}
         </div>
 
-        {/* Product Info - Small title, no price */}
-        <div className="space-y-3">
+        {/* Product Info - Small title */}
+        <div className="space-y-2">
           {/* Product Name - Small */}
           <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
             {product.name}
           </h3>
 
           {/* Color Variants - Small circles below */}
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center gap-1.5">
             {colors.slice(0, 4).map((color, i) => (
               <span
                 key={i}
