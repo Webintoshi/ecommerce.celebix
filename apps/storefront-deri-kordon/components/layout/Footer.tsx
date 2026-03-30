@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Instagram, Mail, Phone, MapPin } from "lucide-react";
 import {
@@ -9,10 +10,14 @@ import {
   SOCIAL_LINKS,
 } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const currentYear = new Date().getFullYear();
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
+  const logoAlt = storeInfo?.name || SITE_NAME;
+  const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
   const contactInfo = {
     email: storeInfo?.email || CONTACT_INFO.email,
@@ -26,9 +31,22 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
           <div className="lg:col-span-1">
             <Link href="/" className="inline-block mb-6">
-              <span className="font-serif text-2xl font-medium">
-                {storeInfo?.name || SITE_NAME}
-              </span>
+              {logoSrc ? (
+                <div className="relative h-12 w-[180px]">
+                  <Image
+                    src={logoSrc}
+                    alt={logoAlt}
+                    fill
+                    className="object-contain object-left"
+                    sizes="180px"
+                    unoptimized={usesProxiedLogo}
+                  />
+                </div>
+              ) : (
+                <span className="font-serif text-2xl font-medium">
+                  {logoAlt}
+                </span>
+              )}
             </Link>
             <p className="text-neutral-400 text-sm leading-relaxed mb-6">
               El yapımı hakiki deri ürünler. Zamana meydan okuyan şıklık.

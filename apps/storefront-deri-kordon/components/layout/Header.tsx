@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Search, ShoppingBag, User, Menu, X } from "lucide-react";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -15,6 +17,9 @@ export function Header() {
   const { user } = useAuth();
   const { storeInfo } = useStoreInfo();
   const cartItemCount = getTotalItems();
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
+  const logoAlt = storeInfo?.name || SITE_NAME;
+  const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,9 +52,23 @@ export function Header() {
           </button>
 
           <Link href={ROUTES.home} className="flex-shrink-0">
-            <span className="font-serif text-xl lg:text-2xl font-medium text-neutral-900">
-              {storeInfo?.name || SITE_NAME}
-            </span>
+            {logoSrc ? (
+              <div className="relative h-10 w-[140px] sm:h-11 sm:w-[156px] lg:h-12 lg:w-[176px]">
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  fill
+                  priority
+                  className="object-contain object-left"
+                  sizes="(max-width: 640px) 140px, (max-width: 1024px) 156px, 176px"
+                  unoptimized={usesProxiedLogo}
+                />
+              </div>
+            ) : (
+              <span className="font-serif text-xl lg:text-2xl font-medium text-neutral-900">
+                {logoAlt}
+              </span>
+            )}
           </Link>
 
           <nav className="hidden lg:flex items-center gap-10">

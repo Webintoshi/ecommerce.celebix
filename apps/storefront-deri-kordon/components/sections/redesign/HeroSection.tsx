@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 interface HeroBanner {
   id: number;
@@ -43,8 +44,14 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
     defaultBanners;
 
   const currentBanner = heroBanners[current];
-  const desktopSrc = currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop;
-  const mobileSrc = currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc;
+  const desktopSrc = resolveStorefrontAssetUrl(
+    currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop
+  );
+  const mobileSrc = resolveStorefrontAssetUrl(
+    currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc
+  );
+  const usesProxiedDesktopImage = isProxiedStorefrontAssetUrl(desktopSrc);
+  const usesProxiedMobileImage = isProxiedStorefrontAssetUrl(mobileSrc);
 
   return (
     <section className="relative w-full bg-neutral-50">
@@ -73,16 +80,30 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
           
           {/* Image */}
           <div className="order-1 lg:order-2 relative aspect-[4/3] lg:aspect-auto lg:h-[60vh]">
-            <Image
-              src={desktopSrc}
-              alt={currentBanner.alt}
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              quality={85}
-              unoptimized={desktopSrc.startsWith("http")}
-            />
+            <div className="relative h-full w-full md:hidden">
+              <Image
+                src={mobileSrc}
+                alt={currentBanner.alt}
+                fill
+                priority
+                className="object-cover"
+                sizes="100vw"
+                quality={85}
+                unoptimized={usesProxiedMobileImage}
+              />
+            </div>
+            <div className="relative hidden h-full w-full md:block">
+              <Image
+                src={desktopSrc}
+                alt={currentBanner.alt}
+                fill
+                priority
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                quality={85}
+                unoptimized={usesProxiedDesktopImage}
+              />
+            </div>
           </div>
         </div>
       </div>
