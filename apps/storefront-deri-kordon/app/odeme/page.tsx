@@ -13,6 +13,7 @@ import { getShippingRatesForCountry } from "@/lib/shipping";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { ShippingRate } from "@/lib/shipping-storage";
 import { toast } from "sonner";
+import { getPrimaryResolvedProductImage } from "@/lib/product-images";
 import {
   CreditCard,
   Truck,
@@ -807,39 +808,43 @@ export default function CheckoutPage() {
                 <div className="space-y-6">
                   {/* Items */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {items.map(item => (
-                      <div key={item.id} className="flex gap-4 group">
-                        <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center text-2xl border border-gray-100 shrink-0 overflow-hidden">
-                          {item.product.images && item.product.images.length > 0 ? (
-                            <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <>
-                              {item.product.category === "fistik-ezmesi" && "🥜"}
-                              {item.product.category === "findik-ezmesi" && "🌰"}
-                              {item.product.category === "kuruyemis" && "🥔"}
-                            </>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 py-1">
-                          <h4 className="font-bold text-gray-900 text-sm truncate">{item.product.name}</h4>
-                          <p className="text-xs text-gray-500">{item.variant.name}</p>
-                          {item.customization?.selections?.length ? (
-                            <div className="mt-1 text-[11px] text-gray-600 space-y-0.5">
-                              {item.customization.selections.map((selection, idx) => (
-                                <p key={idx}>
-                                  <span className="font-semibold">{selection.step_label}:</span>{" "}
-                                  {selection.display_value}
-                                </p>
-                              ))}
+                    {items.map(item => {
+                      const itemImage = getPrimaryResolvedProductImage(item.product, item.variant);
+
+                      return (
+                        <div key={item.id} className="flex gap-4 group">
+                          <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center text-2xl border border-gray-100 shrink-0 overflow-hidden">
+                            {itemImage ? (
+                              <img src={itemImage} alt={item.product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <>
+                                {item.product.category === "fistik-ezmesi" && "🥜"}
+                                {item.product.category === "findik-ezmesi" && "🌰"}
+                                {item.product.category === "kuruyemis" && "🥔"}
+                              </>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 py-1">
+                            <h4 className="font-bold text-gray-900 text-sm truncate">{item.product.name}</h4>
+                            <p className="text-xs text-gray-500">{item.variant.name}</p>
+                            {item.customization?.selections?.length ? (
+                              <div className="mt-1 text-[11px] text-gray-600 space-y-0.5">
+                                {item.customization.selections.map((selection, idx) => (
+                                  <p key={idx}>
+                                    <span className="font-semibold">{selection.step_label}:</span>{" "}
+                                    {selection.display_value}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            <div className="flex justify-between items-center mt-2">
+                              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-bold text-gray-600">Adet: {item.quantity}</span>
+                              <span className="font-bold text-gray-900 text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
                             </div>
-                          ) : null}
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-bold text-gray-600">Adet: {item.quantity}</span>
-                            <span className="font-bold text-gray-900 text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="h-px bg-gray-100" />

@@ -8,6 +8,7 @@ import { formatPrice, cn } from "@/lib/utils";
 import { SHIPPING_THRESHOLD } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
+import { getPrimaryResolvedProductImage } from "@/lib/product-images";
 
 interface SideCartProps {
   isOpen: boolean;
@@ -27,6 +28,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
   } = useCart();
 
   const [isMobile, setIsMobile] = useState(false);
+  const lastAddedItemImage = lastAddedItem
+    ? getPrimaryResolvedProductImage(lastAddedItem.product, lastAddedItem.variant)
+    : "";
 
   // Check for mobile device on mount and resize
   useEffect(() => {
@@ -114,9 +118,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-white rounded-xl border border-emerald-100 flex items-center justify-center text-2xl shrink-0 shadow-sm overflow-hidden">
-                  {lastAddedItem.product.images && lastAddedItem.product.images.length > 0 ? (
+                  {lastAddedItemImage ? (
                     <img 
-                      src={lastAddedItem.product.images[0]} 
+                      src={lastAddedItemImage}
                       alt={lastAddedItem.product.name} 
                       className="w-full h-full object-cover"
                     />
@@ -166,61 +170,65 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </Link>
                 </div>
               ) : (
-                items.map((item) => (
-                  <div key={item.id} className="flex gap-4 bg-gray-50 rounded-2xl p-4 border border-gray-100/50 hover:border-gray-200 transition-colors">
-                    <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-2xl shrink-0 border border-gray-100 shadow-sm overflow-hidden">
-                      {item.product.images && item.product.images.length > 0 ? (
-                        <img 
-                          src={item.product.images[0]} 
-                          alt={item.product.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <>
-                          {item.product.category === "fistik-ezmesi" && "🥜"}
-                          {item.product.category === "findik-ezmesi" && "🌰"}
-                          {item.product.category === "kuruyemis" && "🥔"}
-                        </>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-sm truncate">{item.product.name}</h3>
-                          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">{item.variant.name}</p>
-                        </div>
-                        <span className="font-bold text-primary text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
-                      </div>
-                      {item.customization && (
-                        <CartItemCustomizationDisplay customization={item.customization} />
-                      )}
+                items.map((item) => {
+                  const itemImage = getPrimaryResolvedProductImage(item.product, item.variant);
 
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-200 p-0.5 shadow-sm">
+                  return (
+                    <div key={item.id} className="flex gap-4 bg-gray-50 rounded-2xl p-4 border border-gray-100/50 hover:border-gray-200 transition-colors">
+                      <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-2xl shrink-0 border border-gray-100 shadow-sm overflow-hidden">
+                        {itemImage ? (
+                          <img
+                            src={itemImage}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            {item.product.category === "fistik-ezmesi" && "🥜"}
+                            {item.product.category === "findik-ezmesi" && "🌰"}
+                            {item.product.category === "kuruyemis" && "🥔"}
+                          </>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-sm truncate">{item.product.name}</h3>
+                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">{item.variant.name}</p>
+                          </div>
+                          <span className="font-bold text-primary text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
+                        </div>
+                        {item.customization && (
+                          <CartItemCustomizationDisplay customization={item.customization} />
+                        )}
+
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-200 p-0.5 shadow-sm">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
-                          >
-                            <Plus className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -269,4 +277,3 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
     </AnimatePresence>
   );
 }
-

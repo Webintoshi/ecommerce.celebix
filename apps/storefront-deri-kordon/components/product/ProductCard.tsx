@@ -5,7 +5,8 @@ import Image from "next/image";
 import { Product } from "@/types/product";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
+import { getResolvedProductImages } from "@/lib/product-images";
 
 interface ProductCardProps {
   product: Product;
@@ -21,18 +22,6 @@ const sampleColors = [
   { name: "Olive", color: "#556B2F" },
   { name: "Burgundy", color: "#800020" },
 ];
-
-function getResolvedProductImages(product: Product) {
-  const legacyImagesV2 = Array.isArray((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2)
-    ? ((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? [])
-      .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
-      .filter((image) => image.length > 0)
-    : [];
-
-  return (Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2)
-    .map((image) => resolveStorefrontAssetUrl(image))
-    .filter((image) => image.length > 0);
-}
 
 // Get product colors from attributes/options
 function getProductColors(product: Product): { name: string; color: string }[] {
