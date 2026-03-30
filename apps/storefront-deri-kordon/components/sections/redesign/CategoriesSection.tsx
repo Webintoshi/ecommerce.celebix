@@ -8,39 +8,46 @@ import type { CategoryInfo } from "@/types/product";
 interface CategoryCard {
   id: string | number;
   name: string;
-  subtitle: string;
   link: string;
-  image?: string;
+  image: string;
 }
 
-const fallbackCategories: CategoryCard[] = [
+const categories: CategoryCard[] = [
   {
     id: 1,
-    name: "Apple Watch Kayışları",
-    subtitle: "Deri",
+    name: "Deri Cüzdan & Kartlık",
     image: "/hero-banner-fistik-ezmeleri.jpg",
-    link: "/kategori/apple-watch-kayislari",
+    link: "/kategori/deri-cuzdan-kartlik",
   },
   {
     id: 2,
-    name: "Saat Kordonları",
-    subtitle: "Klasik",
+    name: "Deri Aksesuarlar",
     image: "/hero-banner-super-gidalar-mobile.jpg",
-    link: "/kategori/klasik-saat-kordonlari",
+    link: "/kategori/deri-aksesuarlar",
   },
   {
     id: 3,
-    name: "Aksesuarlar",
-    subtitle: "Deri",
+    name: "Çanta & Deri Organizer",
     image: "/Findik_Ezmeleri_Kategorisi.webp",
-    link: "/koleksiyon/aksesuarlar",
+    link: "/kategori/canta-organizer",
   },
   {
     id: 4,
-    name: "Hediye Setleri",
-    subtitle: "Özel",
+    name: "Deri Saat Kutusı",
     image: "/fistik_ezmesi_kategori_gorsel.webp",
-    link: "/koleksiyon/hediye-setleri",
+    link: "/kategori/deri-saat-kutusu",
+  },
+  {
+    id: 5,
+    name: "Cep Çakısı",
+    image: "/hero-banner-fistik-ezmeleri.jpg",
+    link: "/kategori/cep-cakisi",
+  },
+  {
+    id: 6,
+    name: "Cam Obje & Biblo",
+    image: "/hero-banner-super-gidalar-mobile.jpg",
+    link: "/kategori/cam-obje-biblo",
   },
 ];
 
@@ -49,59 +56,52 @@ interface CategoriesSectionProps {
 }
 
 export function CategoriesSection({ initialCategories = [] }: CategoriesSectionProps) {
-  const normalizedCategories: CategoryCard[] =
-    initialCategories.length > 0
-      ? initialCategories.map((category) => ({
-          id: category.id,
-          name: category.name,
-          subtitle: "Koleksiyon",
-          link: ROUTES.category(category.slug),
-        }))
-      : [];
-
-  const displayCategories = [...normalizedCategories, ...fallbackCategories].slice(0, 4);
+  // Use API categories if available, otherwise use fallback
+  const displayCategories = initialCategories.length > 0
+    ? initialCategories.slice(0, 6).map((cat, index) => ({
+        id: cat.id,
+        name: cat.name,
+        link: ROUTES.category(cat.slug),
+        image: categories[index % categories.length].image,
+      }))
+    : categories.slice(0, 6);
 
   return (
     <section className="py-20 lg:py-28 bg-white">
       <div className="container-premium">
         {/* Section Header */}
         <div className="text-center mb-12 lg:mb-16">
-          <p className="text-sm uppercase tracking-[0.2em] text-neutral-500 mb-3">
-            Koleksiyonlar
+          <p className="text-xs uppercase tracking-[0.3em] text-neutral-400 mb-3">
+            KOLEKSİYONLAR
           </p>
           <h2 className="text-3xl lg:text-4xl font-serif font-medium text-neutral-900">
             Kategoriler
           </h2>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* Grid - 3 columns, 2 rows, 3:2 ratio */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {displayCategories.map((category) => (
             <Link
               key={category.id}
               href={category.link}
-              className="group block"
+              className="group relative block aspect-[3/2] overflow-hidden"
             >
-              <div className="relative aspect-[3/4] bg-neutral-100 mb-4 overflow-hidden">
-                {category.image ? (
-                  <Image
-                    src={category.image}
-                    alt={category.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
-                    {category.name}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-neutral-500 mb-1">
-                  {category.subtitle}
-                </p>
-                <h3 className="font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors">
+              {/* Background Image */}
+              <Image
+                src={category.image}
+                alt={category.name}
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
+              
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-300" />
+              
+              {/* Category Name - Centered */}
+              <div className="absolute inset-0 flex items-center justify-center p-6">
+                <h3 className="text-white text-lg md:text-xl lg:text-2xl font-medium text-center leading-tight drop-shadow-lg">
                   {category.name}
                 </h3>
               </div>

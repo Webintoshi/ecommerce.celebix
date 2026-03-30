@@ -6,7 +6,7 @@ import { CategoriesSection } from "./CategoriesSection";
 import { BestSellersSection } from "./BestSellersSection";
 import PromotionalBanners from "./PromotionalBanners";
 import { TestimonialsSection } from "./TestimonialsSection";
-import { NewsletterSection } from "./NewsletterSection";
+
 
 interface HeroBannerData {
   id: number;
@@ -98,8 +98,7 @@ export default function RedesignHome() {
       {/* Testimonials */}
       <TestimonialsSection />
       
-      {/* Newsletter */}
-      <NewsletterSection />
+
     </main>
   );
 }
