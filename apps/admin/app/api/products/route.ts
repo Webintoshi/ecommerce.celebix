@@ -9,6 +9,7 @@ import {
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
+import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,10 @@ function logTagSuggestionSyncError(error: unknown, context: string) {
 
 function logMarketplaceQueueError(error: unknown, context: string) {
     console.error(`Marketplace queue sync failed (${context}):`, error);
+}
+
+function logVariantAttributeSyncError(error: unknown, context: string) {
+    console.error(`Variant attribute registry sync failed (${context}):`, error);
 }
 
 const OPTIONAL_PRODUCT_COLUMNS = new Set([
@@ -553,6 +558,12 @@ export async function POST(request: NextRequest) {
                 variantsPayload = nextPayload as typeof variantsToInsert;
             }
             console.log("Variants inserted successfully");
+
+            try {
+                await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
+            } catch (error) {
+                logVariantAttributeSyncError(error, "create");
+            }
         } else {
             console.log("No variants to insert");
         }
@@ -1040,6 +1051,12 @@ export async function PUT(request: NextRequest) {
 
                     newVariantsPayload = nextPayload as typeof variantsToInsert;
                 }
+            }
+
+            try {
+                await syncVariantAttributeRegistryFromVariants(supabase, preparedVariants);
+            } catch (error) {
+                logVariantAttributeSyncError(error, "update");
             }
         }
 

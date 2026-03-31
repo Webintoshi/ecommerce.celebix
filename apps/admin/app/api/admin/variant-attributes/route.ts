@@ -9,6 +9,7 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttribute,
 } from "@/lib/db/variant-attributes";
+import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -187,7 +188,7 @@ export async function GET(request: NextRequest) {
         const attribute = await fetchAttributeWithValues(id);
         return NextResponse.json({ success: true, attribute });
       } catch (error: any) {
-        if (isVariantAttributeTableMissing(error)) {
+        if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
           const attribute = await getStoredVariantAttributeById(id);
           if (!attribute) {
             return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
@@ -198,28 +199,39 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const query = withValues
-      ? supabase
-          .from("variant_attributes")
-          .select(`
-            *,
-            values:variant_attribute_values(*)
-          `)
-          .order("name")
-      : supabase.from("variant_attributes").select("*").order("name");
+    const readAttributes = async () => {
+      const query = withValues
+        ? supabase
+            .from("variant_attributes")
+            .select(`
+              *,
+              values:variant_attribute_values(*)
+            `)
+            .order("name")
+        : supabase.from("variant_attributes").select("*").order("name");
 
-    const { data, error } = await query;
-    if (error) {
-      if (isVariantAttributeTableMissing(error)) {
-        const attributes = await getStoredVariantAttributes();
-        return NextResponse.json({ success: true, attributes });
+      const { data, error } = await query;
+      if (error) {
+        if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
+          return await getStoredVariantAttributes();
+        }
+        throw error;
       }
-      throw error;
-    }
 
-    const attributes = (data || [])
-      .map((attribute) => normalizeAttribute((attribute ?? {}) as Record<string, unknown>))
-      .filter((attribute) => attribute.is_active !== false);
+      return (data || [])
+        .map((attribute) => normalizeAttribute((attribute ?? {}) as Record<string, unknown>))
+        .filter((attribute) => attribute.is_active !== false);
+    };
+
+    let attributes = await readAttributes();
+    if (attributes.length === 0) {
+      try {
+        await backfillVariantAttributeRegistryFromCatalog(supabase);
+        attributes = await readAttributes();
+      } catch (backfillError) {
+        console.error("Error backfilling variant attributes from catalog:", backfillError);
+      }
+    }
 
     return NextResponse.json({ success: true, attributes });
   } catch (error: any) {
