@@ -32,10 +32,6 @@ function toJsonArray(value: unknown): unknown[] {
     return Array.isArray(value) ? value : [];
 }
 
-function getErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : "Bilinmeyen hata";
-}
-
 function logTagSuggestionSyncError(error: unknown, context: string) {
     console.error(`Product tag suggestion sync failed (${context}):`, error);
 }
@@ -321,19 +317,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        let normalizedTags: string[] = [];
-        try {
-            normalizedTags = validateAndNormalizeProductTags(productData.tags);
-        } catch (error) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: getErrorMessage(error),
-                    code: "TAG_VALIDATION_ERROR",
-                },
-                { status: 400 }
-            );
-        }
+        // Limit dışı etiketleri importu bloklamadan sessizce atla.
+        const normalizedTags = validateAndNormalizeProductTags(productData.tags, { mode: "lenient" });
 
         // 1. Slug benzersizlik kontrolü
         if (productData.slug) {
@@ -648,18 +633,7 @@ export async function PUT(request: NextRequest) {
         const { createServerClient } = await import("@/lib/supabase");
         const supabase = createServerClient();
         if (updates.tags !== undefined) {
-            try {
-                normalizedUpdatedTags = validateAndNormalizeProductTags(updates.tags);
-            } catch (error) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: getErrorMessage(error),
-                        code: "TAG_VALIDATION_ERROR",
-                    },
-                    { status: 400 }
-                );
-            }
+            normalizedUpdatedTags = validateAndNormalizeProductTags(updates.tags, { mode: "lenient" });
         }
 
         // 1. Slug benzersizlik kontrolü (güncelleme sırasında)
@@ -1110,7 +1084,7 @@ export async function PUT(request: NextRequest) {
 
         if (normalizedUpdatedTags !== undefined) {
             try {
-                const previousTags = validateAndNormalizeProductTags(existingProduct?.tags || []);
+                const previousTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
                 const tagDiff = diffProductTags(previousTags, normalizedUpdatedTags);
                 await syncProductTagSuggestions(supabase, tagDiff);
             } catch (error) {
@@ -1158,7 +1132,7 @@ export async function DELETE(request: NextRequest) {
         await deleteProduct(id);
 
         try {
-            const removedTags = validateAndNormalizeProductTags(existingProduct?.tags || []);
+            const removedTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
             if (removedTags.length > 0) {
                 await syncProductTagSuggestions(supabase, { removed: removedTags });
             }

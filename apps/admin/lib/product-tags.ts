@@ -8,6 +8,8 @@ const MAX_TAG_COUNT = 30;
 const MAX_TAG_LENGTH = 40;
 const MULTI_SPACE_REGEX = /\s+/g;
 
+type ProductTagValidationMode = "strict" | "lenient";
+
 function collapseWhitespace(value: string): string {
   return value.replace(MULTI_SPACE_REGEX, " ").trim();
 }
@@ -24,7 +26,10 @@ export function normalizeProductTags(values: string[]): string[] {
   return Array.from(new Set(normalized));
 }
 
-export function validateAndNormalizeProductTags(values: unknown): string[] {
+export function validateAndNormalizeProductTags(
+  values: unknown,
+  options: { mode?: ProductTagValidationMode } = {}
+): string[] {
   if (!Array.isArray(values)) {
     return [];
   }
@@ -32,6 +37,12 @@ export function validateAndNormalizeProductTags(values: unknown): string[] {
   const normalized = normalizeProductTags(
     values.filter((value): value is string => typeof value === "string")
   );
+
+  if (options.mode === "lenient") {
+    return normalized
+      .filter((value) => value.length <= MAX_TAG_LENGTH)
+      .slice(0, MAX_TAG_COUNT);
+  }
 
   if (normalized.length > MAX_TAG_COUNT) {
     throw new Error(`En fazla ${MAX_TAG_COUNT} etiket eklenebilir.`);
