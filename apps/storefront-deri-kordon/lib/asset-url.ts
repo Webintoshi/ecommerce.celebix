@@ -82,6 +82,34 @@ export function resolveStorefrontAssetUrl(source?: string | null) {
   }
 }
 
+export function resolveStorefrontDirectAssetUrl(source?: string | null) {
+  const trimmedSource = typeof source === "string" ? source.trim() : "";
+
+  if (!trimmedSource) {
+    return "";
+  }
+
+  if (
+    trimmedSource.startsWith("/") ||
+    trimmedSource.startsWith("data:") ||
+    trimmedSource.startsWith("blob:")
+  ) {
+    return trimmedSource;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedSource);
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return trimmedSource;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return trimmedSource;
+  }
+}
+
 export function isProxiedStorefrontAssetUrl(source?: string | null) {
   return typeof source === "string" && source.startsWith(`${ASSET_PROXY_PATH}?`);
 }

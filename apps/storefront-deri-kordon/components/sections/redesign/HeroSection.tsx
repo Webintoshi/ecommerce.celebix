@@ -1,10 +1,7 @@
-"use client";
-
-import Image from "next/image";
-import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 
 interface HeroBanner {
-  id: number;
+  id: string | number;
   desktop: string;
   mobile?: string;
   alt: string;
@@ -31,42 +28,29 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
     defaultBanners;
 
   const currentBanner = heroBanners[0];
-  const desktopSrc = resolveStorefrontAssetUrl(
+  const desktopSrc = resolveStorefrontDirectAssetUrl(
     currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop
   );
-  const mobileSrc = resolveStorefrontAssetUrl(
+  const mobileSrc = resolveStorefrontDirectAssetUrl(
     currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc
   );
-  const usesProxiedDesktopImage = isProxiedStorefrontAssetUrl(desktopSrc);
-  const usesProxiedMobileImage = isProxiedStorefrontAssetUrl(mobileSrc);
 
   return (
-    <section className="relative w-full bg-neutral-50">
+    <section className="relative w-full">
       <div className="relative w-full overflow-hidden">
-        <div className="relative aspect-[4/5] w-full md:hidden">
-          <Image
-            src={mobileSrc}
-            alt={currentBanner.alt}
-            fill
-            priority
-            className="object-cover object-center"
-            sizes="100vw"
-            quality={85}
-            unoptimized={usesProxiedMobileImage}
-          />
-        </div>
-        <div className="relative hidden w-full md:block md:aspect-[16/7] lg:aspect-[16/6] xl:aspect-[16/5.75]">
-          <Image
+        <picture>
+          <source media="(max-width: 767px)" srcSet={mobileSrc} />
+          <source media="(min-width: 768px)" srcSet={desktopSrc} />
+          <img
             src={desktopSrc}
             alt={currentBanner.alt}
-            fill
-            priority
-            className="object-cover object-center"
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
             sizes="100vw"
-            quality={85}
-            unoptimized={usesProxiedDesktopImage}
+            className="block w-full aspect-[4/5] object-cover object-center md:aspect-[16/7] lg:aspect-[16/6] xl:aspect-[16/5.75]"
           />
-        </div>
+        </picture>
       </div>
     </section>
   );

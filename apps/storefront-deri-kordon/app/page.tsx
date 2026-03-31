@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
+import { getHomepageData } from "@/lib/homepage";
 
 export const metadata: Metadata = {
   title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
@@ -33,10 +34,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const homepageData = await getHomepageData();
+
   return (
     <>
-      <RedesignHome />
+      <RedesignHome data={homepageData} />
       
       {/* Schema.org Structured Data */}
       <script

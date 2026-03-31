@@ -12,7 +12,6 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
-import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
 import {
   buildStoreTypographyCssVariables,
   buildStoreTypographyStylesheetUrl,
@@ -119,8 +118,6 @@ export default async function RootLayout({
             />
           </noscript>
         ) : null}
-        
-        <PromotionalBannersPreload />
         
         <TrackingProvider>
           <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
