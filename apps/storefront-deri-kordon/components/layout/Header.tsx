@@ -71,12 +71,16 @@ export function Header() {
             )}
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-10">
+          <nav className="hidden lg:flex items-center gap-12">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+                className="text-[15px] font-bold uppercase tracking-[0.12em] text-neutral-800 
+                           hover:text-neutral-950 transition-all duration-300 relative group
+                           after:content-[''] after:absolute after:-bottom-1 after:left-0 
+                           after:w-0 after:h-[2px] after:bg-neutral-900 after:transition-all 
+                           after:duration-300 group-hover:after:w-full"
               >
                 {item.name}
               </Link>
@@ -116,7 +120,8 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="block text-neutral-600 hover:text-neutral-900"
+                className="block text-base font-semibold uppercase tracking-wider text-neutral-800 
+                           hover:text-neutral-950 hover:pl-2 transition-all duration-300"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
