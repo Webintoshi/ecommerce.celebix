@@ -13,6 +13,20 @@ const OPTIONAL_CATEGORY_COLUMNS = new Set([
   "geo_data",
 ]);
 
+const GENERIC_COMMERCE_TYPE_SLUGS = new Set([
+  "simple",
+  "variable",
+  "variation",
+  "grouped",
+  "external",
+  "downloadable",
+  "virtual",
+]);
+
+const GENERIC_COMMERCE_CATEGORY_SLUGS = new Set([
+  "uncategorized",
+]);
+
 function toOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
@@ -96,7 +110,7 @@ export function deriveCategoryHierarchyFromProduct(input: {
   shopifyMetadata?: JsonObject;
   shopifyMetafields?: JsonObject;
 }): ProductCategoryHierarchy {
-  const categorySlug = toOptionalString(input.category);
+  let categorySlug = toOptionalString(input.category);
   let subcategorySlug = toOptionalString(input.subcategory);
   const shopifyMetadata = input.shopifyMetadata || {};
   const shopifyMetafields = input.shopifyMetafields || {};
@@ -104,6 +118,24 @@ export function deriveCategoryHierarchyFromProduct(input: {
   const rawType = toOptionalString(shopifyMetadata.type);
   const rawProductCategory = extractLastTaxonomySegment(toOptionalString(shopifyMetadata.product_category));
   const rawWatchAccessoryStyle = toOptionalString(shopifyMetafields.watch_accessory_style);
+  const normalizedRawType = normalizeImportCategoryCandidate(rawType, { allowGenericType: false, allowGenericCategory: false });
+  const normalizedRawProductCategory = normalizeImportCategoryCandidate(rawProductCategory, {
+    allowGenericType: false,
+    allowGenericCategory: false,
+  });
+  const fallbackRawProductCategory = normalizeImportCategoryCandidate(rawProductCategory, {
+    allowGenericType: false,
+    allowGenericCategory: true,
+  });
+
+  if (categorySlug && GENERIC_COMMERCE_TYPE_SLUGS.has(categorySlug)) {
+    categorySlug =
+      toSlug(normalizedRawProductCategory || rawWatchAccessoryStyle || fallbackRawProductCategory || normalizedRawType) || categorySlug;
+  }
+
+  if (subcategorySlug && GENERIC_COMMERCE_TYPE_SLUGS.has(subcategorySlug)) {
+    subcategorySlug = null;
+  }
 
   if (subcategorySlug && categorySlug && subcategorySlug === categorySlug) {
     subcategorySlug = null;
@@ -115,6 +147,28 @@ export function deriveCategoryHierarchyFromProduct(input: {
     subcategorySlug,
     subcategoryName: chooseLabelForSlug(subcategorySlug, [rawWatchAccessoryStyle, rawType, rawProductCategory]),
   };
+}
+
+function normalizeImportCategoryCandidate(
+  value: string | null,
+  options: {
+    allowGenericType: boolean;
+    allowGenericCategory: boolean;
+  }
+): string {
+  const normalizedValue = toOptionalString(value);
+  if (!normalizedValue) return "";
+
+  const slug = toSlug(normalizedValue);
+  if (!options.allowGenericType && GENERIC_COMMERCE_TYPE_SLUGS.has(slug)) {
+    return "";
+  }
+
+  if (!options.allowGenericCategory && GENERIC_COMMERCE_CATEGORY_SLUGS.has(slug)) {
+    return "";
+  }
+
+  return normalizedValue;
 }
 
 async function getCategoryBySlug(supabase: any, slug: string) {

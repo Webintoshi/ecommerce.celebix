@@ -593,6 +593,20 @@ const COLOR_VALUE_MAP: Record<string, string> = {
   mor: "#7c3aed",
 };
 
+const GENERIC_COMMERCE_TYPE_SLUGS = new Set([
+  "simple",
+  "variable",
+  "variation",
+  "grouped",
+  "external",
+  "downloadable",
+  "virtual",
+]);
+
+const GENERIC_COMMERCE_CATEGORY_SLUGS = new Set([
+  "uncategorized",
+]);
+
 export function getBulkImportProviders(): ProviderDefinition[] {
   return PROVIDERS;
 }
@@ -1240,11 +1254,25 @@ function resolveShopifyCategory({
   watchAccessoryStyle?: string;
   fallback: string;
 }): { category: string; subcategory: string } {
-  const typeValue = normalizeCategoryValue(rawType);
-  const taxonomyValue = normalizeCategoryValue(extractLastTaxonomySegment(rawProductCategory));
+  const typeValue = normalizeCommerceCategoryValue(rawType, { allowGenericType: false, allowGenericCategory: false });
+  const taxonomyValue = normalizeCommerceCategoryValue(extractLastTaxonomySegment(rawProductCategory), {
+    allowGenericType: false,
+    allowGenericCategory: false,
+  });
+  const taxonomyFallbackValue = normalizeCommerceCategoryValue(extractLastTaxonomySegment(rawProductCategory), {
+    allowGenericType: false,
+    allowGenericCategory: true,
+  });
   const watchStyleValue = normalizeCategoryValue(watchAccessoryStyle);
+  const inferredFallbackValue = inferCategoryFromFallbackLabel(fallback);
 
-  const primary = typeValue || taxonomyValue || watchStyleValue || normalizeCategoryValue(fallback) || "genel";
+  const primary =
+    taxonomyValue ||
+    watchStyleValue ||
+    inferredFallbackValue ||
+    taxonomyFallbackValue ||
+    typeValue ||
+    "genel";
   const secondary = [watchStyleValue, taxonomyValue, typeValue].filter((value) => value && value !== primary)[0] || "";
 
   return {
@@ -1267,6 +1295,51 @@ function mapShopifyPublicationState(rawStatus: string, published?: boolean): {
 
 function normalizeCategoryValue(value: string | undefined): string {
   return value ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function normalizeCommerceCategoryValue(
+  value: string | undefined,
+  options: {
+    allowGenericType: boolean;
+    allowGenericCategory: boolean;
+  }
+): string {
+  const normalizedValue = normalizeCategoryValue(value);
+  if (!normalizedValue) return "";
+
+  const slug = toSlug(normalizedValue);
+  if (!options.allowGenericType && GENERIC_COMMERCE_TYPE_SLUGS.has(slug)) {
+    return "";
+  }
+
+  if (!options.allowGenericCategory && GENERIC_COMMERCE_CATEGORY_SLUGS.has(slug)) {
+    return "";
+  }
+
+  return normalizedValue;
+}
+
+function inferCategoryFromFallbackLabel(value: string): string {
+  const source = value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0131/g, "i")
+    .replace(/[^a-z0-9\s/._-]/g, " ");
+
+  if (
+    source.includes("watch band") ||
+    source.includes("watch strap") ||
+    source.includes("apple watch") ||
+    source.includes("saat kayis") ||
+    source.includes("saat kordon") ||
+    source.includes("deri kayis") ||
+    source.includes("deri kordon")
+  ) {
+    return "Watch Bands";
+  }
+
+  return "";
 }
 
 function extractLastTaxonomySegment(value: string): string {
