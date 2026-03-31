@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Percent, Sparkles } from "lucide-react";
+import { shouldBypassImageOptimization } from "@/lib/image-utils";
 
 export interface PromoBanner {
   id: number | string;
@@ -223,7 +224,7 @@ export default function PromotionalBanners({
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                   sizes="(max-width: 1024px) 100vw, 62vw"
                   priority
-                  unoptimized={featured.image.startsWith("http")}
+                  unoptimized={shouldBypassImageOptimization(featured.image)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
                 <div className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-bold text-white shadow-lg">
@@ -256,7 +257,7 @@ export default function PromotionalBanners({
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                     sizes="(max-width: 1024px) 100vw, 38vw"
-                    unoptimized={banner.image.startsWith("http")}
+                    unoptimized={shouldBypassImageOptimization(banner.image)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                   <div className="absolute right-4 top-4 rounded-full border border-white/30 bg-white/20 px-3 py-1 text-sm font-bold text-white backdrop-blur-sm">

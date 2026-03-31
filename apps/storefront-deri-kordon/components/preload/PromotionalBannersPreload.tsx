@@ -1,17 +1,10 @@
 export default function PromotionalBannersPreload() {
-  // Default banner images for preloading
-  // These are the fallback images used when no custom banners are set
   const defaultImages = [
-    { href: "/hero-banner-fistik-ezmeleri.jpg", type: "image/jpeg" },
-    { href: "/Hero_banner_Bir.jpg", type: "image/jpeg" },
-    { href: "/Findik_Ezmeleri_Kategorisi.webp", type: "image/webp" },
+    { href: "/Hero_banner_Bir.webp", type: "image/webp" },
   ];
 
-  // Mobile versions
   const mobileImages = [
-    { href: "/hero-banner-fistik-ezmeleri-mobile.jpg", type: "image/jpeg" },
-    { href: "/Hero_banner_Bir-mobile.jpg", type: "image/jpeg" },
-    { href: "/Findik_Ezmeleri_Kategorisi-mobile.webp", type: "image/webp" },
+    { href: "/hero-banner-fistik-ezmeleri-mobile.webp", type: "image/webp" },
   ];
 
   return (

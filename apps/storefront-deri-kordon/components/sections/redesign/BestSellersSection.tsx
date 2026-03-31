@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { ShoppingBag, Heart, ArrowRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { shouldBypassImageOptimization } from "@/lib/image-utils";
 import type { Product } from "@/types/product";
 
 interface BestSellersSectionProps {
@@ -167,7 +168,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
                         draggable={false}
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                        unoptimized={primaryImage.startsWith("http")}
+                        unoptimized={shouldBypassImageOptimization(primaryImage)}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">

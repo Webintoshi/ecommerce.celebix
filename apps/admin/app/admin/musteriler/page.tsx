@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Customer } from "@/types/customer";
+import {
+  buildImportTemplateCsv as buildCustomerImportTemplateCsv,
+  exportCustomersToCSV as exportCustomerRecordsToCSV,
+  parseImportedCustomers as parseCustomerImportRows,
+} from "@/lib/customer-csv";
 
 type ImportedCustomerRow = {
   firstName: string;
@@ -33,6 +38,9 @@ type ImportedCustomerRow = {
 function transformCustomer(dbCustomer: Record<string, unknown>): Customer {
   const totalOrders = Number(dbCustomer.total_orders) || 0;
   const totalSpent = Number(dbCustomer.total_spent) || 0;
+  const rawAddresses = Array.isArray(dbCustomer.addresses)
+    ? (dbCustomer.addresses as Record<string, unknown>[])
+    : [];
 
   return {
     id: dbCustomer.id as string,
@@ -46,9 +54,27 @@ function transformCustomer(dbCustomer: Record<string, unknown>): Customer {
     lastOrderDate: dbCustomer.last_order_at ? new Date(dbCustomer.last_order_at as string) : undefined,
     averageOrderValue: totalOrders > 0 ? totalSpent / totalOrders : 0,
     registeredAt: new Date(dbCustomer.created_at as string),
-    addresses: [],
+    addresses: rawAddresses.map((address) => ({
+      id: (address.id as string) || "",
+      title: ((address.type as string) || "shipping") === "billing" ? "Fatura" : "Teslimat",
+      company: (address.company as string) || "",
+      firstName: (address.first_name as string) || "",
+      lastName: (address.last_name as string) || "",
+      phone: (address.phone as string) || "",
+      city: (address.city as string) || "",
+      district: (address.state as string) || "",
+      addressLine: (address.address_line1 as string) || "",
+      addressLine2: (address.address_line2 as string) || "",
+      postalCode: (address.postal_code as string) || "",
+      country: (address.country as string) || "TR",
+      isDefault: Boolean(address.is_default),
+    })),
     notes: (dbCustomer.notes as string) || "",
-    tags: [],
+    tags: Array.isArray(dbCustomer.tags) ? (dbCustomer.tags as string[]) : [],
+    externalCustomerId: (dbCustomer.external_customer_id as string) || "",
+    acceptsEmailMarketing: Boolean(dbCustomer.accepts_email_marketing),
+    acceptsSmsMarketing: Boolean(dbCustomer.accepts_sms_marketing),
+    taxExempt: Boolean(dbCustomer.tax_exempt),
   };
 }
 
@@ -411,12 +437,15 @@ export default function CustomersPage() {
       return;
     }
 
-    downloadCsv(`musteriler_${new Date().toISOString().split("T")[0]}.csv`, exportCustomersToCSV(customersToExport));
+    downloadCsv(
+      `musteriler_${new Date().toISOString().split("T")[0]}.csv`,
+      exportCustomerRecordsToCSV(customersToExport),
+    );
     toast.success(`${customersToExport.length} müşteri dışa aktarıldı.`);
   };
 
   const handleDownloadTemplate = () => {
-    downloadCsv("musteri-ice-aktarma-sablonu.csv", buildImportTemplateCsv());
+    downloadCsv("musteri-ice-aktarma-sablonu.csv", buildCustomerImportTemplateCsv());
     toast.success("İçe aktarma şablonu indirildi.");
   };
 
@@ -431,7 +460,7 @@ export default function CustomersPage() {
       setImporting(true);
 
       const text = await file.text();
-      const { rows, skippedCount, skippedDetails } = parseImportedCustomers(text);
+      const { rows, skippedCount, skippedDetails } = parseCustomerImportRows(text);
 
       if (rows.length === 0) {
         throw new Error(skippedDetails[0] || "İçe aktarılacak geçerli satır bulunamadı.");
@@ -445,35 +474,61 @@ export default function CustomersPage() {
 
       for (const row of rows) {
         try {
+          const hasAddressData = Boolean(
+            row.address &&
+              Object.values(row.address).some((value) => typeof value === "string" && value.trim().length > 0),
+          );
+
           const createResponse = await fetch("/api/customers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              externalCustomerId: row.externalCustomerId,
               firstName: row.firstName,
               lastName: row.lastName,
               email: row.email,
               phone: row.phone,
+              status: row.status,
+              notes: row.notes,
+              totalOrders: row.totalOrders,
+              totalSpent: row.totalSpent,
+              tags: row.tags,
+              acceptsEmailMarketing: row.acceptsEmailMarketing,
+              acceptsSmsMarketing: row.acceptsSmsMarketing,
+              taxExempt: row.taxExempt,
+              ...(hasAddressData
+                ? {
+                    addresses: [
+                      {
+                        type: "shipping",
+                        company: row.address?.company,
+                        firstName: row.firstName,
+                        lastName: row.lastName,
+                        addressLine1: row.address?.addressLine1,
+                        addressLine2: row.address?.addressLine2,
+                        city: row.address?.city,
+                        state: row.address?.state,
+                        postalCode: row.address?.postalCode,
+                        country: row.address?.country,
+                        phone: row.address?.phone || row.phone,
+                        isDefault: true,
+                      },
+                    ],
+                  }
+                : {}),
             }),
           });
 
           const createData = await createResponse.json().catch(() => null);
 
+          const customerId = createData?.customer?.id as string;
+          const followUpUpdates: Record<string, string> = {};
+
           if (!createResponse.ok || !createData?.success || !createData.customer?.id) {
             throw new Error(createData?.error || "Müşteri kaydı oluşturulamadı.");
           }
 
-          const customerId = createData.customer.id as string;
-          const followUpUpdates: Record<string, string> = {};
-
-          if (row.status) {
-            followUpUpdates.status = row.status;
-          }
-
-          if (row.notes) {
-            followUpUpdates.notes = row.notes;
-          }
-
-          if (Object.keys(followUpUpdates).length > 0) {
+          if (false) {
             const updateResponse = await fetch("/api/customers", {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -593,7 +648,7 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      {false && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-amber-950">CSV ile müşteri içe aktar</h2>
@@ -607,7 +662,7 @@ export default function CustomersPage() {
             Aynı e-posta ile gelen kayıtlar yeni müşteri oluşturmaz; mevcut müşteriyle eşleştirilir.
           </div>
         </div>
-      </div>
+      </div>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Toplam Müşteri" value={metrics.total} icon={UserCheck} />

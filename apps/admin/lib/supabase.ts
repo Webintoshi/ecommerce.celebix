@@ -81,15 +81,25 @@ export interface Customer {
   first_name: string | null;
   last_name: string | null;
   avatar: string | null;
+  external_customer_id: string | null;
+  accepts_email_marketing: boolean | null;
+  accepts_sms_marketing: boolean | null;
+  tax_exempt: boolean | null;
+  tags: string[] | null;
   total_orders: number;
   total_spent: number;
+  last_order_at: string | null;
+  notes: string | null;
+  status: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Address {
   id: string;
   customer_id: string;
   type: string;
+  company: string | null;
   first_name: string | null;
   last_name: string | null;
   address_line1: string | null;

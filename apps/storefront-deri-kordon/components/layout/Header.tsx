@@ -32,6 +32,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { searchProducts } from "@/lib/products";
+import { shouldBypassImageOptimization } from "@/lib/image-utils";
 import type { Product, CategoryInfo } from "@/types/product";
 
 interface HeaderProps {
@@ -187,7 +188,7 @@ export function Header({ transparent = false }: HeaderProps) {
                 className="object-contain object-left"
                 priority
                 sizes="(max-width: 640px) 148px, (max-width: 1024px) 164px, 188px"
-                unoptimized={logoSrc.startsWith("http")}
+                unoptimized={shouldBypassImageOptimization(logoSrc)}
               />
             </Link>
 
@@ -399,7 +400,7 @@ export function Header({ transparent = false }: HeaderProps) {
                   className="h-8 w-auto"
                   priority
                   sizes="160px"
-                  unoptimized
+                  unoptimized={shouldBypassImageOptimization(logoSrc)}
                 />
                 <button
                   onClick={() => setIsMenuOpen(false)}

@@ -17,6 +17,16 @@ function toNullableString(value: unknown): string | null {
     return normalized ? normalized : null;
 }
 
+function toJsonObject(value: unknown): Record<string, unknown> {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+function toJsonArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
+}
+
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : "Bilinmeyen hata";
 }
@@ -74,6 +84,8 @@ const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "sugar",
     "saturated_fat",
     "sodium",
+    "shopify_metadata",
+    "shopify_metafields",
 ]);
 
 const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
@@ -84,6 +96,8 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
     "max_purchase_quantity",
     "warehouse_location",
     "images",
+    "attributes",
+    "shopify_metadata",
 ]);
 
 function getMissingTableColumn(error: unknown, tableName: string): string | null {
@@ -341,6 +355,18 @@ export async function POST(request: NextRequest) {
         const normalizedImages = productData.images || normalizedImagesV2.map((img: Record<string, unknown>) => img.url);
 
         // 3. Ana ürünü oluştur
+        const normalizedStatus =
+            typeof productData.status === "string" && productData.status.trim()
+                ? productData.status
+                : "published";
+        const normalizedIsDraft =
+            productData.is_draft === true || normalizedStatus !== "published";
+        const normalizedPublishedAt =
+            productData.published_at ??
+            (normalizedStatus === "published" && normalizedIsDraft !== true
+                ? new Date().toISOString()
+                : null);
+
         let productInsertPayload: Record<string, unknown> = {
                 name: productData.name,
                 slug: productData.slug,
@@ -361,9 +387,9 @@ export async function POST(request: NextRequest) {
                 high_protein: productData.high_protein || false,
                 rating: productData.rating || 5,
                 review_count: productData.review_count || 0,
-                status: productData.status || 'published',
-                is_draft: productData.is_draft || false,
-                published_at: productData.published_at || new Date().toISOString(),
+                status: normalizedStatus,
+                is_draft: normalizedIsDraft,
+                published_at: normalizedPublishedAt,
                 tax_rate: productData.tax_rate || 10,
                 brand: productData.brand || STORE_RUNTIME.defaultProductBrand,
                 country_of_origin: productData.country_of_origin || 'Türkiye',
@@ -397,6 +423,8 @@ export async function POST(request: NextRequest) {
                 sugar: productData.sugar || 0,
                 saturated_fat: productData.saturated_fat || 0,
                 sodium: productData.sodium || 0,
+                shopify_metadata: toJsonObject(productData.shopify_metadata),
+                shopify_metafields: toJsonObject(productData.shopify_metafields),
         }
         let product: ({ id: string } & Record<string, unknown>) | null = null;
 
@@ -453,6 +481,8 @@ export async function POST(request: NextRequest) {
                 max_purchase_quantity: v.max_purchase_quantity || null,
                 warehouse_location: v.warehouse_location || null,
                 images: v.images || [],
+                attributes: toJsonArray(v.attributes),
+                shopify_metadata: toJsonObject(v.shopify_metadata),
             }));
 
             console.log("Inserting variants:", JSON.stringify(variantsToInsert, null, 2));
@@ -689,6 +719,8 @@ export async function PUT(request: NextRequest) {
         if (updates.seo_robots !== undefined) updateData.seo_robots = updates.seo_robots;
         if (updates.faq !== undefined) updateData.faq = updates.faq;
         if (updates.geo_data !== undefined) updateData.geo_data = updates.geo_data;
+        if (updates.shopify_metadata !== undefined) updateData.shopify_metadata = toJsonObject(updates.shopify_metadata);
+        if (updates.shopify_metafields !== undefined) updateData.shopify_metafields = toJsonObject(updates.shopify_metafields);
         
         // Diğer alanlar
         if (updates.track_stock !== undefined) updateData.track_stock = updates.track_stock;
@@ -839,6 +871,8 @@ export async function PUT(request: NextRequest) {
                     max_purchase_quantity: v.max_purchase_quantity || null,
                     warehouse_location: v.warehouse_location || null,
                     images: v.images || [],
+                    attributes: toJsonArray(v.attributes),
+                    shopify_metadata: toJsonObject(v.shopify_metadata),
                 };
 
                 while (true) {
@@ -883,6 +917,8 @@ export async function PUT(request: NextRequest) {
                     max_purchase_quantity: v.max_purchase_quantity || null,
                     warehouse_location: v.warehouse_location || null,
                     images: v.images || [],
+                    attributes: toJsonArray(v.attributes),
+                    shopify_metadata: toJsonObject(v.shopify_metadata),
                 }));
 
                 console.log("Inserting variants:", variantsToInsert);

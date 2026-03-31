@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
+import { getHomepageData } from "@/lib/homepage";
 import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 
 export const metadata: Metadata = {
@@ -33,10 +34,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const homepageData = await getHomepageData().catch((error) => {
+    console.error("Failed to load homepage data on the server:", error);
+    return null;
+  });
+
   return (
     <>
-      <RedesignHome />
+      <RedesignHome initialData={homepageData} />
       
       {/* Schema.org Structured Data */}
       <script

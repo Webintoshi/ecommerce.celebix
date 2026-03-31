@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { shouldBypassImageOptimization } from "@/lib/image-utils";
 
 interface HeroBanner {
   id: number;
@@ -27,8 +28,8 @@ interface HeroSectionProps {
 const defaultBanners: HeroBanner[] = [
   {
     id: 1,
-    desktop: "/Hero_banner_Bir.jpg",
-    mobile: "/hero-banner-fistik-ezmeleri-mobile.jpg",
+      desktop: "/Hero_banner_Bir.webp",
+      mobile: "/hero-banner-fistik-ezmeleri-mobile.webp",
     alt: "Premium Deri Ürünler",
   },
 ];
@@ -120,7 +121,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
               className="object-cover"
               sizes="100vw"
               quality={90}
-              unoptimized={desktopSrc.startsWith("http")}
+              unoptimized={shouldBypassImageOptimization(desktopSrc)}
             />
           </div>
           
@@ -135,7 +136,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
               className="object-cover"
               sizes="100vw"
               quality={85}
-              unoptimized={mobileSrc.startsWith("http")}
+              unoptimized={shouldBypassImageOptimization(mobileSrc)}
             />
           </div>
           
