@@ -7,7 +7,7 @@ const port = process.env.PORT || "3100";
 const env = {
   ...process.env,
   PORT: port,
-  HOSTNAME: process.env.HOSTNAME || "0.0.0.0",
+  HOSTNAME: "0.0.0.0",
   NEXT_IGNORE_INCORRECT_LOCKFILE: process.env.NEXT_IGNORE_INCORRECT_LOCKFILE || "1",
 };
 
