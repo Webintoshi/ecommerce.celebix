@@ -1,10 +1,11 @@
-// Kullanıcı Rolleri
+// Kullanici Rolleri
 export type UserRole = "customer" | "admin";
 
 // Adres
 export interface Address {
   id: string;
-  title: string; // "Ev", "İş" vb.
+  title: string;
+  company?: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -12,11 +13,13 @@ export interface Address {
   district: string;
   neighborhood?: string;
   addressLine: string;
+  addressLine2?: string;
   postalCode?: string;
+  country?: string;
   isDefault: boolean;
 }
 
-// Kullanıcı
+// Kullanici
 export interface User {
   id: string;
   email: string;

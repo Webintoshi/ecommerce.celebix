@@ -90,7 +90,7 @@ export default function BulkUploadPage() {
 
     for (let index = 0; index < parseResult.products.length; index += 1) {
       const product = parseResult.products[index];
-      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor: ${product.name}`);
+      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor ve görseller R2 storage'a kopyalanıyor: ${product.name}`);
       try {
         const response = await fetch("/api/products", {
           method: "POST",
@@ -277,6 +277,10 @@ export default function BulkUploadPage() {
             </div>
           ) : null}
 
+          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
+          </div>
+
           {parseResult.products.length > 0 ? (
             <>
               <div className="mt-5 overflow-x-auto rounded-lg border border-gray-200">
@@ -406,18 +410,30 @@ function toApiPayload(product: ParsedProduct) {
     description: product.description,
     short_description: product.shortDescription,
     category: product.category,
-    subcategory: product.subcategory,
+    subcategory: product.subcategory || null,
     tags: product.tags,
     images: product.images,
-    is_active: true,
+    images_v2: product.imagesV2 ?? product.images.map((url, index) => ({
+      url,
+      alt: product.name,
+      is_primary: index === 0,
+      sort_order: index,
+    })),
+    is_active: product.isActive ?? true,
     is_featured: false,
     is_new: false,
     vegan: product.vegan,
     gluten_free: product.glutenFree,
     sugar_free: product.sugarFree,
     high_protein: product.highProtein,
-    status: "published",
-    is_draft: false,
+    brand: product.brand ?? null,
+    seo_title: product.seoTitle ?? null,
+    seo_description: product.seoDescription ?? null,
+    status: product.status ?? "published",
+    is_draft: product.isDraft ?? false,
+    published_at: product.publishedAt ?? undefined,
+    shopify_metadata: product.shopifyMetadata ?? {},
+    shopify_metafields: product.shopifyMetafields ?? {},
     variants: product.variants.map((variant) => ({
       name: variant.name,
       weight: variant.weight,
@@ -425,7 +441,13 @@ function toApiPayload(product: ParsedProduct) {
       original_price: variant.originalPrice ?? null,
       stock: variant.stock,
       sku: variant.sku,
-      unit: "adet",
+      unit: variant.unit ?? "adet",
+      cost: variant.cost ?? null,
+      barcode: variant.barcode ?? null,
+      group_name: variant.groupName ?? null,
+      images: variant.images ?? [],
+      attributes: variant.attributes ?? [],
+      shopify_metadata: variant.shopifyMetadata ?? {},
     })),
   };
 }

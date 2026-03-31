@@ -10,3 +10,4 @@ coverage/
 *.env.local
 .env.*.local
 apps/*/supabase/.temp/
+apps/*/supabase/supabase/.temp/

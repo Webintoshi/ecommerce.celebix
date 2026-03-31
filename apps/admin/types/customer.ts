@@ -16,6 +16,10 @@ export interface Customer {
   registeredAt: Date;
   notes?: string;
   tags?: string[];
+  externalCustomerId?: string;
+  acceptsEmailMarketing?: boolean;
+  acceptsSmsMarketing?: boolean;
+  taxExempt?: boolean;
 }
 
 export interface CustomerFormData {
@@ -27,6 +31,10 @@ export interface CustomerFormData {
   status: "active" | "inactive" | "blocked";
   notes?: string;
   tags?: string[];
+  externalCustomerId?: string;
+  acceptsEmailMarketing?: boolean;
+  acceptsSmsMarketing?: boolean;
+  taxExempt?: boolean;
 }
 
 export interface CustomerSegment {

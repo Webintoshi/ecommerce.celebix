@@ -7,13 +7,16 @@ import Link from "next/link";
 
 interface AddressInput {
   title: string;
+  company: string;
   firstName: string;
   lastName: string;
   phone: string;
   city: string;
   district: string;
   addressLine: string;
+  addressLine2: string;
   postalCode: string;
+  country: string;
 }
 
 interface CustomerFormData {
@@ -25,6 +28,10 @@ interface CustomerFormData {
   status: "active" | "inactive" | "blocked";
   notes: string;
   tags: string[];
+  externalCustomerId: string;
+  acceptsEmailMarketing: boolean;
+  acceptsSmsMarketing: boolean;
+  taxExempt: boolean;
 }
 
 interface CustomerFormProps {
@@ -46,6 +53,10 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     status: "active",
     notes: "",
     tags: [],
+    externalCustomerId: "",
+    acceptsEmailMarketing: false,
+    acceptsSmsMarketing: false,
+    taxExempt: false,
   });
 
   // Load customer data if editing
@@ -70,16 +81,23 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
           phone: c.phone || "",
           status: c.status || "active",
           notes: c.notes || "",
-          tags: [], // Tags not in DB yet
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          externalCustomerId: c.external_customer_id || "",
+          acceptsEmailMarketing: Boolean(c.accepts_email_marketing),
+          acceptsSmsMarketing: Boolean(c.accepts_sms_marketing),
+          taxExempt: Boolean(c.tax_exempt),
           addresses: (c.addresses || []).map((addr: any) => ({
             title: addr.type === "shipping" ? "Teslimat" : "Fatura",
+            company: addr.company || "",
             firstName: addr.first_name || "",
             lastName: addr.last_name || "",
             phone: addr.phone || "",
             city: addr.city || "",
             district: addr.state || "",
             addressLine: addr.address_line1 || "",
+            addressLine2: addr.address_line2 || "",
             postalCode: addr.postal_code || "",
+            country: addr.country || "TR",
           })),
         });
       }
@@ -130,13 +148,16 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
         ...formData.addresses,
         {
           title: "Yeni Adres",
+          company: "",
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone || "",
           city: "",
           district: "",
           addressLine: "",
+          addressLine2: "",
           postalCode: "",
+          country: "TR",
         },
       ],
     });

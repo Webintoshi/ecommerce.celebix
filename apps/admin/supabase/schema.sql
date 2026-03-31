@@ -14,12 +14,58 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     short_description TEXT,
     images TEXT [] DEFAULT '{}',
+    images_v2 JSONB DEFAULT '[]'::jsonb,
     category TEXT,
+    subcategory TEXT,
     tags TEXT [] DEFAULT '{}',
     is_featured BOOLEAN DEFAULT false,
     is_bestseller BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    is_new BOOLEAN DEFAULT false,
+    vegan BOOLEAN DEFAULT false,
+    gluten_free BOOLEAN DEFAULT false,
+    sugar_free BOOLEAN DEFAULT false,
+    high_protein BOOLEAN DEFAULT false,
+    rating NUMERIC(3, 2) DEFAULT 5,
+    review_count INTEGER DEFAULT 0,
     seo_title TEXT,
     seo_description TEXT,
+    status TEXT DEFAULT 'published',
+    is_draft BOOLEAN DEFAULT false,
+    published_at TIMESTAMPTZ,
+    tax_rate INTEGER DEFAULT 10,
+    brand TEXT,
+    country_of_origin TEXT DEFAULT 'Turkiye',
+    sku TEXT,
+    gtin TEXT,
+    dimensions JSONB DEFAULT '{}'::jsonb,
+    related_products UUID[] DEFAULT '{}',
+    complementary_products UUID[] DEFAULT '{}',
+    seo_keywords TEXT[] DEFAULT '{}',
+    seo_focus_keyword TEXT,
+    og_image TEXT,
+    canonical_url TEXT,
+    seo_robots TEXT DEFAULT 'index,follow',
+    track_stock BOOLEAN DEFAULT true,
+    low_stock_threshold INTEGER DEFAULT 10,
+    allergens TEXT[] DEFAULT '{}',
+    nutrition_basis TEXT DEFAULT 'per_100g',
+    serving_size INTEGER DEFAULT 100,
+    serving_per_container INTEGER DEFAULT 1,
+    vitamins JSONB DEFAULT '{}'::jsonb,
+    ingredients TEXT,
+    storage_conditions TEXT,
+    shelf_life_days INTEGER,
+    calories NUMERIC(10, 2) DEFAULT 0,
+    protein NUMERIC(10, 2) DEFAULT 0,
+    carbs NUMERIC(10, 2) DEFAULT 0,
+    fat NUMERIC(10, 2) DEFAULT 0,
+    fiber NUMERIC(10, 2) DEFAULT 0,
+    sugar NUMERIC(10, 2) DEFAULT 0,
+    saturated_fat NUMERIC(10, 2) DEFAULT 0,
+    sodium NUMERIC(10, 2) DEFAULT 0,
+    shopify_metadata JSONB DEFAULT '{}'::jsonb,
+    shopify_metafields JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -33,6 +79,15 @@ CREATE TABLE IF NOT EXISTS product_variants (
     original_price DECIMAL(10, 2),
     stock INTEGER DEFAULT 0,
     weight TEXT,
+    cost DECIMAL(10, 2),
+    barcode TEXT,
+    group_name TEXT,
+    images TEXT[] DEFAULT '{}',
+    unit TEXT DEFAULT 'adet',
+    max_purchase_quantity INTEGER,
+    warehouse_location TEXT,
+    attributes JSONB DEFAULT '[]'::jsonb,
+    shopify_metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- =====================================================
@@ -57,7 +112,12 @@ CREATE TABLE IF NOT EXISTS customers (
     first_name TEXT,
     last_name TEXT,
     avatar TEXT,
+    external_customer_id TEXT,
+    accepts_email_marketing BOOLEAN DEFAULT false,
+    accepts_sms_marketing BOOLEAN DEFAULT false,
+    tax_exempt BOOLEAN DEFAULT false,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'blocked')),
+    tags TEXT [] DEFAULT '{}',
     total_orders INTEGER DEFAULT 0,
     total_spent DECIMAL(10, 2) DEFAULT 0,
     last_order_at TIMESTAMPTZ,
@@ -70,6 +130,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
     type TEXT DEFAULT 'shipping',
+    company TEXT,
     first_name TEXT,
     last_name TEXT,
     address_line1 TEXT,
@@ -189,6 +250,7 @@ CREATE INDEX IF NOT EXISTS idx_products_bestseller ON products(is_bestseller);
 CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
 CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_customers_external_customer_id ON customers(external_customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
@@ -241,6 +303,8 @@ CREATE POLICY "Service role has full access to abandoned_carts" ON abandoned_car
 -- =====================================================
 CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
 CREATE INDEX IF NOT EXISTS idx_customers_last_order ON customers(last_order_at DESC);
+CREATE INDEX IF NOT EXISTS idx_customers_accepts_email_marketing ON customers(accepts_email_marketing);
+CREATE INDEX IF NOT EXISTS idx_customers_accepts_sms_marketing ON customers(accepts_sms_marketing);
 
 -- =====================================================
 -- TRIGGERS
