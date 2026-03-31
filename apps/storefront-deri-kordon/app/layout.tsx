@@ -20,7 +20,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/* === SEO & METADATA === */
 export const metadata: Metadata = {
   title: {
     default: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
@@ -108,7 +107,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased" suppressHydrationWarning>
+      <body className="font-sans antialiased !bg-[#F8F8F8]" suppressHydrationWarning style={{ backgroundColor: '#F8F8F8 !important' }}>
         {/* GTM NoScript */}
         {gtmId ? (
           <noscript>
