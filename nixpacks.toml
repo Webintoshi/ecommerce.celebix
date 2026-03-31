@@ -1,0 +1,9 @@
+[start]
+runImage = "node:20-bookworm"
+onlyIncludeFiles = [
+  "package.json",
+  "package-lock.json",
+  "apps/storefront-deri-kordon",
+  "packages/platform-config",
+  "stores"
+]

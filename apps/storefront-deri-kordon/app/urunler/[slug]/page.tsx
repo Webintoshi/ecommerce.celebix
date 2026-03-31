@@ -5,6 +5,11 @@ import { getProductBySlug, getProductSlug } from "@/lib/products";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
+import {
+  getVariantAttributeRegistry,
+  hydrateVariantAttributes,
+  inferVariantAttributesFromName,
+} from "@/lib/variant-attribute-hydration";
 
 function normalizeProductVariant(variant: any) {
   return {
@@ -182,7 +187,8 @@ export default async function ProductDetailPage({
         .from("product_variants")
         .select(`
           *,
-          attributes:product_variant_attributes(
+          raw_attributes:attributes,
+          linked_attributes:product_variant_attributes(
             id,
             attribute_value:variant_attribute_values(
               id,
@@ -200,47 +206,31 @@ export default async function ProductDetailPage({
         console.error('Variants fetch error:', variantsError);
         supabaseError = variantsError;
       }
-      
-      // Fetch all variant attribute values for matching (fallback)
-      const { data: allAttributeValues } = await supabase
-        .from('variant_attribute_values')
-        .select(`
-          id,
-          value,
-          color_code,
-          image_url,
-          attribute:variant_attributes(id, name)
-        `);
-      
-      // Debug logging removed
+
+      const attributeRegistry = await getVariantAttributeRegistry();
 
       // Transform images_v2 to images format
       const images = extractProductImages(dbProduct);
       
       // Transform variants with attributes
       let transformedVariants = variants?.map((v: any) => {
-        // Get existing attributes from product_variant_attributes
-        let attrs = v.attributes?.map((a: any) => ({
-          ...a.attribute_value,
-          attribute: a.attribute_value?.attribute
-        })) || [];
-        
-        // FALLBACK: If no attributes, try to match variant name with attribute values
-        if (attrs.length === 0 && allAttributeValues) {
-          const matchedValue = allAttributeValues.find((av: any) => 
-            av.value?.toLowerCase() === v.name?.toLowerCase()
-          );
-          if (matchedValue) {
-            attrs = [{
-              id: matchedValue.id,
-              value: matchedValue.value,
-              color_code: matchedValue.color_code,
-              image_url: matchedValue.image_url,
-              attribute: matchedValue.attribute
-            }];
-          }
+        const linkedAttributes = Array.isArray(v.linked_attributes)
+          ? v.linked_attributes.map((a: any) => ({
+              ...a.attribute_value,
+              attribute: a.attribute_value?.attribute
+            }))
+          : [];
+
+        const rawAttributes = Array.isArray(v.raw_attributes) ? v.raw_attributes : [];
+        let attrs = hydrateVariantAttributes(
+          [...linkedAttributes, ...rawAttributes],
+          attributeRegistry,
+        );
+
+        if (attrs.length === 0) {
+          attrs = inferVariantAttributesFromName(v.name || "", attributeRegistry);
         }
-        
+
         return {
           ...v,
           originalPrice: v.original_price,

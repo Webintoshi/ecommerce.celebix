@@ -8,8 +8,13 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttributeValue,
 } from "@/lib/db/variant-attributes";
+import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
 
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
+
+function logCatalogVariantSyncError(error: unknown, context: string) {
+  console.error(`Variant attribute catalog snapshot sync failed (${context}):`, error);
+}
 
 function getMissingColumn(error: unknown): string | null {
   if (!error || typeof error !== "object" || !("message" in error)) return null;
@@ -88,6 +93,11 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase.from("variant_attribute_values").insert(payload).select().single();
 
       if (!error) {
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "create");
+        }
         return NextResponse.json({ success: true, value: data });
       }
       if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
@@ -100,6 +110,11 @@ export async function POST(request: NextRequest) {
         });
         if (!createdValue) {
           return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        }
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "create:fallback");
         }
         return NextResponse.json({ success: true, value: createdValue });
       }
@@ -150,6 +165,11 @@ export async function PUT(request: NextRequest) {
         .single();
 
       if (!error) {
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "update");
+        }
         return NextResponse.json({ success: true, value: data });
       }
       if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
@@ -163,6 +183,11 @@ export async function PUT(request: NextRequest) {
         }));
         if (!updatedValue) {
           return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+        }
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "update:fallback");
         }
         return NextResponse.json({ success: true, value: updatedValue });
       }
@@ -204,6 +229,11 @@ export async function DELETE(request: NextRequest) {
         if (!deleted) {
           return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
         }
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "delete:fallback");
+        }
         return NextResponse.json({ success: true, message: "Deger basariyla silindi" });
       }
       if (getMissingColumn(error) === "is_active") {
@@ -216,6 +246,11 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
+    try {
+      await syncCatalogVariantAttributeSnapshots(supabase);
+    } catch (syncError) {
+      logCatalogVariantSyncError(syncError, "delete");
+    }
     return NextResponse.json({ success: true, message: "Deger basariyla silindi" });
   } catch (error: any) {
     console.error("Error deleting attribute value:", error);

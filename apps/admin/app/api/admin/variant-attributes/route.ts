@@ -10,6 +10,7 @@ import {
   updateStoredVariantAttribute,
 } from "@/lib/db/variant-attributes";
 import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
+import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -99,6 +100,10 @@ function normalizeAttribute(attribute: Record<string, unknown>) {
     is_active: attribute.is_active !== false,
     values,
   };
+}
+
+function logCatalogVariantSyncError(error: unknown, context: string) {
+  console.error(`Variant attribute catalog snapshot sync failed (${context}):`, error);
 }
 
 function normalizeIncomingValue(input: VariantValueInput, index: number) {
@@ -333,6 +338,11 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           })),
         }));
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "create:fallback");
+        }
         return NextResponse.json({ success: true, attribute: storedAttribute ?? normalizeAttribute(attribute) });
       }
 
@@ -349,6 +359,11 @@ export async function POST(request: NextRequest) {
       valuesToInsert = nextPayload;
     }
 
+    try {
+      await syncCatalogVariantAttributeSnapshots(supabase);
+    } catch (syncError) {
+      logCatalogVariantSyncError(syncError, "create");
+    }
     return NextResponse.json({
       success: true,
       attribute: {
@@ -396,6 +411,11 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
           }
           if (!values || !Array.isArray(values)) {
+            try {
+              await syncCatalogVariantAttributeSnapshots(supabase);
+            } catch (syncError) {
+              logCatalogVariantSyncError(syncError, "update:fallback-no-values");
+            }
             return NextResponse.json({ success: true, attribute: storedAttribute });
           }
           break;
@@ -469,6 +489,11 @@ export async function PUT(request: NextRequest) {
             values: [...attribute.values, ...appendedValues],
           };
         });
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "update:fallback-values");
+        }
         return NextResponse.json({ success: true, attribute: storedAttribute });
       }
 
@@ -501,6 +526,11 @@ export async function PUT(request: NextRequest) {
               values: [...attribute.values, ...appendedValues],
             };
           });
+          try {
+            await syncCatalogVariantAttributeSnapshots(supabase);
+          } catch (syncError) {
+            logCatalogVariantSyncError(syncError, "update:fallback-insert-values");
+          }
           return NextResponse.json({ success: true, attribute: storedAttribute });
         }
 
@@ -518,6 +548,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const attribute = await fetchAttributeWithValues(id);
+    try {
+      await syncCatalogVariantAttributeSnapshots(supabase);
+    } catch (syncError) {
+      logCatalogVariantSyncError(syncError, "update");
+    }
     return NextResponse.json({ success: true, attribute });
   } catch (error: any) {
     console.error("Error updating variant attribute:", error);
@@ -546,6 +581,11 @@ export async function DELETE(request: NextRequest) {
         if (!deleted) {
           return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
         }
+        try {
+          await syncCatalogVariantAttributeSnapshots(supabase);
+        } catch (syncError) {
+          logCatalogVariantSyncError(syncError, "delete:fallback");
+        }
         return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
       }
       if (getMissingColumn(error, "variant_attributes") === "is_active") {
@@ -559,6 +599,11 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
+    try {
+      await syncCatalogVariantAttributeSnapshots(supabase);
+    } catch (syncError) {
+      logCatalogVariantSyncError(syncError, "delete");
+    }
     return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
   } catch (error: any) {
     console.error("Error deleting variant attribute:", error);
