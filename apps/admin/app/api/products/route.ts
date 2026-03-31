@@ -330,16 +330,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await ensureProductCategoryHierarchy(
-            supabase,
-            deriveCategoryHierarchyFromProduct({
-                category: productData.category,
-                subcategory: productData.subcategory,
-                shopifyMetadata: toJsonObject(productData.shopify_metadata),
-                shopifyMetafields: toJsonObject(productData.shopify_metafields),
-            })
-        );
-
         // 1. Slug benzersizlik kontrolü
         if (productData.slug) {
             const { data: existingProducts } = await supabase
@@ -382,6 +372,23 @@ export async function POST(request: NextRequest) {
         normalizedImages = mirroredMedia.imageUrls ?? normalizedImages;
         normalizedImagesV2 = mirroredMedia.imagesV2 ?? normalizedImagesV2;
         preparedVariants = mirroredMedia.variants ?? preparedVariants;
+
+        const primaryCategoryImage =
+            normalizedImages.find((image: unknown): image is string => typeof image === "string" && Boolean(image.trim())) || null;
+
+        await ensureProductCategoryHierarchy(
+            supabase,
+            {
+                ...deriveCategoryHierarchyFromProduct({
+                    category: productData.category,
+                    subcategory: productData.subcategory,
+                    shopifyMetadata: toJsonObject(productData.shopify_metadata),
+                    shopifyMetafields: toJsonObject(productData.shopify_metafields),
+                }),
+                categoryImageUrl: primaryCategoryImage,
+                subcategoryImageUrl: primaryCategoryImage,
+            }
+        );
 
         // 3. Ana ürünü oluştur
         const normalizedStatus =
@@ -666,20 +673,6 @@ export async function PUT(request: NextRequest) {
             .eq("id", id)
             .single();
 
-        await ensureProductCategoryHierarchy(
-            supabase,
-            deriveCategoryHierarchyFromProduct({
-                category: updates.category !== undefined ? updates.category : existingProduct?.category,
-                subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
-                shopifyMetadata: updates.shopify_metadata !== undefined
-                    ? toJsonObject(updates.shopify_metadata)
-                    : toJsonObject(existingProduct?.shopify_metadata),
-                shopifyMetafields: updates.shopify_metafields !== undefined
-                    ? toJsonObject(updates.shopify_metafields)
-                    : toJsonObject(existingProduct?.shopify_metafields),
-            })
-        );
-
         // 3. Silinen görselleri R2'den de sil
         if (deleted_images && Array.isArray(deleted_images)) {
             const { deleteFromR2 } = await import("@/lib/r2");
@@ -743,6 +736,29 @@ export async function PUT(request: NextRequest) {
                 preparedVariants = mirroredMedia.variants;
             }
         }
+
+        const primaryCategoryImage =
+            (finalImages || existingProduct?.images || []).find(
+                (image: unknown): image is string => typeof image === "string" && Boolean(image.trim())
+            ) || null;
+
+        await ensureProductCategoryHierarchy(
+            supabase,
+            {
+                ...deriveCategoryHierarchyFromProduct({
+                    category: updates.category !== undefined ? updates.category : existingProduct?.category,
+                    subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+                    shopifyMetadata: updates.shopify_metadata !== undefined
+                        ? toJsonObject(updates.shopify_metadata)
+                        : toJsonObject(existingProduct?.shopify_metadata),
+                    shopifyMetafields: updates.shopify_metafields !== undefined
+                        ? toJsonObject(updates.shopify_metafields)
+                        : toJsonObject(existingProduct?.shopify_metafields),
+                }),
+                categoryImageUrl: primaryCategoryImage,
+                subcategoryImageUrl: primaryCategoryImage,
+            }
+        );
 
         const updateData: Record<string, unknown> = {};
         

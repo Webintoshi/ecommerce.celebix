@@ -1,3 +1,5 @@
+import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
+
 type JsonObject = Record<string, unknown>;
 
 const OPTIONAL_CATEGORY_COLUMNS = new Set([
@@ -82,8 +84,10 @@ function chooseLabelForSlug(slug: string | null, candidates: Array<string | null
 export interface ProductCategoryHierarchy {
   categorySlug: string | null;
   categoryName: string | null;
+  categoryImageUrl?: string | null;
   subcategorySlug: string | null;
   subcategoryName: string | null;
+  subcategoryImageUrl?: string | null;
 }
 
 export function deriveCategoryHierarchyFromProduct(input: {
@@ -116,7 +120,7 @@ export function deriveCategoryHierarchyFromProduct(input: {
 async function getCategoryBySlug(supabase: any, slug: string) {
   const { data, error } = await supabase
     .from("categories")
-    .select("id, slug, name, parent_id")
+    .select("id, slug, name, parent_id, image")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -124,20 +128,20 @@ async function getCategoryBySlug(supabase: any, slug: string) {
     throw error;
   }
 
-  return data as { id: string; slug: string; name: string | null; parent_id: string | null } | null;
+  return data as { id: string; slug: string; name: string | null; parent_id: string | null; image: string | null } | null;
 }
 
 async function createCategoryRecord(
   supabase: any,
   payload: Record<string, unknown>
-): Promise<{ id: string; slug: string; name: string | null; parent_id: string | null }> {
+): Promise<{ id: string; slug: string; name: string | null; parent_id: string | null; image: string | null }> {
   let insertPayload = { ...payload };
 
   while (true) {
     const { data, error } = await supabase
       .from("categories")
       .insert(insertPayload)
-      .select("id, slug, name, parent_id")
+      .select("id, slug, name, parent_id, image")
       .single();
 
     if (!error) {
@@ -183,11 +187,19 @@ async function updateCategoryRecord(supabase: any, id: string, payload: Record<s
 
 async function ensureCategoryRecord(
   supabase: any,
-  input: { slug: string | null; name: string | null; parentId?: string | null }
-): Promise<{ id: string; slug: string; name: string | null; parent_id: string | null } | null> {
+  input: { slug: string | null; name: string | null; imageUrl?: string | null; parentId?: string | null },
+  cache: Map<string, string>
+): Promise<{ id: string; slug: string; name: string | null; parent_id: string | null; image: string | null } | null> {
   if (!input.slug) return null;
 
   const desiredName = input.name || humanizeSlug(input.slug);
+  const mirroredImageUrl = input.imageUrl
+    ? await mirrorCategoryImageToR2(input.imageUrl, {
+        slug: input.slug,
+        name: desiredName,
+        cache,
+      })
+    : null;
   const existing = await getCategoryBySlug(supabase, input.slug);
 
   if (existing) {
@@ -196,17 +208,20 @@ async function ensureCategoryRecord(
       (existing.parent_id || null) !== (input.parentId || null);
 
     const shouldReviveName = !existing.name || existing.name.trim().length === 0;
+    const shouldAssignImage = !existing.image && mirroredImageUrl;
 
-    if (needsParentUpdate || shouldReviveName) {
+    if (needsParentUpdate || shouldReviveName || shouldAssignImage) {
       await updateCategoryRecord(supabase, existing.id, {
         ...(needsParentUpdate ? { parent_id: input.parentId || null } : {}),
         ...(shouldReviveName ? { name: desiredName } : {}),
+        ...(shouldAssignImage ? { image: mirroredImageUrl } : {}),
         is_active: true,
       });
       return {
         ...existing,
         name: shouldReviveName ? desiredName : existing.name,
         parent_id: needsParentUpdate ? input.parentId || null : existing.parent_id,
+        image: shouldAssignImage ? mirroredImageUrl : existing.image,
       };
     }
 
@@ -218,7 +233,7 @@ async function ensureCategoryRecord(
     name: desiredName,
     slug: input.slug,
     description: null,
-    image: null,
+    image: mirroredImageUrl,
     parent_id: input.parentId || null,
     sort_order: 0,
     icon: "paket",
@@ -236,12 +251,14 @@ export async function ensureProductCategoryHierarchy(
   hierarchy: ProductCategoryHierarchy
 ): Promise<void> {
   if (!hierarchy.categorySlug) return;
+  const cache = new Map<string, string>();
 
   const parent = await ensureCategoryRecord(supabase, {
     slug: hierarchy.categorySlug,
     name: hierarchy.categoryName,
+    imageUrl: hierarchy.categoryImageUrl,
     parentId: null,
-  });
+  }, cache);
 
   if (!hierarchy.subcategorySlug || !parent?.id) {
     return;
@@ -250,8 +267,9 @@ export async function ensureProductCategoryHierarchy(
   await ensureCategoryRecord(supabase, {
     slug: hierarchy.subcategorySlug,
     name: hierarchy.subcategoryName,
+    imageUrl: hierarchy.subcategoryImageUrl || hierarchy.categoryImageUrl,
     parentId: parent.id,
-  });
+  }, cache);
 }
 
 async function getChildCategoryIds(supabase: any, parentId: string): Promise<string[]> {

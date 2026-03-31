@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
+import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
 import { deleteCategoryHierarchy } from "@/lib/category-records";
 
 // ============================================================================
@@ -101,6 +102,27 @@ function sanitizeString(input: unknown, maxLength: number): string {
     .trim()
     .slice(0, maxLength)
     .replace(/[<>]/g, ""); // Basic XSS prevention
+}
+
+async function mirrorCategoryImageIfNeeded(input: unknown, slugOrFallback: string, nameOrFallback: string): Promise<string | null> {
+  if (input === undefined || input === null) {
+    return null;
+  }
+
+  const image = sanitizeString(input, 500);
+  if (!image) {
+    return null;
+  }
+
+  try {
+    return await mirrorCategoryImageToR2(image, {
+      slug: slugOrFallback,
+      name: nameOrFallback,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+    throw new APIError(`Kategori gorseli storage'a tasinamadi: ${message}`, 400, "IMAGE_MIRROR_ERROR");
+  }
 }
 
 const OPTIONAL_CATEGORY_COLUMNS = new Set([
@@ -455,9 +477,23 @@ export async function PUT(request: NextRequest) {
 
     // Perform update
     const supabase = await getSupabaseClient();
+    const imageSlugFallback = updates.slug !== undefined
+      ? sanitizeString(String(updates.slug).toLowerCase(), 100)
+      : id;
+    const imageNameFallback = updates.name !== undefined
+      ? sanitizeString(updates.name, 200)
+      : id;
 
     let data;
     let updatePayload: Record<string, unknown> = { ...updateData };
+
+    if (updates.image !== undefined) {
+      updatePayload.image = await mirrorCategoryImageIfNeeded(
+        updates.image,
+        imageSlugFallback,
+        imageNameFallback
+      );
+    }
 
     while (true) {
       const result = await supabase
@@ -540,13 +576,15 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await getSupabaseClient();
+    const imageSlugFallback = sanitizeString(String(data.slug).toLowerCase(), 100);
+    const imageNameFallback = sanitizeString(data.name, 200);
 
     {
       let insertPayload: Record<string, unknown> = {
         name: sanitizeString(data.name, 200),
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
         description: data.description ? sanitizeString(String(data.description), 2000) : null,
-        image: data.image ? sanitizeString(String(data.image), 500) : null,
+        image: await mirrorCategoryImageIfNeeded(data.image, imageSlugFallback, imageNameFallback),
         parent_id: data.parent_id ? String(data.parent_id) : null,
         icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
         sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
