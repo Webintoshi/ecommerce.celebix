@@ -112,6 +112,8 @@ const inferredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? activeStore.
 const inferredR2PublicUrl = process.env.R2_PUBLIC_URL ?? activeStore.r2PublicUrl;
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   env: {
     NEXT_PUBLIC_STORE_SLUG: activeStore.slug,
     NEXT_PUBLIC_STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? activeStore.name,
