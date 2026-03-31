@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { Product } from "@/types/product";
-import { ProductCard } from "@/components/product/ProductCard";
+import { PremiumProductCard } from "@/components/product/PremiumProductCard";
 
 interface BestSellersSectionProps {
   initialProducts?: Product[];
 }
 
 export function BestSellersSection({ initialProducts = [] }: BestSellersSectionProps) {
-  const [products, setProducts] = useState<Product[]>(initialProducts.slice(0, 8));
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(initialProducts.length === 0);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
       try {
         const response = await fetch("/api/homepage", { cache: "no-store" });
         const payload = await response.json();
-        setProducts(Array.isArray(payload.products) ? payload.products.slice(0, 8) : []);
+        setProducts(Array.isArray(payload.products) ? payload.products : []);
       } catch (err) {
         console.error("Failed to fetch products:", err);
       } finally {
@@ -36,16 +36,43 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
     void fetchProducts();
   }, [initialProducts]);
 
+  // İlk 7 ürün (1 hero + 6 standard)
+  const heroProduct = products[0];
+  const standardProducts = products.slice(1, 7);
+  const hasMore = products.length > 7;
+
   if (loading) {
     return (
-      <section className="py-20 lg:py-28 bg-neutral-50">
+      <section className="py-16 lg:py-24 bg-neutral-50">
         <div className="container-premium">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, index) => (
-              <div key={index} className="animate-pulse">
-                <div className="aspect-square bg-neutral-200 mb-4" />
-                <div className="h-4 bg-neutral-200 mb-2" />
-                <div className="h-4 w-1/2 bg-neutral-200" />
+          {/* Header Skeleton */}
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <div className="h-4 w-24 bg-neutral-200 rounded-full mb-2" />
+              <div className="h-10 w-48 bg-neutral-200 rounded-lg" />
+            </div>
+            <div className="h-10 w-28 bg-neutral-200 rounded-lg hidden sm:block" />
+          </div>
+
+          {/* Asymmetric Grid Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {/* Hero Skeleton */}
+            <div className="md:row-span-2 lg:row-span-2 h-full">
+              <div className="bg-white rounded-2xl overflow-hidden border border-neutral-200 h-full">
+                <div className="aspect-[3/4] bg-neutral-200 animate-pulse" />
+              </div>
+            </div>
+            {/* Standard Skeletons */}
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl overflow-hidden border border-neutral-200"
+              >
+                <div className="aspect-square bg-neutral-200 animate-pulse" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-neutral-200 rounded w-3/4" />
+                  <div className="h-3 bg-neutral-200 rounded w-1/2" />
+                </div>
               </div>
             ))}
           </div>
@@ -59,44 +86,74 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
   }
 
   return (
-    <section className="py-20 lg:py-28 bg-neutral-50">
+    <section className="py-16 lg:py-24 bg-neutral-50">
       <div className="container-premium">
         {/* Section Header */}
-        <div className="flex items-end justify-between mb-12">
+        <div className="flex items-end justify-between mb-10">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-neutral-500 mb-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
               Popüler
-            </p>
-            <h2 className="text-3xl lg:text-4xl font-serif font-medium text-neutral-900">
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900">
               Çok Satanlar
             </h2>
           </div>
           <Link
             href="/urunler"
-            className="hidden sm:inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+            className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors group"
           >
-            Tümü
-            <ArrowRight className="w-4 h-4" />
+            Tümünü Gör
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {products.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
+        {/* Asymmetric Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          {/* Hero Product - Takes 2 rows on md+, 1 col on all */}
+          {heroProduct && (
+            <div className="md:row-span-2 lg:row-span-2 h-full">
+              <PremiumProductCard 
+                product={heroProduct} 
+                variant="hero" 
+                index={0}
+              />
+            </div>
+          )}
+
+          {/* Standard Products */}
+          {standardProducts.map((product, idx) => (
+            <PremiumProductCard
+              key={product.id}
+              product={product}
+              variant="standard"
+              index={idx + 1}
+            />
           ))}
         </div>
 
-        {/* Mobile View All */}
-        <div className="mt-10 text-center sm:hidden">
+        {/* Mobile: View All Button */}
+        <div className="flex sm:hidden justify-center mt-8">
           <Link
             href="/urunler"
-            className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-full font-medium hover:bg-neutral-800 transition-colors"
           >
-            Tümünü gör
+            Tüm Ürünleri Gör
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+
+        {/* Desktop: View All Button (if more products) */}
+        {hasMore && (
+          <div className="hidden sm:flex justify-center mt-12">
+            <Link
+              href="/urunler"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-neutral-900 text-white rounded-full font-medium hover:bg-neutral-800 transition-all hover:shadow-lg"
+            >
+              Tüm Ürünleri Keşfet
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
