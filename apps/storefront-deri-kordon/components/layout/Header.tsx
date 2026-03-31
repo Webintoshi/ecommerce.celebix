@@ -38,7 +38,9 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-neutral-200" : "bg-white"
+        isScrolled
+          ? "bg-[#F8F8F8F8]/95 backdrop-blur-sm border-b border-neutral-200"
+          : "bg-[#F8F8F8F8]"
       }`}
     >
       <div className="container-premium">
@@ -114,7 +116,7 @@ export function Header() {
       </div>
 
       {isMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-neutral-200">
+        <div className="lg:hidden bg-[#F8F8F8F8] border-t border-neutral-200">
           <nav className="container-premium py-4 space-y-4">
             {navItems.map((item) => (
               <Link

@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  /* === BACKGROUND COLOR - FIXED #F8F8F8 === */
-  --background: #F8F8F8 !important;
-  --background-alt: #F8F8F8 !important;
+  /* === BACKGROUND COLOR - FIXED #F8F8F8F8 === */
+  --background: #F8F8F8F8 !important;
+  --background-alt: #F8F8F8F8 !important;
   --foreground: #1A1A1A;
   --foreground-muted: #666666;
   
@@ -85,7 +85,7 @@
 }
 
 @theme inline {
-  --color-background: #F8F8F8;
+  --color-background: #F8F8F8F8;
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -115,11 +115,11 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F8F8F8 !important;
+  background-color: #F8F8F8F8 !important;
 }
 
 body {
-  background-color: #F8F8F8 !important;
+  background-color: #F8F8F8F8 !important;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
@@ -136,7 +136,7 @@ main,
 [data-nextjs-page],
 #__next,
 #root {
-  background-color: #F8F8F8 !important;
+  background-color: #F8F8F8F8 !important;
   min-height: 100vh;
 }
 

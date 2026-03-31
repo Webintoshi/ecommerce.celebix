@@ -7,7 +7,7 @@
     "label": "Leather",
     "primaryColor": "#0F1626",
     "accentColor": "#8A6B37",
-    "surfaceColor": "#F8F8F8",
+    "surfaceColor": "#F8F8F8F8",
     "headingFont": "\"Playfair Display\", Georgia, serif",
     "bodyFont": "\"Inter\", system-ui, sans-serif"
   },

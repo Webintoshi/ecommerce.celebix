@@ -106,7 +106,11 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased !bg-[#F8F8F8]" suppressHydrationWarning style={{ backgroundColor: '#F8F8F8 !important' }}>
+      <body
+        className="font-sans antialiased bg-[#F8F8F8F8]"
+        suppressHydrationWarning
+        style={{ backgroundColor: "#F8F8F8F8" }}
+      >
         {/* GTM NoScript */}
         {gtmId ? (
           <noscript>

@@ -28,7 +28,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="py-16 lg:py-20 bg-white border-y border-[#E5E2DE]">
+    <section className="py-16 lg:py-20 bg-[#F8F8F8F8] border-y border-[#E5E2DE]">
       <div className="container-premium">
         <motion.div
           initial="hidden"

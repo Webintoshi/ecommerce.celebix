@@ -185,7 +185,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-[#F8F8F8F8]">
       {/* Premium Hero */}
       <section className="pt-20 pb-12 md:pt-28 md:pb-16 bg-[#0F1626]">
         <div className="container-premium">
@@ -214,7 +214,7 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
       </section>
 
       {/* Controls Bar */}
-      <section className="sticky top-0 z-40 bg-[#FAFAFA]/95 backdrop-blur-md border-b border-[#E5E2DE]">
+      <section className="sticky top-0 z-40 bg-[#F8F8F8F8]/95 backdrop-blur-md border-b border-[#E5E2DE]">
         <div className="container-premium py-4">
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
             {/* Search */}
@@ -484,7 +484,7 @@ export function ProductsPageClient({ initialProducts, categoryCounts }: Products
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#FAFAFA]">
+        <div className="min-h-screen bg-[#F8F8F8F8]">
           <section className="pt-20 pb-12 md:pt-28 md:pb-16 bg-[#0F1626]">
             <div className="container-premium">
               <div className="text-center max-w-2xl mx-auto">

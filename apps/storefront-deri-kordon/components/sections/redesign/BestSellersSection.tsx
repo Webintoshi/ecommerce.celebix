@@ -42,7 +42,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
 
   if (loading) {
     return (
-      <section className="py-16 lg:py-24 bg-white">
+      <section className="py-16 lg:py-24 bg-[#F8F8F8F8]">
         <div className="container-premium">
           {/* Header Skeleton */}
           <div className="flex items-end justify-between mb-12">
@@ -71,7 +71,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
   }
 
   return (
-    <section className="py-16 lg:py-24 bg-white">
+    <section className="py-16 lg:py-24 bg-[#F8F8F8F8]">
       <div className="container-premium">
         {/* Section Header - Clean minimal style */}
         <div className="flex items-end justify-between mb-12">

@@ -67,7 +67,7 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
     : categories.slice(0, 6);
 
   return (
-    <section className="py-20 lg:py-28 bg-white">
+    <section className="py-20 lg:py-28 bg-[#F8F8F8F8]">
       <div className="container-premium">
         {/* Section Header */}
         <div className="text-center mb-12 lg:mb-16">
