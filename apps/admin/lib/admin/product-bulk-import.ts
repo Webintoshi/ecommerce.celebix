@@ -553,6 +553,11 @@ interface ShopifyOption {
   linkedTo?: string;
 }
 
+interface InferredCategoryFallback {
+  category?: string;
+  subcategory?: string;
+}
+
 const COLOR_VALUE_MAP: Record<string, string> = {
   black: "#111111",
   siyah: "#111111",
@@ -837,11 +842,16 @@ function parseShopifyProducts(rows: string[][]): BulkImportParseResult {
       rawType,
       rawProductCategory,
       watchAccessoryStyle: shopifyMetafields.watch_accessory_style,
-      fallback: title || handle,
+      fallback: `${title || handle} ${rawTags.join(" ")}`.trim(),
     });
     const dietarySource = `${title} ${bodyHtml} ${rawTags.join(" ")} ${Object.values(shopifyMetafields).join(" ")}`.toLowerCase();
 
     if (!handle && !title && !bodyHtml && rawTags.length === 0) {
+      skippedRows += 1;
+      continue;
+    }
+
+    if (shouldSkipShopifyCatalogRow({ handle, title, tags: rawTags })) {
       skippedRows += 1;
       continue;
     }
@@ -1264,16 +1274,17 @@ function resolveShopifyCategory({
     allowGenericCategory: true,
   });
   const watchStyleValue = normalizeCategoryValue(watchAccessoryStyle);
-  const inferredFallbackValue = inferCategoryFromFallbackLabel(fallback);
+  const inferredFallback = inferCategoryFromFallbackLabel(fallback);
 
   const primary =
     taxonomyValue ||
     watchStyleValue ||
-    inferredFallbackValue ||
+    inferredFallback.category ||
     taxonomyFallbackValue ||
     typeValue ||
     "genel";
-  const secondary = [watchStyleValue, taxonomyValue, typeValue].filter((value) => value && value !== primary)[0] || "";
+  const secondary =
+    [watchStyleValue, inferredFallback.subcategory, taxonomyValue, typeValue].filter((value) => value && value !== primary)[0] || "";
 
   return {
     category: toSlug(primary) || "genel",
@@ -1319,7 +1330,7 @@ function normalizeCommerceCategoryValue(
   return normalizedValue;
 }
 
-function inferCategoryFromFallbackLabel(value: string): string {
+function inferCategoryFromFallbackLabel(value: string): InferredCategoryFallback {
   const source = value
     .toLowerCase()
     .normalize("NFD")
@@ -1336,10 +1347,117 @@ function inferCategoryFromFallbackLabel(value: string): string {
     source.includes("deri kayis") ||
     source.includes("deri kordon")
   ) {
-    return "Watch Bands";
+    return {
+      category: "watch-bands",
+      subcategory: source.includes("apple watch") ? "apple-watch" : "classic-watch",
+    };
   }
 
-  return "";
+  if (source.includes("caki") || source.includes("bicak")) {
+    return { category: "protective-cases", subcategory: "knife-sheaths" };
+  }
+
+  if (source.includes("airpods")) {
+    return { category: "protective-cases", subcategory: "airpods-cases" };
+  }
+
+  if (source.includes("airtag")) {
+    return { category: "protective-cases", subcategory: "airtag-cases" };
+  }
+
+  if (source.includes("gozluk")) {
+    return { category: "protective-cases", subcategory: "eyewear-cases" };
+  }
+
+  if (source.includes("cakmak") || source.includes("zippo")) {
+    return { category: "protective-cases", subcategory: "lighter-cases" };
+  }
+
+  if (source.includes("kalemlik") || source.includes("kalem kutusu")) {
+    return { category: "desk-accessories", subcategory: "pen-cases" };
+  }
+
+  if (source.includes("saat kesesi") || source.includes("watch pouch") || source.includes("watch case")) {
+    return { category: "protective-cases", subcategory: "watch-cases" };
+  }
+
+  if (source.includes("kartlik")) {
+    return { category: "wallets", subcategory: "card-holders" };
+  }
+
+  if (source.includes("pasaport")) {
+    return { category: "wallets", subcategory: "passport-wallets" };
+  }
+
+  if (source.includes("cuzdan")) {
+    if (source.includes("pasaport")) return { category: "wallets", subcategory: "passport-wallets" };
+    if (source.includes("telefon")) return { category: "wallets", subcategory: "phone-wallets" };
+    return { category: "wallets", subcategory: "classic-wallets" };
+  }
+
+  if (source.includes("anahtar")) {
+    return { category: "key-accessories", subcategory: source.includes("anahtarlik") ? "keychains" : "key-cases" };
+  }
+
+  if (source.includes("tutun")) {
+    return { category: "small-leather-goods", subcategory: "tobacco-pouches" };
+  }
+
+  if (source.includes("ruj")) {
+    return { category: "small-leather-goods", subcategory: "cosmetic-cases" };
+  }
+
+  if (source.includes("bardak altligi")) {
+    return { category: "desk-accessories", subcategory: "coasters" };
+  }
+
+  if (source.includes("tepsi")) {
+    return { category: "desk-accessories", subcategory: "trays" };
+  }
+
+  if (source.includes("kablo toplayici")) {
+    return { category: "desk-accessories", subcategory: "cable-organizers" };
+  }
+
+  if (source.includes("bakim kremi")) {
+    return { category: "care-products", subcategory: "leather-care" };
+  }
+
+  if (
+    source.includes("canta") ||
+    source.includes("gogus") ||
+    source.includes("omuz") ||
+    source.includes("postaci") ||
+    source.includes("tote") ||
+    source.includes("evrak") ||
+    source.includes("dopp kit") ||
+    source.includes("makyaj")
+  ) {
+    if (source.includes("telefon cantasi")) return { category: "bags", subcategory: "phone-bags" };
+    if (source.includes("evrak")) return { category: "bags", subcategory: "document-bags" };
+    if (source.includes("el cantasi")) return { category: "bags", subcategory: "handbags" };
+    if (source.includes("omuz")) return { category: "bags", subcategory: "shoulder-bags" };
+    if (source.includes("gogus") || source.includes("postaci")) return { category: "bags", subcategory: "crossbody-bags" };
+    if (source.includes("tote")) return { category: "bags", subcategory: "tote-bags" };
+    if (source.includes("makyaj") || source.includes("dopp kit")) return { category: "bags", subcategory: "pouches" };
+    return { category: "bags" };
+  }
+
+  return {};
+}
+
+function shouldSkipShopifyCatalogRow(input: {
+  handle: string;
+  title: string;
+  tags: string[];
+}): boolean {
+  const source = normalize(`${input.handle} ${input.title} ${input.tags.join(" ")}`);
+
+  return (
+    source.includes("globo product options") ||
+    source.includes("option set") ||
+    source.includes("paketinizi seciniz")
+  );
 }
 
 function extractLastTaxonomySegment(value: string): string {
