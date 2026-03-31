@@ -543,6 +543,7 @@ interface ShopifyDraftProduct {
   seoDescription?: string;
   shopifyMetafields: Record<string, string>;
   shopifyMetadata: Record<string, unknown>;
+  optionFallbacks: ShopifyOptionFallback[];
   variants: ParsedVariant[];
   sourceRows: number[];
 }
@@ -550,6 +551,11 @@ interface ShopifyDraftProduct {
 interface ShopifyOption {
   name: string;
   value: string;
+  linkedTo?: string;
+}
+
+interface ShopifyOptionFallback {
+  name?: string;
   linkedTo?: string;
 }
 
@@ -886,6 +892,7 @@ function parseShopifyProducts(rows: string[][]): BulkImportParseResult {
           gift_card: giftCard,
           raw_status: rawStatus || undefined,
         }),
+        optionFallbacks: [],
         variants: [],
         sourceRows: [humanRow],
       });
@@ -937,7 +944,8 @@ function parseShopifyProducts(rows: string[][]): BulkImportParseResult {
       });
     }
 
-    const options = buildShopifyOptions(row, indexes);
+    draft.optionFallbacks = buildShopifyOptionFallbacks(row, indexes, draft.optionFallbacks);
+    const options = buildShopifyOptions(row, indexes, draft.optionFallbacks);
     const hasVariantData =
       options.length > 0 ||
       Boolean(getField(row, indexes.variantSku)) ||
@@ -1192,7 +1200,28 @@ function buildVariantKey(variant: ParsedVariant): string {
     .join("::");
 }
 
-function buildShopifyOptions(row: string[], indexes: Record<ShopifyField, number>): ShopifyOption[] {
+function buildShopifyOptionFallbacks(
+  row: string[],
+  indexes: Record<ShopifyField, number>,
+  existingFallbacks: ShopifyOptionFallback[] = []
+): ShopifyOptionFallback[] {
+  const rawOptions: ShopifyOption[] = [
+    { name: getField(row, indexes.option1Name), value: getField(row, indexes.option1Value), linkedTo: getField(row, indexes.option1LinkedTo) || undefined },
+    { name: getField(row, indexes.option2Name), value: getField(row, indexes.option2Value), linkedTo: getField(row, indexes.option2LinkedTo) || undefined },
+    { name: getField(row, indexes.option3Name), value: getField(row, indexes.option3Value), linkedTo: getField(row, indexes.option3LinkedTo) || undefined },
+  ];
+
+  return rawOptions.map((option, index) => ({
+    name: option.name || existingFallbacks[index]?.name || undefined,
+    linkedTo: option.linkedTo || existingFallbacks[index]?.linkedTo,
+  }));
+}
+
+function buildShopifyOptions(
+  row: string[],
+  indexes: Record<ShopifyField, number>,
+  optionFallbacks: ShopifyOptionFallback[] = []
+): ShopifyOption[] {
   const rawOptions: ShopifyOption[] = [
     { name: getField(row, indexes.option1Name), value: getField(row, indexes.option1Value), linkedTo: getField(row, indexes.option1LinkedTo) || undefined },
     { name: getField(row, indexes.option2Name), value: getField(row, indexes.option2Value), linkedTo: getField(row, indexes.option2LinkedTo) || undefined },
@@ -1202,9 +1231,9 @@ function buildShopifyOptions(row: string[], indexes: Record<ShopifyField, number
   return rawOptions
     .filter((option) => option.name || option.value)
     .map((option, index) => ({
-      name: option.name || `Secenek ${index + 1}`,
+      name: option.name || optionFallbacks[index]?.name || `Secenek ${index + 1}`,
       value: option.value,
-      linkedTo: option.linkedTo,
+      linkedTo: option.linkedTo || optionFallbacks[index]?.linkedTo,
     }))
     .filter((option) => option.value && !isDefaultVariantValue(option.value));
 }
