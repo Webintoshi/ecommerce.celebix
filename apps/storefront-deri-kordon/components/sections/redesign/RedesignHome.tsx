@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { HeroSection } from "./HeroSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { BestSellersSection } from "./BestSellersSection";
-import PromotionalBanners from "./PromotionalBanners";
+
 import { TestimonialsSection } from "./TestimonialsSection";
 
 
@@ -92,8 +92,7 @@ export default function RedesignHome() {
       {/* Best Sellers */}
       <BestSellersSection initialProducts={(data?.products as never[]) || []} />
 
-      {/* Promotional Banners */}
-      <PromotionalBanners initialBanners={(data?.promoBanners as never[]) || []} />
+
       
       {/* Testimonials */}
       <TestimonialsSection />
