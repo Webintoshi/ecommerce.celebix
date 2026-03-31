@@ -35,6 +35,8 @@ const args = standaloneServer
 
 if (!standaloneServer && !fs.existsSync(fallbackNextBin)) {
   console.error("Neither standalone server nor Next CLI is available.");
+  console.error("Checked standalone candidates:", standaloneCandidates);
+  console.error("Checked Next CLI path:", fallbackNextBin);
   process.exit(1);
 }
 
