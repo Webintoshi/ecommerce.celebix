@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
+import { deleteCategoryHierarchy } from "@/lib/category-records";
 
 // ============================================================================
 // CONFIGURATION
@@ -103,6 +104,7 @@ function sanitizeString(input: unknown, maxLength: number): string {
 }
 
 const OPTIONAL_CATEGORY_COLUMNS = new Set([
+  "parent_id",
   "icon",
   "is_active",
   "seo_title",
@@ -157,6 +159,14 @@ function validateCategoryInput(input: unknown): asserts input is CategoryInput {
 
   if (data.description !== undefined && typeof data.description !== "string") {
     throw new APIError("Invalid description: must be a string", 400, "INVALID_DESCRIPTION");
+  }
+
+  if (
+    data.parent_id !== undefined &&
+    data.parent_id !== null &&
+    (typeof data.parent_id !== "string" || !validateUUID(data.parent_id))
+  ) {
+    throw new APIError("Invalid parent_id: must be a valid UUID or null", 400, "INVALID_PARENT_ID");
   }
 
   // Validate SEO fields
@@ -392,6 +402,9 @@ export async function PUT(request: NextRequest) {
     if (updates.image !== undefined) {
       updateData.image = updates.image ? sanitizeString(updates.image, 500) : null;
     }
+    if (updates.parent_id !== undefined) {
+      updateData.parent_id = updates.parent_id ? String(updates.parent_id) : null;
+    }
     if (updates.icon !== undefined) {
       updateData.icon = updates.icon ? sanitizeString(updates.icon, 50) : null;
     }
@@ -534,6 +547,7 @@ export async function POST(request: NextRequest) {
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
         description: data.description ? sanitizeString(String(data.description), 2000) : null,
         image: data.image ? sanitizeString(String(data.image), 500) : null,
+        parent_id: data.parent_id ? String(data.parent_id) : null,
         icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
         sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
         is_active: data.is_active !== false,
@@ -643,40 +657,7 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = await getSupabaseClient();
 
-    {
-      let deletePayload: Record<string, unknown> = { is_active: false };
-
-      while (true) {
-        const { error } = await supabase
-          .from("categories")
-          .update(deletePayload)
-          .eq("id", id);
-
-        if (!error) {
-          return createSuccessResponse({}, 200, false);
-        }
-
-        console.error("Category delete error:", error);
-
-        const nextPayload = stripUnsupportedCategoryColumn(deletePayload, error);
-        if (!nextPayload) {
-          throw new APIError("Failed to delete category", 500, "DELETE_ERROR");
-        }
-
-        deletePayload = nextPayload;
-      }
-    }
-
-    // Soft delete (set is_active to false)
-    const { error } = await supabase
-      .from("categories")
-      .update({ is_active: false })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Category delete error:", error);
-      throw new APIError("Failed to delete category", 500, "DELETE_ERROR");
-    }
+    await deleteCategoryHierarchy(supabase, id, true);
 
     return createSuccessResponse({}, 200, false);
 

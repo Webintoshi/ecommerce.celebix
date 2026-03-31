@@ -50,6 +50,7 @@ export interface Category {
   description: string | null;
   image: string | null;
   icon: string | null;
+  parent_id: string | null;
   
   // Display Order & Status
   sort_order: number;
@@ -212,6 +213,7 @@ export function toCategoryInput(
   if (viewModel.description !== undefined) input.description = viewModel.description;
   if (viewModel.image !== undefined) input.image = viewModel.image;
   if (viewModel.icon !== undefined) input.icon = viewModel.icon;
+  if (viewModel.parent_id !== undefined) input.parent_id = viewModel.parent_id;
   if (viewModel.sort_order !== undefined) input.sort_order = viewModel.sort_order;
   if (viewModel.is_active !== undefined) input.is_active = viewModel.is_active;
   

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deriveCategoryHierarchyFromProduct, ensureProductCategoryHierarchy } from "@/lib/category-records";
 import { deleteProduct } from "@/lib/db/products";
 import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -329,6 +330,16 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        await ensureProductCategoryHierarchy(
+            supabase,
+            deriveCategoryHierarchyFromProduct({
+                category: productData.category,
+                subcategory: productData.subcategory,
+                shopifyMetadata: toJsonObject(productData.shopify_metadata),
+                shopifyMetafields: toJsonObject(productData.shopify_metafields),
+            })
+        );
+
         // 1. Slug benzersizlik kontrolü
         if (productData.slug) {
             const { data: existingProducts } = await supabase
@@ -651,9 +662,23 @@ export async function PUT(request: NextRequest) {
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
         const { data: existingProduct } = await supabase
             .from("products")
-            .select("images,tags,slug,name")
+            .select("images,tags,slug,name,category,subcategory,shopify_metadata,shopify_metafields")
             .eq("id", id)
             .single();
+
+        await ensureProductCategoryHierarchy(
+            supabase,
+            deriveCategoryHierarchyFromProduct({
+                category: updates.category !== undefined ? updates.category : existingProduct?.category,
+                subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+                shopifyMetadata: updates.shopify_metadata !== undefined
+                    ? toJsonObject(updates.shopify_metadata)
+                    : toJsonObject(existingProduct?.shopify_metadata),
+                shopifyMetafields: updates.shopify_metafields !== undefined
+                    ? toJsonObject(updates.shopify_metafields)
+                    : toJsonObject(existingProduct?.shopify_metafields),
+            })
+        );
 
         // 3. Silinen görselleri R2'den de sil
         if (deleted_images && Array.isArray(deleted_images)) {
