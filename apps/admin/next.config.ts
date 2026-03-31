@@ -93,6 +93,8 @@ if (configuredAssetHostname) {
 }
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   transpilePackages: ["@celebix/platform-config"],
   serverExternalPackages: ["iyzipay"],
   env: {
