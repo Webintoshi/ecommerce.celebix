@@ -24,6 +24,10 @@ const R2_FALLBACK_URL = STORAGE_ACCOUNT_ID
 // Use custom domain if set, otherwise use R2 default URL
 const getPublicUrl = () => PUBLIC_URL || R2_FALLBACK_URL;
 
+function normalizeBaseUrl(url: string): string {
+    return url.replace(/\/+$/, "");
+}
+
 export interface UploadResult {
     success: boolean;
     url?: string;
@@ -121,6 +125,35 @@ export async function listR2Files(folder: string = "products"): Promise<string[]
  */
 export function getR2PublicUrl(key: string): string {
     return `${getPublicUrl()}/${key}`;
+}
+
+export function getR2PublicBaseUrls(): string[] {
+    return Array.from(
+        new Set(
+            [PUBLIC_URL, R2_FALLBACK_URL]
+                .filter((value): value is string => Boolean(value))
+                .map((value) => normalizeBaseUrl(value))
+        )
+    );
+}
+
+export function isCurrentStoreR2Url(value: string): boolean {
+    try {
+        const candidate = normalizeBaseUrl(value);
+        return getR2PublicBaseUrls().some((baseUrl) => candidate === baseUrl || candidate.startsWith(`${baseUrl}/`));
+    } catch {
+        return false;
+    }
+}
+
+export function isR2Configured(): boolean {
+    return Boolean(
+        STORAGE_ACCOUNT_ID &&
+        process.env.R2_ACCESS_KEY_ID &&
+        process.env.R2_SECRET_ACCESS_KEY &&
+        BUCKET_NAME &&
+        getPublicUrl()
+    );
 }
 
 export { r2Client, BUCKET_NAME, PUBLIC_URL };

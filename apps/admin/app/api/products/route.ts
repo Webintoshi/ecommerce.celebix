@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
+import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
     diffProductTags,
@@ -7,6 +8,8 @@ import {
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
+
+export const runtime = "nodejs";
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -279,6 +282,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { variants, discount_rules, ...productData } = body;
+        let preparedVariants: any[] = Array.isArray(variants) ? variants : [];
 
         console.log('POST /api/products - productData.images:', productData.images);
         console.log('POST /api/products - body images count:', body.images?.length);
@@ -341,7 +345,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Görselleri normalize et - images_v2 formatını düzelt (camelCase -> snake_case)
-        let normalizedImagesV2 = productData.images_v2 || [];
+        let normalizedImagesV2 = Array.isArray(productData.images_v2) ? productData.images_v2 : [];
         if (normalizedImagesV2.length > 0) {
             normalizedImagesV2 = normalizedImagesV2.map((img: Record<string, unknown>, idx: number) => ({
                 url: img.url,
@@ -352,7 +356,21 @@ export async function POST(request: NextRequest) {
         }
 
         // images array'ini de güncelle (geriye uyumluluk için)
-        const normalizedImages = productData.images || normalizedImagesV2.map((img: Record<string, unknown>) => img.url);
+        let normalizedImages = Array.isArray(productData.images)
+            ? productData.images
+            : normalizedImagesV2.map((img: Record<string, unknown>) => img.url);
+
+        const mirroredMedia = await mirrorImportedProductMediaToR2({
+            slug: typeof productData.slug === "string" ? productData.slug : undefined,
+            productName: typeof productData.name === "string" ? productData.name : undefined,
+            imageUrls: normalizedImages,
+            imagesV2: normalizedImagesV2,
+            variants: preparedVariants,
+        });
+
+        normalizedImages = mirroredMedia.imageUrls ?? normalizedImages;
+        normalizedImagesV2 = mirroredMedia.imagesV2 ?? normalizedImagesV2;
+        preparedVariants = mirroredMedia.variants ?? preparedVariants;
 
         // 3. Ana ürünü oluştur
         const normalizedStatus =
@@ -462,11 +480,11 @@ export async function POST(request: NextRequest) {
         console.log("Product created with ID:", product.id);
         
         // 4. Varyantları ekle (benzersiz SKU oluştur)
-        if (variants && Array.isArray(variants) && variants.length > 0) {
-            console.log("Processing variants, count:", variants.length);
-            console.log("Variants data:", JSON.stringify(variants, null, 2));
+        if (preparedVariants.length > 0) {
+            console.log("Processing variants, count:", preparedVariants.length);
+            console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
             
-            const variantsToInsert = variants.map((v: Record<string, unknown>, idx: number) => ({
+            const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => ({
                 product_id: product.id,
                 name: v.name,
                 weight: String(v.weight || 0),
@@ -582,6 +600,7 @@ export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
         const { id, variants, discount_rules, deleted_images, ...updates } = body;
+        let preparedVariants: any[] | undefined = Array.isArray(variants) ? variants : undefined;
         let normalizedUpdatedTags: string[] | undefined;
 
         console.log("PUT /api/products - ID:", id);
@@ -632,7 +651,7 @@ export async function PUT(request: NextRequest) {
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
         const { data: existingProduct } = await supabase
             .from("products")
-            .select("images,tags")
+            .select("images,tags,slug,name")
             .eq("id", id)
             .single();
 
@@ -672,6 +691,34 @@ export async function PUT(request: NextRequest) {
         }
 
         // 5. Build update object - SADECE gönderilen alanları içerecek
+        if (normalizedImagesV2 !== undefined || finalImages !== undefined || preparedVariants !== undefined) {
+            const mirroredMedia = await mirrorImportedProductMediaToR2({
+                slug: typeof updates.slug === "string"
+                    ? updates.slug
+                    : typeof existingProduct?.slug === "string"
+                        ? existingProduct.slug
+                        : String(id),
+                productName: typeof updates.name === "string"
+                    ? updates.name
+                    : typeof existingProduct?.name === "string"
+                        ? existingProduct.name
+                        : String(id),
+                imageUrls: finalImages,
+                imagesV2: normalizedImagesV2,
+                variants: preparedVariants,
+            });
+
+            if (mirroredMedia.imageUrls !== undefined) {
+                finalImages = mirroredMedia.imageUrls;
+            }
+            if (mirroredMedia.imagesV2 !== undefined) {
+                normalizedImagesV2 = mirroredMedia.imagesV2;
+            }
+            if (mirroredMedia.variants !== undefined) {
+                preparedVariants = mirroredMedia.variants;
+            }
+        }
+
         const updateData: Record<string, unknown> = {};
         
         // Sadece undefined olmayan alanları ekle
@@ -776,11 +823,11 @@ export async function PUT(request: NextRequest) {
         }
 
         // 6. Varyantları güncelle
-        if (variants && Array.isArray(variants)) {
-            console.log("Updating variants, count:", variants.length);
+        if (preparedVariants && Array.isArray(preparedVariants)) {
+            console.log("Updating variants, count:", preparedVariants.length);
 
             // VALIDATION: En az bir varyant zorunlu
-            if (variants.length === 0) {
+            if (preparedVariants.length === 0) {
                 return NextResponse.json(
                     { success: false, error: "En az bir varyant zorunludur" },
                     { status: 400 }
@@ -788,7 +835,7 @@ export async function PUT(request: NextRequest) {
             }
 
             // VALIDATION: Her varyantın zorunlu alanlarını kontrol et
-            for (const v of variants) {
+            for (const v of preparedVariants) {
                 if (!v.name || !v.name.trim()) {
                     return NextResponse.json(
                         { success: false, error: "Tüm varyantların ismi olmalıdır" },
@@ -826,7 +873,7 @@ export async function PUT(request: NextRequest) {
             // Sadece gelen listede OLMAYAN mevcut varyantları sil
             // Frontend'den gelen 'variant-' ile başlayan ID'ler yeni varyantlardır
             const incomingVariantIds = new Set(
-                variants
+                preparedVariants
                     .filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-")) // Sadece gerçek UUID'ler (yeni varyantlar hariç)
                     .map((v: Record<string, unknown>) => String(v.id))
             );
@@ -853,8 +900,8 @@ export async function PUT(request: NextRequest) {
                 console.log("Deleted variants:", variantsToDelete.length);
             }
 
-            const newVariants = variants.filter((v: Record<string, unknown>) => !v.id || String(v.id).startsWith("variant-"));
-            const existingVariantsToUpdate = variants.filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-") && !orderedVariantIds.has(String(v.id)));
+            const newVariants = preparedVariants.filter((v: Record<string, unknown>) => !v.id || String(v.id).startsWith("variant-"));
+            const existingVariantsToUpdate = preparedVariants.filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-") && !orderedVariantIds.has(String(v.id)));
 
             for (const v of existingVariantsToUpdate) {
                 let variantUpdatePayload: Record<string, unknown> = {

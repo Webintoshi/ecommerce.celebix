@@ -90,7 +90,7 @@ export default function BulkUploadPage() {
 
     for (let index = 0; index < parseResult.products.length; index += 1) {
       const product = parseResult.products[index];
-      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor: ${product.name}`);
+      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor ve görseller R2 storage'a kopyalanıyor: ${product.name}`);
       try {
         const response = await fetch("/api/products", {
           method: "POST",
@@ -276,6 +276,10 @@ export default function BulkUploadPage() {
               </ul>
             </div>
           ) : null}
+
+          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
+          </div>
 
           {parseResult.products.length > 0 ? (
             <>
