@@ -18,6 +18,7 @@ async function requestCategoryApi<T = unknown>(
   init?: RequestInit
 ): Promise<T> {
   const response = await fetch(input, {
+    cache: "no-store",
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -85,10 +86,13 @@ function mapCategory(data: Record<string, any>): CategoryInfo {
 }
 
 // Supabase'den kategorileri cek (Client-side read)
-export async function fetchCategories(): Promise<CategoryInfo[]> {
+export async function fetchCategories(options?: { fresh?: boolean }): Promise<CategoryInfo[]> {
   try {
+    const url = options?.fresh
+      ? `/api/categories?fresh=${Date.now()}`
+      : "/api/categories";
     const result = await requestCategoryApi<{ categories?: Record<string, unknown>[] }>(
-      "/api/categories",
+      url,
       { method: "GET" },
     );
     return (result.categories || []).map((category) => mapCategory(category as Record<string, any>));

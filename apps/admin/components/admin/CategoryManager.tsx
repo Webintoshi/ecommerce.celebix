@@ -84,7 +84,7 @@ export default function CategoryManager() {
   const loadCategories = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchCategories();
+      const data = await fetchCategories({ fresh: true });
       setCategories(data);
     } catch (error) {
       console.error("Failed to load categories:", error);
