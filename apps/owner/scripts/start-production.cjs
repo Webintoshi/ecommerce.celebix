@@ -11,14 +11,11 @@ const env = {
   NEXT_IGNORE_INCORRECT_LOCKFILE: process.env.NEXT_IGNORE_INCORRECT_LOCKFILE || "1",
 };
 
-const standaloneServer = path.join(
-  appRoot,
-  ".next",
-  "standalone",
-  "apps",
-  "owner",
-  "server.js",
-);
+const standaloneCandidates = [
+  path.join(appRoot, ".next", "standalone", "apps", "owner", "server.js"),
+  path.join(appRoot, ".next", "standalone", "server.js"),
+];
+const standaloneServer = standaloneCandidates.find((candidate) => fs.existsSync(candidate));
 
 const fallbackNextBin = path.join(
   appRoot,
@@ -32,11 +29,11 @@ const fallbackNextBin = path.join(
 );
 
 const command = process.execPath;
-const args = fs.existsSync(standaloneServer)
+const args = standaloneServer
   ? [standaloneServer]
   : [fallbackNextBin, "start", "--port", port];
 
-if (!fs.existsSync(standaloneServer) && !fs.existsSync(fallbackNextBin)) {
+if (!standaloneServer && !fs.existsSync(fallbackNextBin)) {
   console.error("Neither standalone server nor Next CLI is available.");
   process.exit(1);
 }

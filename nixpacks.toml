@@ -3,9 +3,13 @@ runImage = "node:20-bookworm"
 onlyIncludeFiles = [
   "package.json",
   "package-lock.json",
+  "node_modules",
   "apps/admin",
+  "apps/admin/.next",
   "apps/owner",
+  "apps/owner/.next",
   "apps/storefront-deri-kordon",
+  "apps/storefront-deri-kordon/.next",
   "packages/platform-config",
   "stores"
 ]
