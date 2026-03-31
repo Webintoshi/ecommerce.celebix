@@ -36,10 +36,10 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
     void fetchProducts();
   }, [initialProducts]);
 
-  // İlk 7 ürün (1 hero + 6 standard)
+  // İlk 5 ürün (1 hero + 4 standard) - 1:1 ratio'da
   const heroProduct = products[0];
-  const standardProducts = products.slice(1, 7);
-  const hasMore = products.length > 7;
+  const standardProducts = products.slice(1, 5);
+  const hasMore = products.length > 5;
 
   if (loading) {
     return (
@@ -54,16 +54,20 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
             <div className="h-10 w-28 bg-neutral-200 rounded-lg hidden sm:block" />
           </div>
 
-          {/* Asymmetric Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {/* Hero Skeleton */}
-            <div className="md:row-span-2 lg:row-span-2 h-full">
-              <div className="bg-white rounded-2xl overflow-hidden border border-neutral-200 h-full">
-                <div className="aspect-[3/4] bg-neutral-200 animate-pulse" />
+          {/* Grid Skeleton - 1:1 Ratio */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {/* Hero Skeleton - 1:1 */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl overflow-hidden border border-neutral-200">
+                <div className="aspect-square bg-neutral-200 animate-pulse" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-neutral-200 rounded w-3/4" />
+                  <div className="h-3 bg-neutral-200 rounded w-1/2" />
+                </div>
               </div>
             </div>
-            {/* Standard Skeletons */}
-            {[...Array(6)].map((_, i) => (
+            {/* Standard Skeletons - 1:1 */}
+            {[...Array(4)].map((_, i) => (
               <div
                 key={i}
                 className="bg-white rounded-2xl overflow-hidden border border-neutral-200"
@@ -107,17 +111,15 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
           </Link>
         </div>
 
-        {/* Asymmetric Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-          {/* Hero Product - Takes 2 rows on md+, 1 col on all */}
+        {/* Grid - 1:1 Ratio - 2x2 on mobile, 4 cols on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          {/* Hero Product - Same size as others but styled differently */}
           {heroProduct && (
-            <div className="md:row-span-2 lg:row-span-2 h-full">
-              <PremiumProductCard 
-                product={heroProduct} 
-                variant="hero" 
-                index={0}
-              />
-            </div>
+            <PremiumProductCard 
+              product={heroProduct} 
+              variant="hero" 
+              index={0}
+            />
           )}
 
           {/* Standard Products */}

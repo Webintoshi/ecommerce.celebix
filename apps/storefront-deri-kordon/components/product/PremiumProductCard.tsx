@@ -105,8 +105,8 @@ export function PremiumProductCard({ product, variant, index = 0 }: PremiumProdu
           onMouseLeave={() => setIsHovered(false)}
         >
           <div className="relative h-full bg-white rounded-2xl overflow-hidden border border-neutral-200 hover:border-neutral-300 transition-all duration-500 hover:shadow-2xl">
-            {/* Image Container */}
-            <div className="relative aspect-[3/4] overflow-hidden bg-neutral-100">
+            {/* Image Container - 1:1 Ratio (Kare) */}
+            <div className="relative aspect-square overflow-hidden bg-neutral-100">
               {primaryImage ? (
                 <Image
                   src={primaryImage}
@@ -199,7 +199,7 @@ export function PremiumProductCard({ product, variant, index = 0 }: PremiumProdu
     );
   }
 
-  // STANDARD CARD
+  // STANDARD CARD - 1:1 Ratio (Kare)
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -214,7 +214,7 @@ export function PremiumProductCard({ product, variant, index = 0 }: PremiumProdu
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="relative bg-white rounded-2xl overflow-hidden border border-neutral-200 hover:border-neutral-300 transition-all duration-300 hover:shadow-xl">
-          {/* Image Container */}
+          {/* Image Container - 1:1 Ratio (Kare) */}
           <div className="relative aspect-square overflow-hidden bg-neutral-100">
             {primaryImage ? (
               <>
