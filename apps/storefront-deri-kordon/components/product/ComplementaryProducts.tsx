@@ -15,7 +15,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
   if (loading) {
     return (
       <section className="py-16 bg-[#F3E0E1]/20">
-        <div className="container mx-auto px-4">
+        <div className="container-premium">
           <div className="flex items-center justify-between mb-8">
             <div className="h-8 w-64 bg-[#F3E0E1] rounded-lg animate-pulse" />
             <div className="h-6 w-24 bg-[#F3E0E1] rounded-lg animate-pulse" />
@@ -37,7 +37,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
 
   return (
     <section className="py-16 bg-[#F3E0E1]/20 border-y border-[#7B1113]/10">
-      <div className="container mx-auto px-4">
+      <div className="container-premium">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-semibold text-[#7B1113]">{title}</h2>
           <Link

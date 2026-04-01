@@ -595,7 +595,7 @@ export function ProductDetailClient({
           </div>
 
           {/* Tab Content */}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <AnimatePresence mode="wait">
               {activeTab === "features" && (
                 <motion.div

@@ -372,7 +372,7 @@ export default async function CollectionPage({
 
       {/* Breadcrumb Navigation */}
       <nav className="bg-white border-b border-gray-200" aria-label="Breadcrumb">
-        <div className="container mx-auto px-4 py-3">
+        <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-gray-500">
             <li>
               <Link href="/" className="hover:text-primary transition-colors">
@@ -395,7 +395,7 @@ export default async function CollectionPage({
 
       {/* Category Header */}
       <header className="bg-white">
-        <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="container-premium py-8 md:py-12">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             {categoryName}
           </h1>
@@ -411,7 +411,7 @@ export default async function CollectionPage({
       </header>
 
       {/* Products Grid */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container-premium py-8">
         {products.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500 text-lg">Bu kategoride henÃ¼z Ã¼rÃ¼n bulunmuyor.</p>
@@ -438,7 +438,7 @@ export default async function CollectionPage({
       {/* FAQ Section (if exists) */}
       {faq && faq.length > 0 && (
         <section className="bg-white border-t border-gray-200 mt-12">
-          <div className="container mx-auto px-4 py-12">
+          <div className="container-premium py-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
               SÄ±kÃ§a Sorulan Sorular
             </h2>
