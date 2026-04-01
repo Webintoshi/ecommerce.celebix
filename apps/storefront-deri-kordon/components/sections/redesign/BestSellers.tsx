@@ -44,7 +44,7 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
   if (loading) {
     return (
       <section className="py-12 md:py-20 bg-white" id="best-sellers">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <div className="h-8 w-40 bg-stone-200 rounded-lg animate-pulse" />
             <div className="h-10 w-24 bg-stone-200 rounded-lg animate-pulse" />
@@ -73,7 +73,7 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
   if (products.length === 0) {
     return (
       <section className="py-12 md:py-20 bg-white" id="best-sellers">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Ürünler</h2>
           </div>
@@ -95,7 +95,7 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
 
   return (
     <section className="py-10 md:py-20 bg-white" id="best-sellers">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 md:mb-12 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
           <div>

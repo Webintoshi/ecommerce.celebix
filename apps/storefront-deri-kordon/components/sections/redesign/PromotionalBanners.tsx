@@ -180,7 +180,7 @@ export default function PromotionalBanners({
   if (loading) {
     return (
       <section className="bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
-        <div className="mx-auto flex max-w-[1400px] gap-6 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1600px] gap-6 px-4 sm:px-6 lg:px-8">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
@@ -198,7 +198,7 @@ export default function PromotionalBanners({
 
   return (
     <section className="overflow-hidden bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
         <div className="mb-10 text-center md:mb-14">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-medium text-white shadow-lg">
             <Sparkles className="h-4 w-4" />

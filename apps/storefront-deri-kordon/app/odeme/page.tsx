@@ -403,7 +403,7 @@ export default function CheckoutPage() {
 
       {/* Header Removed as requested */}
 
-      <main className="container mx-auto max-w-[1200px] px-4 md:px-8 py-8 md:py-12">
+      <main className="container-premium py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           {/* Left Column (Forms) */}

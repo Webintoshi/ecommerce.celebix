@@ -95,7 +95,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
   if (loading) {
     return (
       <section className="py-16 md:py-24 bg-[#FFF5F5]" id="shop-by-category">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header Skeleton */}
           <div className="text-center mb-10 md:mb-14">
             <div className="h-6 w-32 bg-[#F3E0E1] rounded-full mx-auto mb-4 animate-pulse" />
@@ -125,7 +125,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
       id="shop-by-category"
       aria-labelledby="category-heading"
     >
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header - Premium Editorial Style */}
         <div className="text-center mb-10 md:mb-14 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
           {/* Eyebrow Badge */}

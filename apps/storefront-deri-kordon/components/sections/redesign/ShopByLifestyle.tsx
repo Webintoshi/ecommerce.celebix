@@ -58,7 +58,7 @@ export default function ShopByLifestyle() {
 
   return (
     <section className="py-10 md:py-20 bg-white overflow-hidden" id="shop-by-lifestyle">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">

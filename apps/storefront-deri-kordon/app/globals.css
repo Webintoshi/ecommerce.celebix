@@ -69,6 +69,7 @@
   --space-3xl: 4rem;
   --space-4xl: 6rem;
   --space-5xl: 8rem;
+  --site-shell-max-width: 1600px;
   
   /* === TYPOGRAPHY === */
   --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
@@ -302,7 +303,16 @@ button, input, select, textarea {
 /* === UTILITY CLASSES === */
 .container-premium {
   width: 100%;
-  max-width: 1400px;
+  max-width: var(--site-shell-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--site-shell-max-width);
   margin-left: auto;
   margin-right: auto;
   padding-left: 1rem;
@@ -310,21 +320,24 @@ button, input, select, textarea {
 }
 
 @media (min-width: 640px) {
-  .container-premium {
+  .container-premium,
+  .container {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .container-premium {
+  .container-premium,
+  .container {
     padding-left: 2rem;
     padding-right: 2rem;
   }
 }
 
 @media (min-width: 1280px) {
-  .container-premium {
+  .container-premium,
+  .container {
     padding-left: 3rem;
     padding-right: 3rem;
   }

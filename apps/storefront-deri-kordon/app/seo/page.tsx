@@ -61,7 +61,7 @@ export default async function SEOHubPage() {
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white">
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+          <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
             <div className="text-center">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
                 SEO Rehberi 2026
@@ -89,7 +89,7 @@ export default async function SEOHubPage() {
         </section>
 
         {/* İçerik Grid */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <section className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
               Keşfetmeye Başla
@@ -148,7 +148,7 @@ export default async function SEOHubPage() {
 
         {/* Önemli Çıkarımlar - GEO için kritik */}
         <section className="bg-indigo-50 dark:bg-gray-800/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               💡 Önemli Çıkarımlar
             </h2>

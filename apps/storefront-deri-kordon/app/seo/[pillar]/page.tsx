@@ -102,7 +102,7 @@ export default async function PillarPage({ params }: { params: { pillar: string 
         <article className="min-h-screen">
           {/* Breadcrumb */}
           <nav className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
               <ol className="flex items-center space-x-2 text-sm">
                 <li>
                   <Link
@@ -122,7 +122,7 @@ export default async function PillarPage({ params }: { params: { pillar: string 
 
           {/* Hero Section */}
           <header className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-16">
               <div className="text-center">
                 <div className="text-6xl mb-4">
                   {pillarContent.frontmatter.icon || '📚'}
@@ -155,7 +155,7 @@ export default async function PillarPage({ params }: { params: { pillar: string 
             </div>
           </header>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div className="lg:grid lg:grid-cols-3 lg:gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2">

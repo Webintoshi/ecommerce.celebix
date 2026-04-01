@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
-import { Search, Package, X, Loader2 } from "lucide-react";
+import { Search, X, Loader2, ArrowUpDown } from "lucide-react";
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
@@ -158,7 +158,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
 
       {/* Controls */}
       <section className="sticky top-0 z-40 bg-[#F8F8F8]/95 backdrop-blur-md border-b border-neutral-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+        <div className="container-premium py-4">
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
@@ -216,7 +216,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
       </section>
 
       {/* Product Grid */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <section className="container-premium py-8 sm:py-12">
         {visibleProducts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -291,7 +291,7 @@ export function ProductsPageClient({
               <div className="h-6 w-96 bg-neutral-200 rounded mx-auto animate-pulse" />
             </div>
           </section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="container-premium py-8 sm:py-12">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {[...Array(9)].map((_, i) => (
                 <ProductCardSkeleton key={i} />
