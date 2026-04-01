@@ -37,6 +37,10 @@ const SQL_BOOTSTRAP_FILES = [
   { name: "pages", relativePath: ["apps", "admin", "supabase", "migrations", "020_create_pages_table.sql"] },
   { name: "cart_system", relativePath: ["apps", "admin", "supabase", "migrations", "021_create_cart_system.sql"] },
   {
+    name: "analytics_runtime",
+    relativePath: ["apps", "admin", "supabase", "migrations", "20260402000000_analytics_runtime.sql"]
+  },
+  {
     name: "product_customization",
     relativePath: ["apps", "admin", "supabase", "migrations", "20260224000000_product_customization.sql"]
   },
