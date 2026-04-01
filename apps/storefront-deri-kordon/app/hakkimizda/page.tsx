@@ -210,7 +210,7 @@ export default function HakkimizdaPage() {
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl transform -translate-x-1/2 translate-y-1/2" />
 
             <div className="relative z-10">
-              <h2 className="text-2xl sm:text-3xl font-medium text-white mb-4">
+              <h2 className="text-2xl sm:text-3xl font-medium !text-white mb-4">
                 Koleksiyonumuzu Keşfedin
               </h2>
               <p className="text-neutral-400 mb-8 max-w-md mx-auto">
