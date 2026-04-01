@@ -129,7 +129,7 @@ export function PremiumProductCard({ product, variant, index = 0 }: PremiumProdu
               {/* Content Overlay */}
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 {/* Title */}
-                <h3 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
+                <h3 className="store-product-title-detail mb-2 text-white">
                   {product.name}
                 </h3>
 
@@ -260,7 +260,7 @@ export function PremiumProductCard({ product, variant, index = 0 }: PremiumProdu
           {/* Content */}
           <div className="p-4">
             {/* Title */}
-            <h3 className="text-sm font-medium text-neutral-900 mb-2 line-clamp-2 leading-snug group-hover:text-neutral-700 transition-colors">
+            <h3 className="store-product-title mb-2 text-neutral-900 line-clamp-2 group-hover:text-neutral-700 transition-colors">
               {product.name}
             </h3>
 

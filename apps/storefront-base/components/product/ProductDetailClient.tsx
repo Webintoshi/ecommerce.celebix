@@ -339,7 +339,7 @@ export function ProductDetailClient({
             {/* Right: Product Info - Clean Modern Design */}
             <div className="space-y-5">
               {/* Title - Responsive & Clean */}
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#7B1113] leading-snug">
+              <h1 className="store-product-title-detail text-[#7B1113]">
                 {product.name}
               </h1>
 

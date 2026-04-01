@@ -181,7 +181,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="group relative text-[13px] font-black uppercase tracking-widest text-gray-900/70 transition-all hover:text-primary"
+                className="store-nav-text group relative text-gray-900/70 transition-all hover:text-primary"
               >
                 {link.name}
                 <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-primary transition-all group-hover:w-full" />
@@ -355,7 +355,7 @@ export function Header() {
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 transition-all group-hover:bg-primary group-hover:text-white">
                             <item.icon className="h-5 w-5" />
                           </div>
-                          <span className="text-base font-semibold text-gray-900">{item.label}</span>
+                          <span className="store-nav-text text-gray-900">{item.label}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {"badge" in item && item.badge ? (

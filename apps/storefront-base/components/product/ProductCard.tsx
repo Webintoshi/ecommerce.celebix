@@ -62,7 +62,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
           
           {/* Info */}
           <div className="p-4">
-            <h3 className="font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+            <h3 className="store-product-title mb-1 text-gray-900 line-clamp-2 group-hover:text-primary transition-colors">
               {product.name}
             </h3>
             <p className="text-sm text-gray-500 mb-2">
@@ -372,7 +372,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
             </p>
 
             {/* Name */}
-            <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base leading-snug group-hover:text-primary transition-colors line-clamp-2">
+            <h3 className="store-product-title mb-2 text-gray-900 group-hover:text-primary transition-colors line-clamp-2">
               {product.name}
             </h3>
 

@@ -320,7 +320,7 @@ export function ProductDetailClient({
               </div>
 
               {/* Title */}
-              <h1 className="text-3xl lg:text-4xl text-neutral-900 leading-tight tracking-tight">
+              <h1 className="store-product-title-detail text-neutral-900 tracking-tight">
                 {product.name}
               </h1>
 

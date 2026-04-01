@@ -49,7 +49,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex-1 flex flex-col justify-center">
-            <h3 className="font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors">
+            <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors">
               {product.name}
             </h3>
           </div>
@@ -80,7 +80,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       </div>
 
       {/* Product Name Only - Clean and minimal */}
-      <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
+      <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2">
         {product.name}
       </h3>
     </Link>

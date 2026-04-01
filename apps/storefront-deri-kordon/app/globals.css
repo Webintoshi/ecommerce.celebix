@@ -74,9 +74,16 @@
   /* === TYPOGRAPHY === */
   --store-font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
   --store-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --store-font-menu: var(--store-font-body);
+  --store-font-product-title: var(--store-font-body);
   --store-font-heading-weight: 600;
   --store-font-body-weight: 400;
+  --store-font-menu-weight: 600;
+  --store-font-product-title-weight: 600;
   --store-font-base-size: 16px;
+  --store-font-menu-size: 15px;
+  --store-font-product-card-size: 16px;
+  --store-font-product-page-size: 44px;
   --store-font-heading-scale: 1.1;
   --store-font-heading-tracking: -0.01em;
   --store-font-body-tracking: 0;
@@ -172,6 +179,28 @@ button, input, select, textarea {
 
 .font-sans {
   font-family: var(--store-font-body);
+}
+
+.store-nav-text {
+  font-family: var(--store-font-menu);
+  font-size: var(--store-font-menu-size);
+  font-weight: var(--store-font-menu-weight);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.store-product-title {
+  font-family: var(--store-font-product-title);
+  font-size: var(--store-font-product-card-size);
+  font-weight: var(--store-font-product-title-weight);
+  line-height: 1.3;
+}
+
+.store-product-title-detail {
+  font-family: var(--store-font-product-title);
+  font-size: clamp(2rem, 4vw, var(--store-font-product-page-size));
+  font-weight: var(--store-font-product-title-weight);
+  line-height: 1.08;
 }
 
 /* === TEXT STYLES === */

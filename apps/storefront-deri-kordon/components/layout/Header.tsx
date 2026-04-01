@@ -80,7 +80,7 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-[15px] font-bold uppercase tracking-[0.12em] text-neutral-800 
+                className="store-nav-text text-neutral-800 
                            hover:text-neutral-950 transition-all duration-300 relative group
                            after:content-[''] after:absolute after:-bottom-1 after:left-0 
                            after:w-0 after:h-[2px] after:bg-neutral-900 after:transition-all 
@@ -129,7 +129,7 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="block text-base font-semibold uppercase tracking-wider text-neutral-800 
+                className="store-nav-text block text-neutral-800 
                            hover:text-neutral-950 hover:pl-2 transition-all duration-300"
                 onClick={() => setIsMenuOpen(false)}
               >

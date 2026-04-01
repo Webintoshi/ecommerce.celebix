@@ -317,7 +317,7 @@ export function HeaderSearchOverlay({
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
                           {product.category || "Urun"}
                         </p>
-                        <p className="mt-1 text-lg font-semibold text-neutral-900">
+                        <p className="store-product-title mt-1 text-neutral-900">
                           {product.name}
                         </p>
                         {priceLabel ? (
