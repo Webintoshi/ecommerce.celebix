@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest) {
   try {
     const auth = await getAdminAuthContext();
     if (!auth) {
-      return NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
     }
 
     const supabase = createServerClient();
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await getAdminAuthContext();
     if (!auth) {
-      return NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
     }
 
     const supabase = createServerClient();
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ success: true, message: "Odeme ayarlari kaydedildi.", gateways });
+    return NextResponse.json({ success: true, message: "Ödeme ayarları kaydedildi.", gateways });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },

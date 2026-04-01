@@ -50,7 +50,7 @@ const ANIMATION_CONFIG = {
 const STAT_CONFIGS: StatConfig[] = [
   {
     key: "totalProducts",
-    title: "Toplam Urun",
+    title: "Toplam Ürün",
     icon: Package,
     gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
     format: (v) => v.toLocaleString("tr-TR"),
@@ -59,7 +59,7 @@ const STAT_CONFIGS: StatConfig[] = [
   },
   {
     key: "totalOrders",
-    title: "Toplam Siparis",
+    title: "Toplam Sipariş",
     icon: ShoppingCart,
     gradient: "from-blue-500 via-indigo-500 to-violet-500",
     format: (v) => v.toLocaleString("tr-TR"),
@@ -76,7 +76,7 @@ const STAT_CONFIGS: StatConfig[] = [
   },
   {
     key: "totalRevenue",
-    title: "Toplam Satis",
+    title: "Toplam Satış",
     icon: TrendingUp,
     gradient: "from-emerald-500 via-teal-500 to-cyan-500",
     format: (v) => `₺${v.toLocaleString("tr-TR")}`,
@@ -85,7 +85,7 @@ const STAT_CONFIGS: StatConfig[] = [
   },
   {
     key: "lowStockProducts",
-    title: "Dusuk Stok",
+    title: "Düşük Stok",
     icon: AlertTriangle,
     gradient: "from-rose-500 via-pink-500 to-rose-400",
     format: (v) => v.toLocaleString("tr-TR"),
@@ -95,9 +95,9 @@ const STAT_CONFIGS: StatConfig[] = [
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Gunaydin";
-  if (hour < 18) return "Iyi gunler";
-  return "Iyi aksamlar";
+  if (hour < 12) return "Günaydın";
+  if (hour < 18) return "İyi günler";
+  return "İyi akşamlar";
 }
 
 function formatDateTR(): string {
@@ -123,10 +123,10 @@ function getOrderStatusColor(status: string): string {
 function getOrderStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: "Bekliyor",
-    processing: "Isleniyor",
+    processing: "İşleniyor",
     shipped: "Kargoda",
     delivered: "Teslim Edildi",
-    cancelled: "Iptal",
+    cancelled: "İptal",
   };
   return labels[status] || status;
 }
@@ -277,7 +277,7 @@ function DashboardHeader({
           className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-gray-900/20 transition-all duration-200 hover:bg-gray-800 hover:shadow-xl hover:shadow-gray-900/30 active:scale-95"
         >
           <Plus className="h-4 w-4" />
-          Yeni Urun
+          Yeni Ürün
         </Link>
       </div>
     </motion.div>
@@ -286,9 +286,9 @@ function DashboardHeader({
 
 function QuickActions() {
   const actions = [
-    { icon: FileText, label: "Siparisler", href: "/admin/siparisler", color: "bg-blue-500" },
-    { icon: Package, label: "Urunler", href: "/admin/urunler", color: "bg-violet-500" },
-    { icon: Users, label: "Musteriler", href: "/admin/musteriler", color: "bg-emerald-500" },
+    { icon: FileText, label: "Siparişler", href: "/admin/siparisler", color: "bg-blue-500" },
+    { icon: Package, label: "Ürünler", href: "/admin/urunler", color: "bg-violet-500" },
+    { icon: Users, label: "Müşteriler", href: "/admin/musteriler", color: "bg-emerald-500" },
     { icon: ShoppingCart, label: "Sepetler", href: "/admin/siparisler/sepet-terk", color: "bg-amber-500" },
   ];
 
@@ -355,14 +355,14 @@ function SectionCard({
 function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
   return (
     <SectionCard
-      title="Son Siparisler"
+      title="Son Siparişler"
       icon={ShoppingCart}
       action={
         <Link
           href="/admin/siparisler"
           className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
         >
-          Tumunu gor
+          Tümünü gör
         </Link>
       }
     >
@@ -383,7 +383,7 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-gray-900">
-                      {order.shippingAddress?.firstName || "Musteri"}{" "}
+                      {order.shippingAddress?.firstName || "Müşteri"}{" "}
                       {order.shippingAddress?.lastName || ""}
                     </p>
                     <p className="text-sm text-gray-500">
@@ -416,7 +416,7 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
               <ShoppingCart className="h-8 w-8 text-gray-400" />
             </div>
-            <p className="text-gray-500">Henuz siparis yok</p>
+            <p className="text-gray-500">Henüz sipariş yok</p>
           </div>
         )}
       </div>
@@ -427,7 +427,7 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
 function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
   return (
     <SectionCard
-      title="Dusuk Stok Uyarisi"
+      title="Düşük Stok Uyarısı"
       icon={AlertTriangle}
       className="border-l-4 border-l-rose-500"
     >
@@ -474,7 +474,7 @@ function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
                             : "bg-orange-100 text-orange-700"
                       )}
                     >
-                      {stockLevel <= 3 ? "Kritik" : stockLevel <= 6 ? "Acil" : "Dusuk"}
+                      {stockLevel <= 3 ? "Kritik" : stockLevel <= 6 ? "Acil" : "Düşük"}
                     </div>
                   </div>
                 </Link>
@@ -486,7 +486,7 @@ function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <Package className="h-8 w-8 text-emerald-600" />
             </div>
-            <p className="text-gray-500">Tum urunler yeterli stokta</p>
+            <p className="text-gray-500">Tüm ürünler yeterli stokta</p>
           </div>
         )}
       </div>
@@ -497,7 +497,7 @@ function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
             href="/admin/urunler"
             className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
-            Tum urunleri goruntule
+            Tüm ürünleri görüntüle
             <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
@@ -542,11 +542,11 @@ export default function AdminDashboardClient({
       if (response.success && response.data) {
         applyBootstrapData(response.data);
       } else {
-        setErrorMessage("Panel verileri su anda yenilenemedi.");
+        setErrorMessage("Panel verileri şu anda yenilenemedi.");
       }
     } catch (error) {
       console.error("Failed to refresh dashboard:", error);
-      setErrorMessage("Panel verileri su anda gec geliyor. Lutfen tekrar deneyin.");
+      setErrorMessage("Panel verileri şu anda geç geliyor. Lütfen tekrar deneyin.");
     } finally {
       setIsRefreshing(false);
     }

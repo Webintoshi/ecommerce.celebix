@@ -28,13 +28,13 @@ export default function AdminsPage() {
         }>("/api/admin/users", { timeoutMs: 12000 });
 
         if (!data.success) {
-          throw new Error(data.error || "Yoneticiler yuklenemedi.");
+          throw new Error(data.error || "Yöneticiler yüklenemedi.");
         }
 
         setAdmins(data.admins);
       } catch (loadError) {
         console.error("Load admins error:", loadError);
-        setError(loadError instanceof Error ? loadError.message : "Yoneticiler yuklenemedi.");
+        setError(loadError instanceof Error ? loadError.message : "Yöneticiler yüklenemedi.");
       } finally {
         setLoading(false);
       }
@@ -46,9 +46,9 @@ export default function AdminsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-20">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Yoneticiler</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Yöneticiler</h1>
         <p className="text-gray-500">
-          Bu magazaya atanmis yonetici hesaplarini gorebilirsiniz.
+          Bu mağazaya atanmış yönetici hesaplarını görebilirsiniz.
         </p>
       </div>
 
@@ -56,10 +56,10 @@ export default function AdminsPage() {
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div className="space-y-2">
-            <p className="font-semibold">Yonetici hesaplari burada olusturulmaz.</p>
+            <p className="font-semibold">Yönetici hesapları burada oluşturulmaz.</p>
             <p>
-              Isletme adminleri, super adminler ve affiliate yetkilendirmeleri sadece
-              <strong> Celebix owner paneli</strong> uzerinden atanir ve guncellenir.
+              İşletme adminleri, super adminler ve affiliate yetkilendirmeleri sadece
+              <strong> Celebix owner paneli</strong> üzerinden atanır ve güncellenir.
             </p>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function AdminsPage() {
         <div className="border-b border-gray-100 bg-gray-50/70 px-5 py-4">
           <h2 className="flex items-center gap-2 font-semibold text-gray-900">
             <Shield className="h-5 w-5 text-primary" />
-            Atanmis Yoneticiler ({admins.length})
+            Atanmış Yöneticiler ({admins.length})
           </h2>
         </div>
 
@@ -81,7 +81,7 @@ export default function AdminsPage() {
           <div className="p-6 text-sm text-red-600">{error}</div>
         ) : admins.length === 0 ? (
           <div className="p-6 text-sm text-gray-500">
-            Bu magazaya henuz owner panel uzerinden yonetici atanmamis.
+            Bu mağazaya henüz owner panel üzerinden yönetici atanmamış.
           </div>
         ) : (
           <div className="divide-y divide-gray-100">

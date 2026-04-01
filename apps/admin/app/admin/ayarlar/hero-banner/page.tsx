@@ -185,14 +185,14 @@ export default function HeroBannerSettingsPage() {
             const data = await res.json();
 
             if (!res.ok || !data.success || !data.url) {
-                throw new Error(data.error || "Gorsel yuklenemedi");
+                throw new Error(data.error || "Görsel yüklenemedi");
             }
 
             handleUpdateSlide(slideId, type, String(data.url));
-            toast.success("Gorsel yuklendi.");
+            toast.success("Görsel yüklendi.");
         } catch (error) {
             console.error("Upload error:", error);
-            toast.error(error instanceof Error ? error.message : "Gorsel yuklenirken hata olustu.");
+            toast.error(error instanceof Error ? error.message : "Görsel yüklenirken hata oluştu.");
         } finally {
             setUploading((prev) => ({ ...prev, [uploadKey]: false }));
             e.target.value = "";
@@ -211,9 +211,9 @@ export default function HeroBannerSettingsPage() {
         <div className="mx-auto max-w-5xl space-y-6 pb-20">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Hero Banner Yonetimi</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Hero Banner Yönetimi</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Ana sayfa ust alandaki slayt gorsellerini yonetin.
+                        Ana sayfa üst alandaki slayt görsellerini yönetin.
                     </p>
                 </div>
                 <button
@@ -250,7 +250,7 @@ export default function HeroBannerSettingsPage() {
                         <div className="grid grid-cols-1 gap-8 p-6 md:grid-cols-2">
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700">
-                                    Masaustu Gorseli (1920x800px)
+                                    Masaüstü Görseli (1920x800px)
                                 </label>
                                 <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-blue-400">
                                     {slide.desktop ? (
@@ -264,7 +264,7 @@ export default function HeroBannerSettingsPage() {
                                             />
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
                                                 <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
-                                                    Degistir
+                                                    Değiştir
                                                     <input
                                                         type="file"
                                                         className="hidden"
@@ -281,7 +281,7 @@ export default function HeroBannerSettingsPage() {
                                             ) : (
                                                 <>
                                                     <ImageIcon className="mb-2 h-8 w-8 text-gray-300" />
-                                                    <span className="text-sm text-gray-500">Gorsel Yukle</span>
+                                                    <span className="text-sm text-gray-500">Görsel Yükle</span>
                                                 </>
                                             )}
                                             <input
@@ -301,7 +301,7 @@ export default function HeroBannerSettingsPage() {
 
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700">
-                                    Mobil Gorseli (800x1200px)
+                                    Mobil Görseli (800x1200px)
                                 </label>
                                 <div className="group/upload relative aspect-2/3 max-w-[200px] overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-blue-400 md:max-w-full md:aspect-video">
                                     {slide.mobile ? (
@@ -315,7 +315,7 @@ export default function HeroBannerSettingsPage() {
                                             />
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
                                                 <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
-                                                    Degistir
+                                                    Değiştir
                                                     <input
                                                         type="file"
                                                         className="hidden"
@@ -332,7 +332,7 @@ export default function HeroBannerSettingsPage() {
                                             ) : (
                                                 <>
                                                     <Smartphone className="mb-2 h-8 w-8 text-gray-300" />
-                                                    <span className="text-sm text-gray-500">Gorsel Yukle</span>
+                                                    <span className="text-sm text-gray-500">Görsel Yükle</span>
                                                 </>
                                             )}
                                             <input
@@ -401,12 +401,12 @@ export default function HeroBannerSettingsPage() {
 
                             <div className="rounded-lg bg-gray-50 p-4 md:col-span-2">
                                 <h4 className="mb-3 text-sm font-semibold text-gray-700">
-                                    Overlay Icerik
+                                    Overlay İçerik
                                 </h4>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
                                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                                            Baslik
+                                            Başlık
                                         </label>
                                         <input
                                             type="text"
@@ -420,7 +420,7 @@ export default function HeroBannerSettingsPage() {
                                     </div>
                                     <div>
                                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                                            Alt Baslik
+                                            Alt Başlık
                                         </label>
                                         <input
                                             type="text"
@@ -476,7 +476,7 @@ export default function HeroBannerSettingsPage() {
                                                             : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
                                                     }`}
                                                 >
-                                                    {pos === "left" ? "Sol" : pos === "center" ? "Orta" : "Sag"}
+                                                    {pos === "left" ? "Sol" : pos === "center" ? "Orta" : "Sağ"}
                                                 </button>
                                             ))}
                                         </div>

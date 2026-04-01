@@ -55,7 +55,7 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white">
             <ShoppingCart className="h-4 w-4" />
           </div>
-          <h3 className="font-semibold text-gray-900">Yarim Kalan Sepetler</h3>
+          <h3 className="font-semibold text-gray-900">Yarım Kalan Sepetler</h3>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
           <Clock className="h-3 w-3 text-gray-500" />
@@ -96,7 +96,7 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             <div className="relative">
               <div className="mb-2 flex items-center gap-1.5 text-rose-700">
                 <DollarSign className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Kayip Deger</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">Kayıp Değer</span>
               </div>
               <div className="text-2xl font-bold text-gray-900">
                 ₺<AnimatedNumber value={abandoned.total} />
@@ -115,7 +115,7 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Target className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Bugunku Donusum</span>
+              <span className="text-sm font-medium text-gray-700">Bugünkü Dönüşüm</span>
             </div>
             <div
               className={cn(
@@ -155,7 +155,7 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
               <div className="mb-1.5 flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1 font-medium text-gray-600">
                   <Users className="h-3 w-3 text-emerald-500" />
-                  Satin Alma
+                  Satın Alma
                 </span>
                 <span className="font-semibold text-gray-900">{today.purchases}</span>
               </div>

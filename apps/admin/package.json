@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next dev --port 3200",
-    "build": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
+    "check:copy": "node ./scripts/check-turkish-copy.cjs",
+    "build": "npm run check:copy && cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
     "start": "node ./scripts/start-production.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

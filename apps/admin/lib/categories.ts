@@ -29,7 +29,7 @@ async function requestCategoryApi<T = unknown>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data?.success === false) {
-    throw new Error(data?.error || "Kategori istegi basarisiz oldu.");
+    throw new Error(data?.error || "Kategori isteği başarısız oldu.");
   }
 
   return data as T;

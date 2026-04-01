@@ -13,7 +13,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: `Urun Kisilestirme | ${STORE_RUNTIME.name} Admin`,
+  title: `Ürün Kişiselleştirme | ${STORE_RUNTIME.name} Admin`,
   description: "Ürün kişiselleştirme şemalarını yönetin",
 };
 

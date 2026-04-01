@@ -63,7 +63,7 @@ export default function PaymentSettingsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Bu odeme yontemini silmek istediginizden emin misiniz? Bu islem geri alinamaz.")) {
+        if (confirm("Bu ödeme yöntemini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
             await deletePaymentGateway(id);
             loadPaymentGateways();
         }
@@ -144,8 +144,8 @@ export default function PaymentSettingsPage() {
         <div className="min-h-screen max-w-7xl mx-auto space-y-8 bg-gray-50/50 p-6 md:p-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">Odeme Yontemleri</h1>
-                    <p className="mt-1 text-sm text-gray-500">Odeme saglayicilarini yapilandirin, test edin ve checkout hazirligini takip edin.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">Ödeme Yöntemleri</h1>
+                    <p className="mt-1 text-sm text-gray-500">Ödeme sağlayıcılarını yapılandırın, test edin ve checkout hazırlığını takip edin.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -160,7 +160,7 @@ export default function PaymentSettingsPage() {
                         className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800"
                     >
                         <Plus className="h-4 w-4" />
-                        Yeni Yontem Ekle
+                        Yeni Yöntem Ekle
                     </Link>
                 </div>
             </div>
@@ -173,7 +173,7 @@ export default function PaymentSettingsPage() {
                         </div>
                         <div className="text-xl font-bold text-gray-900">{stats.total}</div>
                     </div>
-                    <div className="text-xs font-medium text-gray-500">Toplam Yontem</div>
+                    <div className="text-xs font-medium text-gray-500">Toplam Yöntem</div>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
@@ -200,7 +200,7 @@ export default function PaymentSettingsPage() {
                         </div>
                         <div className="text-xl font-bold text-gray-900">{stats.production}</div>
                     </div>
-                    <div className="text-xs font-medium text-gray-500">Canli Ortam</div>
+                    <div className="text-xs font-medium text-gray-500">Canlı Ortam</div>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
@@ -209,7 +209,7 @@ export default function PaymentSettingsPage() {
                         </div>
                         <div className="text-xl font-bold text-gray-900">{stats.sandbox}</div>
                     </div>
-                    <div className="text-xs font-medium text-gray-500">Test Ortami</div>
+                    <div className="text-xs font-medium text-gray-500">Test Ortamı</div>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
@@ -226,7 +226,7 @@ export default function PaymentSettingsPage() {
                 <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
                     <div className="text-sm text-amber-800">
-                        Kartli saglayicilar icin API kaydi tek basina yeterli degildir. Canli checkout&apos;ta gorunmeleri icin payment runtime tablolari, provider init akisi ve callback/webhook dogrulamasi tamamlanmis olmalidir.
+                        Kartlı sağlayıcılar için API kaydı tek başına yeterli değildir. Canlı checkout&apos;ta görünmeleri için payment runtime tabloları, provider init akışı ve callback/webhook doğrulaması tamamlanmış olmalıdır.
                     </div>
                 </div>
             </div>
@@ -237,7 +237,7 @@ export default function PaymentSettingsPage() {
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Odeme yontemi ara..."
+                            placeholder="Ödeme yöntemi ara..."
                             value={searchQuery}
                             onChange={(event) => setSearchQuery(event.target.value)}
                             className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-900"
@@ -296,7 +296,7 @@ export default function PaymentSettingsPage() {
                                         {getStatusLabel(gateway.status)}
                                     </span>
                                     <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium ${getEnvironmentColor(gateway.environment)}`}>
-                                        {gateway.environment === "production" ? "Canli" : "Test"}
+                                        {gateway.environment === "production" ? "Canlı" : "Test"}
                                     </span>
                                     <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium ${runtimeStatus.isReady ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                                         {runtimeStatus.label}
@@ -310,7 +310,7 @@ export default function PaymentSettingsPage() {
                                 )}
 
                                 <div className="mb-4">
-                                    <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Desteklenen Yontemler</div>
+                                    <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Desteklenen Yöntemler</div>
                                     <div className="flex flex-wrap gap-1.5">
                                         {gateway.supportedMethods?.map((method) => (
                                             <span
@@ -328,12 +328,12 @@ export default function PaymentSettingsPage() {
                                         {testResults[gateway.id] ? (
                                             <>
                                                 <CheckCircle className="h-3.5 w-3.5" />
-                                                Baglanti testi basarili
+                                                Bağlantı testi başarılı
                                             </>
                                         ) : (
                                             <>
                                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                                Baglanti testi basarisiz
+                                                Bağlantı testi başarısız
                                             </>
                                         )}
                                     </div>
@@ -389,16 +389,16 @@ export default function PaymentSettingsPage() {
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
                         <CreditCard className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="mb-2 text-lg font-bold text-gray-900">Odeme Yontemi Bulunamadi</h3>
+                    <h3 className="mb-2 text-lg font-bold text-gray-900">Ödeme Yöntemi Bulunamadı</h3>
                     <p className="mx-auto mb-6 max-w-sm text-sm text-gray-500">
-                        Henuz odeme yontemi yapilandirmadiniz. Ilk odeme yonteminizi ekleyerek ayar kaydini olusturun.
+                        Henüz ödeme yöntemi yapılandırmadınız. İlk ödeme yönteminizi ekleyerek ayar kaydını oluşturun.
                     </p>
                     <Link
                         href="/admin/ayarlar/odeme/yeni"
                         className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-gray-800"
                     >
                         <Plus className="h-4 w-4" />
-                        Ilk Odeme Yontemini Ekle
+                        İlk Ödeme Yöntemini Ekle
                     </Link>
                 </div>
             )}

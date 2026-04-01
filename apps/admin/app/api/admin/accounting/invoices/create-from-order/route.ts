@@ -29,10 +29,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Fatura adayi olusturulamadi.",
+        error: error instanceof Error ? error.message : "Fatura adayı oluşturulamadı.",
       },
       { status: 500 },
     );
   }
 }
-

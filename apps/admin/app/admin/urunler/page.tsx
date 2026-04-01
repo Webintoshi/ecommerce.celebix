@@ -7,7 +7,7 @@ export default async function ProductsPage() {
     const initialData = await withServerTimeout(
       getAdminProductsBootstrap(1, 20),
       7000,
-      "Urun verileri ilk acilista zaman asimina ugradi."
+      "Ürün verileri ilk açılışta zaman aşımına uğradı."
     );
 
     return (
@@ -22,7 +22,7 @@ export default async function ProductsPage() {
 
     return (
       <ProductsPageClient
-        initialError="Urunler ilk acilista getirilemedi. Sayfa acik kaldi; tekrar deneyebilirsiniz."
+        initialError="Ürünler ilk açılışta getirilemedi. Sayfa açık kaldı; tekrar deneyebilirsiniz."
       />
     );
   }

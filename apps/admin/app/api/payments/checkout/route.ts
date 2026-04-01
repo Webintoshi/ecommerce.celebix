@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
 
         if (!body?.paymentMethod) {
-            return NextResponse.json({ success: false, error: "Odeme yontemi secilmelidir." }, { status: 422 });
+            return NextResponse.json({ success: false, error: "Ödeme yöntemi seçilmelidir." }, { status: 422 });
         }
 
         const gateway = await getActivePaymentGatewayById(body.paymentMethod);
         if (!gateway) {
-            return NextResponse.json({ success: false, error: "Secilen odeme yontemi aktif degil." }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Seçilen ödeme yöntemi aktif değil." }, { status: 404 });
         }
 
         const order = await createOrder({
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: paymentError instanceof Error ? paymentError.message : "Odeme baslatilamadi.",
+                    error: paymentError instanceof Error ? paymentError.message : "Ödeme başlatılamadı.",
                     order,
                 },
                 { status: 502 },
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("Payment checkout error:", error);
         return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : "Checkout baslatilamadi." },
+            { success: false, error: error instanceof Error ? error.message : "Checkout başlatılamadı." },
             { status: 500 },
         );
     }

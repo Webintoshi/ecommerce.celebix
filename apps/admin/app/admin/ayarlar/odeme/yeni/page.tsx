@@ -90,7 +90,7 @@ export default function NewPaymentGatewayPage() {
 
     async function handleSave() {
         if (!selectedGateway || !formData) {
-            toast.error("Lutfen bir odeme altyapisi secin.");
+            toast.error("Lütfen bir ödeme altyapısı seçin.");
             return;
         }
 
@@ -104,7 +104,7 @@ export default function NewPaymentGatewayPage() {
         setSaving(true);
         try {
             await addPaymentGateway(formData);
-            toast.success("Odeme altyapisi eklendi.");
+            toast.success("Ödeme altyapısı eklendi.");
             router.push("/admin/ayarlar/odeme");
             router.refresh();
         } catch (error) {
@@ -123,12 +123,12 @@ export default function NewPaymentGatewayPage() {
                         className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all text-sm font-medium"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        Geri Don
+                        Geri Dön
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Yeni Odeme Altyapisi</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Yeni Ödeme Altyapısı</h1>
                         <p className="text-sm text-gray-500 mt-1">
-                            Turkiye&apos;de yaygin odeme saglayicilarini veya manuel odeme yontemlerini ekleyin.
+                            Türkiye&apos;de yaygın ödeme sağlayıcılarını veya manuel ödeme yöntemlerini ekleyin.
                         </p>
                     </div>
                 </div>
@@ -146,9 +146,9 @@ export default function NewPaymentGatewayPage() {
             {!selectedGateway || !formData ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                     <div className="mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-1">Odeme Saglayicisi Secin</h2>
+                        <h2 className="text-xl font-bold text-gray-900 mb-1">Ödeme Sağlayıcısı Seçin</h2>
                         <p className="text-gray-500 text-sm">
-                            Resmi hesabinizi actiktan sonra gerekli API bilgilerinizle kayit olusturun.
+                            Resmi hesabınızı açtıktan sonra gerekli API bilgilerinizle kayıt oluşturun.
                         </p>
                     </div>
 
@@ -220,7 +220,7 @@ export default function NewPaymentGatewayPage() {
                                         rel="noreferrer"
                                         className="px-4 py-2 rounded-lg bg-gray-900 text-sm font-medium text-white hover:bg-gray-800"
                                     >
-                                        Dokumantasyon
+                                        Dokümantasyon
                                     </a>
                                 )}
                             </div>

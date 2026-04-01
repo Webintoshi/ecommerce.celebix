@@ -21,7 +21,7 @@ const WHATSAPP_TEMPLATES = [
   {
     id: 1,
     name: "Promo",
-    content: `Merhaba {firstName}!\n\n${STORE_RUNTIME.name} magazasinda sizin icin ozel bir kampanya aktif. Hemen kontrol edin!`,
+    content: `Merhaba {firstName}!\n\n${STORE_RUNTIME.name} mağazasında sizin için özel bir kampanya aktif. Hemen kontrol edin!`,
   },
   {
     id: 2,

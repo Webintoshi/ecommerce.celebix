@@ -105,7 +105,7 @@ function sanitizeReference(value: string) {
 }
 
 function buildBuyerName(address: CheckoutAddressInput) {
-    return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Musteri";
+    return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Müşteri";
 }
 
 function createPaytrToken(payload: {
@@ -222,14 +222,14 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
     const runtimeStatus = getPaymentGatewayRuntimeStatus(context.gateway);
 
     if (!runtimeStatus.isReady) {
-        throw new Error("Secilen odeme yontemi canli checkout akisina hazir degil.");
+        throw new Error("Seçilen ödeme yöntemi canlı checkout akışına hazır değil.");
     }
 
     if (context.gateway.gateway === "bank_transfer" || context.gateway.gateway === "cod") {
         return {
             action: "success",
             paymentAttemptId: "manual",
-            message: "Manuel odeme yontemi secildi.",
+            message: "Manuel ödeme yöntemi seçildi.",
         };
     }
 
@@ -253,7 +253,7 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
         return initializeCraftgatePayment(context);
     }
 
-    throw new Error("Bu odeme saglayicisi icin runtime entegrasyonu henuz tamamlanmadi.");
+    throw new Error("Bu ödeme sağlayıcısı için runtime entegrasyonu henüz tamamlanmadı.");
 }
 
 async function initializeIyzicoPayment(context: CheckoutContext): Promise<PaymentInitResult> {
@@ -290,7 +290,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         buyer: {
             id: paymentAttempt.id,
             name: context.shippingAddress.firstName || "Misafir",
-            surname: context.shippingAddress.lastName || "Musteri",
+            surname: context.shippingAddress.lastName || "Müşteri",
             gsmNumber: context.shippingAddress.phone || "",
             email: context.customerEmail,
             identityNumber: "11111111111",
@@ -357,7 +357,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
     } catch (error) {
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "iyzico odeme baslatilamadi.",
+            errorMessage: error instanceof Error ? error.message : "iyzico ödeme başlatılamadı.",
             completedAt: new Date().toISOString(),
         });
         throw error;
@@ -467,7 +467,7 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
             providerReferenceId: merchantOid,
-            errorMessage: error instanceof Error ? error.message : "PAYTR odeme baslatilamadi.",
+            errorMessage: error instanceof Error ? error.message : "PAYTR ödeme başlatılamadı.",
             completedAt: new Date().toISOString(),
         });
         throw error;
@@ -625,7 +625,7 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
         const result = await response.json() as Record<string, unknown>;
         const redirectUrl = typeof result.url === "string" ? result.url : null;
         const checkoutToken = typeof result.id === "string" ? result.id : null;
-        const errorMessage = typeof result.message === "string" ? result.message : "Paynet odeme linki olusturulamadi.";
+        const errorMessage = typeof result.message === "string" ? result.message : "Paynet ödeme linki oluşturulamadı.";
 
         await updatePaymentAttempt(paymentAttempt.id, {
             status: isSuccessfulPaynetResponse(result) ? "pending_action" : "failed",
@@ -650,7 +650,7 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
             providerReferenceId: paymentAttempt.id,
-            errorMessage: error instanceof Error ? error.message : "Paynet odeme linki olusturulamadi.",
+            errorMessage: error instanceof Error ? error.message : "Paynet ödeme linki oluşturulamadı.",
             completedAt: new Date().toISOString(),
         });
         throw error;

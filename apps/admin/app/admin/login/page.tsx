@@ -50,16 +50,16 @@ export default function AdminLoginPage() {
       });
 
       if (error) {
-        toast.error(`Giris basarisiz: ${error.message}`);
+        toast.error(`Giriş başarısız: ${error.message}`);
         return;
       }
 
-      toast.success("Giris yapildi.");
+      toast.success("Giriş yapıldı.");
       router.replace(nextPath);
       router.refresh();
     } catch (error) {
       console.error("Admin login error:", error);
-      toast.error("Beklenmeyen bir hata olustu.");
+      toast.error("Beklenmeyen bir hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
               <Shield className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Paneli</h1>
-            <p className="text-sm text-gray-500">Atanmis yonetici hesabi ile giris yap.</p>
+            <p className="text-sm text-gray-500">Atanmış yönetici hesabı ile giriş yap.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -91,7 +91,7 @@ export default function AdminLoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sifre</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
               <div className="relative">
                 <input
                   type="password"
@@ -111,7 +111,7 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-primary hover:bg-primary/90"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Giris yap"}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Giriş yap"}
             </button>
           </form>
         </div>

@@ -152,11 +152,11 @@ export default function ProductsPageClient({
           setPagination(data.pagination);
         }
       } else {
-        setErrorMessage(data.error || "Urun verileri alinamadi.");
+        setErrorMessage(data.error || "Ürün verileri alınamadı.");
       }
     } catch (error) {
       console.error("Failed to load products:", error);
-      setErrorMessage("Urun verileri su anda getirilemedi.");
+      setErrorMessage("Ürün verileri şu anda getirilemedi.");
     } finally {
       setLoading(false);
     }
@@ -168,7 +168,7 @@ export default function ProductsPageClient({
       setCategories(data);
     } catch (error) {
       console.error("Failed to load categories:", error);
-      setErrorMessage((current) => current || "Kategori verileri su anda getirilemedi.");
+      setErrorMessage((current) => current || "Kategori verileri şu anda getirilemedi.");
     }
   };
 
@@ -227,7 +227,7 @@ export default function ProductsPageClient({
     const parsedStock = Number(bulkStockValue);
 
     if (!Number.isFinite(parsedStock) || parsedStock < 0) {
-      setNotice({ tone: "error", text: "Gecerli bir stok sayisi girmelisiniz." });
+      setNotice({ tone: "error", text: "Geçerli bir stok sayısı girmelisiniz." });
       return;
     }
 
@@ -260,13 +260,13 @@ export default function ProductsPageClient({
       setBulkStockValue("");
       setNotice({
         tone: "success",
-        text: `${data.updatedProducts} urunun ${data.updatedVariants} varyanti icin stok ${data.stock} olarak guncellendi.`,
+        text: `${data.updatedProducts} ürünün ${data.updatedVariants} varyantı için stok ${data.stock} olarak güncellendi.`,
       });
     } catch (error) {
       console.error("Failed to bulk update stock:", error);
       setNotice({
         tone: "error",
-        text: error instanceof Error ? error.message : "Toplu stok guncellenemedi.",
+        text: error instanceof Error ? error.message : "Toplu stok güncellenemedi.",
       });
     } finally {
       setBulkStockSubmitting(false);
@@ -501,7 +501,7 @@ export default function ProductsPageClient({
                   }}
                   className="px-4 py-2 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
                 >
-                  STOK GUNCELLE
+                  STOK GÜNCELLE
                 </button>
                 <button
                   onClick={handleBulkDelete}
@@ -829,15 +829,15 @@ export default function ProductsPageClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/45 px-4">
           <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
             <div className="mb-5">
-              <h2 className="text-xl font-bold text-gray-900">Toplu Stok Guncelle</h2>
+              <h2 className="text-xl font-bold text-gray-900">Toplu Stok Güncelle</h2>
               <p className="mt-2 text-sm text-gray-500">
-                Secilen {selectedProducts.length} urunun tum varyant stoklari ayni degere cekilecek.
+                Seçilen {selectedProducts.length} ürünün tüm varyant stokları aynı değere çekilecek.
               </p>
             </div>
 
             <div className="space-y-3">
               <label className="block text-sm font-semibold text-gray-700" htmlFor="bulk-stock-input">
-                Yeni stok sayisi
+                Yeni stok sayısı
               </label>
               <input
                 id="bulk-stock-input"
@@ -848,10 +848,10 @@ export default function ProductsPageClient({
                 value={bulkStockValue}
                 onChange={(event) => setBulkStockValue(event.target.value)}
                 className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none transition-all focus:border-emerald-300 focus:bg-white"
-                placeholder="Ornek: 25"
+                placeholder="Örnek: 25"
               />
               <p className="text-xs text-gray-500">
-                Bu islem secilen urunlerin tum varyantlarina ayni stok degerini uygular.
+                Bu işlem seçilen ürünlerin tüm varyantlarına aynı stok değerini uygular.
               </p>
             </div>
 
@@ -861,7 +861,7 @@ export default function ProductsPageClient({
                 disabled={bulkStockSubmitting}
                 className="px-4 py-2 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Vazgec
+                Vazgeç
               </button>
               <button
                 onClick={handleBulkStockUpdate}

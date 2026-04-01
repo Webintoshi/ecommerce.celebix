@@ -33,34 +33,34 @@ const MOCK_GEO_DATA: LLMOptimization[] = [
     {
         pageType: "product",
         pageId: "p1",
-        pageName: "Ornek Urun Sayfasi",
+        pageName: "Örnek Ürün Sayfası",
         url: "/urunler/dogal-fistik-ezmesi",
         keyTakeaways: [
-            "Urun sayfasi malzeme, kullanim ve teslimat bilgisini net sekilde sunar.",
-            "Musterinin satin alma kararini kolaylastiracak temel ozellikler bir aradadir.",
-            "Sayfa, arama motorlari ve AI sistemleri icin acik bir urun baglami olusturur."
+            "Ürün sayfası malzeme, kullanım ve teslimat bilgisini net şekilde sunar.",
+            "Müşterinin satın alma kararını kolaylaştıracak temel özellikler bir aradadır.",
+            "Sayfa, arama motorları ve AI sistemleri için açık bir ürün bağlamı oluşturur."
         ],
         entities: ["Product", "Brand", "Commerce", STORE_RUNTIME.name],
         citations: [
-            `${STORE_RUNTIME.name} urun sayfalari teknik ozellikleri ve kullanim alanlarini net sekilde aktarir.`,
-            "Urun icerigi, varyant ve teslimat bilgileri tek sayfada birlesir."
+            `${STORE_RUNTIME.name} ürün sayfaları teknik özellikleri ve kullanım alanlarını net şekilde aktarır.`,
+            "Ürün içeriği, varyant ve teslimat bilgileri tek sayfada birleşir."
         ],
         llmOptimized: true
     },
     {
         pageType: "category",
         pageId: "c1",
-        pageName: "Ornek Kategori Sayfasi",
+        pageName: "Örnek Kategori Sayfası",
         url: "/kategori/fistik-ezmesi",
         keyTakeaways: [
-            "Kategori sayfasi ilgili urun gruplarini tek yerde toplar.",
-            "Filtreleme ve koleksiyon yapisi kullanicinin dogru urune hizla ulasmasini saglar.",
-            "Kategori metinleri AI sistemlerinin konu baglamini daha iyi anlamasina yardimci olur."
+            "Kategori sayfası ilgili ürün gruplarını tek yerde toplar.",
+            "Filtreleme ve koleksiyon yapısı kullanıcının doğru ürüne hızla ulaşmasını sağlar.",
+            "Kategori metinleri AI sistemlerinin konu bağlamını daha iyi anlamasına yardımcı olur."
         ],
         entities: ["ProductCategory", "CollectionPage", STORE_RUNTIME.name],
         citations: [
-            "Kategori sayfalari benzer urunleri ortak bir konu etrafinda gruplayarak kesif deneyimini iyilestirir.",
-            `${STORE_RUNTIME.name} kategori sayfalari ilgili urunlere baglamsal gecis saglar.`
+            "Kategori sayfaları benzer ürünleri ortak bir konu etrafında gruplayarak keşif deneyimini iyileştirir.",
+            `${STORE_RUNTIME.name} kategori sayfaları ilgili ürünlere bağlamsal geçiş sağlar.`
         ],
         llmOptimized: true
     },
@@ -123,7 +123,7 @@ export default function GEOOptimizationPage() {
 
 # Site Overview
 Site: ${STORE_RUNTIME.name} - ${STORE_RUNTIME.tagline}
-Description: ${STORE_RUNTIME.name} icin olusturulan e-ticaret icerik ve urun referansi.
+Description: ${STORE_RUNTIME.name} için oluşturulan e-ticaret içerik ve ürün referansı.
 Language: tr
 
 # Allowed LLM Crawlers
@@ -138,7 +138,7 @@ Key Entities: Product, Food, HealthFood, Organization, Recipe
 Primary Topics: Doğal ezme, sağlıklı beslenme, sporcu besini, vegan ürünler
 
 # Citation Preferences
-Preferred Citation Format: "${STORE_RUNTIME.name} - [Urun/Kategori Adi] - ${STORE_RUNTIME.storefrontUrl}[URL]"
+Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${STORE_RUNTIME.storefrontUrl}[URL]"
 `;
     };
 

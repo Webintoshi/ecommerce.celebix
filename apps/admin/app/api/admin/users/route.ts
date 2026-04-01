@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await getAdminAuthContext();
     if (!auth || auth.profile.role !== "super_admin") {
-      return NextResponse.json({ success: false, error: "Bu listeyi gormek icin super admin olman gerekir." }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Bu listeyi görmek için super admin olman gerekir." }, { status: 403 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Yonetici hesaplari sadece Celebix owner paneli uzerinden olusturulabilir.",
+        error: "Yönetici hesapları sadece Celebix owner paneli üzerinden oluşturulabilir.",
       },
       { status: 403 },
     );
@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Yonetici hesaplari sadece Celebix owner paneli uzerinden yonetilebilir.",
+        error: "Yönetici hesapları sadece Celebix owner paneli üzerinden yönetilebilir.",
       },
       { status: 403 },
     );

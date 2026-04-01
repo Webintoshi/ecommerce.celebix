@@ -82,14 +82,14 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
             <Globe className="h-4 w-4" />
           </div>
-          <h3 className="font-semibold text-gray-900">Anlik Ziyaretciler</h3>
+          <h3 className="font-semibold text-gray-900">Anlık Ziyaretçiler</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
           </span>
-          <span className="text-xs font-medium text-emerald-600">Canli</span>
+          <span className="text-xs font-medium text-emerald-600">Canlı</span>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
               <span className="text-5xl font-bold tracking-tight text-gray-900">
                 <AnimatedNumber value={data.liveVisitors || 0} />
               </span>
-              <span className="text-lg font-medium text-gray-500">kisi</span>
+              <span className="text-lg font-medium text-gray-500">kişi</span>
             </div>
             <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
               <Bot className="h-3 w-3" />

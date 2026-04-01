@@ -298,7 +298,7 @@ function buildImportTemplateCsv(): string {
   return [
     "Ad;Soyad;E-posta;Telefon;Durum;Not",
     "Ayse;Yilmaz;ayse@example.com;+90 555 111 22 33;active;Instagram kampanyasindan geldi",
-    "Mehmet;Demir;mehmet@example.com;+90 555 444 55 66;inactive;Eski bayi musteri",
+    "Mehmet;Demir;mehmet@example.com;+90 555 444 55 66;inactive;Eski bayi müşteri",
   ].join("\n");
 }
 
@@ -348,7 +348,7 @@ export default function CustomersPage({
       setCustomers((response.customers || []).map(transformCustomer));
     } catch (error) {
       console.error("Failed to load customers:", error);
-      const message = error instanceof Error ? error.message : "Musteriler yuklenemedi.";
+      const message = error instanceof Error ? error.message : "Müşteriler yüklenemedi.";
       setErrorMessage(message);
       toast.error(error instanceof Error ? error.message : "Müşteriler yüklenemedi.");
     } finally {

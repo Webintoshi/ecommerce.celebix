@@ -21,26 +21,26 @@ const EMAIL_TEMPLATES = [
   {
     id: 1,
     name: "Hoşgeldin",
-    subject: `${STORE_RUNTIME.name}'a Hos Geldiniz!`,
-    content: `Merhaba {firstName},\n\n${STORE_RUNTIME.name} ailesine hos geldiniz! Yeni urunlerimizi ve kampanyalarimizi kesfedebilirsiniz.\n\nSiparisiniz icin tesekkurler.\n\nSaygilarimizla,\n${STORE_RUNTIME.name} Ekibi`,
+    subject: `${STORE_RUNTIME.name}'a Hoş Geldiniz!`,
+    content: `Merhaba {firstName},\n\n${STORE_RUNTIME.name} ailesine hoş geldiniz! Yeni ürünlerimizi ve kampanyalarımızı keşfedebilirsiniz.\n\nSiparişiniz için teşekkürler.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
   },
   {
     id: 2,
     name: "Özel Teklif",
     subject: "Sadece Sizin İçin Özel Teklif!",
-    content: `Merhaba {firstName},\n\nSizin icin bu hafta ozel bir teklif hazirladik. Kampanya kodunu kullanarak alisverisinizi tamamlayabilirsiniz.\n\nKodu: SPECIAL15\n\nSaygilarimizla,\n${STORE_RUNTIME.name} Ekibi`,
+    content: `Merhaba {firstName},\n\nSizin için bu hafta özel bir teklif hazırladık. Kampanya kodunu kullanarak alışverişinizi tamamlayabilirsiniz.\n\nKodu: SPECIAL15\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
   },
   {
     id: 3,
     name: "Yeni Ürün",
     subject: "Yeni Ürünlerimiz Geldi!",
-    content: `Merhaba {firstName},\n\nYeni urunlerimiz yayinda. Guncel koleksiyonumuzu incelemek icin magazamizi ziyaret edin.\n\nSaygilarimizla,\n${STORE_RUNTIME.name} Ekibi`,
+    content: `Merhaba {firstName},\n\nYeni ürünlerimiz yayında. Güncel koleksiyonumuzu incelemek için mağazamızı ziyaret edin.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
   },
   {
     id: 4,
     name: "Sipariş Hatırlatma",
     subject: "Sonraki Siparişiniz İçin Hazırlanın",
-    content: `Merhaba {firstName},\n\nFavori urunleriniz tekrar siparis icin hazir olabilir. Stoklari kontrol edip yeni siparisinizi verebilirsiniz.\n\nSaygilarimizla,\n${STORE_RUNTIME.name} Ekibi`,
+    content: `Merhaba {firstName},\n\nFavori ürünleriniz tekrar sipariş için hazır olabilir. Stokları kontrol edip yeni siparişinizi verebilirsiniz.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
   },
 ];
 

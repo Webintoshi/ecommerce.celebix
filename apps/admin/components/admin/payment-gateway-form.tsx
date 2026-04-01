@@ -62,7 +62,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
 
             {errors.length > 0 && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-                    <h3 className="text-sm font-semibold text-red-800">Form hatalari</h3>
+                    <h3 className="text-sm font-semibold text-red-800">Form hataları</h3>
                     <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
                         {errors.map((error) => (
                             <li key={error}>{error}</li>
@@ -80,14 +80,14 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                 </div>
                 <div className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Saglayici</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sağlayıcı</label>
                         <div className="inline-flex rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
                             {definition.name}
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Gorunen Ad</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Görünen Ad</label>
                         <input
                             type="text"
                             value={gateway.name}
@@ -97,7 +97,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Aciklama</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
                         <textarea
                             value={gateway.description}
                             onChange={(event) => update({ description: event.target.value })}
@@ -127,8 +127,8 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                                 onChange={(event) => update({ environment: event.target.value as PaymentGatewayConfig["environment"] })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
                             >
-                                <option value="sandbox">Test Ortami</option>
-                                <option value="production">Canli Ortam</option>
+                                <option value="sandbox">Test Ortamı</option>
+                                <option value="production">Canlı Ortam</option>
                             </select>
                         </div>
                     </div>
@@ -141,7 +141,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                         <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
                             <Lock className="w-4 h-4 text-gray-600" />
                         </div>
-                        <h2 className="font-semibold text-gray-900">API ve Saglayici Ayarlari</h2>
+                        <h2 className="font-semibold text-gray-900">API ve Sağlayıcı Ayarları</h2>
                     </div>
                     <div className="p-6 space-y-6">
                         {definition.credentialFields.length > 0 && (
@@ -172,7 +172,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
 
                         {definition.configurationFields.length > 0 && (
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900">Saglayici Konfigurasyonu</h3>
+                                <h3 className="text-sm font-semibold text-gray-900">Sağlayıcı Konfigürasyonu</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {definition.configurationFields.map((field) => (
                                         <div key={field.key}>
@@ -226,11 +226,11 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                         <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
                             <Wallet className="w-4 h-4 text-gray-600" />
                         </div>
-                        <h2 className="font-semibold text-gray-900">Banka Hesabi</h2>
+                        <h2 className="font-semibold text-gray-900">Banka Hesabı</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Banka Adi</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Banka Adı</label>
                             <input
                                 type="text"
                                 value={gateway.bankAccount.bankName}
@@ -286,7 +286,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
             {gateway.gateway === "cod" && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                        <h2 className="font-semibold text-gray-900">Kapida Odeme Kurallari</h2>
+                        <h2 className="font-semibold text-gray-900">Kapıda Ödeme Kuralları</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -308,7 +308,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                             />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Uygulama Talimati</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Uygulama Talimatı</label>
                             <textarea
                                 rows={3}
                                 value={gateway.codSettings.instructions}

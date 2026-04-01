@@ -34,37 +34,37 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   },
   remove_from_cart: {
     icon: ShoppingCart,
-    label: "Sepetten cikarildi",
+    label: "Sepetten çıkarıldı",
     color: "text-rose-600",
     bgColor: "bg-rose-50",
   },
   view_product: {
     icon: Eye,
-    label: "Urun goruntulendi",
+    label: "Ürün görüntülendi",
     color: "text-gray-600",
     bgColor: "bg-gray-100",
   },
   checkout_start: {
     icon: CreditCard,
-    label: "Odeme basladi",
+    label: "Ödeme başladı",
     color: "text-violet-600",
     bgColor: "bg-violet-50",
   },
   checkout_step: {
     icon: CreditCard,
-    label: "Odeme adimi",
+    label: "Ödeme adımı",
     color: "text-violet-500",
     bgColor: "bg-violet-50",
   },
   purchase: {
     icon: CheckCircle,
-    label: "Satin alma",
+    label: "Satın alma",
     color: "text-emerald-600",
     bgColor: "bg-emerald-50",
   },
   search: {
     icon: Search,
-    label: "Arama yapildi",
+    label: "Arama yapıldı",
     color: "text-amber-600",
     bgColor: "bg-amber-50",
   },
@@ -93,7 +93,7 @@ function formatTimeAgo(dateString: string): string {
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diff < 60) return "simdi";
+  if (diff < 60) return "şimdi";
   if (diff < 3600) return `${Math.floor(diff / 60)}dk`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}sa`;
   return `${Math.floor(diff / 86400)}g`;
@@ -142,14 +142,14 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 text-white">
             <Zap className="h-4 w-4" />
           </div>
-          <h3 className="font-semibold text-gray-900">Anlik Aktivite</h3>
+          <h3 className="font-semibold text-gray-900">Anlık Aktivite</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
           </span>
-          <span className="text-xs font-medium text-amber-600">Canli</span>
+          <span className="text-xs font-medium text-amber-600">Canlı</span>
         </div>
       </div>
 
@@ -165,7 +165,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
-              Tumu
+              Tümü
             </button>
             {eventTypes.slice(0, 4).map((type) => {
               const config = EVENT_CONFIGS[type];
@@ -198,8 +198,8 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
             <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
               <TrendingUp className="h-8 w-8 text-gray-400" />
             </div>
-            <p className="text-gray-500">Henuz aktivite yok</p>
-            <p className="mt-1 text-xs text-gray-400">Kisa sure icinde burada gorunecek</p>
+            <p className="text-gray-500">Henüz aktivite yok</p>
+            <p className="mt-1 text-xs text-gray-400">Kısa süre içinde burada görünecek</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
@@ -264,7 +264,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
             </span>
             <div className="flex items-center gap-1.5 text-gray-500">
               <Filter className="h-3 w-3" />
-              <span>Otomatik guncelleniyor</span>
+              <span>Otomatik güncelleniyor</span>
             </div>
           </div>
         </div>

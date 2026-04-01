@@ -96,13 +96,13 @@ export default function OrdersPage() {
       }>("/api/orders", { timeoutMs: 12000 });
 
       if (!data.success) {
-        throw new Error("Siparisler yuklenemedi.");
+        throw new Error("Siparişler yüklenemedi.");
       }
 
       setOrders((data.orders || []).map(transformOrder));
     } catch (error) {
       console.error("Failed to load orders:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Siparisler yuklenemedi.");
+      setErrorMessage(error instanceof Error ? error.message : "Siparişler yüklenemedi.");
     } finally {
       setLoading(false);
     }

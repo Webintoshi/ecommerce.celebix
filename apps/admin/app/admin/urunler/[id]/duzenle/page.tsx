@@ -10,13 +10,13 @@ interface EditProductPageProps {
 export async function generateMetadata({ params }: EditProductPageProps) {
   const { id } = await params;
   return {
-    title: `Urun Duzenle | ${STORE_RUNTIME.name} Admin`,
+    title: `Ürün Düzenle | ${STORE_RUNTIME.name} Admin`,
     description: "Ürün düzenleme sayfası",
   };
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { id } = await params;
-  
+
   return <ProductWizard productId={id} />;
 }

@@ -33,7 +33,7 @@ function createPaytrTestToken(input: {
     const merchantOid = `test-${Date.now()}`;
     const email = STORE_RUNTIME.senderEmail;
     const paymentAmount = "100";
-    const userBasket = Buffer.from(JSON.stringify([["Test Urun", "1.00", 1]])).toString("base64");
+    const userBasket = Buffer.from(JSON.stringify([["Test Ürün", "1.00", 1]])).toString("base64");
     const userIp = "127.0.0.1";
     const noInstallment = "0";
     const maxInstallment = "1";
@@ -56,7 +56,7 @@ function createPaytrTestToken(input: {
         debug_on: "1",
         no_installment: noInstallment,
         max_installment: maxInstallment,
-        user_name: "Test Kullanici",
+        user_name: "Test Kullanıcı",
         user_address: "Test Adres",
         user_phone: "05555555555",
         merchant_ok_url: `${input.siteUrl}/odeme`,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     try {
         const auth = await getAdminAuthContext();
         if (!auth) {
-            return NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 });
+            return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
         }
 
         const body = await request.json();
@@ -100,17 +100,17 @@ export async function POST(request: NextRequest) {
 
         if (gateway.gateway === "bank_transfer") {
             const valid = Boolean(gateway.bankAccount.bankName && gateway.bankAccount.iban && gateway.bankAccount.accountHolder);
-            return NextResponse.json({ success: valid, message: valid ? "Banka bilgileri hazir." : "Banka bilgileri eksik." }, { status: valid ? 200 : 422 });
+            return NextResponse.json({ success: valid, message: valid ? "Banka bilgileri hazır." : "Banka bilgileri eksik." }, { status: valid ? 200 : 422 });
         }
 
         if (gateway.gateway === "cod") {
-            return NextResponse.json({ success: true, message: "Kapida odeme kurallari hazir." });
+            return NextResponse.json({ success: true, message: "Kapıda ödeme kuralları hazır." });
         }
 
         if (gateway.gateway === "stripe") {
             const stripe = new Stripe(gateway.credentials.secretKey, { apiVersion: "2025-02-24.acacia" });
             await stripe.balance.retrieve();
-            return NextResponse.json({ success: true, message: "Stripe API erisimi dogrulandi." });
+            return NextResponse.json({ success: true, message: "Stripe API erişimi doğrulandı." });
         }
 
         if (gateway.gateway === "iyzico") {
@@ -131,10 +131,10 @@ export async function POST(request: NextRequest) {
 
             const status = typeof result.status === "string" ? result.status.toLowerCase() : "failure";
             if (status !== "success") {
-                return NextResponse.json({ success: false, error: typeof result.errorMessage === "string" ? result.errorMessage : "iyzico dogrulamasi basarisiz." }, { status: 422 });
+                return NextResponse.json({ success: false, error: typeof result.errorMessage === "string" ? result.errorMessage : "iyzico doğrulaması başarısız." }, { status: 422 });
             }
 
-            return NextResponse.json({ success: true, message: "iyzico API erisimi dogrulandi." });
+            return NextResponse.json({ success: true, message: "iyzico API erişimi doğrulandı." });
         }
 
         if (gateway.gateway === "paytr") {
@@ -156,10 +156,10 @@ export async function POST(request: NextRequest) {
             const result = await response.json() as Record<string, unknown>;
             const status = typeof result.status === "string" ? result.status.toLowerCase() : "failed";
             if (status !== "success") {
-                return NextResponse.json({ success: false, error: typeof result.reason === "string" ? result.reason : "PAYTR dogrulamasi basarisiz." }, { status: 422 });
+                return NextResponse.json({ success: false, error: typeof result.reason === "string" ? result.reason : "PAYTR doğrulaması başarısız." }, { status: 422 });
             }
 
-            return NextResponse.json({ success: true, message: "PAYTR token uretimi dogrulandi." });
+            return NextResponse.json({ success: true, message: "PAYTR token üretimi doğrulandı." });
         }
 
         if (gateway.gateway === "paynet") {
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
                     name_surname: `${STORE_RUNTIME.name} Test`,
                     send_mail: false,
                     send_sms: false,
-                    note: "Baglanti testi",
+                    note: "Bağlantı testi",
                     reference_no: `test-${Date.now()}`,
                     succeed_url: `${getBaseUrl(request)}/odeme`,
                     error_url: `${getBaseUrl(request)}/odeme`,
@@ -189,10 +189,10 @@ export async function POST(request: NextRequest) {
             const code = typeof result.code === "number" ? result.code : Number(result.code);
 
             if (code !== 0 || typeof result.url !== "string") {
-                return NextResponse.json({ success: false, error: typeof result.message === "string" ? result.message : "Paynet dogrulamasi basarisiz." }, { status: 422 });
+                return NextResponse.json({ success: false, error: typeof result.message === "string" ? result.message : "Paynet doğrulaması başarısız." }, { status: 422 });
             }
 
-            return NextResponse.json({ success: true, message: "Paynet odeme linki olusturma erisimi dogrulandi." });
+            return NextResponse.json({ success: true, message: "Paynet ödeme linki oluşturma erişimi doğrulandı." });
         }
 
         if (gateway.gateway === "craftgate") {
@@ -218,16 +218,16 @@ export async function POST(request: NextRequest) {
             });
 
             if (!result.pageUrl || !result.token) {
-                return NextResponse.json({ success: false, error: "Craftgate checkout oturumu olusturulamadi." }, { status: 422 });
+                return NextResponse.json({ success: false, error: "Craftgate checkout oturumu oluşturulamadı." }, { status: 422 });
             }
 
-            return NextResponse.json({ success: true, message: "Craftgate checkout olusturma erisimi dogrulandi." });
+            return NextResponse.json({ success: true, message: "Craftgate checkout oluşturma erişimi doğrulandı." });
         }
 
-        return NextResponse.json({ success: false, error: "Bu saglayici icin gercek baglanti testi henuz tanimli degil." }, { status: 422 });
+        return NextResponse.json({ success: false, error: "Bu sağlayıcı için gerçek bağlantı testi henüz tanımlı değil." }, { status: 422 });
     } catch (error) {
         return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : "Baglanti testi basarisiz." },
+            { success: false, error: error instanceof Error ? error.message : "Bağlantı testi başarısız." },
             { status: 500 },
         );
     }

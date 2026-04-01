@@ -43,7 +43,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         id: "paytr",
         name: "PAYTR",
         shortName: "PAYTR",
-        description: "Sanal POS, link odeme ve 3D Secure akislari icin yaygin yerel odeme altyapisi.",
+        description: "Sanal POS, link ödeme ve 3D Secure akışları için yaygın yerel ödeme altyapısı.",
         category: "card_gateway",
         homepageUrl: "https://www.paytr.com",
         docsUrl: "https://www.paytr.com/entegrasyon",
@@ -52,19 +52,19 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         supportedCardTypes: ["Visa", "MasterCard", "Troy"],
         defaultCurrency: "TRY",
         credentialFields: [
-            { key: "merchantId", label: "Merchant ID", description: "PAYTR magaza numarasi.", placeholder: "123456", required: true },
+            { key: "merchantId", label: "Merchant ID", description: "PAYTR mağaza numarası.", placeholder: "123456", required: true },
             { key: "merchantKey", label: "Merchant Key", description: "PAYTR API key degeri.", placeholder: "merchant_key", required: true, secret: true, type: "password" },
             { key: "merchantSalt", label: "Merchant Salt", description: "Hash imzalari icin kullanilan salt.", placeholder: "merchant_salt", required: true, secret: true, type: "password" },
         ],
         configurationFields: [
-            { key: "callbackUrl", label: "Callback URL", description: "Odeme sonucu donus adresi.", type: "url", placeholder: `${STORE_RUNTIME.storefrontUrl}/api/payments/paytr/callback` },
+            { key: "callbackUrl", label: "Callback URL", description: "Ödeme sonucu dönüş adresi.", type: "url", placeholder: `${STORE_RUNTIME.storefrontUrl}/api/payments/paytr/callback` },
         ],
     },
     {
         id: "iyzico",
         name: "iyzico",
         shortName: "iyzico",
-        description: "Kart, taksit ve pazar yeri odeme akislari icin yaygin yerel saglayici.",
+        description: "Kart, taksit ve pazar yeri ödeme akışları için yaygın yerel sağlayıcı.",
         category: "card_gateway",
         homepageUrl: "https://www.iyzico.com",
         docsUrl: "https://docs.iyzico.com",
@@ -85,7 +85,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         id: "paynet",
         name: "Paynet",
         shortName: "Paynet",
-        description: "Ozellikle B2B tahsilat ve sanal POS senaryolarinda kullanilan yerel odeme platformu.",
+        description: "Özellikle B2B tahsilat ve sanal POS senaryolarında kullanılan yerel ödeme platformu.",
         category: "card_gateway",
         homepageUrl: "https://www.paynet.com.tr",
         docsUrl: "https://www.paynet.com.tr",
@@ -105,7 +105,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         id: "craftgate",
         name: "Craftgate",
         shortName: "Craftgate",
-        description: "Birden fazla bankayi ve odeme saglayicisini tek katmanda orkestre eden odeme orkestrasyonu.",
+        description: "Birden fazla bankayı ve ödeme sağlayıcısını tek katmanda orkestre eden ödeme orkestrasyonu.",
         category: "orchestration",
         homepageUrl: "https://www.craftgate.io",
         docsUrl: "https://developer.craftgate.io",
@@ -145,7 +145,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         id: "bank_transfer",
         name: "Banka Havalesi / EFT",
         shortName: "Havale",
-        description: "Banka hesabina manuel odeme kabul etmek icin kullanilir.",
+        description: "Banka hesabına manuel ödeme kabul etmek için kullanılır.",
         category: "bank_transfer",
         homepageUrl: STORE_RUNTIME.storefrontUrl,
         accentClassName: "from-green-600 to-emerald-500",
@@ -154,14 +154,14 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         defaultCurrency: "TRY",
         credentialFields: [],
         configurationFields: [
-            { key: "paymentNote", label: "Odeme Notu", description: "Musteriye gosterilecek aciklama.", placeholder: "Siparis numarasini aciklama alanina yaziniz." },
+            { key: "paymentNote", label: "Ödeme Notu", description: "Müşteriye gösterilecek açıklama.", placeholder: "Sipariş numarasını açıklama alanına yazınız." },
         ],
     },
     {
         id: "cod",
-        name: "Kapida Odeme",
+        name: "Kapıda Ödeme",
         shortName: "Kapida",
-        description: "Kargoda tahsilat veya teslimatta nakit odeme secenegi.",
+        description: "Kargoda tahsilat veya teslimatta nakit ödeme seçeneği.",
         category: "cash_on_delivery",
         homepageUrl: STORE_RUNTIME.storefrontUrl,
         accentClassName: "from-amber-700 to-orange-500",
@@ -170,7 +170,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         defaultCurrency: "TRY",
         credentialFields: [],
         configurationFields: [
-            { key: "extraFee", label: "Ek Ucret", description: "Kapida odeme servis bedeli.", placeholder: "0", type: "number", defaultValue: "0" },
+            { key: "extraFee", label: "Ek Ücret", description: "Kapıda ödeme servis bedeli.", placeholder: "0", type: "number", defaultValue: "0" },
         ],
     },
 ];
@@ -322,8 +322,8 @@ export function getPaymentGatewayRuntimeStatus(gateway: PaymentGatewayConfig): P
     if (!isRuntimeReadyPaymentGateway(gateway.gateway)) {
         return {
             isReady: false,
-            label: "Konfigurasyon Hazir",
-            message: "API bilgileri kaydedilir ancak canli odeme icin payment init, callback/webhook ve runtime tablolarinin tamamlanmasi gerekir.",
+            label: "Konfigürasyon Hazır",
+            message: "API bilgileri kaydedilir ancak canlı ödeme için payment init, callback/webhook ve runtime tablolarının tamamlanması gerekir.",
         };
     }
 
@@ -338,7 +338,7 @@ export function getPaymentGatewayRuntimeStatus(gateway: PaymentGatewayConfig): P
             return {
                 isReady: false,
                 label: "Eksik Bilgi",
-                message: "Banka adi, IBAN ve hesap sahibi bilgileri olmadan havale yontemi checkout'ta kullanilamaz.",
+                message: "Banka adı, IBAN ve hesap sahibi bilgileri olmadan havale yöntemi checkout'ta kullanılamaz.",
             };
         }
     }
@@ -347,13 +347,13 @@ export function getPaymentGatewayRuntimeStatus(gateway: PaymentGatewayConfig): P
         return {
             isReady: false,
             label: "Eksik Bilgi",
-            message: "Zorunlu API veya saglayici alanlari tamamlanmadan bu odeme yontemi checkout'ta kullanilamaz.",
+            message: "Zorunlu API veya sağlayıcı alanları tamamlanmadan bu ödeme yöntemi checkout'ta kullanılamaz.",
         };
     }
 
     return {
         isReady: true,
-        label: "Canliya Hazir",
-        message: "Bu odeme yontemi mevcut checkout akisinda kullanilabilir.",
+        label: "Canlıya Hazır",
+        message: "Bu ödeme yöntemi mevcut checkout akışında kullanılabilir.",
     };
 }

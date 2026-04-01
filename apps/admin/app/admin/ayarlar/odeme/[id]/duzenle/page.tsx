@@ -115,11 +115,11 @@ export default function EditPaymentGatewayPage() {
                         className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all text-sm font-medium"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        Geri Don
+                        Geri Dön
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Odeme Altyapisini Duzenle</h1>
-                        <p className="text-sm text-gray-500 mt-1">{gateway.name} kaydini guncelleyin.</p>
+                        <h1 className="text-2xl font-bold text-gray-900">Ödeme Altyapısını Düzenle</h1>
+                        <p className="text-sm text-gray-500 mt-1">{gateway.name} kaydını güncelleyin.</p>
                     </div>
                 </div>
 
@@ -130,7 +130,7 @@ export default function EditPaymentGatewayPage() {
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50 text-sm font-medium"
                     >
                         {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <TriangleAlert className="w-4 h-4" />}
-                        {testing ? "Test ediliyor..." : "Baglantiyi Test Et"}
+                        {testing ? "Test ediliyor..." : "Bağlantıyı Test Et"}
                     </button>
                     <button
                         onClick={handleSave}
@@ -149,7 +149,7 @@ export default function EditPaymentGatewayPage() {
                     : "bg-red-50 border border-red-200 text-red-700"
                     }`}>
                     {testResult ? <CheckCircle className="w-5 h-5" /> : <TriangleAlert className="w-5 h-5" />}
-                    {testResult ? "Saglayici baglanti testi basarili." : "Saglayici baglanti testi basarisiz."}
+                    {testResult ? "Sağlayıcı bağlantı testi başarılı." : "Sağlayıcı bağlantı testi başarısız."}
                 </div>
             )}
 
@@ -158,10 +158,10 @@ export default function EditPaymentGatewayPage() {
 
                 <aside className="space-y-6">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h3 className="font-semibold text-gray-900 mb-4">Saglayici Ozet</h3>
+                        <h3 className="font-semibold text-gray-900 mb-4">Sağlayıcı Özet</h3>
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between gap-4">
-                                <span className="text-gray-500">Saglayici</span>
+                                <span className="text-gray-500">Sağlayıcı</span>
                                 <span className="font-medium text-gray-900">{provider.name}</span>
                             </div>
                             <div className="flex justify-between gap-4">
@@ -197,25 +197,25 @@ export default function EditPaymentGatewayPage() {
                         <h3 className="font-semibold text-gray-900 mb-4">Kayit Bilgisi</h3>
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between gap-4">
-                                <span className="text-gray-500">Olusturulma</span>
+                                <span className="text-gray-500">Oluşturulma</span>
                                 <span className="font-medium text-gray-900">{format(new Date(gateway.createdAt), "dd MMM yyyy", { locale: tr })}</span>
                             </div>
                             <div className="flex justify-between gap-4">
-                                <span className="text-gray-500">Son Guncelleme</span>
+                                <span className="text-gray-500">Son Güncelleme</span>
                                 <span className="font-medium text-gray-900">{format(new Date(gateway.updatedAt), "dd MMM yyyy", { locale: tr })}</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h3 className="font-semibold text-gray-900 mb-4">Dis Baglantilar</h3>
+                        <h3 className="font-semibold text-gray-900 mb-4">Dış Bağlantılar</h3>
                         <div className="flex flex-col gap-3">
                             <a href={provider.homepageUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 Web Sitesi
                             </a>
                             {provider.docsUrl && (
                                 <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-lg bg-gray-900 text-sm font-medium text-white hover:bg-gray-800">
-                                    Dokumantasyon
+                                    Dokümantasyon
                                 </a>
                             )}
                         </div>

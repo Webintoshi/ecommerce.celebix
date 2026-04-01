@@ -106,7 +106,7 @@ export async function getAdminDashboardBootstrapData(): Promise<DashboardBootstr
         firstName:
           order.shipping_address?.firstName ||
           order.shipping_address?.first_name ||
-          "Musteri",
+          "Müşteri",
         lastName:
           order.shipping_address?.lastName ||
           order.shipping_address?.last_name ||

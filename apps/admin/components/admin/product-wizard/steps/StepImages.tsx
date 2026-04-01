@@ -100,14 +100,14 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         return {
           success: false as const,
           fileName: file.name,
-          error: result?.error || "Gorsel yuklenemedi.",
+          error: result?.error || "Görsel yüklenemedi.",
         };
       } catch (error) {
         console.error('Upload error:', error);
         return {
           success: false as const,
           fileName: file.name,
-          error: error instanceof Error ? error.message : "Gorsel yuklenirken hata olustu.",
+          error: error instanceof Error ? error.message : "Görsel yüklenirken hata oluştu.",
         };
       }
     });

@@ -9,7 +9,7 @@ const BASE_URL =
 const MAX_FUNCTION_CALLS = 3;
 
 // ─── System Prompt ───────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `Sen Toshi'sin. ${STORE_RUNTIME.name} icin calisan akilli admin asistani olarak gorev yapiyorsun.
+const SYSTEM_PROMPT = `Sen Toshi'sin. ${STORE_RUNTIME.name} için çalışan akıllı admin asistanı olarak görev yapıyorsun.
 
 Sen her zaman Türkçe yanıt verirsin. Kullanıcı sana İngilizce yazsa bile Türkçe yanıtlarsın.
 
@@ -28,7 +28,7 @@ Sen her zaman Türkçe yanıt verirsin. Kullanıcı sana İngilizce yazsa bile T
 - Türkçe birim kullan (₺, adet, %)
 - Kısa ve öz yanıtlar ver
 - Önemli bilgileri **kalın** yaz
-- Kendini "Toshi" olarak tanit ve magaza adini gerektiginde ${STORE_RUNTIME.name} olarak kullan`;
+- Kendini "Toshi" olarak tanıt ve mağaza adını gerektiğinde ${STORE_RUNTIME.name} olarak kullan`;
 
 // ─── Function Declarations ───────────────────────────────────────────────────
 const FUNCTION_DECLARATIONS = [
