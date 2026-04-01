@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -27,6 +28,8 @@ import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
 import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
+
+const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
 
 interface MenuItem {
   title: string;
@@ -249,8 +252,16 @@ export function AdminSidebar({
         )}
       >
         <div className="p-4 flex items-center gap-3 border-b border-gray-200/50">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm">
-            {userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || "A"}
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+            <Image
+              src={ADMIN_BRAND_LOGO_SRC}
+              alt="Celebi X"
+              width={40}
+              height={40}
+              className="h-full w-full object-contain p-1.5"
+              priority
+              unoptimized
+            />
           </div>
           <div className="min-w-0 flex-1">
             <span className="font-semibold text-gray-900 block leading-tight text-sm">{STORE_RUNTIME.name} Admin</span>
