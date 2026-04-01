@@ -285,7 +285,13 @@ function StatCard({
   );
 }
 
-function DashboardHeader({ onRefresh }: { onRefresh: () => void }) {
+function DashboardHeader({
+  onRefresh,
+  isRefreshing,
+}: {
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
   const greeting = useMemo(() => getGreeting(), []);
   const date = useMemo(() => formatDateTR(), []);
 
@@ -314,7 +320,7 @@ function DashboardHeader({ onRefresh }: { onRefresh: () => void }) {
           onClick={onRefresh}
           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-gray-600 shadow-sm ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 active:scale-95"
         >
-          <RefreshCw className="h-5 w-5" />
+          <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
         </button>
 
         <Link
@@ -631,10 +637,23 @@ export default function AdminDashboard() {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = async ({ showSkeleton = false }: { showSkeleton?: boolean } = {}) => {
+    let unblockTimer: number | null = null;
+
     try {
-      setLoading(true);
+      if (showSkeleton) {
+        setLoading(true);
+        unblockTimer = window.setTimeout(() => {
+          setLoading(false);
+        }, 1800);
+      } else {
+        setIsRefreshing(true);
+      }
+
+      setErrorMessage("");
       const [productsResult, ordersResult] = await Promise.allSettled([
         fetchJsonWithTimeout<{ products?: LowStockProduct[] }>("/api/products", 10000),
         fetchJsonWithTimeout<{ orders?: RecentOrder[] }>("/api/orders", 10000),
@@ -667,13 +686,18 @@ export default function AdminDashboard() {
       setLowStockProducts(lowStock.slice(0, 5));
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
+      setErrorMessage("Panel verileri su anda gec geliyor. Sayfa acik kaldi, tekrar deneyebilirsiniz.");
     } finally {
+      if (unblockTimer !== null) {
+        window.clearTimeout(unblockTimer);
+      }
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData({ showSkeleton: true });
   }, []);
 
   if (loading) {
@@ -689,7 +713,16 @@ export default function AdminDashboard() {
       <div className="p-6 md:p-8">
         <div className="mx-auto max-w-[1600px] space-y-8">
           {/* Header */}
-          <DashboardHeader onRefresh={fetchData} />
+          <DashboardHeader
+            onRefresh={() => void fetchData()}
+            isRefreshing={isRefreshing}
+          />
+
+          {errorMessage ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              {errorMessage}
+            </div>
+          ) : null}
 
           {/* Quick Actions */}
           <QuickActions />

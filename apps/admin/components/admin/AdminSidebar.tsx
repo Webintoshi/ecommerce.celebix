@@ -192,32 +192,37 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
       setLoading(true);
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 8000);
+        let response: Response;
+
+        try {
+          response = await fetch("/api/admin/me", {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(timeout);
+        }
 
         if (!mounted) {
           return;
         }
 
-        if (!user) {
+        if (response.status === 401) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const result = await response.json().catch(() => null);
+        const profile = result?.success ? result.profile : null;
+
+        if (!profile) {
           setUserEmail(undefined);
           setUserName("Admin Kullanici");
           setRole("super_admin");
           return;
         }
-
-        setUserEmail(user.email || undefined);
-
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 8000);
-        const response = await fetch("/api/admin/me", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        window.clearTimeout(timeout);
-        const result = await response.json().catch(() => null);
-        const profile = result?.success ? result.profile : null;
 
         const resolvedRole: UserRole =
           profile?.role === "super_admin" ||
@@ -228,10 +233,12 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
             : "super_admin";
 
         setRole(resolvedRole);
-        setUserName(profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin Kullanici");
+        setUserEmail(profile.email || undefined);
+        setUserName(profile?.full_name || profile.email?.split("@")[0] || "Admin Kullanici");
       } catch (error) {
         console.error("AdminSidebar auth load error:", error);
         if (mounted) {
+          setUserEmail(undefined);
           setUserName("Admin Kullanici");
           setRole("super_admin");
         }
@@ -242,19 +249,12 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
       }
     };
 
-    loadAdminProfile();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadAdminProfile();
-    });
+    void loadAdminProfile();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [router]);
 
   const filteredItems = useMemo(() => {
     return MENU_ITEMS.filter((item) => {
@@ -293,16 +293,12 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
       >
         <div className="p-4 flex items-center gap-3 border-b border-gray-200/50">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm">
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || "A"
-            )}
+            {userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || "A"}
           </div>
           <div className="min-w-0 flex-1">
             <span className="font-semibold text-gray-900 block leading-tight text-sm">{STORE_RUNTIME.name} Admin</span>
             <span className="text-xs text-gray-500 font-medium truncate block">
-              {loading ? "Oturum açılıyor..." : userName || userEmail || "Admin Kullanıcı"}
+              {userName || userEmail || "Admin Kullanıcı"}
             </span>
           </div>
         </div>
