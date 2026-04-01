@@ -24,6 +24,7 @@ import {
   exportCustomersToCSV as exportCustomerRecordsToCSV,
   parseImportedCustomers as parseCustomerImportRows,
 } from "@/lib/customer-csv";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 type ImportedCustomerRow = {
   firstName: string;
@@ -311,10 +312,19 @@ function downloadCsv(filename: string, content: string) {
   window.URL.revokeObjectURL(url);
 }
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(false);
+type CustomersPageClientProps = {
+  initialCustomers?: Customer[];
+  initialError?: string;
+};
+
+export default function CustomersPage({
+  initialCustomers = [],
+  initialError = "",
+}: CustomersPageClientProps) {
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [loading, setLoading] = useState(initialCustomers.length === 0);
   const [importing, setImporting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(initialError);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
@@ -322,18 +332,24 @@ export default function CustomersPage() {
 
   const loadCustomers = async () => {
     setLoading(true);
+    setErrorMessage("");
 
     try {
-      const response = await fetch("/api/customers", { cache: "no-store" });
-      const data = await response.json();
+      const response = await fetchAdminJson<{
+        success: boolean;
+        customers: Record<string, unknown>[];
+      }>("/api/customers", { timeoutMs: 12000 });
+      const data = response as { error?: string };
 
-      if (!response.ok || !data.success) {
+      if (!response.success) {
         throw new Error(data.error || "Müşteriler yüklenemedi.");
       }
 
-      setCustomers((data.customers || []).map(transformCustomer));
+      setCustomers((response.customers || []).map(transformCustomer));
     } catch (error) {
       console.error("Failed to load customers:", error);
+      const message = error instanceof Error ? error.message : "Musteriler yuklenemedi.";
+      setErrorMessage(message);
       toast.error(error instanceof Error ? error.message : "Müşteriler yüklenemedi.");
     } finally {
       setLoading(false);
@@ -341,8 +357,10 @@ export default function CustomersPage() {
   };
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    if (initialCustomers.length === 0) {
+      void loadCustomers();
+    }
+  }, [initialCustomers.length]);
 
   const metrics = useMemo(
     () => ({
@@ -647,6 +665,12 @@ export default function CustomersPage() {
           </Link>
         </div>
       </div>
+
+      {errorMessage ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          {errorMessage}
+        </div>
+      ) : null}
 
       {false && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

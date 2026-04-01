@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Info, Loader2, Shield } from "lucide-react";
 import { getRoleLabel, type UserRole } from "@/lib/permissions";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 interface AdminUser {
   id: string;
@@ -20,10 +21,13 @@ export default function AdminsPage() {
   useEffect(() => {
     const loadAdmins = async () => {
       try {
-        const res = await fetch("/api/admin/users", { cache: "no-store" });
-        const data = await res.json();
+        const data = await fetchAdminJson<{
+          success: boolean;
+          admins: AdminUser[];
+          error?: string;
+        }>("/api/admin/users", { timeoutMs: 12000 });
 
-        if (!res.ok || !data.success) {
+        if (!data.success) {
           throw new Error(data.error || "Yoneticiler yuklenemedi.");
         }
 

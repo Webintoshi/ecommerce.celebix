@@ -164,7 +164,7 @@ export function AdminSidebar({
   const supabase = getBrowserSupabaseClient();
   const userEmail = initialProfile?.email;
   const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
-  const role: UserRole = initialProfile?.role || "super_admin";
+  const role: UserRole | null = initialProfile?.role || null;
 
   useEffect(() => {
     const checkMobile = () => {
@@ -192,6 +192,10 @@ export function AdminSidebar({
   }, [pathname]);
 
   const filteredItems = useMemo(() => {
+    if (!role) {
+      return [];
+    }
+
     return MENU_ITEMS.filter((item) => {
       if (!hasPermission(role, item.href)) return false;
       if (item.permission && !hasActionPermission(role, item.permission)) return false;
@@ -255,6 +259,12 @@ export function AdminSidebar({
             </span>
           </div>
         </div>
+
+        {!role ? (
+          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+            Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
+          </div>
+        ) : null}
 
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {filteredItems.map((item) => {

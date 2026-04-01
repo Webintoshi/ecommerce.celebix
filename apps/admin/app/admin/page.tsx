@@ -1,6 +1,7 @@
 import AdminDashboardClient from "./AdminDashboardClient";
 import { getAdminDashboardBootstrapData } from "@/lib/admin-dashboard";
 import type { DashboardBootstrapData } from "@/lib/admin-data-types";
+import { withServerTimeout } from "@/lib/server-timeout";
 
 function getEmptyDashboardData(): DashboardBootstrapData {
   return {
@@ -36,7 +37,11 @@ function getEmptyDashboardData(): DashboardBootstrapData {
 
 export default async function AdminDashboardPage() {
   try {
-    const initialData = await getAdminDashboardBootstrapData();
+    const initialData = await withServerTimeout(
+      getAdminDashboardBootstrapData(),
+      7000,
+      "Dashboard ilk acilista zaman asimina ugradi."
+    );
     return <AdminDashboardClient initialData={initialData} />;
   } catch (error) {
     console.error("Admin dashboard page bootstrap error:", error);

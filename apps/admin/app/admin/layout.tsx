@@ -1,4 +1,5 @@
 import { getAdminAuthContext } from "@/lib/admin-auth";
+import { withServerTimeout } from "@/lib/server-timeout";
 import AdminLayoutClient from "./AdminLayoutClient";
 
 export default async function AdminLayout({
@@ -6,7 +7,18 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const auth = await getAdminAuthContext();
+  let auth = null;
+
+  try {
+    auth = await withServerTimeout(
+      getAdminAuthContext(),
+      5000,
+      "Admin profil yuklemesi zaman asimina ugradi."
+    );
+  } catch (error) {
+    console.error("Admin layout auth bootstrap error:", error);
+  }
+
   const initialProfile = auth
     ? {
         email: auth.profile.email,

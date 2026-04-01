@@ -30,6 +30,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buildStorefrontProductUrl } from "@/lib/store-runtime";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 const CATEGORY_BADGE_STYLES = [
   { value: "all", label: "Tümü", color: "bg-gray-100 text-gray-700" },
@@ -132,8 +133,14 @@ export default function ProductsPageClient({
         page: page.toString(),
         limit: pagination.limit.toString(),
       });
-      const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
+
+      const data = await fetchAdminJson<{
+        success: boolean;
+        products?: Record<string, unknown>[];
+        pagination?: AdminPaginationMeta;
+        error?: string;
+      }>(`/api/products?${params}`, { timeoutMs: 12000 });
+
       if (data.success && data.products) {
         setProducts(data.products.map(transformProduct));
         if (data.pagination) {

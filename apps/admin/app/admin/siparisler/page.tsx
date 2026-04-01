@@ -21,6 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 function transformOrder(dbOrder: Record<string, unknown>): Order {
   return {
@@ -77,6 +78,7 @@ const sortOptions: { value: SortOption; label: string }[] = [
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
@@ -86,14 +88,21 @@ export default function OrdersPage() {
 
   const loadOrders = async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
-      const res = await fetch("/api/orders");
-      const data = await res.json();
-      if (data.success && data.orders) {
-        setOrders(data.orders.map(transformOrder));
+      const data = await fetchAdminJson<{
+        success: boolean;
+        orders: Record<string, unknown>[];
+      }>("/api/orders", { timeoutMs: 12000 });
+
+      if (!data.success) {
+        throw new Error("Siparisler yuklenemedi.");
       }
+
+      setOrders((data.orders || []).map(transformOrder));
     } catch (error) {
       console.error("Failed to load orders:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Siparisler yuklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -229,6 +238,12 @@ export default function OrdersPage() {
           </button>
         </div>
       </div>
+
+      {errorMessage ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          {errorMessage}
+        </div>
+      ) : null}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
