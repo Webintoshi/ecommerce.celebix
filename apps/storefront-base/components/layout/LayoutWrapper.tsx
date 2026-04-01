@@ -8,11 +8,12 @@ import { CartWrapper } from "@/components/cart/CartWrapper";
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const shouldHideHeader = pathname === "/giris";
 
   return (
     <>
       <div className="flex min-h-screen flex-col">
-        {!isAdmin && <Header />}
+        {!isAdmin && !shouldHideHeader && <Header />}
         <main className={isAdmin ? "" : "flex-1"}>{children}</main>
         {!isAdmin && <Footer />}
       </div>
