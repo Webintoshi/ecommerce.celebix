@@ -31,6 +31,14 @@ function getMissingTableColumn(error: unknown, tableName: string): string | null
   return relationMatch?.[1] ?? null;
 }
 
+function hasBlankErrorMessage(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("message" in error)) {
+    return false;
+  }
+
+  return String(error.message ?? "").trim().length === 0;
+}
+
 export function isMissingProductsIsActiveColumn(error: unknown): boolean {
   return getMissingTableColumn(error, "products") === "is_active";
 }
@@ -40,14 +48,19 @@ export async function runProductsQuery<T>(
 ): Promise<QueryResult<T> & { usedLegacySchema: boolean }> {
   const initialResult = await buildQuery(true);
 
-  if (!isMissingProductsIsActiveColumn(initialResult.error)) {
+  const shouldRetryWithoutActiveFilter =
+    isMissingProductsIsActiveColumn(initialResult.error) || hasBlankErrorMessage(initialResult.error);
+
+  if (!shouldRetryWithoutActiveFilter) {
     return {
       ...initialResult,
       usedLegacySchema: false,
     };
   }
 
-  console.warn("products.is_active column missing; retrying product query without active filter.");
+  console.warn(
+    "products.is_active filter failed; retrying product query without active filter for legacy schema compatibility."
+  );
 
   const fallbackResult = await buildQuery(false);
   return {
