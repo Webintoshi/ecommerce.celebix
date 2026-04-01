@@ -61,7 +61,7 @@ export default function IletisimPage() {
         <div className="container-premium relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <motion.span
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               className="inline-flex items-center gap-3 text-[#8A6B37] text-xs font-medium tracking-[0.3em] uppercase mb-6"
             >
@@ -70,7 +70,7 @@ export default function IletisimPage() {
               <span className="w-8 h-px bg-[#8A6B37]" />
             </motion.span>
             <motion.h1
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               className="font-serif text-4xl md:text-5xl lg:text-6xl text-white mb-6"
@@ -78,7 +78,7 @@ export default function IletisimPage() {
               Bize Ulaşın
             </motion.h1>
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               className="text-white/60 text-lg max-w-2xl mx-auto"
@@ -96,7 +96,7 @@ export default function IletisimPage() {
           <div className="grid lg:grid-cols-2 gap-16 lg:gap-24">
             {/* Contact Info */}
             <motion.div
-              initial={{ opacity: 0, x: -30 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
@@ -109,7 +109,7 @@ export default function IletisimPage() {
                 {contactInfo.map((item, index) => (
                   <motion.div
                     key={item.title}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: index * 0.1 }}
@@ -163,7 +163,7 @@ export default function IletisimPage() {
 
             {/* Contact Form */}
             <motion.div
-              initial={{ opacity: 0, x: 30 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
@@ -178,7 +178,7 @@ export default function IletisimPage() {
 
               {isSubmitted ? (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={false}
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-12"
                 >

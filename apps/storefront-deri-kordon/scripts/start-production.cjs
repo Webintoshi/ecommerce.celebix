@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { prepareNextStandalone } = require("../../../scripts/prepare-next-standalone.cjs");
 
 const appRoot = path.join(__dirname, "..");
 const port = process.env.PORT || "3400";
@@ -16,6 +17,7 @@ const standaloneCandidates = [
   path.join(appRoot, ".next", "standalone", "server.js"),
 ];
 const standaloneServer = standaloneCandidates.find((candidate) => fs.existsSync(candidate));
+prepareNextStandalone(appRoot, standaloneServer);
 
 const fallbackNextBin = path.join(
   appRoot,

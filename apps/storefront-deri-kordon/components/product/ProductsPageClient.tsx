@@ -59,7 +59,6 @@ function parseFiltersFromParams(searchParams: URLSearchParams): {
 
 function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageClientProps) {
   const searchParams = useSearchParams();
-  const [isInitialized, setIsInitialized] = React.useState(false);
   const [showMobileFilters, setShowMobileFilters] = React.useState(false);
 
   const initialState = React.useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
@@ -68,10 +67,6 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
   const [sortOption, setSortOption] = React.useState<ProductSortOption>(initialState.sort);
   const [filters, setFilters] = React.useState<FilterState>(initialState.filters);
   const [currentPage, setCurrentPage] = React.useState(initialState.page);
-
-  React.useEffect(() => {
-    setIsInitialized(true);
-  }, []);
 
   React.useEffect(() => {
     setSearchQuery(initialState.search);
@@ -179,10 +174,6 @@ function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageCl
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  if (!isInitialized) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-[#F8F8F8F8]">

@@ -61,7 +61,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
@@ -72,7 +72,7 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl shadow-xl p-8"
@@ -188,7 +188,7 @@ export default function LoginPage() {
 
         {/* Back to Home */}
         <motion.div 
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
           className="mt-6 text-center"
