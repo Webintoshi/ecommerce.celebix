@@ -189,6 +189,8 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
     let mounted = true;
 
     const loadAdminProfile = async () => {
+      setLoading(true);
+
       try {
         const {
           data: { user },
@@ -207,7 +209,13 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
 
         setUserEmail(user.email || undefined);
 
-        const response = await fetch("/api/admin/me", { cache: "no-store" });
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 8000);
+        const response = await fetch("/api/admin/me", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        window.clearTimeout(timeout);
         const result = await response.json().catch(() => null);
         const profile = result?.success ? result.profile : null;
 

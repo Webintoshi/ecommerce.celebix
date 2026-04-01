@@ -3,6 +3,7 @@ import { deriveCategoryHierarchyFromProduct, ensureProductCategoryHierarchy } fr
 import { deleteProduct } from "@/lib/db/products";
 import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 import {
     diffProductTags,
     syncProductTagSuggestions,
@@ -133,6 +134,97 @@ function stripUnsupportedTableColumn<T extends Record<string, unknown>>(
     return nextPayload;
 }
 
+function normalizeAssetUrl(value: unknown): string | null {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = resolveAdminAssetUrl(value);
+    return normalized || value;
+}
+
+function normalizeImageArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value
+        .map((item) => normalizeAssetUrl(item))
+        .filter((item): item is string => Boolean(item));
+}
+
+function normalizeImagesV2(value: unknown): unknown[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.map((item) => {
+        if (!item || typeof item !== "object") {
+            return item;
+        }
+
+        const record = item as Record<string, unknown>;
+        return {
+            ...record,
+            url: normalizeAssetUrl(record.url) || record.url,
+        };
+    });
+}
+
+function normalizeVariantAttributes(value: unknown): unknown[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.map((item) => {
+        if (!item || typeof item !== "object") {
+            return item;
+        }
+
+        const record = item as Record<string, unknown>;
+        return {
+            ...record,
+            image_url: normalizeAssetUrl(record.image_url),
+        };
+    });
+}
+
+function normalizeVariantRecord(value: unknown) {
+    if (!value || typeof value !== "object") {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    return {
+        ...record,
+        images: normalizeImageArray(record.images),
+        attributes: normalizeVariantAttributes(record.attributes),
+    };
+}
+
+function normalizeProductRecord(value: unknown) {
+    if (!value || typeof value !== "object") {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    return {
+        ...record,
+        images: normalizeImageArray(record.images),
+        images_v2: normalizeImagesV2(record.images_v2),
+        og_image: normalizeAssetUrl(record.og_image),
+        variants: Array.isArray(record.variants) ? record.variants.map(normalizeVariantRecord) : record.variants,
+    };
+}
+
+function normalizeProductsPayload(value: unknown) {
+    if (Array.isArray(value)) {
+        return value.map(normalizeProductRecord);
+    }
+
+    return normalizeProductRecord(value);
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
@@ -159,7 +251,7 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            return NextResponse.json({ success: true, product: data });
+            return NextResponse.json({ success: true, product: normalizeProductsPayload(data) });
         } else if (slug) {
             // Fetch single product by slug from Supabase
             const { createServerClient } = await import("@/lib/supabase");
@@ -177,7 +269,7 @@ export async function GET(request: NextRequest) {
                     error: error?.message || "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: data[0] });
+            return NextResponse.json({ success: true, product: normalizeProductsPayload(data[0]) });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
@@ -220,7 +312,7 @@ export async function GET(request: NextRequest) {
             if (error) throw error;
             return NextResponse.json({
                 success: true,
-                products: data || [],
+                products: normalizeProductsPayload(data || []),
                 pagination: {
                     page,
                     limit,
@@ -269,7 +361,7 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        return NextResponse.json({ success: true, products });
+        return NextResponse.json({ success: true, products: normalizeProductsPayload(products) });
     } catch (error) {
         console.error("Error fetching products:", error);
         return NextResponse.json(
@@ -598,7 +690,7 @@ export async function POST(request: NextRequest) {
             logMarketplaceQueueError(error, "create");
         }
 
-        return NextResponse.json({ success: true, product: fullProduct });
+        return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
     } catch (error: unknown) {
         console.error("Error creating product:", error);
         console.error("Error details:", error?.details, error?.message, error?.code);
@@ -1098,7 +1190,7 @@ export async function PUT(request: NextRequest) {
             logMarketplaceQueueError(error, "update");
         }
 
-        return NextResponse.json({ success: true, product: fullProduct });
+        return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
     } catch (error) {
         console.error("Error updating product:", error);
         return NextResponse.json(

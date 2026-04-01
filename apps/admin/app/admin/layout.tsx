@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Home, Menu, RotateCw } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -27,50 +24,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (pathname === "/admin/login") {
-      setIsAuthenticated(true);
       return;
     }
-
-    let mounted = true;
-
-    const resolveUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!mounted) {
-        return;
-      }
-
-      setIsAuthenticated(Boolean(user));
-
-      if (!user) {
-        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
-      }
-    };
-
-    resolveUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) {
-        return;
-      }
-
-      const authenticated = Boolean(session?.user);
-      setIsAuthenticated(authenticated);
-
-      if (!authenticated && pathname !== "/admin/login") {
-        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [pathname, router, supabase]);
+  }, [pathname]);
 
   const handleBack = () => {
     router.back();
@@ -86,21 +42,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (pathname === "/admin/login") {
     return <>{children}</>;
-  }
-
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Yukleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (

@@ -62,6 +62,26 @@ interface StatConfig {
   href: string;
 }
 
+async function fetchJsonWithTimeout<T>(input: string, timeoutMs: number): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(input, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`${input} istegi basarisiz oldu`);
+    }
+
+    return await response.json();
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 // ───────────────────────────────────────────────────────────────
 // Design Tokens & Constants
 // ───────────────────────────────────────────────────────────────
@@ -615,16 +635,15 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch products
-      const productsRes = await fetch("/api/products");
-      const productsData = await productsRes.json();
-      const products = productsData.products || [];
+      const [productsResult, ordersResult] = await Promise.allSettled([
+        fetchJsonWithTimeout<{ products?: LowStockProduct[] }>("/api/products", 10000),
+        fetchJsonWithTimeout<{ orders?: RecentOrder[] }>("/api/orders", 10000),
+      ]);
 
-      // Fetch orders
-      const ordersRes = await fetch("/api/orders");
-      const ordersData = await ordersRes.json();
-      const orders = ordersData.orders || [];
+      const products =
+        productsResult.status === "fulfilled" ? productsResult.value.products || [] : [];
+      const orders =
+        ordersResult.status === "fulfilled" ? ordersResult.value.orders || [] : [];
 
       // Calculate stats
       const deliveredOrders = orders.filter((o: { status: string }) => o.status === "delivered");

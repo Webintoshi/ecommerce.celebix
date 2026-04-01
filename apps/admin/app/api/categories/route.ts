@@ -3,6 +3,7 @@ import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
 import { deleteCategoryHierarchy } from "@/lib/category-records";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 // ============================================================================
 // CONFIGURATION
@@ -66,6 +67,7 @@ function createSuccessResponse(
   status: number = 200,
   cache: boolean = true
 ): NextResponse<CategoryApiResponse> {
+  const normalizedData = normalizeCategoryPayload(data);
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
   };
@@ -77,9 +79,31 @@ function createSuccessResponse(
   }
 
   return NextResponse.json(
-    { success: true, ...data },
+    { success: true, ...normalizedData },
     { status, headers }
   );
+}
+
+function normalizeCategoryRecord(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    ...record,
+    image: resolveAdminAssetUrl(typeof record.image === "string" ? record.image : null) || record.image || null,
+  };
+}
+
+function normalizeCategoryPayload(data: Partial<CategoryApiResponse>): Partial<CategoryApiResponse> {
+  return {
+    ...data,
+    category: data.category ? normalizeCategoryRecord(data.category) as CategoryApiResponse["category"] : data.category,
+    categories: Array.isArray(data.categories)
+      ? data.categories.map((category) => normalizeCategoryRecord(category)) as CategoryApiResponse["categories"]
+      : data.categories,
+  };
 }
 
 // ============================================================================
