@@ -12,6 +12,8 @@ export type BulkImportProvider =
   | "wix"
   | "generic";
 
+import { buildGeneratedSku } from "@/lib/sku";
+
 type ParsedProductStatus = "draft" | "published" | "archived" | "scheduled";
 
 export interface ParsedProductImage {
@@ -689,7 +691,7 @@ export function parseBulkProductsFromCsv(csvContent: string, providerId: BulkImp
     const skuRaw = getField(row, indexes.sku);
 
     const dietarySource = `${name} ${description} ${tags.join(" ")}`.toLowerCase();
-    const variantSku = skuRaw || `EZM-${draftKey.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16)}-${rowIndex}`;
+    const variantSku = skuRaw || buildGeneratedSku({ context: `${draftKey}-${rowIndex}`, index: rowIndex });
     const normalizedVariantName = variantName || (weight > 0 ? `${Math.round(weight)} G` : "Standart");
 
     if (!name && !slugInput && !price && !variantName) {
@@ -1701,7 +1703,7 @@ function dedupeVariants(variants: ParsedVariant[]): ParsedVariant[] {
     if (!existing) {
       merged.set(key, {
         ...variant,
-        sku: variant.sku || `EZM-VAR-${index + 1}`,
+        sku: variant.sku || buildGeneratedSku({ context: buildVariantKey(variant) || `variant-${index + 1}`, index }),
         images: dedupeStrings(variant.images || []),
         attributes: variant.attributes || [],
       });

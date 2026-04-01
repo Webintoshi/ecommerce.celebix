@@ -9,6 +9,7 @@ import {
   ADMIN_PRODUCT_WIZARD_STEPS,
   type AdminProductWizardState,
 } from "@/types/admin-product-wizard";
+import { buildGeneratedSku } from "@/lib/sku";
 
 // Adım Component'leri
 import { StepBasicInfo } from "./steps/StepBasicInfo";
@@ -43,7 +44,7 @@ const INITIAL_STATE: AdminProductWizardState = {
       weight: 0,
       price: 0,
       stock: 50,
-      sku: `SKU-${Date.now()}`,
+      sku: buildGeneratedSku(),
       unit: "adet",
     },
   ],

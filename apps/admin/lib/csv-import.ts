@@ -1,4 +1,5 @@
 import { Product, ProductVariant, ProductCategory, ProductSubcategory } from "@/types/product";
+import { buildGeneratedSku } from "@/lib/sku";
 
 function parseCSV(csvContent: string): string[][] {
   const rows: string[][] = [];
@@ -222,7 +223,7 @@ export function parseShopifyCSV(csvContent: string): Product[] {
     if (!productMap.has(handle)) {
       const title = titleIdx >= 0 ? (row[titleIdx]?.trim() || "") : "";
       const body = bodyIdx >= 0 ? (row[bodyIdx] || "") : "";
-      const sku = skuIdx >= 0 ? (row[skuIdx]?.trim() || `SKU-${handle}`) : `SKU-${handle}`;
+      const sku = skuIdx >= 0 ? (row[skuIdx]?.trim() || buildGeneratedSku({ context: handle })) : buildGeneratedSku({ context: handle });
       const grams = gramsIdx >= 0 ? (parseFloat(row[gramsIdx]) || 450) : 450;
       const price = priceIdx >= 0 ? (parseFloat(row[priceIdx]) || 0) : 0;
       const dietary = dietaryIdx >= 0 ? (row[dietaryIdx]?.trim() || "") : "";

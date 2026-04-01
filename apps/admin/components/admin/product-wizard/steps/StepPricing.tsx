@@ -5,6 +5,7 @@ import { Tag, Plus, X, Percent, Calculator, Package, ChevronDown, Palette, Image
 import { cn } from "@/lib/utils";
 import { ProductVariant, DiscountRule, TaxRate, ProductImage } from "@/types/product";
 import { VariantAttribute, VariantAttributeValue } from "@/types/variant-attributes";
+import { buildGeneratedSku } from "@/lib/sku";
 import { toast } from "sonner";
 
 interface StepPricingProps {
@@ -71,7 +72,7 @@ export function StepPricing({
       weight: 0,
       price: 0,
       stock: 50,
-      sku: `EZM-${Date.now()}`,
+      sku: buildGeneratedSku(),
       unit: "adet",
     };
     onVariantsChange([...variants, newVariant]);
@@ -642,7 +643,7 @@ export function StepPricing({
                   />
                   <button
                     type="button"
-                    onClick={() => updateVariant(activeVariant, "sku", `EZM-${Date.now().toString().slice(-6)}`)}
+                    onClick={() => updateVariant(activeVariant, "sku", buildGeneratedSku())}
                     className="px-3 py-2 bg-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-300 transition-colors"
                   >
                     Oluştur

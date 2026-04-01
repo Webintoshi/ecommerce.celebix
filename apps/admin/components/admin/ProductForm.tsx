@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Product, ProductVariant, NutritionalInfo, ProductCategory, ProductSubcategory } from "@/types/product";
 import { fetchCategories } from "@/lib/categories";
+import { buildGeneratedSku } from "@/lib/sku";
 
 interface CategoryOption {
   value: string;
@@ -109,7 +110,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
       weight: 0,
       price: 0,
       stock: 50,
-      sku: `EZM-${Date.now()}`,
+      sku: buildGeneratedSku(),
     },
   ]);
 
@@ -323,7 +324,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
       weight: 0,
       price: 0,
       stock: 50,
-      sku: `EZM-${Date.now()}`,
+      sku: buildGeneratedSku(),
     }]);
   };
 

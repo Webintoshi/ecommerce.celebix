@@ -11,6 +11,7 @@ import {
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
+import { buildGeneratedSku } from "@/lib/sku";
 
 export const runtime = "nodejs";
 
@@ -592,7 +593,7 @@ export async function POST(request: NextRequest) {
                 original_price: v.original_price || null,
                 cost: v.cost || null,
                 stock: v.stock || 0,
-                sku: v.sku || `EZM-${Date.now().toString(36)}-${idx}`,
+                sku: v.sku || buildGeneratedSku({ context: `${product.id}-${String(v.name || idx)}`, index: idx }),
                 barcode: v.barcode || null,
                 group_name: v.group_name || null,
                 unit: v.unit || 'adet',
@@ -1029,7 +1030,7 @@ export async function PUT(request: NextRequest) {
                     original_price: v.original_price || null,
                     cost: v.cost || null,
                     stock: v.stock || 0,
-                    sku: v.sku || `EZM-${Date.now().toString(36)}`,
+                    sku: v.sku || buildGeneratedSku({ context: `${id}-${String(v.id || v.name || "variant")}` }),
                     barcode: v.barcode || null,
                     group_name: v.group_name || null,
                     unit: v.unit || 'adet',
@@ -1075,7 +1076,7 @@ export async function PUT(request: NextRequest) {
                     original_price: v.original_price || null,
                     cost: v.cost || null,
                     stock: v.stock || 0,
-                    sku: v.sku || `EZM-${Date.now().toString(36)}-${idx}`,
+                    sku: v.sku || buildGeneratedSku({ context: `${id}-${String(v.name || idx)}`, index: idx }),
                     barcode: v.barcode || null,
                     group_name: v.group_name || null,
                     unit: v.unit || 'adet',
