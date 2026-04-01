@@ -114,13 +114,13 @@ export function DynamicVariantSelector({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-[#7B1113]">Seçenek</span>
-          <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
+          <span className="font-medium text-neutral-900">Seçenek</span>
+          <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
             {variant.weight}g
           </span>
         </div>
-        <div className="flex items-center gap-2 p-3 bg-[#F3E0E1]/50 rounded-xl border border-[#7B1113]/10">
-          <span className="font-medium text-[#7B1113]">{variant.name}</span>
+        <div className="flex items-center gap-2 p-3 bg-neutral-100/50 rounded-xl border border-neutral-900/10">
+          <span className="font-medium text-neutral-900">{variant.name}</span>
           {variant.stock <= 5 && variant.stock > 0 && (
             <span className="text-xs text-amber-600">(Son {variant.stock} adet!)</span>
           )}
@@ -140,9 +140,9 @@ export function DynamicVariantSelector({
           <div key={attrName} className="space-y-3">
             {/* Header: Nitelik Adı - Seçili Değer */}
             <div className="flex items-center gap-2">
-              <span className="font-medium text-[#7B1113] uppercase tracking-wide">{attrName}</span>
+              <span className="font-medium text-neutral-900 uppercase tracking-wide text-xs">{attrName}</span>
               <span className="text-gray-400">—</span>
-              <span className="text-[#6b4b4c]">{selectedValue}</span>
+              <span className="text-neutral-900">{selectedValue}</span>
             </div>
 
             {isColor || values.some(v => v.image_url) ? (
@@ -159,9 +159,9 @@ export function DynamicVariantSelector({
                       onClick={() => !isOutOfStock && handleAttributeSelect(attrName, value.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative w-14 h-14 rounded-full border-2 transition-all duration-200 overflow-hidden flex items-center justify-center",
+                        "relative w-12 h-12 rounded-full border-2 transition-all duration-200 overflow-hidden flex items-center justify-center",
                         isSelected
-                          ? "border-[#7B1113] ring-2 ring-[#7B1113]/30" 
+                          ? "border-neutral-900 ring-2 ring-neutral-900/30" 
                           : "border-gray-300 hover:border-gray-400",
                         isOutOfStock && "opacity-50 cursor-not-allowed"
                       )}
@@ -169,7 +169,7 @@ export function DynamicVariantSelector({
                     >
                       {/* Inner circle with image or color */}
                       <div className={cn(
-                        "w-12 h-12 rounded-full overflow-hidden",
+                        "w-10 h-10 rounded-full overflow-hidden",
                         isSelected ? "ring-2 ring-white" : ""
                       )}>
                         {value.image_url ? (
@@ -192,7 +192,7 @@ export function DynamicVariantSelector({
 
                       {/* Selected indicator - border only */}
                       {isSelected && (
-                        <div className="absolute inset-0 rounded-full border-2 border-[#7B1113]" />
+                        <div className="absolute inset-0 rounded-full border-2 border-neutral-900" />
                       )}
 
                       {/* Out of stock X */}
@@ -219,12 +219,12 @@ export function DynamicVariantSelector({
                       onClick={() => !isOutOfStock && handleAttributeSelect(attrName, value.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 border",
+                        "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                         isSelected
-                          ? "bg-[#7B1113] text-white border-[#7B1113] shadow-md"
+                          ? "bg-neutral-900 text-white border-neutral-900"
                           : isOutOfStock
                             ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                            : "bg-white text-[#7B1113] border-gray-300 hover:border-[#7B1113]"
+                            : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -251,8 +251,8 @@ export function DynamicVariantSelector({
       {attributes.size === 0 && variants.length > 1 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-[#7B1113]">Boyut Seçin</span>
-            <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
+            <span className="font-medium text-neutral-900">Boyut Seçin</span>
+            <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
               {variants[selectedIndex]?.weight}g
             </span>
           </div>
@@ -268,12 +268,12 @@ export function DynamicVariantSelector({
                   onClick={() => !isOutOfStock && onSelect(index)}
                   disabled={isOutOfStock}
                   className={cn(
-                    "relative px-5 py-3 rounded-full text-sm font-medium transition-all duration-200 border",
+                    "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                     isSelected
-                      ? "bg-[#7B1113] text-white border-[#7B1113] shadow-md"
+                      ? "bg-neutral-900 text-white border-neutral-900"
                       : isOutOfStock
                         ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                        : "bg-white text-[#7B1113] border-gray-300 hover:border-[#7B1113]"
+                        : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
                   )}
                 >
                   <span className="flex items-center gap-2">
@@ -307,8 +307,8 @@ export function DynamicVariantSelector({
 
       {/* Selected Variant Info */}
       {variants[selectedIndex] && (
-        <p className="text-sm text-[#6b4b4c]">
-          Seçilen: <span className="font-medium text-[#7B1113]">{variants[selectedIndex].name}</span>
+        <p className="text-sm text-neutral-500">
+          Seçilen: <span className="font-medium text-neutral-900">{variants[selectedIndex].name}</span>
           {variants[selectedIndex].stock > 0 && variants[selectedIndex].stock <= 5 && (
             <span className="text-amber-600 ml-2">(Son {variants[selectedIndex].stock} adet!)</span>
           )}

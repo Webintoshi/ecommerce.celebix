@@ -92,8 +92,8 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-[#7B1113]">Boyut</span>
-          <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
+          <span className="font-medium text-neutral-900">Boyut</span>
+          <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
             {currentVariant?.weight}g
           </span>
         </div>
@@ -105,10 +105,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                 key={v.id}
                 onClick={() => onSelect(idx)}
                 className={cn(
-                  "px-5 py-2.5 rounded-full text-sm font-medium border transition-all",
+                  "px-4 py-2 rounded-full text-xs font-medium border transition-all",
                   isSelected
-                    ? "bg-[#7B1113] text-white border-[#7B1113]"
-                    : "bg-white text-[#7B1113] border-gray-300 hover:border-[#7B1113]"
+                    ? "bg-neutral-900 text-white border-neutral-900"
+                    : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
                 )}
               >
                 {isSelected && <Check className="w-4 h-4 inline mr-1" />}
@@ -132,13 +132,13 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
           <div key={attrId} className="space-y-3">
             {/* Header */}
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-[#7B1113] text-sm uppercase tracking-wide">
+              <span className="font-medium text-neutral-900 text-xs uppercase tracking-wide">
                 {group.name}
               </span>
               {selectedValue && (
                 <>
                   <span className="text-gray-400">—</span>
-                  <span className="text-[#6b4b4c] text-sm font-medium">{selectedValue}</span>
+                  <span className="text-neutral-500 text-sm font-medium">{selectedValue}</span>
                 </>
               )}
             </div>
@@ -158,9 +158,9 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       onClick={() => !isOutOfStock && handleSelect(attrId, val.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative w-16 h-16 rounded-full border-2 transition-all duration-200 overflow-hidden",
+                        "relative w-14 h-14 rounded-full border-2 transition-all duration-200 overflow-hidden",
                         isSelected
-                          ? "border-[#7B1113] ring-2 ring-[#7B1113]/30"
+                          ? "border-neutral-900 ring-2 ring-neutral-900/30"
                           : "border-gray-300 hover:border-gray-400",
                         isOutOfStock && "opacity-50 cursor-not-allowed"
                       )}
@@ -188,7 +188,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
 
                       {/* Selected indicator - border only */}
                       {isSelected && (
-                        <div className="absolute inset-0 rounded-full border-2 border-[#7B1113]" />
+                        <div className="absolute inset-0 rounded-full border-2 border-neutral-900" />
                       )}
                     </button>
                   );
@@ -208,12 +208,12 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       onClick={() => !isOutOfStock && handleSelect(attrId, val.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 border",
+                        "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                         isSelected
-                          ? "bg-[#7B1113] text-white border-[#7B1113]"
+                          ? "bg-neutral-900 text-white border-neutral-900"
                           : isOutOfStock
                           ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                          : "bg-white text-[#7B1113] border-gray-300 hover:border-[#7B1113]"
+                          : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
                       )}
                     >
                       {isSelected && <Check className="w-4 h-4 inline mr-1" />}
@@ -228,8 +228,8 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
       })}
 
       {/* Selected info */}
-      <p className="text-sm text-[#6b4b4c]">
-        Seçilen: <span className="font-medium text-[#7B1113]">{currentVariant?.name}</span>
+      <p className="text-sm text-neutral-500">
+        Seçilen: <span className="font-medium text-neutral-900">{currentVariant?.name}</span>
       </p>
     </div>
   );

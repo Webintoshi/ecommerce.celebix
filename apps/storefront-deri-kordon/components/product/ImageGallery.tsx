@@ -214,7 +214,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     return (
       <div className="w-full">
         <div
-          className="relative aspect-square bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer"
+          className="relative aspect-square bg-white rounded-2xl overflow-hidden border border-neutral-100 shadow-sm cursor-pointer"
           onClick={() => setIsLightboxOpen(true)}
         >
           {currentStatus === 'loading' && (
@@ -292,7 +292,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 className={`relative w-[72px] h-[72px] sm:w-[100px] sm:h-[100px] flex-shrink-0 rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all ${
                   index === selectedIndex
                     ? "border-primary ring-2 ring-primary/20"
-                    : "border-gray-200 hover:border-gray-300 opacity-70 hover:opacity-100"
+                    : "border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100"
                 }`}
               >
                 <img
@@ -332,7 +332,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
         {/* Sağ: Ana Görsel */}
         <div
-          className={`relative aspect-square bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative aspect-square bg-white rounded-2xl overflow-hidden border border-neutral-100 shadow-sm select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -398,7 +398,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   key={index}
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(index); }}
                   className={`w-2 h-2 rounded-full transition-all ${
-                    index === selectedIndex ? 'bg-primary w-4' : 'bg-gray-300'
+                    index === selectedIndex ? 'bg-primary w-4' : 'bg-neutral-300'
                   }`}
                 />
               ))}
