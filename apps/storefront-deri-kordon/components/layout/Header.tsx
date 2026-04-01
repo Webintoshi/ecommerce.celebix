@@ -9,9 +9,11 @@ import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user } = useAuth();
@@ -90,7 +92,12 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <button className="p-2" aria-label="Ara">
+            <button
+              type="button"
+              className="p-2"
+              aria-label="Ara"
+              onClick={() => setIsSearchOpen(true)}
+            >
               <Search className="w-5 h-5 text-neutral-600" />
             </button>
 
@@ -132,6 +139,12 @@ export function Header() {
           </nav>
         </div>
       )}
+
+      <HeaderSearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        resolveImageSrc={resolveStorefrontAssetUrl}
+      />
     </header>
   );
 }

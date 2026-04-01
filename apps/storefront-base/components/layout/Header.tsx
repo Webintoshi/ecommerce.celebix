@@ -32,8 +32,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
-import { searchProducts } from "@/lib/products";
-import type { Product, CategoryInfo } from "@/types/product";
+import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
+import type { CategoryInfo } from "@/types/product";
 
 const quickCategoryTones = [
   "from-amber-50 to-orange-100 text-amber-700",
@@ -44,8 +44,6 @@ const quickCategoryTones = [
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
@@ -109,19 +107,6 @@ export function Header() {
     };
   }, []);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery.trim().length < 2) {
-        setSearchResults([]);
-        return;
-      }
-
-      setSearchResults(searchProducts(searchQuery));
-    }, 250);
-
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
   const menuItems = [
     { icon: Home, label: "Ana Sayfa", href: ROUTES.home },
     { icon: ShoppingBag, label: "Tum Urunler", href: ROUTES.products },
@@ -163,55 +148,8 @@ export function Header() {
     setIsMenuOpen(false);
   };
 
-  const closeSearch = () => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setIsSearchOpen(false);
-  };
-
   const logoSrc = storeInfo?.logoUrl || SITE_LOGO_PATH;
   const logoAlt = storeInfo?.name || SITE_NAME;
-
-  const searchResultsPanel = searchResults.length > 0 && (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      className="absolute top-full left-0 right-0 z-[120] mt-2 overflow-hidden rounded-2xl border border-primary/5 bg-white shadow-2xl"
-    >
-      <div className="border-b border-primary/5 px-4 py-3">
-        <span className="text-[10px] font-black uppercase tracking-widest text-primary/40">
-          Sonuclar ({searchResults.length})
-        </span>
-      </div>
-      <div className="max-h-[360px] overflow-y-auto p-2">
-        {searchResults.slice(0, 8).map((product) => (
-          <Link
-            key={product.id}
-            href={ROUTES.product(product.slug)}
-            className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-primary/5"
-            onClick={closeSearch}
-          >
-            <div className="h-12 w-12 overflow-hidden rounded-xl bg-primary/5">
-              <img
-                src={product.images[0] ?? "/placeholder.svg"}
-                alt={product.name}
-                draggable={false}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-gray-900">{product.name}</p>
-              <p className="text-xs font-medium text-gray-500">
-                {product.variants[0]?.price ?? 0} TL
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-gray-300" />
-          </Link>
-        ))}
-      </div>
-    </motion.div>
-  );
 
   return (
     <header className="sticky top-0 z-[100] w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
@@ -253,8 +191,9 @@ export function Header() {
 
           <div className="ml-auto flex items-center gap-1 sm:gap-3">
             <button
-              className="hidden rounded-xl p-2.5 transition-all hover:bg-primary/5 sm:flex"
-              onClick={() => setIsSearchOpen((current) => !current)}
+              type="button"
+              className="rounded-xl p-2.5 transition-all hover:bg-primary/5"
+              onClick={() => setIsSearchOpen(true)}
               aria-label="Ara"
             >
               <Search className="h-5 w-5 text-gray-700 transition-colors hover:text-primary" />
@@ -298,42 +237,12 @@ export function Header() {
             </button>
           </div>
         </div>
-
-        <AnimatePresence>
-          {isSearchOpen ? (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="relative border-t border-gray-100 py-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
-                  <input
-                    type="search"
-                    placeholder="Urun veya kategori ara..."
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    className="w-full rounded-xl border border-primary/10 bg-[#FFF5F5] py-3 pl-12 pr-10 text-sm font-medium text-primary transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10"
-                    autoFocus
-                  />
-                  {searchQuery ? (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-4 top-1/2 rounded-full p-1 transition-colors hover:bg-primary/5"
-                    >
-                      <X className="h-5 w-5 text-primary/40" />
-                    </button>
-                  ) : null}
-                </div>
-
-                <AnimatePresence>{searchResultsPanel}</AnimatePresence>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </div>
+
+      <HeaderSearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
 
       {isMenuOpen && typeof window !== "undefined"
         ? createPortal(
@@ -411,54 +320,27 @@ export function Header() {
 
                 <div className="flex-1 overflow-y-auto bg-white">
                   <div className="px-6 pb-4 pt-4">
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Urun, kategori veya koleksiyon ara..."
-                        className="w-full rounded-2xl border-2 border-gray-100 bg-white py-4 pl-12 pr-12 text-base outline-none transition-all focus:border-primary"
-                      />
-                      {searchQuery ? (
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          className="absolute right-4 top-1/2 rounded-full bg-gray-100 p-1 -translate-y-1/2"
-                        >
-                          <X className="h-4 w-4 text-gray-500" />
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {searchResults.length > 0 ? (
-                      <div className="mt-2 max-h-[300px] overflow-y-auto rounded-2xl border border-gray-100 bg-white shadow-xl">
-                        <div className="p-2">
-                          {searchResults.slice(0, 5).map((product) => (
-                            <Link
-                              key={product.id}
-                              href={ROUTES.product(product.slug)}
-                              onClick={() => {
-                                setIsMenuOpen(false);
-                                setSearchQuery("");
-                              }}
-                              className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
-                            >
-                              <img
-                                src={product.images[0] ?? "/placeholder.svg"}
-                                alt={product.name}
-                                draggable={false}
-                                className="h-12 w-12 rounded-lg bg-gray-100 object-cover"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-bold text-gray-900">{product.name}</p>
-                                <p className="text-xs text-gray-500">{product.variants[0]?.price ?? 0} TL</p>
-                              </div>
-                              <ChevronRight className="h-4 w-4 text-gray-400" />
-                            </Link>
-                          ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsSearchOpen(true);
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-4 text-left shadow-sm transition hover:border-primary/20 hover:bg-primary/5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Search className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">Arama ac</p>
+                          <p className="text-xs text-gray-500">
+                            Tam ekran popup ile ajax arama yap
+                          </p>
                         </div>
                       </div>
-                    ) : null}
+                      <ChevronRight className="h-5 w-5 text-gray-300" />
+                    </button>
                   </div>
 
                   <nav className="space-y-1 px-6 pb-6">
