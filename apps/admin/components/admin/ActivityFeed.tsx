@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   ShoppingCart,
   Eye,
@@ -10,20 +10,13 @@ import {
   MousePointer,
   Zap,
   TrendingUp,
-  Package,
   Heart,
   Share2,
   Filter,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LiveAnalyticsEvent, LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
 import { cn } from "@/lib/utils";
-
-interface ActivityEvent {
-  type: string;
-  data: Record<string, unknown>;
-  pageUrl: string;
-  createdAt: string;
-}
 
 interface EventConfig {
   icon: React.ElementType;
@@ -41,43 +34,43 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   },
   remove_from_cart: {
     icon: ShoppingCart,
-    label: "Sepetten çıkarıldı",
+    label: "Sepetten cikarildi",
     color: "text-rose-600",
     bgColor: "bg-rose-50",
   },
   view_product: {
     icon: Eye,
-    label: "Ürün görüntülendi",
+    label: "Urun goruntulendi",
     color: "text-gray-600",
     bgColor: "bg-gray-100",
   },
   checkout_start: {
     icon: CreditCard,
-    label: "Ödeme başladı",
+    label: "Odeme basladi",
     color: "text-violet-600",
     bgColor: "bg-violet-50",
   },
   checkout_step: {
     icon: CreditCard,
-    label: "Ödeme adımı",
+    label: "Odeme adimi",
     color: "text-violet-500",
     bgColor: "bg-violet-50",
   },
   purchase: {
     icon: CheckCircle,
-    label: "Satın alma",
+    label: "Satin alma",
     color: "text-emerald-600",
     bgColor: "bg-emerald-50",
   },
   search: {
     icon: Search,
-    label: "Arama yapıldı",
+    label: "Arama yapildi",
     color: "text-amber-600",
     bgColor: "bg-amber-50",
   },
   click: {
     icon: MousePointer,
-    label: "Tıklama",
+    label: "Tiklama",
     color: "text-gray-500",
     bgColor: "bg-gray-50",
   },
@@ -89,7 +82,7 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   },
   share: {
     icon: Share2,
-    label: "Paylaşıldı",
+    label: "Paylasildi",
     color: "text-cyan-600",
     bgColor: "bg-cyan-50",
   },
@@ -100,7 +93,7 @@ function formatTimeAgo(dateString: string): string {
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diff < 60) return "şimdi";
+  if (diff < 60) return "simdi";
   if (diff < 3600) return `${Math.floor(diff / 60)}dk`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}sa`;
   return `${Math.floor(diff / 86400)}g`;
@@ -118,102 +111,51 @@ function formatPageUrl(url: string): string {
   return url.length > 25 ? url.slice(0, 25) + "..." : url;
 }
 
-function getEventValue(event: ActivityEvent): string {
+function getEventValue(event: LiveAnalyticsEvent): string {
   const data = event.data || {};
-  
+
   if (data.productName) {
     const name = String(data.productName);
-    return name.length > 20 ? name.slice(0, 20) + "..." : name;
+    return name.length > 20 ? `${name.slice(0, 20)}...` : name;
   }
-  if (data.query) return `"${data.query}"`;
+  if (data.query) return `"${String(data.query)}"`;
   if (data.amount) return `₺${Number(data.amount).toLocaleString("tr-TR")}`;
   if (data.value) return `₺${Number(data.value).toLocaleString("tr-TR")}`;
-  
+
   return "";
 }
 
-export default function ActivityFeed() {
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) {
   const [filter, setFilter] = useState<string | null>(null);
+  const events = data.recentEvents || [];
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch("/api/analytics/live");
-        const json = await res.json();
-        if (json.success && json.data.recentEvents) {
-          setEvents(json.data.recentEvents);
-        }
-      } catch (error) {
-        console.error("Failed to fetch events:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const filteredEvents = filter
-    ? events.filter((e) => e.type === filter)
-    : events;
-
-  const eventTypes = [...new Set(events.map((e) => e.type))];
-
-  if (loading) {
-    return (
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60">
-        <div className="border-b border-gray-100 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 rounded bg-gray-200 animate-pulse" />
-              <div className="h-5 w-28 rounded bg-gray-200 animate-pulse" />
-            </div>
-            <div className="h-5 w-12 rounded-full bg-gray-200 animate-pulse" />
-          </div>
-        </div>
-        <div className="p-4 space-y-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gray-200 animate-pulse" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-4 w-3/4 rounded bg-gray-200 animate-pulse" />
-                <div className="h-3 w-1/2 rounded bg-gray-200 animate-pulse" />
-              </div>
-              <div className="h-4 w-8 rounded bg-gray-200 animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const filteredEvents = useMemo(
+    () => (filter ? events.filter((event) => event.type === filter) : events),
+    [events, filter]
+  );
+  const eventTypes = useMemo(() => [...new Set(events.map((event) => event.type))], [events]);
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 text-white">
             <Zap className="h-4 w-4" />
           </div>
-          <h3 className="font-semibold text-gray-900">Anlık Aktivite</h3>
+          <h3 className="font-semibold text-gray-900">Anlik Aktivite</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
           </span>
-          <span className="text-xs font-medium text-amber-600">Canlı</span>
+          <span className="text-xs font-medium text-amber-600">Canli</span>
         </div>
       </div>
 
-      {/* Filter Pills */}
-      {eventTypes.length > 0 && (
+      {eventTypes.length > 0 ? (
         <div className="border-b border-gray-100 px-4 py-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setFilter(null)}
               className={cn(
@@ -223,19 +165,19 @@ export default function ActivityFeed() {
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
-              Tümü
+              Tumu
             </button>
             {eventTypes.slice(0, 4).map((type) => {
               const config = EVENT_CONFIGS[type];
               if (!config) return null;
               const Icon = config.icon;
-              
+
               return (
                 <button
                   key={type}
                   onClick={() => setFilter(filter === type ? null : type)}
                   className={cn(
-                    "flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                    "flex flex-shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
                     filter === type
                       ? cn(config.bgColor.replace("bg-", "bg-opacity-100 bg-"), config.color)
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -248,22 +190,21 @@ export default function ActivityFeed() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Activity List */}
       <div className="max-h-[320px] overflow-y-auto">
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
               <TrendingUp className="h-8 w-8 text-gray-400" />
             </div>
-            <p className="text-gray-500">Henüz aktivite yok</p>
-            <p className="mt-1 text-xs text-gray-400">Kısa süre içinde burada görünecek</p>
+            <p className="text-gray-500">Henuz aktivite yok</p>
+            <p className="mt-1 text-xs text-gray-400">Kisa sure icinde burada gorunecek</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
             <AnimatePresence mode="popLayout">
-              {filteredEvents.map((event, i) => {
+              {filteredEvents.map((event, index) => {
                 const config = EVENT_CONFIGS[event.type] || {
                   icon: Eye,
                   label: event.type,
@@ -275,15 +216,14 @@ export default function ActivityFeed() {
 
                 return (
                   <motion.div
-                    key={`${event.createdAt}-${i}`}
+                    key={`${event.createdAt}-${index}`}
                     layout
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.3, delay: i * 0.03 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
                     className="group flex items-start gap-3 p-4 transition-colors hover:bg-gray-50"
                   >
-                    {/* Icon */}
                     <div
                       className={cn(
                         "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110",
@@ -293,20 +233,18 @@ export default function ActivityFeed() {
                       <Icon className={cn("h-5 w-5", config.color)} />
                     </div>
 
-                    {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900">{config.label}</span>
-                        {eventValue && (
+                        {eventValue ? (
                           <span className="truncate text-sm text-gray-600">{eventValue}</span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="mt-0.5 truncate text-xs text-gray-400">
                         {formatPageUrl(event.pageUrl)}
                       </p>
                     </div>
 
-                    {/* Time */}
                     <span className="flex-shrink-0 text-xs font-medium text-gray-400">
                       {formatTimeAgo(event.createdAt)}
                     </span>
@@ -318,8 +256,7 @@ export default function ActivityFeed() {
         )}
       </div>
 
-      {/* Footer Stats */}
-      {events.length > 0 && (
+      {events.length > 0 ? (
         <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">
@@ -327,11 +264,11 @@ export default function ActivityFeed() {
             </span>
             <div className="flex items-center gap-1.5 text-gray-500">
               <Filter className="h-3 w-3" />
-              <span>Otomatik güncelleniyor</span>
+              <span>Otomatik guncelleniyor</span>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

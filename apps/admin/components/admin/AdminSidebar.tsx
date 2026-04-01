@@ -26,6 +26,7 @@ import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
 import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
+import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 interface MenuItem {
   title: string;
@@ -146,19 +147,23 @@ const MENU_ITEMS: MenuItem[] = [
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  initialProfile?: InitialAdminProfile | null;
 }
 
-export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
+export function AdminSidebar({
+  isOpen = true,
+  onClose,
+  initialProfile = null,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | undefined>();
-  const [role, setRole] = useState<UserRole>("super_admin");
-  const [userName, setUserName] = useState<string | null>(null);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const supabase = getBrowserSupabaseClient();
+  const userEmail = initialProfile?.email;
+  const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
+  const role: UserRole = initialProfile?.role || "super_admin";
 
   useEffect(() => {
     const checkMobile = () => {
@@ -185,85 +190,13 @@ export function AdminSidebar({ isOpen = true, onClose }: SidebarProps) {
     setExpandedMenus((prev) => Array.from(new Set([...prev, ...autoExpand])));
   }, [pathname]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadAdminProfile = async () => {
-      setLoading(true);
-
-      try {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 8000);
-        let response: Response;
-
-        try {
-          response = await fetch("/api/admin/me", {
-            cache: "no-store",
-            signal: controller.signal,
-          });
-        } finally {
-          window.clearTimeout(timeout);
-        }
-
-        if (!mounted) {
-          return;
-        }
-
-        if (response.status === 401) {
-          router.replace("/admin/login");
-          return;
-        }
-
-        const result = await response.json().catch(() => null);
-        const profile = result?.success ? result.profile : null;
-
-        if (!profile) {
-          setUserEmail(undefined);
-          setUserName("Admin Kullanici");
-          setRole("super_admin");
-          return;
-        }
-
-        const resolvedRole: UserRole =
-          profile?.role === "super_admin" ||
-          profile?.role === "product_manager" ||
-          profile?.role === "content_creator" ||
-          profile?.role === "order_manager"
-            ? profile.role
-            : "super_admin";
-
-        setRole(resolvedRole);
-        setUserEmail(profile.email || undefined);
-        setUserName(profile?.full_name || profile.email?.split("@")[0] || "Admin Kullanici");
-      } catch (error) {
-        console.error("AdminSidebar auth load error:", error);
-        if (mounted) {
-          setUserEmail(undefined);
-          setUserName("Admin Kullanici");
-          setRole("super_admin");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadAdminProfile();
-
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
-
   const filteredItems = useMemo(() => {
     return MENU_ITEMS.filter((item) => {
-      if (loading) return true;
       if (!hasPermission(role, item.href)) return false;
       if (item.permission && !hasActionPermission(role, item.permission)) return false;
       return true;
     });
-  }, [loading, role]);
+  }, [role]);
 
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]));
