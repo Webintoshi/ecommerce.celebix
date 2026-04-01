@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 export const dynamic = 'force-dynamic';
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            url: result.url,
+            url: resolveAdminAssetUrl(result.url) || result.url,
             key: result.key,
             format: processed.format,
             width: processed.width,

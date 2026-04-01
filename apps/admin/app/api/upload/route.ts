@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
 
         response = {
             ...response,
-            url: result.url,
+            url: resolveAdminAssetUrl(result.url) || result.url,
             key: result.key,
         };
 
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
                 );
 
                 response.thumbnail = {
-                    url: thumbResult.url,
+                    url: resolveAdminAssetUrl(thumbResult.url) || thumbResult.url,
                     key: thumbResult.key
                 };
             } catch (thumbError) {

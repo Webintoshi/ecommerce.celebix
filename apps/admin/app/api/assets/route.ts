@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAllowedStorefrontAssetHost } from "@/lib/asset-url";
+import { isAllowedAdminAssetHost } from "@/lib/asset-url";
 import { fetchCurrentStoreR2Asset } from "@/lib/r2-asset-fetch";
 
 export const runtime = "nodejs";
@@ -15,37 +15,22 @@ function buildAssetResponse(asset: {
   etag: string | null;
   lastModified: string | null;
 }) {
-  const responseHeaders = new Headers();
+  const headers = new Headers();
 
-  if (asset.contentType) {
-    responseHeaders.set("Content-Type", asset.contentType);
-  }
+  if (asset.contentType) headers.set("Content-Type", asset.contentType);
+  if (asset.contentLength) headers.set("Content-Length", asset.contentLength);
+  if (asset.etag) headers.set("ETag", asset.etag);
+  if (asset.lastModified) headers.set("Last-Modified", asset.lastModified);
+  headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
 
-  if (asset.contentLength) {
-    responseHeaders.set("Content-Length", asset.contentLength);
-  }
-
-  if (asset.etag) {
-    responseHeaders.set("ETag", asset.etag);
-  }
-
-  if (asset.lastModified) {
-    responseHeaders.set("Last-Modified", asset.lastModified);
-  }
-
-  responseHeaders.set("Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
-
-  return new NextResponse(asset.body, {
-    status: 200,
-    headers: responseHeaders,
-  });
+  return new NextResponse(asset.body, { status: 200, headers });
 }
 
 export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get("src");
 
   if (!source) {
-    return buildErrorResponse("Kaynak gorsel URL'si eksik.", 400);
+    return buildErrorResponse("Kaynak görsel URL'si eksik.", 400);
   }
 
   let targetUrl: URL;
@@ -53,15 +38,15 @@ export async function GET(request: NextRequest) {
   try {
     targetUrl = new URL(source);
   } catch {
-    return buildErrorResponse("Gecersiz gorsel URL'si.", 400);
+    return buildErrorResponse("Geçersiz görsel URL'si.", 400);
   }
 
   if (!["http:", "https:"].includes(targetUrl.protocol)) {
-    return buildErrorResponse("Yalnizca http ve https gorselleri desteklenir.", 400);
+    return buildErrorResponse("Yalnızca http ve https görselleri desteklenir.", 400);
   }
 
-  if (!isAllowedStorefrontAssetHost(targetUrl.hostname)) {
-    return buildErrorResponse("Bu gorsel kaynagina izin verilmiyor.", 403);
+  if (!isAllowedAdminAssetHost(targetUrl.hostname)) {
+    return buildErrorResponse("Bu görsel kaynağına izin verilmiyor.", 403);
   }
 
   const r2Asset = await fetchCurrentStoreR2Asset(targetUrl.toString());
@@ -82,12 +67,12 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Asset proxy fetch failed:", error);
-    return buildErrorResponse("Gorsel kaynagina ulasilamadi.", 502);
+    console.error("Admin asset proxy fetch failed:", error);
+    return buildErrorResponse("Görsel kaynağına ulaşılamadı.", 502);
   }
 
   if (!upstreamResponse.ok || !upstreamResponse.body) {
-    return buildErrorResponse("Gorsel yuklenemedi.", upstreamResponse.status || 502);
+    return buildErrorResponse("Görsel yüklenemedi.", upstreamResponse.status || 502);
   }
 
   return buildAssetResponse({

@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/variant-attributes";
 import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
 import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -71,10 +72,14 @@ function stripUnsupportedColumnsFromArray<T extends Record<string, unknown>>(
 }
 
 function normalizeValue(value: Record<string, unknown>) {
+  const resolvedImageUrl = resolveAdminAssetUrl(
+    typeof value.image_url === "string" ? value.image_url : null,
+  );
+
   return {
     ...value,
     color_code: typeof value.color_code === "string" ? value.color_code : null,
-    image_url: typeof value.image_url === "string" ? value.image_url : null,
+    image_url: resolvedImageUrl || null,
     display_order: typeof value.display_order === "number" ? value.display_order : 0,
     is_active: value.is_active !== false,
   };
@@ -198,7 +203,10 @@ export async function GET(request: NextRequest) {
           if (!attribute) {
             return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
           }
-          return NextResponse.json({ success: true, attribute });
+          return NextResponse.json({
+            success: true,
+            attribute: normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
+          });
         }
         return NextResponse.json({ success: false, error: error.message }, { status: 404 });
       }
@@ -218,7 +226,9 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
       if (error) {
         if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
-          return await getStoredVariantAttributes();
+          return (await getStoredVariantAttributes()).map((attribute) =>
+            normalizeAttribute((attribute ?? {}) as Record<string, unknown>)
+          );
         }
         throw error;
       }
@@ -292,7 +302,10 @@ export async function POST(request: NextRequest) {
           slug: `${slug}-${Date.now().toString(36)}`,
           values: normalizedValues,
         });
-        return NextResponse.json({ success: true, attribute: storedAttribute });
+        return NextResponse.json({
+          success: true,
+          attribute: normalizeAttribute((storedAttribute ?? {}) as Record<string, unknown>),
+        });
       }
 
       const nextPayload = stripUnsupportedColumns(
@@ -343,7 +356,12 @@ export async function POST(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "create:fallback");
         }
-        return NextResponse.json({ success: true, attribute: storedAttribute ?? normalizeAttribute(attribute) });
+        return NextResponse.json({
+          success: true,
+          attribute: normalizeAttribute(
+            ((storedAttribute ?? normalizeAttribute(attribute)) ?? {}) as Record<string, unknown>
+          ),
+        });
       }
 
       const nextPayload = stripUnsupportedColumnsFromArray(
@@ -416,7 +434,10 @@ export async function PUT(request: NextRequest) {
             } catch (syncError) {
               logCatalogVariantSyncError(syncError, "update:fallback-no-values");
             }
-            return NextResponse.json({ success: true, attribute: storedAttribute });
+            return NextResponse.json({
+              success: true,
+              attribute: normalizeAttribute((storedAttribute ?? {}) as Record<string, unknown>),
+            });
           }
           break;
         }

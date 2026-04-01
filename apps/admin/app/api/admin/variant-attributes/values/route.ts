@@ -9,6 +9,7 @@ import {
   updateStoredVariantAttributeValue,
 } from "@/lib/db/variant-attributes";
 import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
+import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
 
@@ -34,6 +35,13 @@ function stripUnsupportedColumns<T extends Record<string, unknown>>(payload: T, 
   return nextPayload;
 }
 
+function normalizeReturnedValue(value: Record<string, unknown>) {
+  return {
+    ...value,
+    image_url: resolveAdminAssetUrl(typeof value.image_url === "string" ? value.image_url : null) || null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -54,13 +62,19 @@ export async function GET(request: NextRequest) {
           : id
             ? values.filter((value) => value.id === id)
             : values;
-        return NextResponse.json({ success: true, values: filteredValues });
+        return NextResponse.json({
+          success: true,
+          values: filteredValues.map((value) => normalizeReturnedValue((value ?? {}) as Record<string, unknown>)),
+        });
       }
 
       throw error;
     }
 
-    return NextResponse.json({ success: true, values: data || [] });
+    return NextResponse.json({
+      success: true,
+      values: (data || []).map((value) => normalizeReturnedValue((value ?? {}) as Record<string, unknown>)),
+    });
   } catch (error: any) {
     console.error("Error fetching attribute values:", error);
     return NextResponse.json(
@@ -98,7 +112,10 @@ export async function POST(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "create");
         }
-        return NextResponse.json({ success: true, value: data });
+        return NextResponse.json({
+          success: true,
+          value: normalizeReturnedValue((data ?? {}) as Record<string, unknown>),
+        });
       }
       if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
         const createdValue = await addStoredVariantAttributeValue({
@@ -116,7 +133,10 @@ export async function POST(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "create:fallback");
         }
-        return NextResponse.json({ success: true, value: createdValue });
+        return NextResponse.json({
+          success: true,
+          value: normalizeReturnedValue((createdValue ?? {}) as Record<string, unknown>),
+        });
       }
 
       if (error.code === "23505") {
@@ -170,7 +190,10 @@ export async function PUT(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "update");
         }
-        return NextResponse.json({ success: true, value: data });
+        return NextResponse.json({
+          success: true,
+          value: normalizeReturnedValue((data ?? {}) as Record<string, unknown>),
+        });
       }
       if (isVariantAttributeValueTableMissing(error) || isVariantAttributeTableMissing(error)) {
         const updatedValue = await updateStoredVariantAttributeValue(id, (currentValue) => ({
@@ -189,7 +212,10 @@ export async function PUT(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "update:fallback");
         }
-        return NextResponse.json({ success: true, value: updatedValue });
+        return NextResponse.json({
+          success: true,
+          value: normalizeReturnedValue((updatedValue ?? {}) as Record<string, unknown>),
+        });
       }
 
       if (error.code === "23505") {
