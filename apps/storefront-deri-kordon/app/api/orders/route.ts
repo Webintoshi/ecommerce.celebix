@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
             couponCode: body.couponCode,
             notes: body.notes,
             contactEmail: body.contactEmail,
+            abandonedCartSessionId: body.abandonedCartSessionId,
         });
 
         return NextResponse.json({ success: true, order });

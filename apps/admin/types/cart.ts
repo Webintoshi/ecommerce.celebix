@@ -44,7 +44,7 @@ export interface CartContextType {
   ) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
-  clearCart: () => void;
+  clearCart: (options?: { preserveServerCart?: boolean }) => void;
   getItemQuantity: (productId: string, variantId: string) => number;
   getTotalItems: () => number;
   subtotal: number;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { fetchPlausibleAggregate } from "@/lib/analytics/plausible";
+import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 
 type OrderRow = {
   id: string;
@@ -141,6 +142,7 @@ async function getAbandonedCartStats(
   endDate: string
 ) {
   try {
+    await syncAbandonedCartStatuses(supabase);
     let carts: AbandonedCartRow[] = [];
 
     const withStatus = await supabase
@@ -163,9 +165,16 @@ async function getAbandonedCartStats(
       }
     }
 
-    const totalAbandonedValue = carts.reduce((sum, cart) => sum + toNumber(cart.total), 0);
-    const recoveredCarts = carts.filter((cart) => cart.recovered).length;
-    const totalCarts = carts.length;
+    const visibleCarts = carts.filter((cart) => {
+      const status = cart.status || (cart.recovered ? "recovered" : "abandoned");
+      return status !== "active" && status !== "cleared";
+    });
+
+    const totalAbandonedValue = visibleCarts.reduce((sum, cart) => sum + toNumber(cart.total), 0);
+    const recoveredCarts = visibleCarts.filter(
+      (cart) => cart.recovered || cart.status === "recovered"
+    ).length;
+    const totalCarts = visibleCarts.length;
     const recoveryRate = totalCarts > 0 ? (recoveredCarts / totalCarts) * 100 : 0;
 
     return {

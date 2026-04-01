@@ -3,6 +3,7 @@ import "server-only";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import type { LiveAnalyticsEvent, LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
+import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 
 const BOT_USER_AGENTS = [
   "bot",
@@ -67,6 +68,8 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    await syncAbandonedCartStatuses(supabase);
 
     const { data: activeSessions, error: sessionsError } = await supabase
       .from("sessions")
@@ -134,7 +137,8 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
     const abandonedWithStatus = await supabase
       .from("abandoned_carts")
       .select("total", { count: "exact" })
-      .eq("status", "active")
+      .eq("status", "abandoned")
+      .eq("recovered", false)
       .gte("created_at", oneDayAgo);
 
     if (!abandonedWithStatus.error) {

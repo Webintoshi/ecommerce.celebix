@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
             discount: body.discount,
             notes: body.notes,
             contactEmail: body.contactEmail,
+            abandonedCartSessionId: body.abandonedCartSessionId,
         });
 
         if (gateway.gateway === "bank_transfer" || gateway.gateway === "cod") {

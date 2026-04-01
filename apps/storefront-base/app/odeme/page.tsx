@@ -224,6 +224,11 @@ export default function CheckoutPage() {
     }
   };
 
+  const getAbandonedCartSessionId = () => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("celebix_storefront_session_id");
+  };
+
   const removeCoupon = () => {
     setAppliedCoupon(null);
     setCouponError("");
@@ -338,7 +343,8 @@ export default function CheckoutPage() {
         notes: createAccount ? "Hesap oluşturuldu" : "",
         contactEmail,
         receiveUpdates: true,
-        createAccount: !user && createAccount
+        createAccount: !user && createAccount,
+        abandonedCartSessionId: getAbandonedCartSessionId()
       };
 
       const response = await fetch("/api/payments/checkout", {
@@ -355,7 +361,7 @@ export default function CheckoutPage() {
       }
 
       if (result.payment?.action === "redirect" && result.payment?.redirectUrl) {
-        clearCart();
+        clearCart({ preserveServerCart: true });
         window.location.href = result.payment.redirectUrl;
         return;
       }
@@ -364,7 +370,7 @@ export default function CheckoutPage() {
         ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu." 
         : "Siparişiniz başarıyla alındı!"
       );
-      clearCart();
+      clearCart({ preserveServerCart: true });
       router.push(`/siparisler/${result.order.id}?new=true`);
     } catch (error) {
       toast.error("Bir bağlantı hatası oluştu.");

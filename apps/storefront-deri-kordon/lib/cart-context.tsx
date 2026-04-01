@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { CartItem, CartContextType } from "@/types/cart";
 import { Product, ProductVariant } from "@/types/product";
 import { CartCustomizationPayload } from "@/types/product-customization";
@@ -97,6 +97,19 @@ function getOrCreateSessionId(): string {
   return getSessionId();
 }
 
+async function deleteStoredAbandonedCart() {
+  try {
+    const sessionId = getOrCreateSessionId();
+    if (!sessionId) return;
+
+    await fetch(`/api/abandoned-carts?session_id=${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    console.error("Failed to clear abandoned cart:", error);
+  }
+}
+
 async function saveToAbandonedCart(items: CartItem[]) {
   if (items.length === 0) return;
   
@@ -110,11 +123,19 @@ async function saveToAbandonedCart(items: CartItem[]) {
       body: JSON.stringify({
         session_id: sessionId,
         items: items.map(item => ({
+          id: item.id,
+          productId: item.productId,
           product_id: item.productId,
+          productName: item.product.name,
+          productSlug: item.product.slug,
+          productImage: item.product.images?.[0] || "",
           variant_id: item.variantId,
+          variantId: item.variantId,
+          variantName: item.variant.name,
           name: item.product.name,
           price: item.unitPrice,
           quantity: item.quantity,
+          stock: item.variant.stock ?? 0,
           weight: item.variant.weight,
           image: item.product.images?.[0] || "",
           customization: item.customization || null,
@@ -142,11 +163,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(true);
   const [lastAddedItem, setLastAddedItem] = useState<CartItem | null>(null);
+  const preserveServerCartRef = useRef(false);
 
   // Save cart to localStorage and database whenever items change
   useEffect(() => {
     localStorage.setItem("celebix_storefront_cart", JSON.stringify(items));
-    // Also save to abandoned carts database
+
+    if (items.length === 0) {
+      if (preserveServerCartRef.current) {
+        preserveServerCartRef.current = false;
+        return;
+      }
+
+      deleteStoredAbandonedCart();
+      return;
+    }
+
     saveToAbandonedCart(items);
   }, [items]);
 
@@ -209,7 +241,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const clearCart = () => {
+  const clearCart = (options?: { preserveServerCart?: boolean }) => {
+    preserveServerCartRef.current = Boolean(options?.preserveServerCart);
     setItems([]);
     setLastAddedItem(null);
   };

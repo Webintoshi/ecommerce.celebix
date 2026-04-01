@@ -232,12 +232,21 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS abandoned_carts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id TEXT,
     customer_id UUID REFERENCES customers(id),
+    first_name TEXT,
+    last_name TEXT,
     email TEXT,
     phone TEXT,
-    items JSONB NOT NULL,
-    total DECIMAL(10, 2) NOT NULL,
+    is_anonymous BOOLEAN DEFAULT true,
+    items JSONB NOT NULL DEFAULT '[]'::jsonb,
+    total DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    item_count INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'active',
     recovered BOOLEAN DEFAULT false,
+    abandoned_at TIMESTAMPTZ,
+    recovered_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- =====================================================
@@ -251,6 +260,10 @@ CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(prod
 CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 CREATE INDEX IF NOT EXISTS idx_customers_external_customer_id ON customers(external_customer_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_session_id ON abandoned_carts(session_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_customer_id ON abandoned_carts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_status ON abandoned_carts(status);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_updated_at ON abandoned_carts(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
@@ -322,6 +335,8 @@ CREATE TRIGGER update_settings_updated_at BEFORE
 UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_customers_updated_at BEFORE
 UPDATE ON customers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_abandoned_carts_updated_at BEFORE
+UPDATE ON abandoned_carts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- FUNCTIONS: Customer Stats Auto-Update

@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { markAbandonedCartAsRecovered } from "./abandoned-carts";
 import { getOrCreateCustomer } from "./customers";
 import { incrementCouponUsage } from "./coupons";
 import { enqueueAndProcessInvoiceForOrder } from "./accounting";
@@ -107,6 +108,7 @@ export async function createOrder(orderData: {
     notes?: string;
     contactEmail?: string;
     saveAddress?: boolean;
+    abandonedCartSessionId?: string | null;
 }) {
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
@@ -315,6 +317,16 @@ export async function createOrder(orderData: {
         await enqueueInventorySyncByVariantIds(touchedVariantIds);
     } catch (marketplaceError) {
         console.error("Marketplace inventory queue error (createOrder):", marketplaceError);
+    }
+
+    try {
+        await markAbandonedCartAsRecovered({
+            sessionId: orderData.abandonedCartSessionId || null,
+            customerId: customerId || null,
+            email: orderData.contactEmail || null,
+        }, serverClient);
+    } catch (abandonedCartError) {
+        console.error("Abandoned cart recovery sync error (createOrder):", abandonedCartError);
     }
 
     return { ...order, items: orderItems };

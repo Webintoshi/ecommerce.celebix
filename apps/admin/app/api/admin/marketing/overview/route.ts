@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { createServerClient } from "@/lib/supabase";
+import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 
 type CustomerRow = {
   id: string;
@@ -71,6 +72,7 @@ export async function GET() {
   try {
     const payload = await getOrSetCachedValue("admin:marketing:overview", 60_000, async () => {
       const supabase = createServerClient();
+      await syncAbandonedCartStatuses(supabase);
       const now = new Date();
       const monthStart = startOfMonth(now);
       const { start: prevMonthStart, end: prevMonthEnd } = previousMonthRange(now);
@@ -131,11 +133,20 @@ export async function GET() {
       ).length;
       const customerChange = percentageChange(monthNewCustomers, prevMonthNewCustomers);
 
-      const activeAbandoned = abandonedRows.filter((c) => !c.recovered).length;
-      const recoveredAbandoned = abandonedRows.filter((c) => c.recovered).length;
-      const recoveryRate = percentage(recoveredAbandoned, abandonedRows.length);
-      const abandonedValue = abandonedRows
-        .filter((c) => !c.recovered)
+      const visibleAbandonedRows = abandonedRows.filter((c) => {
+        const status = c.status || (c.recovered ? "recovered" : "abandoned");
+        return status !== "active" && status !== "cleared";
+      });
+
+      const activeAbandoned = visibleAbandonedRows.filter(
+        (c) => !c.recovered && c.status !== "recovered"
+      ).length;
+      const recoveredAbandoned = visibleAbandonedRows.filter(
+        (c) => c.recovered || c.status === "recovered"
+      ).length;
+      const recoveryRate = percentage(recoveredAbandoned, visibleAbandonedRows.length);
+      const abandonedValue = visibleAbandonedRows
+        .filter((c) => !c.recovered && c.status !== "recovered")
         .reduce((sum, c) => sum + toNumber(c.total), 0);
 
       return {

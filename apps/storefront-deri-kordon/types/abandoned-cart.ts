@@ -1,6 +1,7 @@
 export interface AbandonedCart {
   id: string;
   userId?: string;
+  sessionId?: string;
   email?: string;
   phone?: string;
   firstName?: string;
@@ -9,6 +10,7 @@ export interface AbandonedCart {
   items: AbandonedCartItem[];
   total: number;
   itemCount: number;
+  status?: "active" | "abandoned" | "recovered" | "cleared";
   createdAt: Date;
   updatedAt: Date;
   recovered?: boolean;
@@ -30,6 +32,7 @@ export interface AbandonedCartItem {
 }
 
 export interface AbandonedCartFilters {
+  status?: "all" | "active" | "abandoned" | "recovered" | "cleared";
   isAnonymous?: boolean;
   dateFrom?: Date;
   dateTo?: Date;

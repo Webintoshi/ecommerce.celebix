@@ -177,11 +177,19 @@ export interface BlogPost {
 
 export interface AbandonedCart {
   id: string;
+  session_id: string | null;
   customer_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
   phone: string | null;
+  is_anonymous: boolean;
   items: Record<string, unknown>[];
   total: number;
+  item_count: number;
+  status: string;
   recovered: boolean;
+  recovered_at: string | null;
+  updated_at: string;
   created_at: string;
 }

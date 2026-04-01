@@ -37,14 +37,23 @@ async function fetchFromAPI(
       // Map snake_case to camelCase
       const mappedCarts = (data.carts || []).map((cart: any) => ({
         ...cart,
+        sessionId: cart.session_id,
         createdAt: cart.created_at,
         updatedAt: cart.updated_at,
         recoveredAt: cart.recovered_at,
         itemCount: cart.item_count,
         isAnonymous: cart.is_anonymous,
+        status: cart.status ?? (cart.recovered ? "recovered" : "abandoned"),
         items: (cart.items || []).map((item: any) => ({
           ...item,
-          productImage: item.image || "",
+          id: item.id || `${item.productId || item.product_id}:${item.variantId || item.variant_id}`,
+          productId: item.productId || item.product_id,
+          productName: item.productName || item.name || "",
+          productSlug: item.productSlug || item.product_slug || "",
+          productImage: item.productImage || item.image || "",
+          variantId: item.variantId || item.variant_id,
+          variantName: item.variantName || item.variant_name || "",
+          stock: typeof item.stock === "number" ? item.stock : 0,
         })),
       }));
       return {
@@ -184,7 +193,7 @@ export async function markCartAsRecovered(id: string): Promise<boolean> {
     if (data.success) {
       cachedCarts = cachedCarts.map(cart =>
         cart.id === id
-          ? { ...cart, recovered: true, recovered_at: new Date() }
+          ? { ...cart, recovered: true, recoveredAt: new Date(), status: "recovered" }
           : cart
       );
       return true;
