@@ -68,7 +68,7 @@ export function StepPricing({
     const newVariant: ProductVariant = {
       id: `variant-${Date.now()}`,
       name: `${variants.length + 1}. Varyant`,
-      weight: 450,
+      weight: 0,
       price: 0,
       stock: 50,
       sku: `EZM-${Date.now()}`,
@@ -356,6 +356,9 @@ export function StepPricing({
                 </div>
               ) : (
                 <div className="space-y-4">
+                  <p className="text-xs text-gray-500">
+                    Gramaj ve birim alanlari bu akistan kaldirildi. Gerekiyorsa varyant nitelikleri uzerinden tanimlayin.
+                  </p>
                   {/* Selected Attributes Display */}
                   {((variants[activeVariant] as any).attributes || []).length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -554,38 +557,6 @@ export function StepPricing({
                   </p>
                 </div>
               )}
-              
-              {/* Weight */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Gramaj</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={variants[activeVariant].weight}
-                    onChange={(e) => updateVariant(activeVariant, "weight", parseInt(e.target.value) || 0)}
-                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                  />
-                  <span className="text-gray-500 text-sm font-medium">g</span>
-                </div>
-              </div>
-
-              {/* Unit */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Birim</label>
-                <select
-                  value={variants[activeVariant].unit}
-                  onChange={(e) => updateVariant(activeVariant, "unit", e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                >
-                  <option value="adet">Adet</option>
-                  <option value="kg">Kilogram</option>
-                  <option value="g">Gram</option>
-                  <option value="lt">Litre</option>
-                  <option value="ml">Mililitre</option>
-                  <option value="paket">Paket</option>
-                  <option value="kutu">Kutu</option>
-                </select>
-              </div>
 
               {/* Price */}
               <div className="space-y-2">

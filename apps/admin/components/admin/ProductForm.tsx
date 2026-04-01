@@ -105,8 +105,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
   const [variants, setVariants] = useState<ProductVariant[]>(() => [
     {
       id: `variant-${Date.now()}`,
-      name: "1 Adet - 450g",
-      weight: 450,
+      name: "Varsayılan Varyant",
+      weight: 0,
       price: 0,
       stock: 50,
       sku: `EZM-${Date.now()}`,
@@ -319,8 +319,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
   const addVariant = () => {
     setVariants(prev => [...prev, {
       id: `variant-${Date.now()}`,
-      name: `${prev.length + 1} Adet - 450g`,
-      weight: 450,
+      name: `${prev.length + 1}. Varyant`,
+      weight: 0,
       price: 0,
       stock: 50,
       sku: `EZM-${Date.now()}`,
@@ -423,9 +423,6 @@ export default function ProductForm({ productId }: ProductFormProps) {
         }
         if (!v.price || v.price <= 0) {
           newErrors[`variant_${i}_price`] = 'Fiyat geçersiz';
-        }
-        if (!v.weight || v.weight <= 0) {
-          newErrors[`variant_${i}_weight`] = 'Ağırlık geçersiz';
         }
       });
     }
@@ -843,6 +840,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   </div>
 
                   <div className="p-8 space-y-6">
+                    <p className="text-xs font-medium text-gray-500">
+                      Gramaj ve birim alanlari bu formdan kaldirildi. Gerekiyorsa varyant nitelikleri uzerinden tanimlayin.
+                    </p>
                     {variants.map((variant, index) => (
                       <div key={variant.id} className="group/variant relative p-6 bg-gray-50/50 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-xl transition-all">
                         {variants.length > 1 && (
@@ -856,7 +856,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                          <div className="md:col-span-4 space-y-2">
+                          <div className="md:col-span-5 space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Varyant Adı</label>
                             <input
                               type="text"
@@ -872,16 +872,6 @@ export default function ProductForm({ productId }: ProductFormProps) {
                             {errors[`variant_${index}_name`] && (
                               <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{errors[`variant_${index}_name`]}</p>
                             )}
-                          </div>
-                          <div className="md:col-span-2 space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Gramaj</label>
-                            <input
-                              type="number"
-                              value={variant.weight}
-                              onChange={(e) => updateVariant(index, 'weight', parseInt(e.target.value) || 0)}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-mono shadow-sm"
-                              required
-                            />
                           </div>
                           <div className="md:col-span-2 space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Fiyat (₺)</label>
@@ -910,7 +900,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                               required
                             />
                           </div>
-                          <div className="md:col-span-2 space-y-2">
+                          <div className="md:col-span-3 space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Barkod/SKU</label>
                             <input
                               type="text"
