@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   Hammer,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
@@ -70,7 +71,13 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<TabType>("features");
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set(["features"]));
+  const toggleAccordion = (id: string) => {
+    const next = new Set(openAccordions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setOpenAccordions(next);
+  };
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchemaId, setActiveSchemaId] = useState<string | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
@@ -332,7 +339,7 @@ export function ProductDetailClient({
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
-                          ? "fill-amber-400 text-amber-400"
+                          ? "fill-[#8A6B37] text-[#8A6B37]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
@@ -459,7 +466,7 @@ export function ProductDetailClient({
                         transition-all duration-300 rounded-xl
                         ${isOutOfStock
                           ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                          : "bg-neutral-900 text-white hover:bg-neutral-800"
+                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
                         }
                       `}
                     >
@@ -488,92 +495,55 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              {/* Tabs — Inline in right column */}
-              <div className="pt-1">
-                <div className="flex gap-5 border-b border-neutral-200">
-                  {[
-                    { id: "features", label: "Ürün Detayları" },
-                    { id: "specs", label: "Özellikler" },
-                    { id: "shipping", label: "Kargo & İade" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as TabType)}
-                      className={`
-                        pb-2 text-xs font-medium tracking-wide uppercase transition-all relative
-                        ${activeTab === tab.id
-                          ? "text-neutral-900"
-                          : "text-neutral-400 hover:text-neutral-600"
-                        }
-                      `}
-                    >
-                      {tab.label}
-                      {activeTab === tab.id && (
-                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-neutral-900" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="py-4">
-                  <AnimatePresence mode="wait">
-                    {activeTab === "features" && (
-                      <motion.div
-                        key="features"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <ProductFeatures product={product} />
-                      </motion.div>
-                    )}
-                    {activeTab === "specs" && (
-                      <motion.div
-                        key="specs"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <div className="grid sm:grid-cols-2 gap-3">
-                          <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
-                            <Package className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
-                            <div>
-                              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Malzeme</p>
-                              <p className="text-sm font-medium text-neutral-900">Premium Full-Grain Deri</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
-                            <Hammer className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
-                            <div>
-                              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">İşçilik</p>
-                              <p className="text-sm font-medium text-neutral-900">El Dikişi (Saddle Stitch)</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
-                            <Clock className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
-                            <div>
-                              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Üretim Süresi</p>
-                              <p className="text-sm font-medium text-neutral-900">3-5 İş Günü</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
-                            <BadgeCheck className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
-                            <div>
-                              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Garanti</p>
-                              <p className="text-sm font-medium text-neutral-900">2 Yıl</p>
-                            </div>
+              {/* Accordions — Inline in right column */}
+              <div className="pt-1 space-y-2">
+                {[
+                  {
+                    id: "features",
+                    label: "Ürün Detayları",
+                    content: <ProductFeatures product={product} />,
+                  },
+                  {
+                    id: "specs",
+                    label: "Özellikler",
+                    content: (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                          <Package className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <div>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Malzeme</p>
+                            <p className="text-sm font-medium text-neutral-900">Premium Full-Grain Deri</p>
                           </div>
                         </div>
-                      </motion.div>
-                    )}
-                    {activeTab === "shipping" && (
-                      <motion.div
-                        key="shipping"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="space-y-4 text-sm text-neutral-600"
-                      >
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                          <Hammer className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <div>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">İşçilik</p>
+                            <p className="text-sm font-medium text-neutral-900">El Dikişi (Saddle Stitch)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                          <Clock className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <div>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Üretim Süresi</p>
+                            <p className="text-sm font-medium text-neutral-900">3-5 İş Günü</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                          <BadgeCheck className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <div>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Garanti</p>
+                            <p className="text-sm font-medium text-neutral-900">2 Yıl</p>
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    id: "shipping",
+                    label: "Kargo & İade",
+                    content: (
+                      <div className="space-y-4 text-sm text-neutral-600">
                         <div>
                           <h4 className="font-medium text-neutral-900 mb-1">Kargo Bilgileri</h4>
                           <p>Siparişleriniz 3-5 iş günü içerisinde kargoya verilir. 500₺ ve üzeri siparişlerde kargo ücretsizdir.</p>
@@ -586,10 +556,38 @@ export function ProductDetailClient({
                           <h4 className="font-medium text-neutral-900 mb-1">Özel Siparişler</h4>
                           <p>Özel ölçü ve kişiselleştirme taleplerinde üretim süresi 7-10 iş gününe uzayabilir.</p>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                      </div>
+                    ),
+                  },
+                ].map((item) => {
+                  const isOpen = openAccordions.has(item.id);
+                  return (
+                    <div key={item.id} className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                      <button
+                        onClick={() => toggleAccordion(item.id)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-neutral-900 uppercase tracking-wide"
+                      >
+                        {item.label}
+                        <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4">
+                              {item.content}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* SKU */}

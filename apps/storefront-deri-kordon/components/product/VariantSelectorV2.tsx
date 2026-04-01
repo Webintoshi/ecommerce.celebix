@@ -107,8 +107,8 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                 className={cn(
                   "px-4 py-2 rounded-full text-xs font-medium border transition-all",
                   isSelected
-                    ? "bg-neutral-900 text-white border-neutral-900"
-                    : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
+                    ? "bg-[#8A6B37] text-white border-[#8A6B37]"
+                    : "bg-white text-[#8A6B37] border-gray-300 hover:border-[#8A6B37]"
                 )}
               >
                 {isSelected && <Check className="w-4 h-4 inline mr-1" />}
@@ -160,7 +160,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       className={cn(
                         "relative w-14 h-14 rounded-full border-2 transition-all duration-200 overflow-hidden",
                         isSelected
-                          ? "border-neutral-900 ring-2 ring-neutral-900/30"
+                          ? "border-[#8A6B37] ring-2 ring-[#8A6B37]/30"
                           : "border-gray-300 hover:border-gray-400",
                         isOutOfStock && "opacity-50 cursor-not-allowed"
                       )}
@@ -188,7 +188,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
 
                       {/* Selected indicator - border only */}
                       {isSelected && (
-                        <div className="absolute inset-0 rounded-full border-2 border-neutral-900" />
+                        <div className="absolute inset-0 rounded-full border-2 border-[#8A6B37]" />
                       )}
                     </button>
                   );
@@ -210,10 +210,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       className={cn(
                         "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                         isSelected
-                          ? "bg-neutral-900 text-white border-neutral-900"
+                          ? "bg-[#8A6B37] text-white border-[#8A6B37]"
                           : isOutOfStock
                           ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                          : "bg-white text-neutral-900 border-gray-300 hover:border-neutral-900"
+                          : "bg-white text-[#8A6B37] border-gray-300 hover:border-[#8A6B37]"
                       )}
                     >
                       {isSelected && <Check className="w-4 h-4 inline mr-1" />}
@@ -227,10 +227,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
         );
       })}
 
-      {/* Selected info */}
-      <p className="text-sm text-neutral-500">
-        Seçilen: <span className="font-medium text-neutral-900">{currentVariant?.name}</span>
-      </p>
+      {/* Selected info removed */}
     </div>
   );
 }
