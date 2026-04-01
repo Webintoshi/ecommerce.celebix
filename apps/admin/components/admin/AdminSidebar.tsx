@@ -160,6 +160,7 @@ export function AdminSidebar({
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const supabase = getBrowserSupabaseClient();
   const userEmail = initialProfile?.email;
   const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
@@ -203,9 +204,28 @@ export function AdminSidebar({
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/admin/login");
-    router.refresh();
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+
+    try {
+      await Promise.allSettled([
+        supabase.auth.signOut(),
+        fetch("/api/admin/logout", {
+          method: "POST",
+          cache: "no-store",
+        }),
+      ]);
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.assign("/admin/login");
+      } else {
+        router.replace("/admin/login");
+        router.refresh();
+      }
+    }
   };
 
   const handleLinkClick = () => {
@@ -307,10 +327,11 @@ export function AdminSidebar({
         <div className="p-4 border-t border-gray-200/50 space-y-2">
           <button
             onClick={handleLogout}
+            disabled={isSigningOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             <LogOut className="w-5 h-5 opacity-70" />
-            <span>Çıkış Yap</span>
+            <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
           </button>
           <Link
             href={STORE_RUNTIME.storefrontUrl}

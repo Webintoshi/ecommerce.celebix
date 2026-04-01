@@ -61,3 +61,34 @@ export type DashboardBootstrapData = {
   lowStockProducts: DashboardLowStockProduct[];
   liveData: LiveAnalyticsSnapshot;
 };
+
+export type AdminPaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type AdminProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  stock: number;
+  sku: string;
+};
+
+export type AdminProductListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  shortDescription: string;
+  images: string[];
+  category: string;
+  subcategory: string;
+  tags: string[];
+  variants: AdminProductVariant[];
+  featured: boolean;
+  isNew: boolean;
+};
