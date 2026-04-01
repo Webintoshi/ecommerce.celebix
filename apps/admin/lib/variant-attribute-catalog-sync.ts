@@ -161,7 +161,10 @@ function findRegistryMatch(
   entry: JsonObject,
   indexes: ReturnType<typeof createRegistryIndexes>,
 ): RegistryMatch | null {
-  const rawValueId = toOptionalString(entry.valueId) || toOptionalString(entry.attribute_value_id);
+  const rawValueId =
+    toOptionalString(entry.valueId) ||
+    toOptionalString(entry.attribute_value_id) ||
+    toOptionalString(entry.id);
   if (rawValueId && indexes.byValueId.has(rawValueId)) {
     return indexes.byValueId.get(rawValueId) ?? null;
   }

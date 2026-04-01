@@ -5,6 +5,57 @@ import { getProductBySlug, getProductSlug } from "@/lib/products";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
 
+function isMissingProductVariantAttributeRelation(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("message" in error)) {
+    return false;
+  }
+
+  const message = String(error.message ?? "");
+  return /relationship between 'product_variants' and 'product_variant_attributes'/i.test(message);
+}
+
+async function fetchProductVariants(supabase: any, productId: string) {
+  const selectWithLinkedAttributes = `
+    *,
+    raw_attributes:attributes,
+    linked_attributes:product_variant_attributes(
+      id,
+      attribute_value:variant_attribute_values(
+        id,
+        attribute_id,
+        value,
+        color_code,
+        image_url,
+        attribute:variant_attributes(id, name)
+      )
+    )
+  `;
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select(selectWithLinkedAttributes)
+    .eq("product_id", productId);
+
+  if (!error) {
+    return { data, error: null };
+  }
+
+  if (!isMissingProductVariantAttributeRelation(error)) {
+    return { data: null, error };
+  }
+
+  const fallbackResult = await supabase
+    .from("product_variants")
+    .select("*, raw_attributes:attributes")
+    .eq("product_id", productId);
+
+  if (fallbackResult.error) {
+    return { data: null, error: fallbackResult.error };
+  }
+
+  return { data: fallbackResult.data, error: null };
+}
+
 // Generate metadata on the server side
 export async function generateMetadata({
   params
@@ -126,23 +177,7 @@ export default async function ProductDetailPage({
     } else if (dbProducts?.[0]) {
       const dbProduct = dbProducts[0];
       // Ayri olarak varyantlari cek (nitelikleriyle birlikte)
-      const { data: variants, error: variantsError } = await supabase
-        .from("product_variants")
-        .select(`
-          *,
-          attributes:product_variant_attributes(
-            id,
-            attribute_value:variant_attribute_values(
-              id,
-              attribute_id,
-              value,
-              color_code,
-              image_url,
-              attribute:variant_attributes(id, name)
-            )
-          )
-        `)
-        .eq("product_id", dbProduct.id);
+      const { data: variants, error: variantsError } = await fetchProductVariants(supabase, dbProduct.id);
       
       if (variantsError) {
         console.error('Variants fetch error:', variantsError);
@@ -176,11 +211,17 @@ export default async function ProductDetailPage({
       
       // Transform variants with attributes
       const transformedVariants = variants?.map((v: any) => {
-        // Get existing attributes from product_variant_attributes
-        let attrs = v.attributes?.map((a: any) => ({
-          ...a.attribute_value,
-          attribute: a.attribute_value?.attribute
-        })) || [];
+        // Get existing attributes from product_variant_attributes when available
+        let attrs = Array.isArray(v.linked_attributes)
+          ? v.linked_attributes.map((a: any) => ({
+              ...a.attribute_value,
+              attribute: a.attribute_value?.attribute
+            }))
+          : [];
+
+        if (attrs.length === 0 && Array.isArray(v.raw_attributes)) {
+          attrs = v.raw_attributes;
+        }
         
         // FALLBACK: If no attributes, try to match variant name with attribute values
         if (attrs.length === 0 && allAttributeValues) {
