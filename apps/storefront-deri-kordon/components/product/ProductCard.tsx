@@ -62,7 +62,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   return (
     <Link href={ROUTES.product(product.slug)} className="group block">
       {/* Image Container - No background, no padding */}
-      <div className="relative aspect-[4/5] mb-3 overflow-hidden">
+      <div className="relative aspect-square mb-3 overflow-hidden bg-neutral-100">
         {primaryImage ? (
           <Image
             src={primaryImage}
