@@ -117,39 +117,9 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
-      {/* Hero */}
-      <section className="pt-20 pb-10 sm:pt-28 sm:pb-12">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-block text-xs text-neutral-400 uppercase tracking-[0.2em] mb-6"
-          >
-            Koleksiyon
-          </motion.span>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-medium text-neutral-900 mb-6 tracking-tight"
-          >
-            Tüm Ürünler
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-lg sm:text-xl text-neutral-500 leading-relaxed max-w-2xl mx-auto"
-          >
-            El yapımı premium deri aksesuar koleksiyonumuzu keşfedin.
-          </motion.p>
-        </div>
-      </section>
-
-      {/* Controls */}
+      {/* Controls -- Top of page, no hero */}
       <section className="sticky top-0 z-40 bg-[#F8F8F8]/80 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+        <div className="container-premium py-3">
           <div className="flex items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-xs">
@@ -193,7 +163,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
       </section>
 
       {/* Product Grid */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <section className="container-premium py-8 sm:py-12">
         {visibleProducts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -268,7 +238,7 @@ export function ProductsPageClient({
               <div className="h-6 w-96 bg-neutral-200 rounded mx-auto animate-pulse" />
             </div>
           </section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="container-premium py-8 sm:py-12">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {[...Array(9)].map((_, i) => (
                 <ProductCardSkeleton key={i} />
