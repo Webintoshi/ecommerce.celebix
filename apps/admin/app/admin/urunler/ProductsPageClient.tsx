@@ -26,6 +26,7 @@ import {
   List as ListIcon,
   Star,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -95,9 +96,13 @@ export default function ProductsPageClient({
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialError);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "price" | "stock" | "newest">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [pagination, setPagination] = useState<AdminPaginationMeta>(initialPagination);
+  const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
+  const [bulkStockValue, setBulkStockValue] = useState("");
+  const [bulkStockSubmitting, setBulkStockSubmitting] = useState(false);
   const categoryTree = buildProductCategoryTree(categories);
   const categoryLabelMap = buildCategoryLabelMap(categories);
   const categoryFilters = [
@@ -198,6 +203,7 @@ export default function ProductsPageClient({
     if (selectedProducts.length === 0) return;
     if (confirm(`${selectedProducts.length} ürünü silmek istediğinizden emin misiniz?`)) {
       try {
+        setNotice(null);
         for (const id of selectedProducts) {
           await fetch(`/api/products?id=${id}`, { method: "DELETE" });
         }
@@ -208,7 +214,64 @@ export default function ProductsPageClient({
       }
     }
   };
+  const closeBulkStockModal = () => {
+    if (bulkStockSubmitting) {
+      return;
+    }
 
+    setIsBulkStockModalOpen(false);
+    setBulkStockValue("");
+  };
+
+  const handleBulkStockUpdate = async () => {
+    const parsedStock = Number(bulkStockValue);
+
+    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+      setNotice({ tone: "error", text: "Gecerli bir stok sayisi girmelisiniz." });
+      return;
+    }
+
+    try {
+      setBulkStockSubmitting(true);
+      setNotice(null);
+
+      const data = await fetchAdminJson<{
+        success: boolean;
+        updatedProducts: number;
+        updatedVariants: number;
+        stock: number;
+      }>("/api/admin/products/bulk-stock", {
+        timeoutMs: 20000,
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productIds: selectedProducts,
+            stock: parsedStock,
+          }),
+        },
+      });
+
+      await loadProducts();
+      setSelectedProducts([]);
+      setIsBulkStockModalOpen(false);
+      setBulkStockValue("");
+      setNotice({
+        tone: "success",
+        text: `${data.updatedProducts} urunun ${data.updatedVariants} varyanti icin stok ${data.stock} olarak guncellendi.`,
+      });
+    } catch (error) {
+      console.error("Failed to bulk update stock:", error);
+      setNotice({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Toplu stok guncellenemedi.",
+      });
+    } finally {
+      setBulkStockSubmitting(false);
+    }
+  };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -300,6 +363,19 @@ export default function ProductsPageClient({
       {errorMessage ? (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           {errorMessage}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div
+          className={cn(
+            "mb-6 rounded-2xl px-4 py-3 text-sm font-medium",
+            notice.tone === "success"
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border border-rose-200 bg-rose-50 text-rose-800"
+          )}
+        >
+          {notice.text}
         </div>
       ) : null}
 
@@ -418,6 +494,15 @@ export default function ProductsPageClient({
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Toplu İşlemler</p>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setBulkStockValue("");
+                    setIsBulkStockModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                >
+                  STOK GUNCELLE
+                </button>
                 <button
                   onClick={handleBulkDelete}
                   className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
@@ -736,6 +821,57 @@ export default function ProductsPageClient({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {isBulkStockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/45 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-gray-900">Toplu Stok Guncelle</h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Secilen {selectedProducts.length} urunun tum varyant stoklari ayni degere cekilecek.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-700" htmlFor="bulk-stock-input">
+                Yeni stok sayisi
+              </label>
+              <input
+                id="bulk-stock-input"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={bulkStockValue}
+                onChange={(event) => setBulkStockValue(event.target.value)}
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none transition-all focus:border-emerald-300 focus:bg-white"
+                placeholder="Ornek: 25"
+              />
+              <p className="text-xs text-gray-500">
+                Bu islem secilen urunlerin tum varyantlarina ayni stok degerini uygular.
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={closeBulkStockModal}
+                disabled={bulkStockSubmitting}
+                className="px-4 py-2 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Vazgec
+              </button>
+              <button
+                onClick={handleBulkStockUpdate}
+                disabled={bulkStockSubmitting}
+                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {bulkStockSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Kaydet
+              </button>
+            </div>
           </div>
         </div>
       )}
