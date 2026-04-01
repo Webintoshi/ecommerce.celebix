@@ -1,4 +1,4 @@
-﻿import { createServerClient } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
@@ -6,8 +6,9 @@ import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "TÃ¼m ÃœrÃ¼nler | Deri Kordon",
-  description: "DoÄŸal ve katkÄ±sÄ±z fÄ±stÄ±k ezmesi, fÄ±ndÄ±k ezmesi ve kuruyemiÅŸ Ã§eÅŸitlerimizi keÅŸfedin.",
+  title: "Tüm Ürünler | Deri Kordon",
+  description:
+    "El yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarları keşfedin.",
 };
 
 interface DBProduct {
@@ -60,15 +61,16 @@ function transformProduct(dbProduct: DBProduct): Product {
     subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
-    variants: dbProduct.variants?.map(v => ({
-      id: v.id,
-      name: v.name,
-      weight: v.weight ? parseInt(v.weight) : 250,
-      price: Number(v.price),
-      originalPrice: v.original_price ? Number(v.original_price) : undefined,
-      stock: v.stock,
-      sku: v.sku || "",
-    })) || [],
+    variants:
+      dbProduct.variants?.map((v) => ({
+        id: v.id,
+        name: v.name,
+        weight: v.weight ? parseInt(v.weight) : 250,
+        price: Number(v.price),
+        originalPrice: v.original_price ? Number(v.original_price) : undefined,
+        stock: v.stock,
+        sku: v.sku || "",
+      })) || [],
     vegan: dbProduct.vegan,
     glutenFree: dbProduct.gluten_free,
     sugarFree: dbProduct.sugar_free,
@@ -84,78 +86,39 @@ function transformProduct(dbProduct: DBProduct): Product {
 
 async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
-  
+
   try {
-    const { data: products, error } = await runProductsQuery((includeIsActiveFilter) => {
-      let query = supabase
-        .from("products")
-        .select(`
-          *,
-          variants:product_variants(*)
-        `);
+    const { data: products, error } = await runProductsQuery(
+      (includeIsActiveFilter) => {
+        let query = supabase.from("products").select(`
+            *,
+            variants:product_variants(*)
+          `);
 
-      if (includeIsActiveFilter) {
-        query = query.eq("is_active", true);
+        if (includeIsActiveFilter) {
+          query = query.eq("is_active", true);
+        }
+
+        return query
+          .or("status.eq.published,status.is.null")
+          .order("created_at", { ascending: false });
       }
+    );
 
-      return query
-        .or("status.eq.published,status.is.null")
-        .order("created_at", { ascending: false });
-    });
-    
     if (error) {
       console.error("Supabase error:", error);
       return [];
     }
-    
-    return (products as DBProduct[] || []).map(transformProduct);
+
+    return ((products as DBProduct[]) || []).map(transformProduct);
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return [];
   }
 }
 
-async function getCategoryCounts() {
-  const supabase = createServerClient();
-  
-  try {
-    const { data: products, error } = await runProductsQuery((includeIsActiveFilter) => {
-      let query = supabase.from("products").select("category");
-
-      if (includeIsActiveFilter) {
-        query = query.eq("is_active", true);
-      }
-
-      return query;
-    });
-
-    if (error) {
-      console.error("Failed to fetch category counts:", error);
-      return {};
-    }
-
-    const counts: Record<string, number> = {};
-    products?.forEach((p) => {
-      counts[p.category] = (counts[p.category] || 0) + 1;
-    });
-    
-    return counts;
-  } catch (error) {
-    console.error("Failed to fetch category counts:", error);
-    return {};
-  }
-}
-
 export default async function AllProductsPage() {
-  const [products, categoryCounts] = await Promise.all([
-    getProducts(),
-    getCategoryCounts(),
-  ]);
-  
-  return (
-    <ProductsPageClient 
-      initialProducts={products} 
-      categoryCounts={categoryCounts}
-    />
-  );
+  const products = await getProducts();
+
+  return <ProductsPageClient initialProducts={products} />;
 }
