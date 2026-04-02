@@ -179,14 +179,18 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                     {/* Main Card */}
                     <div className="relative w-full h-full rounded-2xl md:rounded-3xl overflow-hidden">
                       {/* Background Image */}
-                      <Image
-                        src={imageErrors[cat.id] ? "/placeholder.svg" : (cat.image || "/placeholder.svg")}
-                        alt={cat.name}
-                        fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-110"
-                        sizes="(max-width: 768px) 320px, (max-width: 1200px) 33vw, 400px"
-                        onError={() => handleImageError(cat.id)}
-                      />
+                      {cat.image && !imageErrors[cat.id] ? (
+                        <Image
+                          src={cat.image}
+                          alt={cat.name}
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 320px, (max-width: 1200px) 33vw, 400px"
+                          onError={() => handleImageError(cat.id)}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-[#F3E0E1]" aria-hidden="true" />
+                      )}
                       
                       {/* Gradient Overlay - Bottom to Top */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />

@@ -55,6 +55,7 @@ interface Toast {
 export default function CategoryManager() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingCategory, setEditingCategory] = useState<CategoryInfo | null>(null);
@@ -87,6 +88,7 @@ export default function CategoryManager() {
     try {
       const data = await fetchCategories({ fresh: true });
       setCategories(data);
+      setImageErrors({});
     } catch (error) {
       console.error("Failed to load categories:", error);
       showToast("error", "Kategoriler yüklenirken bir hata oluştu");
@@ -293,6 +295,7 @@ export default function CategoryManager() {
   const renderCategoryRow = (category: CategoryInfo, level: number = 0) => {
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedIds.has(category.id);
+    const shouldRenderImage = Boolean(category.image) && !imageErrors[category.id];
 
     return (
       <div key={category.id}>
@@ -308,14 +311,20 @@ export default function CategoryManager() {
           </button>
 
           <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-            {category.image ? (
+            {shouldRenderImage ? (
               <img 
                 src={category.image} 
                 alt={category.name}
                 className="w-full h-full object-cover"
+                onError={() =>
+                  setImageErrors((current) => ({
+                    ...current,
+                    [category.id]: true,
+                  }))
+                }
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-xl">
+              <div className="w-full h-full bg-gray-50 text-[0px] text-transparent" aria-hidden="true">
                 {category.icon || "📦"}
               </div>
             )}

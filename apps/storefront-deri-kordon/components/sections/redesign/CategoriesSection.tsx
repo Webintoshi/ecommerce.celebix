@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import type { HomepageCategory } from "@/lib/homepage";
@@ -11,6 +12,7 @@ interface CategoriesSectionProps {
 }
 
 export function CategoriesSection({ initialCategories = [] }: CategoriesSectionProps) {
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const displayCategories = initialCategories
     .filter((category) => category.slug && category.name)
     .map((category) => {
@@ -21,8 +23,8 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
         name: category.name,
         description: category.description || "",
         link: ROUTES.category(category.slug),
-        image: resolvedImage || "/placeholder.svg",
-        usesProxiedImage: isProxiedStorefrontAssetUrl(resolvedImage),
+        image: resolvedImage || null,
+        usesProxiedImage: resolvedImage ? isProxiedStorefrontAssetUrl(resolvedImage) : false,
       };
     });
 
@@ -45,14 +47,24 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
               href={category.link}
               className="group relative block aspect-[3/2] overflow-hidden"
             >
-              <Image
-                src={category.image}
-                alt={category.name}
-                fill
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                unoptimized={category.usesProxiedImage}
-              />
+              {category.image && !imageErrors[category.id] ? (
+                <Image
+                  src={category.image}
+                  alt={category.name}
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  unoptimized={category.usesProxiedImage}
+                  onError={() =>
+                    setImageErrors((current) => ({
+                      ...current,
+                      [category.id]: true,
+                    }))
+                  }
+                />
+              ) : (
+                <div className="absolute inset-0 bg-neutral-100" aria-hidden="true" />
+              )}
 
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 

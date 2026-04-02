@@ -20,6 +20,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -36,6 +37,10 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
     }
     loadData();
   }, [categoryId]);
+
+  useEffect(() => {
+    setImagePreviewFailed(false);
+  }, [categoryId, existingCategory?.image]);
 
   const [formData, setFormData] = useState<CategoryFormData>({
     id: existingCategory?.id || "",
@@ -120,6 +125,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
       const data = await response.json();
       
       if (data.url) {
+        setImagePreviewFailed(false);
         setFormData(prev => ({ ...prev, image: data.url }));
       }
     } catch (error) {
@@ -151,6 +157,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
   };
 
   const handleRemoveImage = () => {
+    setImagePreviewFailed(false);
     setFormData({ ...formData, image: "" });
   };
 
@@ -267,14 +274,18 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
             
             {formData.image ? (
               <div className="relative">
-                <img
-                  src={formData.image}
-                  alt={formData.name}
-                  className="w-full h-48 md:h-64 object-cover rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
+                {imagePreviewFailed ? (
+                  <div className="h-48 w-full rounded-lg bg-gray-50 md:h-64" aria-hidden="true" />
+                ) : (
+                  <img
+                    src={formData.image}
+                    alt={formData.name}
+                    className="w-full h-48 object-cover rounded-lg md:h-64"
+                    onError={() => {
+                      setImagePreviewFailed(true);
+                    }}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={handleRemoveImage}
@@ -331,7 +342,10 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
               <input
                 type="url"
                 value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                onChange={(e) => {
+                  setImagePreviewFailed(false);
+                  setFormData({ ...formData, image: e.target.value });
+                }}
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                 placeholder="https://example.com/image.jpg"
               />
