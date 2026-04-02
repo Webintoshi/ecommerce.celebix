@@ -175,125 +175,62 @@ export function HeaderSearchOverlay({
   return createPortal(
     <div className="fixed inset-0 z-[120]">
       <div
-        className="absolute inset-0 bg-neutral-950/25 backdrop-blur-2xl"
+        className="absolute inset-0 bg-neutral-900/20 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative flex h-full w-full items-start justify-center p-4 sm:p-8">
+      <div className="relative flex h-full w-full items-start justify-center p-4 pt-16 sm:p-8 sm:pt-20">
         <div
-          className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-white/60 bg-[rgba(248,248,248,0.96)] shadow-[0_40px_120px_rgba(15,22,38,0.18)]"
+          className="flex h-auto max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-label="Urun arama penceresi"
         >
-          <div className="border-b border-neutral-200 px-5 py-5 sm:px-8 sm:py-7">
-            <div className="flex items-start gap-4">
-              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-neutral-900 shadow-sm sm:flex">
-                <Search className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500">
-                  Hizli Arama
-                </p>
-                <form
-                  className="mt-3"
-                  onSubmit={(event) => event.preventDefault()}
-                >
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                    <input
-                      ref={inputRef}
-                      type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Urun, kategori veya model ara..."
-                      className="h-14 w-full rounded-2xl border border-neutral-200 bg-white pl-12 pr-14 text-base font-medium text-neutral-900 outline-none transition focus:border-neutral-400"
-                    />
-                    {query ? (
-                      <button
-                        type="button"
-                        onClick={() => setQuery("")}
-                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-800"
-                        aria-label="Aramayi temizle"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </div>
-                </form>
-                <p className="mt-3 text-sm text-neutral-500">
-                  En az 2 karakter yazin. Sonuclar yazdikca otomatik gelir.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-500 transition hover:border-neutral-300 hover:text-neutral-900"
-                aria-label="Aramayi kapat"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+          <div className="flex items-center gap-3 border-b border-neutral-100 px-5 py-4">
+            <Search className="h-5 w-5 text-neutral-400" />
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Urun ara..."
+              className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 outline-none"
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="Kapat"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
+          <div className="flex-1 overflow-y-auto">
             {normalizedQuery.length < 2 ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-dashed border-neutral-200 bg-white/70 px-6 text-center">
-                <div>
-                  <p className="text-lg font-semibold text-neutral-900">
-                    Arama hazir
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Popupta ajax arama acik. Urun ismini yazmaya baslayin.
-                  </p>
-                </div>
+              <div className="flex h-48 items-center justify-center px-6 text-center">
+                <p className="text-sm text-neutral-400">
+                  Aramaya başlamak için yazmaya başlayın
+                </p>
               </div>
             ) : isLoading ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
-                <div>
-                  <p className="text-lg font-semibold text-neutral-900">
-                    Araniyor...
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Sonuclar anlik olarak getiriliyor.
-                  </p>
-                </div>
+              <div className="flex h-48 items-center justify-center px-6 text-center">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
               </div>
             ) : errorMessage ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
-                <div>
-                  <p className="text-lg font-semibold text-neutral-900">
-                    Arama su an calismiyor
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-500">{errorMessage}</p>
-                </div>
+              <div className="flex h-48 items-center justify-center px-6 text-center">
+                <p className="text-sm text-neutral-500">{errorMessage}</p>
               </div>
             ) : results.length === 0 ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
-                <div>
-                  <p className="text-lg font-semibold text-neutral-900">
-                    Sonuc bulunamadi
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Farkli bir urun veya model ismi deneyin.
-                  </p>
-                </div>
+              <div className="flex h-48 items-center justify-center px-6 text-center">
+                <p className="text-sm text-neutral-500">
+                  Sonuç bulunamadı
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
-                    Sonuclar
-                  </p>
-                  <p className="text-sm text-neutral-500">
-                    {Math.min(results.length, MAX_RESULTS)} urun
-                  </p>
-                </div>
-
+              <div className="py-2">
                 {results.slice(0, MAX_RESULTS).map((product) => {
                   const priceLabel = formatPrice(product.variants?.[0]?.price);
 
@@ -302,9 +239,9 @@ export function HeaderSearchOverlay({
                       key={product.id}
                       href={ROUTES.product(product.slug)}
                       onClick={onClose}
-                      className="flex items-center gap-4 rounded-[1.5rem] border border-neutral-200 bg-white p-3 transition hover:border-neutral-300 hover:shadow-sm"
+                      className="flex items-center gap-4 px-5 py-3 transition hover:bg-neutral-50"
                     >
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.25rem] bg-neutral-100">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
                         <img
                           src={getProductImage(product, resolveImageSrc)}
                           alt={product.name}
@@ -314,14 +251,11 @@ export function HeaderSearchOverlay({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                          {product.category || "Urun"}
-                        </p>
-                        <p className="store-product-title mt-1 text-neutral-900">
+                        <p className="truncate text-sm font-medium text-neutral-900">
                           {product.name}
                         </p>
                         {priceLabel ? (
-                          <p className="mt-2 text-sm font-medium text-neutral-600">
+                          <p className="mt-1 text-sm text-neutral-500">
                             {priceLabel}
                           </p>
                         ) : null}
