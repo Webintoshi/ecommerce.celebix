@@ -57,11 +57,11 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                <h3 className="text-lg font-medium leading-tight text-white drop-shadow-lg md:text-xl lg:text-2xl">
+                <h3 className="text-lg font-medium leading-tight text-[#F8F8F8F8] drop-shadow-lg md:text-xl lg:text-2xl">
                   {category.name}
                 </h3>
                 {category.description ? (
-                  <p className="mt-3 line-clamp-2 max-w-sm text-sm text-white/85 drop-shadow-md">
+                  <p className="mt-3 line-clamp-2 max-w-sm text-sm text-[#F8F8F8F8]/85 drop-shadow-md">
                     {category.description}
                   </p>
                 ) : null}
