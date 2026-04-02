@@ -69,11 +69,17 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                <h3 className="text-lg font-medium leading-tight text-white drop-shadow-lg md:text-xl lg:text-2xl">
+                <h3
+                  className="text-lg font-medium leading-tight text-white drop-shadow-lg md:text-xl lg:text-2xl"
+                  style={{ color: "#ffffff" }}
+                >
                   {category.name}
                 </h3>
                 {category.description ? (
-                  <p className="mt-3 line-clamp-2 max-w-sm text-sm text-white/90 drop-shadow-md">
+                  <p
+                    className="mt-3 line-clamp-2 max-w-sm text-sm text-white/90 drop-shadow-md"
+                    style={{ color: "rgba(255, 255, 255, 0.9)" }}
+                  >
                     {category.description}
                   </p>
                 ) : null}
