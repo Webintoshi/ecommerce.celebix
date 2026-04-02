@@ -8,55 +8,33 @@ import { cn } from "@/lib/utils";
 const testimonials = [
   {
     id: 1,
-    name: "Mehmet Oğuz Canan",
+    name: "CANER T.",
     verified: true,
     rating: 5,
-    title: "Seiko sportura için çift kat deri",
-    content: "Seikom için özel ölçü ve dikişte tam istediğim gibi geldi. Kişiye özel el işçiliği ve kaliteli deri. Çok memnun kaldım.",
-    productName: "Çift Katlı Deri Saat Kayışı - Siyah",
-    productImage: "/hero-banner-fistik-ezmeleri.jpg",
-    date: "03/24/2026",
+    content: "Kesinlikle tavsiye ediyorum. Tütün kesesi aldım harika kalite.",
+    productName: "Deri Tütün Kesesi",
+    productPrice: "2.458,00TL",
+    productImage: "/images/placeholders/T.1.jpg",
+    productThumb: "/images/placeholders/T.1-thumb.jpg",
   },
   {
     id: 2,
-    name: "Mehmet TAKIM",
+    name: "ASLI B.",
     verified: true,
     rating: 5,
-    title: "Çok güzel",
-    content: "Sipariş verirken tereddüt etmiştim, ilk geldiğinde üst katmanı çok parlak geldi bana. Kullanmaya başlayınca çok sevdim. Güzel ve farklı bir tasarım...",
-    productName: "Matrix Fosforlu - Tek Kat Deri Apple Watch Kordon - Siyah",
-    productImage: "/hero-banner-super-gidalar-mobile.jpg",
-    date: "03/18/2026",
-  },
-  {
-    id: 3,
-    name: "Mehmet TAKIM",
-    verified: true,
-    rating: 5,
-    title: "Çok Beğendim",
-    content: "Ürün beklentilerimi karşıladı. Özenilerek üretildiğini hissediyorsunuz. Kişiselleştirme imkanı çok hoş. Süreçten memnun kaldım.",
-    productName: "MacBook Organizer - Deri Kılıf",
-    productImage: "/Findik_Ezmeleri_Kategorisi.webp",
-    date: "03/18/2026",
-  },
-  {
-    id: 4,
-    name: "Tuğba kayabaşı",
-    verified: true,
-    rating: 5,
-    title: "Güzel fakat lazer yazı çok beklediğim gibi değil",
-    content: "Güzel ürün. Genel olarak memnun kaldım. Deri kalitesi güzel, işçilik iyi. Tavsiye ederim.",
-    productName: "A6 Defter Kılıfı - Deri Organizer",
-    productImage: "/fistik_ezmesi_kategori_gorsel.webp",
-    date: "03/18/2026",
+    content: "Şahane işçilik ile mükemmel ürün çıkmış kullandıkça güzelleşiyor.",
+    productName: "Deri Telefon Çantası (Nova)",
+    productPrice: "2.458,00TL",
+    productImage: "/images/placeholders/T.2.jpg",
+    productThumb: "/images/placeholders/T.2-thumb.jpg",
   },
 ];
 
 export function TestimonialsSection() {
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 4;
+  const itemsPerPage = 2;
   const totalPages = Math.ceil(testimonials.length / itemsPerPage);
-  
+
   const currentTestimonials = testimonials.slice(
     currentPage * itemsPerPage,
     (currentPage + 1) * itemsPerPage
@@ -71,47 +49,47 @@ export function TestimonialsSection() {
   };
 
   return (
-    <section className="py-20 lg:py-28 bg-neutral-50">
+    <section className="py-16 lg:py-20 bg-neutral-50">
       <div className="container-premium">
         {/* Section Header */}
-        <div className="text-center mb-12 lg:mb-16">
-          <h2 className="text-3xl lg:text-4xl font-serif font-medium text-neutral-900 mb-2">
-            Güncel Yorumlar
+        <div className="text-center mb-10">
+          <h2 className="text-2xl lg:text-3xl font-medium text-neutral-900 mb-2">
+            Müşteri Yorumları
           </h2>
-          <p className="text-neutral-500">
+          <p className="text-neutral-500 text-sm">
             1581 değerlendirmeden
           </p>
         </div>
 
-        {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Testimonials Grid - Horizontal Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {currentTestimonials.map((review) => (
             <div
               key={review.id}
-              className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow flex"
             >
-              {/* Product Image */}
-              <div className="relative aspect-square bg-neutral-100">
+              {/* Left: Large Product Image */}
+              <div className="relative w-32 sm:w-40 lg:w-48 flex-shrink-0 bg-neutral-100">
                 <Image
                   src={review.productImage}
                   alt={review.productName}
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  sizes="(max-width: 640px) 128px, (max-width: 1024px) 160px, 192px"
                 />
               </div>
 
-              {/* Content */}
-              <div className="p-5">
+              {/* Right: Content */}
+              <div className="flex-1 p-4 sm:p-5 flex flex-col">
                 {/* Stars */}
-                <div className="flex items-center justify-center gap-1 mb-4">
+                <div className="flex items-center gap-0.5 mb-3">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
                       className={cn(
-                        "w-4 h-4",
+                        "w-3.5 h-3.5",
                         i < review.rating
-                          ? "fill-[#B39A73] text-[#B39A73]"
+                          ? "fill-[#8A6B37] text-[#8A6B37]"
                           : "fill-neutral-200 text-neutral-200"
                       )}
                     />
@@ -119,26 +97,46 @@ export function TestimonialsSection() {
                 </div>
 
                 {/* Name with Verified Badge */}
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <span className="text-sm font-medium text-neutral-400">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-semibold text-neutral-900 uppercase">
                     {review.name}
                   </span>
                   {review.verified && (
-                    <span className="w-5 h-5 bg-[#B39A73]/20 rounded-full flex items-center justify-center">
-                      <Check className="w-3 h-3 text-[#B39A73]" />
+                    <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
+                      <Check className="w-3 h-3" />
+                      Doğrulanmış Alıcı
                     </span>
                   )}
                 </div>
 
-                {/* Review Title */}
-                <h3 className="text-center font-medium text-neutral-900 mb-2 line-clamp-1">
-                  {review.title}
-                </h3>
-
                 {/* Review Content */}
-                <p className="text-sm text-neutral-500 text-center line-clamp-3">
+                <p className="text-sm text-neutral-600 leading-relaxed flex-1">
                   {review.content}
                 </p>
+
+                {/* Divider */}
+                <div className="border-t border-neutral-100 my-4" />
+
+                {/* Product Info */}
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded bg-neutral-100 overflow-hidden flex-shrink-0">
+                    <Image
+                      src={review.productThumb}
+                      alt={review.productName}
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 truncate">
+                      {review.productName}
+                    </p>
+                    <p className="text-sm text-neutral-500">
+                      {review.productPrice}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -154,7 +152,7 @@ export function TestimonialsSection() {
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            
+
             <div className="flex items-center gap-2">
               {[...Array(totalPages)].map((_, i) => (
                 <button
