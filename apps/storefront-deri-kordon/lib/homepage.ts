@@ -182,11 +182,12 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+  const orderedSlugs = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
   const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("categories")
       .select("*")
-      .is("parent_id", null)
+      .in("slug", orderedSlugs)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
