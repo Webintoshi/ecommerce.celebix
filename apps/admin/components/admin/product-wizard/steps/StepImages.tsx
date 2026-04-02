@@ -5,6 +5,11 @@ import { ImageIcon, Upload, X, Star, GripVertical, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ProductImage } from "@/types/product";
+import {
+  isSupportedImageMimeType,
+  SUPPORTED_IMAGE_ACCEPT,
+  SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
+} from "@celebix/platform-config/src/image-formats";
 
 // Dynamic import for Dialog to avoid hydration issues
 import dynamic from "next/dynamic";
@@ -61,14 +66,13 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
 
     setUploading(true);
 
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     const validFiles = fileArray.filter(file => {
       if (file.size > 5 * 1024 * 1024) {
         toast.error(`${file.name} dosya boyutu çok büyük (maksimum 5MB)`);
         return false;
       }
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name} formatı desteklenmiyor`);
+      if (!isSupportedImageMimeType(file.type, file.name)) {
+        toast.error(`${file.name} formatı desteklenmiyor (${SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL})`);
         return false;
       }
       return true;
@@ -227,7 +231,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
           onChange={handleImageUpload}
           className="hidden"
           multiple
-          accept="image/*"
+          accept={SUPPORTED_IMAGE_ACCEPT}
         />
 
         <div className="flex flex-col items-center gap-4 text-center">
@@ -239,7 +243,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
               {uploading ? "Yükleniyor..." : "Görselleri Sürükleyin veya Tıklayın"}
             </p>
             <p className="text-sm text-gray-400 mt-1">
-              PNG, JPG, WebP (Max. 5MB) • {images.length}/{MAX_IMAGES}
+              {SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL} (Max. 5MB) • {images.length}/{MAX_IMAGES}
             </p>
           </div>
         </div>

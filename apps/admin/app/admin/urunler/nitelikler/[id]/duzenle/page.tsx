@@ -18,6 +18,11 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { VariantAttribute, VariantAttributeValue } from "@/types/variant-attributes";
+import {
+  isSupportedImageMimeType,
+  SUPPORTED_IMAGE_ACCEPT,
+  SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
+} from "@celebix/platform-config/src/image-formats";
 
 interface ValueInput extends VariantAttributeValue {
   isNew?: boolean;
@@ -138,9 +143,8 @@ export default function EditVariantAttributePage() {
   const handleImageUpload = async (valueId: string, file: File) => {
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Sadece JPEG, PNG, WebP ve GIF dosyaları yüklenebilir");
+    if (!isSupportedImageMimeType(file.type, file.name)) {
+      toast.error(`Sadece ${SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL} dosyaları yüklenebilir`);
       return;
     }
 
@@ -468,7 +472,7 @@ export default function EditVariantAttributePage() {
                               )}
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept={SUPPORTED_IMAGE_ACCEPT}
                                 className="hidden"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];

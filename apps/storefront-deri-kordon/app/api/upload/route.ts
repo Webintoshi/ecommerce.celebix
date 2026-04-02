@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
+import {
+    getImageFormatLabel,
+    isSvgImageMimeType,
+    normalizeSupportedImageMimeType,
+    SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
+} from "@celebix/platform-config/src/image-formats";
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +45,10 @@ interface ProcessedImage {
     originalSize: number;
     processedSize: number;
     quality: number;
+}
+
+function shouldKeepOriginalUpload(mimeType: string): boolean {
+    return mimeType === "image/svg+xml" || mimeType === "image/avif" || mimeType === "image/webp" || mimeType === "image/gif";
 }
 
 async function optimizeImage(
@@ -142,10 +152,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
-        if (!allowedTypes.includes(file.type)) {
+        const normalizedMimeType = normalizeSupportedImageMimeType(file.type, file.name);
+        if (!normalizedMimeType) {
             return NextResponse.json(
-                { success: false, error: "Invalid file type. Allowed: JPEG, PNG, WebP, AVIF, GIF" },
+                { success: false, error: `Invalid file type. Allowed: ${SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL}` },
                 { status: 400 }
             );
         }
@@ -162,39 +172,64 @@ export async function POST(request: NextRequest) {
         const inputBuffer = Buffer.from(bytes);
 
         const targetFormat: 'avif' | 'webp' = preferredFormat === 'auto' ? 'avif' : preferredFormat;
+        const shouldKeepOriginal = shouldKeepOriginalUpload(normalizedMimeType);
+        const isSvg = isSvgImageMimeType(normalizedMimeType, file.name);
 
-        const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+        let uploadBuffer = inputBuffer;
+        let uploadContentType = normalizedMimeType;
+        let uploadFileName = file.name;
+        let processedFormat: 'avif' | 'webp' | null = null;
+        let response: Record<string, unknown> = {
+            success: true,
+            originalSize: inputBuffer.length,
+            processedSize: inputBuffer.length,
+            savings: 0,
+            optimized: false,
+            format: getImageFormatLabel(normalizedMimeType),
+        };
 
-        const fileName = getFileName(file.name, processed.format);
+        if (!shouldKeepOriginal) {
+            const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+            uploadBuffer = processed.buffer;
+            uploadContentType = `image/${processed.format}`;
+            uploadFileName = getFileName(file.name, processed.format);
+            processedFormat = processed.format;
+            response = {
+                ...response,
+                format: processed.format,
+                width: processed.width,
+                height: processed.height,
+                originalSize: processed.originalSize,
+                processedSize: processed.processedSize,
+                savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100),
+                optimized: true,
+            };
+        }
         
         const result = await uploadToR2(
-            processed.buffer,
-            fileName,
-            `image/${processed.format}`,
+            uploadBuffer,
+            uploadFileName,
+            uploadContentType,
             folder
         );
 
-        const response: Record<string, unknown> = {
-            success: true,
+        response = {
+            ...response,
             url: result.url,
             key: result.key,
-            format: processed.format,
-            width: processed.width,
-            height: processed.height,
-            originalSize: processed.originalSize,
-            processedSize: processed.processedSize,
-            savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100)
         };
 
-        if (generateThumb) {
+        if (generateThumb && !isSvg && normalizedMimeType !== "image/gif") {
             try {
-                const thumbnailBuffer = await generateThumbnail(inputBuffer, folder, processed.format);
-                const thumbFileName = fileName.replace(`.${processed.format}`, `_thumb.${processed.format}`);
+                const thumbnailFormat = processedFormat || (normalizedMimeType === "image/avif" ? "avif" : "webp");
+                const thumbnailBuffer = await generateThumbnail(inputBuffer, folder, thumbnailFormat);
+                const thumbBaseName = processedFormat ? uploadFileName.replace(`.${thumbnailFormat}`, "") : file.name.replace(/\.[^/.]+$/, "");
+                const thumbFileName = `${thumbBaseName}_thumb.${thumbnailFormat}`;
                 
                 const thumbResult = await uploadToR2(
                     thumbnailBuffer,
                     thumbFileName,
-                    `image/${processed.format}`,
+                    `image/${thumbnailFormat}`,
                     folder
                 );
 

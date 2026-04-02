@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export * from "./typography";
+export * from "./image-formats";
 
 export interface StoreRegistryEntry {
   slug: string;

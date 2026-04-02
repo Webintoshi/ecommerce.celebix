@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { SUPPORTED_IMAGE_ACCEPT, SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL } from "@celebix/platform-config/src/image-formats";
 
 interface CategoryFormData {
   id?: string;
@@ -518,7 +519,7 @@ export default function CategoryManager() {
                     <label className="cursor-pointer">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={SUPPORTED_IMAGE_ACCEPT}
                         className="hidden"
                         onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
                         disabled={uploading}
@@ -527,7 +528,7 @@ export default function CategoryManager() {
                       <p className="text-sm text-gray-500">
                         {uploading ? "Yükleniyor..." : "Görsel yüklemek için tıklayın"}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">PNG, JPG, WebP - Max 5MB</p>
+                      <p className="text-xs text-gray-400 mt-1">{SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL} - Max 5MB</p>
                     </label>
                   )}
                 </div>

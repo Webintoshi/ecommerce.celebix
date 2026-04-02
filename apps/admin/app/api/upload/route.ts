@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import {
+    getImageFormatLabel,
+    isSvgImageMimeType,
+    normalizeSupportedImageMimeType,
+    SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
+} from "@celebix/platform-config/src/image-formats";
 
 export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
@@ -41,6 +47,10 @@ interface ProcessedImage {
     originalSize: number;
     processedSize: number;
     quality: number;
+}
+
+function shouldKeepOriginalUpload(mimeType: string): boolean {
+    return mimeType === "image/svg+xml" || mimeType === "image/avif" || mimeType === "image/webp" || mimeType === "image/gif";
 }
 
 async function optimizeImage(
@@ -144,10 +154,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
-        if (!allowedTypes.includes(file.type)) {
+        const normalizedMimeType = normalizeSupportedImageMimeType(file.type, file.name);
+        if (!normalizedMimeType) {
             return NextResponse.json(
-                { success: false, error: "Invalid file type. Allowed: JPEG, PNG, WebP, AVIF, GIF" },
+                { success: false, error: `Invalid file type. Allowed: ${SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL}` },
                 { status: 400 }
             );
         }
@@ -164,9 +174,11 @@ export async function POST(request: NextRequest) {
         const inputBuffer = Buffer.from(bytes);
 
         const targetFormat: 'avif' | 'webp' = preferredFormat === 'auto' ? 'avif' : preferredFormat;
+        const shouldKeepOriginal = shouldKeepOriginalUpload(normalizedMimeType);
+        const isSvg = isSvgImageMimeType(normalizedMimeType, file.name);
 
         let uploadBuffer = inputBuffer;
-        let uploadContentType = file.type || "application/octet-stream";
+        let uploadContentType = normalizedMimeType;
         let uploadFileName = file.name;
         let response: Record<string, unknown> = {
             success: true,
@@ -177,29 +189,37 @@ export async function POST(request: NextRequest) {
         };
         let processedFormat: 'avif' | 'webp' | null = null;
 
-        try {
-            const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
-            uploadBuffer = processed.buffer;
-            uploadContentType = `image/${processed.format}`;
-            uploadFileName = getFileName(file.name, processed.format);
-            processedFormat = processed.format;
+        if (shouldKeepOriginal) {
             response = {
                 ...response,
-                format: processed.format,
-                width: processed.width,
-                height: processed.height,
-                originalSize: processed.originalSize,
-                processedSize: processed.processedSize,
-                savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100),
-                optimized: true,
+                format: getImageFormatLabel(normalizedMimeType),
+                optimized: false,
             };
-        } catch (optimizationError) {
-            console.error("Image optimization failed, uploading original file instead:", optimizationError);
-            response = {
-                ...response,
-                format: file.type.replace("image/", "") || "original",
-                optimizationWarning: "Image uploaded without optimization",
-            };
+        } else {
+            try {
+                const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+                uploadBuffer = processed.buffer;
+                uploadContentType = `image/${processed.format}`;
+                uploadFileName = getFileName(file.name, processed.format);
+                processedFormat = processed.format;
+                response = {
+                    ...response,
+                    format: processed.format,
+                    width: processed.width,
+                    height: processed.height,
+                    originalSize: processed.originalSize,
+                    processedSize: processed.processedSize,
+                    savings: Math.round((1 - processed.processedSize / processed.originalSize) * 100),
+                    optimized: true,
+                };
+            } catch (optimizationError) {
+                console.error("Image optimization failed, uploading original file instead:", optimizationError);
+                response = {
+                    ...response,
+                    format: getImageFormatLabel(normalizedMimeType),
+                    optimizationWarning: "Image uploaded without optimization",
+                };
+            }
         }
 
         const result = await uploadToR2(
@@ -215,9 +235,9 @@ export async function POST(request: NextRequest) {
             key: result.key,
         };
 
-        if (generateThumb) {
+        if (generateThumb && !isSvg && normalizedMimeType !== "image/gif") {
             try {
-                const thumbnailFormat = processedFormat || "webp";
+                const thumbnailFormat = processedFormat || (normalizedMimeType === "image/avif" ? "avif" : "webp");
                 const thumbnailBuffer = await generateThumbnail(inputBuffer, folder, thumbnailFormat);
                 const thumbBaseName = processedFormat ? uploadFileName.replace(`.${thumbnailFormat}`, "") : file.name.replace(/\.[^/.]+$/, "");
                 const thumbFileName = `${thumbBaseName}_thumb.${thumbnailFormat}`;

@@ -7,6 +7,7 @@ import { CategoryFormData, CategoryInfo } from "@/types/category";
 import { ArrowLeft, Save, X, Upload, Image as ImageIcon, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SUPPORTED_IMAGE_ACCEPT, SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL } from "@celebix/platform-config/src/image-formats";
 
 interface CategoryFormProps {
   categoryId?: string;
@@ -299,7 +300,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={SUPPORTED_IMAGE_ACCEPT}
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
                 />
@@ -316,7 +317,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
                       Görseli buraya sürükleyin veya tıklayın
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      PNG, JPG, WebP - Maksimum 5MB
+                      {SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL} - Maksimum 5MB
                     </p>
                   </div>
                 </div>

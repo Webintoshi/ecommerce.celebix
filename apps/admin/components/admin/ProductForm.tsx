@@ -23,6 +23,11 @@ import Link from "next/link";
 import { Product, ProductVariant, NutritionalInfo, ProductCategory, ProductSubcategory } from "@/types/product";
 import { fetchCategories } from "@/lib/categories";
 import { buildGeneratedSku } from "@/lib/sku";
+import {
+  isSupportedImageMimeType,
+  SUPPORTED_IMAGE_ACCEPT,
+  SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
+} from "@celebix/platform-config/src/image-formats";
 
 interface CategoryOption {
   value: string;
@@ -218,14 +223,13 @@ export default function ProductForm({ productId }: ProductFormProps) {
     setUploadProgress(10);
 
     // Validate files first
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     const validFiles = fileArray.filter(file => {
       if (file.size > 5 * 1024 * 1024) {
         toast.error(`${file.name} dosya boyutu çok büyük (maksimum 5MB)`);
         return false;
       }
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name} formatı desteklenmiyor (JPG, PNG, WEBP, GIF)`);
+      if (!isSupportedImageMimeType(file.type, file.name)) {
+        toast.error(`${file.name} formatı desteklenmiyor (${SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL})`);
         return false;
       }
       return true;
@@ -774,7 +778,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         onChange={handleImageUpload}
                         className="hidden"
                         multiple
-                        accept="image/*"
+                        accept={SUPPORTED_IMAGE_ACCEPT}
                       />
 
                       <div className="flex flex-col items-center gap-4 text-center">
@@ -783,7 +787,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         </div>
                         <div className="space-y-1">
                           <p className="text-lg font-bold text-gray-900">Görselleri Sürükleyin veya Tıklayın</p>
-                          <p className="text-sm text-gray-400 font-medium">PNG, JPG veya WebP (Max. 5MB)</p>
+                          <p className="text-sm text-gray-400 font-medium">{SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL} (Max. 5MB)</p>
                         </div>
                       </div>
 
