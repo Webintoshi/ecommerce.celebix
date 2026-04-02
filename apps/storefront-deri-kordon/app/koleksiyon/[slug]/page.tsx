@@ -1,49 +1,16 @@
-﻿import { Metadata } from "next";
-import { createServerClient } from "@/lib/supabase";
+import { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product/ProductCard";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
-import Link from "next/link";
+import { runProductsQuery } from "@/lib/products-query-compat";
+import { createServerClient } from "@/lib/supabase";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import type { Category, CategoryFAQ } from "@/types/category";
-import type { Product, ProductCategory, ProductVariant } from "@/types/product";
-import { notFound } from "next/navigation";
+import type { Product, ProductVariant } from "@/types/product";
 
 export const dynamic = "force-dynamic";
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-export const revalidate = 300; // 5 dakika ISR
-
-// ============================================================================
-// TYPES - Database Response Types
-// ============================================================================
-
-interface DBProduct {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  short_description: string | null;
-  images: string[];
-  category: string;
-  subcategory: string | null;
-  tags: string[];
-  is_featured: boolean;
-  is_bestseller: boolean;
-  is_active: boolean;
-  is_new: boolean;
-  vegan: boolean;
-  gluten_free: boolean;
-  sugar_free: boolean;
-  high_protein: boolean;
-  rating: number;
-  review_count: number;
-  seo_title: string | null;
-  seo_description: string | null;
-  created_at: string;
-  updated_at: string;
-  variants: DBVariant[];
-}
+export const revalidate = 300;
 
 interface DBVariant {
   id: string;
@@ -54,32 +21,48 @@ interface DBVariant {
   original_price: number | null;
   stock: number;
   weight: string | null;
+  unit: string | null;
+  barcode: string | null;
+  images: string[] | null;
+  group_name: string | null;
 }
 
-// Valid category slugs mapped to ProductCategory type
-const VALID_CATEGORIES: Record<string, ProductCategory> = {
-  "fistik-ezmesi": "fistik-ezmesi",
-  "findik-ezmesi": "findik-ezmesi",
-  "badem-ezmesi": "fistik-ezmesi", // Map to closest category
-  "antep-fistigi-ezmesi": "fistik-ezmesi",
-  "karma-ezmeler": "fistik-ezmesi",
-  "kuruyemis": "kuruyemis",
-  "kuruyemisler": "kuruyemis",
-};
+interface DBProduct {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  short_description: string | null;
+  images: string[] | null;
+  images_v2?: Array<{ url?: string } | string> | null;
+  category: string | null;
+  subcategory: string | null;
+  tags: string[] | null;
+  is_featured: boolean | null;
+  is_bestseller: boolean | null;
+  is_active: boolean | null;
+  is_new: boolean | null;
+  vegan: boolean | null;
+  gluten_free: boolean | null;
+  sugar_free: boolean | null;
+  high_protein: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  variants: DBVariant[] | null;
+}
 
-// ============================================================================
-// DATA FETCHING
-// ============================================================================
+function buildAbsoluteUrl(path: string) {
+  return new URL(path, STOREFRONT_RUNTIME.siteUrl).toString();
+}
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const supabase = createServerClient();
-  
+
   try {
     const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
-      let query = supabase
-        .from("categories")
-        .select("*")
-        .eq("slug", slug);
+      let query = supabase.from("categories").select("*").eq("slug", slug);
 
       if (includeIsActiveFilter) {
         query = query.eq("is_active", true);
@@ -87,12 +70,12 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
 
       return query.single();
     });
-    
+
     if (error || !data) {
       console.error("Category fetch error:", error);
       return null;
     }
-    
+
     return data as Category;
   } catch (error) {
     console.error("Unexpected error fetching category:", error);
@@ -100,264 +83,274 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
   }
 }
 
-async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
+async function getCollectionSlugs(category: Category): Promise<string[]> {
   const supabase = createServerClient();
-  
+
   try {
-    const { data: products, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        variants:product_variants(*)
-      `)
-      .eq("category", categorySlug)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
-    
-    if (error || !products) {
+    const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("slug")
+        .eq("parent_id", category.id)
+        .order("sort_order", { ascending: true });
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
+
+    if (error) {
+      console.error("Child categories fetch error:", error);
+      return [category.slug];
+    }
+
+    const childSlugs = (data || [])
+      .map((item) => item.slug)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    return Array.from(new Set([category.slug, ...childSlugs]));
+  } catch (error) {
+    console.error("Unexpected error fetching child categories:", error);
+    return [category.slug];
+  }
+}
+
+function transformVariant(variant: DBVariant): ProductVariant {
+  return {
+    id: variant.id,
+    name: variant.name,
+    weight: variant.weight ?? "0",
+    price: Number(variant.price || 0),
+    originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+    stock: Number(variant.stock || 0),
+    sku: variant.sku || "",
+    barcode: variant.barcode || undefined,
+    groupName: variant.group_name || undefined,
+    images: variant.images || [],
+    unit: (variant.unit as ProductVariant["unit"]) || "adet",
+  };
+}
+
+function transformProduct(product: DBProduct): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description || "",
+    shortDescription: product.short_description || "",
+    category: ((product.category || "genel") as unknown) as Product["category"],
+    subcategory: ((product.subcategory || "genel") as unknown) as Product["subcategory"],
+    variants: (product.variants || []).map(transformVariant),
+    images:
+      product.images && product.images.length > 0
+        ? product.images
+        : (product.images_v2 || [])
+            .map((image) => (typeof image === "string" ? image : image?.url || ""))
+            .filter((image) => image.length > 0),
+    tags: product.tags || [],
+    vegan: Boolean(product.vegan),
+    glutenFree: Boolean(product.gluten_free),
+    sugarFree: Boolean(product.sugar_free),
+    highProtein: Boolean(product.high_protein),
+    rating: Number(product.rating || 0),
+    reviewCount: Number(product.review_count || 0),
+    featured: Boolean(product.is_featured),
+    new: Boolean(product.is_new),
+    isActive: product.is_active !== false,
+    seoTitle: product.seo_title || undefined,
+    seoDescription: product.seo_description || undefined,
+    isBestseller: Boolean(product.is_bestseller),
+  };
+}
+
+async function getProductsByCategory(category: Category): Promise<Product[]> {
+  const supabase = createServerClient();
+  const categorySlugs = await getCollectionSlugs(category);
+  const categorySet = new Set(categorySlugs);
+
+  try {
+    const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("products")
+        .select("*, variants:product_variants(*)");
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query
+        .or("status.eq.published,status.is.null")
+        .order("created_at", { ascending: false });
+    });
+
+    if (error || !data) {
       console.error("Products fetch error:", error);
       return [];
     }
-    
-    const transformedProducts = (products as DBProduct[])
-      .map(p => transformProduct(p))
-      .filter((p): p is Product => p !== null);
-    
-    return transformedProducts.filter(p => p.variants && p.variants.length > 0);
+
+    return (data as DBProduct[])
+      .filter((product) => {
+        const categorySlug = product.category || "";
+        const subcategorySlug = product.subcategory || "";
+        return categorySet.has(categorySlug) || categorySet.has(subcategorySlug);
+      })
+      .map(transformProduct)
+      .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Unexpected error fetching products:", error);
     return [];
   }
 }
 
-function transformProduct(dbProduct: DBProduct): Product | null {
-  // Map category slug to ProductCategory type
-  const category = VALID_CATEGORIES[dbProduct.category];
-  if (!category) {
-    console.warn(`Unknown category: ${dbProduct.category}`);
-    return null;
-  }
-
-  // Transform variants
-  const variants: ProductVariant[] = dbProduct.variants?.map(v => ({
-    id: v.id,
-    name: v.name,
-    weight: v.weight ? parseInt(v.weight, 10) : 250,
-    price: Number(v.price),
-    originalPrice: v.original_price ? Number(v.original_price) : undefined,
-    stock: v.stock,
-    sku: v.sku || "",
-    barcode: undefined,
-    unit: "g",
-  })) || [];
-
+function generateBreadcrumbSchema(category: Category) {
   return {
-    id: dbProduct.id,
-    name: dbProduct.name,
-    slug: dbProduct.slug,
-    description: dbProduct.description || "",
-    shortDescription: dbProduct.short_description || "",
-    category: category,
-    subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
-    images: dbProduct.images || [],
-    tags: dbProduct.tags || [],
-    variants: variants,
-    vegan: dbProduct.vegan,
-    glutenFree: dbProduct.gluten_free,
-    sugarFree: dbProduct.sugar_free,
-    highProtein: dbProduct.high_protein,
-    rating: Number(dbProduct.rating) || 5,
-    reviewCount: dbProduct.review_count || 0,
-    featured: dbProduct.is_featured,
-    new: dbProduct.is_new,
-    isActive: dbProduct.is_active,
-    seoTitle: dbProduct.seo_title || undefined,
-    seoDescription: dbProduct.seo_description || undefined,
-    isBestseller: dbProduct.is_bestseller,
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Ana Sayfa",
+        item: buildAbsoluteUrl("/"),
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Ürünler",
+        item: buildAbsoluteUrl("/urunler"),
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: category.name,
+        item: buildAbsoluteUrl(`/${category.slug}`),
+      },
+    ],
   };
 }
 
-// ============================================================================
-// METADATA GENERATION
-// ============================================================================
+function generateCollectionSchema(category: Category, products: Product[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: category.seo_title || category.name,
+    description: category.seo_description || category.description || category.name,
+    url: buildAbsoluteUrl(`/${category.slug}`),
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: products.map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: buildAbsoluteUrl(`/urunler/${product.slug}`),
+      })),
+    },
+  };
+}
 
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: Promise<{ slug: string }> 
+function generateFaqSchema(faq: CategoryFAQ[] | null) {
+  if (!faq || faq.length === 0) {
+    return null;
+  }
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+function generateOrganizationSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Deri Kordon",
+    url: STOREFRONT_RUNTIME.siteUrl,
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  
+
   if (!category) {
     return {
-      title: "Koleksiyon BulunamadÄ± | Deri Kordon",
-      robots: { index: false, follow: false }
+      title: "Kategori Bulunamadı | Deri Kordon",
+      robots: { index: false, follow: false },
     };
   }
-  
-  // Use SEO fields from DB, fallback to defaults
+
   const title = category.seo_title || `${category.name} | Deri Kordon`;
-  const description = category.seo_description || category.description || `${category.name} kategorisindeki Ã¼rÃ¼nlerimizi keÅŸfedin.`;
-  const canonicalUrl = `https://deri-kordon.test/${category.slug}`;
-  const imageUrl = category.image || "/og-image.jpg";
-  
+  const description =
+    category.seo_description || category.description || `${category.name} kategorisindeki ürünleri keşfedin.`;
+
   return {
     title,
     description,
-    keywords: category.seo_keywords?.join(", ") || undefined,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: buildAbsoluteUrl(`/${category.slug}`),
     },
     openGraph: {
       title,
       description,
-      url: canonicalUrl,
+      url: buildAbsoluteUrl(`/${category.slug}`),
       type: "website",
       locale: "tr_TR",
       siteName: "Deri Kordon",
-      images: [{
-        url: imageUrl,
-        width: 1200,
-        height: 630,
-        alt: category.name
-      }]
+      images: category.image
+        ? [
+            {
+              url: category.image,
+              alt: category.name,
+            },
+          ]
+        : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [imageUrl]
+      images: category.image ? [category.image] : undefined,
     },
     robots: {
       index: true,
       follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-video-preview': -1,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      }
-    }
+    },
   };
 }
 
-// ============================================================================
-// SCHEMA GENERATORS
-// ============================================================================
-
-function generateBreadcrumbSchema(category: Category): object {
-  return {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Ana Sayfa",
-        "item": "https://deri-kordon.test"
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "ÃœrÃ¼nler",
-        "item": "https://deri-kordon.test/urunler"
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": category.name,
-        "item": `https://deri-kordon.test/${category.slug}`
-      }
-    ]
-  };
-}
-
-function generateCollectionPageSchema(category: Category, products: Product[]): object {
-  return {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "name": category.seo_title || category.name,
-    "description": category.seo_description || category.description,
-    "url": `https://deri-kordon.test/${category.slug}`,
-    "mainEntity": {
-      "@type": "ItemList",
-      "itemListElement": products.map((product, index) => ({
-        "@type": "ListItem",
-        "position": index + 1,
-        "url": `https://deri-kordon.test/urunler/${product.slug}`
-      }))
-    }
-  };
-}
-
-function generateFAQSchema(faq: CategoryFAQ[] | null): object | null {
-  if (!faq || faq.length === 0) return null;
-  
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": faq.map(item => ({
-      "@type": "Question",
-      "name": item.question,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": item.answer
-      }
-    }))
-  };
-}
-
-function generateOrganizationSchema(): object {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Deri Kordon",
-    "url": "https://deri-kordon.test",
-    "logo": "https://deri-kordon.test/logo.png",
-    "sameAs": [
-      "https://www.instagram.com/ornek-magaza",
-      "https://www.facebook.com/ornek-magaza"
-    ]
-  };
-}
-
-// ============================================================================
-// PAGE COMPONENT
-// ============================================================================
-
-export default async function CollectionPage({ 
-  params 
-}: { 
-  params: Promise<{ slug: string }> 
+export default async function CollectionPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  
-  // Parallel data fetching
-  const [category, products] = await Promise.all([
-    getCategoryBySlug(slug),
-    getProductsByCategory(slug)
-  ]);
-  
+  const category = await getCategoryBySlug(slug);
+
   if (!category) {
     notFound();
   }
 
-  const categoryName = category.name;
-  const categoryDescription = category.description;
-  const faq = category.faq;
-  const geoData = category.geo_data;
-
-  // Generate schemas
+  const products = await getProductsByCategory(category);
   const breadcrumbSchema = generateBreadcrumbSchema(category);
-  const collectionSchema = generateCollectionPageSchema(category, products);
-  const faqSchema = generateFAQSchema(faq);
-  const orgSchema = generateOrganizationSchema();
+  const collectionSchema = generateCollectionSchema(category, products);
+  const faqSchema = generateFaqSchema(category.faq);
+  const organizationSchema = generateOrganizationSchema();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Schema.org JSON-LD */}
+    <div className="min-h-screen bg-[#F8F8F8]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -368,125 +361,90 @@ export default async function CollectionPage({
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
-      {faqSchema && (
+      {faqSchema ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
         />
-      )}
+      ) : null}
 
-      {/* Breadcrumb Navigation */}
-      <nav className="bg-white border-b border-gray-200" aria-label="Breadcrumb">
+      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
         <div className="container-premium py-3">
-          <ol className="flex items-center gap-2 text-sm text-gray-500">
+          <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
-              <Link href="/" className="hover:text-primary transition-colors">
+              <Link href="/" className="transition-colors hover:text-neutral-900">
                 Ana Sayfa
               </Link>
             </li>
             <li aria-hidden="true">/</li>
             <li>
-              <Link href="/urunler" className="hover:text-primary transition-colors">
-                ÃœrÃ¼nler
+              <Link href="/urunler" className="transition-colors hover:text-neutral-900">
+                Ürünler
               </Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li className="text-gray-900 font-medium" aria-current="page">
-              {categoryName}
+            <li className="font-medium text-neutral-900" aria-current="page">
+              {category.name}
             </li>
           </ol>
         </div>
       </nav>
 
-      {/* Category Header */}
       <header className="bg-white">
         <div className="container-premium py-8 md:py-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-            {categoryName}
+          <h1 className="mb-3 text-3xl font-semibold tracking-tight text-neutral-900 md:text-5xl">
+            {category.name}
           </h1>
-          {categoryDescription && (
-            <p className="text-gray-600 max-w-2xl text-lg">
-              {categoryDescription}
+          {category.description ? (
+            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
+              {category.description}
             </p>
-          )}
-          <p className="text-gray-500 mt-2">
-            {products.length} Ã¼rÃ¼n
-          </p>
+          ) : null}
+          <p className="mt-3 text-sm text-neutral-500">{products.length} ürün</p>
         </div>
       </header>
 
-      {/* Products Grid */}
-      <main className="container-premium py-8">
+      <main className="container-premium py-10 md:py-12">
         {products.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-500 text-lg">Bu kategoride henÃ¼z Ã¼rÃ¼n bulunmuyor.</p>
-            <Link 
-              href="/urunler" 
-              className="inline-block mt-4 px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+          <div className="rounded-3xl border border-neutral-200 bg-white px-6 py-16 text-center">
+            <p className="text-lg text-neutral-600">Bu kategoride henüz ürün bulunmuyor.</p>
+            <Link
+              href="/urunler"
+              className="mt-5 inline-flex rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
             >
-              TÃ¼m ÃœrÃ¼nleri GÃ¶r
+              Tüm ürünleri gör
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
             {products.map((product, index) => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
-                index={index}
-              />
+              <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         )}
       </main>
 
-      {/* FAQ Section (if exists) */}
-      {faq && faq.length > 0 && (
-        <section className="bg-white border-t border-gray-200 mt-12">
+      {category.faq && category.faq.length > 0 ? (
+        <section className="mt-8 border-t border-neutral-200 bg-white">
           <div className="container-premium py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              SÄ±kÃ§a Sorulan Sorular
+            <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
+              Sıkça sorulan sorular
             </h2>
-            <div className="space-y-4 max-w-3xl">
-              {faq.map((item, index) => (
-                <details 
-                  key={index} 
-                  className="group bg-gray-50 rounded-lg p-4 cursor-pointer"
-                >
-                  <summary className="font-medium text-gray-900 flex items-center justify-between">
+            <div className="max-w-3xl space-y-4">
+              {category.faq.map((item, index) => (
+                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
+                  <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}
-                    <span className="text-gray-400 group-open:rotate-180 transition-transform">
-                      â–¼
-                    </span>
                   </summary>
-                  <p className="mt-3 text-gray-600 leading-relaxed">
-                    {item.answer}
-                  </p>
+                  <p className="mt-3 leading-relaxed text-neutral-600">{item.answer}</p>
                 </details>
               ))}
             </div>
           </div>
         </section>
-      )}
-
-      {/* GEO Key Takeaways (if exists) - Hidden from users, visible to LLMs */}
-      {geoData && geoData.keyTakeaways && geoData.keyTakeaways.length > 0 && (
-        <section 
-          className="sr-only" 
-          aria-hidden="true"
-          data-geo-takeaways={JSON.stringify(geoData.keyTakeaways)}
-        >
-          <h2>Ã–nemli Ã‡Ä±karÄ±mlar</h2>
-          <ul>
-            {geoData.keyTakeaways.map((takeaway, index) => (
-              <li key={index}>{takeaway}</li>
-            ))}
-          </ul>
-        </section>
-      )}
+      ) : null}
     </div>
   );
 }
-
