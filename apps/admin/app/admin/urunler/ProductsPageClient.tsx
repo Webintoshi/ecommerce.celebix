@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { buildCategoryLabelMap, buildProductCategoryTree } from "@/lib/admin-product-categories";
 import { fetchCategories } from "@/lib/categories";
@@ -103,6 +103,8 @@ export default function ProductsPageClient({
   const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
   const [bulkStockValue, setBulkStockValue] = useState("");
   const [bulkStockSubmitting, setBulkStockSubmitting] = useState(false);
+  const hasLoadedInitialDataRef = useRef(false);
+  const hasMountedFiltersRef = useRef(false);
   const categoryTree = buildProductCategoryTree(categories);
   const categoryLabelMap = buildCategoryLabelMap(categories);
   const categoryFilters = [
@@ -134,10 +136,17 @@ export default function ProductsPageClient({
     setLoading(true);
     try {
       setErrorMessage("");
+      const trimmedSearchQuery = searchQuery.trim();
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pagination.limit.toString(),
       });
+      if (trimmedSearchQuery) {
+        params.set("search", trimmedSearchQuery);
+      }
+      if (categoryFilter !== "all") {
+        params.set("category", categoryFilter);
+      }
 
       const data = await fetchAdminJson<{
         success: boolean;
@@ -150,6 +159,11 @@ export default function ProductsPageClient({
         setProducts(data.products.map(transformProduct));
         if (data.pagination) {
           setPagination(data.pagination);
+        } else {
+          setPagination((current) => ({
+            ...current,
+            page,
+          }));
         }
       } else {
         setErrorMessage(data.error || "Ürün verileri alınamadı.");
@@ -160,7 +174,7 @@ export default function ProductsPageClient({
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, pagination.page]);
+  }, [categoryFilter, pagination.limit, pagination.page, searchQuery]);
 
   const loadCategories = async () => {
     try {
@@ -173,6 +187,11 @@ export default function ProductsPageClient({
   };
 
   useEffect(() => {
+    if (hasLoadedInitialDataRef.current) {
+      return;
+    }
+
+    hasLoadedInitialDataRef.current = true;
     if (initialProducts.length === 0) {
       void loadProducts();
     }
@@ -180,6 +199,20 @@ export default function ProductsPageClient({
       void loadCategories();
     }
   }, [initialCategories.length, initialProducts.length, loadProducts]);
+
+  useEffect(() => {
+    if (!hasMountedFiltersRef.current) {
+      hasMountedFiltersRef.current = true;
+      return;
+    }
+
+    setSelectedProducts([]);
+    const timeout = window.setTimeout(() => {
+      void loadProducts(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [categoryFilter, searchQuery]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
@@ -307,21 +340,12 @@ export default function ProductsPageClient({
     });
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.variants.some((variant) =>
-        variant.sku.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    const matchesCategory =
-      categoryFilter === "all" || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = products;
 
   const sortedProducts = getSortedProducts();
 
   const stats = {
-    total: products.length,
+    total: pagination.total || products.length,
     featured: products.filter((product) => product.featured).length,
     new: products.filter((product) => product.isNew).length,
     lowStock: products.filter((product) => getPrimaryVariant(product).stock < 10).length,

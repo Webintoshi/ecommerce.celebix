@@ -243,6 +243,54 @@ function normalizeProductsPayload(value: unknown) {
     return normalizeProductRecord(value);
 }
 
+const SEARCH_RESULT_SCAN_LIMIT = 2000;
+
+function dedupeStringList(values: Array<string | null | undefined>) {
+    return [...new Set(values.filter((value): value is string => typeof value === "string" && value.trim().length > 0))];
+}
+
+async function findMatchingProductIdsForSearch(supabase: any, rawSearch: string) {
+    const trimmedSearch = rawSearch.trim();
+
+    if (!trimmedSearch) {
+        return [];
+    }
+
+    const ilikePattern = `%${trimmedSearch}%`;
+    const [
+        productsByName,
+        productsByDescription,
+        productsBySku,
+        variantsBySku,
+        variantsByBarcode,
+    ] = await Promise.all([
+        supabase.from("products").select("id").ilike("name", ilikePattern).limit(SEARCH_RESULT_SCAN_LIMIT),
+        supabase.from("products").select("id").ilike("description", ilikePattern).limit(SEARCH_RESULT_SCAN_LIMIT),
+        supabase.from("products").select("id").ilike("sku", ilikePattern).limit(SEARCH_RESULT_SCAN_LIMIT),
+        supabase.from("product_variants").select("product_id").ilike("sku", ilikePattern).limit(SEARCH_RESULT_SCAN_LIMIT),
+        supabase.from("product_variants").select("product_id").ilike("barcode", ilikePattern).limit(SEARCH_RESULT_SCAN_LIMIT),
+    ]);
+
+    const searchError =
+        productsByName.error ||
+        productsByDescription.error ||
+        productsBySku.error ||
+        variantsBySku.error ||
+        variantsByBarcode.error;
+
+    if (searchError) {
+        throw searchError;
+    }
+
+    return dedupeStringList([
+        ...(productsByName.data || []).map((product: { id?: string | null }) => product.id),
+        ...(productsByDescription.data || []).map((product: { id?: string | null }) => product.id),
+        ...(productsBySku.data || []).map((product: { id?: string | null }) => product.id),
+        ...(variantsBySku.data || []).map((variant: { product_id?: string | null }) => variant.product_id),
+        ...(variantsByBarcode.data || []).map((variant: { product_id?: string | null }) => variant.product_id),
+    ]);
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
@@ -308,50 +356,69 @@ export async function GET(request: NextRequest) {
                 .limit(10);
             if (error) throw error;
             products = data || [];
-        } else if (category) {
-            // Fetch products by category from Supabase with pagination
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-
-            // Get total count
-            const { count } = await supabase
-                .from("products")
-                .select("*", { count: "exact", head: true })
-                .eq("category", category);
-
-            // Get paginated data
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("category", category)
-                .range(offset, offset + limit - 1)
-                .order("created_at", { ascending: false });
-
-            if (error) throw error;
-            return NextResponse.json({
-                success: true,
-                products: normalizeProductsPayload(data || []),
-                pagination: {
-                    page,
-                    limit,
-                    total: count || 0,
-                    totalPages: Math.ceil((count || 0) / limit)
-                }
-            });
-        } else if (search) {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
-                .limit(20);
-            if (error) throw error;
-            products = data || [];
         } else {
             // Fetch all products from Supabase with pagination
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
+            const trimmedSearch = search?.trim() || "";
+
+            if (category || trimmedSearch) {
+                const matchedProductIds = trimmedSearch
+                    ? await findMatchingProductIdsForSearch(supabase, trimmedSearch)
+                    : null;
+
+                if (trimmedSearch && matchedProductIds && matchedProductIds.length === 0) {
+                    return NextResponse.json({
+                        success: true,
+                        products: [],
+                        pagination: {
+                            page,
+                            limit,
+                            total: 0,
+                            totalPages: 0,
+                        },
+                    });
+                }
+
+                let countQuery = supabase
+                    .from("products")
+                    .select("*", { count: "exact", head: true });
+
+                let dataQuery = supabase
+                    .from("products")
+                    .select("*, variants:product_variants(*)");
+
+                if (category) {
+                    countQuery = countQuery.eq("category", category);
+                    dataQuery = dataQuery.eq("category", category);
+                }
+
+                if (matchedProductIds) {
+                    countQuery = countQuery.in("id", matchedProductIds);
+                    dataQuery = dataQuery.in("id", matchedProductIds);
+                }
+
+                const [{ count, error: countError }, { data, error }] = await Promise.all([
+                    countQuery,
+                    dataQuery
+                        .range(offset, offset + limit - 1)
+                        .order("created_at", { ascending: false }),
+                ]);
+
+                if (countError) throw countError;
+                if (error) throw error;
+
+                return NextResponse.json({
+                    success: true,
+                    products: normalizeProductsPayload(data || []),
+                    pagination: {
+                        page,
+                        limit,
+                        total: count || 0,
+                        totalPages: Math.ceil((count || 0) / limit),
+                    },
+                });
+            }
 
             // Get total count
             const { count } = await supabase
@@ -369,7 +436,7 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: data || [],
+                products: normalizeProductsPayload(data || []),
                 pagination: {
                     page,
                     limit,
