@@ -25,6 +25,14 @@ type NavCategory = {
   children: NavSubcategory[];
 };
 
+const HEADER_CATEGORY_ORDER = [
+  "cuzdan-kartlik",
+  "apple-watch-saat-kayislari",
+  "saat-kayislari",
+  "canta-organizer",
+  "aksesuar",
+] as const;
+
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -85,18 +93,27 @@ export function Header() {
           childrenByParent.set(category.parent_id, siblings);
         }
 
-        const topLevelCategories = activeCategories
-          .filter((category) => !category.parent_id)
-          .map((category) => ({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-            children: (childrenByParent.get(category.id) || []).sort((left, right) =>
-              left.name.localeCompare(right.name, "tr"),
-            ),
-          }));
+        const topLevelCategoryMap = new Map(
+          activeCategories
+            .filter((category) => !category.parent_id)
+            .map((category) => [
+              category.slug,
+              {
+                id: category.id,
+                name: category.name,
+                slug: category.slug,
+                children: (childrenByParent.get(category.id) || []).sort((left, right) =>
+                  left.name.localeCompare(right.name, "tr"),
+                ),
+              } satisfies NavCategory,
+            ]),
+        );
 
-        setHeaderCategories(topLevelCategories);
+        const orderedCategories = HEADER_CATEGORY_ORDER.map((slug) => topLevelCategoryMap.get(slug)).filter(
+          (category): category is NavCategory => Boolean(category),
+        );
+
+        setHeaderCategories(orderedCategories);
       } catch (error) {
         console.error("Failed to load header categories:", error);
       }
@@ -148,7 +165,7 @@ export function Header() {
             )}
           </Link>
 
-          <nav className="hidden items-center gap-4 xl:gap-6 lg:flex">
+          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
             {headerCategories.map((category) => {
               if (category.children.length === 0) {
                 return (
@@ -174,14 +191,7 @@ export function Header() {
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
                     <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-                      <Link
-                        href={ROUTES.category(category.slug)}
-                        className="block rounded-2xl px-4 py-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-white/80"
-                      >
-                        Tüm {category.name}
-                      </Link>
-
-                      <div className="mt-2 space-y-1">
+                      <div className="space-y-1">
                         {category.children.map((subcategory) => (
                           <Link
                             key={subcategory.id}
