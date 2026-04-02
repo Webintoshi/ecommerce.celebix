@@ -376,8 +376,8 @@ export function ProductDetailClient({
                 onSelect={setSelectedVariant}
               />
 
-              {/* Price & Quantity Card */}
-              <div className="bg-white rounded-2xl p-5 border border-neutral-200 space-y-4">
+              {/* Price & Quantity */}
+              <div className="space-y-5 border-y border-neutral-200 py-5">
                 {/* Price & Stock */}
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
@@ -400,11 +400,11 @@ export function ProductDetailClient({
                 {/* Quantity */}
                 <div className="flex items-center gap-4">
                   <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
-                  <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
                     <button
                       onClick={() => handleQuantityChange(-1)}
                       disabled={quantity <= 1}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
                     </button>
@@ -414,7 +414,7 @@ export function ProductDetailClient({
                     <button
                       onClick={() => handleQuantityChange(1)}
                       disabled={quantity >= (variant.stock || 10)}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
                     </button>
@@ -439,10 +439,10 @@ export function ProductDetailClient({
                       <button
                         onClick={toggleWishlist}
                         className={`
-                          w-12 h-12 flex items-center justify-center rounded-xl border transition-all
+                          w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
                           ${isWishlisted
-                            ? "bg-neutral-100 border-neutral-900 text-neutral-900"
-                            : "border-neutral-200 text-neutral-900 hover:border-neutral-900 bg-white"
+                            ? "text-[#8A6B37]"
+                            : "hover:text-[#8A6B37]"
                           }
                         `}
                       >
@@ -450,7 +450,7 @@ export function ProductDetailClient({
                       </button>
                       <button
                         onClick={handleShare}
-                        className="w-12 h-12 flex items-center justify-center rounded-xl border border-neutral-200 text-neutral-900 hover:border-neutral-900 bg-white transition-colors"
+                        className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
                       >
                         <Share2 className="h-5 w-5 stroke-[1.5]" />
                       </button>
@@ -463,7 +463,7 @@ export function ProductDetailClient({
                       disabled={isOutOfStock}
                       className={`
                         flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
-                        transition-all duration-300 rounded-xl
+                        transition-all duration-300 rounded-full
                         ${isOutOfStock
                           ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
                           : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
@@ -476,10 +476,10 @@ export function ProductDetailClient({
                     <button
                       onClick={toggleWishlist}
                       className={`
-                        w-12 h-12 flex items-center justify-center rounded-xl border transition-all
+                        w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
                         ${isWishlisted
-                          ? "bg-neutral-100 border-neutral-900 text-neutral-900"
-                          : "border-neutral-200 text-neutral-900 hover:border-neutral-900 bg-white"
+                          ? "text-[#8A6B37]"
+                          : "hover:text-[#8A6B37]"
                         }
                       `}
                     >
@@ -487,7 +487,7 @@ export function ProductDetailClient({
                     </button>
                     <button
                       onClick={handleShare}
-                      className="w-12 h-12 flex items-center justify-center rounded-xl border border-neutral-200 text-neutral-900 hover:border-neutral-900 bg-white transition-colors"
+                      className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
                     >
                       <Share2 className="h-5 w-5 stroke-[1.5]" />
                     </button>
@@ -496,7 +496,7 @@ export function ProductDetailClient({
               </div>
 
               {/* Accordions — Inline in right column */}
-              <div className="pt-1 space-y-2">
+              <div className="pt-1 border-t border-neutral-200">
                 {[
                   {
                     id: "features",
@@ -507,29 +507,29 @@ export function ProductDetailClient({
                     id: "specs",
                     label: "Özellikler",
                     content: (
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Package className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Malzeme</p>
                             <p className="text-sm font-medium text-neutral-900">Premium Full-Grain Deri</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Hammer className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">İşçilik</p>
                             <p className="text-sm font-medium text-neutral-900">El Dikişi (Saddle Stitch)</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Clock className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Üretim Süresi</p>
                             <p className="text-sm font-medium text-neutral-900">3-5 İş Günü</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <BadgeCheck className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Garanti</p>
@@ -562,10 +562,10 @@ export function ProductDetailClient({
                 ].map((item) => {
                   const isOpen = openAccordions.has(item.id);
                   return (
-                    <div key={item.id} className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                    <div key={item.id} className="border-b border-neutral-200">
                       <button
                         onClick={() => toggleAccordion(item.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-neutral-900 uppercase tracking-wide"
+                        className="w-full flex items-center justify-between py-4 text-sm font-medium text-neutral-900 uppercase tracking-wide"
                       >
                         {item.label}
                         <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -579,7 +579,7 @@ export function ProductDetailClient({
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <div className="px-4 pb-4">
+                            <div className="pb-5">
                               {item.content}
                             </div>
                           </motion.div>

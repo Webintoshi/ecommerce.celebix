@@ -47,7 +47,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   if (displayImages.length === 0) {
     return (
-      <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl border border-gray-200 flex flex-col items-center justify-center">
+      <div className="relative aspect-square flex flex-col items-center justify-center bg-[#F8F8F8]">
         <svg className="w-20 h-20 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
           <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2"/>
@@ -214,7 +214,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     return (
       <div className="w-full">
         <div
-          className="relative aspect-square bg-white rounded-2xl overflow-hidden border border-neutral-100 shadow-sm cursor-pointer"
+          className="relative aspect-square overflow-hidden cursor-pointer bg-[#F8F8F8]"
           onClick={() => setIsLightboxOpen(true)}
         >
           {currentStatus === 'loading' && (
@@ -289,10 +289,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <button
                 key={index}
                 onClick={() => setSelectedIndex(index)}
-                className={`relative w-[72px] h-[72px] sm:w-[100px] sm:h-[100px] flex-shrink-0 rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all ${
+                className={`relative w-[72px] h-[72px] sm:w-[100px] sm:h-[100px] flex-shrink-0 overflow-hidden border transition-all ${
                   index === selectedIndex
-                    ? "border-primary ring-2 ring-primary/20"
-                    : "border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100"
+                    ? "border-primary"
+                    : "border-transparent hover:border-neutral-300 opacity-70 hover:opacity-100"
                 }`}
               >
                 <img
@@ -311,7 +311,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <button
                 onClick={() => scrollThumbnails('up')}
                 disabled={!canScrollUp}
-                className={`w-8 h-8 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center transition-all ${
+                className={`w-8 h-8 bg-[#F8F8F8] border border-gray-200 rounded-full flex items-center justify-center transition-all ${
                   canScrollUp ? 'opacity-100 hover:border-primary hover:text-primary' : 'opacity-30 cursor-not-allowed'
                 }`}
               >
@@ -320,7 +320,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <button
                 onClick={() => scrollThumbnails('down')}
                 disabled={!canScrollDown}
-                className={`w-8 h-8 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center transition-all ${
+                className={`w-8 h-8 bg-[#F8F8F8] border border-gray-200 rounded-full flex items-center justify-center transition-all ${
                   canScrollDown ? 'opacity-100 hover:border-primary hover:text-primary' : 'opacity-30 cursor-not-allowed'
                 }`}
               >
@@ -332,7 +332,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
         {/* Sağ: Ana Görsel */}
         <div
-          className={`relative aspect-square bg-white rounded-2xl overflow-hidden border border-neutral-100 shadow-sm select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative aspect-square overflow-hidden select-none bg-[#F8F8F8] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -377,13 +377,13 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center hover:bg-white transition-colors z-10"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#F8F8F8]/90 rounded-full flex items-center justify-center hover:bg-[#F1F1F1] transition-colors z-10"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center hover:bg-white transition-colors z-10"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#F8F8F8]/90 rounded-full flex items-center justify-center hover:bg-[#F1F1F1] transition-colors z-10"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
