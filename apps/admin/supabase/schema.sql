@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS products (
     status TEXT DEFAULT 'published',
     is_draft BOOLEAN DEFAULT false,
     published_at TIMESTAMPTZ,
-    tax_rate INTEGER DEFAULT 10,
+    tax_rate INTEGER DEFAULT 0,
     brand TEXT,
     country_of_origin TEXT DEFAULT 'Turkiye',
     sku TEXT,

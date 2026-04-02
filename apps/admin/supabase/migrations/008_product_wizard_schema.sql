@@ -31,7 +31,7 @@ ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 -- KDV oranı (ürün bazlı, varsayılan %10)
 ALTER TABLE products 
-ADD COLUMN IF NOT EXISTS tax_rate INTEGER DEFAULT 10 CHECK (tax_rate IN (1, 8, 10, 20));
+ADD COLUMN IF NOT EXISTS tax_rate INTEGER DEFAULT 0 CHECK (tax_rate IN (0, 1, 8, 10, 20));
 
 -- Varyant barkod/EAN (standartlaştırılmış)
 ALTER TABLE product_variants 

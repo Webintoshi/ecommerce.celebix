@@ -107,6 +107,23 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
     "shopify_metadata",
 ]);
 
+const ALLOWED_TAX_RATES = new Set([0, 1, 8, 10, 20]);
+
+function normalizeTaxRate(value: unknown): number {
+    if (typeof value === "number" && ALLOWED_TAX_RATES.has(value)) {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const parsed = Number.parseInt(value, 10);
+        if (ALLOWED_TAX_RATES.has(parsed)) {
+            return parsed;
+        }
+    }
+
+    return 0;
+}
+
 function getMissingTableColumn(error: unknown, tableName: string): string | null {
     if (!error || typeof error !== "object" || !("message" in error)) return null;
     const message = String(error.message ?? "");
@@ -509,7 +526,7 @@ export async function POST(request: NextRequest) {
                 status: normalizedStatus,
                 is_draft: normalizedIsDraft,
                 published_at: normalizedPublishedAt,
-                tax_rate: productData.tax_rate || 10,
+                tax_rate: normalizeTaxRate(productData.tax_rate),
                 brand: productData.brand || STORE_RUNTIME.defaultProductBrand,
                 country_of_origin: productData.country_of_origin || 'Türkiye',
                 sku: productData.sku || null,
@@ -866,7 +883,7 @@ export async function PUT(request: NextRequest) {
         if (updates.status !== undefined) updateData.status = updates.status;
         if (updates.is_draft !== undefined) updateData.is_draft = updates.is_draft;
         if (updates.published_at !== undefined) updateData.published_at = updates.published_at;
-        if (updates.tax_rate !== undefined) updateData.tax_rate = updates.tax_rate;
+        if (updates.tax_rate !== undefined) updateData.tax_rate = normalizeTaxRate(updates.tax_rate);
         if (updates.brand !== undefined) updateData.brand = updates.brand;
         if (updates.country_of_origin !== undefined) updateData.country_of_origin = updates.country_of_origin;
         if (updates.sku !== undefined) updateData.sku = updates.sku;
