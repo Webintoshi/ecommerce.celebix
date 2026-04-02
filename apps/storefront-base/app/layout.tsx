@@ -20,7 +20,7 @@ import {
   buildStoreTypographyStylesheetUrl,
 } from "@celebix/platform-config/src/typography";
 
-export const metadata: Metadata = {
+const metadataTemplate: Metadata = {
   title: {
     default: SITE_NAME,
     template: `%s | ${SITE_NAME}`,
@@ -59,6 +59,30 @@ export const metadata: Metadata = {
     },
   },
 };
+
+function buildFaviconHref(faviconUrl?: string | null) {
+  const trimmed = typeof faviconUrl === "string" ? faviconUrl.trim() : "";
+
+  if (!trimmed) {
+    return "/favicon.ico";
+  }
+
+  return `/favicon.ico?v=${encodeURIComponent(trimmed)}`;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const storeInfo = await getStoreInfo();
+  const faviconHref = buildFaviconHref(storeInfo?.faviconUrl);
+
+  return {
+    ...metadataTemplate,
+    icons: {
+      icon: faviconHref,
+      shortcut: faviconHref,
+      apple: faviconHref,
+    },
+  };
+}
 
 export default async function RootLayout({
   children,

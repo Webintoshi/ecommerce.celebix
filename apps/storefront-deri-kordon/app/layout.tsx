@@ -19,7 +19,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+const metadataTemplate: Metadata = {
   title: {
     default: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
     template: `%s | Deri Kordon`,
@@ -77,6 +77,30 @@ export const metadata: Metadata = {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
 };
+
+function buildFaviconHref(faviconUrl?: string | null) {
+  const trimmed = typeof faviconUrl === "string" ? faviconUrl.trim() : "";
+
+  if (!trimmed) {
+    return "/favicon.ico";
+  }
+
+  return `/favicon.ico?v=${encodeURIComponent(trimmed)}`;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const storeInfo = await getStoreInfo();
+  const faviconHref = buildFaviconHref(storeInfo?.faviconUrl);
+
+  return {
+    ...metadataTemplate,
+    icons: {
+      icon: faviconHref,
+      shortcut: faviconHref,
+      apple: faviconHref,
+    },
+  };
+}
 
 export default async function RootLayout({
   children,

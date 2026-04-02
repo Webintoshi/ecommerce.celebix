@@ -44,6 +44,7 @@ interface StoreInfo {
   currency: string;
   timezone: string;
   logoUrl?: string;
+  faviconUrl?: string;
   socialInstagram?: string;
   socialTwitter?: string;
   typography?: StoreTypographySettings;
@@ -70,6 +71,7 @@ const DEFAULT_STORE_INFO: StoreInfo = {
   currency: "TRY",
   timezone: "Europe/Istanbul",
   logoUrl: "",
+  faviconUrl: "",
   socialInstagram: "",
   socialTwitter: "",
   typography: DEFAULT_STORE_TYPOGRAPHY,
@@ -86,6 +88,7 @@ export default function GeneralSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [faviconUploading, setFaviconUploading] = useState(false);
   const [fontCatalog, setFontCatalog] = useState<StoreTypographyFontOption[]>(FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS);
   const [fontCatalogLoading, setFontCatalogLoading] = useState(false);
   const [fontCatalogDegraded, setFontCatalogDegraded] = useState(false);
@@ -234,16 +237,25 @@ export default function GeneralSettingsPage() {
     }));
   }
 
-  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAssetUpload(
+    event: React.ChangeEvent<HTMLInputElement>,
+    options: {
+      field: "logoUrl" | "faviconUrl";
+      folder: string;
+      successMessage: string;
+      setUploading: (value: boolean) => void;
+      errorLabel: string;
+    },
+  ) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setLogoUploading(true);
+    options.setUploading(true);
 
     try {
       const uploadForm = new FormData();
       uploadForm.append("file", file);
-      uploadForm.append("folder", "branding");
+      uploadForm.append("folder", options.folder);
       uploadForm.append("thumbnail", "false");
 
       const response = await fetch("/api/upload", {
@@ -253,18 +265,38 @@ export default function GeneralSettingsPage() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success || !payload.url) {
-        throw new Error(payload.error || "Logo yuklenemedi");
+        throw new Error(payload.error || `${options.errorLabel} yuklenemedi`);
       }
 
-      setFormData((prev) => ({ ...prev, logoUrl: String(payload.url) }));
-      toast.success("Site logosu yuklendi");
+      setFormData((prev) => ({ ...prev, [options.field]: String(payload.url) }));
+      toast.success(options.successMessage);
     } catch (error) {
-      console.error("Logo upload error:", error);
-      toast.error(error instanceof Error ? error.message : "Logo yuklenirken hata olustu");
+      console.error(`${options.errorLabel} upload error:`, error);
+      toast.error(error instanceof Error ? error.message : `${options.errorLabel} yuklenirken hata olustu`);
     } finally {
-      setLogoUploading(false);
+      options.setUploading(false);
       event.target.value = "";
     }
+  }
+
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    await handleAssetUpload(event, {
+      field: "logoUrl",
+      folder: "branding",
+      successMessage: "Site logosu yuklendi",
+      setUploading: setLogoUploading,
+      errorLabel: "Logo",
+    });
+  }
+
+  async function handleFaviconUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    await handleAssetUpload(event, {
+      field: "faviconUrl",
+      folder: "branding",
+      successMessage: "Favicon yuklendi",
+      setUploading: setFaviconUploading,
+      errorLabel: "Favicon",
+    });
   }
 
   async function handleSubmit() {
@@ -442,6 +474,70 @@ export default function GeneralSettingsPage() {
                           className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
                         >
                           Logoyu Temizle
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-white shadow-sm">
+                    {formData.faviconUrl ? (
+                      <img
+                        src={formData.faviconUrl}
+                        alt={`${formData.name} favicon`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-gray-400">
+                        <ImageIcon className="h-5 w-5" />
+                        <span className="text-[11px] font-medium">Favicon yok</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Favicon</label>
+                      <input
+                        type="text"
+                        name="faviconUrl"
+                        value={formData.faviconUrl || ""}
+                        onChange={handleChange}
+                        placeholder="https://cdn.ornek.com/branding/favicon.ico"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Tarayici sekmeleri, Google ve diger arama motorlari bu faviconu kullanir. Kare, 48x48 veya daha buyuk dosya yukleyin.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800">
+                        {faviconUploading ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                        Favicon Yukle
+                        <input
+                          type="file"
+                          accept="image/*,.ico"
+                          className="hidden"
+                          onChange={handleFaviconUpload}
+                          disabled={faviconUploading}
+                        />
+                      </label>
+
+                      {formData.faviconUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, faviconUrl: "" }))}
+                          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
+                        >
+                          Faviconu Temizle
                         </button>
                       ) : null}
                     </div>

@@ -125,6 +125,7 @@ export interface StoreInfo {
     taxRate: number;
     timezone?: string;
     logoUrl?: string;
+    faviconUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
     typography?: StoreTypographySettings;

@@ -12,6 +12,7 @@ export interface StoreInfo {
     currency: string;
     timezone: string;
     logoUrl?: string;
+    faviconUrl?: string;
     socialInstagram?: string;
     socialTwitter?: string;
     typography?: StoreTypographySettings;

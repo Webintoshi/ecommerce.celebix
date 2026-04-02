@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
                     ? {
                         ...info,
                         logoUrl: resolveAdminAssetUrl(info.logoUrl) || "",
+                        faviconUrl: resolveAdminAssetUrl(info.faviconUrl) || "",
                     }
                     : info,
             });

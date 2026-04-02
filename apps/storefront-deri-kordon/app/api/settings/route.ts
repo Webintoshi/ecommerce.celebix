@@ -25,6 +25,7 @@ import {
     setShippingOptions,
     setStoreInfo,
 } from "@/lib/db/settings";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
 
@@ -82,7 +83,16 @@ export async function GET(request: NextRequest) {
 
         if (type === "store") {
             const info = await getStoreInfo();
-            return NextResponse.json({ success: true, storeInfo: info });
+            return NextResponse.json({
+                success: true,
+                storeInfo: info
+                    ? {
+                        ...info,
+                        logoUrl: resolveStorefrontAssetUrl(info.logoUrl) || "",
+                        faviconUrl: resolveStorefrontAssetUrl(info.faviconUrl) || "",
+                    }
+                    : info,
+            });
         }
 
         if (type === "announcement") {
