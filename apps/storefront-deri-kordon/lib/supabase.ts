@@ -38,6 +38,15 @@ export const supabase = new Proxy({} as SupabaseClient, {
     },
 });
 
+export function createPublicServerClient() {
+    return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    });
+}
+
 // Server client with service role for admin operations
 export function createServerClient() {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

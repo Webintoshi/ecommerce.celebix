@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import { Star, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const testimonials = [
@@ -11,52 +10,55 @@ const testimonials = [
     name: "CANER T.",
     verified: true,
     rating: 5,
-    content: "Kesinlikle tavsiye ediyorum. Tütün kesesi aldım harika kalite.",
-    image: "/images/placeholders/T.1.jpg",
+    content: "Kesinlikle tavsiye ediyorum. Tutun kesesi aldim, harika kalite.",
   },
   {
     id: 2,
     name: "ASLI B.",
     verified: true,
     rating: 5,
-    content: "Şahane işçilik ile mükemmel ürün çıkmış kullandıkça güzelleşiyor.",
-    image: "/images/placeholders/T.2.jpg",
+    content: "Sahane iscilik ile mukemmel bir urun cikmis. Kullandikca guzellesiyor.",
   },
   {
     id: 3,
-    name: "MELİS G.",
+    name: "MELIS G.",
     verified: true,
     rating: 5,
-    content: "Sade ve şık ! Ürün dayanıklı kedim için aldım kullanışlı ve güzel.",
-    image: "/images/placeholders/T.3.jpg",
+    content: "Sade ve sik. Urun dayanikli, kullanisli ve gercekten guzel gorunuyor.",
   },
   {
     id: 4,
     name: "ERTAN Z.",
     verified: true,
     rating: 5,
-    content: "Deri saat kayışım geldi sanki saatimi yeni almışım gibi hissediyorum.",
-    image: "/images/placeholders/T.4.jpg",
+    content: "Deri saat kayisim geldi, sanki saatimi yeniden almis gibi oldum.",
   },
   {
     id: 5,
-    name: "NİHAT C.",
+    name: "NIHAT C.",
     verified: true,
     rating: 5,
-    content: "İşçilikten memnun kaldım. Kalite ve işçilik standartların üzerinde.",
-    image: "/images/placeholders/T.5.jpg",
+    content: "Iscilikten memnun kaldim. Kalite ve iscilik standartlarin ustunde.",
   },
   {
     id: 6,
     name: "SEDA Y.",
     verified: true,
     rating: 5,
-    content: "Heceleyerek söylüyorum Ba-yıl-dım ! İşçilik deri kalitesi üst düzey.",
-    image: "/images/placeholders/T.6.jpg",
+    content: "Bayildim. Deri kalitesi ve isciligi ust duzey hissettiriyor.",
   },
 ];
 
-const AUTO_PLAY_INTERVAL = 5000; // 5 seconds
+const AUTO_PLAY_INTERVAL = 5000;
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("");
+}
 
 export function TestimonialsSection() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -76,80 +78,61 @@ export function TestimonialsSection() {
     setCurrentIndex(index);
   };
 
-  // Auto-play
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused) {
+      return;
+    }
 
-    const interval = setInterval(() => {
-      nextSlide();
-    }, AUTO_PLAY_INTERVAL);
-
+    const interval = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
     return () => clearInterval(interval);
   }, [isPaused, nextSlide]);
 
-  const visibleTestimonials = testimonials.slice(
-    currentIndex * 2,
-    currentIndex * 2 + 2
-  );
-
   return (
-    <section className="py-16 lg:py-20 bg-neutral-50">
+    <section className="bg-neutral-50 py-16 lg:py-20">
       <div className="container-premium">
-        {/* Section Header */}
-        <div className="text-center mb-10">
-          <h2 className="text-2xl lg:text-3xl font-medium text-neutral-900 mb-2">
-            Müşteri Yorumları
+        <div className="mb-10 text-center">
+          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">
+            Musteri Yorumlari
           </h2>
-          <p className="text-neutral-500 text-sm">
-            1581 değerlendirmeden
-          </p>
+          <p className="text-sm text-neutral-500">1581 degerlendirmeden</p>
         </div>
 
-        {/* Carousel Container */}
-        <div 
+        <div
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {/* Slides */}
           <div className="overflow-hidden">
-            <div 
+            <div
               className="flex transition-transform duration-500 ease-out"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
               {Array.from({ length: totalSlides }).map((_, slideIndex) => (
-                <div 
+                <div
                   key={slideIndex}
-                  className="w-full flex-shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-6"
+                  className="grid w-full flex-shrink-0 grid-cols-1 gap-6 lg:grid-cols-2"
                 >
                   {testimonials
                     .slice(slideIndex * 2, slideIndex * 2 + 2)
                     .map((review) => (
                       <div
                         key={review.id}
-                        className="bg-white overflow-hidden shadow-sm flex"
+                        className="flex overflow-hidden bg-white shadow-sm"
                       >
-                        {/* Left: Image */}
-                        <div className="relative w-32 sm:w-40 lg:w-48 flex-shrink-0 bg-neutral-100">
-                          <Image
-                            src={review.image}
-                            alt={review.name}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 128px, (max-width: 1024px) 160px, 192px"
-                          />
+                        <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+                            {getInitials(review.name)}
+                          </div>
                         </div>
 
-                        {/* Right: Content */}
-                        <div className="flex-1 p-4 sm:p-5 flex flex-col justify-center">
-                          {/* Stars */}
-                          <div className="flex items-center gap-0.5 mb-3">
-                            {[...Array(5)].map((_, i) => (
+                        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
+                          <div className="mb-3 flex items-center gap-0.5">
+                            {[...Array(5)].map((_, index) => (
                               <Star
-                                key={i}
+                                key={index}
                                 className={cn(
-                                  "w-3.5 h-3.5",
-                                  i < review.rating
+                                  "h-3.5 w-3.5",
+                                  index < review.rating
                                     ? "fill-[#8A6B37] text-[#8A6B37]"
                                     : "fill-neutral-200 text-neutral-200"
                                 )}
@@ -157,21 +140,19 @@ export function TestimonialsSection() {
                             ))}
                           </div>
 
-                          {/* Name with Verified Badge */}
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-sm font-semibold text-neutral-900 uppercase">
+                          <div className="mb-3 flex items-center gap-2">
+                            <span className="text-sm font-semibold uppercase text-neutral-900">
                               {review.name}
                             </span>
-                            {review.verified && (
+                            {review.verified ? (
                               <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-                                <Check className="w-3 h-3" />
-                                Doğrulanmış Alıcı
+                                <Check className="h-3 w-3" />
+                                Dogrulanmis Alici
                               </span>
-                            )}
+                            ) : null}
                           </div>
 
-                          {/* Review Content */}
-                          <p className="text-sm text-neutral-600 leading-relaxed">
+                          <p className="text-sm leading-relaxed text-neutral-600">
                             {review.content}
                           </p>
                         </div>
@@ -182,36 +163,37 @@ export function TestimonialsSection() {
             </div>
           </div>
 
-          {/* Navigation Arrows */}
           <button
+            type="button"
             onClick={prevSlide}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 lg:-translate-x-6 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:shadow-lg transition-all"
-            aria-label="Önceki"
+            className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
+            aria-label="Onceki"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="h-5 w-5" />
           </button>
 
           <button
+            type="button"
             onClick={nextSlide}
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 lg:translate-x-6 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:shadow-lg transition-all"
+            className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
             aria-label="Sonraki"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="h-5 w-5" />
           </button>
 
-          {/* Dots Indicator */}
-          <div className="flex items-center justify-center gap-2 mt-8">
-            {[...Array(totalSlides)].map((_, i) => (
+          <div className="mt-8 flex items-center justify-center gap-2">
+            {[...Array(totalSlides)].map((_, index) => (
               <button
-                key={i}
-                onClick={() => goToSlide(i)}
+                key={index}
+                type="button"
+                onClick={() => goToSlide(index)}
                 className={cn(
-                  "transition-all duration-300 rounded-full",
-                  i === currentIndex
-                    ? "w-6 h-2 bg-neutral-900"
-                    : "w-2 h-2 bg-neutral-300 hover:bg-neutral-400"
+                  "rounded-full transition-all duration-300",
+                  index === currentIndex
+                    ? "h-2 w-6 bg-neutral-900"
+                    : "h-2 w-2 bg-neutral-300 hover:bg-neutral-400"
                 )}
-                aria-label={`Sayfa ${i + 1}`}
+                aria-label={`Sayfa ${index + 1}`}
               />
             ))}
           </div>

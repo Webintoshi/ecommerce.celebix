@@ -47,6 +47,8 @@ export default function LoginPage() {
     if (authError) {
       if (authError.message.includes("Invalid login credentials")) {
         setError("E-posta adresi veya sifre hatali");
+      } else if (authError.message.includes("Email not confirmed")) {
+        setError("Hesabiniz aktiflestirilemedi. Lutfen tekrar deneyin.");
       } else {
         setError(authError.message);
       }

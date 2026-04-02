@@ -262,37 +262,40 @@ export default function CheckoutPage() {
 
       // Create account if requested and not logged in
       if (!user && createAccount) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: contactEmail,
-          password: accountPassword,
-          options: {
-            data: {
+        const registerResponse = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: contactEmail,
+            password: accountPassword,
+            metadata: {
               first_name: shippingInfo.firstName,
               last_name: shippingInfo.lastName,
               phone: shippingInfo.phone,
             },
-            emailRedirectTo: `${window.location.origin}/giris?verified=true`,
-          },
+          }),
         });
+        const registerResult = await registerResponse.json().catch(() => ({}));
 
-        if (authError) {
-          if (authError.message.includes("User already registered")) {
+        if (!registerResponse.ok) {
+          const message = registerResult.error || "Hesap oluşturulurken bir hata oluştu.";
+          if (message.includes("zaten kayıtlı")) {
             toast.error("Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın.");
           } else {
-            toast.error("Hesap oluşturulurken bir hata oluştu: " + authError.message);
+            toast.error("Hesap oluşturulurken bir hata oluştu: " + message);
           }
           setIsSubmitting(false);
           return;
         }
 
-        if (authData.user) {
-          userId = authData.user.id;
+        if (registerResult.user) {
+          userId = registerResult.user.id;
           
           // Create customer record linked to the new user
           const { data: customerData, error: customerError } = await supabase
             .from("customers")
             .insert({
-              user_id: authData.user.id,
+              user_id: registerResult.user.id,
               email: contactEmail,
               first_name: shippingInfo.firstName,
               last_name: shippingInfo.lastName,

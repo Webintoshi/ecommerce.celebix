@@ -4,15 +4,17 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session, AuthError, AuthResponse } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
+type AuthResultError = AuthError | Error | null;
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: AuthError | null; data?: AuthResponse['data'] }>;
-  signUp: (email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) => Promise<{ error: AuthError | null; data: AuthResponse['data'] | null }>;
-  signOut: () => Promise<{ error: AuthError | null }>;
-  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
-  updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: AuthResultError; data?: AuthResponse['data'] }>;
+  signUp: (email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) => Promise<{ error: AuthResultError; data: AuthResponse['data'] | null }>;
+  signOut: () => Promise<{ error: AuthResultError }>;
+  resetPassword: (email: string) => Promise<{ error: AuthResultError }>;
+  updatePassword: (newPassword: string) => Promise<{ error: AuthResultError }>;
   refreshSession: () => Promise<void>;
 }
 
@@ -49,26 +51,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string, captchaToken?: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: captchaToken ? { captchaToken } : undefined,
-    });
-    return { error, data };
+  const signIn = async (email: string, password: string) => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          error: new Error(payload.error || "Giris yapilamadi."),
+        };
+      }
+
+      const session = payload.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        return {
+          error: new Error("Giris oturumu olusturulamadi."),
+        };
+      }
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      return { error, data };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error("Giris yapilamadi."),
+      };
+    }
   };
 
-  const signUp = async (email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata,
-        emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/hesap` : undefined,
-        ...(captchaToken && { captchaToken }),
-      },
-    });
-    return { error, data };
+  const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, metadata }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          error: new Error(payload.error || "Kayit olusturulamadi."),
+          data: null,
+        };
+      }
+
+      const loginResult = await signIn(email, password);
+      if (loginResult.error) {
+        return {
+          error: loginResult.error,
+          data: loginResult.data ?? null,
+        };
+      }
+
+      return {
+        error: null,
+        data: loginResult.data ?? null,
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error("Kayit olusturulamadi."),
+        data: null,
+      };
+    }
   };
 
   const signOut = async () => {
