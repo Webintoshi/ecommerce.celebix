@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { Instagram, Facebook, Youtube, Send } from "lucide-react";
+import { Facebook, Instagram, Send, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
@@ -16,26 +16,24 @@ export function Footer() {
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubscribe = (event: React.FormEvent) => {
+    event.preventDefault();
     console.log("Subscribe:", email);
     setEmail("");
   };
 
-  // Blog/Help links (first column)
   const blogLinks = [
     { name: "Blog", href: "/blog" },
     { name: "İletişim", href: "/iletisim" },
-    { name: "Garanti & İade", href: "/iade" },
-    { name: "Ödeme & Teslimat", href: "/kargo" },
-    { name: "E-bültene Kaydol!", href: "#" },
+    { name: "Garanti ve İade", href: "/iade" },
+    { name: "Ödeme ve Teslimat", href: "/kargo" },
+    { name: "E-bültene Kaydol", href: "#" },
     { name: "Sitemap", href: "/sitemap.xml" },
   ];
 
-  // Corporate links (second column)
   const corporateLinks = [
     { name: "Hakkımızda", href: "/hakkimizda" },
-    { name: "Kurumsal Hediyeler", href: "#" },
+    { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
     { name: "Aydınlatma Metni ve Gizlilik Politikası", href: "/gizlilik" },
     { name: "Taklit ve Dolandırıcılık İhbarı", href: "#" },
     { name: "Hizmet Şartları", href: "/sartlar" },
@@ -45,11 +43,9 @@ export function Footer() {
   return (
     <footer className="bg-[#0a1628] text-white">
       <div className="container-premium py-16 lg:py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
-          {/* Column 1: Brand Story */}
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-3">
-            {/* Logo */}
-            <Link href="/" className="inline-block mb-6">
+            <Link href="/" className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
                   <Image
@@ -62,29 +58,22 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="font-serif text-xl font-medium">
-                  {logoAlt}
-                </span>
+                <span className="font-serif text-xl font-medium">{logoAlt}</span>
               )}
             </Link>
-            
-            <h3 className="text-xs uppercase tracking-[0.3em] text-white/80 mb-4">
-              2016&apos;DAN BERİ!
-            </h3>
-            <p className="text-white/70 text-sm leading-relaxed italic">
-              Modern dünya insanları için geleneksel el işçiliği ile yüksek kalitede, kullanışlı ve tarz deri ürünler üretiyoruz.
+
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">2016&apos;DAN BERİ</h3>
+            <p className="text-sm italic leading-relaxed text-white/70">
+              Modern dünya insanları için geleneksel el işçiliği ile yüksek kalitede, kullanışlı ve
+              tarz deri ürünler üretiyoruz.
             </p>
           </div>
 
-          {/* Column 2: Blog Links */}
           <div className="lg:col-span-2 lg:col-start-5">
             <ul className="space-y-3">
               {blogLinks.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/70 text-sm hover:text-white transition-colors"
-                  >
+                  <Link href={link.href} className="text-sm text-white/70 transition-colors hover:text-white">
                     {link.name}
                   </Link>
                 </li>
@@ -92,15 +81,11 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Column 3: Corporate Links */}
           <div className="lg:col-span-3">
             <ul className="space-y-3">
               {corporateLinks.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/70 text-sm hover:text-white transition-colors"
-                  >
+                  <Link href={link.href} className="text-sm text-white/70 transition-colors hover:text-white">
                     {link.name}
                   </Link>
                 </li>
@@ -108,74 +93,68 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Column 4: Newsletter & Social */}
           <div className="lg:col-span-3">
-            <h3 className="text-xs uppercase tracking-[0.3em] text-white/80 mb-4">
-              BİZİ TAKİP ET!
-            </h3>
-            <p className="text-white/70 text-sm mb-6">
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">BİZİ TAKİP ET</h3>
+            <p className="mb-6 text-sm text-white/70">
               E-bültene katılarak gelişmelerden ve kampanyalardan anında haberdar ol.
             </p>
 
-            {/* Newsletter Form */}
             <form onSubmit={handleSubscribe} className="mb-8">
-              <div className="relative border-b border-white/30 focus-within:border-white/60 transition-colors">
+              <div className="relative border-b border-white/30 transition-colors focus-within:border-white/60">
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Eposta adresini gir"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="E-posta adresini gir"
                   className="w-full bg-transparent py-2 pr-10 text-sm text-white placeholder:text-white/40 focus:outline-none"
                   required
                 />
                 <button
                   type="submit"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-white/60 hover:text-white transition-colors"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-white/60 transition-colors hover:text-white"
                   aria-label="Abone ol"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="h-4 w-4" />
                 </button>
               </div>
             </form>
 
-            {/* Social Icons */}
             <div className="flex items-center gap-4">
               <a
                 href="https://instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-white/60 hover:text-white transition-colors"
+                className="text-white/60 transition-colors hover:text-white"
                 aria-label="Instagram"
               >
-                <Instagram className="w-6 h-6" />
+                <Instagram className="h-6 w-6" />
               </a>
               <a
                 href="https://facebook.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-white/60 hover:text-white transition-colors"
+                className="text-white/60 transition-colors hover:text-white"
                 aria-label="Facebook"
               >
-                <Facebook className="w-6 h-6" />
+                <Facebook className="h-6 w-6" />
               </a>
               <a
                 href="https://youtube.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-white/60 hover:text-white transition-colors"
+                className="text-white/60 transition-colors hover:text-white"
                 aria-label="YouTube"
               >
-                <Youtube className="w-6 h-6" />
+                <Youtube className="h-6 w-6" />
               </a>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Copyright */}
       <div className="border-t border-white/10">
         <div className="container-premium py-6">
-          <p className="text-white/40 text-sm text-center">
+          <p className="text-center text-sm text-white/40">
             © {currentYear} {storeInfo?.name || SITE_NAME}
           </p>
         </div>
