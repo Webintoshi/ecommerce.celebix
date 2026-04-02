@@ -102,7 +102,7 @@ export function Footer() {
               )}
             </Link>
 
-            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">2016'DAN BERİ</h3>
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white">2016'DAN BERİ</h3>
             <p className="text-sm italic leading-relaxed text-white/70">
               Modern dünya insanları için geleneksel el işçiliği ile yüksek kalitede, kullanışlı ve
               tarz deri ürünler üretiyoruz.
@@ -110,7 +110,7 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-2 lg:col-start-4">
-            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">KATEGORİLER</h3>
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white">KATEGORİLER</h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
@@ -147,7 +147,7 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-3">
-            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">BİZİ TAKİP ET</h3>
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white">BİZİ TAKİP ET</h3>
             <p className="mb-6 text-sm text-white/70">
               E-bültene katılarak gelişmelerden ve kampanyalardan anında haberdar ol.
             </p>
