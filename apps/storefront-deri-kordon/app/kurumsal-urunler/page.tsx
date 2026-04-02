@@ -3,8 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
-import { Product } from "@/types/product";
-import { CorporateProductsClient } from "./CorporateProductsClient";
+import type { Product } from "@/types/product";
+import CorporateProductsClient from "./CorporateProductsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -20,48 +20,59 @@ interface DBProduct {
   slug: string;
   description: string | null;
   short_description: string | null;
-  images: string[];
-  category: string;
+  images: string[] | null;
+  images_v2?: Array<{ url?: string } | string> | null;
+  category: string | null;
   subcategory: string | null;
-  tags: string[];
-  is_featured: boolean;
-  is_bestseller: boolean;
-  is_active: boolean;
-  is_new: boolean;
-  vegan: boolean;
-  gluten_free: boolean;
-  sugar_free: boolean;
-  high_protein: boolean;
-  rating: number;
-  review_count: number;
+  tags: string[] | null;
+  is_featured: boolean | null;
+  is_new: boolean | null;
+  vegan: boolean | null;
+  gluten_free: boolean | null;
+  sugar_free: boolean | null;
+  high_protein: boolean | null;
+  rating: number | null;
+  review_count: number | null;
   seo_title: string | null;
   seo_description: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
-function transformProduct(dbProduct: DBProduct): Product {
+const TARGET_PRODUCTS = [
+  { displayName: "Çıtçıtlı Deri Kalemlik", searchName: "Çıtçıtlı Deri Kalemlik" },
+  { displayName: "Deri AirPods Kılıfı", searchName: "Deri Airpods Kılıfı" },
+  { displayName: "Deri AirTag Kılıfı", searchName: "Deri Airtag Kılıfı" },
+  { displayName: "Deri Bardak Altlığı", searchName: "Deri Bardak Altlığı" },
+];
+
+function transformProduct(product: DBProduct): Product {
+  const fallbackImages =
+    product.images && product.images.length > 0
+      ? product.images
+      : (product.images_v2 || [])
+          .map((image) => (typeof image === "string" ? image : image?.url || ""))
+          .filter((image) => image.length > 0);
+
   return {
-    id: dbProduct.id,
-    name: dbProduct.name,
-    slug: dbProduct.slug,
-    description: dbProduct.description || "",
-    shortDescription: dbProduct.short_description || "",
-    category: (dbProduct.category as Product["category"]) || "fistik-ezmesi",
-    subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
-    images: dbProduct.images || [],
-    tags: dbProduct.tags || [],
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description || "",
+    shortDescription: product.short_description || "",
+    category: ((product.category || "genel") as unknown) as Product["category"],
+    subcategory: ((product.subcategory || "genel") as unknown) as Product["subcategory"],
+    images: fallbackImages,
+    tags: product.tags || [],
     variants: [],
-    vegan: dbProduct.vegan,
-    glutenFree: dbProduct.gluten_free,
-    sugarFree: dbProduct.sugar_free,
-    highProtein: dbProduct.high_protein,
-    rating: Number(dbProduct.rating) || 5,
-    reviewCount: dbProduct.review_count || 0,
-    featured: dbProduct.is_featured,
-    new: dbProduct.is_new,
-    seoTitle: dbProduct.seo_title || undefined,
-    seoDescription: dbProduct.seo_description || undefined,
+    vegan: Boolean(product.vegan),
+    glutenFree: Boolean(product.gluten_free),
+    sugarFree: Boolean(product.sugar_free),
+    highProtein: Boolean(product.high_protein),
+    rating: Number(product.rating || 0),
+    reviewCount: Number(product.review_count || 0),
+    featured: Boolean(product.is_featured),
+    new: Boolean(product.is_new),
+    seoTitle: product.seo_title || undefined,
+    seoDescription: product.seo_description || undefined,
   };
 }
 
@@ -69,90 +80,62 @@ async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
 
   try {
-    const { data: products, error } = await runProductsQuery(
-      (includeIsActiveFilter) => {
-        let query = supabase.from("products").select(`
-            *
-          `);
+    const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase.from("products").select("*");
 
-        if (includeIsActiveFilter) {
-          query = query.eq("is_active", true);
-        }
-
-        return query
-          .or("status.eq.published,status.is.null")
-          .order("created_at", { ascending: false });
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
       }
-    );
+
+      return query
+        .or("status.eq.published,status.is.null")
+        .order("created_at", { ascending: false });
+    });
 
     if (error) {
-      console.error("Supabase error:", error);
+      console.error("Corporate page products fetch error:", error);
       return [];
     }
 
-    return ((products as DBProduct[]) || []).map(transformProduct);
+    return ((data as DBProduct[]) || []).map(transformProduct);
   } catch (error) {
-    console.error("Failed to fetch products:", error);
+    console.error("Corporate page products fetch crashed:", error);
     return [];
   }
 }
 
-// Map display names to product names in database
-const TARGET_PRODUCTS = [
-  { displayName: "Çıtçıtlı Deri Kalemlik", searchName: "Çıtçıtlı Deri Kalemlik" },
-  { displayName: "Deri Airpods Kılıfı", searchName: "Deri Airpods Kılıfı" },
-  { displayName: "Deri Airtag Kılıfı", searchName: "Deri Airtag Kılıfı" },
-  { displayName: "Deri Bardak Altlığı", searchName: "Deri Bardak Altlığı" },
-];
-
 function findProduct(products: Product[], searchName: string): Product | null {
-  // Try exact match first
-  let match = products.find(
-    (p) => p.name.toLowerCase().trim() === searchName.toLowerCase().trim()
+  const normalizedSearch = searchName.toLocaleLowerCase("tr-TR").trim();
+
+  return (
+    products.find(
+      (product) => product.name.toLocaleLowerCase("tr-TR").trim() === normalizedSearch,
+    ) ||
+    products.find((product) =>
+      product.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch),
+    ) ||
+    products.find((product) =>
+      normalizedSearch.includes(product.name.toLocaleLowerCase("tr-TR")),
+    ) ||
+    null
   );
-  
-  // Try includes match
-  if (!match) {
-    match = products.find(
-      (p) => p.name.toLowerCase().includes(searchName.toLowerCase())
-    );
-  }
-  
-  // Try reverse includes
-  if (!match) {
-    match = products.find(
-      (p) => searchName.toLowerCase().includes(p.name.toLowerCase())
-    );
-  }
-  
-  return match || null;
 }
 
 export default async function CorporateProductsPage() {
-  let products: Product[] = [];
-  let showcaseProducts: { product: Product; displayName: string }[] = [];
-
-  try {
-    products = await getProducts();
-    
-    // Find the 4 target products
-    showcaseProducts = TARGET_PRODUCTS.map((target) => {
-      const product = findProduct(products, target.searchName);
-      return {
-        product: product!,
-        displayName: target.displayName,
-      };
-    }).filter((item): item is { product: Product; displayName: string } => 
-      item.product !== null
-    );
-  } catch (error) {
-    console.error("Failed to fetch products:", error);
-  }
+  const products = await getProducts();
+  const showcaseProducts = TARGET_PRODUCTS.map((target) => {
+    const product = findProduct(products, target.searchName);
+    return product
+      ? {
+          product,
+          displayName: target.displayName,
+        }
+      : null;
+  }).filter((item): item is { product: Product; displayName: string } => item !== null);
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
-      {/* Hero */}
-      <section className="relative h-[60vh] min-h-[420px] max-h-[720px] flex items-center justify-center overflow-hidden">
+      <section className="relative flex h-[60vh] min-h-[420px] max-h-[720px] items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
             src="/images/placeholders/1.1.jpg"
@@ -164,84 +147,77 @@ export default async function CorporateProductsPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
         </div>
 
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <span className="inline-block text-white/80 text-xs sm:text-sm font-medium tracking-[0.2em] uppercase mb-4">
+        <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
+          <span className="mb-4 inline-block text-xs font-medium uppercase tracking-[0.2em] text-white/80 sm:text-sm">
             ŞİRKETİNİZE ÖZEL ÜRÜNLERLE KALICI İZ BIRAKIN
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white tracking-tight mb-6">
+          <h1 className="mb-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
             MARKANIZA PRESTİJ KATIN
           </h1>
           <Link
             href="/iletisim"
-            className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-neutral-900 text-sm font-medium uppercase tracking-wide rounded-full hover:bg-neutral-100 transition-colors"
+            className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-medium uppercase tracking-wide text-neutral-900 transition-colors hover:bg-neutral-100"
           >
-            TEKLİF AL
+            Teklif al
           </Link>
         </div>
       </section>
 
-      {/* Intro */}
       <section className="py-16 lg:py-20">
-        <div className="container-premium max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl text-neutral-900 tracking-tight mb-6">
-            KİŞİSELLEŞTİRİLMİŞ HEDİYELERLE BİR ADIM ÖNE GEÇİN…
+        <div className="container-premium mx-auto max-w-3xl text-center">
+          <h2 className="mb-6 text-2xl tracking-tight text-neutral-900 sm:text-3xl lg:text-4xl">
+            Kişiselleştirilmiş hediyelerle bir adım öne geçin
           </h2>
-          <div className="space-y-4 text-neutral-600 leading-relaxed">
+          <div className="space-y-4 leading-relaxed text-neutral-600">
             <p>
-              Kurumsal müşterilerimizin ihtiyaçlarını anlıyor ve onlara özel tasarım, kalite ve hizmet sunuyoruz.
+              Kurumsal müşterilerimizin ihtiyaçlarını anlıyor ve onlara özel tasarım,
+              kalite ve hizmet sunuyoruz.
             </p>
             <p>
               Deri ürünlerimiz, şirketinizin imajını yansıtacak şekilde özenle tasarlanır.
             </p>
             <p>
-              Toplu siparişlerde özel tasarımlarla her detayı düşünerek sizin için en iyi çözümleri üretiyoruz.
+              Toplu siparişlerde özel tasarımlarla her detayı düşünerek sizin için en iyi
+              çözümleri üretiyoruz.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Showcase Products - Dynamic */}
-      <section className="py-16 lg:py-20 bg-white border-y border-neutral-200">
+      <section className="border-y border-neutral-200 bg-white py-16 lg:py-20">
         <div className="container-premium">
-          <div className="text-center mb-10">
-            <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase block mb-2">
+          <div className="mb-10 text-center">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
               Keşfedin
             </span>
-            <h2 className="text-2xl sm:text-3xl text-neutral-900 tracking-tight">
-              Kurumsal Ürünlerimiz
+            <h2 className="text-2xl tracking-tight text-neutral-900 sm:text-3xl">
+              Kurumsal ürünlerimiz
             </h2>
           </div>
 
           {showcaseProducts.length > 0 ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
               {showcaseProducts.map(({ product, displayName }) => {
-                const primaryImage = 
-                  product.images?.[0] || 
-                  (product as any).images_v2?.[0]?.url || 
-                  (product as any).images_v2?.[0];
-                
+                const primaryImage = product.images[0];
+
                 return (
-                  <Link 
-                    key={product.id} 
-                    href={`/urunler/${product.slug}`}
-                    className="group block"
-                  >
-                    <div className="relative aspect-square mb-3 overflow-hidden bg-neutral-100">
+                  <Link key={product.id} href={`/urunler/${product.slug}`} className="group block">
+                    <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
                       {primaryImage ? (
                         <Image
                           src={primaryImage}
                           alt={displayName}
                           fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
                           Görsel yok
                         </div>
                       )}
                     </div>
-                    <h3 className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 leading-snug">
+                    <h3 className="line-clamp-2 text-sm font-medium leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600">
                       {displayName}
                     </h3>
                   </Link>
@@ -249,14 +225,13 @@ export default async function CorporateProductsPage() {
               })}
             </div>
           ) : (
-            <div className="text-center py-12 text-neutral-500">
-              Ürünler yüklenemedi. Lütfen daha sonra tekrar deneyin.
+            <div className="py-12 text-center text-neutral-500">
+              Ürünler şu anda yüklenemedi. Lütfen daha sonra tekrar deneyin.
             </div>
           )}
         </div>
       </section>
 
-      {/* Client Component for Interactive Sections */}
       <CorporateProductsClient />
     </div>
   );

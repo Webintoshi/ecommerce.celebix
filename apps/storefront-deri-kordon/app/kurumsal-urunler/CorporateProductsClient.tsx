@@ -2,127 +2,115 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Award,
-  Palette,
-  Truck,
-  Leaf,
-  Headphones,
-  Sparkles,
-  ChevronDown,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Award, ChevronDown, Headphones, Leaf, Palette, Sparkles, Truck } from "lucide-react";
 
 const FAQS = [
   {
-    q: "Teslimat Süresi Ne Kadar?",
-    a: "Ürünlerimizin üretim süresi, seçtiğiniz ürün türü ve kişiselleştirme taleplerinize bağlı olarak değişiklik göstermektedir. Tam teslimat süresi hakkında bilgi almak için bizimle iletişime geçebilirsiniz.",
+    q: "Teslimat süresi ne kadar?",
+    a: "Ürünlerimizin üretim süresi, seçtiğiniz ürün türü ve kişiselleştirme taleplerinize göre değişiklik gösterir. Net teslimat süresi için bizimle iletişime geçebilirsiniz.",
   },
   {
-    q: "Numune Gönderiyor Musunuz?",
-    a: "Evet, numune talebiniz üzerine size örnek ürünler gönderebiliriz. Ayrıca, atölyemize davet ederek ürünleri yerinde incelemeniz de mümkündür.",
+    q: "Numune gönderiyor musunuz?",
+    a: "Evet. Numune talebiniz üzerine örnek ürünler gönderebiliriz. Dilerseniz atölyemize davet ederek ürünleri yerinde incelemenizi de sağlayabiliriz.",
   },
   {
     q: "Minimum sipariş miktarı var mı?",
-    a: "Evet, ihtiyacınıza özel ürünler geliştirebiliriz. Kurumsal talepleriniz doğrultusunda sizinle birlikte AR-GE süreci yürütmekten memnuniyet duyarız.",
+    a: "Talep edilen ürün türüne göre minimum adet değişebilir. Kurumsal talebinizi ilettiğinizde sizin için en uygun adet ve teklif yapısını birlikte netleştiririz.",
   },
   {
     q: "Ürünleri kişiselleştirmek için hangi seçenekleri sunuyorsunuz?",
-    a: "Markanızın logosu, çalışan isimleri, özel mesajlar veya sloganlar gibi özelleştirmeleri ürünlerimize işleyebiliriz. Kişiselleştirme seçeneklerimiz hakkında daha fazla bilgi için bizimle iletişime geçebilirsiniz.",
+    a: "Logo baskısı, isim, özel mesaj, kutulama ve kurumsal renklere uygun detaylar gibi farklı kişiselleştirme seçenekleri sunuyoruz.",
   },
   {
     q: "Toplu siparişlerde indirim var mı?",
-    a: "Evet, toplu siparişlerde daha uygun fiyat seçenekleri sunuyoruz. Sipariş sayınıza göre size özel bir teklif hazırlayabiliriz. Detaylar için bizimle iletişime geçin!",
+    a: "Evet. Sipariş miktarınıza göre özel fiyatlandırma hazırlıyoruz. Detaylı teklif için bizimle iletişime geçebilirsiniz.",
   },
   {
     q: "Kişiselleştirilmiş siparişlerde iade veya değişim yapabilir miyiz?",
-    a: "Kişiselleştirilmiş ürünlerde iade veya değişim yapılmamaktadır. Ancak, ürününüzle ilgili herhangi bir sorun yaşamanız durumunda, en iyi çözümü bulmak için bizimle iletişime geçebilirsiniz.",
+    a: "Kişiselleştirilmiş ürünlerde standart iade ve değişim uygulanmaz. Ancak üretim kaynaklı bir sorun yaşanırsa sizin için en doğru çözümü birlikte planlarız.",
   },
 ];
 
 const WHY_US = [
-  { icon: Award, title: "Yüksek Kalite" },
+  { icon: Award, title: "Yüksek kalite" },
   { icon: Palette, title: "Kişiselleştirme" },
-  { icon: Truck, title: "Zamanında ve Hızlı Teslimat" },
-  { icon: Leaf, title: "Çevre Dostu Üretim Süreci" },
-  { icon: Headphones, title: "Güvenilir Müşteri Desteği" },
-  { icon: Sparkles, title: "Benzersiz Tasarımlar" },
+  { icon: Truck, title: "Zamanında teslimat" },
+  { icon: Leaf, title: "Özenli üretim süreci" },
+  { icon: Headphones, title: "Güvenilir müşteri desteği" },
+  { icon: Sparkles, title: "Özgün tasarımlar" },
 ];
 
 export default function CorporateProductsClient() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
-  const toggle = (idx: number) => {
-    setOpenIndex(openIndex === idx ? null : idx);
+  const toggle = (index: number) => {
+    setOpenIndex((current) => (current === index ? null : index));
   };
 
   return (
     <>
-      {/* Why Us */}
       <section className="py-16 lg:py-20">
         <div className="container-premium">
-          <div className="text-center mb-10">
-            <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase block mb-2">
+          <div className="mb-10 text-center">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
               Avantajlar
             </span>
-            <h2 className="text-2xl sm:text-3xl text-neutral-900 tracking-tight">
-              NEDEN BİZİ TERCİH ETMELİSİNİZ?
+            <h2 className="text-2xl tracking-tight text-neutral-900 sm:text-3xl">
+              Neden bizi tercih etmelisiniz?
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-            {WHY_US.map(({ icon: Icon, title }, idx) => (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
+            {WHY_US.map(({ icon: Icon, title }, index) => (
               <div
-                key={idx}
-                className="bg-white rounded-2xl border border-neutral-200 p-6 flex items-start gap-4"
+                key={index}
+                className="flex items-start gap-4 rounded-2xl border border-neutral-200 bg-white p-6"
               >
-                <div className="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-5 h-5 text-[#8A6B37] stroke-[1.5]" />
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100">
+                  <Icon className="h-5 w-5 stroke-[1.5] text-[#8A6B37]" />
                 </div>
-                <p className="text-sm font-medium text-neutral-900 leading-snug pt-2">
-                  {title}
-                </p>
+                <p className="pt-2 text-sm font-medium leading-snug text-neutral-900">{title}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="py-16 lg:py-20 bg-white border-y border-neutral-200">
-        <div className="container-premium max-w-3xl mx-auto">
-          <div className="text-center mb-10">
-            <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase block mb-2">
+      <section className="border-y border-neutral-200 bg-white py-16 lg:py-20">
+        <div className="container-premium mx-auto max-w-3xl">
+          <div className="mb-10 text-center">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
               Yardım
             </span>
-            <h2 className="text-2xl sm:text-3xl text-neutral-900 tracking-tight">
-              SIKÇA SORULAN SORULAR
+            <h2 className="text-2xl tracking-tight text-neutral-900 sm:text-3xl">
+              Sıkça sorulan sorular
             </h2>
           </div>
 
           <div className="space-y-3">
-            {FAQS.map((faq, idx) => {
-              const isOpen = openIndex === idx;
+            {FAQS.map((faq, index) => {
+              const isOpen = openIndex === index;
+
               return (
                 <div
-                  key={idx}
-                  className="bg-[#F8F8F8] rounded-xl border border-neutral-200 overflow-hidden"
+                  key={index}
+                  className="overflow-hidden rounded-xl border border-neutral-200 bg-[#F8F8F8]"
                 >
                   <button
-                    onClick={() => toggle(idx)}
-                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                    type="button"
+                    onClick={() => toggle(index)}
+                    className="flex w-full items-center justify-between px-5 py-4 text-left"
                   >
-                    <span className="text-sm font-medium text-neutral-900 pr-4">
-                      {faq.q}
-                    </span>
+                    <span className="pr-4 text-sm font-medium text-neutral-900">{faq.q}</span>
                     <ChevronDown
-                      className={`w-5 h-5 text-neutral-500 flex-shrink-0 transition-transform ${
+                      className={`h-5 w-5 flex-shrink-0 text-neutral-500 transition-transform ${
                         isOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
                   <AnimatePresence initial={false}>
-                    {isOpen && (
+                    {isOpen ? (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
@@ -130,11 +118,11 @@ export default function CorporateProductsClient() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-5 pb-4 text-sm text-neutral-600 leading-relaxed">
+                        <div className="px-5 pb-4 text-sm leading-relaxed text-neutral-600">
                           {faq.a}
                         </div>
                       </motion.div>
-                    )}
+                    ) : null}
                   </AnimatePresence>
                 </div>
               );
@@ -143,21 +131,20 @@ export default function CorporateProductsClient() {
         </div>
       </section>
 
-      {/* Bottom CTA */}
       <section className="py-16 lg:py-20">
         <div className="container-premium">
-          <div className="bg-neutral-900 rounded-2xl px-6 py-12 lg:py-16 text-center">
-            <h2 className="text-2xl sm:text-3xl text-white tracking-tight mb-3">
-              Kurumsal Teklif Alın
+          <div className="rounded-2xl bg-neutral-900 px-6 py-12 text-center lg:py-16">
+            <h2 className="mb-3 text-2xl tracking-tight text-white sm:text-3xl">
+              Kurumsal teklif alın
             </h2>
-            <p className="text-neutral-400 max-w-xl mx-auto mb-6">
+            <p className="mx-auto mb-6 max-w-xl text-neutral-400">
               Size özel çözümler ve fiyatlandırma için hemen iletişime geçin.
             </p>
             <Link
               href="/iletisim"
-              className="inline-flex items-center justify-center px-8 py-3.5 bg-[#8A6B37] text-white text-sm font-medium uppercase tracking-wide rounded-full hover:bg-[#755a2d] transition-colors"
+              className="inline-flex items-center justify-center rounded-full bg-[#8A6B37] px-8 py-3.5 text-sm font-medium uppercase tracking-wide text-white transition-colors hover:bg-[#755a2d]"
             >
-              TEKLİF AL
+              Teklif al
             </Link>
           </div>
         </div>
