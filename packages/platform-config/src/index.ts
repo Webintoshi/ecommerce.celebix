@@ -3,6 +3,7 @@ import path from "node:path";
 
 export * from "./typography";
 export * from "./image-formats";
+export * from "./category-hierarchy";
 
 export interface StoreRegistryEntry {
   slug: string;

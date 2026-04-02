@@ -12,6 +12,7 @@ import {
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 import { buildGeneratedSku } from "@/lib/sku";
+import { inferLegacySubcategorySlug, withCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
 
 export const runtime = "nodejs";
 
@@ -542,14 +543,29 @@ export async function POST(request: NextRequest) {
 
         const primaryCategoryImage =
             normalizedImages.find((image: unknown): image is string => typeof image === "string" && Boolean(image.trim())) || null;
+        const resolvedSubcategory = inferLegacySubcategorySlug({
+            category: productData.category,
+            subcategory: productData.subcategory,
+            name: productData.name,
+            slug: productData.slug,
+            tags: normalizedTags,
+            metadata: productData.shopify_metadata,
+        });
+        const normalizedShopifyMetadata = withCelebixCategoryHierarchyMetadata(productData.shopify_metadata, {
+            category: productData.category,
+            subcategory: resolvedSubcategory,
+            name: productData.name,
+            slug: productData.slug,
+            tags: normalizedTags,
+        });
 
         await ensureProductCategoryHierarchy(
             supabase,
             {
                 ...deriveCategoryHierarchyFromProduct({
                     category: productData.category,
-                    subcategory: productData.subcategory,
-                    shopifyMetadata: toJsonObject(productData.shopify_metadata),
+                    subcategory: resolvedSubcategory,
+                    shopifyMetadata: normalizedShopifyMetadata,
                     shopifyMetafields: toJsonObject(productData.shopify_metafields),
                 }),
                 categoryImageUrl: primaryCategoryImage,
@@ -578,7 +594,7 @@ export async function POST(request: NextRequest) {
                 images: normalizedImages,
                 images_v2: normalizedImagesV2,
                 category: productData.category || null,
-                subcategory: toNullableString(productData.subcategory),
+                subcategory: resolvedSubcategory,
                 tags: normalizedTags,
                 is_active: productData.is_active !== false,
                 is_featured: productData.is_featured || false,
@@ -626,7 +642,7 @@ export async function POST(request: NextRequest) {
                 sugar: productData.sugar || 0,
                 saturated_fat: productData.saturated_fat || 0,
                 sodium: productData.sodium || 0,
-                shopify_metadata: toJsonObject(productData.shopify_metadata),
+                shopify_metadata: normalizedShopifyMetadata,
                 shopify_metafields: toJsonObject(productData.shopify_metafields),
         }
         let product: ({ id: string } & Record<string, unknown>) | null = null;
@@ -903,16 +919,36 @@ export async function PUT(request: NextRequest) {
             (finalImages || existingProduct?.images || []).find(
                 (image: unknown): image is string => typeof image === "string" && Boolean(image.trim())
             ) || null;
+        const effectiveCategory = updates.category !== undefined ? updates.category : existingProduct?.category;
+        const effectiveName = updates.name !== undefined ? updates.name : existingProduct?.name;
+        const effectiveSlug = updates.slug !== undefined ? updates.slug : existingProduct?.slug;
+        const effectiveTags = normalizedUpdatedTags !== undefined ? normalizedUpdatedTags : existingProduct?.tags;
+        const mergedShopifyMetadata = withCelebixCategoryHierarchyMetadata(
+            updates.shopify_metadata !== undefined ? updates.shopify_metadata : existingProduct?.shopify_metadata,
+            {
+                category: effectiveCategory,
+                subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+                name: effectiveName,
+                slug: effectiveSlug,
+                tags: effectiveTags,
+            }
+        );
+        const resolvedSubcategory = inferLegacySubcategorySlug({
+            category: effectiveCategory,
+            subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+            name: effectiveName,
+            slug: effectiveSlug,
+            tags: effectiveTags,
+            metadata: mergedShopifyMetadata,
+        });
 
         await ensureProductCategoryHierarchy(
             supabase,
             {
                 ...deriveCategoryHierarchyFromProduct({
-                    category: updates.category !== undefined ? updates.category : existingProduct?.category,
-                    subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
-                    shopifyMetadata: updates.shopify_metadata !== undefined
-                        ? toJsonObject(updates.shopify_metadata)
-                        : toJsonObject(existingProduct?.shopify_metadata),
+                    category: effectiveCategory,
+                    subcategory: resolvedSubcategory,
+                    shopifyMetadata: mergedShopifyMetadata,
                     shopifyMetafields: updates.shopify_metafields !== undefined
                         ? toJsonObject(updates.shopify_metafields)
                         : toJsonObject(existingProduct?.shopify_metafields),
@@ -935,7 +971,7 @@ export async function PUT(request: NextRequest) {
         if (normalizedImagesV2 !== undefined) updateData.images_v2 = normalizedImagesV2;
         
         if (updates.category !== undefined) updateData.category = updates.category;
-        if (updates.subcategory !== undefined) updateData.subcategory = toNullableString(updates.subcategory);
+        if (updates.subcategory !== undefined || resolvedSubcategory) updateData.subcategory = resolvedSubcategory;
         if (normalizedUpdatedTags !== undefined) updateData.tags = normalizedUpdatedTags;
         if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
         if (updates.is_featured !== undefined) updateData.is_featured = updates.is_featured;
@@ -969,7 +1005,16 @@ export async function PUT(request: NextRequest) {
         if (updates.seo_robots !== undefined) updateData.seo_robots = updates.seo_robots;
         if (updates.faq !== undefined) updateData.faq = updates.faq;
         if (updates.geo_data !== undefined) updateData.geo_data = updates.geo_data;
-        if (updates.shopify_metadata !== undefined) updateData.shopify_metadata = toJsonObject(updates.shopify_metadata);
+        if (
+            updates.shopify_metadata !== undefined ||
+            updates.category !== undefined ||
+            updates.subcategory !== undefined ||
+            updates.name !== undefined ||
+            updates.slug !== undefined ||
+            normalizedUpdatedTags !== undefined
+        ) {
+            updateData.shopify_metadata = mergedShopifyMetadata;
+        }
         if (updates.shopify_metafields !== undefined) updateData.shopify_metafields = toJsonObject(updates.shopify_metafields);
         
         // Diğer alanlar

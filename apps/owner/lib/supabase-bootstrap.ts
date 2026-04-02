@@ -67,6 +67,10 @@ const SQL_BOOTSTRAP_FILES = [
   {
     name: "payment_runtime",
     relativePath: ["apps", "admin", "supabase", "migrations", "20260328000000_payment_runtime.sql"]
+  },
+  {
+    name: "products_subcategory_compat",
+    relativePath: ["apps", "admin", "supabase", "migrations", "20260402183000_products_subcategory_compat.sql"]
   }
 ] as const;
 

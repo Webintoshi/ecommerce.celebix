@@ -7,6 +7,7 @@ import { createServerClient } from "@/lib/supabase";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductVariant } from "@/types/product";
+import { inferLegacySubcategorySlug, readCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ interface DBProduct {
   review_count: number | null;
   seo_title: string | null;
   seo_description: string | null;
+  shopify_metadata?: Record<string, unknown> | null;
   variants: DBVariant[] | null;
 }
 
@@ -133,15 +135,32 @@ function transformVariant(variant: DBVariant): ProductVariant {
   };
 }
 
+function resolveProductCategorySlugs(product: DBProduct) {
+  const storedHierarchy = readCelebixCategoryHierarchyMetadata(product.shopify_metadata);
+  return {
+    category: product.category || storedHierarchy.categorySlug || "",
+    subcategory:
+      inferLegacySubcategorySlug({
+        category: product.category || storedHierarchy.categorySlug,
+        subcategory: product.subcategory,
+        name: product.name,
+        slug: product.slug,
+        tags: product.tags,
+        metadata: product.shopify_metadata,
+      }) || "",
+  };
+}
+
 function transformProduct(product: DBProduct): Product {
+  const resolvedHierarchy = resolveProductCategorySlugs(product);
   return {
     id: product.id,
     name: product.name,
     slug: product.slug,
     description: product.description || "",
     shortDescription: product.short_description || "",
-    category: ((product.category || "genel") as unknown) as Product["category"],
-    subcategory: ((product.subcategory || "genel") as unknown) as Product["subcategory"],
+    category: ((resolvedHierarchy.category || "genel") as unknown) as Product["category"],
+    subcategory: ((resolvedHierarchy.subcategory || "genel") as unknown) as Product["subcategory"],
     variants: (product.variants || []).map(transformVariant),
     images:
       product.images && product.images.length > 0
@@ -192,8 +211,9 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
 
     return (data as DBProduct[])
       .filter((product) => {
-        const categorySlug = product.category || "";
-        const subcategorySlug = product.subcategory || "";
+        const resolvedHierarchy = resolveProductCategorySlugs(product);
+        const categorySlug = resolvedHierarchy.category;
+        const subcategorySlug = resolvedHierarchy.subcategory;
         return categorySet.has(categorySlug) || categorySet.has(subcategorySlug);
       })
       .map(transformProduct)

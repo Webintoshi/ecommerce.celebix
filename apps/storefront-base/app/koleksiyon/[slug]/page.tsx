@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductCategory, ProductVariant } from "@/types/product";
 import { notFound } from "next/navigation";
+import { inferLegacySubcategorySlug, readCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
 
 // ============================================================================
 // CONFIGURATION
@@ -39,6 +40,7 @@ interface DBProduct {
   review_count: number;
   seo_title: string | null;
   seo_description: string | null;
+  shopify_metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   variants: DBVariant[];
@@ -130,10 +132,22 @@ async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
 }
 
 function transformProduct(dbProduct: DBProduct): Product | null {
+  const storedHierarchy = readCelebixCategoryHierarchyMetadata(dbProduct.shopify_metadata);
+  const resolvedCategory = dbProduct.category || storedHierarchy.categorySlug || "";
+  const resolvedSubcategory =
+    inferLegacySubcategorySlug({
+      category: resolvedCategory,
+      subcategory: dbProduct.subcategory,
+      name: dbProduct.name,
+      slug: dbProduct.slug,
+      tags: dbProduct.tags,
+      metadata: dbProduct.shopify_metadata,
+    }) || "klasik";
+
   // Map category slug to ProductCategory type
-  const category = VALID_CATEGORIES[dbProduct.category];
+  const category = VALID_CATEGORIES[resolvedCategory];
   if (!category) {
-    console.warn(`Unknown category: ${dbProduct.category}`);
+    console.warn(`Unknown category: ${resolvedCategory}`);
     return null;
   }
 
@@ -157,7 +171,7 @@ function transformProduct(dbProduct: DBProduct): Product | null {
     description: dbProduct.description || "",
     shortDescription: dbProduct.short_description || "",
     category: category,
-    subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
+    subcategory: (resolvedSubcategory as Product["subcategory"]) || "klasik",
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
     variants: variants,
