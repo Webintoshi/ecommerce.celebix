@@ -1,5 +1,6 @@
 import { CategoryInfo } from "@/types/product";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { runCategoriesQuery } from "@/lib/categories-query-compat";
 
 type CategoryAdminInput = Omit<CategoryInfo, "id" | "productCount"> & {
   parent_id?: string | null;
@@ -48,11 +49,18 @@ export async function fetchCategoriesServer() {
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
 
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
 
   if (error) {
     console.error("Error fetching categories:", error);
@@ -66,12 +74,18 @@ export async function fetchCategoriesServer() {
 export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
   const supabase = getSupabase();
 
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .single();
+  const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .eq("slug", slug);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query.single();
+  });
 
   if (error || !data) {
     console.error("Error fetching category:", error);

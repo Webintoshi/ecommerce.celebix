@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
+import { runCategoriesQuery } from "@/lib/categories-query-compat";
 
 // ============================================================================
 // CONFIGURATION
@@ -231,12 +232,18 @@ export async function GET(request: NextRequest) {
         throw new APIError("Invalid slug format", 400, "INVALID_SLUG");
       }
 
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("slug", slug)
-        .eq("is_active", true)
-        .single();
+      const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+        let query = supabase
+          .from("categories")
+          .select("*")
+          .eq("slug", slug);
+
+        if (includeIsActiveFilter) {
+          query = query.eq("is_active", true);
+        }
+
+        return query.single();
+      });
       
       if (error) {
         if (error.code === "PGRST116") {
@@ -253,11 +260,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all active categories
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
     
     if (error) {
       throw new APIError("Database error", 500, "DB_ERROR");

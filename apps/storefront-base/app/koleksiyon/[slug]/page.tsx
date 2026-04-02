@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { ProductCard } from "@/components/product/ProductCard";
+import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import Link from "next/link";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductCategory, ProductVariant } from "@/types/product";
@@ -73,12 +74,18 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const supabase = createServerClient();
   
   try {
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .single();
+    const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("*")
+        .eq("slug", slug);
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query.single();
+    });
     
     if (error || !data) {
       console.error("Category fetch error:", error);
