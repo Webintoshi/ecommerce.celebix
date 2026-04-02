@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Home, Menu, RotateCw } from "lucide-react";
+import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
@@ -15,7 +16,7 @@ export default function AdminLayoutClient({
   initialProfile: InitialAdminProfile | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -50,11 +51,16 @@ export default function AdminLayoutClient({
       className="flex min-h-screen bg-[#f1f1f1] font-sans"
       style={{ fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" }}
     >
-      <AdminSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        initialProfile={initialProfile}
-      />
+      <AdminClientBoundary
+        name="AdminSidebar"
+        fallback={<div className="hidden h-screen w-64 shrink-0 border-l border-gray-200 bg-[#ebebeb] md:block" />}
+      >
+        <AdminSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          initialProfile={initialProfile}
+        />
+      </AdminClientBoundary>
 
       <main className="flex-1 overflow-y-auto h-screen">
         <div className="p-4 md:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
@@ -98,7 +104,9 @@ export default function AdminLayoutClient({
         </div>
       ) : null}
 
-      <ToshiAssistant />
+      <AdminClientBoundary name="ToshiAssistant">
+        <ToshiAssistant />
+      </AdminClientBoundary>
     </div>
   );
 }

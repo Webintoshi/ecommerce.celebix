@@ -158,13 +158,12 @@ export function AdminSidebar({
   onClose,
   initialProfile = null,
 }: SidebarProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const supabase = getBrowserSupabaseClient();
   const userEmail = initialProfile?.email;
   const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
   const role: UserRole | null = initialProfile?.role || null;
@@ -218,6 +217,7 @@ export function AdminSidebar({
     setIsSigningOut(true);
 
     try {
+      const supabase = getBrowserSupabaseClient();
       await Promise.allSettled([
         supabase.auth.signOut(),
         fetch("/api/admin/logout", {

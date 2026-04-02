@@ -265,7 +265,7 @@ function saveAlertCache(data: AlertInfo) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function ToshiAssistant() {
-    const pathname = usePathname();
+    const pathname = usePathname() ?? "";
     const [isOpen, setIsOpen] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
