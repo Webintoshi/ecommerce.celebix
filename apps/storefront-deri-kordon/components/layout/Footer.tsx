@@ -1,20 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Facebook, Instagram, Send, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+
+type FooterCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [email, setEmail] = useState("");
+  const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const currentYear = new Date().getFullYear();
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const categories = await fetchCategories();
+        if (!isMounted) {
+          return;
+        }
+
+        const topLevelCategories = categories
+          .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
+          .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          }));
+
+        setCategoryLinks(topLevelCategories);
+      } catch (error) {
+        console.error("Failed to load footer categories:", error);
+      }
+    };
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSubscribe = (event: React.FormEvent) => {
     event.preventDefault();
@@ -62,14 +102,27 @@ export function Footer() {
               )}
             </Link>
 
-            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">2016&apos;DAN BERİ</h3>
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">2016'DAN BERİ</h3>
             <p className="text-sm italic leading-relaxed text-white/70">
               Modern dünya insanları için geleneksel el işçiliği ile yüksek kalitede, kullanışlı ve
               tarz deri ürünler üretiyoruz.
             </p>
           </div>
 
-          <div className="lg:col-span-2 lg:col-start-5">
+          <div className="lg:col-span-2 lg:col-start-4">
+            <h3 className="mb-4 text-xs uppercase tracking-[0.3em] text-white/80">KATEGORİLER</h3>
+            <ul className="space-y-3">
+              {categoryLinks.map((link) => (
+                <li key={link.id}>
+                  <Link href={`/${link.slug}`} className="text-sm text-white/70 transition-colors hover:text-white">
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="lg:col-span-2">
             <ul className="space-y-3">
               {blogLinks.map((link) => (
                 <li key={link.name}>
@@ -81,7 +134,7 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
             <ul className="space-y-3">
               {corporateLinks.map((link) => (
                 <li key={link.name}>
