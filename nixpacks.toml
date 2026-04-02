@@ -1,2 +1,12 @@
 [start]
 runImage = "node:20-bookworm"
+onlyIncludeFiles = [
+  "package.json",
+  "package-lock.json",
+  "node_modules",
+  "scripts/prepare-next-standalone.cjs",
+  "packages/platform-config",
+  "apps/admin",
+  "apps/owner",
+  "apps/storefront-deri-kordon",
+]
