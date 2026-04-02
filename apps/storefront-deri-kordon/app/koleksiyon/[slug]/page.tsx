@@ -1,13 +1,13 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ProductCard } from "@/components/product/ProductCard";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductVariant } from "@/types/product";
+import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 300;
@@ -392,38 +392,8 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <header className="bg-white">
-        <div className="container-premium py-8 md:py-12">
-          <h1 className="mb-3 text-3xl font-semibold tracking-tight text-neutral-900 md:text-5xl">
-            {category.name}
-          </h1>
-          {category.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
-            </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} ürün</p>
-        </div>
-      </header>
-
       <main className="container-premium py-10 md:py-12">
-        {products.length === 0 ? (
-          <div className="rounded-3xl border border-neutral-200 bg-white px-6 py-16 text-center">
-            <p className="text-lg text-neutral-600">Bu kategoride henüz ürün bulunmuyor.</p>
-            <Link
-              href="/urunler"
-              className="mt-5 inline-flex rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
-            >
-              Tüm ürünleri gör
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
-            {products.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </div>
-        )}
+        <CollectionProductsClient products={products} />
       </main>
 
       {category.faq && category.faq.length > 0 ? (
