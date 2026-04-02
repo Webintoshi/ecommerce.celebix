@@ -57,6 +57,7 @@ export const FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS: StoreTypographyFontOption[]
   { family: "Playfair Display", category: "serif", availableWeights: ["500", "600", "700"], source: "google" },
   { family: "Cormorant Garamond", category: "serif", availableWeights: ["500", "600", "700"], source: "google" },
   { family: "Fraunces", category: "serif", availableWeights: ["500", "600", "700"], source: "google" },
+  { family: "Lora", category: "serif", availableWeights: ["400", "500", "600", "700"], source: "google" },
 ];
 
 export const STORE_TYPOGRAPHY_WEIGHT_OPTIONS: TypographyChoiceOption<StoreTypographyWeight>[] = [
@@ -126,6 +127,7 @@ const LEGACY_FONT_MAP = new Map<string, StoreTypographyFontOption>([
   ["playfair", FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS[5]],
   ["cormorant", FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS[6]],
   ["fraunces", FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS[7]],
+  ["lora", FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS[8]],
 ]);
 
 const FEATURED_FONT_BY_FAMILY = new Map(
