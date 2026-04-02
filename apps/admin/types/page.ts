@@ -18,9 +18,17 @@ export interface PageFAQ {
   answer: string;
 }
 
+export type StaticPageStatus = "published" | "draft" | "archived";
+
+export interface PageCmsData {
+  content?: string | null;
+  status?: StaticPageStatus | null;
+}
+
 export interface PageGEO {
   keyTakeaways: string[];
   entities: string[];
+  cms?: PageCmsData | null;
 }
 
 // ============================================================================

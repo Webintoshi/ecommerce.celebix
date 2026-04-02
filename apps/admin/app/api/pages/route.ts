@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { PageApiResponse, PageInput } from "@/types/page";
+import type { PageApiResponse, PageCmsData, PageGEO, PageInput, StaticPageStatus } from "@/types/page";
 import { isValidPage } from "@/types/page";
 
 // ============================================================================
@@ -57,6 +57,65 @@ function sanitizeString(input: unknown, maxLength: number): string {
   return input.trim().slice(0, maxLength).replace(/[<>]/g, "");
 }
 
+function sanitizeContent(input: unknown, maxLength: number): string {
+  if (typeof input !== "string") return "";
+  return input.trim().slice(0, maxLength);
+}
+
+function isValidPageStatus(status: unknown): status is StaticPageStatus {
+  return status === "published" || status === "draft" || status === "archived";
+}
+
+function extractExistingCmsData(geoData: unknown): PageCmsData | undefined {
+  if (!geoData || typeof geoData !== "object") {
+    return undefined;
+  }
+
+  const maybeCms = (geoData as { cms?: unknown }).cms;
+  if (!maybeCms || typeof maybeCms !== "object") {
+    return undefined;
+  }
+
+  const content = typeof (maybeCms as { content?: unknown }).content === "string"
+    ? sanitizeContent((maybeCms as { content?: string }).content, 50000)
+    : undefined;
+  const status = isValidPageStatus((maybeCms as { status?: unknown }).status)
+    ? (maybeCms as { status?: StaticPageStatus }).status
+    : undefined;
+
+  if (!content && !status) {
+    return undefined;
+  }
+
+  return { content, status };
+}
+
+function normalizePageGeoData(
+  geoData: unknown,
+  cmsOverrides?: Partial<PageCmsData>,
+): PageGEO {
+  const baseGeoData = geoData && typeof geoData === "object" ? geoData as {
+    keyTakeaways?: unknown;
+    entities?: unknown;
+  } : {};
+
+  const existingCms = extractExistingCmsData(geoData);
+  const mergedCms: PageCmsData = {
+    content: cmsOverrides?.content ?? existingCms?.content ?? null,
+    status: cmsOverrides?.status ?? existingCms?.status ?? null,
+  };
+
+  return {
+    keyTakeaways: Array.isArray(baseGeoData.keyTakeaways)
+      ? baseGeoData.keyTakeaways.map((k) => sanitizeString(k, 200))
+      : [],
+    entities: Array.isArray(baseGeoData.entities)
+      ? baseGeoData.entities.map((e) => sanitizeString(e, 100))
+      : [],
+    cms: mergedCms,
+  };
+}
+
 function validatePageInput(input: unknown): asserts input is PageInput {
   if (typeof input !== "object" || input === null) {
     throw new APIError("Invalid input: expected object", 400, "INVALID_INPUT");
@@ -87,6 +146,14 @@ function validatePageInput(input: unknown): asserts input is PageInput {
   if (data.geo_data !== undefined && (typeof data.geo_data !== "object" || data.geo_data === null)) {
     throw new APIError("Invalid geo_data", 400, "INVALID_GEO_DATA");
   }
+
+  if (data.content !== undefined && typeof data.content !== "string") {
+    throw new APIError("Invalid content", 400, "INVALID_CONTENT");
+  }
+
+  if (data.status !== undefined && !isValidPageStatus(data.status)) {
+    throw new APIError("Invalid status", 400, "INVALID_STATUS");
+  }
 }
 
 async function getSupabaseClient() {
@@ -108,6 +175,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
+    const includeInactive = searchParams.get("include_inactive") === "1";
 
     const supabase = await getSupabaseClient();
 
@@ -152,12 +220,16 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse({ page: data });
     }
 
-    // Fetch all active pages
-    const { data, error } = await supabase
+    let pagesQuery = supabase
       .from("pages")
       .select("*")
-      .eq("is_active", true)
       .order("sort_order", { ascending: true });
+
+    if (!includeInactive) {
+      pagesQuery = pagesQuery.eq("is_active", true);
+    }
+
+    const { data, error } = await pagesQuery;
     
     if (error) {
       throw new APIError("Database error", 500, "DB_ERROR");
@@ -201,6 +273,19 @@ export async function PUT(request: NextRequest) {
     validatePageInput(updates);
 
     const supabase = await getSupabaseClient();
+    const { data: existingPage, error: existingPageError } = await supabase
+      .from("pages")
+      .select("geo_data")
+      .eq("id", id)
+      .single();
+
+    if (existingPageError) {
+      if (existingPageError.code === "PGRST116") {
+        throw new APIError("Page not found", 404, "NOT_FOUND");
+      }
+
+      throw new APIError("Database error", 500, "DB_ERROR");
+    }
 
     // Build update object
     const updateData: PageInput = {};
@@ -225,11 +310,25 @@ export async function PUT(request: NextRequest) {
       }));
     }
 
-    if (updates.geo_data !== undefined && updates.geo_data !== null) {
-      updateData.geo_data = {
-        keyTakeaways: ((updates.geo_data as { keyTakeaways?: string[] }).keyTakeaways || []).map((k: string) => sanitizeString(k, 200)),
-        entities: ((updates.geo_data as { entities?: string[] }).entities || []).map((e: string) => sanitizeString(e, 100))
-      };
+    const requestedStatus = isValidPageStatus(updates.status)
+      ? updates.status
+      : extractExistingCmsData(existingPage?.geo_data)?.status ?? undefined;
+    const requestedContent = updates.content !== undefined
+      ? sanitizeContent(updates.content, 50000)
+      : extractExistingCmsData(existingPage?.geo_data)?.content ?? undefined;
+
+    if (updates.status !== undefined) {
+      updateData.is_active = updates.status === "published";
+    }
+
+    if (updates.geo_data !== undefined || updates.content !== undefined || updates.status !== undefined) {
+      updateData.geo_data = normalizePageGeoData(
+        updates.geo_data ?? existingPage?.geo_data,
+        {
+          content: requestedContent,
+          status: requestedStatus,
+        },
+      );
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -297,6 +396,14 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await getSupabaseClient();
+    const requestedStatus = isValidPageStatus(data.status)
+      ? data.status
+      : data.is_active === false
+        ? "draft"
+        : "published";
+    const requestedContent = data.content !== undefined
+      ? sanitizeContent(data.content, 50000)
+      : "";
 
     const { data: newPage, error } = await supabase
       .from("pages")
@@ -305,13 +412,19 @@ export async function POST(request: NextRequest) {
         slug: data.slug ? sanitizeString(String(data.slug), 100) : "",
         schema_type: data.schema_type ? sanitizeString(String(data.schema_type), 50) : "WebPage",
         icon: data.icon ? sanitizeString(String(data.icon), 50) : null,
-        is_active: data.is_active !== false,
+        is_active: requestedStatus === "published",
         sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
         seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,
         seo_description: data.seo_description ? sanitizeString(String(data.seo_description), 500) : null,
         seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
         faq: Array.isArray(data.faq) ? data.faq : [],
-        geo_data: data.geo_data || { keyTakeaways: [], entities: [] }
+        geo_data: normalizePageGeoData(
+          data.geo_data,
+          {
+            content: requestedContent,
+            status: requestedStatus,
+          },
+        ),
       })
       .select()
       .single();
