@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
@@ -74,8 +74,13 @@ export function Header() {
   }, []);
 
   const navItems = [
-    { name: "Hakkımızda", href: "/hakkimizda" },
-    { name: "İletişim", href: ROUTES.contact },
+    ...headerCategories.map((category) => ({
+      key: category.id,
+      name: category.name,
+      href: ROUTES.category(category.slug),
+    })),
+    { key: "about", name: "Hakkımızda", href: "/hakkimizda" },
+    { key: "contact", name: "İletişim", href: ROUTES.contact },
   ];
 
   return (
@@ -117,47 +122,12 @@ export function Header() {
             )}
           </Link>
 
-          <nav className="hidden items-center gap-12 lg:flex">
-            <div className="group relative">
-              <Link
-                href={ROUTES.products}
-                className="store-nav-text relative inline-flex items-center gap-1 text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
-              >
-                Ürünler
-                {headerCategories.length > 0 ? <ChevronDown className="h-4 w-4" /> : null}
-              </Link>
-
-              {headerCategories.length > 0 ? (
-                <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                  <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-                    <Link
-                      href={ROUTES.products}
-                      className="block rounded-2xl px-4 py-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-white/80"
-                    >
-                      Tüm Ürünler
-                    </Link>
-
-                    <div className="mt-2 space-y-1">
-                      {headerCategories.map((category) => (
-                        <Link
-                          key={category.id}
-                          href={ROUTES.category(category.slug)}
-                          className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
-                        >
-                          {category.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
+          <nav className="hidden items-center gap-5 xl:gap-7 lg:flex">
             {navItems.map((item) => (
               <Link
-                key={item.href}
+                key={item.key}
                 href={item.href}
-                className="store-nav-text relative text-neutral-800 transition-all duration-300 hover:text-neutral-950 group after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                className="store-nav-text relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 group after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
               >
                 {item.name}
               </Link>
@@ -198,34 +168,9 @@ export function Header() {
       {isMenuOpen ? (
         <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
           <nav className="container-premium space-y-4 py-4">
-            <div className="space-y-3">
-              <Link
-                href={ROUTES.products}
-                className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Ürünler
-              </Link>
-
-              {headerCategories.length > 0 ? (
-                <div className="space-y-2 border-l border-neutral-200 pl-4">
-                  {headerCategories.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={ROUTES.category(category.slug)}
-                      className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      {category.name}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
             {navItems.map((item) => (
               <Link
-                key={item.href}
+                key={item.key}
                 href={item.href}
                 className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                 onClick={() => setIsMenuOpen(false)}
