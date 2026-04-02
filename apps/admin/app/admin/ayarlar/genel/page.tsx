@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   Globe,
   Image as ImageIcon,
-  Info,
   Mail,
   MapPin,
   Megaphone,
@@ -20,8 +19,6 @@ import { TypographyFontPicker } from "@/components/admin/TypographyFontPicker";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
   buildStoreTypographyStylesheetUrl,
-  buildTypographyFontCssStack,
-  collectStoreTypographyFonts,
   DEFAULT_STORE_TYPOGRAPHY,
   FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS,
   normalizeStoreTypographySettings,
@@ -323,15 +320,6 @@ export default function GeneralSettingsPage() {
   }
 
   const typography = normalizeStoreTypographySettings(formData.typography);
-  const headingPreviewFont = buildTypographyFontCssStack(typography.headingFont);
-  const bodyPreviewFont = buildTypographyFontCssStack(typography.bodyFont);
-  const menuPreviewFont = buildTypographyFontCssStack(resolveStoreTypographyRoleFont(typography, "menu"));
-  const productPreviewFont = buildTypographyFontCssStack(resolveStoreTypographyRoleFont(typography, "productTitle"));
-  const previewHeadingScale =
-    Number(STORE_HEADING_SCALE_OPTIONS.find((option) => option.id === typography.headingScale)?.value ?? "1.12");
-  const previewTracking =
-    STORE_LETTER_SPACING_OPTIONS.find((option) => option.id === typography.letterSpacing)?.value ?? "-0.015em";
-  const uniqueFontCount = collectStoreTypographyFonts(typography).length;
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-8 bg-gray-50/50 p-6 md:p-8">
@@ -540,97 +528,6 @@ export default function GeneralSettingsPage() {
             </div>
 
             <div className="space-y-6 p-6">
-              <div className="rounded-2xl border border-gray-200 bg-[#FBFAF8] p-5">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Canli Onizleme</p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Tipografi secimleri menu, urun karti ve urun detay akisini ayni anda gunceller.
-                    </p>
-                  </div>
-                  <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
-                    {uniqueFontCount} font ailesi yuklenir
-                  </div>
-                </div>
-
-                <div className="space-y-4 rounded-2xl border border-white/80 bg-white p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center gap-4 border-b border-gray-100 pb-4">
-                    {["Ürünler", "Koleksiyonlar", "İletişim"].map((item) => (
-                      <span
-                        key={item}
-                        className="text-neutral-700"
-                        style={{
-                          fontFamily: menuPreviewFont,
-                          fontWeight: typography.menuWeight,
-                          fontSize: `${typography.menuSizePx}px`,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                        }}
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p
-                    style={{
-                      fontFamily: headingPreviewFont,
-                      fontWeight: typography.headingWeight,
-                      fontSize: `calc(2.25rem * ${previewHeadingScale})`,
-                      letterSpacing: previewTracking,
-                      lineHeight: 1.05,
-                    }}
-                    className="text-gray-900"
-                  >
-                    El isciligiyle guclenen premium vitrin
-                  </p>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Ürün Kartı</p>
-                      <p
-                        className="mt-3 text-gray-900"
-                        style={{
-                          fontFamily: productPreviewFont,
-                          fontWeight: typography.productTitleWeight,
-                          fontSize: `${typography.productCardTitleSizePx}px`,
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        Minimalist Deri Cuzdan (Colt)
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Ürün Detay Başlığı</p>
-                      <p
-                        className="mt-3 text-gray-900"
-                        style={{
-                          fontFamily: productPreviewFont,
-                          fontWeight: typography.productTitleWeight,
-                          fontSize: `${typography.productPageTitleSizePx}px`,
-                          lineHeight: 1.08,
-                        }}
-                      >
-                        Telefon Bolmeli Uzun Cuzdan
-                      </p>
-                    </div>
-                  </div>
-
-                  <p
-                    style={{
-                      fontFamily: bodyPreviewFont,
-                      fontWeight: typography.bodyWeight,
-                      fontSize: `${typography.bodySizePx}px`,
-                      lineHeight: 1.75,
-                    }}
-                    className="max-w-2xl text-gray-600"
-                  >
-                    Govde metni urun detaylari, kategori aciklamalari ve yardim metinlerinde okunabilirligi tasir.
-                    Font katalogu adminde genistir, storefrontta ise sadece secilen roller yuklenir.
-                  </p>
-                </div>
-              </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <TypographyFontPicker
@@ -876,32 +773,6 @@ export default function GeneralSettingsPage() {
         </div>
 
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 bg-gray-50/50 p-6">
-              <h3 className="flex items-center gap-2 font-semibold text-gray-900">
-                <Info className="h-4 w-4 text-gray-500" />
-                Tipografi Performansi
-              </h3>
-            </div>
-            <div className="space-y-4 p-6 text-sm text-gray-600">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Yuklenen Aile</p>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">{uniqueFontCount}</p>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Google API tarafi tum katalogu sunar, storefront ise sadece secilen rollerin ailelerini ister.
-                </p>
-              </div>
-
-              <div className="space-y-3 rounded-2xl border border-gray-200 p-4">
-                <p className="font-medium text-gray-900">Bu kurulum neyi garanti eder?</p>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>Sadece baslik, govde, menu ve urun rolu icin secilen font dosyalari yuklenir.</li>
-                  <li>Ayni aile birden fazla rolde secilirse istekler tekillestirilir.</li>
-                  <li>`display=swap` kullanildigi icin LCP ve CLS etkisi kontrollu kalir.</li>
-                </ul>
-              </div>
-            </div>
-          </section>
 
           <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 bg-gray-50/50 p-6">
@@ -936,22 +807,6 @@ export default function GeneralSettingsPage() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 bg-gray-50/50 p-6">
-              <h3 className="font-semibold text-gray-900">Hizli Rehber</h3>
-            </div>
-            <div className="space-y-3 p-6 text-sm text-gray-600">
-              <p>
-                Menu icin ayri font sectiginizde sadece navigation yuzeyleri etkilenir; section basliklari ayni kalir.
-              </p>
-              <p>
-                Ürün başlık rolunu özellestirdiginizde ürün kartlari, arama popupi ve PDP başlığı birlikte senkronize olur.
-              </p>
-              <p>
-                Buyuk ekranlarda daha editorial bir gorunum icin serif baslik + sans govde + ozel urun fontu kombinasyonu en guvenli kurulumdur.
-              </p>
-            </div>
-          </section>
         </div>
       </div>
     </div>
