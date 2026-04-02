@@ -68,6 +68,7 @@ export interface HomepageData {
   categories: HomepageCategory[];
   products: Record<string, unknown>[];
   promoBanners: Record<string, unknown>[];
+  allProducts: Record<string, unknown>[];
 }
 
 const HOMEPAGE_CATEGORY_ORDER = [
@@ -240,6 +241,22 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
   return fallbackQuery.data ?? [];
 }
 
+async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, variants:product_variants(*)")
+    .eq("is_active", true)
+    .or("status.eq.published,status.is.null")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch all products:", error);
+    return [];
+  }
+
+  return data ?? [];
+}
+
 export async function getHomepageData(): Promise<HomepageData> {
   const supabase = createServerClient();
 
@@ -248,6 +265,7 @@ export async function getHomepageData(): Promise<HomepageData> {
     categoriesData,
     productsData,
     promoBannersData,
+    allProductsData,
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -261,6 +279,7 @@ export async function getHomepageData(): Promise<HomepageData> {
       .select("value")
       .eq("key", "promo_banners")
       .maybeSingle(),
+    fetchAllProductsForShowcase(supabase),
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
@@ -290,5 +309,6 @@ export async function getHomepageData(): Promise<HomepageData> {
     categories,
     products: productsData || [],
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
+    allProducts: allProductsData || [],
   };
 }
