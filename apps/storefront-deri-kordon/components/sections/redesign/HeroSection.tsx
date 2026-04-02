@@ -1,4 +1,4 @@
-import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 interface HeroBanner {
   id: string | number;
@@ -28,10 +28,10 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
     defaultBanners;
 
   const currentBanner = heroBanners[0];
-  const desktopSrc = resolveStorefrontDirectAssetUrl(
+  const desktopSrc = resolveStorefrontAssetUrl(
     currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop
   );
-  const mobileSrc = resolveStorefrontDirectAssetUrl(
+  const mobileSrc = resolveStorefrontAssetUrl(
     currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc
   );
 
