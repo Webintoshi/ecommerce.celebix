@@ -1,57 +1,50 @@
-import { getStoredShippingZones, saveShippingZones, ShippingZone, ShippingRate } from "./shipping-storage";
+import {
+  createDefaultShippingZones,
+  getShippingRatePrice,
+  getShippingRatesForCountry as getSharedShippingRatesForCountry,
+  getShippingRatesForLocation,
+  normalizeShippingZones,
+  type ShippingLocation,
+  type ShippingRate,
+  type ShippingZone,
+} from "@celebix/platform-config/src/shipping";
 
-const DEFAULT_ZONES: ShippingZone[] = [
-    {
-        id: "zn-TR",
-        name: "Türkiye",
-        countries: ["Türkiye"],
-        rates: [
-            { id: "rt-1", name: "Standart Kargo", price: 49.90, condition: "0kg - 10kg" },
-            { id: "rt-2", name: "Ücretsiz Kargo", price: 0, condition: "500₺ üzeri siparişler" },
-        ],
-    },
-];
+export type { ShippingRate, ShippingZone } from "@celebix/platform-config/src/shipping";
 
-let cachedZones: ShippingZone[] = [];
-
-if (typeof window !== "undefined") {
-    const stored = getStoredShippingZones();
-    if (stored.length === 0) {
-        saveShippingZones(DEFAULT_ZONES);
-        cachedZones = DEFAULT_ZONES;
-    } else {
-        cachedZones = stored;
-    }
+export function getShippingZones(value?: unknown): ShippingZone[] {
+  return value == null ? createDefaultShippingZones() : normalizeShippingZones(value);
 }
 
-export function getShippingZones(): ShippingZone[] {
-    if (typeof window !== "undefined") {
-        cachedZones = getStoredShippingZones();
-        if (cachedZones.length === 0) {
-            saveShippingZones(DEFAULT_ZONES);
-            cachedZones = DEFAULT_ZONES;
-        }
-    }
-    return cachedZones;
+export function getShippingRatesForLocationFromZones(
+  zones: ShippingZone[],
+  location: ShippingLocation,
+): ShippingRate[] {
+  return getShippingRatesForLocation(zones, location);
 }
 
-export function getShippingRatesForCountry(country: string = "Türkiye"): ShippingRate[] {
-    const zones = getShippingZones();
-    const zone = zones.find(z => z.countries.includes(country)) || zones[0];
-    return zone ? zone.rates : [];
+export function getShippingRatesForCountry(
+  country = "Türkiye",
+  zones: ShippingZone[] = createDefaultShippingZones(),
+): ShippingRate[] {
+  return getSharedShippingRatesForCountry(zones, country);
 }
 
-export function updateShippingZone(id: string, updates: Partial<ShippingZone>): void {
-    const zones = getShippingZones();
-    const index = zones.findIndex(z => z.id === id);
-    if (index !== -1) {
-        zones[index] = { ...zones[index], ...updates };
-        saveShippingZones(zones);
-    }
+export async function fetchShippingZonesFromSettings(): Promise<ShippingZone[]> {
+  const response = await fetch("/api/settings?type=shipping", { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error || "Kargo bölgeleri yüklenemedi.");
+  }
+
+  return normalizeShippingZones(payload.shippingOptions);
 }
 
-export function deleteShippingZone(id: string): void {
-    const zones = getShippingZones();
-    const filtered = zones.filter(z => z.id !== id);
-    saveShippingZones(filtered);
+export async function fetchShippingRatesForLocation(location: ShippingLocation): Promise<ShippingRate[]> {
+  const zones = await fetchShippingZonesFromSettings();
+  return getShippingRatesForLocation(zones, location);
+}
+
+export function getResolvedShippingPrice(rate: ShippingRate, subtotal = 0): number {
+  return getShippingRatePrice(rate, subtotal);
 }

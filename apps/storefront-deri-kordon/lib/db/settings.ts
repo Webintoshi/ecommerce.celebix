@@ -1,6 +1,10 @@
 import { createServerClient } from "@/lib/supabase";
 import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 import {
+    normalizeShippingZones,
+    type ShippingZone,
+} from "@celebix/platform-config/src/shipping";
+import {
     ShippingIntegrationSettings,
 } from "@/types/shipping-integration";
 import {
@@ -107,14 +111,7 @@ export interface PaymentMethod {
     instructions?: string;
 }
 
-export interface ShippingOption {
-    id: string;
-    name: string;
-    price: number;
-    minOrder?: number;
-    estimatedDays: string;
-    enabled: boolean;
-}
+export type ShippingOption = ShippingZone;
 
 export interface StoreInfo {
     name: string;
@@ -151,14 +148,14 @@ export async function setPaymentMethods(methods: PaymentMethod[]) {
  */
 export async function getShippingOptions(): Promise<ShippingOption[]> {
     const data = await getSetting(SETTING_KEYS.SHIPPING_OPTIONS);
-    return (data?.options as ShippingOption[]) || [];
+    return normalizeShippingZones(data);
 }
 
 /**
  * Set shipping options
  */
 export async function setShippingOptions(options: ShippingOption[]) {
-    return setSetting(SETTING_KEYS.SHIPPING_OPTIONS, { options });
+    return setSetting(SETTING_KEYS.SHIPPING_OPTIONS, { options: normalizeShippingZones(options) });
 }
 
 /**

@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { formatPrice, cn } from "@/lib/utils";
 import { TURKISH_CITIES, SHIPPING_THRESHOLD } from "@/lib/constants";
 import { getActivePaymentGateways } from "@/lib/payments";
-import { getShippingRatesForCountry } from "@/lib/shipping";
+import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/shipping";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { ShippingRate } from "@/lib/shipping-storage";
 import { toast } from "sonner";
@@ -44,7 +44,7 @@ type AppliedCoupon = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, shipping, clearCart } = useCart();
+  const { items, subtotal, shipping: cartShipping, clearCart } = useCart();
   const { user } = useAuth();
 
   const [paymentGateways, setPaymentGateways] = useState<PaymentGatewayConfig[]>([]);
@@ -106,7 +106,12 @@ export default function CheckoutPage() {
   // Step State (1: Delivery, 2: Payment)
   const [currentStep, setCurrentStep] = useState(1);
   const discountAmount = appliedCoupon?.discountAmount || 0;
-  const finalTotal = Math.max(0, subtotal + shipping - discountAmount);
+  const selectedShippingRate =
+    shippingRates.find((rate) => rate.id === selectedShippingMethod) ?? shippingRates[0] ?? null;
+  const resolvedShippingCost = selectedShippingRate
+    ? getResolvedShippingPrice(selectedShippingRate, subtotal)
+    : cartShipping;
+  const finalTotal = Math.max(0, subtotal + resolvedShippingCost - discountAmount);
 
   useEffect(() => {
     setAppliedCoupon(null);
@@ -144,16 +149,21 @@ export default function CheckoutPage() {
         setIsLoadingGateways(true);
         const [gateways, rates] = await Promise.all([
           getActivePaymentGateways(),
-          Promise.resolve(getShippingRatesForCountry(shippingInfo.country))
+          fetchShippingRatesForLocation({
+            country: shippingInfo.country,
+            city: shippingInfo.city,
+          })
         ]);
 
         setPaymentGateways(gateways);
         setShippingRates(rates);
 
-        if (rates.length > 0 && !selectedShippingMethod) {
-          setSelectedShippingMethod(rates[0].id);
-        }
+        setSelectedShippingMethod((current) =>
+          rates.some((rate) => rate.id === current) ? current : (rates[0]?.id ?? "")
+        );
       } catch (error) {
+        setShippingRates([]);
+        setSelectedShippingMethod("");
         toast.error("İşlem sırasında bir hata oluştu.");
       } finally {
         setIsLoadingGateways(false);
@@ -161,7 +171,7 @@ export default function CheckoutPage() {
     };
 
     initData();
-  }, [shippingInfo.country]);
+  }, [shippingInfo.country, shippingInfo.city]);
 
   const handleNextStep = () => {
     if (!contactEmail || !contactEmail.includes("@")) {
@@ -178,6 +188,10 @@ export default function CheckoutPage() {
     }
     if (!shippingInfo.address || !shippingInfo.city) {
       toast.error("Adres ve Şehir alanları zorunludur.");
+      return;
+    }
+    if (!selectedShippingMethod || shippingRates.length === 0) {
+      toast.error("Bu teslimat bölgesi için kargo seçeneği bulunamadı.");
       return;
     }
 
@@ -340,13 +354,18 @@ export default function CheckoutPage() {
         shippingAddress: shippingInfo,
         billingAddress: shippingInfo,
         paymentMethod: selectedPaymentMethod,
-        shippingCost: shipping,
+        shippingCost: resolvedShippingCost,
         discount: discountAmount,
         couponCode: appliedCoupon?.code || null,
         notes: createAccount ? "Hesap oluşturuldu" : "",
         contactEmail,
         receiveUpdates: true,
         createAccount: !user && createAccount,
+        shippingMethod: selectedShippingRate ? {
+          id: selectedShippingRate.id,
+          name: selectedShippingRate.name,
+          estimatedDays: selectedShippingRate.estimatedDays || null,
+        } : null,
         abandonedCartSessionId: getAbandonedCartSessionId()
       };
 
@@ -660,6 +679,69 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
+                    <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Teslimat Yöntemi</p>
+                          <p className="text-xs text-gray-500">Checkout ekranında müşteriye gösterilir.</p>
+                        </div>
+                        {selectedShippingRate ? (
+                          <span className={cn("text-sm font-semibold", resolvedShippingCost === 0 ? "text-emerald-600" : "text-gray-900")}>
+                            {resolvedShippingCost === 0 ? "Ücretsiz" : formatPrice(resolvedShippingCost)}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {shippingRates.length > 0 ? (
+                        <div className="space-y-3">
+                          {shippingRates.map((rate) => {
+                            const ratePrice = getResolvedShippingPrice(rate, subtotal);
+                            const isSelected = selectedShippingMethod === rate.id;
+
+                            return (
+                              <label
+                                key={rate.id}
+                                className={cn(
+                                  "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-all",
+                                  isSelected
+                                    ? "border-primary bg-white shadow-sm"
+                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                )}
+                              >
+                                <input
+                                  type="radio"
+                                  name="shipping-method"
+                                  value={rate.id}
+                                  checked={isSelected}
+                                  onChange={() => setSelectedShippingMethod(rate.id)}
+                                  className="mt-1 h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-gray-900">{rate.name}</span>
+                                    <span className={cn("text-sm font-semibold", ratePrice === 0 ? "text-emerald-600" : "text-gray-900")}>
+                                      {ratePrice === 0 ? "Ücretsiz" : formatPrice(ratePrice)}
+                                    </span>
+                                  </div>
+                                  {(rate.estimatedDays || rate.minOrder) ? (
+                                    <p className="mt-1 text-xs text-gray-500">
+                                      {[rate.estimatedDays, rate.minOrder ? `${formatPrice(rate.minOrder)} üzeri ücretsiz` : null]
+                                        .filter(Boolean)
+                                        .join(" • ")}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                          Bu adres için tanımlı teslimat seçeneği bulunamadı.
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleNextStep}
                       className="w-full bg-primary text-white font-bold h-14 rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg shadow-primary/20"
@@ -861,10 +943,16 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex justify-between text-gray-600 font-medium">
                       <span>Kargo</span>
-                      <span className={shipping === 0 ? "text-emerald-600 font-bold" : "text-gray-900 font-bold"}>
-                        {shipping === 0 ? "0 ₺" : formatPrice(shipping)}
+                      <span className={resolvedShippingCost === 0 ? "text-emerald-600 font-bold" : "text-gray-900 font-bold"}>
+                        {resolvedShippingCost === 0 ? "0 ₺" : formatPrice(resolvedShippingCost)}
                       </span>
                     </div>
+                    {selectedShippingRate ? (
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>{selectedShippingRate.name}</span>
+                        <span>{selectedShippingRate.estimatedDays || ""}</span>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between text-gray-600 font-medium">
                       <span>İndirim</span>
                       <span className="text-emerald-600 font-bold">

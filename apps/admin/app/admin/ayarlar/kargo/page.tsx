@@ -1,54 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronDown,
-  ExternalLink,
-  Loader2,
-  MapPin,
-  Package,
-  Save,
-  Settings,
-  ShieldCheck,
-  Trash2,
-  Truck,
-  Plus,
-  X,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ExternalLink, Loader2, MapPin, Plus, Save, Settings, ShieldCheck, Trash2, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { deleteShippingZone, getShippingZones } from "@/lib/shipping";
-import {
-  SHIPPING_PROVIDER_REGISTRY,
-  createDefaultShippingIntegrationSettings,
-  getShippingProviderDefinition,
-  hasRequiredProviderCredentials,
-  mergeLegacyBasitKargoSettings,
-  normalizeShippingIntegrationSettings,
-} from "@/lib/shipping-integrations";
-import { ShippingZone } from "@/lib/shipping-storage";
-import {
-  ShippingIntegrationProvider,
-  ShippingIntegrationRecord,
-  ShippingIntegrationSettings,
-} from "@/types/shipping-integration";
+import { SHIPPING_PROVIDER_REGISTRY, createDefaultShippingIntegrationSettings, getShippingProviderDefinition, hasRequiredProviderCredentials, mergeLegacyBasitKargoSettings, normalizeShippingIntegrationSettings } from "@/lib/shipping-integrations";
+import { createDefaultShippingZones, normalizeShippingZones, type ShippingRate, type ShippingZone } from "@celebix/platform-config/src/shipping";
+import type { ShippingIntegrationProvider, ShippingIntegrationRecord, ShippingIntegrationSettings } from "@/types/shipping-integration";
 
 const LEGACY_BASIT_KARGO_STORAGE_KEY = "celebix_basit_kargo_settings";
 
-interface LegacyBasitKargoSettings {
-  apiToken?: string;
-  senderProfile?: string;
-  addressPreference?: string;
-}
-
-function readLegacyBasitKargoSettings(): LegacyBasitKargoSettings | null {
+function readLegacyBasitKargoSettings() {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(LEGACY_BASIT_KARGO_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as LegacyBasitKargoSettings;
+    const parsed = JSON.parse(raw) as Record<string, string>;
     return {
       apiToken: typeof parsed.apiToken === "string" ? parsed.apiToken : undefined,
       senderProfile: typeof parsed.senderProfile === "string" ? parsed.senderProfile : undefined,
@@ -57,20 +24,6 @@ function readLegacyBasitKargoSettings(): LegacyBasitKargoSettings | null {
   } catch {
     return null;
   }
-}
-
-function getIntegrationStatus(integration: ShippingIntegrationRecord) {
-  const hasCredentials = hasRequiredProviderCredentials(integration);
-  if (integration.enabled && hasCredentials) {
-    return {
-      label: integration.health.status === "error" ? "Hata" : "Aktif",
-      variant: integration.health.status === "error" ? "error" : "success" as const,
-    };
-  }
-  if (integration.enabled && !hasCredentials) {
-    return { label: "Eksik", variant: "warning" as const };
-  }
-  return { label: "Pasif", variant: "inactive" as const };
 }
 
 function buildPayloadForSave(settings: ShippingIntegrationSettings): ShippingIntegrationSettings {
@@ -87,378 +40,227 @@ function buildPayloadForSave(settings: ShippingIntegrationSettings): ShippingInt
   };
 }
 
+function getIntegrationStatus(integration: ShippingIntegrationRecord) {
+  if (integration.enabled && hasRequiredProviderCredentials(integration)) {
+    return { label: integration.health.status === "error" ? "Hata" : "Aktif", variant: integration.health.status === "error" ? "error" : "success" as const };
+  }
+  if (integration.enabled) return { label: "Eksik", variant: "warning" as const };
+  return { label: "Pasif", variant: "inactive" as const };
+}
+
+function createEmptyShippingRate(): ShippingRate {
+  return { id: crypto.randomUUID(), name: "Standart Kargo", price: 0, estimatedDays: "1-3 iş günü", enabled: true };
+}
+
+function createEmptyShippingZone(): ShippingZone {
+  return { id: crypto.randomUUID(), name: "Yeni Bölge", countries: ["Türkiye"], rates: [createEmptyShippingRate()] };
+}
+
 export default function ShippingSettingsPage() {
   const [settings, setSettings] = useState<ShippingIntegrationSettings | null>(null);
   const [zones, setZones] = useState<ShippingZone[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"integrations" | "zones" | "settings">("integrations");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<"integrations" | "zones" | "settings">("integrations");
   const [expandedProvider, setExpandedProvider] = useState<ShippingIntegrationProvider | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadPage() {
-      setIsLoading(true);
+    let mounted = true;
+    async function load() {
+      setLoading(true);
       try {
-        const response = await fetch("/api/settings?type=shipping-integrations", { cache: "no-store" });
-        const payload = await response.json();
-        const baseSettings = payload.success
-          ? normalizeShippingIntegrationSettings(payload.shippingIntegrations)
+        const [integrationsResponse, zonesResponse] = await Promise.all([
+          fetch("/api/settings?type=shipping-integrations", { cache: "no-store" }),
+          fetch("/api/settings?type=shipping", { cache: "no-store" }),
+        ]);
+        const integrationsPayload = await integrationsResponse.json().catch(() => ({}));
+        const zonesPayload = await zonesResponse.json().catch(() => ({}));
+        if (!mounted) return;
+        const baseSettings = integrationsPayload.success
+          ? normalizeShippingIntegrationSettings(integrationsPayload.shippingIntegrations)
           : createDefaultShippingIntegrationSettings();
-        const legacySettings = readLegacyBasitKargoSettings();
-        const mergedSettings = mergeLegacyBasitKargoSettings(baseSettings, legacySettings);
-        if (!isMounted) return;
-        setSettings(mergedSettings);
-        setZones(getShippingZones());
+        setSettings(mergeLegacyBasitKargoSettings(baseSettings, readLegacyBasitKargoSettings()));
+        setZones(normalizeShippingZones(zonesPayload.shippingOptions));
       } catch {
-        if (!isMounted) return;
+        if (!mounted) return;
         setSettings(mergeLegacyBasitKargoSettings(createDefaultShippingIntegrationSettings(), readLegacyBasitKargoSettings()));
-        setZones(getShippingZones());
+        setZones(createDefaultShippingZones());
         toast.error("Kargo ayarları yüklenemedi");
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (mounted) setLoading(false);
       }
     }
-    loadPage();
-    return () => { isMounted = false; };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   const stats = useMemo(() => {
     if (!settings) return { total: 0, enabled: 0, ready: 0 };
-    const enabled = settings.integrations.filter((i) => i.enabled).length;
-    const ready = settings.integrations.filter((i) => i.enabled && hasRequiredProviderCredentials(i)).length;
+    const enabled = settings.integrations.filter((item) => item.enabled).length;
+    const ready = settings.integrations.filter((item) => item.enabled && hasRequiredProviderCredentials(item)).length;
     return { total: settings.integrations.length, enabled, ready };
   }, [settings]);
 
-  function updateIntegration(provider: ShippingIntegrationProvider, updater: (i: ShippingIntegrationRecord) => ShippingIntegrationRecord) {
-    setSettings((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        integrations: current.integrations.map((i) => (i.provider === provider ? updater(i) : i)),
-      };
-    });
+  function updateIntegration(provider: ShippingIntegrationProvider, updater: (record: ShippingIntegrationRecord) => ShippingIntegrationRecord) {
+    setSettings((current) => current ? { ...current, integrations: current.integrations.map((record) => record.provider === provider ? updater(record) : record) } : current);
   }
 
   function handleFieldChange(provider: ShippingIntegrationProvider, section: "credentials" | "configuration", key: string, value: string) {
-    updateIntegration(provider, (i) => ({
-      ...i,
-      [section]: { ...i[section], [key]: value },
-      health: i.health.lastError === "Zorunlu kimlik bilgileri eksik." ? { ...i.health, status: "unknown", lastError: null } : i.health,
+    updateIntegration(provider, (record) => ({
+      ...record,
+      [section]: { ...record[section], [key]: value },
+      health: record.health.lastError === "Zorunlu kimlik bilgileri eksik." ? { ...record.health, status: "unknown", lastError: null } : record.health,
     }));
   }
 
   function handleToggleProvider(provider: ShippingIntegrationProvider) {
     setSettings((current) => {
       if (!current) return current;
-      const integration = current.integrations.find((i) => i.provider === provider);
-      if (!integration) return current;
-      const nextEnabled = !integration.enabled;
       return {
         ...current,
-        defaultProvider: !nextEnabled && current.defaultProvider === provider ? null : current.defaultProvider,
-        integrations: current.integrations.map((i) => (i.provider === provider ? { ...i, enabled: nextEnabled } : i)),
+        defaultProvider: current.defaultProvider === provider && current.integrations.find((item) => item.provider === provider)?.enabled ? null : current.defaultProvider,
+        integrations: current.integrations.map((item) => item.provider === provider ? { ...item, enabled: !item.enabled } : item),
       };
     });
   }
 
-  function handleDeleteZone(id: string) {
-    if (!window.confirm("Bu teslimat bölgesini silmek istediğinizden emin misiniz?")) return;
-    deleteShippingZone(id);
-    setZones(getShippingZones());
-    toast.success("Teslimat bölgesi silindi.");
+  function updateZone(zoneId: string, updater: (zone: ShippingZone) => ShippingZone) {
+    setZones((current) => current.map((zone) => zone.id === zoneId ? updater(zone) : zone));
   }
 
   async function handleSave() {
     if (!settings) return;
-    const enabledMissing = settings.integrations.filter((i) => i.enabled && !hasRequiredProviderCredentials(i));
-    if (enabledMissing.length > 0) {
-      toast.error("Eksik bilgi", { description: `${enabledMissing.map((i) => i.displayName).join(", ")} için zorunlu alanları doldurun.` });
+    const missing = settings.integrations.filter((item) => item.enabled && !hasRequiredProviderCredentials(item));
+    if (missing.length > 0) {
+      toast.error("Eksik bilgi", { description: `${missing.map((item) => item.displayName).join(", ")} için zorunlu alanları doldurun.` });
       return;
     }
-    setIsSaving(true);
+    setSaving(true);
     try {
-      const response = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "shipping-integrations", shippingIntegrations: buildPayloadForSave(settings) }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || "Kaydedilemedi.");
-      setSettings(normalizeShippingIntegrationSettings(result.shippingIntegrations));
+      const normalizedZones = normalizeShippingZones(zones.filter((zone) => zone.name.trim() && zone.rates.length > 0));
+      const [integrationsResponse, zonesResponse] = await Promise.all([
+        fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "shipping-integrations", shippingIntegrations: buildPayloadForSave(settings) }) }),
+        fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "shipping", shippingOptions: normalizedZones }) }),
+      ]);
+      const integrationsResult = await integrationsResponse.json().catch(() => ({}));
+      const zonesResult = await zonesResponse.json().catch(() => ({}));
+      if (!integrationsResponse.ok || !integrationsResult.success) throw new Error(integrationsResult.error || "Kargo entegrasyonları kaydedilemedi.");
+      if (!zonesResponse.ok || !zonesResult.success) throw new Error(zonesResult.error || "Teslimat bölgeleri kaydedilemedi.");
+      setSettings(normalizeShippingIntegrationSettings(integrationsResult.shippingIntegrations));
+      setZones(normalizeShippingZones(zonesResult.shippingOptions));
       toast.success("Kargo ayarları kaydedildi.");
     } catch (error) {
       toast.error("Kayıt başarısız", { description: error instanceof Error ? error.message : "Bilinmeyen hata" });
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   }
 
-  if (isLoading || !settings) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50/60">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading || !settings) return <div className="flex min-h-screen items-center justify-center bg-gray-50/60"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Kargo Entegrasyonu</h1>
-            <p className="text-sm text-gray-500 mt-1">Kargo firmalarını bağlayın ve teslimat bölgelerini yönetin</p>
+            <p className="mt-1 text-sm text-gray-500">Kargo firmalarını bağlayın ve checkout ekranındaki teslimat bölgelerini yönetin</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-lg shadow-primary/20"
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {isSaving ? "Kaydediliyor..." : "Kaydet"}
-            </button>
-          </div>
+          <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <StatCard title="Toplam" value={stats.total} icon={Truck} color="gray" />
           <StatCard title="Aktif" value={stats.enabled} icon={CheckCircle2} color="green" />
           <StatCard title="Hazır" value={stats.ready} icon={ShieldCheck} color="blue" />
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-1 flex gap-1">
+        <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-1">
           {[
             { id: "integrations", label: "Entegrasyonlar", icon: Truck },
             { id: "zones", label: "Teslimat Bölgeleri", icon: MapPin },
             { id: "settings", label: "Varsayılan Ayarlar", icon: Settings },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                activeTab === tab.id ? "bg-primary text-white shadow-md" : "text-gray-600 hover:bg-gray-50"
-              )}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
+          ].map((item) => (
+            <button key={item.id} onClick={() => setTab(item.id as typeof tab)} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all", tab === item.id ? "bg-primary text-white shadow-md" : "text-gray-600 hover:bg-gray-50")}>
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </button>
           ))}
         </div>
 
-        {/* Tab Content */}
-        {activeTab === "integrations" && (
+        {tab === "integrations" && (
           <div className="space-y-4">
-            {/* Provider List */}
             {settings.integrations.map((integration) => {
               const definition = getShippingProviderDefinition(integration.provider);
               const status = getIntegrationStatus(integration);
               const isExpanded = expandedProvider === integration.provider;
-              const isDefault = settings.defaultProvider === integration.provider;
-
               return (
-                <div
-                  key={integration.provider}
-                  className={cn(
-                    "bg-white rounded-2xl border transition-all overflow-hidden",
-                    isExpanded ? "border-primary ring-2 ring-primary/20 shadow-lg" : "border-gray-200 hover:border-gray-300"
-                  )}
-                >
-                  {/* Header */}
+                <div key={integration.provider} className={cn("overflow-hidden rounded-2xl border transition-all", isExpanded ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-gray-200 hover:border-gray-300")}>
                   <div className="p-5">
                     <div className="flex items-start gap-4">
-                      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg", definition.accentClassName)}>
-                        {definition.shortName}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className={cn("flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white", definition.accentClassName)}>{definition.shortName}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold text-gray-900">{integration.displayName}</h3>
                           <StatusBadge status={status} />
-                          {isDefault && (
-                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-medium">Varsayılan</span>
-                          )}
+                          {settings.defaultProvider === integration.provider && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Varsayılan</span>}
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">{definition.description}</p>
-                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                          <span>Doğrulama: {definition.authStrategy}</span>
-                          <span>•</span>
-                          <span>{definition.capabilities.length} özellik</span>
-                        </div>
+                        <p className="mt-1 text-sm text-gray-500">{definition.description}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleToggleProvider(integration.provider)}
-                          className={cn(
-                            "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                            integration.enabled ? "bg-gray-900 text-white" : "bg-green-50 text-green-700 hover:bg-green-100"
-                          )}
-                        >
-                          {integration.enabled ? "Kapat" : "Aktif Et"}
-                        </button>
-                        <button
-                          onClick={() => setExpandedProvider(isExpanded ? null : integration.provider)}
-                          className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                        >
-                          <ChevronDown className={cn("w-5 h-5 text-gray-400 transition-transform", isExpanded && "rotate-180")} />
-                        </button>
+                        <button onClick={() => handleToggleProvider(integration.provider)} className={cn("rounded-xl px-4 py-2 text-sm font-medium transition-colors", integration.enabled ? "bg-gray-900 text-white" : "bg-green-50 text-green-700 hover:bg-green-100")}>{integration.enabled ? "Kapat" : "Aktif Et"}</button>
+                        <button onClick={() => setExpandedProvider(isExpanded ? null : integration.provider)} className="rounded-xl p-2 transition-colors hover:bg-gray-100"><ChevronDown className={cn("h-5 w-5 text-gray-400 transition-transform", isExpanded && "rotate-180")} /></button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Expanded Content */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 px-5 pb-5">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-5">
-                        {/* Left: Credentials */}
-                        <div className="space-y-5">
-                          <Section title="API Bilgileri" description="Sağlayıcı panelinden alınan kimlik bilgileri">
-                            {definition.credentialFields.map((field) => (
-                              <div key={field.key}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                  {field.label} {field.required && <span className="text-red-500">*</span>}
-                                </label>
-                                <input
-                                  type={field.secret ? "password" : "text"}
-                                  value={integration.credentials[field.key] ?? ""}
-                                  onChange={(e) => handleFieldChange(integration.provider, "credentials", field.key, e.target.value)}
-                                  placeholder={field.placeholder}
-                                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">{field.description}</p>
-                              </div>
-                            ))}
-                          </Section>
+                    <div className="grid gap-6 border-t border-gray-100 px-5 py-5 lg:grid-cols-2">
+                      <Section title="API Bilgileri" description="Sağlayıcı panelinden alınan kimlik bilgilerini girin.">
+                        {definition.credentialFields.map((field) => (
+                          <div key={field.key}>
+                            <label className="mb-1.5 block text-sm font-medium text-gray-700">{field.label} {field.required && <span className="text-red-500">*</span>}</label>
+                            <input type={field.secret ? "password" : "text"} value={integration.credentials[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "credentials", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            <p className="mt-1 text-xs text-gray-400">{field.description}</p>
+                          </div>
+                        ))}
+                      </Section>
 
-                          <Section title="Operasyon Ayarları" description="Gönderi oluşturma ve takip ayarları">
-                            <div className="space-y-3">
-                              <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">Otomatik gönderi oluştur</p>
-                                  <p className="text-xs text-gray-500">Sipariş onaylanınca otomatik gönderi aç</p>
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  checked={integration.automation.autoCreateShipment}
-                                  onChange={(e) => updateIntegration(integration.provider, (i) => ({ ...i, automation: { ...i.automation, autoCreateShipment: e.target.checked } }))}
-                                  className="w-5 h-5 rounded border-gray-300 text-primary"
-                                />
-                              </label>
-                              <label className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">Takip senkronizasyonu</p>
-                                  <p className="text-xs text-gray-500">Takip numarası ve durum güncellemesi al</p>
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  checked={integration.automation.autoSyncTracking}
-                                  onChange={(e) => updateIntegration(integration.provider, (i) => ({ ...i, automation: { ...i.automation, autoSyncTracking: e.target.checked } }))}
-                                  className="w-5 h-5 rounded border-gray-300 text-primary"
-                                />
-                              </label>
-                            </div>
-                          </Section>
+                      <Section title="Yapılandırma" description="Görünen ad, ortam ve sağlayıcı ayarları.">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700">Görünen Ad</label>
+                          <input type="text" value={integration.displayName} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, displayName: event.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>
-
-                        {/* Right: Config */}
-                        <div className="space-y-5">
-                          <Section title="Yapılandırma" description="Temel çalışma ayarları">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1.5">Görünen Ad</label>
-                              <input
-                                type="text"
-                                value={integration.displayName}
-                                onChange={(e) => updateIntegration(integration.provider, (i) => ({ ...i, displayName: e.target.value }))}
-                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Ortam</label>
-                                <select
-                                  value={integration.environment}
-                                  onChange={(e) => updateIntegration(integration.provider, (i) => ({ ...i, environment: e.target.value as "production" | "sandbox" }))}
-                                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                >
-                                  <option value="production">Canlı</option>
-                                  <option value="sandbox">Test</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Tetikleyici</label>
-                                <select
-                                  value={integration.automation.orderTrigger}
-                                  onChange={(e) => updateIntegration(integration.provider, (i) => ({ ...i, automation: { ...i.automation, orderTrigger: e.target.value as "manual" | "confirmed" | "preparing" } }))}
-                                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                >
-                                  <option value="manual">Manuel</option>
-                                  <option value="confirmed">Onaylandı</option>
-                                  <option value="preparing">Hazırlanıyor</option>
-                                </select>
-                              </div>
-                            </div>
-                          </Section>
-
-                          {definition.configurationFields.length > 0 && (
-                            <Section title="Ek Ayarlar" description="Sağlayıcıya özel ek yapılandırmalar">
-                              {definition.configurationFields.map((field) => (
-                                <div key={field.key}>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{field.label}</label>
-                                  {field.type === "select" ? (
-                                    <select
-                                      value={integration.configuration[field.key] ?? ""}
-                                      onChange={(e) => handleFieldChange(integration.provider, "configuration", field.key, e.target.value)}
-                                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                    >
-                                      {field.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      value={integration.configuration[field.key] ?? ""}
-                                      onChange={(e) => handleFieldChange(integration.provider, "configuration", field.key, e.target.value)}
-                                      placeholder={field.placeholder}
-                                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                    />
-                                  )}
-                                </div>
-                              ))}
-                            </Section>
-                          )}
-
-                          {/* Health & Links */}
-                          <div className="p-4 bg-gray-50 rounded-xl">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-medium text-gray-700">Bağlantı Durumu</span>
-                              <StatusBadge status={status} />
-                            </div>
-                            <div className="flex gap-2">
-                              <a
-                                href={definition.docsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                API Dökümanı
-                              </a>
-                              <a
-                                href={definition.dashboardUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                Paneli Aç
-                              </a>
-                            </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium text-gray-700">Ortam</label>
+                            <select value={integration.environment} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, environment: event.target.value as "production" | "sandbox" }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="production">Canlı</option><option value="sandbox">Test</option></select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tetikleyici</label>
+                            <select value={integration.automation.orderTrigger} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, automation: { ...record.automation, orderTrigger: event.target.value as "manual" | "confirmed" | "preparing" } }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="manual">Manuel</option><option value="confirmed">Onaylandı</option><option value="preparing">Hazırlanıyor</option></select>
                           </div>
                         </div>
-                      </div>
+                        {definition.configurationFields.map((field) => (
+                          <div key={field.key}>
+                            <label className="mb-1.5 block text-sm font-medium text-gray-700">{field.label}</label>
+                            {field.type === "select" ? (
+                              <select value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              </select>
+                            ) : (
+                              <input type="text" value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <a href={definition.docsUrl} target="_blank" rel="noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"><ExternalLink className="h-3.5 w-3.5" />API</a>
+                          <a href={definition.dashboardUrl} target="_blank" rel="noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"><ExternalLink className="h-3.5 w-3.5" />Panel</a>
+                        </div>
+                      </Section>
                     </div>
                   )}
                 </div>
@@ -467,91 +269,89 @@ export default function ShippingSettingsPage() {
           </div>
         )}
 
-        {activeTab === "zones" && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+        {tab === "zones" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-900 text-lg">Teslimat Bölgeleri</h2>
-                <p className="text-sm text-gray-500">Checkout ekranındaki kargo seçenekleri</p>
+                <h2 className="text-lg font-semibold text-gray-900">Teslimat Bölgeleri</h2>
+                <p className="text-sm text-gray-500">Checkout ekranında gösterilecek teslimat seçenekleri.</p>
               </div>
-              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">{zones.length} bölge</span>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">{zones.length} bölge</span>
+                <button onClick={() => setZones((current) => [...current, createEmptyShippingZone()])} className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"><Plus className="h-4 w-4" />Yeni Bölge</button>
+              </div>
             </div>
 
-            {zones.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">Henüz teslimat bölgesi tanımlanmamış</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {zones.map((zone) => (
-                  <div key={zone.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{zone.name}</h3>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {zone.countries.map((c) => (
-                            <span key={c} className="px-2 py-0.5 bg-white border border-gray-200 rounded text-xs text-gray-600">{c}</span>
-                          ))}
+            <div className="space-y-4">
+              {zones.map((zone) => (
+                <div key={zone.id} className="overflow-hidden rounded-2xl border border-gray-200">
+                  <div className="grid gap-3 border-b border-gray-100 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto] md:items-start">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bölge Adı</label>
+                      <input type="text" value={zone.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Örn: Türkiye / İstanbul" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Ülke / Şehir Eşleşmeleri</label>
+                      <input type="text" value={zone.countries.join(", ")} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, countries: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Virgülle ayırın. Örn: Türkiye, İstanbul" />
+                      <p className="mt-2 text-xs text-gray-400">Checkout önce şehir, sonra ülke ile eşleştirir.</p>
+                    </div>
+                    <button onClick={() => setZones((current) => current.filter((item) => item.id !== zone.id))} className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                  <div className="space-y-3 p-4">
+                    {zone.rates.map((rate) => (
+                      <div key={rate.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="grid items-end gap-3 md:grid-cols-[1.1fr_120px_180px_140px_auto]">
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tarife Adı</label>
+                            <input type="text" value={rate.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, name: event.target.value } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tutar</label>
+                            <input type="number" min="0" step="0.01" value={rate.price} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, price: Number(event.target.value || 0) } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Teslimat Süresi</label>
+                            <input type="text" value={rate.estimatedDays || ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, estimatedDays: event.target.value, condition: event.target.value } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="1-3 iş günü" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Ücretsiz Eşik</label>
+                            <input type="number" min="0" step="1" value={rate.minOrder ?? ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, minOrder: event.target.value ? Number(event.target.value) : undefined } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="500" />
+                          </div>
+                          <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.filter((item) => item.id !== rate.id) }))} className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><X className="h-4 w-4" /></button>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteZone(zone.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="p-4 space-y-2">
-                      {zone.rates.map((rate) => (
-                        <div key={rate.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                          <div>
-                            <p className="font-medium text-gray-900 text-sm">{rate.name}</p>
-                            <p className="text-xs text-gray-500">{rate.condition || "Koşul yok"}</p>
-                          </div>
-                          <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-semibold">
-                            {rate.price === 0 ? "Ücretsiz" : `${rate.price} ₺`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    ))}
+                    <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: [...current.rates, createEmptyShippingRate()] }))} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"><Plus className="h-4 w-4" />Tarife Ekle</button>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+              {zones.length === 0 && <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center text-gray-500">Henüz teslimat bölgesi tanımlanmadı.</div>}
+            </div>
           </div>
         )}
 
-        {activeTab === "settings" && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Settings className="w-6 h-6 text-primary" />
-              </div>
+        {tab === "settings" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Settings className="h-6 w-6 text-primary" /></div>
               <div>
-                <h2 className="font-semibold text-gray-900 text-lg">Varsayılan Ayarlar</h2>
-                <p className="text-sm text-gray-500">Otomatik gönderi oluşturma için varsayılan sağlayıcı</p>
+                <h2 className="text-lg font-semibold text-gray-900">Varsayılan Ayarlar</h2>
+                <p className="text-sm text-gray-500">Otomatik gönderi oluşturma için varsayılan sağlayıcı.</p>
               </div>
             </div>
-
             <div className="max-w-md">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Varsayılan Kargo Firması</label>
-              <select
-                value={settings.defaultProvider ?? ""}
-                onChange={(e) => setSettings({ ...settings, defaultProvider: (e.target.value || null) as ShippingIntegrationProvider | null })}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-              >
+              <label className="mb-2 block text-sm font-medium text-gray-700">Varsayılan Kargo Firması</label>
+              <select value={settings.defaultProvider ?? ""} onChange={(event) => setSettings({ ...settings, defaultProvider: (event.target.value || null) as ShippingIntegrationProvider | null })} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
                 <option value="">Seçiniz...</option>
-                {settings.integrations.filter((i) => i.enabled).map((i) => (
-                  <option key={i.provider} value={i.provider}>{i.displayName}</option>
-                ))}
+                {settings.integrations.filter((item) => item.enabled).map((item) => <option key={item.provider} value={item.provider}>{item.displayName}</option>)}
               </select>
-              <p className="text-xs text-gray-400 mt-2">Sadece aktif entegrasyonlar arasından seçilebilir</p>
             </div>
-
-            <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-blue-600" />
                 <div>
                   <p className="font-medium text-blue-900">Bilgi</p>
-                  <p className="text-sm text-blue-700 mt-1">Varsayılan sağlayıcı seçildiğinde, siparişler otomatik olarak bu firmaya gönderi oluşturur.</p>
+                  <p className="mt-1 text-sm text-blue-700">Varsayılan sağlayıcı seçildiğinde otomatik gönderi işlemleri bu firma üzerinden hazırlanır.</p>
                 </div>
               </div>
             </div>
@@ -562,40 +362,16 @@ export default function ShippingSettingsPage() {
   );
 }
 
-// Components
 function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: typeof Truck; color: "gray" | "green" | "blue" }) {
   const colors = { gray: "bg-gray-100 text-gray-600", green: "bg-green-100 text-green-600", blue: "bg-blue-100 text-blue-600" };
-  return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <p className="text-xs font-medium text-gray-500 uppercase">{title}</p>
-          <p className="text-xl font-bold text-gray-900">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="rounded-2xl border border-gray-200 bg-white p-5"><div className="flex items-center gap-3"><div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", colors[color])}><Icon className="h-5 w-5" /></div><div><p className="text-xs font-medium uppercase text-gray-500">{title}</p><p className="text-xl font-bold text-gray-900">{value}</p></div></div></div>;
 }
 
 function StatusBadge({ status }: { status: { label: string; variant: "success" | "error" | "warning" | "inactive" } }) {
-  const styles = {
-    success: "bg-green-100 text-green-700 border-green-200",
-    error: "bg-red-100 text-red-700 border-red-200",
-    warning: "bg-amber-100 text-amber-700 border-amber-200",
-    inactive: "bg-gray-100 text-gray-600 border-gray-200",
-  };
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status.variant]}`}>{status.label}</span>;
+  const styles = { success: "border-green-200 bg-green-100 text-green-700", error: "border-red-200 bg-red-100 text-red-700", warning: "border-amber-200 bg-amber-100 text-amber-700", inactive: "border-gray-200 bg-gray-100 text-gray-600" };
+  return <span className={cn("rounded-full border px-2 py-0.5 text-xs font-medium", styles[status.variant])}>{status.label}</span>;
 }
 
 function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="p-5 bg-gray-50 rounded-2xl">
-      <h4 className="font-semibold text-gray-900">{title}</h4>
-      <p className="text-xs text-gray-500 mb-4">{description}</p>
-      <div className="space-y-4">{children}</div>
-    </div>
-  );
+  return <div className="rounded-2xl bg-gray-50 p-5"><h4 className="font-semibold text-gray-900">{title}</h4><p className="mb-4 text-xs text-gray-500">{description}</p><div className="space-y-4">{children}</div></div>;
 }
