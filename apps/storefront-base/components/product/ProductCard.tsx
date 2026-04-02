@@ -6,17 +6,52 @@ import { Star, ShoppingCart, Heart, Eye, ArrowRight } from "lucide-react";
 import { Product } from "@/types/product";
 import { formatPrice } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useQuickView } from "@/components/product/QuickViewProvider";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { getProductCardSwatches } from "@/lib/variant-selection";
 
 interface ProductCardProps {
   product: Product;
   index?: number;
   viewMode?: "grid" | "list";
+}
+
+function ProductCardSwatches({ product }: { product: Product }) {
+  const swatches = getProductCardSwatches(product.variants ?? [], 4);
+
+  if (swatches.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      {swatches.map((swatch) => (
+        <span
+          key={swatch.key}
+          title={swatch.value}
+          aria-label={swatch.value}
+          className="relative h-4 w-4 overflow-hidden rounded-full border border-stone-300 bg-stone-100"
+        >
+          {swatch.image_url ? (
+            <img
+              src={resolveStorefrontAssetUrl(swatch.image_url)}
+              alt={swatch.value}
+              className="h-full w-full object-cover"
+            />
+          ) : swatch.color_code ? (
+            <span className="block h-full w-full" style={{ backgroundColor: swatch.color_code }} />
+          ) : (
+            <span className="block h-full w-full bg-stone-200" />
+          )}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCardProps) {
@@ -73,6 +108,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                 ---
               </span>
             </div>
+            <ProductCardSwatches product={product} />
           </div>
         </div>
       </Link>
@@ -227,6 +263,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                       </span>
                     )}
                   </div>
+                  <ProductCardSwatches product={product} />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -392,6 +429,8 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                 </span>
               )}
             </div>
+
+            <ProductCardSwatches product={product} />
 
             {/* Fixed Add to Cart Button */}
             <button

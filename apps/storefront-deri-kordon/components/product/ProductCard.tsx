@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { Product } from "@/types/product";
-import { ROUTES } from "@/lib/constants";
+import Link from "next/link";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { ROUTES } from "@/lib/constants";
+import { getProductCardSwatches } from "@/lib/variant-selection";
+import { Product } from "@/types/product";
 
 interface ProductCardProps {
   product: Product;
@@ -15,8 +16,8 @@ interface ProductCardProps {
 function getResolvedProductImages(product: Product) {
   const legacyImagesV2 = Array.isArray((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2)
     ? ((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? [])
-      .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
-      .filter((image) => image.length > 0)
+        .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
+        .filter((image) => image.length > 0)
     : [];
 
   return (Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2)
@@ -24,16 +25,50 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
+function ProductCardSwatches({ product }: { product: Product }) {
+  const swatches = getProductCardSwatches(product.variants ?? [], 4);
+
+  if (swatches.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex items-center justify-center gap-2">
+      {swatches.map((swatch) => (
+        <span
+          key={swatch.key}
+          title={swatch.value}
+          aria-label={swatch.value}
+          className="relative h-4 w-4 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100"
+        >
+          {swatch.image_url ? (
+            <img
+              src={resolveStorefrontAssetUrl(swatch.image_url)}
+              alt={swatch.value}
+              className="h-full w-full object-cover"
+            />
+          ) : swatch.color_code ? (
+            <span className="block h-full w-full" style={{ backgroundColor: swatch.color_code }} />
+          ) : (
+            <span className="block h-full w-full bg-neutral-200" />
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
+  const displayPrice = product.variants?.[0]?.price;
 
   if (viewMode === "list") {
     return (
       <Link href={ROUTES.product(product.slug)} className="group block">
         <div className="flex gap-6 bg-white p-4">
-          <div className="relative w-32 h-40 flex-shrink-0 overflow-hidden">
+          <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
             {primaryImage ? (
               <Image
                 src={primaryImage}
@@ -43,53 +78,53 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
-                Görsel yok
+              <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+                Gorsel yok
               </div>
             )}
           </div>
-          <div className="flex-1 flex flex-col justify-center">
-            <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors">
+          <div className="flex flex-1 flex-col justify-center">
+            <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
               {product.name}
             </h3>
+            {typeof displayPrice === "number" ? (
+              <p className="mt-1 text-sm font-medium text-neutral-900">{displayPrice} ₺</p>
+            ) : null}
+            <ProductCardSwatches product={product} />
           </div>
         </div>
       </Link>
     );
   }
 
-  // Minimal Grid Card - Only image + title
   return (
     <Link href={ROUTES.product(product.slug)} className="group block">
-      {/* Image Container - No background, no padding */}
-      <div className="relative aspect-square mb-3 overflow-hidden bg-neutral-100">
+      <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
         {primaryImage ? (
           <Image
             src={primaryImage}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             unoptimized={usesProxiedPrimaryImage}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm bg-neutral-100">
-            Görsel yok
+          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+            Gorsel yok
           </div>
         )}
       </div>
 
-      {/* Product Name - Centered */}
-      <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 text-center">
+      <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
         {product.name}
       </h3>
 
-      {/* Product Price - Centered */}
-      {product.variants && product.variants.length > 0 && (
-        <p className="mt-1 text-sm font-medium text-neutral-900 text-center">
-          {product.variants[0].price} ₺
-        </p>
-      )}
+      {typeof displayPrice === "number" ? (
+        <p className="mt-1 text-center text-sm font-medium text-neutral-900">{displayPrice} ₺</p>
+      ) : null}
+
+      <ProductCardSwatches product={product} />
     </Link>
   );
 }

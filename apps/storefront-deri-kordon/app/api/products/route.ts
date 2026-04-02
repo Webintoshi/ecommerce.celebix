@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("id", id)
                 .single();
             if (error) throw error;
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)")
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)")
                     .eq("slug", slug);
 
                 if (includeIsActiveFilter) {
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)");
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
                 if (includeIsActiveFilter) {
                     query = query.eq("is_active", true);
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)");
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
                 if (includeIsActiveFilter) {
                     query = query.eq("is_active", true);
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)")
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)")
                     .eq("category", category);
 
                 if (includeIsActiveFilter) {
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)");
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
                 if (includeIsActiveFilter) {
                     query = query.eq("is_active", true);
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
-                    .select("*, variants:product_variants(*)");
+                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
                 if (includeIsActiveFilter) {
                     query = query.eq("is_active", true);
@@ -463,7 +463,7 @@ export async function POST(request: NextRequest) {
         // 6. Tam Ã¼rÃ¼nÃ¼ dÃ¶ndÃ¼r
         const { data: fullProduct } = await supabase
             .from("products")
-            .select("*, variants:product_variants(*)")
+            .select("*, variants:product_variants(*, raw_attributes:attributes)")
             .eq("id", product.id)
             .single();
 
@@ -847,7 +847,7 @@ export async function PUT(request: NextRequest) {
         // 8. GÃ¼ncellenmiÅŸ Ã¼rÃ¼nÃ¼ variant'larla birlikte dÃ¶ndÃ¼r
         const { data: fullProduct, error: fetchError } = await supabase
             .from("products")
-            .select("*, variants:product_variants(*)")
+            .select("*, variants:product_variants(*, raw_attributes:attributes)")
             .eq("id", id)
             .single();
 

@@ -109,7 +109,7 @@ async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
       .from("products")
       .select(`
         *,
-        variants:product_variants(*)
+        variants:product_variants(*, raw_attributes:attributes)
       `)
       .eq("category", categorySlug)
       .eq("is_active", true)

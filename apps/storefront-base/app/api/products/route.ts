@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("id", id)
                 .single();
             if (error) throw error;
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("slug", slug)
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
                 .eq("is_featured", true)
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
                 .eq("is_bestseller", true)
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
             // Get paginated data
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("category", category)
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
             const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
                 .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
             // Get paginated data
             const { data, error } = await supabase
                 .from("products")
-                .select("*, variants:product_variants(*)")
+                .select("*, variants:product_variants(*, raw_attributes:attributes)")
                 .eq("is_active", true)
                 .or("status.eq.published,status.is.null")
                 .range(offset, offset + limit - 1)
@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
         // 6. Tam ürünü döndür
         const { data: fullProduct } = await supabase
             .from("products")
-            .select("*, variants:product_variants(*)")
+            .select("*, variants:product_variants(*, raw_attributes:attributes)")
             .eq("id", product.id)
             .single();
 
@@ -788,7 +788,7 @@ export async function PUT(request: NextRequest) {
         // 8. Güncellenmiş ürünü variant'larla birlikte döndür
         const { data: fullProduct, error: fetchError } = await supabase
             .from("products")
-            .select("*, variants:product_variants(*)")
+            .select("*, variants:product_variants(*, raw_attributes:attributes)")
             .eq("id", id)
             .single();
 

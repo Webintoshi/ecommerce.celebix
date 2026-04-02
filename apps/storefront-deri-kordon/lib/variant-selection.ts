@@ -1,6 +1,7 @@
 type VariantRecord = {
   stock?: number | null;
   attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
 };
 
 export type OrderedVariantAttributeValue = {
@@ -17,6 +18,13 @@ export type OrderedVariantAttributeGroup = {
   name: string;
   groupOrder: number;
   values: OrderedVariantAttributeValue[];
+};
+
+export type ProductCardSwatch = {
+  key: string;
+  value: string;
+  image_url?: string | null;
+  color_code?: string | null;
 };
 
 function toOptionalString(value: unknown): string | null {
@@ -68,13 +76,25 @@ function getDisplayOrder(attribute: Record<string, unknown>, fallbackOrder: numb
   return typeof rawDisplayOrder === "number" ? rawDisplayOrder : fallbackOrder;
 }
 
+function getVariantAttributes(variant: VariantRecord) {
+  if (Array.isArray(variant.attributes)) {
+    return variant.attributes;
+  }
+
+  if (Array.isArray(variant.raw_attributes)) {
+    return variant.raw_attributes;
+  }
+
+  return [];
+}
+
 export function getOrderedVariantAttributeGroups(
   variants: VariantRecord[],
 ): OrderedVariantAttributeGroup[] {
   const groupMap = new Map<string, OrderedVariantAttributeGroup>();
 
   variants.forEach((variant, variantIndex) => {
-    const attributes = Array.isArray(variant.attributes) ? variant.attributes : [];
+    const attributes = getVariantAttributes(variant);
 
     attributes.forEach((attribute, attributeIndex) => {
       const record =
@@ -152,4 +172,31 @@ export function findPreferredVariantIndex(variants: VariantRecord[]): number {
     groups[0].values[0];
 
   return preferredValue?.variantIndex ?? 0;
+}
+
+function isVisualAttributeGroup(group: OrderedVariantAttributeGroup) {
+  const lowerName = group.name.toLowerCase();
+  const nameSuggestsColor =
+    lowerName.includes("renk") || lowerName.includes("color") || lowerName.includes("rengi");
+
+  return nameSuggestsColor || group.values.some((value) => value.image_url || value.color_code);
+}
+
+export function getProductCardSwatches(variants: VariantRecord[], maxCount = 4): ProductCardSwatch[] {
+  if (!Array.isArray(variants) || variants.length === 0) {
+    return [];
+  }
+
+  const groups = getOrderedVariantAttributeGroups(variants);
+  const swatchGroup = groups.find(isVisualAttributeGroup);
+  if (!swatchGroup) {
+    return [];
+  }
+
+  return swatchGroup.values.slice(0, maxCount).map((value) => ({
+    key: value.key,
+    value: value.value,
+    image_url: value.image_url ?? null,
+    color_code: value.color_code ?? null,
+  }));
 }

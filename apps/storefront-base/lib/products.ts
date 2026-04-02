@@ -582,7 +582,7 @@ export async function getAllProducts(): Promise<Product[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("products")
-    .select("*, variants:product_variants(*)")
+    .select("*, variants:product_variants(*, raw_attributes:attributes)")
     .eq("is_active", true)
     .or("status.eq.published,status.is.null");
 
@@ -600,7 +600,7 @@ export async function getLimitedProducts(limit: number = 8): Promise<Product[]> 
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("products")
-    .select("*, variants:product_variants(*)")
+    .select("*, variants:product_variants(*, raw_attributes:attributes)")
     .eq("is_active", true)
     .or("status.eq.published,status.is.null")
     .limit(limit);
@@ -638,7 +638,7 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("products")
-    .select("*, variants:product_variants(*)")
+    .select("*, variants:product_variants(*, raw_attributes:attributes)")
     .eq("slug", slug)
     .eq("is_active", true)
     .or("status.eq.published,status.is.null")

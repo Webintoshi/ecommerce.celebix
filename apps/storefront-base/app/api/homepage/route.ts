@@ -171,7 +171,7 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
     const strictQuery = await supabase
         .from("products")
-        .select("*, variants:product_variants(*)")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
         .eq("is_active", true)
         .or("status.eq.published,status.is.null")
         .order("created_at", { ascending: false })
@@ -183,7 +183,7 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
 
     const publishedQuery = await supabase
         .from("products")
-        .select("*, variants:product_variants(*)")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(8);
@@ -194,7 +194,7 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
 
     const fallbackQuery = await supabase
         .from("products")
-        .select("*, variants:product_variants(*)")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
         .order("created_at", { ascending: false })
         .limit(8);
 

@@ -12,7 +12,7 @@ export async function getProducts() {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .order("created_at", { ascending: false });
 
@@ -28,7 +28,7 @@ export async function getFeaturedProducts() {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .eq("is_featured", true)
         .order("created_at", { ascending: false });
@@ -45,7 +45,7 @@ export async function getBestsellerProducts() {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .eq("is_bestseller", true)
         .order("created_at", { ascending: false });
@@ -62,7 +62,7 @@ export async function getProductBySlug(slug: string) {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .eq("slug", slug)
         .single();
@@ -79,7 +79,7 @@ export async function getProductsByCategory(category: string) {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .eq("category", category)
         .order("created_at", { ascending: false });
@@ -96,7 +96,7 @@ export async function searchProducts(query: string) {
         .from("products")
         .select(`
       *,
-      variants:product_variants(*)
+      variants:product_variants(*, raw_attributes:attributes)
     `)
         .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(10);

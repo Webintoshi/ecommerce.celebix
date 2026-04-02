@@ -584,7 +584,7 @@ export async function getAllProducts(): Promise<Product[]> {
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("products")
-      .select("*, variants:product_variants(*)");
+      .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
     if (includeIsActiveFilter) {
       query = query.eq("is_active", true);
@@ -608,7 +608,7 @@ export async function getLimitedProducts(limit: number = 8): Promise<Product[]> 
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("products")
-      .select("*, variants:product_variants(*)");
+      .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
     if (includeIsActiveFilter) {
       query = query.eq("is_active", true);
@@ -657,7 +657,7 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("products")
-      .select("*, variants:product_variants(*)")
+      .select("*, variants:product_variants(*, raw_attributes:attributes)")
       .eq("slug", slug);
 
     if (includeIsActiveFilter) {

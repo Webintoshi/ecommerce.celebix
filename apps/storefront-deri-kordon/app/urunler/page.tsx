@@ -92,7 +92,7 @@ async function getProducts(): Promise<Product[]> {
       (includeIsActiveFilter) => {
         let query = supabase.from("products").select(`
             *,
-            variants:product_variants(*)
+            variants:product_variants(*, raw_attributes:attributes)
           `);
 
         if (includeIsActiveFilter) {

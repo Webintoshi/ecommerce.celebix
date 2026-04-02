@@ -89,7 +89,7 @@ async function getProducts(): Promise<Product[]> {
       .from("products")
       .select(`
         *,
-        variants:product_variants(*)
+        variants:product_variants(*, raw_attributes:attributes)
       `)
       .eq("is_active", true)
       .or("status.eq.published,status.is.null")

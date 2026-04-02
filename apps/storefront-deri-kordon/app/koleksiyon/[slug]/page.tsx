@@ -193,7 +193,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
     const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
       let query = supabase
         .from("products")
-        .select("*, variants:product_variants(*)");
+        .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
       if (includeIsActiveFilter) {
         query = query.eq("is_active", true);
