@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
@@ -12,10 +12,17 @@ import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
 
+type NavSubcategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 type NavCategory = {
   id: string;
   name: string;
   slug: string;
+  children: NavSubcategory[];
 };
 
 export function Header() {
@@ -51,13 +58,42 @@ export function Header() {
           return;
         }
 
-        const topLevelCategories = categories
-          .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
-          .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+        const activeCategories = categories
+          .filter((category) => category.is_active !== false && category.slug)
+          .sort((left, right) => {
+            const sortDiff = (left.sort_order || 0) - (right.sort_order || 0);
+            if (sortDiff !== 0) {
+              return sortDiff;
+            }
+
+            return left.name.localeCompare(right.name, "tr");
+          });
+
+        const childrenByParent = new Map<string, NavSubcategory[]>();
+
+        for (const category of activeCategories) {
+          if (!category.parent_id) {
+            continue;
+          }
+
+          const siblings = childrenByParent.get(category.parent_id) || [];
+          siblings.push({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          });
+          childrenByParent.set(category.parent_id, siblings);
+        }
+
+        const topLevelCategories = activeCategories
+          .filter((category) => !category.parent_id)
           .map((category) => ({
             id: category.id,
             name: category.name,
             slug: category.slug,
+            children: (childrenByParent.get(category.id) || []).sort((left, right) =>
+              left.name.localeCompare(right.name, "tr"),
+            ),
           }));
 
         setHeaderCategories(topLevelCategories);
@@ -72,16 +108,6 @@ export function Header() {
       isMounted = false;
     };
   }, []);
-
-  const navItems = [
-    ...headerCategories.map((category) => ({
-      key: category.id,
-      name: category.name,
-      href: ROUTES.category(category.slug),
-    })),
-    { key: "about", name: "Hakkımızda", href: "/hakkimizda" },
-    { key: "contact", name: "İletişim", href: ROUTES.contact },
-  ];
 
   return (
     <header
@@ -122,16 +148,55 @@ export function Header() {
             )}
           </Link>
 
-          <nav className="hidden items-center gap-5 xl:gap-7 lg:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                className="store-nav-text relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 group after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
-              >
-                {item.name}
-              </Link>
-            ))}
+          <nav className="hidden items-center gap-4 xl:gap-6 lg:flex">
+            {headerCategories.map((category) => {
+              if (category.children.length === 0) {
+                return (
+                  <Link
+                    key={category.id}
+                    href={ROUTES.category(category.slug)}
+                    className="store-nav-text relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 group after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                  >
+                    {category.name}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={category.id} className="group relative">
+                  <Link
+                    href={ROUTES.category(category.slug)}
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                  >
+                    {category.name}
+                    <ChevronDown className="h-4 w-4" />
+                  </Link>
+
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                      <Link
+                        href={ROUTES.category(category.slug)}
+                        className="block rounded-2xl px-4 py-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-white/80"
+                      >
+                        Tüm {category.name}
+                      </Link>
+
+                      <div className="mt-2 space-y-1">
+                        {category.children.map((subcategory) => (
+                          <Link
+                            key={subcategory.id}
+                            href={ROUTES.category(subcategory.slug)}
+                            className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-4">
@@ -168,15 +233,31 @@ export function Header() {
       {isMenuOpen ? (
         <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
           <nav className="container-premium space-y-4 py-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
+            {headerCategories.map((category) => (
+              <div key={category.id} className="space-y-2">
+                <Link
+                  href={ROUTES.category(category.slug)}
+                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {category.name}
+                </Link>
+
+                {category.children.length > 0 ? (
+                  <div className="space-y-2 border-l border-neutral-200 pl-4">
+                    {category.children.map((subcategory) => (
+                      <Link
+                        key={subcategory.id}
+                        href={ROUTES.category(subcategory.slug)}
+                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {subcategory.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ))}
           </nav>
         </div>
