@@ -1,15 +1,101 @@
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { getProducts } from "@/lib/db/products";
+import { createServerClient } from "@/lib/supabase";
+import { runProductsQuery } from "@/lib/products-query-compat";
 import { Product } from "@/types/product";
 import { CorporateProductsClient } from "./CorporateProductsClient";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Kurumsal Ürünler | Deri Kordon",
   description:
     "Şirketinize özel deri ürünler ve kişiselleştirilmiş kurumsal hediyeler. Markanıza prestij katın.",
 };
+
+interface DBProduct {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  short_description: string | null;
+  images: string[];
+  category: string;
+  subcategory: string | null;
+  tags: string[];
+  is_featured: boolean;
+  is_bestseller: boolean;
+  is_active: boolean;
+  is_new: boolean;
+  vegan: boolean;
+  gluten_free: boolean;
+  sugar_free: boolean;
+  high_protein: boolean;
+  rating: number;
+  review_count: number;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function transformProduct(dbProduct: DBProduct): Product {
+  return {
+    id: dbProduct.id,
+    name: dbProduct.name,
+    slug: dbProduct.slug,
+    description: dbProduct.description || "",
+    shortDescription: dbProduct.short_description || "",
+    category: (dbProduct.category as Product["category"]) || "fistik-ezmesi",
+    subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
+    images: dbProduct.images || [],
+    tags: dbProduct.tags || [],
+    variants: [],
+    vegan: dbProduct.vegan,
+    glutenFree: dbProduct.gluten_free,
+    sugarFree: dbProduct.sugar_free,
+    highProtein: dbProduct.high_protein,
+    rating: Number(dbProduct.rating) || 5,
+    reviewCount: dbProduct.review_count || 0,
+    featured: dbProduct.is_featured,
+    new: dbProduct.is_new,
+    seoTitle: dbProduct.seo_title || undefined,
+    seoDescription: dbProduct.seo_description || undefined,
+  };
+}
+
+async function getProducts(): Promise<Product[]> {
+  const supabase = createServerClient();
+
+  try {
+    const { data: products, error } = await runProductsQuery(
+      (includeIsActiveFilter) => {
+        let query = supabase.from("products").select(`
+            *
+          `);
+
+        if (includeIsActiveFilter) {
+          query = query.eq("is_active", true);
+        }
+
+        return query
+          .or("status.eq.published,status.is.null")
+          .order("created_at", { ascending: false });
+      }
+    );
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return [];
+    }
+
+    return ((products as DBProduct[]) || []).map(transformProduct);
+  } catch (error) {
+    console.error("Failed to fetch products:", error);
+    return [];
+  }
+}
 
 // Map display names to product names in database
 const TARGET_PRODUCTS = [
