@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Star, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Kesinlikle tavsiye ediyorum. Tütün kesesi aldım harika kalite.",
-    productName: "Deri Tütün Kesesi",
-    productPrice: "2.458,00TL",
-    productImage: "/images/placeholders/T.1.jpg",
-    productThumb: "/images/placeholders/T.1-thumb.jpg",
+    image: "/images/placeholders/T.1.jpg",
   },
   {
     id: 2,
@@ -23,10 +20,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Şahane işçilik ile mükemmel ürün çıkmış kullandıkça güzelleşiyor.",
-    productName: "Deri Telefon Çantası (Nova)",
-    productPrice: "2.458,00TL",
-    productImage: "/images/placeholders/T.2.jpg",
-    productThumb: "/images/placeholders/T.2-thumb.jpg",
+    image: "/images/placeholders/T.2.jpg",
   },
   {
     id: 3,
@@ -34,10 +28,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Sade ve şık ! Ürün dayanıklı kedim için aldım kullanışlı ve güzel.",
-    productName: "Deri Kedi Tasmalık",
-    productPrice: "1.890,00TL",
-    productImage: "/images/placeholders/T.3.jpg",
-    productThumb: "/images/placeholders/T.3-thumb.jpg",
+    image: "/images/placeholders/T.3.jpg",
   },
   {
     id: 4,
@@ -45,10 +36,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Deri saat kayışım geldi sanki saatimi yeni almışım gibi hissediyorum.",
-    productName: "Çift Katlı Deri Saat Kayışı",
-    productPrice: "1.750,00TL",
-    productImage: "/images/placeholders/T.4.jpg",
-    productThumb: "/images/placeholders/T.4-thumb.jpg",
+    image: "/images/placeholders/T.4.jpg",
   },
   {
     id: 5,
@@ -56,10 +44,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "İşçilikten memnun kaldım. Kalite ve işçilik standartların üzerinde.",
-    productName: "Deri Cüzdan",
-    productPrice: "2.150,00TL",
-    productImage: "/images/placeholders/T.5.jpg",
-    productThumb: "/images/placeholders/T.5-thumb.jpg",
+    image: "/images/placeholders/T.5.jpg",
   },
   {
     id: 6,
@@ -67,30 +52,45 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Heceleyerek söylüyorum Ba-yıl-dım ! İşçilik deri kalitesi üst düzey.",
-    productName: "Deri Kartlık",
-    productPrice: "1.250,00TL",
-    productImage: "/images/placeholders/T.6.jpg",
-    productThumb: "/images/placeholders/T.6-thumb.jpg",
+    image: "/images/placeholders/T.6.jpg",
   },
 ];
 
+const AUTO_PLAY_INTERVAL = 5000; // 5 seconds
+
 export function TestimonialsSection() {
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 2;
-  const totalPages = Math.ceil(testimonials.length / itemsPerPage);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
-  const currentTestimonials = testimonials.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
+  const totalSlides = Math.ceil(testimonials.length / 2);
+
+  const nextSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % totalSlides);
+  }, [totalSlides]);
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index);
+  };
+
+  // Auto-play
+  useEffect(() => {
+    if (isPaused) return;
+
+    const interval = setInterval(() => {
+      nextSlide();
+    }, AUTO_PLAY_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [isPaused, nextSlide]);
+
+  const visibleTestimonials = testimonials.slice(
+    currentIndex * 2,
+    currentIndex * 2 + 2
   );
-
-  const nextPage = () => {
-    setCurrentPage((prev) => (prev + 1) % totalPages);
-  };
-
-  const prevPage = () => {
-    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
-  };
 
   return (
     <section className="py-16 lg:py-20 bg-neutral-50">
@@ -105,121 +105,117 @@ export function TestimonialsSection() {
           </p>
         </div>
 
-        {/* Testimonials Grid - Horizontal Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {currentTestimonials.map((review) => (
-            <div
-              key={review.id}
-              className="bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow flex"
+        {/* Carousel Container */}
+        <div 
+          className="relative"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {/* Slides */}
+          <div className="overflow-hidden">
+            <div 
+              className="flex transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
-              {/* Left: Large Product Image */}
-              <div className="relative w-32 sm:w-40 lg:w-48 flex-shrink-0 bg-neutral-100">
-                <Image
-                  src={review.productImage}
-                  alt={review.productName}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 128px, (max-width: 1024px) 160px, 192px"
-                />
-              </div>
+              {Array.from({ length: totalSlides }).map((_, slideIndex) => (
+                <div 
+                  key={slideIndex}
+                  className="w-full flex-shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-6"
+                >
+                  {testimonials
+                    .slice(slideIndex * 2, slideIndex * 2 + 2)
+                    .map((review) => (
+                      <div
+                        key={review.id}
+                        className="bg-white overflow-hidden shadow-sm flex"
+                      >
+                        {/* Left: Image */}
+                        <div className="relative w-32 sm:w-40 lg:w-48 flex-shrink-0 bg-neutral-100">
+                          <Image
+                            src={review.image}
+                            alt={review.name}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 128px, (max-width: 1024px) 160px, 192px"
+                          />
+                        </div>
 
-              {/* Right: Content */}
-              <div className="flex-1 p-4 sm:p-5 flex flex-col">
-                {/* Stars */}
-                <div className="flex items-center gap-0.5 mb-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        i < review.rating
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
-                          : "fill-neutral-200 text-neutral-200"
-                      )}
-                    />
-                  ))}
+                        {/* Right: Content */}
+                        <div className="flex-1 p-4 sm:p-5 flex flex-col justify-center">
+                          {/* Stars */}
+                          <div className="flex items-center gap-0.5 mb-3">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "w-3.5 h-3.5",
+                                  i < review.rating
+                                    ? "fill-[#8A6B37] text-[#8A6B37]"
+                                    : "fill-neutral-200 text-neutral-200"
+                                )}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Name with Verified Badge */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-sm font-semibold text-neutral-900 uppercase">
+                              {review.name}
+                            </span>
+                            {review.verified && (
+                              <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
+                                <Check className="w-3 h-3" />
+                                Doğrulanmış Alıcı
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Review Content */}
+                          <p className="text-sm text-neutral-600 leading-relaxed">
+                            {review.content}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                 </div>
-
-                {/* Name with Verified Badge */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-semibold text-neutral-900 uppercase">
-                    {review.name}
-                  </span>
-                  {review.verified && (
-                    <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-                      <Check className="w-3 h-3" />
-                      Doğrulanmış Alıcı
-                    </span>
-                  )}
-                </div>
-
-                {/* Review Content */}
-                <p className="text-sm text-neutral-600 leading-relaxed flex-1">
-                  {review.content}
-                </p>
-
-                {/* Divider */}
-                <div className="border-t border-neutral-100 my-4" />
-
-                {/* Product Info */}
-                <div className="flex items-center gap-3">
-                  <div className="relative w-10 h-10 rounded bg-neutral-100 overflow-hidden flex-shrink-0">
-                    <Image
-                      src={review.productThumb}
-                      alt={review.productName}
-                      fill
-                      className="object-cover"
-                      sizes="40px"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-900 truncate">
-                      {review.productName}
-                    </p>
-                    <p className="text-sm text-neutral-500">
-                      {review.productPrice}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4 mt-10">
-            <button
-              onClick={prevPage}
-              className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
-              aria-label="Önceki"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i)}
-                  className={cn(
-                    "w-2 h-2 rounded-full transition-colors",
-                    i === currentPage ? "bg-neutral-900" : "bg-neutral-300"
-                  )}
-                  aria-label={`Sayfa ${i + 1}`}
-                />
               ))}
             </div>
-
-            <button
-              onClick={nextPage}
-              className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
-              aria-label="Sonraki"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
           </div>
-        )}
+
+          {/* Navigation Arrows */}
+          <button
+            onClick={prevSlide}
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 lg:-translate-x-6 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:shadow-lg transition-all"
+            aria-label="Önceki"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={nextSlide}
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 lg:translate-x-6 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:shadow-lg transition-all"
+            aria-label="Sonraki"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          {/* Dots Indicator */}
+          <div className="flex items-center justify-center gap-2 mt-8">
+            {[...Array(totalSlides)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToSlide(i)}
+                className={cn(
+                  "transition-all duration-300 rounded-full",
+                  i === currentIndex
+                    ? "w-6 h-2 bg-neutral-900"
+                    : "w-2 h-2 bg-neutral-300 hover:bg-neutral-400"
+                )}
+                aria-label={`Sayfa ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
