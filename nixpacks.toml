@@ -1,21 +1,2 @@
 [start]
 runImage = "node:20-bookworm"
-onlyIncludeFiles = [
-  "package.json",
-  "package-lock.json",
-  "node_modules",
-  "scripts/prepare-next-standalone.cjs",
-  "packages/platform-config",
-  "apps/admin/package.json",
-  "apps/admin/scripts",
-  "apps/admin/.next",
-  "apps/admin/public",
-  "apps/owner/package.json",
-  "apps/owner/scripts",
-  "apps/owner/.next",
-  "apps/owner/public",
-  "apps/storefront-deri-kordon/package.json",
-  "apps/storefront-deri-kordon/scripts",
-  "apps/storefront-deri-kordon/.next",
-  "apps/storefront-deri-kordon/public",
-]
