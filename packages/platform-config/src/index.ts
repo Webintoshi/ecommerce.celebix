@@ -121,23 +121,34 @@ export interface StorefrontUpdateInput {
 }
 
 function findRepoRoot(startDirectory = process.cwd()): string {
-  let currentDirectory = startDirectory;
+  const attempted = new Set<string>();
+  const candidates = [
+    process.env.CELEBIX_REPO_ROOT,
+    startDirectory,
+    path.resolve(__dirname, "..", "..", ".."),
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
-  while (true) {
-    const registryPath = path.join(currentDirectory, "stores", "registry.json");
+  for (const candidate of candidates) {
+    let currentDirectory = path.resolve(candidate);
 
-    if (fs.existsSync(registryPath)) {
-      return currentDirectory;
+    while (!attempted.has(currentDirectory)) {
+      attempted.add(currentDirectory);
+      const registryPath = path.join(currentDirectory, "stores", "registry.json");
+
+      if (fs.existsSync(registryPath)) {
+        return currentDirectory;
+      }
+
+      const parentDirectory = path.dirname(currentDirectory);
+      if (parentDirectory === currentDirectory) {
+        break;
+      }
+
+      currentDirectory = parentDirectory;
     }
-
-    const parentDirectory = path.dirname(currentDirectory);
-
-    if (parentDirectory === currentDirectory) {
-      throw new Error("Monorepo kok dizini bulunamadi.");
-    }
-
-    currentDirectory = parentDirectory;
   }
+
+  throw new Error("Monorepo kok dizini bulunamadi.");
 }
 
 function readJsonFile<T>(filePath: string): T {

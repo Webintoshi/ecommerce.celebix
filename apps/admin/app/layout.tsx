@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
 import { Toaster } from "sonner";
 import { getActiveStoreSlug, requireStoreConfig } from "@celebix/platform-config";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,11 +19,17 @@ const lora = Lora({
 });
 
 export function generateMetadata(): Metadata {
-  const store = requireStoreConfig(getActiveStoreSlug());
+  let storeName = STORE_RUNTIME.name;
+
+  try {
+    storeName = requireStoreConfig(getActiveStoreSlug()).name;
+  } catch (error) {
+    console.error("Admin metadata store config fallback:", error);
+  }
 
   return {
-    title: `${store.name} Admin`,
-    description: `${store.name} icin ortak admin panel cekirdegi`
+    title: `${storeName} Admin`,
+    description: `${storeName} icin ortak admin panel cekirdegi`
   };
 }
 

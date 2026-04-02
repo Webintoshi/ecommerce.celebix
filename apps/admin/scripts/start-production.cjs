@@ -9,6 +9,7 @@ const env = {
   ...process.env,
   PORT: port,
   HOSTNAME: "0.0.0.0",
+  CELEBIX_REPO_ROOT: path.join(appRoot, "..", ".."),
   NEXT_IGNORE_INCORRECT_LOCKFILE: process.env.NEXT_IGNORE_INCORRECT_LOCKFILE || "1",
 };
 
