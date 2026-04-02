@@ -5,6 +5,7 @@ import { getProductBySlug, getProductSlug } from "@/lib/products";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
+import { findPreferredVariantIndex } from "@/lib/variant-selection";
 import {
   getVariantAttributeRegistry,
   hydrateVariantAttributes,
@@ -30,6 +31,7 @@ async function fetchProductVariants(supabase: any, productId: string) {
         id,
         attribute_id,
         value,
+        display_order,
         color_code,
         image_url,
         attribute:variant_attributes(id, name)
@@ -305,7 +307,10 @@ export default async function ProductDetailPage({
   // 4. Determine selected variant based on URL
   let selectedVariantIndex = 0;
   if (product.variants && product.variants.length > 0) {
-    selectedVariantIndex = findVariantIndex(product.variants, parsedSlug);
+    selectedVariantIndex =
+      parsedSlug.variantWeight || parsedSlug.variantId
+        ? findVariantIndex(product.variants, parsedSlug)
+        : findPreferredVariantIndex(product.variants);
   }
 
   // 5. Get related products from same category (from static data - faster)

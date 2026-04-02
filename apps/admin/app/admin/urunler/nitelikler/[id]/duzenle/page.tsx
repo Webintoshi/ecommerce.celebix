@@ -210,6 +210,11 @@ export default function EditVariantAttributePage() {
     setSaving(true);
 
     try {
+      const orderedValues = values.filter((value) => !value.isDeleted && value.value.trim());
+      const displayOrderById = new Map(
+        orderedValues.map((value, index) => [value.id, index]),
+      );
+
       const newValues = values.filter((v) => v.isNew && !v.isDeleted && v.value.trim());
       for (const value of newValues) {
         await requestAttributeApi("/api/admin/variant-attributes/values", {
@@ -217,6 +222,7 @@ export default function EditVariantAttributePage() {
           body: JSON.stringify({
             attribute_id: attributeId,
             value: value.value,
+            display_order: displayOrderById.get(value.id) ?? 0,
             color_code: displayType === "color" ? value.color_code : null,
             image_url: displayType === "image" ? value.image_url : null,
           }),
@@ -237,6 +243,7 @@ export default function EditVariantAttributePage() {
           body: JSON.stringify({
             id: value.id,
             value: value.value,
+            display_order: displayOrderById.get(value.id) ?? 0,
             color_code: displayType === "color" ? value.color_code : null,
             image_url: displayType === "image" ? value.image_url : null,
           }),

@@ -7,6 +7,7 @@ type RegistryValue = {
   id: string;
   attribute_id: string;
   value: string;
+  display_order?: number | null;
   color_code?: string | null;
   image_url?: string | null;
 };
@@ -133,6 +134,8 @@ function buildHydratedAttribute(entry: JsonObject, match: RegistryMatch): JsonOb
     name: match.attribute.name,
     linked_to: toOptionalString(entry.linked_to) ?? match.attribute.name,
     value: match.value.value,
+    displayOrder: match.value.display_order ?? null,
+    display_order: match.value.display_order ?? null,
     colorCode,
     color_code: colorCode,
     imageUrl,
@@ -178,7 +181,7 @@ export async function getVariantAttributeRegistry(): Promise<RegistryAttribute[]
   if (!attributesError) {
     const { data: values, error: valuesError } = await supabase
       .from("variant_attribute_values")
-      .select("id,attribute_id,value,color_code,image_url,is_active")
+      .select("id,attribute_id,value,display_order,color_code,image_url,is_active")
       .order("display_order")
       .order("value");
 
@@ -194,6 +197,7 @@ export async function getVariantAttributeRegistry(): Promise<RegistryAttribute[]
           id: row.id,
           attribute_id: row.attribute_id,
           value: row.value,
+          display_order: row.display_order ?? null,
           color_code: row.color_code ?? null,
           image_url: row.image_url ?? null,
         });
@@ -233,6 +237,8 @@ export async function getVariantAttributeRegistry(): Promise<RegistryAttribute[]
                 id,
                 attribute_id: attributeId,
                 value: normalizedValue,
+                display_order:
+                  typeof valueRecord.display_order === "number" ? valueRecord.display_order : null,
                 color_code: toOptionalString(valueRecord.color_code),
                 image_url: toOptionalString(valueRecord.image_url),
               };
@@ -303,6 +309,8 @@ export function inferVariantAttributesFromName(variantName: string, registry: Re
           name: attribute.name,
           linked_to: attribute.name,
           value: value.value,
+          displayOrder: value.display_order ?? null,
+          display_order: value.display_order ?? null,
           colorCode: value.color_code ?? null,
           color_code: value.color_code ?? null,
           imageUrl: value.image_url ?? null,

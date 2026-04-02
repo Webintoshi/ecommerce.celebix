@@ -6,6 +6,7 @@ type RegistryValue = {
   id: string;
   attribute_id: string;
   value: string;
+  display_order?: number | null;
   color_code?: string | null;
   image_url?: string | null;
 };
@@ -70,6 +71,7 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
             id: value.id,
             attribute_id: value.attribute_id,
             value: value.value,
+            display_order: value.display_order ?? null,
             color_code: value.color_code ?? null,
             image_url: value.image_url ?? null,
           })),
@@ -80,7 +82,7 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
 
   const { data: values, error: valuesError } = await supabase
     .from("variant_attribute_values")
-    .select("id,attribute_id,value,color_code,image_url,is_active")
+    .select("id,attribute_id,value,display_order,color_code,image_url,is_active")
     .order("display_order")
     .order("value");
 
@@ -115,6 +117,7 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
       id: row.id,
       attribute_id: row.attribute_id,
       value: row.value,
+      display_order: row.display_order ?? null,
       color_code: row.color_code ?? null,
       image_url: row.image_url ?? null,
     });
@@ -222,6 +225,8 @@ function syncSnapshotEntry(
     valueId: match.value.id,
     attribute_value_id: match.value.id,
     value: match.value.value,
+    displayOrder: match.value.display_order ?? null,
+    display_order: match.value.display_order ?? null,
     colorCode,
     color_code: colorCode,
     imageUrl,
