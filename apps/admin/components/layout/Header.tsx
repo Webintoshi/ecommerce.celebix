@@ -489,7 +489,7 @@ export function Header() {
                     <div className="grid grid-cols-3 gap-3">
                       {/* Fındık Ezmesi */}
                       <Link
-                        href="/koleksiyon/findik-ezmesi"
+                        href="/findik-ezmesi"
                         onClick={() => setIsMenuOpen(false)}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-gray-100 active:scale-95 transition-all hover:border-primary/50 hover:shadow-md"
                       >
@@ -503,7 +503,7 @@ export function Header() {
 
                       {/* Fıstık Ezmesi */}
                       <Link
-                        href="/koleksiyon/fistik-ezmesi"
+                        href="/fistik-ezmesi"
                         onClick={() => setIsMenuOpen(false)}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-gray-100 active:scale-95 transition-all hover:border-primary/50 hover:shadow-md"
                       >
@@ -521,7 +521,7 @@ export function Header() {
 
                       {/* Kuruyemişler */}
                       <Link
-                        href="/koleksiyon/kuruyemisler"
+                        href="/kuruyemisler"
                         onClick={() => setIsMenuOpen(false)}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border border-gray-100 active:scale-95 transition-all hover:border-primary/50 hover:shadow-md"
                       >

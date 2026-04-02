@@ -214,7 +214,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs md:text-sm">
-                    /koleksiyon/
+                    /
                   </span>
                   <input
                     type="text"

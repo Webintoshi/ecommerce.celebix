@@ -65,7 +65,7 @@ export const ROUTES = {
   home: "/",
   allProducts: "/urunler",
   products: "/urunler",
-  category: (slug: string) => `/koleksiyon/${slug}`,
+  category: (slug: string) => `/${slug}`,
   product: (slug: string) => `/urunler/${slug}`,
   cart: "/sepet",
   checkout: "/odeme",

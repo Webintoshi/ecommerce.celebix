@@ -68,12 +68,12 @@ function generateSchemaPreview(cat: CategorySEOViewModel): object {
         "@type": "CollectionPage",
         "name": cat.name,
         "description": cat.metaDescription,
-        "url": `${storeBaseUrl}/koleksiyon/${cat.slug}`,
+        "url": `${storeBaseUrl}/${cat.slug}`,
         "breadcrumb": {
             "@type": "BreadcrumbList",
             "itemListElement": [
                 { "@type": "ListItem", "position": 1, "name": "Ana Sayfa", "item": storeBaseUrl },
-                { "@type": "ListItem", "position": 2, "name": cat.name, "item": `${storeBaseUrl}/koleksiyon/${cat.slug}` }
+                { "@type": "ListItem", "position": 2, "name": cat.name, "item": `${storeBaseUrl}/${cat.slug}` }
             ]
         },
         ...(cat.faq && cat.faq.length > 0 ? {
@@ -317,7 +317,7 @@ export default function CategorySEOPage() {
                 const revalidateRes = await fetch("/api/revalidate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path: `/koleksiyon/${categorySlug}` })
+                    body: JSON.stringify({ path: `/${categorySlug}` })
                 });
                 
                 if (!revalidateRes.ok) {
@@ -643,7 +643,7 @@ function CategoryCard({
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div>
                     <h3 className="font-semibold text-gray-900">{category.name}</h3>
-                    <p className="text-sm text-gray-500">/koleksiyon/{category.slug}</p>
+                    <p className="text-sm text-gray-500">/{category.slug}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700">

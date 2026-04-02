@@ -192,7 +192,7 @@ export async function generateMetadata({
   // Use SEO fields from DB, fallback to defaults
   const title = category.seo_title || `${category.name} | Deri Kordon`;
   const description = category.seo_description || category.description || `${category.name} kategorisindeki Ã¼rÃ¼nlerimizi keÅŸfedin.`;
-  const canonicalUrl = `https://deri-kordon.test/koleksiyon/${category.slug}`;
+  const canonicalUrl = `https://deri-kordon.test/${category.slug}`;
   const imageUrl = category.image || "/og-image.jpg";
   
   return {
@@ -261,7 +261,7 @@ function generateBreadcrumbSchema(category: Category): object {
         "@type": "ListItem",
         "position": 3,
         "name": category.name,
-        "item": `https://deri-kordon.test/koleksiyon/${category.slug}`
+        "item": `https://deri-kordon.test/${category.slug}`
       }
     ]
   };
@@ -273,7 +273,7 @@ function generateCollectionPageSchema(category: Category, products: Product[]): 
     "@type": "CollectionPage",
     "name": category.seo_title || category.name,
     "description": category.seo_description || category.description,
-    "url": `https://deri-kordon.test/koleksiyon/${category.slug}`,
+    "url": `https://deri-kordon.test/${category.slug}`,
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": products.map((product, index) => ({

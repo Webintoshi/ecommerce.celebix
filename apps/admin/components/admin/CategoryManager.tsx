@@ -454,7 +454,7 @@ export default function CategoryManager() {
                     URL Slug <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-sm">/koleksiyon/</span>
+                    <span className="text-gray-500 text-sm">/</span>
                     <input
                       type="text"
                       value={formData.slug}

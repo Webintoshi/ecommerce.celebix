@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CategoryInfo } from "@/types/product";
 import { fetchCategories } from "@/lib/categories";
+import { ROUTES } from "@/lib/constants";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 interface ShopByCategoryProps {
@@ -166,7 +167,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <Link
-                  href={`/koleksiyon/${cat.slug}`}
+                  href={ROUTES.category(cat.slug)}
                   className="group block relative"
                   aria-label={`${cat.name} kategorisini incele`}
                 >

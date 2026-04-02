@@ -12,7 +12,7 @@ export async function GET() {
 
     const collectionUrls = categories?.map(cat => `
   <url>
-    <loc>${baseUrl}/koleksiyon/${cat.slug}</loc>
+    <loc>${baseUrl}/${cat.slug}</loc>
     <lastmod>${new Date(cat.updated_at || new Date()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

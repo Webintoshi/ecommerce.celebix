@@ -191,7 +191,7 @@ export async function generateMetadata({
   // Use SEO fields from DB, fallback to defaults
   const title = category.seo_title || `${category.name} | Ornek Magaza`;
   const description = category.seo_description || category.description || `${category.name} kategorisindeki ürünlerimizi keşfedin.`;
-  const canonicalUrl = `https://ornek-magaza.celebix.co/koleksiyon/${category.slug}`;
+  const canonicalUrl = `https://ornek-magaza.celebix.co/${category.slug}`;
   const imageUrl = category.image || "/og-image.jpg";
   
   return {
@@ -260,7 +260,7 @@ function generateBreadcrumbSchema(category: Category): object {
         "@type": "ListItem",
         "position": 3,
         "name": category.name,
-        "item": `https://ornek-magaza.celebix.co/koleksiyon/${category.slug}`
+        "item": `https://ornek-magaza.celebix.co/${category.slug}`
       }
     ]
   };
@@ -272,7 +272,7 @@ function generateCollectionPageSchema(category: Category, products: Product[]): 
     "@type": "CollectionPage",
     "name": category.seo_title || category.name,
     "description": category.seo_description || category.description,
-    "url": `https://ornek-magaza.celebix.co/koleksiyon/${category.slug}`,
+    "url": `https://ornek-magaza.celebix.co/${category.slug}`,
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": products.map((product, index) => ({

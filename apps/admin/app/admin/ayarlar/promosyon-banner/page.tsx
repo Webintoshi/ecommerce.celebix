@@ -498,7 +498,7 @@ export default function PromoBannerSettingsPage() {
                       value={banner.buttonLink}
                       onChange={(e) => handleUpdateBanner(banner.id, 'buttonLink', e.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                      placeholder="/koleksiyon/..."
+                      placeholder="/kategori-slug"
                     />
                   </div>
                 </div>
