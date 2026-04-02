@@ -70,6 +70,15 @@ export interface HomepageData {
   promoBanners: Record<string, unknown>[];
 }
 
+const HOMEPAGE_CATEGORY_ORDER = [
+  { slug: "cuzdan-kartlik", name: "Cüzdan & Kartlık" },
+  { slug: "apple-watch-saat-kayislari", name: "Apple Watch Kayışları" },
+  { slug: "saat-kayislari", name: "Deri Saat Kayışları" },
+  { slug: "canta-organizer", name: "Çanta & Organizer" },
+  { slug: "aksesuar", name: "Aksesuar" },
+  { slug: "gunluk-yasam", name: "Günlük Yaşam" },
+] as const;
+
 function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
   const rawSlides = Array.isArray(payload)
     ? (payload as RawHeroSlide[])
@@ -255,14 +264,26 @@ export async function getHomepageData(): Promise<HomepageData> {
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categories = (categoriesData || []).map((category) => ({
-    id: category.id,
-    name: category.name,
-    slug: category.slug,
-    description: category.description,
-    image: category.image,
-    productCount: typeof category.product_count === "number" ? category.product_count : 0,
-  }));
+  const categoriesBySlug = new Map(
+    (categoriesData || []).map((category) => [category.slug, category]),
+  );
+
+  const categories = HOMEPAGE_CATEGORY_ORDER.map((entry) => {
+    const category = categoriesBySlug.get(entry.slug);
+
+    if (!category) {
+      return null;
+    }
+
+    return {
+      id: category.id,
+      name: entry.name,
+      slug: category.slug,
+      description: null,
+      image: category.image,
+      productCount: typeof category.product_count === "number" ? category.product_count : 0,
+    };
+  }).filter((category): category is HomepageCategory => Boolean(category));
 
   return {
     heroBanners,
