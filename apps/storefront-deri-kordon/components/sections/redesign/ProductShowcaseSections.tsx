@@ -1,28 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
 
-// Define the product groups with their target names
 const PRODUCT_GROUPS = [
   {
     id: "bestsellers",
     title: "Çok Satanlar",
-    subtitle: "Popüler",
+    subtitle: "Seçili Koleksiyon",
+    link: "/urunler",
     targetNames: [
       "İç cepli klasik deri cüzdan",
-      "çıtçıtlı deri kartlık",
-      "Telefon bölmeli uzun Cüzdan",
-      "Dikey Deri kartlık",
+      "Çıtçıtlı deri kartlık",
+      "Telefon bölmeli uzun cüzdan",
+      "Dikey deri kartlık",
     ],
   },
   {
     id: "apple-watch",
-    title: "Apple Watch Kayışlar",
-    subtitle: "Koleksiyon",
+    title: "Apple Watch Kayışları",
+    subtitle: "Öne Çıkanlar",
+    link: "/apple-watch-saat-kayislari",
     targetNames: [
       "Bund Çift Katlı Apple Watch Deri Kayış - Acı Kahve",
       "Bund Çift Katlı Apple Watch Deri Kayış - Antrasit",
@@ -32,8 +32,9 @@ const PRODUCT_GROUPS = [
   },
   {
     id: "accessories",
-    title: "AKSESUARLAR",
-    subtitle: "Tamamlayıcı",
+    title: "Aksesuarlar",
+    subtitle: "Tamamlayıcılar",
+    link: "/aksesuar",
     targetNames: [
       "Deri Gözlük Kılıfı",
       "Deri Rulo Kalemlik",
@@ -43,8 +44,9 @@ const PRODUCT_GROUPS = [
   },
   {
     id: "watch-straps",
-    title: "DERİ SAAT KAYIŞLARI",
-    subtitle: "Klasik",
+    title: "Deri Saat Kayışları",
+    subtitle: "Klasik Seçim",
+    link: "/saat-kayislari",
     targetNames: [
       "Çift Katlı Deri Saat Kayışı - Yeşil",
       "Çift Katlı Deri Saat Kayışı - Taba",
@@ -52,48 +54,72 @@ const PRODUCT_GROUPS = [
       "Çift Katlı Deri Saat Kayışı - Saffiano Kahve",
     ],
   },
-];
+] as const;
 
 interface ProductShowcaseSectionsProps {
   allProducts: Product[];
 }
 
+function normalizeText(value: string) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function findProductByName(products: Product[], targetName: string): Product | null {
-  const normalizedTarget = targetName.toLowerCase().trim();
-  
-  // Try exact match first
-  let match = products.find(
-    (p) => p.name.toLowerCase().trim() === normalizedTarget
-  );
-  
-  // Try includes match (product name contains target)
-  if (!match) {
-    match = products.find(
-      (p) => p.name.toLowerCase().includes(normalizedTarget)
-    );
+  const normalizedTarget = normalizeText(targetName);
+  const targetTokens = normalizedTarget.split(" ").filter((token) => token.length > 1);
+
+  const exactMatch = products.find((product) => normalizeText(product.name) === normalizedTarget);
+  if (exactMatch) {
+    return exactMatch;
   }
-  
-  // Try reverse includes (target contains product name)
-  if (!match) {
-    match = products.find(
-      (p) => normalizedTarget.includes(p.name.toLowerCase())
-    );
+
+  const containsMatch = products.find((product) => {
+    const normalizedName = normalizeText(product.name);
+    return normalizedName.includes(normalizedTarget) || normalizedTarget.includes(normalizedName);
+  });
+
+  if (containsMatch) {
+    return containsMatch;
   }
-  
-  // Try word-by-word matching
-  if (!match) {
-    const targetWords = normalizedTarget.split(/\s+/);
-    match = products.find((p) => {
-      const productNameLower = p.name.toLowerCase();
-      // Check if most words match
-      const matchingWords = targetWords.filter(word => 
-        word.length > 2 && productNameLower.includes(word)
+
+  const weightedMatch = products
+    .map((product) => {
+      const normalizedName = normalizeText(product.name);
+      const score = targetTokens.reduce((sum, token) => {
+        return sum + (normalizedName.includes(token) ? 1 : 0);
+      }, 0);
+
+      return { product, score };
+    })
+    .filter((entry) => entry.score >= Math.min(3, targetTokens.length))
+    .sort((left, right) => right.score - left.score)[0];
+
+  return weightedMatch?.product ?? null;
+}
+
+function getProductsForGroup(products: Product[], targetNames: readonly string[]) {
+  const usedProductIds = new Set<string>();
+
+  return targetNames
+    .map((targetName) => {
+      const match = findProductByName(
+        products.filter((product) => !usedProductIds.has(product.id)),
+        targetName,
       );
-      return matchingWords.length >= Math.min(3, targetWords.length);
-    });
-  }
-  
-  return match || null;
+
+      if (match) {
+        usedProductIds.add(match.id);
+      }
+
+      return match;
+    })
+    .filter((product): product is Product => Boolean(product));
 }
 
 function ProductGroupSection({
@@ -103,83 +129,44 @@ function ProductGroupSection({
   group: (typeof PRODUCT_GROUPS)[0];
   products: Product[];
 }) {
-  const [loading, setLoading] = useState(true);
-  const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    // Find matching products
-    const matched = group.targetNames
-      .map((name) => findProductByName(products, name))
-      .filter((p): p is Product => p !== null);
-    
-    setMatchedProducts(matched);
-    setLoading(false);
-  }, [products, group.targetNames]);
-
-  if (loading) {
-    return (
-      <section className="py-16 lg:py-20 bg-[#F8F8F8]">
-        <div className="container-premium">
-          <div className="flex items-end justify-between mb-12">
-            <div>
-              <div className="h-4 w-24 bg-neutral-200 rounded-full mb-2" />
-              <div className="h-10 w-48 bg-neutral-200 rounded-lg" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-square bg-neutral-100 mb-4" />
-                <div className="h-5 bg-neutral-200 rounded w-3/4 mx-auto" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
+  const matchedProducts = getProductsForGroup(products, group.targetNames);
 
   if (matchedProducts.length === 0) {
     return null;
   }
 
   return (
-    <section className="py-16 lg:py-20 bg-[#F8F8F8]">
+    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
       <div className="container-premium">
-        {/* Section Header */}
-        <div className="flex items-end justify-between mb-12">
+        <div className="mb-12 flex items-end justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
               {group.subtitle}
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900">
-              {group.title}
-            </h2>
+            <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">{group.title}</h2>
           </div>
           <Link
-            href="/urunler"
-            className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors group"
+            href={group.link}
+            className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
           >
             Tümünü Gör
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
 
-        {/* Products Grid - 4 columns */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
           {matchedProducts.slice(0, 4).map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
 
-        {/* Mobile: View All Button */}
-        <div className="flex sm:hidden justify-center mt-10">
+        <div className="mt-10 flex justify-center sm:hidden">
           <Link
-            href="/urunler"
-            className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors"
+            href={group.link}
+            className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
           >
             Tümünü Gör
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -195,11 +182,7 @@ export function ProductShowcaseSections({ allProducts }: ProductShowcaseSections
   return (
     <>
       {PRODUCT_GROUPS.map((group) => (
-        <ProductGroupSection
-          key={group.id}
-          group={group}
-          products={allProducts}
-        />
+        <ProductGroupSection key={group.id} group={group} products={allProducts} />
       ))}
     </>
   );
