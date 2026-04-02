@@ -87,38 +87,9 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
   // Get attribute keys
   const attrKeys = Object.keys(attributeGroups);
   
-  // If no attributes found, show simple variant selector
+  // Bu store icin nitelik gelmeyen varsayilan "Boyut / 0g" fallback'i gosterme.
   if (attrKeys.length === 0) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-neutral-900">Boyut</span>
-          <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
-            {currentVariant?.weight}g
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {variants.map((v, idx) => {
-            const isSelected = idx === selectedIndex;
-            return (
-              <button
-                key={v.id}
-                onClick={() => onSelect(idx)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-xs font-medium border transition-all",
-                  isSelected
-                    ? "bg-[#8A6B37] text-white border-[#8A6B37]"
-                    : "bg-white text-[#8A6B37] border-gray-300 hover:border-[#8A6B37]"
-                )}
-              >
-                {isSelected && <Check className="w-4 h-4 inline mr-1" />}
-                {v.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
