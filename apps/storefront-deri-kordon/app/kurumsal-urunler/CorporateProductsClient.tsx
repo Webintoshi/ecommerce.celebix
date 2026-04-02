@@ -134,8 +134,8 @@ export default function CorporateProductsClient() {
       <section className="py-16 lg:py-20">
         <div className="container-premium">
           <div className="rounded-2xl bg-neutral-900 px-6 py-12 text-center lg:py-16">
-            <h2 className="mb-3 text-2xl tracking-tight text-white sm:text-3xl">
-              Kurumsal teklif alın
+            <h2 className="mb-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Kurumsal Teklif Alın
             </h2>
             <p className="mx-auto mb-6 max-w-xl text-neutral-400">
               Size özel çözümler ve fiyatlandırma için hemen iletişime geçin.
