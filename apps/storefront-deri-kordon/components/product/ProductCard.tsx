@@ -79,10 +79,17 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         )}
       </div>
 
-      {/* Product Name Only - Clean and minimal */}
-      <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2">
+      {/* Product Name - Centered */}
+      <h3 className="store-product-title text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2 text-center">
         {product.name}
       </h3>
+
+      {/* Product Price - Centered */}
+      {product.variants && product.variants.length > 0 && (
+        <p className="mt-1 text-sm font-medium text-neutral-900 text-center">
+          {product.variants[0].price} ₺
+        </p>
+      )}
     </Link>
   );
 }
