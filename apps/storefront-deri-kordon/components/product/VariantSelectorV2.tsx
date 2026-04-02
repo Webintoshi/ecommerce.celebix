@@ -80,7 +80,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
             </div>
 
             {showVisualSelector ? (
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2.5">
                 {group.values.map((value) => {
                   const isSelected = selectedValue === value.value;
                   const variant = variants[value.variantIndex];
@@ -93,7 +93,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       onClick={() => !isOutOfStock && handleSelect(group.id, value.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative h-14 w-14 overflow-hidden rounded-full border-2 transition-all duration-200",
+                        "relative h-11 w-11 overflow-hidden rounded-full border-2 transition-all duration-200",
                         isSelected
                           ? "border-[#8A6B37] ring-2 ring-[#8A6B37]/30"
                           : "border-gray-300 hover:border-gray-400",

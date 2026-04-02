@@ -71,7 +71,7 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set(["features"]));
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const toggleAccordion = (id: string) => {
     const next = new Set(openAccordions);
     if (next.has(id)) next.delete(id);
@@ -397,30 +397,6 @@ export function ProductDetailClient({
                   </div>
                 </div>
                 
-                {/* Quantity */}
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
-                  <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
-                    <button
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={quantity <= 1}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                    </button>
-                    <span className="w-10 text-center font-medium text-neutral-900 text-base">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={quantity >= (variant.stock || 10)}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                    </button>
-                  </div>
-                </div>
-
                 {/* Actions */}
                 {isSchemaLoading ? (
                   <div className="w-full py-3 text-sm text-neutral-500">
@@ -457,12 +433,34 @@ export function ProductDetailClient({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
+                      <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
+                        <button
+                          onClick={() => handleQuantityChange(-1)}
+                          disabled={quantity <= 1}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        </button>
+                        <span className="w-10 text-center font-medium text-neutral-900 text-base">
+                          {quantity}
+                        </span>
+                        <button
+                          onClick={() => handleQuantityChange(1)}
+                          disabled={quantity >= (variant.stock || 10)}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        </button>
+                      </div>
+                    </div>
                     <button
                       onClick={handleAddToCart}
                       disabled={isOutOfStock}
                       className={`
-                        flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
+                        min-w-[220px] flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
                         transition-all duration-300 rounded-full
                         ${isOutOfStock
                           ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
@@ -602,7 +600,10 @@ export function ProductDetailClient({
       </section>
 
       {/* Related Products */}
-      <section className="py-16 lg:py-20 bg-white border-t border-neutral-200">
+      <section
+        className="border-t border-neutral-200 py-16 lg:py-20"
+        style={{ backgroundColor: "#f8f8f8f8" }}
+      >
         <div className="container-premium">
           <div className="flex items-center justify-between mb-10">
             <div>
