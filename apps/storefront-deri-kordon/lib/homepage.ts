@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { runCategoriesQuery } from "@/lib/categories-query-compat";
 
 interface RawHeroSlide {
   id?: string | number;
@@ -171,28 +172,26 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
-  const activeQuery = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .limit(6);
+  const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .is("parent_id", null)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
-  if (!activeQuery.error && (activeQuery.data?.length ?? 0) > 0) {
-    return activeQuery.data ?? [];
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
+
+  if (error) {
+    throw error;
   }
 
-  const fallbackQuery = await supabase
-    .from("categories")
-    .select("*")
-    .order("sort_order", { ascending: true })
-    .limit(6);
-
-  if (fallbackQuery.error) {
-    throw fallbackQuery.error;
-  }
-
-  return fallbackQuery.data ?? [];
+  return data ?? [];
 }
 
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
@@ -272,4 +271,3 @@ export async function getHomepageData(): Promise<HomepageData> {
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
   };
 }
-
