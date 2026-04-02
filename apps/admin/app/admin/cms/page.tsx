@@ -12,29 +12,35 @@ import {
   Clock,
   Eye,
 } from "lucide-react";
-import { getBlogPosts } from "@/lib/blog";
+import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import { fetchCmsPages } from "@/lib/cms-pages";
 import type { CmsPage } from "@/types/cms";
+import type { BlogPost } from "@/types/blog";
 
 export default function CmsDashboard() {
-  const blogPosts = getBlogPosts();
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [cmsPages, setCmsPages] = useState<CmsPage[]>([]);
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadPages() {
+    async function loadDashboard() {
       try {
-        const pages = await fetchCmsPages();
+        const [pages, blogSnapshot] = await Promise.all([
+          fetchCmsPages(),
+          fetchBlogStrategySnapshot(),
+        ]);
+
         if (mounted) {
           setCmsPages(pages);
+          setBlogPosts(blogSnapshot.posts);
         }
       } catch (error) {
-        console.error("CMS dashboard pages load error:", error);
+        console.error("CMS dashboard load error:", error);
       }
     }
 
-    void loadPages();
+    void loadDashboard();
 
     return () => {
       mounted = false;

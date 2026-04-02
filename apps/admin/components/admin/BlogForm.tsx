@@ -21,7 +21,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { BlogPost, BlogCategory, TopicType } from "@/types/blog";
-import { BLOG_CATEGORIES, SUGGESTED_PILLARS, SEO_CHECKLIST, CONTENT_GUIDELINES, calculateSEOScore } from "@/lib/blog";
+import {
+  BLOG_CATEGORIES,
+  SUGGESTED_PILLARS,
+  SEO_CHECKLIST,
+  CONTENT_GUIDELINES,
+  calculateSEOScore,
+} from "@/lib/blog";
+import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
+import type { BlogStrategyCategory, BlogStrategyPillar } from "@/types/blog-strategy";
 
 interface BlogFormProps {
   initialData?: BlogPost;
@@ -30,6 +38,22 @@ interface BlogFormProps {
 export function BlogForm({ initialData }: BlogFormProps) {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [availableCategories, setAvailableCategories] =
+    useState<BlogStrategyCategory[]>(BLOG_CATEGORIES.map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      productCount: 0,
+    })));
+  const [availablePillars, setAvailablePillars] =
+    useState<BlogStrategyPillar[]>(SUGGESTED_PILLARS.map((pillar) => ({
+      ...pillar,
+      categoryId: null,
+      productCount: 0,
+      existingPillarPostId: null,
+      existingClusterCount: 0,
+    })));
   const [formData, setFormData] = useState<Partial<BlogPost>>(
     initialData || {
       title: "",
@@ -37,7 +61,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
       excerpt: "",
       content: "",
       coverImage: "",
-      category: "saglik",
+      category: "",
       tags: [],
       featured: false,
       topicType: "standalone",
@@ -55,6 +79,41 @@ export function BlogForm({ initialData }: BlogFormProps) {
       },
     }
   );
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadStrategyOptions() {
+      try {
+        const snapshot = await fetchBlogStrategySnapshot();
+        if (!active) return;
+
+        if (snapshot.categories.length > 0) {
+          setAvailableCategories(snapshot.categories);
+          setFormData((prev) =>
+            prev.category
+              ? prev
+              : {
+                  ...prev,
+                  category: snapshot.categories[0]?.id || "",
+                },
+          );
+        }
+
+        if (snapshot.suggestedPillars.length > 0) {
+          setAvailablePillars(snapshot.suggestedPillars);
+        }
+      } catch (error) {
+        console.error("Blog form strategy options load error:", error);
+      }
+    }
+
+    void loadStrategyOptions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // SEO skorunu hesapla
   useEffect(() => {
@@ -213,7 +272,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white text-sm"
               >
                 <option value="">Pillar seçin...</option>
-                {SUGGESTED_PILLARS.map((pillar) => (
+                {availablePillars.map((pillar) => (
                   <option key={pillar.id} value={pillar.id}>
                     {pillar.title}
                   </option>
@@ -294,7 +353,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                         onChange={(e) => setFormData({ ...formData, category: e.target.value as BlogCategory })}
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all bg-white text-sm"
                       >
-                        {BLOG_CATEGORIES.map((cat) => (
+                        {availableCategories.map((cat) => (
                           <option key={cat.id} value={cat.id}>
                             {cat.name}
                           </option>

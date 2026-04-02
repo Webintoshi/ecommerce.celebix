@@ -32,12 +32,7 @@ export interface BlogPost {
   relatedProducts: string[];      // İlgili ürün ID'leri (ezme ürünleri)
 }
 
-export type BlogCategory =
-  | "saglik"
-  | "tarifler"
-  | "beslenme"
-  | "yasam"
-  | "haberler";
+export type BlogCategory = string;
 
 export interface BlogCategoryInfo {
   id: BlogCategory;
