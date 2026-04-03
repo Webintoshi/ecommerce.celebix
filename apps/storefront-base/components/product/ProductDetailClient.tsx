@@ -24,10 +24,12 @@ import { NutritionLabel } from "@/components/product/NutritionLabel";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
 import { ComplementaryProducts } from "@/components/product/ComplementaryProducts";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
-import { DynamicCustomizationForm } from "@/components/product/dynamic-customization-form";
+import {
+  DynamicCustomizationForm,
+  type CustomizationSelectionState,
+} from "@/components/product/dynamic-customization-form";
 import { Product } from "@/types/product";
 import {
-  CartCustomizationPayload,
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
@@ -45,6 +47,16 @@ type VariantAttribute = {
   image_url?: string | null;
 };
 type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
+
+function createEmptyCustomizationState(basePrice: number): CustomizationSelectionState {
+  return {
+    payload: null,
+    extraPrice: 0,
+    finalPrice: basePrice,
+    isValid: true,
+    hasSelections: false,
+  };
+}
 
 async function fetchAssignedSchema(productId: string) {
   const response = await fetch("/api/customization/schema?productId=" + encodeURIComponent(productId), {
@@ -111,6 +123,11 @@ export function ProductDetailClient({
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
+  const [customizationState, setCustomizationState] = useState<CustomizationSelectionState>(
+    createEmptyCustomizationState(initialProduct?.variants?.[initialVariantIndex]?.price || initialProduct?.variants?.[0]?.price || 0)
+  );
+  const [customizationValidationNonce, setCustomizationValidationNonce] = useState(0);
+  const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
 
@@ -163,6 +180,11 @@ export function ProductDetailClient({
       mounted = false;
     };
   }, [product?.id, product?.category, product?.subcategory]);
+
+  useEffect(() => {
+    setCustomizationState(createEmptyCustomizationState(variant?.price || 0));
+    setCustomizationValidationNonce(0);
+  }, [activeSchema?.id, variant?.id, variant?.price]);
 
   const variants = product?.variants || [];
   const variant = variants[selectedVariant] || variants[0];
@@ -228,17 +250,18 @@ export function ProductDetailClient({
   const isOutOfStock = variant.stock <= 0;
 
   const handleAddToCart = () => {
-    if (!isOutOfStock) {
-      addToCart(product, variant, quantity);
-    }
-  };
+    if (isOutOfStock || isSchemaLoading) return;
 
-  const handleAddToCartWithCustomization = (
-    customization: CartCustomizationPayload
-  ) => {
-    if (!isOutOfStock) {
-      addToCart(product, variant, quantity, customization);
+    if (activeSchema && !customizationState.isValid) {
+      setCustomizationValidationNonce((prev) => prev + 1);
+      extrasSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      return;
     }
+
+    addToCart(product, variant, quantity, customizationState.payload || undefined);
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -277,6 +300,11 @@ export function ProductDetailClient({
   };
 
   const stockStatus = getStockStatus();
+  const displayPrice = activeSchema ? customizationState.finalPrice : variant.price;
+  const displayOriginalPrice =
+    variant.originalPrice !== undefined
+      ? variant.originalPrice + (activeSchema ? customizationState.extraPrice : 0)
+      : undefined;
 
   return (
     <div className="min-h-screen bg-[#FFF5F5]">
@@ -386,9 +414,9 @@ export function ProductDetailClient({
                   Ekstra seçenekler yükleniyor...
                 </div>
               ) : activeSchema ? (
-                <div className="space-y-3">
+                <div ref={extrasSectionRef} className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-[#7B1113]">Ekstralar</span>
+                    <span className="text-sm font-medium text-[#7B1113]">Ki?iselle?tirme</span>
                     <div className="h-px flex-1 bg-[#7B1113]/10" />
                   </div>
                   <DynamicCustomizationForm
@@ -397,7 +425,8 @@ export function ProductDetailClient({
                     variantId={variant.id}
                     basePrice={variant.price}
                     initialSchema={activeSchema}
-                    onAddToCart={handleAddToCartWithCustomization}
+                    onCustomizationChange={setCustomizationState}
+                    validationNonce={customizationValidationNonce}
                   />
                 </div>
               ) : null}
@@ -412,7 +441,7 @@ export function ProductDetailClient({
                   <span className="text-3xl sm:text-4xl font-bold text-[#7B1113]">
                     {variant.price} ₺
                   </span>
-                  {variant.originalPrice && (
+                  {displayOriginalPrice !== undefined && (
                     <span className="text-lg sm:text-xl text-[#6b4b4c] line-through">
                       {variant.originalPrice} ₺
                     </span>
@@ -425,6 +454,11 @@ export function ProductDetailClient({
                     </span>
                   </div>
                 </div>
+                {activeSchema && customizationState.extraPrice > 0 && (
+                  <p className="mb-5 text-sm text-[#6b4b4c]">
+                    Ki?iselle?tirme fark?: +{customizationState.extraPrice} ?
+                  </p>
+                )}
                 
                 {/* Unit Price */}
                 <p className="text-sm text-[#6b4b4c] mb-5">
@@ -456,90 +490,41 @@ export function ProductDetailClient({
                 </div>
 
                 {/* Actions */}
-                {activeSchema ? (
-                  <div className="flex justify-end gap-3 text-transparent text-[0px]">
-                    <button
-                      onClick={toggleWishlist}
-                      className={`
-                        w-16 h-16 flex items-center justify-center rounded-xl border-2 transition-all
-                        ${isWishlisted
-                          ? "bg-red-50 border-red-300 text-red-500"
-                          : "border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white"
-                        }
-                      `}
-                    >
-                      <Heart className={`h-6 w-6 ${isWishlisted ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      onClick={handleShare}
-                      className="w-16 h-16 flex items-center justify-center rounded-xl border-2 border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white transition-all"
-                    >
-                      <Share2 className="h-6 w-6" />
-                    </button>
-                    Ekstra seçenekler yükleniyor...
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={toggleWishlist}
-                        className={`
-                          w-16 h-16 flex items-center justify-center rounded-xl border-2 transition-all
-                          ${isWishlisted
-                            ? "bg-red-50 border-red-300 text-red-500"
-                            : "border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white"
-                          }
-                        `}
-                      >
-                        <Heart className={`h-6 w-6 ${isWishlisted ? "fill-current" : ""}`} />
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        className="w-16 h-16 flex items-center justify-center rounded-xl border-2 border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white transition-all"
-                      >
-                        <Share2 className="h-6 w-6" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={isOutOfStock}
-                      className={`
-                        flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-semibold text-lg
-                        transition-all duration-300
-                        ${isOutOfStock
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-[#7B1113] text-white hover:bg-[#5d0e0f] active:scale-[0.98] shadow-lg shadow-[#7B1113]/25"
-                        }
-                      `}
-                    >
-                      <ShoppingCart className="h-6 w-6" />
-                      {isOutOfStock ? "Tükendi" : "Sepete Ekle"}
-                    </button>
-                    <button
-                      onClick={toggleWishlist}
-                      className={`
-                        w-16 h-16 flex items-center justify-center rounded-xl border-2 transition-all
-                        ${isWishlisted
-                          ? "bg-red-50 border-red-300 text-red-500"
-                          : "border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white"
-                        }
-                      `}
-                    >
-                      <Heart className={`h-6 w-6 ${isWishlisted ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      onClick={handleShare}
-                      className="w-16 h-16 flex items-center justify-center rounded-xl border-2 border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white transition-all"
-                    >
-                      <Share2 className="h-6 w-6" />
-                    </button>
-                  </div>
-                )}
-              </div>
-
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isOutOfStock || isSchemaLoading}
+                    className={`
+                      flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-semibold text-lg
+                      transition-all duration-300
+                      ${isOutOfStock || isSchemaLoading
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-[#7B1113] text-white hover:bg-[#5d0e0f] active:scale-[0.98] shadow-lg shadow-[#7B1113]/25"
+                      }
+                    `}
+                  >
+                    <ShoppingCart className="h-6 w-6" />
+                    {isSchemaLoading ? "Y?kleniyor" : isOutOfStock ? "T?kendi" : "Sepete Ekle"}
+                  </button>
+                  <button
+                    onClick={toggleWishlist}
+                    className={`
+                      w-16 h-16 flex items-center justify-center rounded-xl border-2 transition-all
+                      ${isWishlisted
+                        ? "bg-red-50 border-red-300 text-red-500"
+                        : "border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white"
+                      }
+                    `}
+                  >
+                    <Heart className={`h-6 w-6 ${isWishlisted ? "fill-current" : ""}`} />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="w-16 h-16 flex items-center justify-center rounded-xl border-2 border-[#7B1113]/20 text-[#7B1113] hover:border-[#7B1113]/40 bg-white transition-all"
+                  >
+                    <Share2 className="h-6 w-6" />
+                  </button>
+                </div>
               {/* Trust Badges - Modern Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <TrustBadge
@@ -695,10 +680,10 @@ export function ProductDetailClient({
       </section>
 
       {/* Mobile Sticky Bar */}
-      {!activeSchema && !isSchemaLoading && (
+      {!isSchemaLoading && (
         <MobileStickyBar
-          price={variant.price}
-          originalPrice={variant.originalPrice}
+          price={displayPrice}
+          originalPrice={displayOriginalPrice}
           onAddToCart={handleAddToCart}
           isOutOfStock={isOutOfStock}
         />

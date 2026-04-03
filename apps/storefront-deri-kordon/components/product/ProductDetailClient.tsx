@@ -23,10 +23,12 @@ import { ImageGallery } from "@/components/product/ImageGallery";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
-import { DynamicCustomizationForm } from "@/components/product/dynamic-customization-form";
+import {
+  DynamicCustomizationForm,
+  type CustomizationSelectionState,
+} from "@/components/product/dynamic-customization-form";
 import { Product } from "@/types/product";
 import {
-  CartCustomizationPayload,
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
@@ -43,6 +45,16 @@ type VariantAttribute = {
   image_url?: string | null;
 };
 type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
+
+function createEmptyCustomizationState(basePrice: number): CustomizationSelectionState {
+  return {
+    payload: null,
+    extraPrice: 0,
+    finalPrice: basePrice,
+    isValid: true,
+    hasSelections: false,
+  };
+}
 
 async function fetchAssignedSchema(productId: string) {
   const response = await fetch("/api/customization/schema?productId=" + encodeURIComponent(productId), {
@@ -90,6 +102,11 @@ export function ProductDetailClient({
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
+  const [customizationState, setCustomizationState] = useState<CustomizationSelectionState>(
+    createEmptyCustomizationState(initialProduct?.variants?.[initialVariantIndex]?.price || initialProduct?.variants?.[0]?.price || 0)
+  );
+  const [customizationValidationNonce, setCustomizationValidationNonce] = useState(0);
+  const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
 
@@ -141,6 +158,11 @@ export function ProductDetailClient({
       mounted = false;
     };
   }, [product?.id, product?.category, product?.subcategory]);
+
+  useEffect(() => {
+    setCustomizationState(createEmptyCustomizationState(variant?.price || 0));
+    setCustomizationValidationNonce(0);
+  }, [activeSchema?.id, variant?.id, variant?.price]);
 
   const variants = product?.variants || [];
   const variant = variants[selectedVariant] || variants[0];
@@ -206,17 +228,18 @@ export function ProductDetailClient({
   const isOutOfStock = variant.stock <= 0;
 
   const handleAddToCart = () => {
-    if (!isOutOfStock) {
-      addToCart(product, variant, quantity);
-    }
-  };
+    if (isOutOfStock || isSchemaLoading) return;
 
-  const handleAddToCartWithCustomization = (
-    customization: CartCustomizationPayload
-  ) => {
-    if (!isOutOfStock) {
-      addToCart(product, variant, quantity, customization);
+    if (activeSchema && !customizationState.isValid) {
+      setCustomizationValidationNonce((prev) => prev + 1);
+      extrasSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      return;
     }
+
+    addToCart(product, variant, quantity, customizationState.payload || undefined);
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -255,6 +278,11 @@ export function ProductDetailClient({
   };
 
   const stockStatus = getStockStatus();
+  const displayPrice = activeSchema ? customizationState.finalPrice : variant.price;
+  const displayOriginalPrice =
+    variant.originalPrice !== undefined
+      ? variant.originalPrice + (activeSchema ? customizationState.extraPrice : 0)
+      : undefined;
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
@@ -365,10 +393,10 @@ export function ProductDetailClient({
                   Ekstra seçenekler yükleniyor...
                 </div>
               ) : activeSchema ? (
-                <div className="space-y-3 border-b border-neutral-200 pb-5">
+                <div ref={extrasSectionRef} className="space-y-3 border-b border-neutral-200 pb-5">
                   <div className="flex items-center gap-3">
                     <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
-                      Ekstralar
+                      Kişiselleştirme
                     </span>
                     <span className="w-8 h-px bg-neutral-300" />
                   </div>
@@ -378,7 +406,8 @@ export function ProductDetailClient({
                     variantId={variant.id}
                     basePrice={variant.price}
                     initialSchema={activeSchema}
-                    onAddToCart={handleAddToCartWithCustomization}
+                    onCustomizationChange={setCustomizationState}
+                    validationNonce={customizationValidationNonce}
                   />
                 </div>
               ) : null}
@@ -388,11 +417,11 @@ export function ProductDetailClient({
                 {/* Price & Stock */}
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
-                    {variant.price} <span className="text-lg font-normal">₺</span>
+                    {displayPrice} <span className="text-lg font-normal">₺</span>
                   </span>
-                  {variant.originalPrice && (
+                  {displayOriginalPrice !== undefined && (
                     <span className="text-lg text-neutral-400 line-through">
-                      {variant.originalPrice} ₺
+                      {displayOriginalPrice} ₺
                     </span>
                   )}
                   {/* Stock Status */}
@@ -403,108 +432,70 @@ export function ProductDetailClient({
                     </span>
                   </div>
                 </div>
+                {activeSchema && customizationState.extraPrice > 0 && (
+                  <p className="text-sm text-neutral-500">
+                    Kişiselleştirme farkı: +{customizationState.extraPrice} ₺
+                  </p>
+                )}
                 
                 {/* Actions */}
-                {activeSchema ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-transparent text-[0px]">
-                    <div className="flex items-center gap-3 text-inherit">
-                      <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
-                      <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
-                        <button
-                          onClick={() => handleQuantityChange(-1)}
-                          disabled={quantity <= 1}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                        </button>
-                        <span className="w-10 text-center font-medium text-neutral-900 text-base">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= (variant.stock || 10)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                        </button>
-                      </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
+                    <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
+                      <button
+                        onClick={() => handleQuantityChange(-1)}
+                        disabled={quantity <= 1}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                      </button>
+                      <span className="w-10 text-center font-medium text-neutral-900 text-base">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={() => handleQuantityChange(1)}
+                        disabled={quantity >= (variant.stock || 10)}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                      </button>
                     </div>
-                    <button
-                      onClick={toggleWishlist}
-                      className={`
-                        w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
-                        ${isWishlisted ? "text-[#8A6B37]" : "hover:text-[#8A6B37]"}
-                      `}
-                    >
-                      <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      onClick={handleShare}
-                      className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
-                    >
-                      <Share2 className="h-5 w-5 stroke-[1.5]" />
-                    </button>
-                    Ekstra seçenekler yükleniyor...
                   </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
-                      <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
-                        <button
-                          onClick={() => handleQuantityChange(-1)}
-                          disabled={quantity <= 1}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                        </button>
-                        <span className="w-10 text-center font-medium text-neutral-900 text-base">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= (variant.stock || 10)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={isOutOfStock}
-                      className={`
-                        min-w-[220px] flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
-                        transition-all duration-300 rounded-full
-                        ${isOutOfStock
-                          ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
-                        }
-                      `}
-                    >
-                      <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                      {isOutOfStock ? "Tükendi" : "Sepete Ekle"}
-                    </button>
-                    <button
-                      onClick={toggleWishlist}
-                      className={`
-                        w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
-                        ${isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
-                        }
-                      `}
-                    >
-                      <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      onClick={handleShare}
-                      className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
-                    >
-                      <Share2 className="h-5 w-5 stroke-[1.5]" />
-                    </button>
-                  </div>
-                )}
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isOutOfStock || isSchemaLoading}
+                    className={`
+                      min-w-[220px] flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
+                      transition-all duration-300 rounded-full
+                      ${isOutOfStock || isSchemaLoading
+                        ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                        : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                      }
+                    `}
+                  >
+                    <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
+                    {isSchemaLoading ? "Yükleniyor" : isOutOfStock ? "Tükendi" : "Sepete Ekle"}
+                  </button>
+                  <button
+                    onClick={toggleWishlist}
+                    className={`
+                      w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
+                      ${isWishlisted
+                        ? "text-[#8A6B37]"
+                        : "hover:text-[#8A6B37]"
+                      }
+                    `}
+                  >
+                    <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
+                  >
+                    <Share2 className="h-5 w-5 stroke-[1.5]" />
+                  </button>
+                </div>
               </div>
 
               {/* Accordions — Inline in right column */}
@@ -657,10 +648,10 @@ export function ProductDetailClient({
       </section>
 
       {/* Mobile Sticky Bar */}
-      {!activeSchema && !isSchemaLoading && (
+      {!isSchemaLoading && (
         <MobileStickyBar
-          price={variant.price}
-          originalPrice={variant.originalPrice}
+          price={displayPrice}
+          originalPrice={displayOriginalPrice}
           onAddToCart={handleAddToCart}
           isOutOfStock={isOutOfStock}
         />

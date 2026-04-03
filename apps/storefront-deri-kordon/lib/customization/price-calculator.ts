@@ -10,6 +10,13 @@ import {
   CustomizationOption,
 } from "@/types/product-customization";
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
 /**
  * Calculate price for a single option
  */
@@ -132,7 +139,7 @@ export function calculatePrice(
 
   for (const step of steps) {
     const value = values[step.key];
-    if (value === undefined || value === null || value === "") {
+    if (!hasMeaningfulValue(value)) {
       continue;
     }
 

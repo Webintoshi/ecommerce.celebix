@@ -1,23 +1,14 @@
 "use client";
 
-// =====================================================
-// DYNAMIC PRODUCT CUSTOMIZATION FORM
-// Customer-facing form for product customization
-// =====================================================
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
+  CartCustomizationPayload,
   CustomizationSchema,
   CustomizationStep,
   PriceBreakdown,
-  CartCustomizationPayload,
+  SelectionValue,
 } from "@/types/product-customization";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import { evaluateConditions } from "@/lib/customization/conditional-logic";
 import { calculatePrice, formatPrice } from "@/lib/customization/price-calculator";
 import {
@@ -32,16 +23,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Check, ShoppingCart, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export interface CustomizationSelectionState {
+  payload: CartCustomizationPayload | null;
+  extraPrice: number;
+  finalPrice: number;
+  isValid: boolean;
+  hasSelections: boolean;
+}
 
 interface DynamicCustomizationFormProps {
   schemaId: string;
   productId: string;
   variantId: string;
   basePrice: number;
-  onAddToCart: (customization: CartCustomizationPayload) => void;
   initialSchema?: (CustomizationSchema & { steps: CustomizationStep[] }) | null;
+  onCustomizationChange?: (state: CustomizationSelectionState) => void;
+  validationNonce?: number;
   className?: string;
 }
 
@@ -61,28 +61,75 @@ function buildDefaultValues(steps: CustomizationStep[]) {
   return defaultValues;
 }
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function buildSelections(
+  steps: CustomizationStep[],
+  values: Record<string, unknown>,
+  priceBreakdown: PriceBreakdown
+): SelectionValue[] {
+  return steps
+    .filter((step) => hasMeaningfulValue(values[step.key]))
+    .map((step) => {
+      const value = values[step.key] as string | number | boolean | string[];
+      let displayValue = String(value);
+
+      if (Array.isArray(value)) {
+        const labels = value.map((entry) => {
+          const option = step.options?.find((opt) => opt.value === entry);
+          return option?.label || String(entry);
+        });
+        displayValue = labels.join(", ");
+      } else if (step.options) {
+        const option = step.options.find((opt) => opt.value === value);
+        if (option) displayValue = option.label;
+      }
+
+      const adjustment =
+        priceBreakdown.adjustments.find((adj) => adj.step_key === step.key)
+          ?.adjustment_amount ?? 0;
+
+      return {
+        step_id: step.id,
+        step_key: step.key,
+        step_label: step.label,
+        type: step.type,
+        value,
+        display_value: displayValue,
+        price_adjustment: adjustment,
+      };
+    });
+}
+
 export function DynamicCustomizationForm({
   schemaId,
-  productId,
-  variantId,
+  productId: _productId,
+  variantId: _variantId,
   basePrice,
-  onAddToCart,
   initialSchema = null,
+  onCustomizationChange,
+  validationNonce = 0,
   className,
 }: DynamicCustomizationFormProps) {
   const [schema, setSchema] = useState<(CustomizationSchema & { steps: CustomizationStep[] }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [priceBreakdown, setPriceBreakdown] = useState<PriceBreakdown | null>(null);
-  const [addingToCart, setAddingToCart] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  // Load schema
   useEffect(() => {
     async function loadSchema() {
+      setLoading(true);
+
       if (initialSchema && initialSchema.id === schemaId) {
         setSchema(initialSchema);
         setValues(buildDefaultValues(initialSchema.steps || []));
+        setTouched({});
         setLoading(false);
         return;
       }
@@ -95,9 +142,7 @@ export function DynamicCustomizationForm({
         const payload = await response.json();
 
         if (!response.ok || !payload?.success) {
-          throw new Error(
-            payload?.error || "Kişiselleştirme şeması yüklenemedi",
-          );
+          throw new Error(payload?.error || "Kişiselleştirme şeması yüklenemedi");
         }
 
         const loadedSchema = payload.schema as
@@ -107,14 +152,18 @@ export function DynamicCustomizationForm({
         if (!loadedSchema) {
           setSchema(null);
           setValues({});
+          setTouched({});
           return;
         }
 
         setSchema(loadedSchema);
         setValues(buildDefaultValues(loadedSchema.steps || []));
+        setTouched({});
       } catch (error) {
-        console.error("Error loading schema:", error);
-        toast.error("Kişiselleştirme şeması yüklenirken bir hata oluştu");
+        console.error("Customization schema load error:", error);
+        setSchema(null);
+        setValues({});
+        setTouched({});
       } finally {
         setLoading(false);
       }
@@ -123,133 +172,120 @@ export function DynamicCustomizationForm({
     loadSchema();
   }, [initialSchema, schemaId]);
 
-  // Calculate price when values change
-  useEffect(() => {
-    if (!schema) return;
+  const visibleSteps = useMemo(
+    () =>
+      schema?.steps.filter((step) => {
+        if (!step.show_conditions) return true;
+        return evaluateConditions(step.show_conditions, values, schema.steps);
+      }) || [],
+    [schema, values]
+  );
 
-    const visibleSteps = schema.steps.filter((step) => {
-      if (!step.show_conditions) return true;
-      return evaluateConditions(step.show_conditions, values, schema.steps);
-    });
+  useEffect(() => {
+    if (!schema) {
+      setPriceBreakdown(null);
+      return;
+    }
 
     const breakdown = calculatePrice(basePrice, visibleSteps, values);
     setPriceBreakdown(breakdown);
-  }, [values, schema, basePrice]);
+  }, [values, schema, basePrice, visibleSteps]);
 
   const handleValueChange = useCallback((stepKey: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [stepKey]: value }));
     setTouched((prev) => ({ ...prev, [stepKey]: true }));
   }, []);
 
-  const visibleSteps = schema?.steps.filter((step) => {
-    if (!step.show_conditions) return true;
-    return evaluateConditions(step.show_conditions, values, schema.steps);
-  }) || [];
+  const isStepValid = useCallback(
+    (step: CustomizationStep): boolean => {
+      if (!step.is_required) return true;
+      return hasMeaningfulValue(values[step.key]);
+    },
+    [values]
+  );
 
-  const isStepValid = (step: CustomizationStep): boolean => {
-    if (!step.is_required) return true;
-    const value = values[step.key];
-    if (value === undefined || value === null || value === "") return false;
-    if (Array.isArray(value) && value.length === 0) return false;
-    return true;
-  };
+  const allStepsValid = useMemo(
+    () => visibleSteps.every(isStepValid),
+    [visibleSteps, isStepValid]
+  );
 
-  const allStepsValid = visibleSteps.every(isStepValid);
+  useEffect(() => {
+    if (!validationNonce || visibleSteps.length === 0) return;
 
-  const handleSubmit = async () => {
-    if (!allStepsValid || !priceBreakdown) return;
+    setTouched((prev) => {
+      const next = { ...prev };
+      for (const step of visibleSteps) {
+        next[step.key] = true;
+      }
+      return next;
+    });
+  }, [validationNonce, visibleSteps]);
 
-    setAddingToCart(true);
-    try {
-      const selections = visibleSteps
-        .filter((step) => {
-          const value = values[step.key];
-          if (value === undefined || value === null || value === "") return false;
-          if (Array.isArray(value) && value.length === 0) return false;
-          return true;
-        })
-        .map((step) => {
-          const value = values[step.key] as string | number | boolean | string[];
-          let displayValue = String(value);
+  useEffect(() => {
+    if (!onCustomizationChange) return;
 
-          if (Array.isArray(value)) {
-            const labels = value.map((entry) => {
-              const option = step.options?.find((opt) => opt.value === entry);
-              return option?.label || String(entry);
-            });
-            displayValue = labels.join(", ");
-          } else if (step.options) {
-            const option = step.options.find((opt) => opt.value === value);
-            if (option) displayValue = option.label;
-          }
-
-          const adjustment =
-            priceBreakdown.adjustments.find((adj) => adj.step_key === step.key)
-              ?.adjustment_amount ?? 0;
-
-          return {
-            step_id: step.id,
-            step_key: step.key,
-            step_label: step.label,
-            type: step.type,
-            value,
-            display_value: displayValue,
-            price_adjustment: adjustment,
-          };
-        });
-
-      const payload: CartCustomizationPayload = {
-        schema_id: schema.id,
-        schema_snapshot: {
-          id: schema.id,
-          name: schema.name,
-          slug: schema.slug,
-          description: schema.description,
-          is_active: schema.is_active,
-          sort_order: schema.sort_order,
-          settings: schema.settings || {},
-        },
-        selections,
-        price_breakdown: priceBreakdown,
-      };
-
-      await onAddToCart(payload);
-      toast.success(schema?.settings?.success_message || "Ürün sepete eklendi");
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      toast.error("Sepete eklenirken bir hata oluştu");
-    } finally {
-      setAddingToCart(false);
+    if (!schema || !priceBreakdown) {
+      onCustomizationChange({
+        payload: null,
+        extraPrice: 0,
+        finalPrice: basePrice,
+        isValid: true,
+        hasSelections: false,
+      });
+      return;
     }
-  };
+
+    const selections = buildSelections(visibleSteps, values, priceBreakdown);
+    const hasSelections = selections.length > 0;
+
+    onCustomizationChange({
+      payload:
+        allStepsValid && hasSelections
+          ? {
+              schema_id: schema.id,
+              schema_snapshot: {
+                id: schema.id,
+                name: schema.name,
+                slug: schema.slug,
+                description: schema.description,
+                is_active: schema.is_active,
+                sort_order: schema.sort_order,
+                settings: schema.settings || {},
+              },
+              selections,
+              price_breakdown: priceBreakdown,
+            }
+          : null,
+      extraPrice: priceBreakdown.total_adjustment,
+      finalPrice: priceBreakdown.final_price,
+      isValid: allStepsValid,
+      hasSelections,
+    });
+  }, [allStepsValid, basePrice, onCustomizationChange, priceBreakdown, schema, values, visibleSteps]);
 
   if (loading) {
     return (
-      <Card className={className}>
-        <CardContent className="p-6 space-y-4">
-          <Skeleton className="h-6 w-1/2" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
+      <div className={cn("space-y-3", className)}>
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-11 w-full rounded-2xl" />
+        <Skeleton className="h-11 w-full rounded-2xl" />
+      </div>
     );
   }
 
-  if (!schema) {
+  if (!schema || visibleSteps.length === 0) {
     return null;
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-lg">{schema.name}</CardTitle>
-        {schema.description && (
-          <p className="text-sm text-gray-600">{schema.description}</p>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Form Fields */}
+    <div className={cn("space-y-4", className)}>
+      {schema.description && (
+        <p className="text-sm leading-relaxed text-neutral-500">
+          {schema.description}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-4">
         {visibleSteps.map((step) => (
           <FormField
             key={step.id}
@@ -257,114 +293,36 @@ export function DynamicCustomizationForm({
             value={values[step.key]}
             onChange={(value) => handleValueChange(step.key, value)}
             isValid={isStepValid(step)}
-            showError={touched[step.key] && !isStepValid(step)}
+            showError={Boolean(touched[step.key] && !isStepValid(step))}
           />
         ))}
+      </div>
 
-        {/* Price Summary */}
-        {(schema.settings?.show_summary !== false ||
-          schema.settings?.show_price_breakdown !== false) &&
-          priceBreakdown && (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              {schema.settings?.show_summary !== false && (
-                <>
-                  <h4 className="font-medium text-sm text-gray-900">
-                    Seçimleriniz
-                  </h4>
-                  <div className="space-y-1">
-                    {visibleSteps.map((step) => {
-                      const value = values[step.key];
-                      if (
-                        value === undefined ||
-                        value === null ||
-                        value === ""
-                      )
-                        return null;
+      {priceBreakdown && priceBreakdown.total_adjustment > 0 && (
+        <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white/70 px-4 py-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+              Ekstra Ücret
+            </p>
+            <p className="text-sm text-neutral-500">
+              Seçtiğiniz kişiselleştirme fiyatı ürüne eklenir.
+            </p>
+          </div>
+          <span className="text-base font-semibold text-neutral-900">
+            +{formatPrice(priceBreakdown.total_adjustment)}
+          </span>
+        </div>
+      )}
 
-                      let displayValue = String(value);
-                      if (step.options) {
-                        const option = step.options.find(
-                          (o) => o.value === value
-                        );
-                        if (option) displayValue = option.label;
-                      }
-
-                      return (
-                        <div
-                          key={step.id}
-                          className="flex justify-between text-sm"
-                        >
-                          <span className="text-gray-600">{step.label}</span>
-                          <span className="font-medium text-gray-900">
-                            {displayValue}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <Separator />
-                </>
-              )}
-
-              {schema.settings?.show_price_breakdown !== false && (
-                <>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Temel Fiyat</span>
-                      <span>{formatPrice(basePrice)}</span>
-                    </div>
-                    {priceBreakdown.adjustments.map((adj, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between text-sm"
-                      >
-                        <span className="text-gray-600">
-                          {adj.step_label}
-                          {adj.option_label && ` (${adj.option_label})`}
-                        </span>
-                        <span className="text-green-600">
-                          +{formatPrice(adj.adjustment_amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">Toplam</span>
-                    <span className="font-bold text-xl text-amber-600">
-                      {formatPrice(priceBreakdown.final_price)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={!allStepsValid || addingToCart}
-          className="w-full bg-amber-600 hover:bg-amber-700"
-          size="lg"
-        >
-          {addingToCart ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Ekleniyor...
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              {schema.settings?.submit_button_text || "Sepete Ekle"}
-            </>
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      {validationNonce > 0 && !allStepsValid && (
+        <p className="text-sm text-rose-600">
+          Sepete eklemeden önce zorunlu kişiselleştirme alanlarını tamamlayın.
+        </p>
+      )}
+    </div>
   );
 }
 
-// Form Field Component
 function FormField({
   step,
   value,
@@ -379,25 +337,27 @@ function FormField({
   showError: boolean;
 }) {
   const label = (
-    <div className="flex items-center gap-1 mb-2">
-      <Label className={cn(showError && "text-red-500")}>{step.label}</Label>
-      {step.is_required && <span className="text-red-500">*</span>}
+    <div className="mb-2 flex items-center gap-1">
+      <Label className={cn("text-sm text-neutral-900", showError && "text-rose-600")}>
+        {step.label}
+      </Label>
+      {step.is_required && <span className="text-rose-600">*</span>}
     </div>
   );
 
   const helpText = step.help_text && (
-    <p className="text-xs text-gray-500 mt-1">{step.help_text}</p>
+    <p className="mt-1 text-xs text-neutral-500">{step.help_text}</p>
   );
 
-  const errorMessage = showError && (
-    <p className="text-xs text-red-500 mt-1">Bu alan gereklidir</p>
+  const errorMessage = showError && !isValid && (
+    <p className="mt-1 text-xs text-rose-600">Bu alan gereklidir</p>
   );
 
   const gridClass = {
     full: "w-full",
-    half: "w-full md:w-1/2",
-    third: "w-full md:w-1/3",
-    quarter: "w-full md:w-1/4",
+    half: "w-full md:w-[calc(50%-0.5rem)]",
+    third: "w-full md:w-[calc(33.333%-0.75rem)]",
+    quarter: "w-full md:w-[calc(25%-0.75rem)]",
   }[step.grid_width || "full"];
 
   return (
@@ -406,16 +366,21 @@ function FormField({
         <div>
           {label}
           <Select value={String(value || "")} onValueChange={onChange}>
-            <SelectTrigger className={cn(showError && "border-red-500")}>
+            <SelectTrigger
+              className={cn(
+                "rounded-2xl border-neutral-200 bg-white",
+                showError && "border-rose-400"
+              )}
+            >
               <SelectValue placeholder={step.placeholder || "Seçiniz"} />
             </SelectTrigger>
             <SelectContent>
               {step.options?.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center justify-between w-full">
+                  <div className="flex w-full items-center justify-between">
                     <span>{option.label}</span>
                     {option.price_adjustment > 0 && (
-                      <span className="text-green-600 text-xs ml-2">
+                      <span className="ml-2 text-xs text-emerald-600">
                         +{formatPrice(option.price_adjustment)}
                       </span>
                     )}
@@ -447,15 +412,15 @@ function FormField({
                 <Label
                   htmlFor={`${step.key}-${option.value}`}
                   className={cn(
-                    "flex items-center justify-center px-4 py-2 border-2 rounded-lg cursor-pointer transition-all",
-                    "peer-data-[state=checked]:border-amber-500 peer-data-[state=checked]:bg-amber-50",
-                    "hover:border-gray-300",
-                    showError && "border-red-300"
+                    "flex cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-sm transition-all",
+                    "border-neutral-200 bg-white hover:border-neutral-300",
+                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37]/10",
+                    showError && "border-rose-300"
                   )}
                 >
                   {option.label}
                   {option.price_adjustment > 0 && (
-                    <span className="text-green-600 text-xs ml-2">
+                    <span className="ml-2 text-xs text-emerald-600">
                       +{formatPrice(option.price_adjustment)}
                     </span>
                   )}
@@ -471,43 +436,44 @@ function FormField({
       {step.type === "image_select" && (
         <div>
           {label}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {step.options?.map((option) => (
               <button
                 key={option.value}
+                type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative border-2 rounded-lg overflow-hidden transition-all",
+                  "relative overflow-hidden rounded-2xl border transition-all",
                   value === option.value
-                    ? "border-amber-500 ring-2 ring-amber-200"
-                    : "border-gray-200 hover:border-gray-300",
-                  showError && "border-red-300"
+                    ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
+                    : "border-neutral-200 hover:border-neutral-300",
+                  showError && "border-rose-300"
                 )}
               >
-                <div className="aspect-square bg-gray-100">
+                <div className="aspect-square bg-neutral-100">
                   {option.image_url ? (
                     <img
                       src={option.image_url}
                       alt={option.label}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                    <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
                       Görsel Yok
                     </div>
                   )}
                 </div>
-                <div className="p-2 text-center">
-                  <p className="text-sm font-medium">{option.label}</p>
+                <div className="space-y-1 p-3 text-left">
+                  <p className="text-sm font-medium text-neutral-900">{option.label}</p>
                   {option.price_adjustment > 0 && (
-                    <p className="text-xs text-green-600">
+                    <p className="text-xs text-emerald-600">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
                 {value === option.value && (
-                  <div className="absolute top-2 right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
-                    <Check className="w-4 h-4 text-white" />
+                  <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#8A6B37]">
+                    <Check className="h-4 w-4 text-white" />
                   </div>
                 )}
               </button>
@@ -527,10 +493,13 @@ function FormField({
             onChange={(e) => onChange(e.target.value)}
             placeholder={step.placeholder}
             maxLength={step.validation_rules?.max_length}
-            className={cn(showError && "border-red-500")}
+            className={cn(
+              "rounded-2xl border-neutral-200 bg-white",
+              showError && "border-rose-400"
+            )}
           />
           {step.validation_rules?.max_length && (
-            <p className="text-xs text-gray-400 mt-1 text-right">
+            <p className="mt-1 text-right text-xs text-neutral-400">
               {String(value || "").length}/{step.validation_rules.max_length}
             </p>
           )}
@@ -548,10 +517,13 @@ function FormField({
             placeholder={step.placeholder}
             rows={4}
             maxLength={step.validation_rules?.max_length}
-            className={cn(showError && "border-red-500")}
+            className={cn(
+              "min-h-[120px] rounded-2xl border-neutral-200 bg-white",
+              showError && "border-rose-400"
+            )}
           />
           {step.validation_rules?.max_length && (
-            <p className="text-xs text-gray-400 mt-1 text-right">
+            <p className="mt-1 text-right text-xs text-neutral-400">
               {String(value || "").length}/{step.validation_rules.max_length}
             </p>
           )}
@@ -561,19 +533,17 @@ function FormField({
       )}
 
       {step.type === "checkbox" && (
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
           <Checkbox
             id={step.key}
             checked={Boolean(value)}
             onCheckedChange={onChange}
-            className={cn(showError && "border-red-500")}
+            className={cn(showError && "border-rose-400")}
           />
           <div className="flex-1">
-            <Label htmlFor={step.key} className="cursor-pointer">
+            <Label htmlFor={step.key} className="cursor-pointer text-sm text-neutral-900">
               {step.label}
-              {step.is_required && (
-                <span className="text-red-500 ml-1">*</span>
-              )}
+              {step.is_required && <span className="ml-1 text-rose-600">*</span>}
             </Label>
             {helpText}
             {errorMessage}
@@ -591,7 +561,10 @@ function FormField({
             placeholder={step.placeholder}
             min={step.validation_rules?.min_value}
             max={step.validation_rules?.max_value}
-            className={cn(showError && "border-red-500")}
+            className={cn(
+              "rounded-2xl border-neutral-200 bg-white",
+              showError && "border-rose-400"
+            )}
           />
           {helpText}
           {errorMessage}
