@@ -313,7 +313,7 @@ export function ProductDetailClient({
       {/* Main Product Section */}
       <section className="py-8 lg:py-12">
         <div className="container-premium">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-8 lg:gap-12 items-start">
             {/* Left: Image Gallery (sticky) */}
             <div className="lg:sticky lg:top-28 lg:self-start">
               <ImageGallery 
