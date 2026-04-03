@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
 import {
+    getVariantAttributeRegistry,
+    hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
+import {
     diffProductTags,
     syncProductTagSuggestions,
     validateAndNormalizeProductTags,
@@ -28,9 +32,36 @@ function logMarketplaceQueueError(error: unknown, context: string) {
     console.error(`Marketplace queue sync failed (${context}):`, error);
 }
 
+function hydrateListingProducts(
+    products: Record<string, unknown>[],
+    attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+) {
+    return products.map((product) => ({
+        ...product,
+        variants: Array.isArray(product.variants)
+            ? hydrateProductVariantSnapshots(
+                product.variants as Array<Record<string, unknown>>,
+                attributeRegistry,
+            )
+            : [],
+    }));
+}
+
+function hydrateListingProduct(
+    product: Record<string, unknown> | null,
+    attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+) {
+    if (!product) {
+        return product;
+    }
+
+    return hydrateListingProducts([product], attributeRegistry)[0];
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
+        const attributeRegistryPromise = getVariantAttributeRegistry();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         const featured = searchParams.get("featured");
@@ -54,7 +85,10 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            return NextResponse.json({ success: true, product: data });
+            return NextResponse.json({
+                success: true,
+                product: hydrateListingProduct(data, await attributeRegistryPromise),
+            });
         } else if (slug) {
             // Fetch single product by slug from Supabase
             const { createServerClient } = await import("@/lib/supabase");
@@ -74,7 +108,10 @@ export async function GET(request: NextRequest) {
                     error: error?.message || "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: data[0] });
+            return NextResponse.json({
+                success: true,
+                product: hydrateListingProduct(data[0], await attributeRegistryPromise),
+            });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
@@ -125,7 +162,7 @@ export async function GET(request: NextRequest) {
             if (error) throw error;
             return NextResponse.json({
                 success: true,
-                products: data || [],
+                products: hydrateListingProducts((data || []) as Record<string, unknown>[], await attributeRegistryPromise),
                 pagination: {
                     page,
                     limit,
@@ -170,7 +207,7 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: data || [],
+                products: hydrateListingProducts((data || []) as Record<string, unknown>[], await attributeRegistryPromise),
                 pagination: {
                     page,
                     limit,
@@ -180,7 +217,10 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        return NextResponse.json({ success: true, products });
+        return NextResponse.json({
+            success: true,
+            products: hydrateListingProducts((products || []) as Record<string, unknown>[], await attributeRegistryPromise),
+        });
     } catch (error) {
         console.error("Error fetching products:", error);
         return NextResponse.json(

@@ -5,6 +5,10 @@ import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductVariant } from "@/types/product";
 import { inferLegacySubcategorySlug, readCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
@@ -26,6 +30,8 @@ interface DBVariant {
   barcode: string | null;
   images: string[] | null;
   group_name: string | null;
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
 }
 
 interface DBProduct {
@@ -131,6 +137,8 @@ function transformVariant(variant: DBVariant): ProductVariant {
     barcode: variant.barcode || undefined,
     groupName: variant.group_name || undefined,
     images: variant.images || [],
+    attributes: variant.attributes,
+    raw_attributes: variant.raw_attributes,
     unit: (variant.unit as ProductVariant["unit"]) || "adet",
   };
 }
@@ -151,8 +159,12 @@ function resolveProductCategorySlugs(product: DBProduct) {
   };
 }
 
-function transformProduct(product: DBProduct): Product {
+function transformProduct(
+  product: DBProduct,
+  attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+): Product {
   const resolvedHierarchy = resolveProductCategorySlugs(product);
+  const hydratedVariants = hydrateProductVariantSnapshots(product.variants || [], attributeRegistry);
   return {
     id: product.id,
     name: product.name,
@@ -161,7 +173,7 @@ function transformProduct(product: DBProduct): Product {
     shortDescription: product.short_description || "",
     category: ((resolvedHierarchy.category || "genel") as unknown) as Product["category"],
     subcategory: ((resolvedHierarchy.subcategory || "genel") as unknown) as Product["subcategory"],
-    variants: (product.variants || []).map(transformVariant),
+    variants: hydratedVariants.map(transformVariant),
     images:
       product.images && product.images.length > 0
         ? product.images
@@ -190,19 +202,22 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
   const categorySet = new Set(categorySlugs);
 
   try {
-    const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-      let query = supabase
-        .from("products")
-        .select("*, variants:product_variants(*, raw_attributes:attributes)");
+    const [{ data, error }, attributeRegistry] = await Promise.all([
+      runProductsQuery((includeIsActiveFilter) => {
+        let query = supabase
+          .from("products")
+          .select("*, variants:product_variants(*, raw_attributes:attributes)");
 
-      if (includeIsActiveFilter) {
-        query = query.eq("is_active", true);
-      }
+        if (includeIsActiveFilter) {
+          query = query.eq("is_active", true);
+        }
 
-      return query
-        .or("status.eq.published,status.is.null")
-        .order("created_at", { ascending: false });
-    });
+        return query
+          .or("status.eq.published,status.is.null")
+          .order("created_at", { ascending: false });
+      }),
+      getVariantAttributeRegistry(),
+    ]);
 
     if (error || !data) {
       console.error("Products fetch error:", error);
@@ -216,7 +231,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
         const subcategorySlug = resolvedHierarchy.subcategory;
         return categorySet.has(categorySlug) || categorySet.has(subcategorySlug);
       })
-      .map(transformProduct)
+      .map((product) => transformProduct(product, attributeRegistry))
       .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Unexpected error fetching products:", error);

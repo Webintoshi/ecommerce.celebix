@@ -10,7 +10,10 @@ import {
   updateStoredVariantAttribute,
 } from "@/lib/db/variant-attributes";
 import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
-import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
+import {
+  syncCatalogVariantAttributeSnapshots,
+  syncStoredVariantAttributeRegistrySnapshot,
+} from "@/lib/variant-attribute-catalog-sync";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
@@ -246,6 +249,12 @@ export async function GET(request: NextRequest) {
       } catch (backfillError) {
         console.error("Error backfilling variant attributes from catalog:", backfillError);
       }
+    }
+
+    try {
+      await syncStoredVariantAttributeRegistrySnapshot(supabase);
+    } catch (snapshotError) {
+      console.error("Error syncing variant attribute registry snapshot:", snapshotError);
     }
 
     return NextResponse.json({ success: true, attributes });

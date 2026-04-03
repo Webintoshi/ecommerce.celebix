@@ -2,6 +2,10 @@ import { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { ProductCard } from "@/components/product/ProductCard";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import Link from "next/link";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductCategory, ProductVariant } from "@/types/product";
@@ -55,6 +59,10 @@ interface DBVariant {
   original_price: number | null;
   stock: number;
   weight: string | null;
+  group_name?: string | null;
+  images?: string[] | null;
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
 }
 
 // Valid category slugs mapped to ProductCategory type
@@ -105,15 +113,18 @@ async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
   const supabase = createServerClient();
   
   try {
-    const { data: products, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        variants:product_variants(*, raw_attributes:attributes)
-      `)
-      .eq("category", categorySlug)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+    const [{ data: products, error }, attributeRegistry] = await Promise.all([
+      supabase
+        .from("products")
+        .select(`
+          *,
+          variants:product_variants(*, raw_attributes:attributes)
+        `)
+        .eq("category", categorySlug)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false }),
+      getVariantAttributeRegistry(),
+    ]);
     
     if (error || !products) {
       console.error("Products fetch error:", error);
@@ -121,7 +132,7 @@ async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
     }
     
     const transformedProducts = (products as DBProduct[])
-      .map(p => transformProduct(p))
+      .map((product) => transformProduct(product, attributeRegistry))
       .filter((p): p is Product => p !== null);
     
     return transformedProducts.filter(p => p.variants && p.variants.length > 0);
@@ -131,7 +142,10 @@ async function getProductsByCategory(categorySlug: string): Promise<Product[]> {
   }
 }
 
-function transformProduct(dbProduct: DBProduct): Product | null {
+function transformProduct(
+  dbProduct: DBProduct,
+  attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+): Product | null {
   const storedHierarchy = readCelebixCategoryHierarchyMetadata(dbProduct.shopify_metadata);
   const resolvedCategory = dbProduct.category || storedHierarchy.categorySlug || "";
   const resolvedSubcategory =
@@ -152,7 +166,9 @@ function transformProduct(dbProduct: DBProduct): Product | null {
   }
 
   // Transform variants
-  const variants: ProductVariant[] = dbProduct.variants?.map(v => ({
+  const hydratedVariants = hydrateProductVariantSnapshots(dbProduct.variants || [], attributeRegistry);
+
+  const variants: ProductVariant[] = hydratedVariants.map(v => ({
     id: v.id,
     name: v.name,
     weight: v.weight ? parseInt(v.weight, 10) : 250,
@@ -161,8 +177,12 @@ function transformProduct(dbProduct: DBProduct): Product | null {
     stock: v.stock,
     sku: v.sku || "",
     barcode: undefined,
+    groupName: v.group_name || undefined,
+    images: Array.isArray(v.images) ? v.images : [],
+    attributes: v.attributes,
+    raw_attributes: v.raw_attributes,
     unit: "g",
-  })) || [];
+  }));
 
   return {
     id: dbProduct.id,

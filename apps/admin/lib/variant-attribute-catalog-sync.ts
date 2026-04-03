@@ -1,4 +1,9 @@
-import { getStoredVariantAttributes, isVariantAttributeTableMissing, isVariantAttributeValueTableMissing } from "@/lib/db/variant-attributes";
+import {
+  getStoredVariantAttributes,
+  isVariantAttributeTableMissing,
+  isVariantAttributeValueTableMissing,
+  saveStoredVariantAttributes,
+} from "@/lib/db/variant-attributes";
 
 type JsonObject = Record<string, unknown>;
 
@@ -131,6 +136,31 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
   }));
 }
 
+function toStoredVariantAttributes(registry: RegistryAttribute[]) {
+  return registry.map((attribute) => ({
+    id: attribute.id,
+    name: attribute.name,
+    is_active: true,
+    values: attribute.values.map((value, index) => ({
+      id: value.id,
+      attribute_id: value.attribute_id,
+      value: value.value,
+      color_code: value.color_code ?? null,
+      image_url: value.image_url ?? null,
+      display_order: typeof value.display_order === "number" ? value.display_order : index,
+      is_active: true,
+    })),
+  }));
+}
+
+export async function syncStoredVariantAttributeRegistrySnapshot(supabase: any): Promise<RegistryAttribute[]> {
+  const registry = await readVariantAttributeRegistry(supabase);
+  if (registry.length > 0) {
+    await saveStoredVariantAttributes(toStoredVariantAttributes(registry));
+  }
+  return registry;
+}
+
 function createRegistryIndexes(registry: RegistryAttribute[]) {
   const byValueId = new Map<string, RegistryMatch>();
   const byAttributeAndValue = new Map<string, RegistryMatch>();
@@ -239,7 +269,7 @@ function syncSnapshotEntry(
 }
 
 export async function syncCatalogVariantAttributeSnapshots(supabase: any): Promise<void> {
-  const registry = await readVariantAttributeRegistry(supabase);
+  const registry = await syncStoredVariantAttributeRegistrySnapshot(supabase);
   if (registry.length === 0) {
     return;
   }

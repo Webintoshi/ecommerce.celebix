@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+    getVariantAttributeRegistry,
+    hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 
 interface RawHeroSlide {
     id?: string | number;
@@ -40,6 +44,21 @@ interface RawPromoBanner {
     color?: string;
     discount?: string;
     endDate?: string;
+}
+
+function hydrateHomepageProducts(
+    products: Record<string, unknown>[],
+    registry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+) {
+    return products.map((product) => ({
+        ...product,
+        variants: Array.isArray(product.variants)
+            ? hydrateProductVariantSnapshots(
+                product.variants as Array<Record<string, unknown>>,
+                registry,
+            )
+            : [],
+    }));
 }
 
 function normalizeHeroSlides(payload: unknown) {
@@ -213,7 +232,8 @@ export async function GET(request: NextRequest) {
             heroBannersData,
             categoriesData,
             productsData,
-            promoBannersData
+            promoBannersData,
+            attributeRegistry,
         ] = await Promise.all([
             supabase
                 .from("settings")
@@ -226,7 +246,8 @@ export async function GET(request: NextRequest) {
                 .from("settings")
                 .select("value")
                 .eq("key", "promo_banners")
-                .maybeSingle()
+                .maybeSingle(),
+            getVariantAttributeRegistry(),
         ]);
 
         // Process hero banners
@@ -242,7 +263,7 @@ export async function GET(request: NextRequest) {
             productCount: typeof cat.product_count === "number" ? cat.product_count : 0
         }));
 
-        const products = productsData || [];
+        const products = hydrateHomepageProducts(productsData || [], attributeRegistry);
 
         // Process promo banners
         const promoBanners = normalizePromoBanners(promoBannersData.data?.value);

@@ -1,5 +1,9 @@
 import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 
@@ -48,9 +52,18 @@ interface DBVariant {
   stock: number;
   weight: string | null;
   created_at: string;
+  group_name?: string | null;
+  images?: string[] | null;
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
 }
 
-function transformProduct(dbProduct: DBProduct): Product {
+function transformProduct(
+  dbProduct: DBProduct,
+  attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+): Product {
+  const hydratedVariants = hydrateProductVariantSnapshots(dbProduct.variants || [], attributeRegistry);
+
   return {
     id: dbProduct.id,
     name: dbProduct.name,
@@ -62,7 +75,7 @@ function transformProduct(dbProduct: DBProduct): Product {
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
     variants:
-      dbProduct.variants?.map((v) => ({
+      hydratedVariants.map((v) => ({
         id: v.id,
         name: v.name,
         weight: v.weight ? parseInt(v.weight) : 250,
@@ -70,6 +83,10 @@ function transformProduct(dbProduct: DBProduct): Product {
         originalPrice: v.original_price ? Number(v.original_price) : undefined,
         stock: v.stock,
         sku: v.sku || "",
+        groupName: v.group_name || undefined,
+        images: Array.isArray(v.images) ? v.images : [],
+        attributes: v.attributes,
+        raw_attributes: v.raw_attributes,
       })) || [],
     vegan: dbProduct.vegan,
     glutenFree: dbProduct.gluten_free,
@@ -88,7 +105,8 @@ async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
 
   try {
-    const { data: products, error } = await runProductsQuery(
+    const [{ data: products, error }, attributeRegistry] = await Promise.all([
+      runProductsQuery(
       (includeIsActiveFilter) => {
         let query = supabase.from("products").select(`
             *,
@@ -103,14 +121,18 @@ async function getProducts(): Promise<Product[]> {
           .or("status.eq.published,status.is.null")
           .order("created_at", { ascending: false });
       }
-    );
+      ),
+      getVariantAttributeRegistry(),
+    ]);
 
     if (error) {
       console.error("Supabase error:", error);
       return [];
     }
 
-    return ((products as DBProduct[]) || []).map(transformProduct);
+    return ((products as DBProduct[]) || []).map((product) =>
+      transformProduct(product, attributeRegistry),
+    );
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return [];

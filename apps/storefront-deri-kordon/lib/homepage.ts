@@ -1,5 +1,9 @@
 import { createServerClient } from "@/lib/supabase";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 
 interface RawHeroSlide {
   id?: string | number;
@@ -69,6 +73,25 @@ export interface HomepageData {
   products: Record<string, unknown>[];
   promoBanners: Record<string, unknown>[];
   allProducts: Record<string, unknown>[];
+}
+
+function hydrateHomepageProducts(
+  products: Record<string, unknown>[],
+  registry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+) {
+  return products.map((product) => {
+    const variants = Array.isArray(product.variants)
+      ? hydrateProductVariantSnapshots(
+          product.variants as Array<Record<string, unknown>>,
+          registry,
+        )
+      : [];
+
+    return {
+      ...product,
+      variants,
+    };
+  });
 }
 
 const HOMEPAGE_CATEGORY_ORDER = [
@@ -286,6 +309,7 @@ export async function getHomepageData(): Promise<HomepageData> {
     productsData,
     promoBannersData,
     allProductsData,
+    attributeRegistry,
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -300,6 +324,7 @@ export async function getHomepageData(): Promise<HomepageData> {
       .eq("key", "promo_banners")
       .maybeSingle(),
     fetchAllProductsForShowcase(supabase),
+    getVariantAttributeRegistry(),
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
@@ -327,8 +352,8 @@ export async function getHomepageData(): Promise<HomepageData> {
   return {
     heroBanners,
     categories,
-    products: productsData || [],
+    products: hydrateHomepageProducts(productsData || [], attributeRegistry),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: allProductsData || [],
+    allProducts: hydrateHomepageProducts(allProductsData || [], attributeRegistry),
   };
 }
