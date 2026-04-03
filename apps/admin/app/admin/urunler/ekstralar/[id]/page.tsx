@@ -65,17 +65,69 @@ async function getSchemaWithDetails(id: string) {
   };
 }
 
+async function getAssignmentOptions() {
+  const supabase = createServerClient();
+
+  const [{ data: products, error: productsError }, { data: categories, error: categoriesError }] =
+    await Promise.all([
+      supabase
+        .from("products")
+        .select("id,name,slug,category")
+        .order("name", { ascending: true }),
+      supabase
+        .from("categories")
+        .select("id,name,slug,parent_id,sort_order")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
+    ]);
+
+  if (productsError) {
+    console.error("Error fetching customization products:", productsError);
+  }
+
+  if (categoriesError) {
+    console.error("Error fetching customization categories:", categoriesError);
+  }
+
+  return {
+    products: products || [],
+    categories: categories || [],
+  };
+}
+
 export default async function EditSchemaPage({ params }: EditSchemaPageProps) {
   const { id } = await params;
-  const schema = await getSchemaWithDetails(id);
+  const [schema, assignmentOptions] = await Promise.all([
+    getSchemaWithDetails(id),
+    getAssignmentOptions(),
+  ]);
 
   if (!schema) {
     notFound();
   }
 
+  const supabase = createServerClient();
+  const [{ data: productAssignments }, { data: categoryAssignments }] = await Promise.all([
+    supabase
+      .from("product_schema_assignments")
+      .select("product_id")
+      .eq("schema_id", id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("category_schema_assignments")
+      .select("category_id")
+      .eq("schema_id", id),
+  ]);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <FormBuilder initialSchema={schema} />
+      <FormBuilder
+        initialSchema={schema}
+        initialProductAssignments={(productAssignments || []).map((assignment) => assignment.product_id)}
+        initialCategoryAssignments={(categoryAssignments || []).map((assignment) => assignment.category_id)}
+        availableProducts={assignmentOptions.products}
+        availableCategories={assignmentOptions.categories}
+      />
     </div>
   );
 }

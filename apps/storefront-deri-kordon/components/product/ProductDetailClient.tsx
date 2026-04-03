@@ -41,6 +41,15 @@ type SchemaAssignmentRow = {
   is_default: boolean;
   sort_order: number;
 };
+type CategorySchemaAssignmentRow = {
+  schema_id: string;
+  category_id: string;
+  created_at?: string;
+};
+type CategoryRow = {
+  id: string;
+  slug: string;
+};
 type SchemaRow = {
   id: string;
   is_active: boolean;
@@ -54,6 +63,115 @@ interface ProductDetailClientProps {
   initialProduct: Product | null;
   initialRelatedProducts?: Product[];
   initialVariantIndex?: number;
+}
+
+async function resolveAssignedSchemaId(product: Product) {
+  const { data: productAssignments, error: productAssignmentError } = await supabase
+    .from("product_schema_assignments")
+    .select("schema_id,is_default,sort_order")
+    .eq("product_id", product.id)
+    .order("is_default", { ascending: false })
+    .order("sort_order", { ascending: true });
+
+  if (productAssignmentError) {
+    throw productAssignmentError;
+  }
+
+  const categorySlugs = [product.subcategory, product.category]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value): value is string => value.length > 0);
+
+  let categoryAssignments: CategorySchemaAssignmentRow[] = [];
+  if (categorySlugs.length > 0) {
+    const { data: matchedCategories, error: matchedCategoriesError } = await supabase
+      .from("categories")
+      .select("id,slug")
+      .in("slug", categorySlugs);
+
+    if (matchedCategoriesError) {
+      throw matchedCategoriesError;
+    }
+
+    const categoryIds = ((matchedCategories as CategoryRow[] | null) || []).map((category) => category.id);
+    if (categoryIds.length > 0) {
+      const { data: assignmentRows, error: categoryAssignmentsError } = await supabase
+        .from("category_schema_assignments")
+        .select("schema_id,category_id,created_at")
+        .in("category_id", categoryIds);
+
+      if (categoryAssignmentsError) {
+        throw categoryAssignmentsError;
+      }
+
+      categoryAssignments = (assignmentRows as CategorySchemaAssignmentRow[] | null) || [];
+    }
+  }
+
+  const categorySlugOrder = new Map<string, number>();
+  categorySlugs.forEach((slug, index) => categorySlugOrder.set(slug, index));
+
+  const categoriesById = new Map<string, string>();
+  if (categoryAssignments.length > 0) {
+    const { data: matchedCategories } = await supabase
+      .from("categories")
+      .select("id,slug")
+      .in(
+        "id",
+        [...new Set(categoryAssignments.map((assignment) => assignment.category_id))]
+      );
+
+    ((matchedCategories as CategoryRow[] | null) || []).forEach((category) => {
+      categoriesById.set(category.id, category.slug);
+    });
+  }
+
+  const candidates = [
+    ...((productAssignments as SchemaAssignmentRow[] | null) || []).map((assignment, index) => ({
+      schema_id: assignment.schema_id,
+      priority: 0,
+      sort_order: assignment.sort_order ?? index,
+      specificity: -1,
+      created_at: "",
+    })),
+    ...categoryAssignments.map((assignment, index) => ({
+      schema_id: assignment.schema_id,
+      priority: 1,
+      sort_order: index,
+      specificity: categorySlugOrder.get(categoriesById.get(assignment.category_id) || "") ?? Number.MAX_SAFE_INTEGER,
+      created_at: assignment.created_at || "",
+    })),
+  ]
+    .sort((left, right) => {
+      if (left.priority !== right.priority) return left.priority - right.priority;
+      if (left.specificity !== right.specificity) return left.specificity - right.specificity;
+      if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order;
+      return left.created_at.localeCompare(right.created_at);
+    })
+    .filter((candidate, index, all) => all.findIndex((entry) => entry.schema_id === candidate.schema_id) === index);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const { data: schemas, error: schemaError } = await supabase
+    .from("product_customization_schemas")
+    .select("id,is_active")
+    .in(
+      "id",
+      candidates.map((candidate) => candidate.schema_id)
+    );
+
+  if (schemaError) {
+    throw schemaError;
+  }
+
+  const activeSchemaIds = new Set(
+    ((schemas as SchemaRow[] | null) || [])
+      .filter((schema) => schema.is_active)
+      .map((schema) => schema.id)
+  );
+
+  return candidates.find((candidate) => activeSchemaIds.has(candidate.schema_id))?.schema_id || null;
 }
 
 export function ProductDetailClient({
@@ -115,34 +233,9 @@ export function ProductDetailClient({
     const loadActiveSchema = async () => {
       setIsSchemaLoading(true);
       try {
-        const { data: assignments, error: assignmentError } = await supabase
-          .from("product_schema_assignments")
-          .select("schema_id,is_default,sort_order")
-          .eq("product_id", product.id)
-          .order("is_default", { ascending: false })
-          .order("sort_order", { ascending: true });
-
-        if (assignmentError) throw assignmentError;
-        if (!assignments || assignments.length === 0) {
-          if (mounted) setActiveSchemaId(null);
-          return;
-        }
-
-        const schemaIds = (assignments as SchemaAssignmentRow[]).map((row) => row.schema_id);
-        const { data: schemas, error: schemaError } = await supabase
-          .from("product_customization_schemas")
-          .select("id,is_active")
-          .in("id", schemaIds);
-
-        if (schemaError) throw schemaError;
-        const activeSchemaId = (assignments as SchemaAssignmentRow[]).find((row) =>
-          (schemas as SchemaRow[] | null)?.some(
-            (schema) => schema.id === row.schema_id && schema.is_active
-          )
-        )?.schema_id;
-
+        const resolvedSchemaId = await resolveAssignedSchemaId(product);
         if (mounted) {
-          setActiveSchemaId(activeSchemaId || null);
+          setActiveSchemaId(resolvedSchemaId || null);
         }
       } catch (error) {
         console.error("Schema assignment load error:", error);
@@ -156,7 +249,7 @@ export function ProductDetailClient({
     return () => {
       mounted = false;
     };
-  }, [product?.id]);
+  }, [product?.id, product?.category, product?.subcategory]);
 
   const variants = product?.variants || [];
   const variant = variants[selectedVariant] || variants[0];
@@ -376,6 +469,28 @@ export function ProductDetailClient({
                 onSelect={setSelectedVariant}
               />
 
+              {isSchemaLoading ? (
+                <div className="py-3 text-sm text-neutral-500">
+                  Ekstra seçenekler yükleniyor...
+                </div>
+              ) : activeSchemaId ? (
+                <div className="space-y-3 border-b border-neutral-200 pb-5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
+                      Ekstralar
+                    </span>
+                    <span className="w-8 h-px bg-neutral-300" />
+                  </div>
+                  <DynamicCustomizationForm
+                    schemaId={activeSchemaId}
+                    productId={product.id}
+                    variantId={variant.id}
+                    basePrice={variant.price}
+                    onAddToCart={handleAddToCartWithCustomization}
+                  />
+                </div>
+              ) : null}
+
               {/* Price & Quantity */}
               <div className="space-y-5 border-y border-neutral-200 py-5">
                 {/* Price & Stock */}
@@ -398,39 +513,46 @@ export function ProductDetailClient({
                 </div>
                 
                 {/* Actions */}
-                {isSchemaLoading ? (
-                  <div className="w-full py-3 text-sm text-neutral-500">
-                    Ekstra seçenekler yükleniyor...
-                  </div>
-                ) : activeSchemaId ? (
-                  <div className="space-y-3">
-                    <DynamicCustomizationForm
-                      schemaId={activeSchemaId}
-                      productId={product.id}
-                      variantId={variant.id}
-                      basePrice={variant.price}
-                      onAddToCart={handleAddToCartWithCustomization}
-                    />
-                    <div className="flex gap-3">
-                      <button
-                        onClick={toggleWishlist}
-                        className={`
-                          w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
-                          ${isWishlisted
-                            ? "text-[#8A6B37]"
-                            : "hover:text-[#8A6B37]"
-                          }
-                        `}
-                      >
-                        <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
-                      >
-                        <Share2 className="h-5 w-5 stroke-[1.5]" />
-                      </button>
+                {activeSchemaId ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-transparent text-[0px]">
+                    <div className="flex items-center gap-3 text-inherit">
+                      <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
+                      <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
+                        <button
+                          onClick={() => handleQuantityChange(-1)}
+                          disabled={quantity <= 1}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        </button>
+                        <span className="w-10 text-center font-medium text-neutral-900 text-base">
+                          {quantity}
+                        </span>
+                        <button
+                          onClick={() => handleQuantityChange(1)}
+                          disabled={quantity >= (variant.stock || 10)}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        </button>
+                      </div>
                     </div>
+                    <button
+                      onClick={toggleWishlist}
+                      className={`
+                        w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
+                        ${isWishlisted ? "text-[#8A6B37]" : "hover:text-[#8A6B37]"}
+                      `}
+                    >
+                      <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
+                    >
+                      <Share2 className="h-5 w-5 stroke-[1.5]" />
+                    </button>
+                    Ekstra seçenekler yükleniyor...
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">

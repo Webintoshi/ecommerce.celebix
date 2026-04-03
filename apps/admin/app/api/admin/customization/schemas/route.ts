@@ -24,6 +24,8 @@ type SaveSchemaBody = {
     settings?: Record<string, unknown>;
   };
   steps: CustomizationStep[];
+  productAssignments?: string[];
+  categoryAssignments?: string[];
 };
 
 type LegacyCreateSchemaBody = {
@@ -57,7 +59,9 @@ export async function GET(request: NextRequest) {
           steps:product_customization_steps(
             *,
             options:product_customization_options(*)
-          )
+          ),
+          product_assignments:product_schema_assignments(*),
+          category_assignments:category_schema_assignments(*)
         `,
         )
         .eq("id", id)
@@ -71,7 +75,8 @@ export async function GET(request: NextRequest) {
       ? `
         *,
         steps:product_customization_steps(count),
-        assignments:product_schema_assignments(count)
+        assignments:product_schema_assignments(count),
+        category_assignments:category_schema_assignments(count)
       `
       : `
         *,
@@ -90,6 +95,7 @@ export async function GET(request: NextRequest) {
       ...schema,
       step_count: schema.steps?.[0]?.count || 0,
       product_count: schema.assignments?.[0]?.count || 0,
+      category_count: schema.category_assignments?.[0]?.count || 0,
     }));
 
     return NextResponse.json({ success: true, schemas });
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
           const { error: optionsError } = await supabase
             .from("product_customization_options")
             .insert(
-              step.options.map((option) => ({
+              step.options.map((option: NonNullable<CustomizationStep["options"]>[number]) => ({
                 step_id: newStep.id,
                 label: option.label,
                 value: option.value,
@@ -342,6 +348,109 @@ export async function POST(request: NextRequest) {
             if (updateOptionError) throw updateOptionError;
           }
         }
+      }
+
+      const desiredProductIds = Array.isArray(body.productAssignments)
+        ? [...new Set(body.productAssignments.filter((value) => typeof value === "string" && value.trim().length > 0))]
+        : [];
+      const desiredCategoryIds = Array.isArray(body.categoryAssignments)
+        ? [...new Set(body.categoryAssignments.filter((value) => typeof value === "string" && value.trim().length > 0))]
+        : [];
+
+      const { data: existingProductAssignments, error: productAssignmentsError } = await supabase
+        .from("product_schema_assignments")
+        .select("id,product_id")
+        .eq("schema_id", body.schema.id);
+
+      if (productAssignmentsError) throw productAssignmentsError;
+
+      const existingProductMap = new Map(
+        (existingProductAssignments || []).map((assignment) => [assignment.product_id as string, assignment.id as string])
+      );
+
+      const productIdsToDelete = Array.from(existingProductMap.keys()).filter(
+        (productId) => !desiredProductIds.includes(productId)
+      );
+
+      if (productIdsToDelete.length > 0) {
+        const { error: deleteProductAssignmentsError } = await supabase
+          .from("product_schema_assignments")
+          .delete()
+          .eq("schema_id", body.schema.id)
+          .in("product_id", productIdsToDelete);
+
+        if (deleteProductAssignmentsError) throw deleteProductAssignmentsError;
+      }
+
+      for (const [index, productId] of desiredProductIds.entries()) {
+        if (existingProductMap.has(productId)) {
+          const { error: updateAssignmentError } = await supabase
+            .from("product_schema_assignments")
+            .update({ sort_order: index })
+            .eq("id", existingProductMap.get(productId));
+
+          if (updateAssignmentError) throw updateAssignmentError;
+          continue;
+        }
+
+        const { count: otherAssignmentsCount, error: otherAssignmentsError } = await supabase
+          .from("product_schema_assignments")
+          .select("id", { count: "exact", head: true })
+          .eq("product_id", productId);
+
+        if (otherAssignmentsError) throw otherAssignmentsError;
+
+        const { error: insertAssignmentError } = await supabase
+          .from("product_schema_assignments")
+          .insert({
+            schema_id: body.schema.id,
+            product_id: productId,
+            is_default: (otherAssignmentsCount || 0) === 0,
+            sort_order: index,
+          });
+
+        if (insertAssignmentError) throw insertAssignmentError;
+      }
+
+      const { data: existingCategoryAssignments, error: categoryAssignmentsError } = await supabase
+        .from("category_schema_assignments")
+        .select("id,category_id")
+        .eq("schema_id", body.schema.id);
+
+      if (categoryAssignmentsError) throw categoryAssignmentsError;
+
+      const existingCategoryMap = new Map(
+        (existingCategoryAssignments || []).map((assignment) => [assignment.category_id as string, assignment.id as string])
+      );
+
+      const categoryIdsToDelete = Array.from(existingCategoryMap.keys()).filter(
+        (categoryId) => !desiredCategoryIds.includes(categoryId)
+      );
+
+      if (categoryIdsToDelete.length > 0) {
+        const { error: deleteCategoryAssignmentsError } = await supabase
+          .from("category_schema_assignments")
+          .delete()
+          .eq("schema_id", body.schema.id)
+          .in("category_id", categoryIdsToDelete);
+
+        if (deleteCategoryAssignmentsError) throw deleteCategoryAssignmentsError;
+      }
+
+      for (const categoryId of desiredCategoryIds) {
+        if (existingCategoryMap.has(categoryId)) {
+          continue;
+        }
+
+        const { error: insertCategoryAssignmentError } = await supabase
+          .from("category_schema_assignments")
+          .insert({
+            schema_id: body.schema.id,
+            category_id: categoryId,
+            is_auto_apply: false,
+          });
+
+        if (insertCategoryAssignmentError) throw insertCategoryAssignmentError;
       }
 
       return NextResponse.json({ success: true });
