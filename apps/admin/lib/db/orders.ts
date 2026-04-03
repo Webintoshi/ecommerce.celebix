@@ -4,6 +4,7 @@ import { getOrCreateCustomer } from "./customers";
 import { incrementCouponUsage } from "./coupons";
 import { enqueueAndProcessInvoiceForOrder } from "./accounting";
 import { enqueueInventorySyncByVariantIds, enqueueOrderStatusSync } from "./marketplace-sync";
+import { attemptOrderShippingDispatch } from "./shipping-automation";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
 import { normalizeStoredCustomization } from "@/lib/customization/normalize";
 
@@ -541,8 +542,11 @@ export async function updateOrderStatus(id: string, status: string) {
             await enqueueInventorySyncByVariantIds(touchedVariantIds);
         }
         await enqueueOrderStatusSync(id);
+        if (status === "confirmed" || status === "preparing") {
+            await attemptOrderShippingDispatch(id, status);
+        }
     } catch (marketplaceError) {
-        console.error("Marketplace queue error (updateOrderStatus):", marketplaceError);
+        console.error("Order automation error (updateOrderStatus):", marketplaceError);
     }
 
     return data;

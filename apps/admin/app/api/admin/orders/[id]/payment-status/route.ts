@@ -1,6 +1,6 @@
 import { createServerClient } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
-import { enqueueAndProcessInvoiceForOrder } from "@/lib/db/accounting";
+import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
 
 export async function PATCH(
   request: NextRequest,
@@ -28,10 +28,9 @@ export async function PATCH(
 
     const supabase = createServerClient();
 
-    // Get current order
     const { data: order } = await supabase
       .from("orders")
-      .select("payment_status")
+      .select("payment_status, status")
       .eq("id", id)
       .single();
 
@@ -42,21 +41,8 @@ export async function PATCH(
       );
     }
 
-    // Update payment status
-    const { error } = await supabase
-      .from("orders")
-      .update({ payment_status: paymentStatus })
-      .eq("id", id);
+    await updatePaymentStatus(id, paymentStatus);
 
-    if (error) {
-      console.error("Error updating payment status:", error);
-      return NextResponse.json(
-        { error: "Ödeme durumu güncellenirken bir hata oluştu." },
-        { status: 500 }
-      );
-    }
-
-    // Add activity log
     try {
       await supabase.from("order_activity_log").insert({
         order_id: id,
@@ -67,14 +53,20 @@ export async function PATCH(
       });
     } catch (logError) {
       console.error("Error creating activity log:", logError);
-      // Don't fail the request if log fails
     }
 
-    if (paymentStatus === "completed") {
+    if (paymentStatus === "completed" && order.status === "pending") {
       try {
-        await enqueueAndProcessInvoiceForOrder(id);
-      } catch (accountingError) {
-        console.error("Accounting queue error (admin payment status):", accountingError);
+        await updateOrderStatus(id, "confirmed");
+        await supabase.from("order_activity_log").insert({
+          order_id: id,
+          action: "status_changed",
+          old_value: order.status,
+          new_value: "confirmed",
+          admin_name: adminName,
+        });
+      } catch (statusError) {
+        console.error("Error confirming order after completed payment:", statusError);
       }
     }
 
@@ -82,7 +74,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Payment status update error:", error);
     return NextResponse.json(
-      { error: "Sunucu hatası" },
+      { error: "Sunucu hatasi" },
       { status: 500 }
     );
   }

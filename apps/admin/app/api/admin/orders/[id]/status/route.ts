@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { updateOrderStatus } from "@/lib/db/orders";
 import { NextRequest, NextResponse } from "next/server";
 
 interface Params {
@@ -31,17 +32,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const oldStatus = currentOrder.status;
 
-    // Update order status
-    const { data: order, error } = await serverClient
-      .from("orders")
-      .update({ status })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const order = await updateOrderStatus(id, status);
 
     // Create activity log
     await serverClient.from("order_activity_log").insert({

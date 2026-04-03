@@ -54,7 +54,21 @@ export async function POST(request: NextRequest) {
             abandonedCartSessionId: body.abandonedCartSessionId,
         });
 
-        if (gateway.gateway === "bank_transfer" || gateway.gateway === "cod") {
+        if (gateway.gateway === "cod") {
+            await updatePaymentStatus(order.id, "completed");
+            await updateOrderStatus(order.id, "confirmed");
+
+            return NextResponse.json({
+                success: true,
+                order,
+                payment: {
+                    action: "success",
+                    paymentAttemptId: "manual",
+                },
+            });
+        }
+
+        if (gateway.gateway === "bank_transfer") {
             return NextResponse.json({
                 success: true,
                 order,
