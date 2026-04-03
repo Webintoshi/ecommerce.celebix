@@ -25,8 +25,11 @@ import { ProductFeatures } from "@/components/product/ProductFeatures";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import { DynamicCustomizationForm } from "@/components/product/dynamic-customization-form";
 import { Product } from "@/types/product";
-import { CartCustomizationPayload } from "@/types/product-customization";
-import { supabase } from "@/lib/supabase";
+import {
+  CartCustomizationPayload,
+  CustomizationSchema,
+  CustomizationStep,
+} from "@/types/product-customization";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -36,27 +39,23 @@ const ProductCard = React.lazy(() =>
 import React from "react";
 
 type TabType = "features" | "specs" | "shipping";
-type SchemaAssignmentRow = {
-  schema_id: string;
-  is_default: boolean;
-  sort_order: number;
-};
-type CategorySchemaAssignmentRow = {
-  schema_id: string;
-  category_id: string;
-  created_at?: string;
-};
-type CategoryRow = {
-  id: string;
-  slug: string;
-};
-type SchemaRow = {
-  id: string;
-  is_active: boolean;
-};
 type VariantAttribute = {
   image_url?: string | null;
 };
+type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
+
+async function fetchAssignedSchema(productId: string) {
+  const response = await fetch("/api/customization/schema?productId=" + encodeURIComponent(productId), {
+    cache: "no-store",
+  });
+  const payload = await response.json();
+
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
+  }
+
+  return (payload.schema as ResolvedCustomizationSchema | null) || null;
+}
 
 interface ProductDetailClientProps {
   slug: string;
@@ -65,114 +64,6 @@ interface ProductDetailClientProps {
   initialVariantIndex?: number;
 }
 
-async function resolveAssignedSchemaId(product: Product) {
-  const { data: productAssignments, error: productAssignmentError } = await supabase
-    .from("product_schema_assignments")
-    .select("schema_id,is_default,sort_order")
-    .eq("product_id", product.id)
-    .order("is_default", { ascending: false })
-    .order("sort_order", { ascending: true });
-
-  if (productAssignmentError) {
-    throw productAssignmentError;
-  }
-
-  const categorySlugs = [product.subcategory, product.category]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .filter((value): value is string => value.length > 0);
-
-  let categoryAssignments: CategorySchemaAssignmentRow[] = [];
-  if (categorySlugs.length > 0) {
-    const { data: matchedCategories, error: matchedCategoriesError } = await supabase
-      .from("categories")
-      .select("id,slug")
-      .in("slug", categorySlugs);
-
-    if (matchedCategoriesError) {
-      throw matchedCategoriesError;
-    }
-
-    const categoryIds = ((matchedCategories as CategoryRow[] | null) || []).map((category) => category.id);
-    if (categoryIds.length > 0) {
-      const { data: assignmentRows, error: categoryAssignmentsError } = await supabase
-        .from("category_schema_assignments")
-        .select("schema_id,category_id,created_at")
-        .in("category_id", categoryIds);
-
-      if (categoryAssignmentsError) {
-        throw categoryAssignmentsError;
-      }
-
-      categoryAssignments = (assignmentRows as CategorySchemaAssignmentRow[] | null) || [];
-    }
-  }
-
-  const categorySlugOrder = new Map<string, number>();
-  categorySlugs.forEach((slug, index) => categorySlugOrder.set(slug, index));
-
-  const categoriesById = new Map<string, string>();
-  if (categoryAssignments.length > 0) {
-    const { data: matchedCategories } = await supabase
-      .from("categories")
-      .select("id,slug")
-      .in(
-        "id",
-        [...new Set(categoryAssignments.map((assignment) => assignment.category_id))]
-      );
-
-    ((matchedCategories as CategoryRow[] | null) || []).forEach((category) => {
-      categoriesById.set(category.id, category.slug);
-    });
-  }
-
-  const candidates = [
-    ...((productAssignments as SchemaAssignmentRow[] | null) || []).map((assignment, index) => ({
-      schema_id: assignment.schema_id,
-      priority: 0,
-      sort_order: assignment.sort_order ?? index,
-      specificity: -1,
-      created_at: "",
-    })),
-    ...categoryAssignments.map((assignment, index) => ({
-      schema_id: assignment.schema_id,
-      priority: 1,
-      sort_order: index,
-      specificity: categorySlugOrder.get(categoriesById.get(assignment.category_id) || "") ?? Number.MAX_SAFE_INTEGER,
-      created_at: assignment.created_at || "",
-    })),
-  ]
-    .sort((left, right) => {
-      if (left.priority !== right.priority) return left.priority - right.priority;
-      if (left.specificity !== right.specificity) return left.specificity - right.specificity;
-      if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order;
-      return left.created_at.localeCompare(right.created_at);
-    })
-    .filter((candidate, index, all) => all.findIndex((entry) => entry.schema_id === candidate.schema_id) === index);
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const { data: schemas, error: schemaError } = await supabase
-    .from("product_customization_schemas")
-    .select("id,is_active")
-    .in(
-      "id",
-      candidates.map((candidate) => candidate.schema_id)
-    );
-
-  if (schemaError) {
-    throw schemaError;
-  }
-
-  const activeSchemaIds = new Set(
-    ((schemas as SchemaRow[] | null) || [])
-      .filter((schema) => schema.is_active)
-      .map((schema) => schema.id)
-  );
-
-  return candidates.find((candidate) => activeSchemaIds.has(candidate.schema_id))?.schema_id || null;
-}
 
 export function ProductDetailClient({
   slug,
@@ -197,7 +88,7 @@ export function ProductDetailClient({
     setOpenAccordions(next);
   };
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [activeSchemaId, setActiveSchemaId] = useState<string | null>(null);
+  const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
 
   const { addToCart } = useCart();
@@ -233,13 +124,13 @@ export function ProductDetailClient({
     const loadActiveSchema = async () => {
       setIsSchemaLoading(true);
       try {
-        const resolvedSchemaId = await resolveAssignedSchemaId(product);
+        const resolvedSchema = await fetchAssignedSchema(product.id);
         if (mounted) {
-          setActiveSchemaId(resolvedSchemaId || null);
+          setActiveSchema(resolvedSchema || null);
         }
       } catch (error) {
         console.error("Schema assignment load error:", error);
-        if (mounted) setActiveSchemaId(null);
+        if (mounted) setActiveSchema(null);
       } finally {
         if (mounted) setIsSchemaLoading(false);
       }
@@ -473,7 +364,7 @@ export function ProductDetailClient({
                 <div className="py-3 text-sm text-neutral-500">
                   Ekstra seçenekler yükleniyor...
                 </div>
-              ) : activeSchemaId ? (
+              ) : activeSchema ? (
                 <div className="space-y-3 border-b border-neutral-200 pb-5">
                   <div className="flex items-center gap-3">
                     <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
@@ -482,10 +373,11 @@ export function ProductDetailClient({
                     <span className="w-8 h-px bg-neutral-300" />
                   </div>
                   <DynamicCustomizationForm
-                    schemaId={activeSchemaId}
+                    schemaId={activeSchema.id}
                     productId={product.id}
                     variantId={variant.id}
                     basePrice={variant.price}
+                    initialSchema={activeSchema}
                     onAddToCart={handleAddToCartWithCustomization}
                   />
                 </div>
@@ -513,7 +405,7 @@ export function ProductDetailClient({
                 </div>
                 
                 {/* Actions */}
-                {activeSchemaId ? (
+                {activeSchema ? (
                   <div className="flex flex-wrap items-center justify-between gap-3 text-transparent text-[0px]">
                     <div className="flex items-center gap-3 text-inherit">
                       <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
@@ -765,7 +657,7 @@ export function ProductDetailClient({
       </section>
 
       {/* Mobile Sticky Bar */}
-      {!activeSchemaId && !isSchemaLoading && (
+      {!activeSchema && !isSchemaLoading && (
         <MobileStickyBar
           price={variant.price}
           originalPrice={variant.originalPrice}

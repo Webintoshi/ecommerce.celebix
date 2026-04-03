@@ -26,8 +26,11 @@ import { ComplementaryProducts } from "@/components/product/ComplementaryProduct
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import { DynamicCustomizationForm } from "@/components/product/dynamic-customization-form";
 import { Product } from "@/types/product";
-import { CartCustomizationPayload } from "@/types/product-customization";
-import { supabase } from "@/lib/supabase";
+import {
+  CartCustomizationPayload,
+  CustomizationSchema,
+  CustomizationStep,
+} from "@/types/product-customization";
 
 // Lazy load ProductCard
 const ProductCard = React.lazy(() =>
@@ -38,135 +41,22 @@ const ProductCard = React.lazy(() =>
 import React from "react";
 
 type TabType = "features" | "nutrition" | "reviews";
-type SchemaAssignmentRow = {
-  schema_id: string;
-  is_default: boolean;
-  sort_order: number;
-};
-type CategorySchemaAssignmentRow = {
-  schema_id: string;
-  category_id: string;
-  created_at?: string;
-};
-type CategoryRow = {
-  id: string;
-  slug: string;
-};
-type SchemaRow = {
-  id: string;
-  is_active: boolean;
-};
 type VariantAttribute = {
   image_url?: string | null;
 };
+type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
 
-async function resolveAssignedSchemaId(product: Product) {
-  const { data: productAssignments, error: productAssignmentError } = await supabase
-    .from("product_schema_assignments")
-    .select("schema_id,is_default,sort_order")
-    .eq("product_id", product.id)
-    .order("is_default", { ascending: false })
-    .order("sort_order", { ascending: true });
+async function fetchAssignedSchema(productId: string) {
+  const response = await fetch("/api/customization/schema?productId=" + encodeURIComponent(productId), {
+    cache: "no-store",
+  });
+  const payload = await response.json();
 
-  if (productAssignmentError) {
-    throw productAssignmentError;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
   }
 
-  const categorySlugs = [product.subcategory, product.category]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .filter((value): value is string => value.length > 0);
-
-  let categoryAssignments: CategorySchemaAssignmentRow[] = [];
-  if (categorySlugs.length > 0) {
-    const { data: matchedCategories, error: matchedCategoriesError } = await supabase
-      .from("categories")
-      .select("id,slug")
-      .in("slug", categorySlugs);
-
-    if (matchedCategoriesError) {
-      throw matchedCategoriesError;
-    }
-
-    const categoryIds = ((matchedCategories as CategoryRow[] | null) || []).map((category) => category.id);
-    if (categoryIds.length > 0) {
-      const { data: assignmentRows, error: categoryAssignmentsError } = await supabase
-        .from("category_schema_assignments")
-        .select("schema_id,category_id,created_at")
-        .in("category_id", categoryIds);
-
-      if (categoryAssignmentsError) {
-        throw categoryAssignmentsError;
-      }
-
-      categoryAssignments = (assignmentRows as CategorySchemaAssignmentRow[] | null) || [];
-    }
-  }
-
-  const categorySlugOrder = new Map<string, number>();
-  categorySlugs.forEach((slug, index) => categorySlugOrder.set(slug, index));
-
-  const categoriesById = new Map<string, string>();
-  if (categoryAssignments.length > 0) {
-    const { data: matchedCategories } = await supabase
-      .from("categories")
-      .select("id,slug")
-      .in(
-        "id",
-        [...new Set(categoryAssignments.map((assignment) => assignment.category_id))]
-      );
-
-    ((matchedCategories as CategoryRow[] | null) || []).forEach((category) => {
-      categoriesById.set(category.id, category.slug);
-    });
-  }
-
-  const candidates = [
-    ...((productAssignments as SchemaAssignmentRow[] | null) || []).map((assignment, index) => ({
-      schema_id: assignment.schema_id,
-      priority: 0,
-      sort_order: assignment.sort_order ?? index,
-      specificity: -1,
-      created_at: "",
-    })),
-    ...categoryAssignments.map((assignment, index) => ({
-      schema_id: assignment.schema_id,
-      priority: 1,
-      sort_order: index,
-      specificity: categorySlugOrder.get(categoriesById.get(assignment.category_id) || "") ?? Number.MAX_SAFE_INTEGER,
-      created_at: assignment.created_at || "",
-    })),
-  ]
-    .sort((left, right) => {
-      if (left.priority !== right.priority) return left.priority - right.priority;
-      if (left.specificity !== right.specificity) return left.specificity - right.specificity;
-      if (left.sort_order !== right.sort_order) return left.sort_order - right.sort_order;
-      return left.created_at.localeCompare(right.created_at);
-    })
-    .filter((candidate, index, all) => all.findIndex((entry) => entry.schema_id === candidate.schema_id) === index);
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const { data: schemas, error: schemaError } = await supabase
-    .from("product_customization_schemas")
-    .select("id,is_active")
-    .in(
-      "id",
-      candidates.map((candidate) => candidate.schema_id)
-    );
-
-  if (schemaError) {
-    throw schemaError;
-  }
-
-  const activeSchemaIds = new Set(
-    ((schemas as SchemaRow[] | null) || [])
-      .filter((schema) => schema.is_active)
-      .map((schema) => schema.id)
-  );
-
-  return candidates.find((candidate) => activeSchemaIds.has(candidate.schema_id))?.schema_id || null;
+  return (payload.schema as ResolvedCustomizationSchema | null) || null;
 }
 
 interface ProductDetailClientProps {
@@ -219,7 +109,7 @@ export function ProductDetailClient({
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<TabType>("features");
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [activeSchemaId, setActiveSchemaId] = useState<string | null>(null);
+  const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
 
   const { addToCart } = useCart();
@@ -256,13 +146,13 @@ export function ProductDetailClient({
     const loadActiveSchema = async () => {
       setIsSchemaLoading(true);
       try {
-        const resolvedSchemaId = await resolveAssignedSchemaId(product);
+        const resolvedSchema = await fetchAssignedSchema(product.id);
         if (mounted) {
-          setActiveSchemaId(resolvedSchemaId || null);
+          setActiveSchema(resolvedSchema || null);
         }
       } catch (error) {
         console.error("Schema assignment load error:", error);
-        if (mounted) setActiveSchemaId(null);
+        if (mounted) setActiveSchema(null);
       } finally {
         if (mounted) setIsSchemaLoading(false);
       }
@@ -495,17 +385,18 @@ export function ProductDetailClient({
                 <div className="py-4 text-sm text-[#6b4b4c]">
                   Ekstra seçenekler yükleniyor...
                 </div>
-              ) : activeSchemaId ? (
+              ) : activeSchema ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-[#7B1113]">Ekstralar</span>
                     <div className="h-px flex-1 bg-[#7B1113]/10" />
                   </div>
                   <DynamicCustomizationForm
-                    schemaId={activeSchemaId}
+                    schemaId={activeSchema.id}
                     productId={product.id}
                     variantId={variant.id}
                     basePrice={variant.price}
+                    initialSchema={activeSchema}
                     onAddToCart={handleAddToCartWithCustomization}
                   />
                 </div>
@@ -565,7 +456,7 @@ export function ProductDetailClient({
                 </div>
 
                 {/* Actions */}
-                {activeSchemaId ? (
+                {activeSchema ? (
                   <div className="flex justify-end gap-3 text-transparent text-[0px]">
                     <button
                       onClick={toggleWishlist}
@@ -804,7 +695,7 @@ export function ProductDetailClient({
       </section>
 
       {/* Mobile Sticky Bar */}
-      {!activeSchemaId && !isSchemaLoading && (
+      {!activeSchema && !isSchemaLoading && (
         <MobileStickyBar
           price={variant.price}
           originalPrice={variant.originalPrice}

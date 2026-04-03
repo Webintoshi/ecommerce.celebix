@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { evaluateConditions } from "@/lib/customization/conditional-logic";
 import { calculatePrice, formatPrice } from "@/lib/customization/price-calculator";
 import {
@@ -42,7 +41,24 @@ interface DynamicCustomizationFormProps {
   variantId: string;
   basePrice: number;
   onAddToCart: (customization: CartCustomizationPayload) => void;
+  initialSchema?: (CustomizationSchema & { steps: CustomizationStep[] }) | null;
   className?: string;
+}
+
+function buildDefaultValues(steps: CustomizationStep[]) {
+  const defaultValues: Record<string, unknown> = {};
+
+  for (const step of steps) {
+    if (step.default_value !== undefined) {
+      defaultValues[step.key] = step.default_value;
+    } else if (step.type === "checkbox") {
+      defaultValues[step.key] = false;
+    } else if (step.type === "multi_select") {
+      defaultValues[step.key] = [];
+    }
+  }
+
+  return defaultValues;
 }
 
 export function DynamicCustomizationForm({
@@ -51,6 +67,7 @@ export function DynamicCustomizationForm({
   variantId,
   basePrice,
   onAddToCart,
+  initialSchema = null,
   className,
 }: DynamicCustomizationFormProps) {
   const [schema, setSchema] = useState<(CustomizationSchema & { steps: CustomizationStep[] }) | null>(null);
@@ -63,52 +80,38 @@ export function DynamicCustomizationForm({
   // Load schema
   useEffect(() => {
     async function loadSchema() {
+      if (initialSchema && initialSchema.id === schemaId) {
+        setSchema(initialSchema);
+        setValues(buildDefaultValues(initialSchema.steps || []));
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Fetch schema
-        const { data: schemaData, error: schemaError } = await supabase
-          .from("product_customization_schemas")
-          .select("*")
-          .eq("id", schemaId)
-          .single();
-
-        if (schemaError) throw schemaError;
-
-        // Fetch steps
-        const { data: steps, error: stepsError } = await supabase
-          .from("product_customization_steps")
-          .select("*")
-          .eq("schema_id", schemaId)
-          .order("sort_order", { ascending: true });
-
-        if (stepsError) throw stepsError;
-
-        // Fetch options for each step
-        const stepsWithOptions = await Promise.all(
-          (steps || []).map(async (step) => {
-            const { data: options } = await supabase
-              .from("product_customization_options")
-              .select("*")
-              .eq("step_id", step.id)
-              .order("sort_order", { ascending: true });
-
-            return { ...step, options: options || [] };
-          })
+        const response = await fetch(
+          "/api/customization/schema?schemaId=" + encodeURIComponent(schemaId),
+          { cache: "no-store" }
         );
+        const payload = await response.json();
 
-        setSchema({ ...schemaData, steps: stepsWithOptions });
-
-        // Set default values
-        const defaultValues: Record<string, unknown> = {};
-        for (const step of stepsWithOptions) {
-          if (step.default_value !== undefined) {
-            defaultValues[step.key] = step.default_value;
-          } else if (step.type === "checkbox") {
-            defaultValues[step.key] = false;
-          } else if (step.type === "multi_select") {
-            defaultValues[step.key] = [];
-          }
+        if (!response.ok || !payload?.success) {
+          throw new Error(
+            payload?.error || "Kişiselleştirme şeması yüklenemedi",
+          );
         }
-        setValues(defaultValues);
+
+        const loadedSchema = payload.schema as
+          | (CustomizationSchema & { steps: CustomizationStep[] })
+          | null;
+
+        if (!loadedSchema) {
+          setSchema(null);
+          setValues({});
+          return;
+        }
+
+        setSchema(loadedSchema);
+        setValues(buildDefaultValues(loadedSchema.steps || []));
       } catch (error) {
         console.error("Error loading schema:", error);
         toast.error("Kişiselleştirme şeması yüklenirken bir hata oluştu");
@@ -118,7 +121,7 @@ export function DynamicCustomizationForm({
     }
 
     loadSchema();
-  }, [schemaId]);
+  }, [initialSchema, schemaId]);
 
   // Calculate price when values change
   useEffect(() => {
