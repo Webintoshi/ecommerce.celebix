@@ -464,6 +464,11 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   return {
     ...current,
     bootstrap: store.bootstrap ?? current.bootstrap ?? null,
+    supabase: {
+      provider: store.supabase.provider,
+      dashboardUrl: store.supabase.dashboardUrl ?? null,
+      storage: store.supabase.storage,
+    },
     features: store.features,
     owner: {
       ...owner,

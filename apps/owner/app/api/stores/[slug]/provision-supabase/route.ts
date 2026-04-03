@@ -43,8 +43,10 @@ export async function POST(_request: Request, { params }: ProvisionSupabaseRoute
       {
         success: true,
         slug,
+        provider: result.provider,
         projectRef: result.projectRef,
         projectUrl: result.projectUrl,
+        dashboardUrl: result.dashboardUrl ?? null,
         organization: result.organization.slug
       },
       { status: 201 }

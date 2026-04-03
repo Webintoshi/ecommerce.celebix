@@ -14,6 +14,7 @@ export interface StoreRegistryEntry {
   status: "draft" | "active" | "paused";
 }
 
+export type SupabaseProvider = "managed" | "self_hosted_coolify";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
 
 export interface StoreThemeConfig {
@@ -59,7 +60,9 @@ export interface StoreConfig {
   supabase: {
     projectRef: string;
     url: string;
+    provider: SupabaseProvider;
     storage: string;
+    dashboardUrl?: string;
   };
   r2?: {
     bucketName?: string;
@@ -74,6 +77,10 @@ export interface StoreConfig {
     envTemplatePath: string;
     adminEnvLocalPath?: string;
     organizationSlug?: string;
+    supabaseProvider?: SupabaseProvider;
+    supabaseProjectName?: string;
+    supabaseResourceId?: string;
+    supabaseDashboardUrl?: string;
     provisionedAt?: string;
     lastProvisionError?: string;
     supabaseProvisioning: "pending-owner-env" | "configured" | "failed";
@@ -101,9 +108,13 @@ export interface CreateStoreResult {
 export interface StoreSupabaseUpdateInput {
   projectRef: string;
   url: string;
-  organizationSlug: string;
+  provider: SupabaseProvider;
+  organizationSlug?: string;
   provisioningStatus: "configured" | "failed";
   adminEnvLocalPath?: string;
+  dashboardUrl?: string;
+  projectName?: string;
+  resourceId?: string;
   lastProvisionError?: string;
 }
 
@@ -173,6 +184,20 @@ function slugifyStoreName(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function resolveDefaultSupabaseProvider(): SupabaseProvider {
+  const configured = process.env.SUPABASE_PROVIDER?.trim().toLowerCase();
+
+  if (configured === "self_hosted_coolify") {
+    return "self_hosted_coolify";
+  }
+
+  if (configured === "managed") {
+    return "managed";
+  }
+
+  return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
+}
+
 function ensureSlug(slug: string): string {
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
     throw new Error("Slug sadece kucuk harf, rakam ve tire icermelidir.");
@@ -192,6 +217,8 @@ function ensureDomain(domain: string): string {
 }
 
 function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
+  const defaultSupabaseProvider = resolveDefaultSupabaseProvider();
+
   return {
     name: input.name,
     slug: input.slug,
@@ -224,6 +251,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     supabase: {
       projectRef: "pending-owner-bootstrap",
       url: "configure-in-env",
+      provider: defaultSupabaseProvider,
       storage: "separate-project-per-store"
     },
     r2: {
@@ -232,6 +260,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     bootstrap: {
       createdAt: new Date().toISOString(),
       envTemplatePath: `stores/${input.slug}/admin.env.example`,
+      supabaseProvider: defaultSupabaseProvider,
       supabaseProvisioning: "pending-owner-env"
     },
     storefront: {
@@ -255,7 +284,9 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
   return [
     `STORE_SLUG=${config.slug}`,
     "",
-    "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co",
+    config.supabase.provider === "self_hosted_coolify"
+      ? "NEXT_PUBLIC_SUPABASE_URL=https://your-store-supabase.example.com"
+      : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
     "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",
     "",
@@ -269,6 +300,22 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     `R2_PUBLIC_URL=https://cdn.${config.domains.storefront}`,
     ""
   ].join("\n");
+}
+
+function normalizeStoreConfig(config: StoreConfig): StoreConfig {
+  return {
+    ...config,
+    supabase: {
+      ...config.supabase,
+      provider: config.supabase.provider ?? "managed",
+    },
+    bootstrap: config.bootstrap
+      ? {
+          ...config.bootstrap,
+          supabaseProvider: config.bootstrap.supabaseProvider ?? config.supabase.provider ?? "managed",
+        }
+      : config.bootstrap,
+  };
 }
 
 function getStoreDirectory(slug: string): string {
@@ -294,7 +341,7 @@ export function getStoreConfig(slug: string): StoreConfig | null {
     return null;
   }
 
-  return readJsonFile<StoreConfig>(configPath);
+  return normalizeStoreConfig(readJsonFile<StoreConfig>(configPath));
 }
 
 export function requireStoreConfig(slug: string): StoreConfig {
@@ -378,7 +425,7 @@ export function createStore(input: CreateStoreInput): CreateStoreResult {
 
 export function updateStoreConfig(slug: string, updater: (current: StoreConfig) => StoreConfig): StoreConfig {
   const current = requireStoreConfig(slug);
-  const next = updater(current);
+  const next = normalizeStoreConfig(updater(current));
   writeJsonFile(getStoreConfigPath(slug), next);
   return next;
 }
@@ -389,13 +436,19 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
     supabase: {
       ...current.supabase,
       projectRef: input.projectRef,
-      url: input.url
+      url: input.url,
+      provider: input.provider,
+      dashboardUrl: input.dashboardUrl ?? current.supabase.dashboardUrl
     },
     bootstrap: {
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: input.adminEnvLocalPath ?? current.bootstrap?.adminEnvLocalPath,
-      organizationSlug: input.organizationSlug,
+      organizationSlug: input.organizationSlug ?? current.bootstrap?.organizationSlug,
+      supabaseProvider: input.provider,
+      supabaseProjectName: input.projectName ?? current.bootstrap?.supabaseProjectName,
+      supabaseResourceId: input.resourceId ?? current.bootstrap?.supabaseResourceId,
+      supabaseDashboardUrl: input.dashboardUrl ?? current.bootstrap?.supabaseDashboardUrl,
       provisionedAt: input.provisioningStatus === "configured" ? new Date().toISOString() : current.bootstrap?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
       supabaseProvisioning: input.provisioningStatus

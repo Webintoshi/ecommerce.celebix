@@ -14,8 +14,8 @@ export default async function NewStorePage() {
           <p>
             Yeni magaza kaydi, config dosyalari ve env sablonu olusturulur.
             {supabaseBootstrap.configured
-              ? " Supabase baglantisi hazir oldugu icin veritabani da otomatik kurulur."
-              : " Supabase tokeni eksikse sadece dosya kaydi olusur."}
+              ? ` ${supabaseBootstrap.provider === "self_hosted_coolify" ? "Self-hosted Supabase" : "Supabase"} baglantisi hazir oldugu icin veritabani da otomatik kurulur.`
+              : " Supabase bootstrap ortam degiskenleri eksikse sadece dosya kaydi olusur."}
           </p>
         </div>
       </div>
