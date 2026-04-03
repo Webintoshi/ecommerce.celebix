@@ -18,5 +18,9 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "server-only": "^0.0.1"
+  },
+  "optionalDependencies": {
+    "@next/swc-linux-x64-gnu": "16.2.1",
+    "@next/swc-linux-x64-musl": "16.2.1"
   }
 }
