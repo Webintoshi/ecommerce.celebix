@@ -147,7 +147,7 @@ export default function ShippingSettingsPage() {
       if (!integrationsResponse.ok || !integrationsResult.success) throw new Error(integrationsResult.error || "Kargo entegrasyonları kaydedilemedi.");
       if (!zonesResponse.ok || !zonesResult.success) throw new Error(zonesResult.error || "Teslimat bölgeleri kaydedilemedi.");
       setSettings(normalizeShippingIntegrationSettings(integrationsResult.shippingIntegrations));
-      setZones(normalizeShippingZones(zonesResult.shippingOptions));
+      setZones(normalizeShippingZones(zonesResult.shippingOptions ?? normalizedZones));
       toast.success("Kargo ayarları kaydedildi.");
     } catch (error) {
       toast.error("Kayıt başarısız", { description: error instanceof Error ? error.message : "Bilinmeyen hata" });

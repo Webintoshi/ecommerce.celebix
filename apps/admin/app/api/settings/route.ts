@@ -159,7 +159,11 @@ export async function POST(request: NextRequest) {
 
         if (type === "shipping" && shippingOptions !== undefined) {
             await setShippingOptions(shippingOptions);
-            return NextResponse.json({ success: true, message: "Shipping options updated" });
+            return NextResponse.json({
+                success: true,
+                message: "Shipping options updated",
+                shippingOptions: await getShippingOptions(),
+            });
         }
 
         if (type === "shipping-integrations" && shippingIntegrations !== undefined) {
