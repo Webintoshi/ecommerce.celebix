@@ -181,13 +181,13 @@ export function ProductDetailClient({
     };
   }, [product?.id, product?.category, product?.subcategory]);
 
+  const variants = product?.variants || [];
+  const variant = variants[selectedVariant] || variants[0];
+
   useEffect(() => {
     setCustomizationState(createEmptyCustomizationState(variant?.price || 0));
     setCustomizationValidationNonce(0);
   }, [activeSchema?.id, variant?.id, variant?.price]);
-
-  const variants = product?.variants || [];
-  const variant = variants[selectedVariant] || variants[0];
 
   // Get variant display images
   const displayImages = React.useMemo(() => {
