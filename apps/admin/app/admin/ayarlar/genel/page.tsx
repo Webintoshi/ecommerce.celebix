@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Building2,
   Mail,
@@ -17,8 +17,10 @@ import {
   Megaphone,
   ImageIcon,
   Check,
-  ChevronDown,
-  ChevronUp,
+  Palette,
+  Bell,
+  Store,
+  Contact,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TypographyFontPicker } from "@/components/admin/TypographyFontPicker";
@@ -28,14 +30,9 @@ import {
   DEFAULT_STORE_TYPOGRAPHY,
   FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS,
   normalizeStoreTypographySettings,
-  resolveStoreTypographyRoleFont,
   STORE_BODY_SIZE_OPTIONS,
   STORE_HEADING_SCALE_OPTIONS,
   STORE_LETTER_SPACING_OPTIONS,
-  STORE_MENU_SIZE_OPTIONS,
-  STORE_PRODUCT_CARD_TITLE_SIZE_OPTIONS,
-  STORE_PRODUCT_PAGE_TITLE_SIZE_OPTIONS,
-  STORE_TYPOGRAPHY_ROLE_MODE_OPTIONS,
   STORE_TYPOGRAPHY_WEIGHT_OPTIONS,
   type StoreTypographyFontOption,
   type StoreTypographyRoleMode,
@@ -90,50 +87,59 @@ const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
   enabled: true,
 };
 
-// Simple Card Component
+// Quick Nav Item
+function NavItem({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+        active
+          ? "bg-neutral-900 text-white shadow-lg shadow-neutral-900/20"
+          : "text-gray-600 hover:bg-gray-100"
+      }`}
+    >
+      <Icon className="w-5 h-5" />
+      <span className="font-medium">{label}</span>
+    </button>
+  );
+}
+
+// Compact Card Component
 function Card({
   children,
   title,
   icon: Icon,
-  description,
+  id,
 }: {
   children: React.ReactNode;
   title: string;
   icon: React.ElementType;
-  description?: string;
+  id: string;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
-
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50/50 transition-colors"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-neutral-900 flex items-center justify-center">
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            {description && (
-              <p className="text-sm text-gray-500 mt-0.5">{description}</p>
-            )}
-          </div>
+    <div id={id} className="bg-white rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+        <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center">
+          <Icon className="w-5 h-5 text-white" />
         </div>
-        {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-gray-400" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-gray-400" />
-        )}
-      </button>
-
-      {isOpen && <div className="px-6 pb-6">{children}</div>}
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      </div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
 
-// Simple Input Component
+// Form Components
 function Input({
   label,
   name,
@@ -152,11 +158,11 @@ function Input({
   icon?: React.ElementType;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-sm font-medium text-gray-700">{label}</label>
       <div className="relative">
         {Icon && (
-          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         )}
         <input
           type={type}
@@ -164,8 +170,8 @@ function Input({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent ${
-            Icon ? "pl-12" : ""
+          className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent ${
+            Icon ? "pl-10" : ""
           }`}
         />
       </div>
@@ -173,14 +179,13 @@ function Input({
   );
 }
 
-// Simple TextArea Component
 function TextArea({
   label,
   name,
   value,
   onChange,
   placeholder,
-  rows = 3,
+  rows = 2,
 }: {
   label: string;
   name: string;
@@ -190,7 +195,7 @@ function TextArea({
   rows?: number;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-sm font-medium text-gray-700">{label}</label>
       <textarea
         name={name}
@@ -198,13 +203,12 @@ function TextArea({
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
       />
     </div>
   );
 }
 
-// Simple Select Component
 function Select({
   label,
   name,
@@ -219,13 +223,13 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-sm font-medium text-gray-700">{label}</label>
       <select
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent appearance-none"
+        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -245,7 +249,7 @@ export default function GeneralSettingsPage() {
   const [fontCatalog, setFontCatalog] = useState<StoreTypographyFontOption[]>(
     FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS
   );
-  const [fontCatalogLoading, setFontCatalogLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState("brand");
   const [formData, setFormData] = useState<StoreInfo>(DEFAULT_STORE_INFO);
   const [announcementData, setAnnouncementData] =
     useState<AnnouncementSettings>(DEFAULT_ANNOUNCEMENT);
@@ -268,6 +272,11 @@ export default function GeneralSettingsPage() {
     }
     link.href = stylesheetUrl;
   }, [formData.typography]);
+
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   async function fetchSettings() {
     setLoading(true);
@@ -303,23 +312,17 @@ export default function GeneralSettingsPage() {
   }
 
   async function fetchGoogleFonts() {
-    setFontCatalogLoading(true);
     try {
       const response = await fetch("/api/admin/google-fonts", {
         cache: "force-cache",
       });
       const payload = (await response.json()) as GoogleFontsPayload;
 
-      if (!response.ok || payload.success === false || !Array.isArray(payload.fonts)) {
-        throw new Error("Google font katalogu getirilemedi");
+      if (response.ok && payload.success && Array.isArray(payload.fonts)) {
+        setFontCatalog(payload.fonts);
       }
-
-      setFontCatalog(payload.fonts);
     } catch (error) {
       console.error("Failed to fetch Google font catalog:", error);
-      setFontCatalog(FEATURED_STORE_TYPOGRAPHY_FONT_OPTIONS);
-    } finally {
-      setFontCatalogLoading(false);
     }
   }
 
@@ -353,38 +356,6 @@ export default function GeneralSettingsPage() {
       typography: {
         ...normalizeStoreTypographySettings(prev.typography),
         [key]: value,
-      },
-    }));
-  }
-
-  function handleTypographyRoleModeChange(
-    key: "menuFont" | "productTitleFont",
-    mode: StoreTypographyRoleMode
-  ) {
-    setFormData((prev) => ({
-      ...prev,
-      typography: {
-        ...normalizeStoreTypographySettings(prev.typography),
-        [key]: {
-          ...normalizeStoreTypographySettings(prev.typography)[key],
-          mode,
-        },
-      },
-    }));
-  }
-
-  function handleTypographyRoleCustomFont(
-    key: "menuFont" | "productTitleFont",
-    font: StoreTypographyFontOption
-  ) {
-    setFormData((prev) => ({
-      ...prev,
-      typography: {
-        ...normalizeStoreTypographySettings(prev.typography),
-        [key]: {
-          mode: "custom",
-          font,
-        },
       },
     }));
   }
@@ -497,7 +468,7 @@ export default function GeneralSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-neutral-900" />
       </div>
     );
@@ -509,368 +480,383 @@ export default function GeneralSettingsPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mağaza Ayarları</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Mağazanızın temel bilgilerini buradan yönetin</p>
+            <h1 className="text-xl font-bold text-gray-900">Mağaza Ayarları</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Mağazanızın temel bilgilerini yönetin</p>
           </div>
           <button
             onClick={() => void handleSubmit()}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-6 py-3 text-base font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 hover:shadow-xl hover:shadow-neutral-900/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 active:scale-95 disabled:opacity-50"
           >
             {saving ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
             ) : (
-              <Save className="h-5 w-5" />
+              <Save className="h-4 w-4" />
             )}
             Kaydet
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        {/* Brand Info Card */}
-        <Card
-          title="Marka Bilgileri"
-          icon={Building2}
-          description="Mağaza adı ve iletişim bilgileri"
-        >
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Mağaza Adı"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Örn: DeryCraft"
-              />
-              <Input
-                label="E-posta"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="info@magaza.com"
-                icon={Mail}
-              />
-            </div>
+      {/* Two Column Layout */}
+      <div className="flex">
+        {/* Left Sidebar Navigation */}
+        <aside className="w-64 sticky top-[73px] h-[calc(100vh-73px)] border-r border-gray-100 bg-white/50 backdrop-blur-sm p-4 overflow-y-auto hidden lg:block">
+          <nav className="space-y-1">
+            <NavItem
+              icon={Store}
+              label="Marka"
+              active={activeSection === "brand"}
+              onClick={() => scrollToSection("brand")}
+            />
+            <NavItem
+              icon={Contact}
+              label="İletişim"
+              active={activeSection === "contact"}
+              onClick={() => scrollToSection("contact")}
+            />
+            <NavItem
+              icon={Globe}
+              label="Sosyal & Bölge"
+              active={activeSection === "region"}
+              onClick={() => scrollToSection("region")}
+            />
+            <NavItem
+              icon={Bell}
+              label="Duyuru"
+              active={activeSection === "announcement"}
+              onClick={() => scrollToSection("announcement")}
+            />
+            <NavItem
+              icon={Type}
+              label="Yazı Tipleri"
+              active={activeSection === "typography"}
+              onClick={() => scrollToSection("typography")}
+            />
+          </nav>
+        </aside>
 
-            {/* Logo Upload */}
-            <div className="rounded-xl border-2 border-dashed border-gray-200 p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100">
-                  {formData.logoUrl ? (
-                    <Image
-                      src={formData.logoUrl}
-                      alt="Logo"
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-contain p-2"
-                      unoptimized
-                    />
-                  ) : (
-                    <ImageIcon className="w-8 h-8 text-gray-300" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 mb-1">Site Logosu</p>
-                  <p className="text-sm text-gray-500 mb-3">
-                    Web sitenizde görünecek ana logo
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-neutral-800 transition-colors">
-                      {logoUploading ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                      ) : (
-                        <Upload className="h-4 w-4" />
-                      )}
-                      Logo Yükle
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleLogoUpload}
-                        disabled={logoUploading}
+        {/* Main Content - Two Column Grid */}
+        <main className="flex-1 p-6">
+          <div className="max-w-5xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {/* Brand Card - Spans 2 cols */}
+            <div className="xl:col-span-2">
+              <Card title="Marka Bilgileri" icon={Store} id="brand">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2 flex gap-4">
+                    {/* Logo Upload */}
+                    <div className="flex-shrink-0">
+                      <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                        {formData.logoUrl ? (
+                          <Image
+                            src={formData.logoUrl}
+                            alt="Logo"
+                            width={96}
+                            height={96}
+                            className="w-full h-full object-contain p-2"
+                            unoptimized
+                          />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-neutral-800">
+                          {logoUploading ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          Logo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                            disabled={logoUploading}
+                          />
+                        </label>
+                        {formData.logoUrl && (
+                          <button
+                            onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Favicon Upload */}
+                    <div className="flex-shrink-0">
+                      <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                        {formData.faviconUrl ? (
+                          <img
+                            src={formData.faviconUrl}
+                            alt="Favicon"
+                            className="w-full h-full object-contain p-2"
+                          />
+                        ) : (
+                          <Globe className="w-8 h-8 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-neutral-800">
+                          {faviconUploading ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          Favicon
+                          <input
+                            type="file"
+                            accept="image/*,.ico"
+                            className="hidden"
+                            onChange={handleFaviconUpload}
+                            disabled={faviconUploading}
+                          />
+                        </label>
+                        {formData.faviconUrl && (
+                          <button
+                            onClick={() => setFormData((prev) => ({ ...prev, faviconUrl: "" }))}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Store Name & Email */}
+                    <div className="flex-1 space-y-3">
+                      <Input
+                        label="Mağaza Adı"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="DeryCraft"
                       />
-                    </label>
-                    {formData.logoUrl && (
-                      <button
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, logoUrl: "" }))
-                        }
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    )}
+                      <Input
+                        label="E-posta"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="info@magaza.com"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
 
-            {/* Favicon Upload */}
-            <div className="rounded-xl border-2 border-dashed border-gray-200 p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100">
-                  {formData.faviconUrl ? (
-                    <img
-                      src={formData.faviconUrl}
-                      alt="Favicon"
-                      className="w-full h-full object-contain p-1"
-                    />
-                  ) : (
-                    <Globe className="w-6 h-6 text-gray-300" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 mb-1">Favicon</p>
-                  <p className="text-sm text-gray-500 mb-3">
-                    Tarayıcı sekmesinde görünen küçük ikon
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-neutral-800 transition-colors">
-                      {faviconUploading ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                      ) : (
-                        <Upload className="h-4 w-4" />
-                      )}
-                      Favicon Yükle
-                      <input
-                        type="file"
-                        accept="image/*,.ico"
-                        className="hidden"
-                        onChange={handleFaviconUpload}
-                        disabled={faviconUploading}
-                      />
-                    </label>
-                    {formData.faviconUrl && (
-                      <button
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, faviconUrl: "" }))
-                        }
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Contact Info Card */}
-        <Card title="İletişim Bilgileri" icon={Phone} description="Müşterilerinize görünen iletişim">
-          <div className="space-y-4">
-            <Input
-              label="Telefon"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="+90 555 123 4567"
-              icon={Phone}
-            />
-            <TextArea
-              label="Adres"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="İşletme adresiniz..."
-              rows={2}
-            />
-          </div>
-        </Card>
-
-        {/* Social Media Card */}
-        <Card title="Sosyal Medya" icon={Instagram} description="Sosyal medya hesaplarınız">
-          <div className="space-y-4">
-            <Input
-              label="Instagram"
-              name="socialInstagram"
-              value={formData.socialInstagram || ""}
-              onChange={handleChange}
-              placeholder="https://instagram.com/kullaniciadi"
-            />
-            <Input
-              label="X (Twitter)"
-              name="socialTwitter"
-              value={formData.socialTwitter || ""}
-              onChange={handleChange}
-              placeholder="https://x.com/kullaniciadi"
-            />
-          </div>
-        </Card>
-
-        {/* Regional Settings Card */}
-        <Card title="Bölgesel Ayarlar" icon={Globe} description="Para birimi ve zaman dilimi">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select
-              label="Para Birimi"
-              name="currency"
-              value={formData.currency}
-              onChange={handleChange}
-              options={[
-                { value: "TRY", label: "Türk Lirası (₺)" },
-                { value: "USD", label: "Amerikan Doları ($)" },
-                { value: "EUR", label: "Euro (€)" },
-              ]}
-            />
-            <Select
-              label="Zaman Dilimi"
-              name="timezone"
-              value={formData.timezone}
-              onChange={handleChange}
-              options={[
-                { value: "Europe/Istanbul", label: "İstanbul (GMT+3)" },
-                { value: "UTC", label: "UTC (GMT+0)" },
-              ]}
-            />
-          </div>
-        </Card>
-
-        {/* Announcement Card */}
-        <Card
-          title="Üst Bar Duyurusu"
-          icon={Megaphone}
-          description="Sitenin üstünde görünen duyuru mesajı"
-        >
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                name="enabled"
-                checked={announcementData.enabled}
-                onChange={handleChange}
-                className="w-5 h-5 rounded border-gray-300 text-neutral-900 focus:ring-neutral-900"
-              />
-              <span className="font-medium text-gray-900">Duyuru aktif</span>
-            </label>
-
-            {announcementData.enabled && (
-              <div className="space-y-4 pt-4 border-t border-gray-100">
+            {/* Contact Card */}
+            <Card title="İletişim" icon={Phone} id="contact">
+              <div className="space-y-3">
+                <Input
+                  label="Telefon"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+90 555 123 4567"
+                  icon={Phone}
+                />
                 <TextArea
-                  label="Duyuru Metni"
-                  name="message"
-                  value={announcementData.message}
-                  onChange={handleAnnouncementChange}
-                  placeholder="Örn: Yeni sezon ürünleri stokta!"
+                  label="Adres"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="İşletme adresiniz..."
                   rows={2}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Buton Metni"
-                    name="linkText"
-                    value={announcementData.linkText}
-                    onChange={handleAnnouncementChange}
-                    placeholder="İncele"
+              </div>
+            </Card>
+
+            {/* Social & Regional Combined */}
+            <Card title="Sosyal Medya & Bölge" icon={Globe} id="region">
+              <div className="space-y-3">
+                <Input
+                  label="Instagram"
+                  name="socialInstagram"
+                  value={formData.socialInstagram || ""}
+                  onChange={handleChange}
+                  placeholder="@kullaniciadi"
+                  icon={Instagram}
+                />
+                <Input
+                  label="X (Twitter)"
+                  name="socialTwitter"
+                  value={formData.socialTwitter || ""}
+                  onChange={handleChange}
+                  placeholder="@kullaniciadi"
+                  icon={Twitter}
+                />
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 mt-3">
+                  <Select
+                    label="Para Birimi"
+                    name="currency"
+                    value={formData.currency}
+                    onChange={handleChange}
+                    options={[
+                      { value: "TRY", label: "₺ TL" },
+                      { value: "USD", label: "$ USD" },
+                      { value: "EUR", label: "€ EUR" },
+                    ]}
                   />
-                  <Input
-                    label="Buton Linki"
-                    name="link"
-                    value={announcementData.link}
-                    onChange={handleAnnouncementChange}
-                    placeholder="/urunler"
+                  <Select
+                    label="Zaman Dilimi"
+                    name="timezone"
+                    value={formData.timezone}
+                    onChange={handleChange}
+                    options={[
+                      { value: "Europe/Istanbul", label: "İstanbul" },
+                      { value: "UTC", label: "UTC" },
+                    ]}
                   />
                 </div>
               </div>
-            )}
-          </div>
-        </Card>
+            </Card>
 
-        {/* Typography Card - Simplified */}
-        <Card
-          title="Yazı Tipleri"
-          icon={Type}
-          description="Sitenizde kullanılan fontlar"
-        >
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypographyFontPicker
-                label="Başlık Fontu"
-                value={typography.headingFont}
-                onChange={(font) => handleTypographyChange("headingFont", font)}
-                catalog={fontCatalog}
-              />
-              <TypographyFontPicker
-                label="Metin Fontu"
-                value={typography.bodyFont}
-                onChange={(font) => handleTypographyChange("bodyFont", font)}
-                catalog={fontCatalog}
-              />
+            {/* Announcement Card - Full Width */}
+            <div className="xl:col-span-2">
+              <Card title="Üst Bar Duyurusu" icon={Bell} id="announcement">
+                <div className="flex items-center gap-3 mb-4">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="enabled"
+                      checked={announcementData.enabled}
+                      onChange={handleChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900"></div>
+                    <span className="ml-3 text-sm font-medium text-gray-900">
+                      {announcementData.enabled ? "Aktif" : "Pasif"}
+                    </span>
+                  </label>
+                </div>
+
+                {announcementData.enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <TextArea
+                        label="Duyuru Metni"
+                        name="message"
+                        value={announcementData.message}
+                        onChange={handleAnnouncementChange}
+                        placeholder="Yeni sezon ürünleri stokta!"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Input
+                        label="Buton Metni"
+                        name="linkText"
+                        value={announcementData.linkText}
+                        onChange={handleAnnouncementChange}
+                        placeholder="İncele"
+                      />
+                      <Input
+                        label="Link"
+                        name="link"
+                        value={announcementData.link}
+                        onChange={handleAnnouncementChange}
+                        placeholder="/urunler"
+                      />
+                    </div>
+                  </div>
+                )}
+              </Card>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Select
-                label="Boyut"
-                name="bodySizePx"
-                value={String(typography.bodySizePx)}
-                onChange={(e) =>
-                  handleTypographyChange("bodySizePx", Number(e.target.value))
-                }
-                options={STORE_BODY_SIZE_OPTIONS.map((opt) => ({
-                  value: String(opt.id),
-                  label: opt.label,
-                }))}
-              />
-              <Select
-                label="Başlık Boyutu"
-                name="headingScale"
-                value={typography.headingScale}
-                onChange={(e) =>
-                  handleTypographyChange("headingScale", e.target.value)
-                }
-                options={STORE_HEADING_SCALE_OPTIONS.map((opt) => ({
-                  value: String(opt.id),
-                  label: opt.label,
-                }))}
-              />
-              <Select
-                label="Harf Aralığı"
-                name="letterSpacing"
-                value={typography.letterSpacing}
-                onChange={(e) =>
-                  handleTypographyChange("letterSpacing", e.target.value)
-                }
-                options={STORE_LETTER_SPACING_OPTIONS.map((opt) => ({
-                  value: String(opt.id),
-                  label: opt.label,
-                }))}
-              />
-              <Select
-                label="Kalınlık"
-                name="headingWeight"
-                value={String(typography.headingWeight)}
-                onChange={(e) =>
-                  handleTypographyChange("headingWeight", Number(e.target.value))
-                }
-                options={STORE_TYPOGRAPHY_WEIGHT_OPTIONS.map((opt) => ({
-                  value: String(opt.id),
-                  label: opt.label,
-                }))}
-              />
+            {/* Typography Card - Full Width */}
+            <div className="xl:col-span-2">
+              <Card title="Yazı Tipleri" icon={Type} id="typography">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2">
+                    <TypographyFontPicker
+                      label="Başlık Fontu"
+                      value={typography.headingFont}
+                      onChange={(font) => handleTypographyChange("headingFont", font)}
+                      catalog={fontCatalog}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <TypographyFontPicker
+                      label="Metin Fontu"
+                      value={typography.bodyFont}
+                      onChange={(font) => handleTypographyChange("bodyFont", font)}
+                      catalog={fontCatalog}
+                    />
+                  </div>
+                  <Select
+                    label="Boyut"
+                    name="bodySizePx"
+                    value={String(typography.bodySizePx)}
+                    onChange={(e) =>
+                      handleTypographyChange("bodySizePx", Number(e.target.value))
+                    }
+                    options={STORE_BODY_SIZE_OPTIONS.map((opt) => ({
+                      value: String(opt.id),
+                      label: opt.label,
+                    }))}
+                  />
+                  <Select
+                    label="Başlık Boyutu"
+                    name="headingScale"
+                    value={typography.headingScale}
+                    onChange={(e) => handleTypographyChange("headingScale", e.target.value)}
+                    options={STORE_HEADING_SCALE_OPTIONS.map((opt) => ({
+                      value: String(opt.id),
+                      label: opt.label,
+                    }))}
+                  />
+                  <Select
+                    label="Harf Aralığı"
+                    name="letterSpacing"
+                    value={typography.letterSpacing}
+                    onChange={(e) => handleTypographyChange("letterSpacing", e.target.value)}
+                    options={STORE_LETTER_SPACING_OPTIONS.map((opt) => ({
+                      value: String(opt.id),
+                      label: opt.label,
+                    }))}
+                  />
+                  <Select
+                    label="Kalınlık"
+                    name="headingWeight"
+                    value={String(typography.headingWeight)}
+                    onChange={(e) =>
+                      handleTypographyChange("headingWeight", Number(e.target.value))
+                    }
+                    options={STORE_TYPOGRAPHY_WEIGHT_OPTIONS.map((opt) => ({
+                      value: String(opt.id),
+                      label: opt.label,
+                    }))}
+                  />
+                </div>
+              </Card>
             </div>
           </div>
-        </Card>
 
-        {/* Save Button at Bottom */}
-        <div className="flex justify-end pt-4">
-          <button
-            onClick={() => void handleSubmit()}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-8 py-4 text-lg font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 hover:shadow-xl hover:shadow-neutral-900/30 active:scale-95 disabled:opacity-50"
-          >
-            {saving ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-            ) : (
-              <Check className="h-5 w-5" />
-            )}
-            Değişiklikleri Kaydet
-          </button>
-        </div>
+          {/* Bottom Save */}
+          <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => void handleSubmit()}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 active:scale-95 disabled:opacity-50"
+            >
+              {saving ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Değişiklikleri Kaydet
+            </button>
+          </div>
+        </main>
       </div>
     </div>
   );
