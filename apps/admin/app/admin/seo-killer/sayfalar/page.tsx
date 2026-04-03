@@ -546,6 +546,7 @@ export default function PageSEOPage() {
                                     editForm={editForm}
                                     isGenerating={generating}
                                     isSaving={saving}
+                                    storeHost={storeHost}
                                     onUpdateMetaTitle={updateMetaTitle}
                                     onUpdateMetaDescription={updateMetaDescription}
                                     onGenerateAI={() => handleGenerateAI(page)}
@@ -612,7 +613,7 @@ function TabButton({ active, onClick, label, badge }: { active: boolean; onClick
     );
 }
 
-function MetaSection({ page, editForm, isGenerating, isSaving, onUpdateMetaTitle, onUpdateMetaDescription, onGenerateAI, onSave, onCancel, generateSchemaPreview }: any) {
+function MetaSection({ page, editForm, isGenerating, isSaving, storeHost, onUpdateMetaTitle, onUpdateMetaDescription, onGenerateAI, onSave, onCancel, generateSchemaPreview }: any) {
     const titleLength = editForm.metaTitle.length;
     const descLength = editForm.metaDescription.length;
     

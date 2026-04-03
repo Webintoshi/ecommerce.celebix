@@ -698,6 +698,7 @@ export default function ProductSEOPage() {
                                     isGenerating={generating}
                                     isSaving={saving}
                                     aiSource={aiSource}
+                                    storeHost={storeHost}
                                     onUpdateMetaTitle={updateMetaTitle}
                                     onUpdateMetaDescription={updateMetaDescription}
                                     onGenerateAI={() => handleGenerateAI(product)}
@@ -787,7 +788,7 @@ function TabButton({ active, onClick, label, badge, icon }: { active: boolean; o
     );
 }
 
-function MetaSection({ product, editForm, isGenerating, isSaving, aiSource, onUpdateMetaTitle, onUpdateMetaDescription, onGenerateAI, onSave, onCancel }: any) {
+function MetaSection({ product, editForm, isGenerating, isSaving, aiSource, storeHost, onUpdateMetaTitle, onUpdateMetaDescription, onGenerateAI, onSave, onCancel }: any) {
     const titleLength = editForm.metaTitle.length;
     const descLength = editForm.metaDescription.length;
     

@@ -692,6 +692,7 @@ function CategoryCard({
                             editForm={editForm}
                             isGenerating={isGenerating}
                             isSaving={isSaving}
+                            storeHost={storeHost}
                             onUpdateMetaTitle={onUpdateMetaTitle}
                             onUpdateMetaDescription={onUpdateMetaDescription}
                             onGenerateAI={onGenerateAI}
@@ -779,6 +780,7 @@ function MetaSection({
     editForm,
     isGenerating,
     isSaving,
+    storeHost,
     onUpdateMetaTitle,
     onUpdateMetaDescription,
     onGenerateAI,
@@ -789,6 +791,7 @@ function MetaSection({
     editForm: EditFormState;
     isGenerating: boolean;
     isSaving: boolean;
+    storeHost: string;
     onUpdateMetaTitle: (value: string) => void;
     onUpdateMetaDescription: (value: string) => void;
     onGenerateAI: () => void;
