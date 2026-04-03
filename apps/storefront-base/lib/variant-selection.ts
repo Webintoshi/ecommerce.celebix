@@ -1,5 +1,10 @@
 type VariantRecord = {
+  id?: string | null;
+  name?: string | null;
+  groupName?: string | null;
+  group_name?: string | null;
   stock?: number | null;
+  images?: string[] | null;
   attributes?: Array<Record<string, unknown>>;
   raw_attributes?: Array<Record<string, unknown>>;
 };
@@ -27,10 +32,55 @@ export type ProductCardSwatch = {
   color_code?: string | null;
 };
 
+const FALLBACK_COLOR_MAP: Record<string, string> = {
+  siyah: "#1A1A1A",
+  black: "#1A1A1A",
+  beyaz: "#FFFFFF",
+  white: "#FFFFFF",
+  taba: "#C4A484",
+  tan: "#C4A484",
+  kahve: "#8B5E3C",
+  brown: "#8B5E3C",
+  "aci kahve": "#6F4E37",
+  "acı kahve": "#6F4E37",
+  antrasit: "#4A4A4A",
+  asfalt: "#3A3A3C",
+  murdum: "#7D4A5A",
+  mürdüm: "#7D4A5A",
+  yesil: "#5E6F52",
+  yeşil: "#5E6F52",
+  mavi: "#5A7391",
+  lacivert: "#1E2C4F",
+  navy: "#1E2C4F",
+  orange: "#C86B2A",
+  turuncu: "#C86B2A",
+  camel: "#B8834E",
+  vizon: "#8D7B68",
+  kiremit: "#A54E34",
+  bordo: "#6E2830",
+  kirmizi: "#AF2F3F",
+  kırmızı: "#AF2F3F",
+  gri: "#808080",
+  gray: "#808080",
+  gold: "#D2B26D",
+  altin: "#D2B26D",
+  altın: "#D2B26D",
+  saffiano: "#7A4A32",
+};
+
 function toOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeColorToken(value: string): string {
+  return value
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function getAttributeId(attribute: Record<string, unknown>, fallbackIndex: number): string {
@@ -182,6 +232,82 @@ function isVisualAttributeGroup(group: OrderedVariantAttributeGroup) {
   return nameSuggestsColor || group.values.some((value) => value.image_url || value.color_code);
 }
 
+function getVariantGroupName(variant: VariantRecord): string {
+  return (
+    toOptionalString(variant.groupName) ||
+    toOptionalString(variant.group_name) ||
+    ""
+  );
+}
+
+function getFallbackColorCode(name: string): string | null {
+  const normalizedName = normalizeColorToken(name);
+  if (!normalizedName) {
+    return null;
+  }
+
+  const exactMatch = FALLBACK_COLOR_MAP[normalizedName];
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  for (const [token, colorCode] of Object.entries(FALLBACK_COLOR_MAP)) {
+    if (normalizedName.includes(token)) {
+      return colorCode;
+    }
+  }
+
+  return null;
+}
+
+function getFallbackVariantImage(variant: VariantRecord): string | null {
+  if (!Array.isArray(variant.images)) {
+    return null;
+  }
+
+  return variant.images.find((image) => typeof image === "string" && image.trim().length > 0) ?? null;
+}
+
+function getFallbackVariantSwatches(variants: VariantRecord[], maxCount: number): ProductCardSwatch[] {
+  const groupSuggestsColor = variants.some((variant) => {
+    const lowerGroupName = getVariantGroupName(variant).toLocaleLowerCase("tr");
+    return (
+      lowerGroupName.includes("renk") ||
+      lowerGroupName.includes("color") ||
+      lowerGroupName.includes("colour")
+    );
+  });
+
+  const derivedSwatches: ProductCardSwatch[] = [];
+  const seenKeys = new Set<string>();
+
+  variants.forEach((variant, variantIndex) => {
+    const variantName = toOptionalString(variant.name);
+    if (!variantName) {
+      return;
+    }
+
+    const normalizedName = normalizeColorToken(variantName);
+    const colorCode = getFallbackColorCode(variantName);
+    const imageUrl = getFallbackVariantImage(variant);
+    const looksLikeColor = groupSuggestsColor || Boolean(colorCode || imageUrl);
+
+    if (!looksLikeColor || seenKeys.has(normalizedName)) {
+      return;
+    }
+
+    seenKeys.add(normalizedName);
+    derivedSwatches.push({
+      key: toOptionalString(variant.id) || `${normalizedName}-${variantIndex}`,
+      value: variantName,
+      image_url: imageUrl,
+      color_code: colorCode,
+    });
+  });
+
+  return derivedSwatches.slice(0, maxCount);
+}
+
 export function getProductCardSwatches(variants: VariantRecord[], maxCount = 4): ProductCardSwatch[] {
   if (!Array.isArray(variants) || variants.length === 0) {
     return [];
@@ -190,7 +316,7 @@ export function getProductCardSwatches(variants: VariantRecord[], maxCount = 4):
   const groups = getOrderedVariantAttributeGroups(variants);
   const swatchGroup = groups.find(isVisualAttributeGroup);
   if (!swatchGroup) {
-    return [];
+    return getFallbackVariantSwatches(variants, maxCount);
   }
 
   return swatchGroup.values.slice(0, maxCount).map((value) => ({
