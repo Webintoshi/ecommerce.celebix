@@ -1,10 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Camera, Loader2, Star, UploadCloud, X } from "lucide-react";
 import { MAX_PRODUCT_REVIEW_IMAGES } from "@celebix/platform-config/src/product-reviews";
-import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import type { ProductReview } from "@/types/product";
 
 type ProductReviewsSectionProps = {
@@ -20,6 +19,13 @@ type UploadedReviewImage = {
   previewUrl: string;
 };
 
+type ReviewImageTileProps = {
+  source: string;
+  fallbackSource?: string;
+  alt: string;
+  className?: string;
+};
+
 function formatDate(value: string) {
   if (!value) return "-";
 
@@ -32,6 +38,47 @@ function formatDate(value: string) {
   } catch {
     return value;
   }
+}
+
+function ReviewImageTile({ source, fallbackSource, alt, className = "object-cover" }: ReviewImageTileProps) {
+  const [currentSource, setCurrentSource] = useState(source);
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSource(source);
+    setUsedFallback(false);
+    setFailed(false);
+  }, [fallbackSource, source]);
+
+  const handleError = () => {
+    if (!usedFallback && fallbackSource && fallbackSource !== currentSource) {
+      setCurrentSource(fallbackSource);
+      setUsedFallback(true);
+      return;
+    }
+
+    setFailed(true);
+  };
+
+  if (failed || !currentSource) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-neutral-100 px-2 text-center text-[11px] font-medium text-neutral-500">
+        Gorsel yuklenemedi
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={currentSource}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={`h-full w-full ${className}`}
+      onError={handleError}
+    />
+  );
 }
 
 export function ProductReviewsSection({
@@ -287,12 +334,11 @@ export function ProductReviewsSection({
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {review.imageUrls.map((imageUrl, index) => (
                       <div key={`${review.id}-${index}`} className="relative aspect-square overflow-hidden rounded-2xl bg-neutral-100">
-                        <Image
-                          src={imageUrl}
+                        <ReviewImageTile
+                          source={resolveStorefrontAssetUrl(imageUrl) || imageUrl}
+                          fallbackSource={resolveStorefrontDirectAssetUrl(imageUrl) || imageUrl}
                           alt={`${productName} yorum gorseli ${index + 1}`}
-                          fill
                           className="object-cover"
-                          sizes="(max-width: 768px) 45vw, 160px"
                         />
                       </div>
                     ))}
@@ -392,12 +438,11 @@ export function ProductReviewsSection({
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {uploadedImages.map((image) => (
                     <div key={image.url} className="relative aspect-square overflow-hidden rounded-2xl bg-neutral-100">
-                      <Image
-                        src={image.previewUrl}
+                      <ReviewImageTile
+                        source={image.previewUrl}
+                        fallbackSource={image.url}
                         alt="Yuklenen yorum gorseli"
-                        fill
                         className="object-cover"
-                        sizes="(max-width: 768px) 40vw, 110px"
                       />
                       <button
                         type="button"
@@ -442,4 +487,3 @@ export function ProductReviewsSection({
     </section>
   );
 }
-

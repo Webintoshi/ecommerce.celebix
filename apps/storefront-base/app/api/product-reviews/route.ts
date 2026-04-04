@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_PRODUCT_REVIEW_IMAGES } from "@celebix/platform-config/src/product-reviews";
-import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { createServerClient } from "@/lib/supabase";
 
 function normalizeImageUrls(value: unknown) {
@@ -10,6 +9,21 @@ function normalizeImageUrls(value: unknown) {
         .filter((item) => item.length > 0)
         .slice(0, MAX_PRODUCT_REVIEW_IMAGES)
     : [];
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error && typeof error === "object" && "message" in error
+    ? String((error as { message: unknown }).message)
+    : fallback;
+}
+
+function isMissingProductReviewsTableError(error: unknown) {
+  const message = getErrorMessage(error, "").toLowerCase();
+
+  return (
+    message.includes("product_reviews") &&
+    (message.includes("schema cache") || message.includes("relation") || message.includes("does not exist"))
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -42,16 +56,17 @@ export async function GET(request: NextRequest) {
       rating: Number(review.rating || 0),
       title: typeof review.title === "string" ? review.title : null,
       body: String(review.body || ""),
-      imageUrls: normalizeImageUrls(review.image_urls).map((item) => resolveStorefrontAssetUrl(item) || item),
+      imageUrls: normalizeImageUrls(review.image_urls),
       createdAt: String(review.created_at || ""),
     }));
 
     return NextResponse.json({ success: true, reviews });
   } catch (error: unknown) {
-    const message =
-      error && typeof error === "object" && "message" in error
-        ? String((error as { message: unknown }).message)
-        : "Yorumlar yuklenemedi";
+    if (isMissingProductReviewsTableError(error)) {
+      return NextResponse.json({ success: true, reviews: [] });
+    }
+
+    const message = getErrorMessage(error, "Yorumlar yuklenemedi");
 
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
@@ -116,12 +131,15 @@ export async function POST(request: NextRequest) {
       message: "Yorumunuz onay icin alindi. Onaylandiginda urunde yayinlanacak.",
     });
   } catch (error: unknown) {
-    const message =
-      error && typeof error === "object" && "message" in error
-        ? String((error as { message: unknown }).message)
-        : "Yorum gonderilemedi";
+    if (isMissingProductReviewsTableError(error)) {
+      return NextResponse.json(
+        { success: false, error: "Yorum sistemi henuz hazir degil. Lutfen biraz sonra tekrar deneyin." },
+        { status: 503 },
+      );
+    }
+
+    const message = getErrorMessage(error, "Yorum gonderilemedi");
 
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
-

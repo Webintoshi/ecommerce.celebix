@@ -33,6 +33,21 @@ export interface AdminProductReviewRecord {
   } | null;
 }
 
+function getErrorMessage(error: unknown) {
+  return error && typeof error === "object" && "message" in error
+    ? String((error as { message: unknown }).message)
+    : "";
+}
+
+export function isMissingProductReviewsTableError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
+
+  return (
+    message.includes("product_reviews") &&
+    (message.includes("schema cache") || message.includes("relation") || message.includes("does not exist"))
+  );
+}
+
 function normalizeImageUrls(value: unknown) {
   return Array.isArray(value)
     ? value
@@ -107,6 +122,10 @@ export async function listAdminProductReviews(
   const { data, error } = await query;
 
   if (error) {
+    if (isMissingProductReviewsTableError(error)) {
+      return [];
+    }
+
     throw error;
   }
 
@@ -167,4 +186,3 @@ export async function recalculateProductReviewMetrics(supabase: SupabaseClient, 
 
   return { rating, reviewCount };
 }
-
