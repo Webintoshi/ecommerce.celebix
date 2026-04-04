@@ -369,12 +369,12 @@ function FormField({
   const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
   const imageSelectMinWidth =
     imageSelectColumnCount >= 4
-      ? 118
+      ? 72
       : imageSelectColumnCount === 3
-        ? 138
+        ? 88
         : imageSelectColumnCount === 2
-          ? 168
-          : 220;
+          ? 108
+          : 140;
   const imageSelectGridStyle = {
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
@@ -460,10 +460,10 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div className="max-w-[680px]">
+        <div className="max-w-[420px]">
           {label}
           <div
-            className="grid grid-cols-2 gap-3 sm:[grid-template-columns:var(--image-select-columns)]"
+            className="grid grid-cols-2 gap-2 sm:[grid-template-columns:var(--image-select-columns)]"
             style={imageSelectGridStyle}
           >
             {step.options?.map((option) => (
@@ -472,7 +472,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative min-w-0 overflow-hidden rounded-2xl border transition-all h-full",
+                  "relative min-w-0 overflow-hidden rounded-xl border transition-all h-full",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -481,9 +481,8 @@ function FormField({
               >
                 <div
                   className={cn(
-                    imageAspectRatioClass,
-                    "bg-neutral-50",
-                    imageWrapperClass
+                    "aspect-square bg-neutral-50",
+                    imageWrapperClass === "p-3.5" ? "p-2" : "p-1.5"
                   )}
                 >
                   {option.image_url ? (
@@ -496,24 +495,24 @@ function FormField({
                       )}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
-                      Görsel Yok
+                    <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">
+                      -
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5 p-3.5 text-left">
-                  <p className="text-[15px] font-medium leading-[1.2] text-neutral-900 sm:text-base">
+                <div className="p-2 text-left">
+                  <p className="text-xs font-medium text-neutral-900">
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="text-xs text-emerald-600">
+                    <p className="text-[10px] text-emerald-600">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
                 {value === option.value && (
-                  <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#8A6B37]">
-                    <Check className="h-4 w-4 text-white" />
+                  <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#8A6B37]">
+                    <Check className="h-3 w-3 text-white" />
                   </div>
                 )}
               </button>
