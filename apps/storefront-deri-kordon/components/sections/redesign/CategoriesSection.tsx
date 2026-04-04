@@ -70,7 +70,7 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
                 <h3
-                  className="text-[0.78rem] font-medium leading-snug text-white drop-shadow-lg sm:text-sm md:text-base lg:text-xl"
+                  className="text-[13px] font-medium leading-snug text-white drop-shadow-lg md:text-[18px] lg:text-[24px]"
                   style={{ color: "#ffffff" }}
                 >
                   {category.name}
