@@ -105,7 +105,7 @@ export function FormBuilder({
         is_required: false,
         validation_rules: {},
         grid_width: "full",
-        style_config: {},
+        style_config: type === "image_select" ? { image_aspect_ratio: "1:1" } : {},
         sort_order: steps.length,
         options: ["select", "radio_group", "image_select", "multi_select"].includes(type)
           ? [

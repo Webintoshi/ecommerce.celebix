@@ -23,6 +23,7 @@ export type CustomizationStepType =
 export type PriceAdjustmentType = 'fixed' | 'percentage' | 'multiplier';
 
 export type GridWidth = 'full' | 'half' | 'third' | 'quarter';
+export type ImageAspectRatio = '1:1' | '2:3' | '16:9';
 
 export type ConditionOperator = 
   | 'equals' 
@@ -84,6 +85,7 @@ export interface StyleConfig {
   show_label?: boolean;
   css_class?: string;
   help_text_position?: 'below_label' | 'below_input';
+  image_aspect_ratio?: ImageAspectRatio;
 }
 
 // =====================================================

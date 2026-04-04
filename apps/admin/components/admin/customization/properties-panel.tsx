@@ -97,6 +97,16 @@ export function PropertiesPanel({
     });
   };
 
+  const updateStyleConfig = (key: string, value: unknown) => {
+    onChange({
+      ...step,
+      style_config: {
+        ...step.style_config,
+        [key]: value,
+      },
+    });
+  };
+
   // Add option
   const addOption = () => {
     const newOption: CustomizationOption = {
@@ -241,6 +251,37 @@ export function PropertiesPanel({
                 rows={2}
               />
             </div>
+
+            {step.type === "image_select" && (
+              <div className="space-y-2">
+                <Label>Görsel Oranı</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["1:1", "2:3", "16:9"].map((ratio) => (
+                    <Button
+                      key={ratio}
+                      type="button"
+                      variant={
+                        (step.style_config?.image_aspect_ratio || "1:1") === ratio
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      onClick={() => updateStyleConfig("image_aspect_ratio", ratio)}
+                      className={
+                        (step.style_config?.image_aspect_ratio || "1:1") === ratio
+                          ? "bg-amber-600"
+                          : ""
+                      }
+                    >
+                      {ratio}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Görsel seçim kartları storefrontta bu oranda gösterilir.
+                </p>
+              </div>
+            )}
 
             {/* Required */}
             <div className="flex items-center justify-between">

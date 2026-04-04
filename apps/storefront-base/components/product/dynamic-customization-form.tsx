@@ -26,6 +26,12 @@ import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const IMAGE_ASPECT_RATIO_CLASS = {
+  "1:1": "aspect-square",
+  "2:3": "aspect-[2/3]",
+  "16:9": "aspect-video",
+} as const;
+
 export interface CustomizationSelectionState {
   payload: CartCustomizationPayload | null;
   extraPrice: number;
@@ -353,6 +359,9 @@ function FormField({
     <p className="mt-1 text-xs text-rose-600">Bu alan gereklidir</p>
   );
 
+  const imageAspectRatioClass =
+    IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
+
   const gridClass = {
     full: "w-full",
     half: "w-full md:w-[calc(50%-0.5rem)]",
@@ -450,7 +459,7 @@ function FormField({
                   showError && "border-rose-300"
                 )}
               >
-                <div className="aspect-square bg-neutral-100">
+                <div className={cn(imageAspectRatioClass, "bg-neutral-100")}>
                   {option.image_url ? (
                     <img
                       src={option.image_url}

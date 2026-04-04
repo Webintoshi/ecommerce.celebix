@@ -33,6 +33,12 @@ import { Label } from "@/components/ui/label";
 import { Check, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const IMAGE_ASPECT_RATIO_CLASS = {
+  "1:1": "aspect-square",
+  "2:3": "aspect-[2/3]",
+  "16:9": "aspect-video",
+} as const;
+
 interface LivePreviewProps {
   schema: CustomizationSchema & { steps: CustomizationStep[] };
   basePrice?: number;
@@ -230,6 +236,9 @@ function FormField({
     <p className="text-xs text-red-500 mt-1">Bu alan gereklidir</p>
   );
 
+  const imageAspectRatioClass =
+    IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
+
   switch (step.type) {
     case "select":
       return (
@@ -319,7 +328,7 @@ function FormField({
                   hasError && "border-red-300"
                 )}
               >
-                <div className="aspect-square bg-gray-100">
+                <div className={cn(imageAspectRatioClass, "bg-gray-100")}>
                   {option.image_url ? (
                     <img
                       src={option.image_url}
