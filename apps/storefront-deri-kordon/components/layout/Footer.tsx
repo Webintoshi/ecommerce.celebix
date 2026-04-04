@@ -1,18 +1,57 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+
+type FooterCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
+  const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const currentYear = new Date().getFullYear();
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const categories = await fetchCategories();
+        if (!isMounted) return;
+
+        const topLevelCategories = categories
+          .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
+          .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          }));
+
+        setCategoryLinks(topLevelCategories);
+      } catch (error) {
+        console.error("Failed to load footer categories:", error);
+      }
+    };
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const aboutLinks = [
     { name: "Ana Sayfa", href: "/" },
@@ -20,14 +59,6 @@ export function Footer() {
     { name: "Mağazalarımız", href: "/magazalarimiz" },
     { name: "Kurumsal Sipariş", href: "/kurumsal-urunler" },
     { name: "İletişim", href: "/iletisim" },
-  ];
-
-  const categoryLinks = [
-    { name: "CÜZDAN & KARTLIK", href: "/kategori/cuzdan-kartlik" },
-    { name: "APPLE WATCH KAYIŞLARI", href: "/kategori/apple-watch-kayislari" },
-    { name: "SAAT KAYIŞLARI", href: "/kategori/saat-kayislari" },
-    { name: "ÇANTA & ORGANİZER", href: "/kategori/canta-organizer" },
-    { name: "AKSESUAR", href: "/kategori/aksesuar" },
   ];
 
   const policyLinks = [
@@ -94,7 +125,7 @@ export function Footer() {
 
           {/* About Us Column */}
           <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
               BİZİ TANIYIN
             </h3>
             <ul className="space-y-3">
@@ -113,17 +144,17 @@ export function Footer() {
 
           {/* Categories Column */}
           <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
               KATEGORİLER
             </h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
-                <li key={link.name}>
+                <li key={link.id}>
                   <Link
-                    href={link.href}
+                    href={`/${link.slug}`}
                     className="text-sm text-gray-400 hover:text-white transition-colors"
                   >
-                    {link.name}
+                    {link.name.toUpperCase()}
                   </Link>
                 </li>
               ))}
@@ -132,7 +163,7 @@ export function Footer() {
 
           {/* Policies Column */}
           <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
               POLİTİKALAR
             </h3>
             <ul className="space-y-3">
