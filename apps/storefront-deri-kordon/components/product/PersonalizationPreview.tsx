@@ -65,7 +65,7 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri urun kisilestirme onizleme",
-  textPositionClass: "left-1/2 top-[53%] w-[72%] -translate-x-1/2 -translate-y-1/2",
+  textPositionClass: "bottom-[20%] right-[11%] w-[42%] text-left",
   textToneClass: "text-[#2d2118]/85",
 };
 
@@ -73,7 +73,7 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
-  textPositionClass: "left-1/2 top-[50%] w-[52%] -translate-x-1/2 -translate-y-1/2",
+  textPositionClass: "bottom-[18%] right-[13%] w-[34%] text-left",
   textToneClass: "text-[#251b15]/80",
   staticText: "YAZI",
 };
@@ -142,7 +142,7 @@ export function PersonalizationPreview({
     previewConfig.staticText || previewText.trim() || "Ön İzleme";
 
   return (
-    <section className="max-w-[430px] space-y-3.5 border-t border-neutral-200 pt-5">
+    <section className="mx-auto w-full max-w-[360px] space-y-3 border-t border-neutral-200 pt-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[10px] font-medium uppercase tracking-[0.3em] text-neutral-700">
           Kişiselleştirme Ön İzleme
@@ -150,7 +150,7 @@ export function PersonalizationPreview({
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
 
-      <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.15fr)_minmax(190px,0.85fr)]">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(160px,0.78fr)]">
         <label className="sr-only" htmlFor="personalization-preview-text">
           Yazinizi girin
         </label>
@@ -159,7 +159,7 @@ export function PersonalizationPreview({
           value={previewText}
           onChange={(event) => setPreviewText(event.target.value.slice(0, 20))}
           placeholder="Yazinizi Ekleyin"
-          className="h-10 rounded-xl border border-[#9fc1df] bg-white px-3.5 text-[14px] text-neutral-900 shadow-[0_0_0_1px_rgba(159,193,223,0.15)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6d99bf]"
+          className="h-9 rounded-xl border border-[#9fc1df] bg-white px-3 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(159,193,223,0.15)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6d99bf]"
         />
 
         <label className="sr-only" htmlFor="personalization-preview-font">
@@ -169,7 +169,7 @@ export function PersonalizationPreview({
           id="personalization-preview-font"
           value={selectedFontId}
           onChange={(event) => setSelectedFontId(event.target.value)}
-          className="h-10 rounded-xl border border-[#9fc1df] bg-white px-3.5 text-[14px] text-neutral-900 shadow-[0_0_0_1px_rgba(159,193,223,0.15)] outline-none transition-colors focus:border-[#6d99bf]"
+          className="h-9 rounded-xl border border-[#9fc1df] bg-white px-3 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(159,193,223,0.15)] outline-none transition-colors focus:border-[#6d99bf]"
         >
           {FONT_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>
@@ -179,18 +179,18 @@ export function PersonalizationPreview({
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-[20px] border border-neutral-200 bg-[#f3eee8]">
-        <div className="relative aspect-[16/6.4]">
+      <div className="mx-auto overflow-hidden rounded-[18px] border border-neutral-200 bg-[#f3eee8]">
+        <div className="relative aspect-[16/6.2]">
           <Image
             src={previewImage}
             alt={previewConfig.imageAlt}
             fill
-            sizes="(min-width: 1280px) 24vw, (min-width: 1024px) 30vw, 100vw"
+            sizes="(min-width: 1280px) 21vw, (min-width: 1024px) 26vw, 100vw"
             className="object-cover"
             unoptimized={usesProxiedPreview}
           />
           <div
-            className={`pointer-events-none absolute ${previewConfig.textPositionClass} text-center text-[clamp(16px,1.5vw,28px)] leading-none ${previewConfig.textToneClass}`}
+            className={`pointer-events-none absolute ${previewConfig.textPositionClass} text-[clamp(14px,1.1vw,22px)] leading-none ${previewConfig.textToneClass}`}
             style={{
               fontFamily: selectedFont.family,
               ...selectedFont.style,
