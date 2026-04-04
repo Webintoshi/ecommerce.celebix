@@ -15,7 +15,8 @@
     "dev:admin": "npm run dev --workspace @celebix/admin",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "create:store": "node ./scripts/create-store.mjs"
+    "create:store": "node ./scripts/create-store.mjs",
+    "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
