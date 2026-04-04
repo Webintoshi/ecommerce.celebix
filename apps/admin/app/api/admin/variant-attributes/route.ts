@@ -202,6 +202,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, attribute });
       } catch (error: any) {
         if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
+          try {
+            await backfillVariantAttributeRegistryFromCatalog(supabase);
+          } catch (backfillError) {
+            console.error("Error backfilling variant attributes from catalog:", backfillError);
+          }
           const attribute = await getStoredVariantAttributeById(id);
           if (!attribute) {
             return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
@@ -229,6 +234,11 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
       if (error) {
         if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
+          try {
+            await backfillVariantAttributeRegistryFromCatalog(supabase);
+          } catch (backfillError) {
+            console.error("Error backfilling variant attributes from catalog:", backfillError);
+          }
           return (await getStoredVariantAttributes()).map((attribute) =>
             normalizeAttribute((attribute ?? {}) as Record<string, unknown>)
           );

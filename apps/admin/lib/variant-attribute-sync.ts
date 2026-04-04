@@ -149,6 +149,30 @@ function normalizeAttributeEntry(attribute: unknown): VariantAttributeValueInput
   };
 }
 
+function normalizeLegacyVariantAttributeEntry(variant: unknown): VariantAttributeValueInput & { name: string; slug: string } | null {
+  if (!variant || typeof variant !== "object") return null;
+  const record = variant as JsonObject;
+
+  const rawAttributeName = toOptionalString(record.group_name);
+  const rawValue = toOptionalString(record.name);
+
+  if (!rawAttributeName || !rawValue || isDefaultVariantValue(rawValue)) {
+    return null;
+  }
+
+  const rawImages = Array.isArray(record.images) ? record.images : [];
+  const primaryImage = rawImages.find((image): image is string => typeof image === "string" && image.trim().length > 0) ?? null;
+
+  return {
+    name: rawAttributeName,
+    slug: toSlug(rawAttributeName) || "nitelik",
+    value: rawValue,
+    color_code: null,
+    image_url: primaryImage,
+    display_order: 0,
+  };
+}
+
 function extractVariantAttributeInputs(variants: unknown[]): VariantAttributeInput[] {
   const attributeMap = new Map<string, VariantAttributeInput>();
 
@@ -187,6 +211,33 @@ function extractVariantAttributeInputs(variants: unknown[]): VariantAttributeInp
 
       attributeMap.set(attributeKey, existingAttribute);
     });
+
+    const legacyAttribute = normalizeLegacyVariantAttributeEntry(variant);
+    if (!legacyAttribute) {
+      return;
+    }
+
+    const attributeKey = normalize(legacyAttribute.name);
+    const existingAttribute = attributeMap.get(attributeKey) ?? {
+      name: legacyAttribute.name,
+      slug: legacyAttribute.slug,
+      values: [],
+    };
+
+    const valueKey = normalize(legacyAttribute.value);
+    const existingValue = existingAttribute.values.find((value) => normalize(value.value) === valueKey);
+    if (!existingValue) {
+      existingAttribute.values.push({
+        value: legacyAttribute.value,
+        color_code: legacyAttribute.color_code,
+        image_url: legacyAttribute.image_url,
+        display_order: existingAttribute.values.length,
+      });
+    } else if (!existingValue.image_url && legacyAttribute.image_url) {
+      existingValue.image_url = legacyAttribute.image_url;
+    }
+
+    attributeMap.set(attributeKey, existingAttribute);
   });
 
   return Array.from(attributeMap.values()).map((attribute) => ({
@@ -499,19 +550,54 @@ export async function syncVariantAttributeRegistryFromVariants(supabase: any, va
 }
 
 export async function backfillVariantAttributeRegistryFromCatalog(supabase: any): Promise<void> {
-  const { data, error } = await supabase.from("product_variants").select("attributes");
+  const { data, error } = await supabase.from("product_variants").select("attributes,name,group_name,images");
   if (error) {
     const missingColumn = getMissingColumn(error, "product_variants");
+    if (missingColumn === "group_name" || missingColumn === "images") {
+      const fallbackResult = await supabase.from("product_variants").select("attributes,name,group_name");
+      if (fallbackResult.error) {
+        const fallbackMissingColumn = getMissingColumn(fallbackResult.error, "product_variants");
+        if (fallbackMissingColumn === "group_name") {
+          const attributesOnlyResult = await supabase.from("product_variants").select("attributes");
+          if (attributesOnlyResult.error) {
+            const finalMissingColumn = getMissingColumn(attributesOnlyResult.error, "product_variants");
+            if (finalMissingColumn === "attributes") {
+              return;
+            }
+            throw attributesOnlyResult.error;
+          }
+
+          const variants = (attributesOnlyResult.data || []).map((row: { attributes?: unknown[] }) => ({
+            attributes: Array.isArray(row.attributes) ? row.attributes : [],
+          }));
+
+          await syncVariantAttributeRegistryFromVariants(supabase, variants);
+          return;
+        }
+        throw fallbackResult.error;
+      }
+
+      const variants = (fallbackResult.data || []).map((row: { attributes?: unknown[]; name?: string; group_name?: string }) => ({
+        attributes: Array.isArray(row.attributes) ? row.attributes : [],
+        name: row.name,
+        group_name: row.group_name,
+      }));
+
+      await syncVariantAttributeRegistryFromVariants(supabase, variants);
+      return;
+    }
     if (missingColumn === "attributes") {
       return;
     }
     throw error;
   }
 
-  const variants = (data || []).map((row: { attributes?: unknown[] }) => ({
+  const variants = (data || []).map((row: { attributes?: unknown[]; name?: string; group_name?: string; images?: unknown[] }) => ({
     attributes: Array.isArray(row.attributes) ? row.attributes : [],
+    name: row.name,
+    group_name: row.group_name,
+    images: Array.isArray(row.images) ? row.images : [],
   }));
 
   await syncVariantAttributeRegistryFromVariants(supabase, variants);
 }
-
