@@ -1,13 +1,18 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const currentYear = new Date().getFullYear();
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
+  const logoAlt = storeInfo?.name || SITE_NAME;
+  const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
   const aboutLinks = [
     { name: "Ana Sayfa", href: "/" },
@@ -38,11 +43,24 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {/* Brand Column */}
           <div className="lg:col-span-1">
-            {/* Logo - Handwritten Style */}
+            {/* Logo */}
             <Link href="/" className="inline-block mb-6">
-              <span className="text-3xl font-light tracking-wide" style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}>
-                DeryCraft
-              </span>
+              {logoSrc ? (
+                <div className="relative h-10 w-[150px]">
+                  <Image
+                    src={logoSrc}
+                    alt={logoAlt}
+                    fill
+                    className="object-contain object-left brightness-0 invert"
+                    sizes="150px"
+                    unoptimized={usesProxiedLogo}
+                  />
+                </div>
+              ) : (
+                <span className="text-2xl font-light tracking-wide" style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}>
+                  DeryCraft
+                </span>
+              )}
             </Link>
 
             {/* Contact Info */}
@@ -76,7 +94,7 @@ export function Footer() {
 
           {/* About Us Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
               BİZİ TANIYIN
             </h3>
             <ul className="space-y-3">
@@ -95,7 +113,7 @@ export function Footer() {
 
           {/* Categories Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
               KATEGORİLER
             </h3>
             <ul className="space-y-3">
@@ -114,7 +132,7 @@ export function Footer() {
 
           {/* Policies Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-5">
               POLİTİKALAR
             </h3>
             <ul className="space-y-3">
