@@ -120,6 +120,43 @@ export function Footer() {
               )}
             </Link>
 
+            {/* Language Selector */}
+            <div className="mb-6">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">
+                Language
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/"
+                  className="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 p-3 transition-all hover:border-gray-500"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 text-xs font-bold text-gray-300">
+                    TR
+                  </span>
+                  <div>
+                    <p className="text-xs text-gray-400">TR</p>
+                    <p className="text-sm font-medium text-white">Türkçe</p>
+                  </div>
+                  <div className="ml-auto flex h-4 w-4 items-center justify-center rounded-full border border-white bg-white">
+                    <div className="h-2 w-2 rounded-full bg-neutral-900"></div>
+                  </div>
+                </Link>
+                <Link
+                  href="/en"
+                  className="flex items-center gap-3 rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-500 hover:bg-gray-800/30"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-600 text-xs font-bold text-gray-400">
+                    EN
+                  </span>
+                  <div>
+                    <p className="text-xs text-gray-500">GB</p>
+                    <p className="text-sm font-medium text-gray-300">English</p>
+                  </div>
+                  <div className="ml-auto flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                </Link>
+              </div>
+            </div>
+
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>
               <p className="text-sm text-gray-300">bilgi@derycraft.com</p>
