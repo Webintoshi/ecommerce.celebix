@@ -1,85 +1,43 @@
-﻿"use client";
+"use client";
 
 export default function KargoPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
-            Kargo ve Teslimat PolitikasÄ±
+    <div className="min-h-screen bg-[#F8F8F8] py-12">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-12">
+          <h1 className="text-2xl md:text-3xl font-semibold text-neutral-900 mb-8">
+            Teslimat Politikası
           </h1>
 
-          <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
-            <p className="text-lg">
-              Deri Kordon olarak sipariÅŸlerinizi en kÄ±sa sÃ¼rede ve en taze ÅŸekilde ulaÅŸtÄ±rmak iÃ§in Ã§alÄ±ÅŸÄ±yoruz. Aksi belirtilmedikÃ§e, tÃ¼m sipariÅŸleriniz Ã¶deme onayÄ± alÄ±ndÄ±ktan sonra <strong>3â€“4 iÅŸ gÃ¼nÃ¼</strong> iÃ§erisinde kargoya verilir.
+          <div className="prose prose-neutral max-w-none space-y-6 text-gray-700">
+            <p className="text-sm uppercase tracking-wide font-medium text-neutral-900 mb-4">
+              SATICI'NIN stok ve/veya üretim durumunun uygun olması halinde; siparişi verilen ve ödemesi tamamlanan ürünler, anlaşmalı Kargo Şirketi aracılığıyla taahhüt edilen sürede ayıpsız ve hasarsız olarak ALICI' ya teslim edilir.
             </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Teslimat SÃ¼releri
-            </h2>
 
             <p>
-              Kargo firmalarÄ±nÄ±n yoÄŸunluk durumuna, resmi tatillere ve bulunduÄŸunuz ÅŸehre gÃ¶re teslimat sÃ¼releri deÄŸiÅŸiklik gÃ¶sterebilir. Genellikle kargo firmasÄ±nÄ±n operasyonuna baÄŸlÄ± olarak, paketiniz kargoya verildikten sonra birkaÃ§ iÅŸ gÃ¼nÃ¼ iÃ§inde adresinize teslim edilir.
+              www.derycraft.com'dan kredi kartı (Visa, MasterCard) ve EFT/Havale ile alışveriş yapılabilir. Ödemeli gönderi, kapıda ödeme, posta çeki gibi ödeme yöntemleri kabul edilmez. Ödemesi banka tarafından onaylanmayan siparişler iptal edilir. Satın alınan ürünün teslimat süreci bankadan gerekli onayın gelmesi ile ödemenin tamamlandığı anda başlayacaktır.
             </p>
 
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-lg my-6">
-              <p className="text-amber-900">
-                <strong>Ã–nemli:</strong> ResmÃ® tatiller, hafta sonlarÄ±, olumsuz hava koÅŸullarÄ± ve kargo firmasÄ±nÄ±n kendi operasyonel aksaklÄ±klarÄ± teslimat sÃ¼resini uzatabilir; bu durumlarda Deri Kordon'nun teslimat sÃ¼resine doÄŸrudan mÃ¼dahale imkÃ¢nÄ± bulunmamaktadÄ±r.
+            <p>
+              Siparişlerin işleme alınma zamanı, siparişin verildiği an değil, kredi kartı hesabından gerekli tahsilatın yapıldığı andır.
+            </p>
+
+            <p>
+              İnternet sitesi üzerinden satışı gerçekleşen ve teslimat aşamasına geçilen ürünlerde taşıma şirketinden veya ALICI'NIN kendisinden kaynaklanan nedenlerle teslimatın gecikmesi veya hiç yapılamamasından SATICI'NIN sorumluluğu bulunmamaktadır. Kargo Şirketinin haftada bir gün teslimat yaptığı bölgelerde, sevk bilgilerindeki yanlışlık ve eksiklik olduğu hallerde, bazı sosyal olaylar ve doğal afetler gibi durumlarda belirtilen gün süresinde sarkma olabilir. Ürün, ALICI'dan başka bir kişi/kuruluşa teslim edilecek ise, teslim edilecek kişi/kuruluşun teslimatı kabul etmemesinden, sevk bilgilerindeki yanlışlık ve/veya alıcının yerinde olmamasından doğabilecek ekstra kargo bedellerinden SATICI sorumlu tutulamaz.
+            </p>
+
+            <div className="bg-amber-50 border-l-4 border-[#D4A574] p-6 rounded-r-lg my-6">
+              <p className="text-amber-900 text-sm font-medium">
+                SEVKİYAT BİLGİLERİNİ TAM VE EKSİKSİZ DOLDURMANIZ, TESLİMAT YAPILACAK ADRESTE BULUNMANIZ ÖNEMLE RİCA OLUNUR.
               </p>
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kargo Ãœcretleri
-            </h2>
-
             <p>
-              Kargo Ã¼creti, sepet tutarÄ± ve teslimat adresinize gÃ¶re deÄŸiÅŸiklik gÃ¶sterebilir. GÃ¼ncel kargo Ã¼cretleri ve varsa Ã¼cretsiz kargo kampanyalarÄ±, Ã¶deme sayfasÄ±nda ve/veya sepet adÄ±mÄ±nda gÃ¶rÃ¼ntÃ¼lenir.
+              Teslimat masrafları alıcıya aittir. Satıcı, web sitesinde, ilan ettiği rakamın üzerinde alışveriş yapanların teslimat ücretinin kendisince karşılanacağını ya da kampanya dahilinde ücretsiz teslimat yapacağını beyan etmişse, teslimat masrafı satıcıya aittir. Her zaman iade kargo ücreti Alıcı'ya aittir. Teslimat, stokun müsait olması ve mal bedelinin satıcının hesabına geçmesinden sonra en kısa sürede yapılır. Satıcı, mal/hizmetin siparişinden itibaren 30 (Otuz) gün içinde teslim eder ve bu süre içinde yazılı bildirimle ek 10 (on) günlük süre uzatım hakkını saklı tutar. Herhangi bir nedenle mal/hizmet bedeli ödenmez veya banka kayıtlarında iptal edilir ise, satıcı mal/hizmetin teslimi yükümlülüğünden kurtulmuş kabul edilir. Anlaşmalı Kargo şirketleri dışındaki kargo firmaları ile gönderim isteyen Alıcı, tüm sorumlulukları ve tüm kargo masraflarını ödemeyi kabul eder.
             </p>
-
-            <div className="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg my-6">
-              <p className="text-primary font-semibold">
-                ğŸšš 500 â‚º Ã¼zeri sipariÅŸlerde kargo Ã¼cretsiz!
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kargo Takibi
-            </h2>
-
-            <p>
-              SipariÅŸiniz kargoya verildiÄŸinde, kayÄ±tlÄ± eâ€‘posta adresinize veya telefon numaranÄ±za kargo takip numaranÄ±z iletilir. Bu numara Ã¼zerinden kargo firmasÄ±nÄ±n web sitesi veya uygulamasÄ± aracÄ±lÄ±ÄŸÄ±yla gÃ¶nderinizi takip edebilirsiniz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Adres ve Teslimat Problemleri
-            </h2>
-
-            <p>
-              SipariÅŸ oluÅŸtururken teslimat adresinizi eksiksiz ve doÄŸru girdiÄŸinizden emin olun. Eksik veya hatalÄ± adres nedeniyle gerÃ§ekleÅŸmeyen teslimatlardan doÄŸabilecek gecikmelerden Deri Kordon sorumlu tutulamaz.
-            </p>
-
-            <p>
-              Kargo gÃ¶revlisi adreste size ulaÅŸamazsa, kargo firmasÄ± politikalarÄ±na gÃ¶re tekrar daÄŸÄ±tÄ±ma Ã§Ä±kabilir veya en yakÄ±n ÅŸubeden teslim almanÄ±z istenebilir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              HasarlÄ± Paketler ve Kargo EsnasÄ±nda OluÅŸan Sorunlar
-            </h2>
-
-            <p>
-              Paketinizi teslim alÄ±rken dÄ±ÅŸ ambalajda yÄ±rtÄ±lma, aÃ§Ä±lma veya ezilme gibi bir hasar fark ederseniz, lÃ¼tfen kargo gÃ¶revlisinin yanÄ±nda tutanak tutturarak Ã¼rÃ¼nÃ¼ teslim almayÄ±n ve durumu en kÄ±sa sÃ¼rede bize bildirin.
-            </p>
-
-            <div className="bg-gray-50 p-6 rounded-lg mt-8">
-              <p className="font-semibold text-gray-900 mb-2">
-                Herhangi bir kargo veya teslimat sorununda bizimle iletiÅŸime geÃ§in:
-              </p>
-              <p className="text-primary font-semibold">ornek-magazashopify@proton.me</p>
-            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
