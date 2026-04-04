@@ -33,13 +33,43 @@ type NavCategory = {
   children: NavSubcategory[];
 };
 
-const HEADER_CATEGORY_ORDER = [
-  "cuzdan-kartlik",
-  "apple-watch-saat-kayislari",
-  "saat-kayislari",
-  "canta-organizer",
-  "aksesuar",
-] as const;
+const normalizeCategoryKey = (value: string) =>
+  value
+    .toLocaleLowerCase("tr")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const getHeaderCategoryPriority = (category: { name: string; slug: string }) => {
+  const normalized = normalizeCategoryKey(`${category.slug} ${category.name}`);
+
+  if (normalized.includes("cuzdan") || normalized.includes("kartlik")) {
+    return 0;
+  }
+
+  if (normalized.includes("apple watch")) {
+    return 1;
+  }
+
+  if (normalized.includes("saat kayis") || normalized.includes("watch strap")) {
+    return 2;
+  }
+
+  if (normalized.includes("canta") || normalized.includes("organizer")) {
+    return 3;
+  }
+
+  if (normalized.includes("aksesuar")) {
+    return 4;
+  }
+
+  return 99;
+};
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -104,22 +134,6 @@ export function Header() {
           childrenByParent.set(category.parent_id, siblings);
         }
 
-        const topLevelCategoryMap = new Map(
-          activeCategories
-            .filter((category) => !category.parent_id)
-            .map((category) => [
-              category.slug,
-              {
-                id: category.id,
-                name: category.name,
-                slug: category.slug,
-                children: (childrenByParent.get(category.id) || []).sort((left, right) =>
-                  left.name.localeCompare(right.name, "tr"),
-                ),
-              } satisfies NavCategory,
-            ]),
-        );
-
         const topLevelCategories = activeCategories
           .filter((category) => !category.parent_id)
           .map((category) => ({
@@ -129,26 +143,25 @@ export function Header() {
             children: (childrenByParent.get(category.id) || []).sort((left, right) =>
               left.name.localeCompare(right.name, "tr"),
             ),
+            headerPriority: getHeaderCategoryPriority(category),
             sortOrder: category.sort_order || 0,
           }));
 
-        const orderedCategoriesFromPreferredSlugs = HEADER_CATEGORY_ORDER.map((slug) =>
-          topLevelCategoryMap.get(slug),
-        ).filter((category): category is NavCategory => Boolean(category));
+        const orderedCategories = topLevelCategories
+          .sort((left, right) => {
+            const priorityDiff = left.headerPriority - right.headerPriority;
+            if (priorityDiff !== 0) {
+              return priorityDiff;
+            }
 
-        const orderedCategories =
-          orderedCategoriesFromPreferredSlugs.length === HEADER_CATEGORY_ORDER.length
-            ? orderedCategoriesFromPreferredSlugs
-            : topLevelCategories
-                .sort((left, right) => {
-                  const sortDiff = left.sortOrder - right.sortOrder;
-                  if (sortDiff !== 0) {
-                    return sortDiff;
-                  }
+            const sortDiff = left.sortOrder - right.sortOrder;
+            if (sortDiff !== 0) {
+              return sortDiff;
+            }
 
-                  return left.name.localeCompare(right.name, "tr");
-                })
-                .map(({ sortOrder: _sortOrder, ...category }) => category);
+            return left.name.localeCompare(right.name, "tr");
+          })
+          .map(({ headerPriority: _headerPriority, sortOrder: _sortOrder, ...category }) => category);
 
         setHeaderCategories(orderedCategories);
       } catch (error) {
