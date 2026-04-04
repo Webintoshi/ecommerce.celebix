@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
+import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
@@ -512,6 +513,11 @@ export function ProductDetailClient({
                   </button>
                 </div>
               </div>
+
+              <PersonalizationPreview
+                category={product.category}
+                subcategory={product.subcategory}
+              />
 
               {/* Accordions — Inline in right column */}
               <div className="pt-1 border-t border-neutral-200">
