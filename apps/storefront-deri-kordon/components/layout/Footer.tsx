@@ -121,38 +121,104 @@ export function Footer() {
             </Link>
 
             {/* Language Selector */}
-            <div className="mb-6">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">
-                Language
-              </p>
+            <div className="mb-6 rounded-2xl border border-gray-700/50 bg-gray-800/30 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    Language
+                  </p>
+                  <p className="text-xs text-gray-500">Choose your storefront language</p>
+                </div>
+                <span className="rounded-full bg-gray-700 px-2.5 py-1 text-xs font-medium text-white">
+                  TR
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-2">
+                {/* TR - Selected */}
                 <Link
                   href="/"
-                  className="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 p-3 transition-all hover:border-gray-500"
+                  className="relative rounded-xl border border-gray-600 bg-white p-3 transition-all"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 text-xs font-bold text-gray-300">
-                    TR
-                  </span>
-                  <div>
-                    <p className="text-xs text-gray-400">TR</p>
-                    <p className="text-sm font-medium text-white">Türkçe</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500">TR</span>
+                      <span className="text-xs text-gray-400">TR</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900">
+                      <div className="h-1.5 w-1.5 rounded-full bg-white"></div>
+                    </div>
                   </div>
-                  <div className="ml-auto flex h-4 w-4 items-center justify-center rounded-full border border-white bg-white">
-                    <div className="h-2 w-2 rounded-full bg-neutral-900"></div>
-                  </div>
+                  <p className="mt-2 text-sm font-medium text-neutral-900">Türkçe</p>
                 </Link>
+                {/* EN */}
                 <Link
                   href="/en"
-                  className="flex items-center gap-3 rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-500 hover:bg-gray-800/30"
+                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-600 text-xs font-bold text-gray-400">
-                    EN
-                  </span>
-                  <div>
-                    <p className="text-xs text-gray-500">GB</p>
-                    <p className="text-sm font-medium text-gray-300">English</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400">GB</span>
+                      <span className="text-xs text-gray-500">EN</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
                   </div>
-                  <div className="ml-auto flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                  <p className="mt-2 text-sm font-medium text-gray-300">English</p>
+                </Link>
+                {/* DE */}
+                <Link
+                  href="/de"
+                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400">DE</span>
+                      <span className="text-xs text-gray-500">DE</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-gray-300">Deutsch</p>
+                </Link>
+                {/* RU */}
+                <Link
+                  href="/ru"
+                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400">RU</span>
+                      <span className="text-xs text-gray-500">RU</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-gray-300">Russkiy</p>
+                </Link>
+                {/* AR */}
+                <Link
+                  href="/ar"
+                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400">SA</span>
+                      <span className="text-xs text-gray-500">AR</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-gray-300">Arabic</p>
+                </Link>
+                {/* KA */}
+                <Link
+                  href="/ka"
+                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400">GE</span>
+                      <span className="text-xs text-gray-500">KA</span>
+                    </div>
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-gray-300">Kartuli</p>
                 </Link>
               </div>
             </div>
