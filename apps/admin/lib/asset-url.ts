@@ -82,3 +82,31 @@ export function resolveAdminAssetUrl(source?: string | null) {
     return trimmedSource;
   }
 }
+
+export function resolveAdminDirectAssetUrl(source?: string | null) {
+  const trimmedSource = typeof source === "string" ? source.trim() : "";
+
+  if (!trimmedSource) {
+    return "";
+  }
+
+  if (
+    trimmedSource.startsWith("/") ||
+    trimmedSource.startsWith("data:") ||
+    trimmedSource.startsWith("blob:")
+  ) {
+    return trimmedSource;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedSource);
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return "";
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return "";
+  }
+}

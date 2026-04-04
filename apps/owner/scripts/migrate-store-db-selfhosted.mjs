@@ -41,6 +41,7 @@ const BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "migrations", "20260314001000_marketplace_runtime.sql"],
   ["apps", "admin", "supabase", "migrations", "20260315002000_lucky_wheel_production.sql"],
   ["apps", "admin", "supabase", "migrations", "20260328000000_payment_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "006_add_product_columns.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402020000_default_product_tax_rate_zero.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402183000_products_subcategory_compat.sql"],
   ["apps", "admin", "supabase", "migrations", "20260405010000_product_reviews.sql"],

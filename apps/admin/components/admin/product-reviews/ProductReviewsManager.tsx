@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, ImageIcon, Search, Trash2, X } from "lucide-react";
 import type { ProductReviewStatus } from "@celebix/platform-config/src/product-reviews";
+import { resolveAdminAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
 import type { AdminProductReviewRecord } from "@/lib/product-reviews";
 
 type ReviewCounts = {
@@ -62,6 +62,48 @@ function getStatusClasses(status: ProductReviewStatus) {
     default:
       return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
   }
+}
+
+function ReviewImageTile({ src, alt }: { src: string; alt: string }) {
+  const proxiedSource = resolveAdminAssetUrl(src) || src;
+  const directSource = resolveAdminDirectAssetUrl(src);
+  const [currentSource, setCurrentSource] = useState(proxiedSource);
+  const [didFallback, setDidFallback] = useState(false);
+  const [didFail, setDidFail] = useState(false);
+
+  useEffect(() => {
+    setCurrentSource(proxiedSource);
+    setDidFallback(false);
+    setDidFail(false);
+  }, [proxiedSource]);
+
+  const handleError = () => {
+    if (!didFallback && directSource && directSource !== currentSource) {
+      setCurrentSource(directSource);
+      setDidFallback(true);
+      return;
+    }
+
+    setDidFail(true);
+  };
+
+  if (didFail || !currentSource) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-50 px-3 text-center text-xs font-medium text-gray-400">
+        Görsel yüklenemedi
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={currentSource}
+      alt={alt}
+      className="h-full w-full object-cover"
+      loading="lazy"
+      onError={handleError}
+    />
+  );
 }
 
 export function ProductReviewsManager({
@@ -258,12 +300,9 @@ export function ProductReviewsManager({
                         key={`${review.id}-${index}`}
                         className="relative aspect-square overflow-hidden rounded-2xl bg-gray-100 ring-1 ring-gray-200"
                       >
-                        <Image
+                        <ReviewImageTile
                           src={imageUrl}
                           alt={`${review.reviewer_name} yorum gorseli ${index + 1}`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 50vw, 160px"
                         />
                       </div>
                     ))}

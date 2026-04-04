@@ -4,7 +4,6 @@ import {
   isProductReviewStatus,
   type ProductReviewStatus,
 } from "@celebix/platform-config/src/product-reviews";
-import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 export interface AdminProductReviewRecord {
   id: string;
@@ -53,8 +52,22 @@ function normalizeImageUrls(value: unknown) {
     ? value
         .map((item) => (typeof item === "string" ? item : ""))
         .filter((item) => item.length > 0)
-        .map((item) => resolveAdminAssetUrl(item) || item)
     : [];
+}
+
+function isMissingProductMetricColumnsError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
+
+  const referencesMetricColumns =
+    message.includes("rating") ||
+    message.includes("review_count") ||
+    message.includes("products.rating") ||
+    message.includes("products.review_count");
+
+  return (
+    referencesMetricColumns &&
+    (message.includes("schema cache") || message.includes("column") || message.includes("does not exist"))
+  );
 }
 
 export function normalizeAdminProductReview(record: Record<string, unknown>): AdminProductReviewRecord {
@@ -181,6 +194,10 @@ export async function recalculateProductReviewMetrics(supabase: SupabaseClient, 
     .eq("id", productId);
 
   if (updateError) {
+    if (isMissingProductMetricColumnsError(updateError)) {
+      return { rating, reviewCount };
+    }
+
     throw updateError;
   }
 
