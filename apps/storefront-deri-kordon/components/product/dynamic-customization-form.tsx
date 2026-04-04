@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import {
   CartCustomizationPayload,
   CustomizationSchema,
@@ -365,7 +365,11 @@ function FormField({
   const imageFitMode = step.style_config?.image_fit_mode || "contain";
   const imageFitModeClass =
     imageFitMode === "cover" ? "object-cover" : "object-contain";
-  const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3";
+  const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
+  const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
+  const imageSelectGridStyle = {
+    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(0, 1fr))`,
+  } as CSSProperties;
 
   const gridClass = {
     full: "w-full",
@@ -450,14 +454,17 @@ function FormField({
       {step.type === "image_select" && (
         <div>
           {label}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div
+            className="grid grid-cols-2 gap-3 sm:[grid-template-columns:var(--image-select-columns)]"
+            style={imageSelectGridStyle}
+          >
             {step.options?.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative overflow-hidden rounded-2xl border transition-all",
+                  "relative min-w-0 overflow-hidden rounded-2xl border transition-all",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -486,8 +493,10 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="space-y-1 p-3 text-left">
-                  <p className="text-sm font-medium text-neutral-900">{option.label}</p>
+                <div className="space-y-1.5 p-3.5 text-left">
+                  <p className="text-[15px] font-medium leading-[1.2] text-neutral-900 sm:text-base">
+                    {option.label}
+                  </p>
                   {option.price_adjustment > 0 && (
                     <p className="text-xs text-emerald-600">
                       +{formatPrice(option.price_adjustment)}
