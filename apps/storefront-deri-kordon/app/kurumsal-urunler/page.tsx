@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { Product } from "@/types/product";
 import CorporateProductsClient from "./CorporateProductsClient";
 
@@ -198,7 +199,8 @@ export default async function CorporateProductsPage() {
           {showcaseProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
               {showcaseProducts.map(({ product, displayName }) => {
-                const primaryImage = product.images[0];
+                const primaryImage = resolveStorefrontAssetUrl(product.images[0]);
+                const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
 
                 return (
                   <Link key={product.id} href={`/urunler/${product.slug}`} className="group block">
@@ -210,6 +212,7 @@ export default async function CorporateProductsPage() {
                           fill
                           className="object-cover transition-transform duration-500 group-hover:scale-105"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          unoptimized={usesProxiedPrimaryImage}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
