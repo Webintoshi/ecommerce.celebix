@@ -70,18 +70,7 @@ export default function LoginPage() {
       />
 
       <div className="w-full max-w-md relative">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <img
-              src={SITE_LOGO_PATH}
-              alt={SITE_NAME}
-              className="h-12 w-auto mx-auto"
-            />
-          </Link>
-        </div>
-
-        {/* Login Card */}
+        {/* Login Card -->
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
