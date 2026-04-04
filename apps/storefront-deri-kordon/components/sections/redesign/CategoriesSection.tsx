@@ -40,7 +40,7 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
           <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">Kategoriler</h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
           {displayCategories.map((category) => (
             <Link
               key={category.id}
@@ -68,16 +68,16 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
 
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center sm:p-6">
                 <h3
-                  className="text-lg font-medium leading-tight text-white drop-shadow-lg md:text-xl lg:text-2xl"
+                  className="text-base font-medium leading-tight text-white drop-shadow-lg sm:text-lg md:text-xl lg:text-2xl"
                   style={{ color: "#ffffff" }}
                 >
                   {category.name}
                 </h3>
                 {category.description ? (
                   <p
-                    className="mt-3 line-clamp-2 max-w-sm text-sm text-white/90 drop-shadow-md"
+                    className="mt-2 line-clamp-2 max-w-sm text-xs text-white/90 drop-shadow-md sm:mt-3 sm:text-sm"
                     style={{ color: "rgba(255, 255, 255, 0.9)" }}
                   >
                     {category.description}
