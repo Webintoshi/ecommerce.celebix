@@ -12,7 +12,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Kesinlikle tavsiye ediyorum. Tutun kesesi aldim, harika kalite.",
-    image: "/images/placeholders/T.1.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-31-at-14.43.14.avif",
   },
   {
     id: 2,
