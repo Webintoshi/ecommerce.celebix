@@ -28,7 +28,8 @@ import { cn } from "@/lib/utils";
 
 const IMAGE_ASPECT_RATIO_CLASS = {
   "1:1": "aspect-square",
-  "2:3": "aspect-[2/3]",
+  "3:2": "aspect-[3/2]",
+  "2:3": "aspect-[3/2]",
   "16:9": "aspect-video",
 } as const;
 

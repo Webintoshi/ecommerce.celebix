@@ -23,7 +23,7 @@ export type CustomizationStepType =
 export type PriceAdjustmentType = 'fixed' | 'percentage' | 'multiplier';
 
 export type GridWidth = 'full' | 'half' | 'third' | 'quarter';
-export type ImageAspectRatio = '1:1' | '2:3' | '16:9';
+export type ImageAspectRatio = '1:1' | '3:2' | '16:9' | '2:3';
 
 export type ConditionOperator = 
   | 'equals' 

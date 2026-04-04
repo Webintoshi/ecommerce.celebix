@@ -74,7 +74,7 @@ export const styleConfigSchema = z.object({
   show_label: z.boolean().optional(),
   css_class: z.string().optional(),
   help_text_position: z.enum(['below_label', 'below_input']).optional(),
-  image_aspect_ratio: z.enum(['1:1', '2:3', '16:9']).optional(),
+  image_aspect_ratio: z.enum(['1:1', '3:2', '16:9', '2:3']).optional(),
 });
 
 // =====================================================

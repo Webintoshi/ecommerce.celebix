@@ -140,6 +140,11 @@ export function PropertiesPanel({
     onChange({ ...step, options: newOptions });
   };
 
+  const selectedImageAspectRatio =
+    step.style_config?.image_aspect_ratio === "2:3"
+      ? "3:2"
+      : step.style_config?.image_aspect_ratio || "1:1";
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -256,19 +261,19 @@ export function PropertiesPanel({
               <div className="space-y-2">
                 <Label>Görsel Oranı</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["1:1", "2:3", "16:9"].map((ratio) => (
+                  {["1:1", "3:2", "16:9"].map((ratio) => (
                     <Button
                       key={ratio}
                       type="button"
                       variant={
-                        (step.style_config?.image_aspect_ratio || "1:1") === ratio
+                        selectedImageAspectRatio === ratio
                           ? "default"
                           : "outline"
                       }
                       size="sm"
                       onClick={() => updateStyleConfig("image_aspect_ratio", ratio)}
                       className={
-                        (step.style_config?.image_aspect_ratio || "1:1") === ratio
+                        selectedImageAspectRatio === ratio
                           ? "bg-amber-600"
                           : ""
                       }
