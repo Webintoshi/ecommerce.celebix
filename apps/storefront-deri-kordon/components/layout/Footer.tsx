@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import {
+  DEFAULT_LOCALE,
+  buildLocalizedPath,
+  getLocaleFromPathname,
+  getLocalizedCategoryLabel,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 
 type FooterCategory = {
   id: string;
@@ -17,8 +25,11 @@ type FooterCategory = {
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
+  const pathname = usePathname();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const currentYear = new Date().getFullYear();
+  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
+  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
@@ -29,7 +40,9 @@ export function Footer() {
     const loadCategories = async () => {
       try {
         const categories = await fetchCategories();
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         const topLevelCategories = categories
           .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
@@ -54,28 +67,26 @@ export function Footer() {
   }, []);
 
   const aboutLinks = [
-    { name: "Ana Sayfa", href: "/" },
-    { name: "Hakkımızda", href: "/hakkimizda" },
-    { name: "Mağazalarımız", href: "/magazalarimiz" },
-    { name: "Kurumsal Sipariş", href: "/kurumsal-urunler" },
-    { name: "İletişim", href: "/iletisim" },
+    { name: copy.footerHome, href: "/" },
+    { name: copy.footerAbout, href: "/hakkimizda" },
+    { name: copy.footerStores, href: "/magazalarimiz" },
+    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
+    { name: copy.footerContact, href: "/iletisim" },
   ];
 
   const policyLinks = [
-    { name: "Mesafeli Satış Sözleşmesi", href: "/mesafeli-satis-sozlesmesi" },
-    { name: "Teslimat & İade Politikası", href: "/iade" },
-    { name: "Gizlilik Politikası", href: "/gizlilik" },
-    { name: "KVKK", href: "/kvkk" },
+    { name: copy.footerDistanceSales, href: "/mesafeli-satis-sozlesmesi" },
+    { name: copy.footerReturns, href: "/iade" },
+    { name: copy.footerPrivacy, href: "/gizlilik" },
+    { name: copy.footerKvkk, href: "/kvkk" },
   ];
 
   return (
     <footer className="bg-[#0B1120] text-white">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
-          {/* Brand Column */}
+      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
-            {/* Logo */}
-            <Link href="/" className="inline-block mb-6">
+            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
                   <Image
@@ -88,25 +99,26 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="text-2xl font-light tracking-wide" style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}>
+                <span
+                  className="text-2xl font-light tracking-wide"
+                  style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}
+                >
                   DeryCraft
                 </span>
               )}
             </Link>
 
-            {/* Contact Info */}
-            <div className="space-y-2 mb-6">
+            <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>
               <p className="text-sm text-gray-300">bilgi@derycraft.com</p>
             </div>
 
-            {/* Social Icons */}
             <div className="flex items-center gap-3">
               <a
                 href="https://instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -115,7 +127,7 @@ export function Footer() {
                 href="https://youtube.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -123,17 +135,16 @@ export function Footer() {
             </div>
           </div>
 
-          {/* About Us Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
-              BİZİ TANIYIN
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.aboutHeading}
             </h3>
             <ul className="space-y-3">
               {aboutLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={link.href}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -142,36 +153,34 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Categories Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
-              KATEGORİLER
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.categoriesHeading}
             </h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={`/${link.slug}`}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
-                    {link.name.toUpperCase()}
+                    {getLocalizedCategoryLabel(link.slug, link.name, locale).toUpperCase()}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Policies Column */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: "#ffffff" }}>
-              POLİTİKALAR
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.policiesHeading}
             </h3>
             <ul className="space-y-3">
               {policyLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={link.href}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -182,24 +191,23 @@ export function Footer() {
         </div>
       </div>
 
-      {/* Bottom Bar */}
       <div className="border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs text-gray-500">
-              © {currentYear} {storeInfo?.name || SITE_NAME}. Tüm hakları saklıdır.
+              © {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
             </p>
             <a
               href="https://celebix.co"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-gray-400 transition-colors hover:text-white"
             >
               <span className="text-xs">Powered by</span>
               <img
                 src="https://celebix.co/Logo/koyu%20logo.svg"
                 alt="Celebix"
-                className="h-5 w-auto brightness-0 invert"
+                className="h-7 w-auto brightness-0 invert"
               />
             </a>
           </div>
