@@ -16,7 +16,8 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "create:store": "node ./scripts/create-store.mjs",
-    "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs"
+    "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
+    "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
