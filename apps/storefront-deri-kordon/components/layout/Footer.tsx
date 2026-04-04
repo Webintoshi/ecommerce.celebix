@@ -11,10 +11,13 @@ import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import {
   DEFAULT_LOCALE,
+  LOCALE_LABELS,
+  SUPPORTED_LOCALES,
   buildLocalizedPath,
   getLocaleFromPathname,
   getLocalizedCategoryLabel,
   getLocalizedCopy,
+  stripLocaleFromPathname,
 } from "@/lib/i18n";
 
 type FooterCategory = {
@@ -30,6 +33,7 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
   const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
+  const currentPath = stripLocaleFromPathname(pathname || "/");
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
@@ -107,6 +111,32 @@ export function Footer() {
                 </span>
               )}
             </Link>
+
+            <div className="mb-6">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">
+                Language
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SUPPORTED_LOCALES.map((targetLocale) => {
+                  const isActive = targetLocale === locale;
+
+                  return (
+                    <Link
+                      key={targetLocale}
+                      href={buildLocalizedPath(currentPath, targetLocale)}
+                      hrefLang={targetLocale}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                        isActive
+                          ? "border-white bg-white text-[#0B1120]"
+                          : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
+                      }`}
+                    >
+                      {LOCALE_LABELS[targetLocale]}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>

@@ -15,6 +15,15 @@ export const LOCALE_LANGUAGE_CODES: Record<StorefrontLocale, string> = {
 
 export const RTL_LOCALES = new Set<StorefrontLocale>(["ar"]);
 
+export const LOCALE_LABELS: Record<StorefrontLocale, string> = {
+  tr: "TR",
+  en: "EN",
+  de: "DE",
+  ru: "RU",
+  ar: "AR",
+  ka: "KA",
+};
+
 type LocaleCopy = {
   siteTitle: string;
   siteDescription: string;
