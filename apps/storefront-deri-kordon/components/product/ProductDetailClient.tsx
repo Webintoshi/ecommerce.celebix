@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
 import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
+import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
@@ -628,6 +629,16 @@ export function ProductDetailClient({
           </div>
         </div>
       </section>
+
+      <div className="container-premium py-4 lg:py-6">
+        <ProductReviewsSection
+          productId={product.id}
+          productName={product.name}
+          activeVariantId={variant?.id}
+          initialRating={product.rating}
+          initialReviewCount={product.reviewCount}
+        />
+      </div>
 
       {/* Related Products */}
       <section

@@ -22,6 +22,7 @@ import { ImageGallery } from "@/components/product/ImageGallery";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { NutritionLabel } from "@/components/product/NutritionLabel";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
+import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { ComplementaryProducts } from "@/components/product/ComplementaryProducts";
 import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import {
@@ -632,8 +633,15 @@ export function ProductDetailClient({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="text-center py-16 bg-[#FFF5F5] rounded-3xl border border-[#7B1113]/10"
+                  className="rounded-3xl [&>*:not(:first-child)]:hidden"
                 >
+                  <ProductReviewsSection
+                    productId={product.id}
+                    productName={product.name}
+                    activeVariantId={variant?.id}
+                    initialRating={product.rating}
+                    initialReviewCount={product.reviewCount}
+                  />
                   <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F3E0E1] flex items-center justify-center">
                     <Star className="w-10 h-10 text-[#7B1113]" />
                   </div>

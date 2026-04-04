@@ -108,6 +108,19 @@ export interface ProductVariant {
   warehouseLocation?: string;
 }
 
+export interface ProductReview {
+  id: string;
+  productId: string;
+  variantId?: string | null;
+  reviewerName: string;
+  reviewerEmail?: string | null;
+  rating: number;
+  title?: string | null;
+  body: string;
+  imageUrls: string[];
+  createdAt: string;
+}
+
 // SEO Verileri
 export interface ProductSEO {
   title: string;

@@ -63,6 +63,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Yeni Ürün Ekle", href: "/admin/urunler/yeni" },
       { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar" },
       { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
+      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
       { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
       { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle" },
     ],
