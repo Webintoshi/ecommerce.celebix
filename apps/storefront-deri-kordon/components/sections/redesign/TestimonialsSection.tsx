@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Kesinlikle tavsiye ediyorum. Tutun kesesi aldim, harika kalite.",
+    image: "/images/placeholders/T.1.jpg",
   },
   {
     id: 2,
@@ -18,6 +20,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Sahane iscilik ile mukemmel bir urun cikmis. Kullandikca guzellesiyor.",
+    image: "/images/placeholders/T.2.jpg",
   },
   {
     id: 3,
@@ -25,6 +28,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Sade ve sik. Urun dayanikli, kullanisli ve gercekten guzel gorunuyor.",
+    image: "/images/placeholders/T.3.jpg",
   },
   {
     id: 4,
@@ -32,6 +36,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Deri saat kayisim geldi, sanki saatimi yeniden almis gibi oldum.",
+    image: "/images/placeholders/T.4.jpg",
   },
   {
     id: 5,
@@ -39,6 +44,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Iscilikten memnun kaldim. Kalite ve iscilik standartlarin ustunde.",
+    image: "/images/placeholders/T.5.jpg",
   },
   {
     id: 6,
@@ -46,6 +52,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Bayildim. Deri kalitesi ve isciligi ust duzey hissettiriyor.",
+    image: "/images/placeholders/T.6.jpg",
   },
 ];
 
@@ -120,9 +127,21 @@ export function TestimonialsSection() {
                         className="flex overflow-hidden bg-white shadow-sm"
                       >
                         <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
-                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
-                            {getInitials(review.name)}
-                          </div>
+                          {review.image ? (
+                            <div className="relative h-16 w-16 overflow-hidden rounded-full">
+                              <Image
+                                src={review.image}
+                                alt={review.name}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+                              {getInitials(review.name)}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
