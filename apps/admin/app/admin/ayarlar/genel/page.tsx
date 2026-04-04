@@ -58,6 +58,7 @@ interface AnnouncementSettings {
   link: string;
   linkText: string;
   enabled: boolean;
+  backgroundColor: string;
 }
 
 type GoogleFontsPayload = {
@@ -85,7 +86,31 @@ const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
   link: "/kampanyalar",
   linkText: "Hemen Kesfet",
   enabled: true,
+  backgroundColor: "#7B1113",
 };
+
+function normalizeAnnouncementColor(value?: string) {
+  const normalized = (value || "").trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  if (/^#[0-9A-Fa-f]{3}$/.test(normalized)) {
+    return `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`.toUpperCase();
+  }
+
+  return DEFAULT_ANNOUNCEMENT.backgroundColor;
+}
+
+function getAnnouncementTextColor(hexColor: string) {
+  const color = normalizeAnnouncementColor(hexColor);
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+
+  return brightness > 150 ? "#0B1120" : "#FFFFFF";
+}
 
 // Quick Nav Item
 function NavItem({
@@ -344,7 +369,10 @@ export default function GeneralSettingsPage() {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     const { name, value } = event.target;
-    setAnnouncementData((prev) => ({ ...prev, [name]: value }));
+    setAnnouncementData((prev) => ({
+      ...prev,
+      [name]: name === "backgroundColor" ? normalizeAnnouncementColor(value) : value,
+    }));
   }
 
   function handleTypographyChange<Key extends keyof StoreTypographySettings>(
@@ -475,6 +503,12 @@ export default function GeneralSettingsPage() {
   }
 
   const typography = normalizeStoreTypographySettings(formData.typography);
+  const announcementColor = normalizeAnnouncementColor(announcementData.backgroundColor);
+  const announcementTextColor = getAnnouncementTextColor(announcementColor);
+  const announcementButtonClass =
+    announcementTextColor === "#FFFFFF"
+      ? "bg-white/12 text-white"
+      : "bg-[#0B1120]/10 text-[#0B1120]";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -740,7 +774,8 @@ export default function GeneralSettingsPage() {
                 </div>
 
                 {announcementData.enabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
                       <TextArea
                         label="Duyuru Metni"
@@ -767,6 +802,64 @@ export default function GeneralSettingsPage() {
                         placeholder="/urunler"
                       />
                     </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[240px_1fr]">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-gray-700">Bar Rengi</label>
+                      <div className="flex items-center gap-3">
+                        <label className="relative h-12 w-16 overflow-hidden rounded-xl border border-gray-200 shadow-sm cursor-pointer">
+                          <input
+                            type="color"
+                            name="backgroundColor"
+                            value={announcementColor}
+                            onChange={handleAnnouncementChange}
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                          />
+                          <span
+                            className="block h-full w-full"
+                            style={{ backgroundColor: announcementColor }}
+                          />
+                        </label>
+                        <div className="flex-1">
+                          <Input
+                            label=""
+                            name="backgroundColor"
+                            value={announcementColor}
+                            onChange={handleAnnouncementChange}
+                            placeholder="#7B1113"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Yazi ve buton kontrasti otomatik ayarlanir.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700">On Izleme</span>
+                      <div
+                        className="rounded-2xl border border-black/5 px-4 py-3 shadow-sm"
+                        style={{ backgroundColor: announcementColor }}
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-center">
+                          <span
+                            className="text-sm font-medium tracking-wide text-center sm:text-left"
+                            style={{ color: announcementTextColor }}
+                          >
+                            {announcementData.message || DEFAULT_ANNOUNCEMENT.message}
+                          </span>
+                          {announcementData.linkText ? (
+                            <span
+                              className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ${announcementButtonClass}`}
+                            >
+                              {announcementData.linkText}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   </div>
                 )}
               </Card>

@@ -205,6 +205,7 @@ export interface AnnouncementBarSettings {
     link: string;
     linkText: string;
     enabled: boolean;
+    backgroundColor?: string;
 }
 
 /**
