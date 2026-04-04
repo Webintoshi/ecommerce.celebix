@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 interface AnnouncementSettings {
   message: string;
@@ -27,22 +26,14 @@ export function AnnouncementBar() {
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const supabase = getBrowserSupabaseClient();
+        const response = await fetch("/api/settings?type=announcement", { cache: "no-store" });
+        const payload = await response.json();
 
-        const { data, error } = await supabase
-          .from("settings")
-          .select("value")
-          .eq("key", "announcement_bar")
-          .single();
-
-        if (error) {
-          console.log("Announcement settings not found, using defaults");
+        if (!payload?.success || !payload?.announcementSettings) {
           return;
         }
 
-        if (data?.value) {
-          setSettings({ ...DEFAULT_SETTINGS, ...data.value });
-        }
+        setSettings({ ...DEFAULT_SETTINGS, ...payload.announcementSettings });
       } catch (err) {
         console.error("Failed to fetch announcement settings:", err);
       } finally {

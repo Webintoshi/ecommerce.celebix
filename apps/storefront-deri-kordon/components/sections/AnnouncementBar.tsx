@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { usePathname } from "next/navigation";
+import { buildLocalizedPath, getLocaleFromPathname, stripLocaleFromPathname } from "@/lib/i18n";
 
 interface AnnouncementSettings {
   message: string;
@@ -23,26 +24,21 @@ export function AnnouncementBar() {
   const [settings, setSettings] = useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isVisible, setIsVisible] = useState(true);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname);
+  const internalPathname = stripLocaleFromPathname(pathname || "/");
 
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const supabase = getBrowserSupabaseClient();
+        const response = await fetch("/api/settings?type=announcement", { cache: "no-store" });
+        const payload = await response.json();
 
-        const { data, error } = await supabase
-          .from("settings")
-          .select("value")
-          .eq("key", "announcement_bar")
-          .single();
-
-        if (error) {
-          console.log("Announcement settings not found, using defaults");
+        if (!payload?.success || !payload?.announcementSettings) {
           return;
         }
 
-        if (data?.value) {
-          setSettings({ ...DEFAULT_SETTINGS, ...data.value });
-        }
+        setSettings({ ...DEFAULT_SETTINGS, ...payload.announcementSettings });
       } catch (err) {
         console.error("Failed to fetch announcement settings:", err);
       } finally {
@@ -53,7 +49,12 @@ export function AnnouncementBar() {
     fetchSettings();
   }, []);
 
-  if (!isVisible || !settings.enabled || loading) return null;
+  if (!isVisible || !settings.enabled || loading || internalPathname.startsWith("/admin")) return null;
+
+  const announcementHref =
+    settings.link && settings.link.startsWith("/") && locale
+      ? buildLocalizedPath(settings.link, locale)
+      : settings.link;
 
   return (
     <div className="relative bg-[#7B1113]">
@@ -66,9 +67,9 @@ export function AnnouncementBar() {
               <span className="relative z-10">{settings.message}</span>
               <span className="absolute inset-0 bg-white/20 blur-sm transform scale-110 animate-pulse"></span>
             </span>
-            {settings.link && settings.linkText && (
+            {announcementHref && settings.linkText && (
               <Link
-                href={settings.link}
+                href={announcementHref}
                 className="inline-flex items-center gap-1 ml-2 px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-white font-semibold transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 {settings.linkText}
