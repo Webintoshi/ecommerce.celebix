@@ -378,7 +378,8 @@ function FormField({
   const imageSelectGridStyle = {
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
-  const mobileImageGridClass = imageSelectColumnCount <= 1 ? "grid-cols-1" : "grid-cols-2";
+  const mobileImageCardWidth =
+    imageSelectColumnCount <= 1 ? "min-w-[172px]" : "min-w-[116px]";
 
   const gridClass = {
     full: "w-full",
@@ -465,8 +466,8 @@ function FormField({
           {label}
           <div
             className={cn(
-              "grid gap-2 sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]",
-              mobileImageGridClass
+              "flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              "md:grid md:overflow-visible md:pb-0 md:[grid-template-columns:var(--image-select-columns)]"
             )}
             style={imageSelectGridStyle}
           >
@@ -476,7 +477,9 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all",
+                  "relative h-full w-full shrink-0 overflow-hidden rounded-xl border transition-all",
+                  mobileImageCardWidth,
+                  "md:min-w-0 md:shrink md:w-full",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -505,7 +508,7 @@ function FormField({
                   )}
                 </div>
                 <div className="p-2 text-left sm:p-3">
-                  <p className="break-words text-[11px] font-medium leading-tight text-neutral-900 sm:text-xs">
+                  <p className="break-words text-[10px] font-medium leading-tight text-neutral-900 sm:text-xs">
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (
