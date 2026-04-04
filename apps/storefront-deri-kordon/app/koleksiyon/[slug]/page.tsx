@@ -5,6 +5,13 @@ import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getRequestLocale } from "@/lib/request-locale";
+import {
+  type StorefrontLocale,
+  buildLocaleAlternates,
+  buildLocalizedPath,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -61,8 +68,8 @@ interface DBProduct {
   variants: DBVariant[] | null;
 }
 
-function buildAbsoluteUrl(path: string) {
-  return new URL(path, STOREFRONT_RUNTIME.siteUrl).toString();
+function buildAbsoluteUrl(path: string, locale: StorefrontLocale) {
+  return new URL(buildLocalizedPath(path, locale), STOREFRONT_RUNTIME.siteUrl).toString();
 }
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -165,6 +172,7 @@ function transformProduct(
 ): Product {
   const resolvedHierarchy = resolveProductCategorySlugs(product);
   const hydratedVariants = hydrateProductVariantSnapshots(product.variants || [], attributeRegistry);
+
   return {
     id: product.id,
     name: product.name,
@@ -212,9 +220,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
           query = query.eq("is_active", true);
         }
 
-        return query
-          .or("status.eq.published,status.is.null")
-          .order("created_at", { ascending: false });
+        return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
       }),
       getVariantAttributeRegistry(),
     ]);
@@ -239,7 +245,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
   }
 }
 
-function generateBreadcrumbSchema(category: Category) {
+function generateBreadcrumbSchema(category: Category, locale: StorefrontLocale, copy: ReturnType<typeof getLocalizedCopy>) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -247,38 +253,38 @@ function generateBreadcrumbSchema(category: Category) {
       {
         "@type": "ListItem",
         position: 1,
-        name: "Ana Sayfa",
-        item: buildAbsoluteUrl("/"),
+        name: copy.breadcrumbHome,
+        item: buildAbsoluteUrl("/", locale),
       },
       {
         "@type": "ListItem",
         position: 2,
-        name: "Ürünler",
-        item: buildAbsoluteUrl("/urunler"),
+        name: copy.breadcrumbProducts,
+        item: buildAbsoluteUrl("/urunler", locale),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: category.name,
-        item: buildAbsoluteUrl(`/${category.slug}`),
+        item: buildAbsoluteUrl(`/${category.slug}`, locale),
       },
     ],
   };
 }
 
-function generateCollectionSchema(category: Category, products: Product[]) {
+function generateCollectionSchema(category: Category, products: Product[], locale: StorefrontLocale) {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: category.seo_title || category.name,
     description: category.seo_description || category.description || category.name,
-    url: buildAbsoluteUrl(`/${category.slug}`),
+    url: buildAbsoluteUrl(`/${category.slug}`, locale),
     mainEntity: {
       "@type": "ItemList",
       itemListElement: products.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: buildAbsoluteUrl(`/urunler/${product.slug}`),
+        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale),
       })),
     },
   };
@@ -317,12 +323,14 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
 
   if (!category) {
     return {
-      title: "Kategori Bulunamadı | Deri Kordon",
+      title: copy.missingCategoryTitle,
       robots: { index: false, follow: false },
     };
   }
@@ -335,14 +343,15 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: buildAbsoluteUrl(`/${category.slug}`),
+      canonical: buildLocalizedPath(`/${category.slug}`, locale),
+      languages: buildLocaleAlternates(`/${category.slug}`),
     },
     openGraph: {
       title,
       description,
-      url: buildAbsoluteUrl(`/${category.slug}`),
+      url: buildLocalizedPath(`/${category.slug}`, locale),
       type: "website",
-      locale: "tr_TR",
+      locale,
       siteName: "Deri Kordon",
       images: category.image
         ? [
@@ -371,6 +380,8 @@ export default async function CollectionPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
 
@@ -379,8 +390,8 @@ export default async function CollectionPage({
   }
 
   const products = await getProductsByCategory(category);
-  const breadcrumbSchema = generateBreadcrumbSchema(category);
-  const collectionSchema = generateCollectionSchema(category, products);
+  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy);
+  const collectionSchema = generateCollectionSchema(category, products, locale);
   const faqSchema = generateFaqSchema(category.faq);
   const organizationSchema = generateOrganizationSchema();
 
@@ -409,14 +420,20 @@ export default async function CollectionPage({
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
-              <Link href="/" className="transition-colors hover:text-neutral-900">
-                Ana Sayfa
+              <Link
+                href={buildLocalizedPath("/", locale)}
+                className="transition-colors hover:text-neutral-900"
+              >
+                {copy.breadcrumbHome}
               </Link>
             </li>
             <li aria-hidden="true">/</li>
             <li>
-              <Link href="/urunler" className="transition-colors hover:text-neutral-900">
-                Ürünler
+              <Link
+                href={buildLocalizedPath("/urunler", locale)}
+                className="transition-colors hover:text-neutral-900"
+              >
+                {copy.breadcrumbProducts}
               </Link>
             </li>
             <li aria-hidden="true">/</li>
@@ -435,7 +452,7 @@ export default async function CollectionPage({
         <section className="mt-8 border-t border-neutral-200 bg-white">
           <div className="container-premium py-12">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
-              Sıkça sorulan sorular
+              {copy.faqHeading}
             </h2>
             <div className="max-w-3xl space-y-4">
               {category.faq.map((item, index) => (

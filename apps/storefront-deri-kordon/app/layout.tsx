@@ -10,6 +10,13 @@ import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
+import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
+import {
+  RTL_LOCALES,
+  buildLocaleAlternates,
+  buildLocalizedPath,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import {
@@ -24,8 +31,8 @@ const metadataTemplate: Metadata = {
     default: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
     template: `%s | Deri Kordon`,
   },
-  description: 
-    "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar. Apple Watch kayışları, özel tasarım deri aksesuarlar ve ustaların el işçiliğiyle üretilen premium deri ürünler.",
+  description:
+    "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar. Apple Watch kayışları ve premium deri aksesuarlar.",
   keywords: [
     "el yapımı deri kordon",
     "apple watch deri kayış",
@@ -33,7 +40,7 @@ const metadataTemplate: Metadata = {
     "premium deri aksesuar",
     "handmade leather strap",
     "deri bileklik",
-    "özel tasarım kordon"
+    "özel tasarım kordon",
   ],
   authors: [{ name: "Deri Kordon" }],
   creator: "Deri Kordon",
@@ -48,13 +55,13 @@ const metadataTemplate: Metadata = {
     locale: "tr_TR",
     url: STOREFRONT_RUNTIME.siteUrl,
     title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar.",
+    description: "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar.",
     siteName: "Deri Kordon",
   },
   twitter: {
     card: "summary_large_image",
     title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar.",
+    description: "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar.",
   },
   robots: {
     index: true,
@@ -62,16 +69,14 @@ const metadataTemplate: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   alternates: {
-    canonical: "./",
-    languages: {
-      "tr-TR": "./",
-    },
+    canonical: "/tr",
+    languages: buildLocaleAlternates("/"),
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
@@ -80,7 +85,6 @@ const metadataTemplate: Metadata = {
 
 function buildFaviconHref(faviconUrl?: string | null) {
   const trimmed = typeof faviconUrl === "string" ? faviconUrl.trim() : "";
-
   if (!trimmed) {
     return "/favicon.ico";
   }
@@ -89,15 +93,40 @@ function buildFaviconHref(faviconUrl?: string | null) {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const pathname = await getRequestPathname();
+  const copy = getLocalizedCopy(locale);
   const storeInfo = await getStoreInfo();
   const faviconHref = buildFaviconHref(storeInfo?.faviconUrl);
+  const localizedPath = buildLocalizedPath(pathname, locale);
 
   return {
     ...metadataTemplate,
+    title: {
+      default: copy.siteTitle,
+      template: `%s | Deri Kordon`,
+    },
+    description: copy.siteDescription,
     icons: {
       icon: faviconHref,
       shortcut: faviconHref,
       apple: faviconHref,
+    },
+    openGraph: {
+      ...metadataTemplate.openGraph,
+      title: copy.siteTitle,
+      description: copy.siteDescription,
+      locale,
+      url: localizedPath,
+    },
+    twitter: {
+      ...metadataTemplate.twitter,
+      title: copy.siteTitle,
+      description: copy.siteDescription,
+    },
+    alternates: {
+      canonical: localizedPath,
+      languages: buildLocaleAlternates(pathname),
     },
   };
 }
@@ -108,19 +137,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
+  const locale = await getRequestLocale();
   const initialStoreInfo = await getStoreInfo();
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
+  const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
 
   return (
-    <html lang="tr" suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
+    <html lang={locale} dir={dir} suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preload" href={typographyStylesheetUrl} as="style" />
         <link rel="stylesheet" href={typographyStylesheetUrl} />
-        
-        {/* GTM */}
+
         {gtmId ? (
           <Script
             strategy="lazyOnload"
@@ -135,7 +165,6 @@ export default async function RootLayout({
         suppressHydrationWarning
         style={{ backgroundColor: "#F8F8F8F8" }}
       >
-        {/* GTM NoScript */}
         {gtmId ? (
           <noscript>
             <iframe
@@ -146,7 +175,7 @@ export default async function RootLayout({
             />
           </noscript>
         ) : null}
-        
+
         <TrackingProvider>
           <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
             <AuthProvider>
@@ -155,14 +184,14 @@ export default async function RootLayout({
                   <QuickViewProvider>
                     <LayoutWrapper>
                       {children}
-                      <Toaster 
-                        position="top-right" 
+                      <Toaster
+                        position="top-right"
                         theme="light"
                         toastOptions={{
                           style: {
-                            background: '#0F1626',
-                            color: '#FFFFFF',
-                            border: 'none',
+                            background: "#0F1626",
+                            color: "#FFFFFF",
+                            border: "none",
                           },
                         }}
                       />

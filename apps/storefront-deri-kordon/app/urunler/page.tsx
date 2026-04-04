@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import {
@@ -6,14 +7,37 @@ import {
 } from "@/lib/variant-attribute-hydration";
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Tüm Ürünler | Deri Kordon",
-  description:
-    "El yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarları keşfedin.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
+  const localizedPath = buildLocalizedPath("/urunler", locale);
+
+  return {
+    title: copy.productsTitle,
+    description: copy.productsDescription,
+    alternates: {
+      canonical: localizedPath,
+      languages: buildLocaleAlternates("/urunler"),
+    },
+    openGraph: {
+      title: copy.productsTitle,
+      description: copy.productsDescription,
+      type: "website",
+      locale,
+      url: localizedPath,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: copy.productsTitle,
+      description: copy.productsDescription,
+    },
+  };
+}
 
 interface DBProduct {
   id: string;
@@ -106,8 +130,7 @@ async function getProducts(): Promise<Product[]> {
 
   try {
     const [{ data: products, error }, attributeRegistry] = await Promise.all([
-      runProductsQuery(
-      (includeIsActiveFilter) => {
+      runProductsQuery((includeIsActiveFilter) => {
         let query = supabase.from("products").select(`
             *,
             variants:product_variants(*, raw_attributes:attributes)
@@ -117,11 +140,8 @@ async function getProducts(): Promise<Product[]> {
           query = query.eq("is_active", true);
         }
 
-        return query
-          .or("status.eq.published,status.is.null")
-          .order("created_at", { ascending: false });
-      }
-      ),
+        return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
+      }),
       getVariantAttributeRegistry(),
     ]);
 
@@ -141,6 +161,5 @@ async function getProducts(): Promise<Product[]> {
 
 export default async function AllProductsPage() {
   const products = await getProducts();
-
   return <ProductsPageClient initialProducts={products} />;
 }

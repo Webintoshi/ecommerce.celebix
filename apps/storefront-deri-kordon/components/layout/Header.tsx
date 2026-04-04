@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
@@ -11,6 +12,13 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
+import {
+  DEFAULT_LOCALE,
+  buildLocalizedPath,
+  getLocaleFromPathname,
+  getLocalizedCategoryLabel,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 
 type NavSubcategory = {
   id: string;
@@ -38,10 +46,13 @@ export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [headerCategories, setHeaderCategories] = useState<NavCategory[]>([]);
+  const pathname = usePathname();
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user } = useAuth();
   const { storeInfo } = useStoreInfo();
 
+  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
+  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
@@ -139,13 +150,13 @@ export function Header() {
           <button
             className="-ml-2 p-2 lg:hidden"
             onClick={() => setIsMenuOpen((open) => !open)}
-            aria-label="Menü"
+            aria-label={copy.menuLabel}
             type="button"
           >
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link href={ROUTES.home} className="flex-shrink-0" aria-label={logoAlt}>
+          <Link href={buildLocalizedPath(ROUTES.home, locale)} className="flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
               <div className="relative h-7 w-[92px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
                 <Image
@@ -167,14 +178,16 @@ export function Header() {
 
           <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
             {headerCategories.map((category) => {
+              const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+
               if (category.children.length === 0) {
                 return (
                   <Link
                     key={category.id}
-                    href={ROUTES.category(category.slug)}
-                    className="store-nav-text relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 group after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
-                    {category.name}
+                    {localizedCategoryName}
                   </Link>
                 );
               }
@@ -182,10 +195,10 @@ export function Header() {
               return (
                 <div key={category.id} className="group relative">
                   <Link
-                    href={ROUTES.category(category.slug)}
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
                     className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
-                    {category.name}
+                    {localizedCategoryName}
                     <ChevronDown className="h-4 w-4" />
                   </Link>
 
@@ -195,7 +208,7 @@ export function Header() {
                         {category.children.map((subcategory) => (
                           <Link
                             key={subcategory.id}
-                            href={ROUTES.category(subcategory.slug)}
+                            href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
                             className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
                           >
                             {subcategory.name}
@@ -213,20 +226,20 @@ export function Header() {
             <button
               type="button"
               className="p-2"
-              aria-label="Ara"
+              aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
             >
               <Search className="h-5 w-5 text-neutral-600" />
             </button>
 
-            <Link href={user ? "/hesap" : ROUTES.login} className="hidden p-2 sm:block">
+            <Link href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)} className="hidden p-2 sm:block">
               <User className="h-5 w-5 text-neutral-600" />
             </Link>
 
             <button
               type="button"
               className="relative p-2"
-              aria-label="Sepeti aç"
+              aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
               <ShoppingBag className="h-5 w-5 text-neutral-600" />
@@ -246,11 +259,11 @@ export function Header() {
             {headerCategories.map((category) => (
               <div key={category.id} className="space-y-2">
                 <Link
-                  href={ROUTES.category(category.slug)}
+                  href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
                   className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {category.name}
+                  {getLocalizedCategoryLabel(category.slug, category.name, locale)}
                 </Link>
 
                 {category.children.length > 0 ? (
@@ -258,7 +271,7 @@ export function Header() {
                     {category.children.map((subcategory) => (
                       <Link
                         key={subcategory.id}
-                        href={ROUTES.category(subcategory.slug)}
+                        href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
                         className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                         onClick={() => setIsMenuOpen(false)}
                       >

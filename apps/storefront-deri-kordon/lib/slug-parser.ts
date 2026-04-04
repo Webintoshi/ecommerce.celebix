@@ -86,5 +86,5 @@ export function findVariantIndex(
  * @returns Canonical URL path
  */
 export function buildCanonicalUrl(baseSlug: string): string {
-  return `https://ornek-magaza.celebix.co/urunler/${baseSlug}`;
+  return `/urunler/${baseSlug}`;
 }

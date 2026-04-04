@@ -5,15 +5,33 @@ import { createServerClient } from "@/lib/supabase";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { Product } from "@/types/product";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import CorporateProductsClient from "./CorporateProductsClient";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Kurumsal Ürünler | Deri Kordon",
-  description:
-    "Şirketinize özel deri ürünler ve kişiselleştirilmiş kurumsal hediyeler. Markanıza prestij katın.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
+  const localizedPath = buildLocalizedPath("/kurumsal-urunler", locale);
+
+  return {
+    title: copy.corporateTitle,
+    description: copy.corporateDescription,
+    alternates: {
+      canonical: localizedPath,
+      languages: buildLocaleAlternates("/kurumsal-urunler"),
+    },
+    openGraph: {
+      title: copy.corporateTitle,
+      description: copy.corporateDescription,
+      type: "website",
+      locale,
+      url: localizedPath,
+    },
+  };
+}
 
 interface DBProduct {
   id: string;
@@ -88,9 +106,7 @@ async function getProducts(): Promise<Product[]> {
         query = query.eq("is_active", true);
       }
 
-      return query
-        .or("status.eq.published,status.is.null")
-        .order("created_at", { ascending: false });
+      return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
     });
 
     if (error) {
@@ -123,6 +139,7 @@ function findProduct(products: Product[], searchName: string): Product | null {
 }
 
 export default async function CorporateProductsPage() {
+  const locale = await getRequestLocale();
   const products = await getProducts();
   const showcaseProducts = TARGET_PRODUCTS.map((target) => {
     const product = findProduct(products, target.searchName);
@@ -156,7 +173,7 @@ export default async function CorporateProductsPage() {
             MARKANIZA PRESTİJ KATIN
           </h1>
           <Link
-            href="/iletisim"
+            href={buildLocalizedPath("/iletisim", locale)}
             className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-medium uppercase tracking-wide text-neutral-900 transition-colors hover:bg-neutral-100"
           >
             Teklif al
@@ -203,7 +220,11 @@ export default async function CorporateProductsPage() {
                 const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
 
                 return (
-                  <Link key={product.id} href={`/urunler/${product.slug}`} className="group block">
+                  <Link
+                    key={product.id}
+                    href={buildLocalizedPath(`/urunler/${product.slug}`, locale)}
+                    className="group block"
+                  >
                     <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
                       {primaryImage ? (
                         <Image

@@ -2,46 +2,59 @@ import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 import { getHomepageData } from "@/lib/homepage";
+import { getRequestLocale } from "@/lib/request-locale";
+import {
+  buildLocaleAlternates,
+  buildLocalizedPath,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-  description: 
-    "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar. Apple Watch kayışları, özel tasarım deri aksesuarlar ve ustaların el işçiliğiyle üretilen premium deri ürünler.",
-  keywords: [
-    "el yapımı deri kordon",
-    "apple watch deri kayış",
-    "hakiki deri kordon",
-    "premium deri aksesuar",
-    "handmade leather strap",
-    "deri bileklik",
-    "özel tasarım kordon"
-  ],
-  openGraph: {
-    title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar.",
-    type: "website",
-    locale: "tr_TR",
-    siteName: "Deri Kordon",
-    url: STOREFRONT_RUNTIME.siteUrl,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, %100 el yapımı hakiki deri kordonlar.",
-  },
-  alternates: {
-    canonical: absoluteStorefrontUrl("/"),
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
+  const localizedHome = buildLocalizedPath("/", locale);
+
+  return {
+    title: copy.homeTitle,
+    description: copy.homeDescription,
+    keywords: [
+      "el yapımı deri kordon",
+      "apple watch deri kayış",
+      "hakiki deri kordon",
+      "premium deri aksesuar",
+      "handmade leather strap",
+      "deri bileklik",
+      "özel tasarım kordon",
+    ],
+    openGraph: {
+      title: copy.homeTitle,
+      description: copy.homeDescription,
+      type: "website",
+      locale,
+      siteName: "Deri Kordon",
+      url: localizedHome,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: copy.homeTitle,
+      description: copy.homeDescription,
+    },
+    alternates: {
+      canonical: localizedHome,
+      languages: buildLocaleAlternates("/"),
+    },
+  };
+}
 
 export default async function Home() {
+  const locale = await getRequestLocale();
   const homepageData = await getHomepageData();
+  const localizedProductsUrl = absoluteStorefrontUrl(buildLocalizedPath("/urunler", locale));
 
   return (
     <>
       <RedesignHome data={homepageData} />
-      
-      {/* Schema.org Structured Data */}
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -53,7 +66,7 @@ export default async function Home() {
             description: "El yapımı hakiki deri kordonlar ve Apple Watch kayışları",
             potentialAction: {
               "@type": "SearchAction",
-              target: `${absoluteStorefrontUrl("/urunler")}?search={search_term_string}`,
+              target: `${localizedProductsUrl}?search={search_term_string}`,
               "query-input": "required name=search_term_string",
             },
           }),
@@ -73,11 +86,9 @@ export default async function Home() {
               "@type": "ContactPoint",
               telephone: STOREFRONT_RUNTIME.supportPhone,
               contactType: "customer service",
-              availableLanguage: ["Turkish"],
+              availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
             },
-            sameAs: [
-              STOREFRONT_RUNTIME.socialInstagram,
-            ],
+            sameAs: [STOREFRONT_RUNTIME.socialInstagram],
           }),
         }}
       />

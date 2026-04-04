@@ -4,11 +4,13 @@ import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartWrapper } from "@/components/cart/CartWrapper";
+import { stripLocaleFromPathname } from "@/lib/i18n";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdmin = pathname?.startsWith("/admin");
-  const isAuthPage = pathname === "/giris" || pathname === "/kayit";
+  const internalPathname = stripLocaleFromPathname(pathname || "/");
+  const isAdmin = internalPathname.startsWith("/admin");
+  const isAuthPage = internalPathname === "/giris" || internalPathname === "/kayit";
 
   return (
     <>

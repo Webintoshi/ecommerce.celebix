@@ -6,6 +6,9 @@ import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import {
   getVariantAttributeRegistry,
   hydrateVariantAttributes,
@@ -114,6 +117,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
 
   // Parse URL slug to extract base slug
@@ -124,14 +129,17 @@ export async function generateMetadata({
   
   if (!product) {
     return {
-      title: "ÃœrÃ¼n BulunamadÄ± | Deri Kordon",
-      description: "AradÄ±ÄŸÄ±nÄ±z Ã¼rÃ¼n bulunamadÄ±.",
+      title: copy.missingProductTitle,
+      description: copy.missingProductDescription,
     };
   }
 
   // Use seo_title/seo_description if available, fallback to defaults
   const seoTitle = product.seoTitle || `${product.name} | Deri Kordon`;
   const seoDescription = product.seoDescription || product.shortDescription || product.description?.slice(0, 160) || "";
+
+  const canonicalProductPath = `/urunler/${baseSlug}`;
+  const localizedProductPath = buildLocalizedPath(canonicalProductPath, locale);
 
   return {
     title: seoTitle,
@@ -147,9 +155,9 @@ export async function generateMetadata({
         ? [product.images[0]] 
         : ['/images/og-default.jpg'],
       type: "website",
-      locale: "tr_TR",
+      locale,
       siteName: "Deri Kordon",
-      url: `https://deri-kordon.test/urunler/${slug}`,
+      url: localizedProductPath,
     },
     twitter: {
       card: "summary_large_image",
@@ -160,9 +168,14 @@ export async function generateMetadata({
         : ['/images/og-default.jpg'],
     },
     alternates: {
-      canonical: buildCanonicalUrl(baseSlug),
+      canonical: buildLocalizedPath(buildCanonicalUrl(baseSlug), locale),
+      languages: buildLocaleAlternates(canonicalProductPath),
     },
   };
+}
+
+function buildAbsoluteLocalizedUrl(pathname: string) {
+  return new URL(pathname, STOREFRONT_RUNTIME.siteUrl).toString();
 }
 
 // Dynamic rendering for fresh data - NO CACHE
@@ -198,6 +211,8 @@ export default async function ProductDetailPage({
 }: {
   params: Promise<{ slug: string }>
 }) {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const { slug: urlSlug } = await params;
 
   // Parse URL slug to extract base product slug and variant info
@@ -331,14 +346,14 @@ export default async function ProductDetailPage({
     name: product.name,
     description: product.seo_description || product.shortDescription || product.description?.slice(0, 160) || "",
     image: product.images && product.images.length > 0 ? product.images[0] : null,
-    url: `https://deri-kordon.test/urunler/${baseSlug}`,
+    url: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
     brand: {
       "@type": "Brand",
       name: "Deri Kordon",
     },
     offers: {
       "@type": "Offer",
-      url: `https://deri-kordon.test/urunler/${baseSlug}`,
+      url: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
       priceCurrency: "TRY",
       price: variant.price,
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -366,20 +381,20 @@ export default async function ProductDetailPage({
       {
         "@type": "ListItem",
         position: 1,
-        name: "Ana Sayfa",
-        item: "https://deri-kordon.test",
+        name: copy.breadcrumbHome,
+        item: buildAbsoluteLocalizedUrl(buildLocalizedPath("/", locale)),
       },
       {
         "@type": "ListItem",
         position: 2,
-        name: "ÃœrÃ¼nler",
-        item: "https://deri-kordon.test/urunler",
+        name: copy.breadcrumbProducts,
+        item: buildAbsoluteLocalizedUrl(buildLocalizedPath("/urunler", locale)),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: product.name,
-        item: `https://deri-kordon.test/urunler/${baseSlug}`,
+        item: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
       },
     ],
   };
