@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
+import { SITE_NAME } from "@/lib/constants";
 import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
 import { Mail, Lock, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
       />
 
       <div className="w-full max-w-md relative">
-        {/* Login Card -->
+        {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
