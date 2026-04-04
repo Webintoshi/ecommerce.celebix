@@ -110,6 +110,21 @@ export function ProductDetailClient({
 
   const { addToCart } = useCart();
 
+  useEffect(() => {
+    setProduct(initialProduct);
+    setLoading(!initialProduct);
+  }, [initialProduct]);
+
+  useEffect(() => {
+    setRelatedProducts(initialRelatedProducts);
+  }, [initialRelatedProducts]);
+
+  useEffect(() => {
+    setSelectedVariant(initialVariantIndex);
+    setQuantity(1);
+    setOpenAccordions(new Set());
+  }, [initialVariantIndex, initialProduct?.id]);
+
   // Load wishlist state
   useEffect(() => {
     if (typeof window !== "undefined" && product) {

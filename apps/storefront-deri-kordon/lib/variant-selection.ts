@@ -11,6 +11,7 @@ export type OrderedVariantAttributeValue = {
   color_code?: string | null;
   variantIndex: number;
   displayOrder: number;
+  sourceIndex: number;
 };
 
 export type OrderedVariantAttributeGroup = {
@@ -73,7 +74,7 @@ function getValueKey(attribute: Record<string, unknown>, value: string, fallback
 
 function getDisplayOrder(attribute: Record<string, unknown>, fallbackOrder: number): number {
   const rawDisplayOrder = attribute.display_order ?? attribute.displayOrder;
-  return typeof rawDisplayOrder === "number" ? rawDisplayOrder : fallbackOrder;
+  return typeof rawDisplayOrder === "number" ? rawDisplayOrder : Number.MAX_SAFE_INTEGER - 1 + fallbackOrder;
 }
 
 function getVariantAttributes(variant: VariantRecord) {
@@ -92,6 +93,7 @@ export function getOrderedVariantAttributeGroups(
   variants: VariantRecord[],
 ): OrderedVariantAttributeGroup[] {
   const groupMap = new Map<string, OrderedVariantAttributeGroup>();
+  let sourceIndex = 0;
 
   variants.forEach((variant, variantIndex) => {
     const attributes = getVariantAttributes(variant);
@@ -131,13 +133,16 @@ export function getOrderedVariantAttributeGroups(
           color_code: toOptionalString(record.color_code),
           variantIndex,
           displayOrder,
+          sourceIndex,
         });
       } else {
         existingValue.displayOrder = Math.min(existingValue.displayOrder, displayOrder);
+        existingValue.sourceIndex = Math.min(existingValue.sourceIndex, sourceIndex);
         existingValue.image_url = existingValue.image_url || toOptionalString(record.image_url);
         existingValue.color_code = existingValue.color_code || toOptionalString(record.color_code);
       }
 
+      sourceIndex += 1;
       groupMap.set(attributeId, group);
     });
   });
@@ -148,6 +153,7 @@ export function getOrderedVariantAttributeGroups(
       values: [...group.values].sort(
         (left, right) =>
           left.displayOrder - right.displayOrder ||
+          left.sourceIndex - right.sourceIndex ||
           left.value.localeCompare(right.value, "tr"),
       ),
     }))
@@ -167,9 +173,8 @@ export function findPreferredVariantIndex(variants: VariantRecord[]): number {
     return 0;
   }
 
-  const preferredValue =
-    groups[0].values.find((entry) => (variants[entry.variantIndex]?.stock ?? 1) > 0) ??
-    groups[0].values[0];
+  const preferredGroup = groups.find(isVisualAttributeGroup) ?? groups[0];
+  const preferredValue = preferredGroup.values[0];
 
   return preferredValue?.variantIndex ?? 0;
 }
