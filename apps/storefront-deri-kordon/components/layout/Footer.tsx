@@ -145,7 +145,7 @@ export function Footer() {
 
             <div className="flex items-center gap-3">
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/dery.craft"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
@@ -154,7 +154,7 @@ export function Footer() {
                 <Instagram className="h-4 w-4" />
               </a>
               <a
-                href="https://youtube.com"
+                href="https://www.youtube.com/@DeryCraft_Handmade"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
