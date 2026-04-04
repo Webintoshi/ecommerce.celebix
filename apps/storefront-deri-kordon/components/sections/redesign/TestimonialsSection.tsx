@@ -20,7 +20,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Sahane iscilik ile mukemmel bir urun cikmis. Kullandikca guzellesiyor.",
-    image: "/images/placeholders/T.2.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.41adasd-scaled.webp",
   },
   {
     id: 3,
@@ -28,7 +28,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Sade ve sik. Urun dayanikli, kullanisli ve gercekten guzel gorunuyor.",
-    image: "/images/placeholders/T.3.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37.jpg",
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Deri saat kayisim geldi, sanki saatimi yeniden almis gibi oldum.",
-    image: "/images/placeholders/T.4.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37.jpg",
   },
   {
     id: 5,
@@ -44,7 +44,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Iscilikten memnun kaldim. Kalite ve iscilik standartlarin ustunde.",
-    image: "/images/placeholders/T.5.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/asdasdasdas.avif",
   },
   {
     id: 6,
@@ -52,7 +52,7 @@ const testimonials = [
     verified: true,
     rating: 5,
     content: "Bayildim. Deri kalitesi ve isciligi ust duzey hissettiriyor.",
-    image: "/images/placeholders/T.6.jpg",
+    image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37-1.avif",
   },
 ];
 
@@ -71,14 +71,14 @@ function ImageWithFallback({
 
   if (error) {
     return (
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
         {fallback}
       </div>
     );
   }
 
   return (
-    <div className="relative h-16 w-16 overflow-hidden rounded-full">
+    <div className="relative h-20 w-20 overflow-hidden rounded-full">
       <Image
         src={src}
         alt={alt}
