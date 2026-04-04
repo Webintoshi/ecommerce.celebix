@@ -378,8 +378,10 @@ function FormField({
   const imageSelectGridStyle = {
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
-  const mobileImageCardWidth =
-    imageSelectColumnCount <= 1 ? "min-w-[172px]" : "min-w-[116px]";
+  const mobileImageSelectGridStyle = {
+    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, minmax(0, 1fr))`,
+    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
+  } as CSSProperties;
 
   const gridClass = {
     full: "w-full",
@@ -466,10 +468,9 @@ function FormField({
           {label}
           <div
             className={cn(
-              "flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-              "md:grid md:overflow-visible md:pb-0 md:[grid-template-columns:var(--image-select-columns)]"
+              "grid gap-2 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]"
             )}
-            style={imageSelectGridStyle}
+            style={mobileImageSelectGridStyle}
           >
             {step.options?.map((option) => (
               <button
@@ -477,9 +478,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full shrink-0 overflow-hidden rounded-xl border transition-all",
-                  mobileImageCardWidth,
-                  "md:min-w-0 md:shrink md:w-full",
+                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
