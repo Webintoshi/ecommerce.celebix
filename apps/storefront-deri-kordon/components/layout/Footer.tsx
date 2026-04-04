@@ -29,7 +29,7 @@ const LOCALE_SWITCH_OPTIONS: Array<{
   label: string;
   flag: string;
 }> = [
-  { locale: "tr", shortLabel: "TR", label: "Turkce", flag: "🇹🇷" },
+  { locale: "tr", shortLabel: "TR", label: "Türkçe", flag: "🇹🇷" },
   { locale: "en", shortLabel: "EN", label: "English", flag: "🇬🇧" },
   { locale: "de", shortLabel: "DE", label: "Deutsch", flag: "🇩🇪" },
   { locale: "ru", shortLabel: "RU", label: "Russkiy", flag: "🇷🇺" },
@@ -98,7 +98,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
-            <Link href="/" className="mb-6 inline-block">
+            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
                   <Image
@@ -119,109 +119,6 @@ export function Footer() {
                 </span>
               )}
             </Link>
-
-            {/* Language Selector */}
-            <div className="mb-6 rounded-2xl border border-gray-700/50 bg-gray-800/30 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
-                    Language
-                  </p>
-                  <p className="text-xs text-gray-500">Choose your storefront language</p>
-                </div>
-                <span className="rounded-full bg-gray-700 px-2.5 py-1 text-xs font-medium text-white">
-                  TR
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {/* TR - Selected */}
-                <Link
-                  href="/"
-                  className="relative rounded-xl border border-gray-600 bg-white p-3 transition-all"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-500">TR</span>
-                      <span className="text-xs text-gray-400">TR</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900">
-                      <div className="h-1.5 w-1.5 rounded-full bg-white"></div>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-neutral-900">Türkçe</p>
-                </Link>
-                {/* EN */}
-                <Link
-                  href="/en"
-                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">GB</span>
-                      <span className="text-xs text-gray-500">EN</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-300">English</p>
-                </Link>
-                {/* DE */}
-                <Link
-                  href="/de"
-                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">DE</span>
-                      <span className="text-xs text-gray-500">DE</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-300">Deutsch</p>
-                </Link>
-                {/* RU */}
-                <Link
-                  href="/ru"
-                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">RU</span>
-                      <span className="text-xs text-gray-500">RU</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-300">Russkiy</p>
-                </Link>
-                {/* AR */}
-                <Link
-                  href="/ar"
-                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">SA</span>
-                      <span className="text-xs text-gray-500">AR</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-300">Arabic</p>
-                </Link>
-                {/* KA */}
-                <Link
-                  href="/ka"
-                  className="relative rounded-xl border border-gray-700 bg-transparent p-3 transition-all hover:border-gray-600 hover:bg-gray-800/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">GE</span>
-                      <span className="text-xs text-gray-500">KA</span>
-                    </div>
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-600"></div>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-300">Kartuli</p>
-                </Link>
-              </div>
-            </div>
 
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>
@@ -310,13 +207,13 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              BİZİ TANIYIN
+              Bizi Tanıyın
             </h3>
             <ul className="space-y-3">
               {aboutLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={link.href}
+                    href={buildLocalizedPath(link.href, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -328,13 +225,13 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              KATEGORİLER
+              Kategoriler
             </h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={`/${link.slug}`}
+                    href={buildLocalizedPath(`/${link.slug}`, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name.toUpperCase()}
@@ -346,13 +243,13 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              POLİTİKALAR
+              Politikalar
             </h3>
             <ul className="space-y-3">
               {policyLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={link.href}
+                    href={buildLocalizedPath(link.href, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -376,7 +273,7 @@ export function Footer() {
               rel="noopener noreferrer"
               className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
             >
-              <span className="text-[10px] tracking-[0.2em] uppercase">Dijital Çözüm Ortağı</span>
+              <span className="text-[10px] uppercase tracking-[0.2em]">Dijital Çözüm Ortağı</span>
               <img
                 src="https://celebix.co/Logo/koyu%20logo.svg"
                 alt="Celebix"
