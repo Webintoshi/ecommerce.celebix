@@ -185,9 +185,24 @@ export function Footer() {
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
-          <p className="text-center text-xs text-gray-500">
-            © {currentYear} {storeInfo?.name || SITE_NAME}. Tüm hakları saklıdır.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-gray-500">
+              © {currentYear} {storeInfo?.name || SITE_NAME}. Tüm hakları saklıdır.
+            </p>
+            <a
+              href="https://celebix.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <span className="text-xs">Powered by</span>
+              <img
+                src="https://celebix.co/Logo/koyu%20logo.svg"
+                alt="Celebix"
+                className="h-5 w-auto brightness-0 invert"
+              />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
