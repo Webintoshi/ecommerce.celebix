@@ -266,17 +266,13 @@ export function ProductReviewsSection({
 
   return (
     <section className="space-y-8 border-t border-neutral-200 pt-8">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-3">
         <div>
           <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">Urun Yorumlari</p>
-          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Gorselli musteri yorumlari</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
-            Onaylanan yorumlar burada yayinlanir. Yeni yorumlar once moderasyon kuyruğuna duser.
-          </p>
+          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Musteri yorumlari</h2>
         </div>
-        <div className="rounded-3xl border border-neutral-200 bg-white px-5 py-4 text-right shadow-sm">
-          <div className="text-3xl font-semibold text-neutral-900">{summary.rating.toFixed(1)}</div>
-          <div className="mt-2 flex justify-end gap-1">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-600">
+          <div className="flex items-center gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
               <Star
                 key={value}
@@ -288,7 +284,11 @@ export function ProductReviewsSection({
               />
             ))}
           </div>
-          <div className="mt-2 text-sm text-neutral-500">{summary.reviewCount} onayli yorum</div>
+          <span className="font-medium text-neutral-900">{summary.rating.toFixed(1)}</span>
+          <span aria-hidden="true" className="text-neutral-300">•</span>
+          <span>{summary.reviewCount} onayli yorum</span>
+          <span aria-hidden="true" className="text-neutral-300">•</span>
+          <span>Yeni yorumlar once moderasyona duser.</span>
         </div>
       </div>
 
