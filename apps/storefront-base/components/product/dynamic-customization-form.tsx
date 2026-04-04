@@ -367,8 +367,16 @@ function FormField({
     imageFitMode === "cover" ? "object-cover" : "object-contain";
   const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
   const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
+  const imageSelectMinWidth =
+    imageSelectColumnCount >= 4
+      ? 118
+      : imageSelectColumnCount === 3
+        ? 138
+        : imageSelectColumnCount === 2
+          ? 168
+          : 220;
   const imageSelectGridStyle = {
-    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(0, 1fr))`,
+    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
 
   const gridClass = {
@@ -452,7 +460,7 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div>
+        <div className="max-w-[680px]">
           {label}
           <div
             className="grid grid-cols-2 gap-3 sm:[grid-template-columns:var(--image-select-columns)]"
@@ -464,7 +472,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative min-w-0 overflow-hidden rounded-2xl border transition-all",
+                  "relative min-w-0 overflow-hidden rounded-2xl border transition-all h-full",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
