@@ -69,12 +69,9 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
-                <h3
-                  className="max-w-[82%] text-[11px] font-medium leading-[1.1] text-white drop-shadow-lg sm:text-[12px] md:text-[14px] lg:text-[18px] xl:text-[24px]"
-                  style={{ color: "#ffffff" }}
-                >
+                <p className="category-card-title" style={{ color: "#ffffff" }}>
                   {category.name}
-                </h3>
+                </p>
                 {category.description ? (
                   <p
                     className="mt-1.5 hidden line-clamp-2 max-w-sm text-xs text-white/90 drop-shadow-md sm:mt-2 sm:block sm:text-[11px] md:text-xs"
@@ -88,6 +85,37 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
           ))}
         </div>
       </div>
+
+      <style jsx>{`
+        .category-card-title {
+          max-width: 82%;
+          font-size: 13px !important;
+          font-weight: 600;
+          line-height: 1.08 !important;
+          text-wrap: balance;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+          -webkit-text-size-adjust: none;
+          text-size-adjust: none;
+        }
+
+        @media (min-width: 768px) {
+          .category-card-title {
+            font-size: 14px !important;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .category-card-title {
+            font-size: 18px !important;
+          }
+        }
+
+        @media (min-width: 1280px) {
+          .category-card-title {
+            font-size: 24px !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }
