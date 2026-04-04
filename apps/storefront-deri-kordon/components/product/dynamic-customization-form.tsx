@@ -378,6 +378,7 @@ function FormField({
   const imageSelectGridStyle = {
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
+  const mobileImageGridClass = imageSelectColumnCount <= 1 ? "grid-cols-1" : "grid-cols-2";
 
   const gridClass = {
     full: "w-full",
@@ -460,10 +461,13 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div className="max-w-[420px]">
+        <div className="w-full max-w-full md:max-w-[420px]">
           {label}
           <div
-            className="grid grid-cols-2 gap-2 sm:[grid-template-columns:var(--image-select-columns)]"
+            className={cn(
+              "grid gap-2 sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]",
+              mobileImageGridClass
+            )}
             style={imageSelectGridStyle}
           >
             {step.options?.map((option) => (
@@ -472,7 +476,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative min-w-0 overflow-hidden rounded-xl border transition-all h-full",
+                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -490,7 +494,7 @@ function FormField({
                       src={option.image_url}
                       alt={option.label}
                       className={cn(
-                        "h-full w-full object-center",
+                        "h-full w-full max-h-full max-w-full object-center",
                         imageFitModeClass
                       )}
                     />
@@ -500,8 +504,8 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="p-2 text-left">
-                  <p className="text-xs font-medium text-neutral-900">
+                <div className="p-2 text-left sm:p-3">
+                  <p className="break-words text-[11px] font-medium leading-tight text-neutral-900 sm:text-xs">
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (

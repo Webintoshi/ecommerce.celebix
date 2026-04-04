@@ -378,6 +378,7 @@ function FormField({
   const imageSelectGridStyle = {
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
+  const mobileImageGridClass = imageSelectColumnCount <= 1 ? "grid-cols-1" : "grid-cols-2";
 
   const gridClass = {
     full: "w-full",
@@ -460,10 +461,13 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div className="max-w-[680px]">
+        <div className="w-full max-w-full md:max-w-[680px]">
           {label}
           <div
-            className="grid grid-cols-2 gap-3 sm:[grid-template-columns:var(--image-select-columns)]"
+            className={cn(
+              "grid gap-2 sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]",
+              mobileImageGridClass
+            )}
             style={imageSelectGridStyle}
           >
             {step.options?.map((option) => (
@@ -472,7 +476,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative min-w-0 overflow-hidden rounded-2xl border transition-all h-full",
+                  "relative h-full w-full min-w-0 overflow-hidden rounded-2xl border transition-all",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -483,7 +487,8 @@ function FormField({
                   className={cn(
                     imageAspectRatioClass,
                     "bg-neutral-50",
-                    imageWrapperClass
+                    imageWrapperClass,
+                    imageWrapperClass ? "p-2 sm:p-3.5" : "p-0"
                   )}
                 >
                   {option.image_url ? (
@@ -491,7 +496,7 @@ function FormField({
                       src={option.image_url}
                       alt={option.label}
                       className={cn(
-                        "h-full w-full object-center",
+                        "h-full w-full max-h-full max-w-full object-center",
                         imageFitModeClass
                       )}
                     />
@@ -501,8 +506,8 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5 p-3.5 text-left">
-                  <p className="text-[15px] font-medium leading-[1.2] text-neutral-900 sm:text-base">
+                <div className="space-y-1 p-2.5 text-left sm:space-y-1.5 sm:p-3.5">
+                  <p className="break-words text-[12px] font-medium leading-tight text-neutral-900 sm:text-base">
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (
