@@ -175,7 +175,7 @@ function SortableStepItem({
                 step.type === "multi_select") &&
                 step.options && (
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {step.options.slice(0, 4).map((opt, idx) => (
+                    {step.options.map((opt, idx) => (
                       <Badge
                         key={idx}
                         variant="outline"
@@ -189,11 +189,6 @@ function SortableStepItem({
                         )}
                       </Badge>
                     ))}
-                    {step.options.length > 4 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{step.options.length - 4} daha
-                      </Badge>
-                    )}
                   </div>
                 )}
 
