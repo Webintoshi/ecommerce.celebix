@@ -24,6 +24,7 @@ export type PriceAdjustmentType = 'fixed' | 'percentage' | 'multiplier';
 
 export type GridWidth = 'full' | 'half' | 'third' | 'quarter';
 export type ImageAspectRatio = '1:1' | '3:2' | '16:9' | '2:3';
+export type ImageFitMode = 'contain' | 'cover';
 
 export type ConditionOperator = 
   | 'equals' 
@@ -86,6 +87,7 @@ export interface StyleConfig {
   css_class?: string;
   help_text_position?: 'below_label' | 'below_input';
   image_aspect_ratio?: ImageAspectRatio;
+  image_fit_mode?: ImageFitMode;
 }
 
 // =====================================================

@@ -362,6 +362,10 @@ function FormField({
 
   const imageAspectRatioClass =
     IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
+  const imageFitMode = step.style_config?.image_fit_mode || "contain";
+  const imageFitModeClass =
+    imageFitMode === "cover" ? "object-cover" : "object-contain";
+  const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3";
 
   const gridClass = {
     full: "w-full",
@@ -460,12 +464,21 @@ function FormField({
                   showError && "border-rose-300"
                 )}
               >
-                <div className={cn(imageAspectRatioClass, "bg-neutral-100")}>
+                <div
+                  className={cn(
+                    imageAspectRatioClass,
+                    "bg-neutral-50",
+                    imageWrapperClass
+                  )}
+                >
                   {option.image_url ? (
                     <img
                       src={option.image_url}
                       alt={option.label}
-                      className="h-full w-full object-cover"
+                      className={cn(
+                        "h-full w-full object-center",
+                        imageFitModeClass
+                      )}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">

@@ -239,6 +239,10 @@ function FormField({
 
   const imageAspectRatioClass =
     IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
+  const imageFitMode = step.style_config?.image_fit_mode || "contain";
+  const imageFitModeClass =
+    imageFitMode === "cover" ? "object-cover" : "object-contain";
+  const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3";
 
   switch (step.type) {
     case "select":
@@ -329,12 +333,21 @@ function FormField({
                   hasError && "border-red-300"
                 )}
               >
-                <div className={cn(imageAspectRatioClass, "bg-gray-100")}>
+                <div
+                  className={cn(
+                    imageAspectRatioClass,
+                    "bg-gray-100",
+                    imageWrapperClass
+                  )}
+                >
                   {option.image_url ? (
                     <img
                       src={option.image_url}
                       alt={option.label}
-                      className="w-full h-full object-cover"
+                      className={cn(
+                        "h-full w-full object-center",
+                        imageFitModeClass
+                      )}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">

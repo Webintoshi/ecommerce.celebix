@@ -144,6 +144,7 @@ export function PropertiesPanel({
     step.style_config?.image_aspect_ratio === "2:3"
       ? "3:2"
       : step.style_config?.image_aspect_ratio || "1:1";
+  const selectedImageFitMode = step.style_config?.image_fit_mode || "contain";
 
   return (
     <div className="flex flex-col h-full">
@@ -285,6 +286,36 @@ export function PropertiesPanel({
                 <p className="text-xs text-gray-500">
                   Görsel seçim kartları storefrontta bu oranda gösterilir.
                 </p>
+                <div className="space-y-2 pt-2">
+                  <Label>Image Fit</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "contain", label: "Contain" },
+                      { value: "cover", label: "Cover" },
+                    ].map((fitMode) => (
+                      <Button
+                        key={fitMode.value}
+                        type="button"
+                        variant={
+                          selectedImageFitMode === fitMode.value
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => updateStyleConfig("image_fit_mode", fitMode.value)}
+                        className={
+                          selectedImageFitMode === fitMode.value ? "bg-amber-600" : ""
+                        }
+                      >
+                        {fitMode.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Use contain for typography, logo and label visuals. Use cover
+                    only when deliberate crop is desired.
+                  </p>
+                </div>
               </div>
             )}
 

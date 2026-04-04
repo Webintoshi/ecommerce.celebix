@@ -36,6 +36,13 @@ import { Label } from "@/components/ui/label";
 import { Check, ShoppingCart, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const IMAGE_ASPECT_RATIO_CLASS = {
+  "1:1": "aspect-square",
+  "3:2": "aspect-[3/2]",
+  "2:3": "aspect-[3/2]",
+  "16:9": "aspect-video",
+} as const;
+
 interface DynamicCustomizationFormProps {
   schemaId: string;
   productId: string;
@@ -396,6 +403,12 @@ function FormField({
     third: "w-full md:w-1/3",
     quarter: "w-full md:w-1/4",
   }[step.grid_width || "full"];
+  const imageAspectRatioClass =
+    IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
+  const imageFitMode = step.style_config?.image_fit_mode || "contain";
+  const imageFitModeClass =
+    imageFitMode === "cover" ? "object-cover" : "object-contain";
+  const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3";
 
   return (
     <div className={gridClass}>
@@ -481,12 +494,21 @@ function FormField({
                   showError && "border-red-300"
                 )}
               >
-                <div className="aspect-square bg-gray-100">
+                <div
+                  className={cn(
+                    imageAspectRatioClass,
+                    "bg-gray-50",
+                    imageWrapperClass
+                  )}
+                >
                   {option.image_url ? (
                     <img
                       src={option.image_url}
                       alt={option.label}
-                      className="w-full h-full object-cover"
+                      className={cn(
+                        "h-full w-full object-center",
+                        imageFitModeClass
+                      )}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
