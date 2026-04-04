@@ -1,24 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_LABELS,
-  SUPPORTED_LOCALES,
-  buildLocalizedPath,
-  getLocaleFromPathname,
-  getLocalizedCategoryLabel,
-  getLocalizedCopy,
-  stripLocaleFromPathname,
-} from "@/lib/i18n";
 
 type FooterCategory = {
   id: string;
@@ -28,12 +17,8 @@ type FooterCategory = {
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
-  const pathname = usePathname();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const currentYear = new Date().getFullYear();
-  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
-  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
-  const currentPath = stripLocaleFromPathname(pathname || "/");
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
@@ -44,9 +29,7 @@ export function Footer() {
     const loadCategories = async () => {
       try {
         const categories = await fetchCategories();
-        if (!isMounted) {
-          return;
-        }
+        if (!isMounted) return;
 
         const topLevelCategories = categories
           .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
@@ -71,18 +54,18 @@ export function Footer() {
   }, []);
 
   const aboutLinks = [
-    { name: copy.footerHome, href: "/" },
-    { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
-    { name: copy.footerContact, href: "/iletisim" },
+    { name: "Ana Sayfa", href: "/" },
+    { name: "Hakkımızda", href: "/hakkimizda" },
+    { name: "Mağazalarımız", href: "/magazalarimiz" },
+    { name: "Kurumsal Sipariş", href: "/kurumsal-urunler" },
+    { name: "İletişim", href: "/iletisim" },
   ];
 
   const policyLinks = [
-    { name: copy.footerDistanceSales, href: "/mesafeli-satis-sozlesmesi" },
-    { name: copy.footerReturns, href: "/iade" },
-    { name: copy.footerPrivacy, href: "/gizlilik" },
-    { name: copy.footerKvkk, href: "/kvkk" },
+    { name: "Mesafeli Satış Sözleşmesi", href: "/mesafeli-satis-sozlesmesi" },
+    { name: "Teslimat & İade Politikası", href: "/iade" },
+    { name: "Gizlilik Politikası", href: "/gizlilik" },
+    { name: "KVKK", href: "/kvkk" },
   ];
 
   return (
@@ -90,7 +73,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
-            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
+            <Link href="/" className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
                   <Image
@@ -111,32 +94,6 @@ export function Footer() {
                 </span>
               )}
             </Link>
-
-            <div className="mb-6">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">
-                Language
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {SUPPORTED_LOCALES.map((targetLocale) => {
-                  const isActive = targetLocale === locale;
-
-                  return (
-                    <Link
-                      key={targetLocale}
-                      href={buildLocalizedPath(currentPath, targetLocale)}
-                      hrefLang={targetLocale}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                        isActive
-                          ? "border-white bg-white text-[#0B1120]"
-                          : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
-                      }`}
-                    >
-                      {LOCALE_LABELS[targetLocale]}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
 
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>
@@ -167,13 +124,13 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.aboutHeading}
+              BİZİ TANIYIN
             </h3>
             <ul className="space-y-3">
               {aboutLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={buildLocalizedPath(link.href, locale)}
+                    href={link.href}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -185,16 +142,16 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.categoriesHeading}
+              KATEGORİLER
             </h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    href={`/${link.slug}`}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
-                    {getLocalizedCategoryLabel(link.slug, link.name, locale).toUpperCase()}
+                    {link.name.toUpperCase()}
                   </Link>
                 </li>
               ))}
@@ -203,13 +160,13 @@ export function Footer() {
 
           <div>
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.policiesHeading}
+              POLİTİKALAR
             </h3>
             <ul className="space-y-3">
               {policyLinks.map((link) => (
                 <li key={link.name}>
                   <Link
-                    href={buildLocalizedPath(link.href, locale)}
+                    href={link.href}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -225,7 +182,7 @@ export function Footer() {
         <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs text-gray-500">
-              © {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
+              © {currentYear} {storeInfo?.name || SITE_NAME}. Tüm hakları saklıdır.
             </p>
             <a
               href="https://celebix.co"
