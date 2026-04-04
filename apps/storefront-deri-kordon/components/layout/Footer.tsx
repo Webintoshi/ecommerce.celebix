@@ -231,13 +231,13 @@ export function Footer() {
               href="https://celebix.co"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-gray-400 transition-colors hover:text-white"
+              className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
             >
-              <span className="text-xs">Powered by</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase">Dijital Çözüm Ortağı</span>
               <img
                 src="https://celebix.co/Logo/koyu%20logo.svg"
                 alt="Celebix"
-                className="h-7 w-auto brightness-0 invert"
+                className="h-6 w-auto brightness-0 invert"
               />
             </a>
           </div>
