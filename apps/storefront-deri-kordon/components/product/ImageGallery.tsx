@@ -18,6 +18,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const [isClient, setIsClient] = useState(false);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchEndY = useRef(0);
+  const hasTouchGesture = useRef(false);
   const mainImageRef = useRef<HTMLImageElement | null>(null);
 
   // Ensure images is an array
@@ -92,16 +95,40 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   // Touch events (mobile)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchEndY.current = e.touches[0].clientY;
+    hasTouchGesture.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
+    if (
+      Math.abs(touchStartX.current - touchEndX.current) > 8 ||
+      Math.abs(touchStartY.current - touchEndY.current) > 8
+    ) {
+      hasTouchGesture.current = true;
+    }
   };
 
-  const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 50) {
-      diff > 0 ? handleNext() : handlePrevious();
+  const handleTouchEnd = (onTap?: () => void) => {
+    const diffX = touchStartX.current - touchEndX.current;
+    const diffY = touchStartY.current - touchEndY.current;
+    const isHorizontalSwipe =
+      Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY);
+
+    if (isHorizontalSwipe) {
+      diffX > 0 ? handleNext() : handlePrevious();
+      return;
+    }
+
+    const isTap =
+      !hasTouchGesture.current ||
+      (Math.abs(diffX) < 10 && Math.abs(diffY) < 10);
+
+    if (isTap) {
+      onTap?.();
     }
   };
 
@@ -198,12 +225,23 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             </>
           )}
 
-          <img
-            src={currentImage}
-            alt={productName}
-            draggable={false}
-            className="max-w-full max-h-full object-contain p-4"
-          />
+          <div
+            className="relative flex h-full w-full items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => handleTouchEnd()}
+          >
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium tracking-[0.2em] text-white/85">
+              {selectedIndex + 1} / {displayImages.length}
+            </div>
+            <img
+              src={currentImage}
+              alt={productName}
+              draggable={false}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -216,6 +254,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         <div
           className="relative aspect-square overflow-hidden cursor-pointer bg-[#F8F8F8]"
           onClick={() => setIsLightboxOpen(true)}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={() => handleTouchEnd(() => setIsLightboxOpen(true))}
         >
           {currentStatus === 'loading' && (
             <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" />
@@ -336,7 +377,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          onTouchEnd={() => handleTouchEnd(() => setIsLightboxOpen(true))}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
