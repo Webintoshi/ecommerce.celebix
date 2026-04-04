@@ -58,6 +58,39 @@ const testimonials = [
 
 const AUTO_PLAY_INTERVAL = 5000;
 
+function ImageWithFallback({
+  src,
+  alt,
+  fallback,
+}: {
+  src: string;
+  alt: string;
+  fallback: string;
+}) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+        {fallback}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-16 w-16 overflow-hidden rounded-full">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className="object-cover"
+        unoptimized
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -127,21 +160,11 @@ export function TestimonialsSection() {
                         className="flex overflow-hidden bg-white shadow-sm"
                       >
                         <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
-                          {review.image ? (
-                            <div className="relative h-16 w-16 overflow-hidden rounded-full">
-                              <Image
-                                src={review.image}
-                                alt={review.name}
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
-                              {getInitials(review.name)}
-                            </div>
-                          )}
+                          <ImageWithFallback
+                            src={review.image}
+                            alt={review.name}
+                            fallback={getInitials(review.name)}
+                          />
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
