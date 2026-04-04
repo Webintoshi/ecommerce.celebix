@@ -378,6 +378,18 @@ export function ProductDetailClient({
                 </span>
               </div>
 
+              {/* Price */}
+              <div className="flex items-center gap-3">
+                <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
+                  {displayPrice} <span className="text-lg font-normal">₺</span>
+                </span>
+                {displayOriginalPrice !== undefined && (
+                  <span className="text-lg text-neutral-400 line-through">
+                    {displayOriginalPrice} ₺
+                  </span>
+                )}
+              </div>
+
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
@@ -428,31 +440,23 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              {/* Price & Quantity */}
+              {/* Quantity & Actions */}
               <div className="space-y-5 border-y border-neutral-200 py-5">
-                {/* Price & Stock */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
-                    {displayPrice} <span className="text-lg font-normal">₺</span>
-                  </span>
-                  {displayOriginalPrice !== undefined && (
-                    <span className="text-lg text-neutral-400 line-through">
-                      {displayOriginalPrice} ₺
-                    </span>
-                  )}
+                {/* Stock & Personalization Info */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   {/* Stock Status */}
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-neutral-300' : variant.stock <= 5 ? 'bg-amber-500' : 'bg-green-500'}`} />
                     <span className={`text-sm ${stockStatus.color}`}>
                       {stockStatus.text}
                     </span>
                   </div>
+                  {activeSchema && customizationState.extraPrice > 0 && (
+                    <p className="text-sm text-neutral-500">
+                      +{customizationState.extraPrice} ₺ kişiselleştirme
+                    </p>
+                  )}
                 </div>
-                {activeSchema && customizationState.extraPrice > 0 && (
-                  <p className="text-sm text-neutral-500">
-                    Kişiselleştirme farkı: +{customizationState.extraPrice} ₺
-                  </p>
-                )}
                 
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-3">
