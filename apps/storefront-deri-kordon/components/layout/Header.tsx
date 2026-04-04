@@ -120,9 +120,35 @@ export function Header() {
             ]),
         );
 
-        const orderedCategories = HEADER_CATEGORY_ORDER.map((slug) => topLevelCategoryMap.get(slug)).filter(
-          (category): category is NavCategory => Boolean(category),
-        );
+        const topLevelCategories = activeCategories
+          .filter((category) => !category.parent_id)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+            children: (childrenByParent.get(category.id) || []).sort((left, right) =>
+              left.name.localeCompare(right.name, "tr"),
+            ),
+            sortOrder: category.sort_order || 0,
+          }));
+
+        const orderedCategoriesFromPreferredSlugs = HEADER_CATEGORY_ORDER.map((slug) =>
+          topLevelCategoryMap.get(slug),
+        ).filter((category): category is NavCategory => Boolean(category));
+
+        const orderedCategories =
+          orderedCategoriesFromPreferredSlugs.length === HEADER_CATEGORY_ORDER.length
+            ? orderedCategoriesFromPreferredSlugs
+            : topLevelCategories
+                .sort((left, right) => {
+                  const sortDiff = left.sortOrder - right.sortOrder;
+                  if (sortDiff !== 0) {
+                    return sortDiff;
+                  }
+
+                  return left.name.localeCompare(right.name, "tr");
+                })
+                .map(({ sortOrder: _sortOrder, ...category }) => category);
 
         setHeaderCategories(orderedCategories);
       } catch (error) {
