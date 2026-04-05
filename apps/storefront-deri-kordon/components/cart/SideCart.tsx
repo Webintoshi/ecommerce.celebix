@@ -191,12 +191,26 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <div>
-                            <h3 className="font-bold text-gray-900 text-sm truncate">{item.product.name}</h3>
-                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">{item.variant.name}</p>
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3
+                              className="overflow-hidden font-sans text-[13px] font-semibold leading-[1.2] text-gray-900 sm:text-sm"
+                              style={{
+                                fontFamily: "var(--store-font-body)",
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                              }}
+                            >
+                              {item.product.name}
+                            </h3>
+                            <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                              {item.variant.name}
+                            </p>
                           </div>
-                          <span className="font-bold text-primary text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
+                          <span className="shrink-0 font-bold text-primary text-sm">
+                            {formatPrice(item.unitPrice * item.quantity)}
+                          </span>
                         </div>
                         {item.customization && (
                           <CartItemCustomizationDisplay customization={item.customization} />
