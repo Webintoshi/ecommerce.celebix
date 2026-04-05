@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
 
 const testimonials = [
@@ -67,9 +68,29 @@ function ImageWithFallback({
   alt: string;
   fallback: string;
 }) {
+  const proxiedSource = resolveStorefrontAssetUrl(src);
+  const directSource = resolveStorefrontDirectAssetUrl(src);
+  const [currentSource, setCurrentSource] = useState(proxiedSource || directSource || "");
+  const [usedFallback, setUsedFallback] = useState(false);
   const [error, setError] = useState(false);
 
-  if (error) {
+  useEffect(() => {
+    setCurrentSource(proxiedSource || directSource || "");
+    setUsedFallback(false);
+    setError(false);
+  }, [directSource, proxiedSource]);
+
+  const handleError = () => {
+    if (!usedFallback && directSource && directSource !== currentSource) {
+      setCurrentSource(directSource);
+      setUsedFallback(true);
+      return;
+    }
+
+    setError(true);
+  };
+
+  if (error || !currentSource) {
     return (
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
         {fallback}
@@ -80,12 +101,12 @@ function ImageWithFallback({
   return (
     <div className="relative h-20 w-20 overflow-hidden rounded-full">
       <Image
-        src={src}
+        src={currentSource}
         alt={alt}
         fill
         className="object-cover"
-        unoptimized
-        onError={() => setError(true)}
+        sizes="80px"
+        onError={handleError}
       />
     </div>
   );

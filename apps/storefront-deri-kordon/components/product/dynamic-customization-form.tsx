@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import {
   CartCustomizationPayload,
@@ -24,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
+import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
 
 const IMAGE_ASPECT_RATIO_CLASS = {
@@ -50,6 +52,57 @@ interface DynamicCustomizationFormProps {
   onCustomizationChange?: (state: CustomizationSelectionState) => void;
   validationNonce?: number;
   className?: string;
+}
+
+function OptionImage({
+  source,
+  alt,
+  className,
+}: {
+  source?: string | null;
+  alt: string;
+  className: string;
+}) {
+  const proxiedSource = resolveStorefrontAssetUrl(source);
+  const directSource = resolveStorefrontDirectAssetUrl(source);
+  const [currentSource, setCurrentSource] = useState(proxiedSource || directSource || "");
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSource(proxiedSource || directSource || "");
+    setUsedFallback(false);
+    setFailed(false);
+  }, [directSource, proxiedSource]);
+
+  const handleError = () => {
+    if (!usedFallback && directSource && directSource !== currentSource) {
+      setCurrentSource(directSource);
+      setUsedFallback(true);
+      return;
+    }
+
+    setFailed(true);
+  };
+
+  if (failed || !currentSource) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">
+        -
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={currentSource}
+      alt={alt}
+      fill
+      sizes="(max-width: 768px) 88px, 140px"
+      className={className}
+      onError={handleError}
+    />
+  );
 }
 
 function buildDefaultValues(steps: CustomizationStep[]) {
@@ -487,16 +540,16 @@ function FormField({
               >
                 <div
                   className={cn(
-                    "aspect-square bg-neutral-50",
+                    "relative aspect-square bg-neutral-50",
                     imageWrapperClass === "p-3.5" ? "p-2" : "p-1.5"
                   )}
                 >
                   {option.image_url ? (
-                    <img
-                      src={option.image_url}
+                    <OptionImage
+                      source={option.image_url}
                       alt={option.label}
                       className={cn(
-                        "h-full w-full max-h-full max-w-full object-center",
+                        "object-center",
                         imageFitModeClass
                       )}
                     />
