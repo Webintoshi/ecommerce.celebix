@@ -194,7 +194,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                         <div className="mb-1 flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <h3
-                              className="overflow-hidden font-sans text-[13px] font-semibold leading-[1.2] text-gray-900 sm:text-sm"
+                              className="overflow-hidden font-sans text-[13px] font-semibold leading-[1.2] text-gray-900"
                               style={{
                                 fontFamily: "var(--store-font-body)",
                                 display: "-webkit-box",
