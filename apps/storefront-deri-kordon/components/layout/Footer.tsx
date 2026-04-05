@@ -225,7 +225,10 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <h3
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF" }}
+            >
               Bizi Tanıyın
             </h3>
             <ul className="space-y-3">
@@ -243,7 +246,10 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <h3
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF" }}
+            >
               Kategoriler
             </h3>
             <ul className="space-y-3">
@@ -261,7 +267,10 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <h3
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF" }}
+            >
               Politikalar
             </h3>
             <ul className="space-y-3">
