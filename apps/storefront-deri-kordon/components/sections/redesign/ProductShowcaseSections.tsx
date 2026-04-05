@@ -11,6 +11,8 @@ const PRODUCT_GROUPS = [
     title: "Cok Satanlar",
     subtitle: "Secili Koleksiyon",
     link: "/urunler",
+    fallbackCategories: ["cuzdan-kartlik"],
+    fallbackQueries: ["cuzdan", "kartlik"],
     targetNames: [
       "Ic cepli klasik deri cuzdan",
       "Citcitli deri kartlik",
@@ -23,6 +25,8 @@ const PRODUCT_GROUPS = [
     title: "Apple Watch Kayislari",
     subtitle: "One Cikanlar",
     link: "/apple-watch-saat-kayislari",
+    fallbackCategories: ["apple-watch-saat-kayislari"],
+    fallbackQueries: ["Bund Cift Katli Apple Watch Deri Kayis"],
     targetNames: [
       "Bund Cift Katli Apple Watch Deri Kayis - Aci Kahve",
       "Bund Cift Katli Apple Watch Deri Kayis - Antrasit",
@@ -35,6 +39,8 @@ const PRODUCT_GROUPS = [
     title: "Aksesuarlar",
     subtitle: "Tamamlayicilar",
     link: "/aksesuar",
+    fallbackCategories: ["aksesuar"],
+    fallbackQueries: ["Deri", "Aksesuar"],
     targetNames: [
       "Deri Gozluk Kilifi",
       "Deri Rulo Kalemlik",
@@ -47,6 +53,8 @@ const PRODUCT_GROUPS = [
     title: "Deri Saat Kayislari",
     subtitle: "Klasik Secim",
     link: "/saat-kayislari",
+    fallbackCategories: ["saat-kayislari"],
+    fallbackQueries: ["Cift Katli Deri Saat Kayisi"],
     targetNames: [
       "Cift Katli Deri Saat Kayisi - Yesil",
       "Cift Katli Deri Saat Kayisi - Taba",
@@ -58,6 +66,14 @@ const PRODUCT_GROUPS = [
 
 type ShowcaseProduct = Product & {
   translationSourceName?: string;
+  category?: string | null;
+  subcategory?: string | null;
+  shopify_metadata?: {
+    celebix_category_hierarchy?: {
+      categorySlug?: string | null;
+      subcategorySlug?: string | null;
+    };
+  } | null;
 };
 
 interface ProductShowcaseSectionsProps {
@@ -69,11 +85,28 @@ interface ProductShowcaseSectionsProps {
   viewAllLabel?: string;
 }
 
+const TEXT_NORMALIZATION_MAP: Record<string, string> = {
+  "\u00c7": "c",
+  "\u00e7": "c",
+  "\u011e": "g",
+  "\u011f": "g",
+  "\u0130": "i",
+  "\u0131": "i",
+  "\u00d6": "o",
+  "\u00f6": "o",
+  "\u015e": "s",
+  "\u015f": "s",
+  "\u00dc": "u",
+  "\u00fc": "u",
+};
+
 function normalizeText(value: string) {
-  return value
-    .toLocaleLowerCase("tr-TR")
+  return Array.from(value)
+    .map((char) => TEXT_NORMALIZATION_MAP[char] ?? char)
+    .join("")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("en-US")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -82,9 +115,23 @@ function getComparableProductName(product: ShowcaseProduct) {
   return product.translationSourceName || product.name;
 }
 
+function matchesTargetShape(normalizedName: string, normalizedTarget: string) {
+  const requiredPhrases = ["apple watch", "bund", "saat kayisi"].filter((phrase) =>
+    normalizedTarget.includes(phrase),
+  );
+  const forbiddenPhrases = ["apple watch", "bund"].filter((phrase) => !normalizedTarget.includes(phrase));
+
+  return (
+    requiredPhrases.every((phrase) => normalizedName.includes(phrase)) &&
+    forbiddenPhrases.every((phrase) => !normalizedName.includes(phrase))
+  );
+}
+
 function findProductByName(products: ShowcaseProduct[], targetName: string): ShowcaseProduct | null {
   const normalizedTarget = normalizeText(targetName);
   const targetTokens = normalizedTarget.split(" ").filter((token) => token.length > 1);
+  const distinctiveToken = targetTokens[targetTokens.length - 1] ?? "";
+  const requiresDistinctiveToken = targetTokens.length >= 5 && distinctiveToken.length >= 3;
 
   const exactMatch = products.find(
     (product) => normalizeText(getComparableProductName(product)) === normalizedTarget,
@@ -95,7 +142,10 @@ function findProductByName(products: ShowcaseProduct[], targetName: string): Sho
 
   const containsMatch = products.find((product) => {
     const normalizedName = normalizeText(getComparableProductName(product));
-    return normalizedName.includes(normalizedTarget) || normalizedTarget.includes(normalizedName);
+    return (
+      matchesTargetShape(normalizedName, normalizedTarget) &&
+      (normalizedName.includes(normalizedTarget) || normalizedTarget.includes(normalizedName))
+    );
   });
 
   if (containsMatch) {
@@ -108,19 +158,67 @@ function findProductByName(products: ShowcaseProduct[], targetName: string): Sho
       const score = targetTokens.reduce((sum, token) => {
         return sum + (normalizedName.includes(token) ? 1 : 0);
       }, 0);
+      const lengthDelta = Math.abs(normalizedName.length - normalizedTarget.length);
 
-      return { product, score };
+      return { product, score, normalizedName, lengthDelta };
     })
     .filter((entry) => entry.score >= Math.min(3, targetTokens.length))
-    .sort((left, right) => right.score - left.score)[0];
+    .filter((entry) => !requiresDistinctiveToken || entry.normalizedName.includes(distinctiveToken))
+    .filter((entry) => matchesTargetShape(entry.normalizedName, normalizedTarget))
+    .sort((left, right) => right.score - left.score || left.lengthDelta - right.lengthDelta)[0];
 
   return weightedMatch?.product ?? null;
 }
 
-function getProductsForGroup(products: ShowcaseProduct[], targetNames: readonly string[]) {
-  const usedProductIds = new Set<string>();
+function getProductCategoryCandidates(product: ShowcaseProduct) {
+  return [
+    product.category,
+    product.subcategory,
+    product.shopify_metadata?.celebix_category_hierarchy?.categorySlug,
+    product.shopify_metadata?.celebix_category_hierarchy?.subcategorySlug,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeText(value));
+}
 
-  return targetNames
+function getFallbackProductsForGroup(
+  products: ShowcaseProduct[],
+  usedProductIds: Set<string>,
+  fallbackCategories: readonly string[],
+  fallbackQueries: readonly string[],
+) {
+  const normalizedCategories = fallbackCategories.map((category) => normalizeText(category));
+  const normalizedQueries = fallbackQueries.map((query) => normalizeText(query));
+
+  return products
+    .filter((product) => !usedProductIds.has(product.id))
+    .map((product) => {
+      const comparableName = normalizeText(getComparableProductName(product));
+      const categoryCandidates = getProductCategoryCandidates(product);
+
+      const categoryScore = normalizedCategories.some((category) => categoryCandidates.includes(category)) ? 3 : 0;
+      const queryScore = normalizedQueries.reduce((score, query) => {
+        return score + (comparableName.includes(query) ? 5 : 0);
+      }, 0);
+
+      return {
+        product,
+        score: categoryScore + queryScore,
+      };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .map((entry) => entry.product);
+}
+
+function getProductsForGroup(
+  products: ShowcaseProduct[],
+  targetNames: readonly string[],
+  fallbackCategories: readonly string[] = [],
+  fallbackQueries: readonly string[] = [],
+) {
+  const usedProductIds = new Set<string>();
+  const matchedProducts = targetNames
     .map((targetName) => {
       const match = findProductByName(
         products.filter((product) => !usedProductIds.has(product.id)),
@@ -134,6 +232,30 @@ function getProductsForGroup(products: ShowcaseProduct[], targetNames: readonly 
       return match;
     })
     .filter((product): product is ShowcaseProduct => Boolean(product));
+
+  if (matchedProducts.length >= 4) {
+    return matchedProducts;
+  }
+
+  const fallbackProducts = getFallbackProductsForGroup(
+    products,
+    usedProductIds,
+    fallbackCategories,
+    fallbackQueries,
+  );
+
+  for (const fallbackProduct of fallbackProducts) {
+    if (matchedProducts.length >= 4) {
+      break;
+    }
+
+    if (!usedProductIds.has(fallbackProduct.id)) {
+      usedProductIds.add(fallbackProduct.id);
+      matchedProducts.push(fallbackProduct);
+    }
+  }
+
+  return matchedProducts;
 }
 
 function ProductGroupSection({
@@ -141,11 +263,19 @@ function ProductGroupSection({
   products,
   viewAllLabel,
 }: {
-  group: (typeof PRODUCT_GROUPS)[0];
+  group: (typeof PRODUCT_GROUPS)[number] & {
+    fallbackCategories?: readonly string[];
+    fallbackQueries?: readonly string[];
+  };
   products: ShowcaseProduct[];
   viewAllLabel: string;
 }) {
-  const matchedProducts = getProductsForGroup(products, group.targetNames);
+  const matchedProducts = getProductsForGroup(
+    products,
+    group.targetNames,
+    group.fallbackCategories ?? [],
+    group.fallbackQueries ?? [],
+  );
 
   if (matchedProducts.length === 0) {
     return null;
