@@ -2,7 +2,7 @@ import { createServerClient } from "@/lib/supabase";
 import { notFound } from "next/navigation";
 import type { OrderActivityLog as OrderActivityLogType, OrderStatus } from "@/types/order";
 import type { OrderItemCustomization } from "@/types/product-customization";
-import { normalizeStoredCustomization } from "@/lib/customization/normalize";
+import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 import { getOrderAccountingSnapshot } from "@/lib/db/accounting";
 import type { AccountingOrderSnapshot } from "@/types/accounting";
 
@@ -141,11 +141,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     const serializedItems = items.map((item) => ({
         ...item,
         product: item.product || null, // Ensure product is null if deleted
-        customizations: (item.customizations || [])
-            .map((customization: Partial<OrderItemCustomization>) =>
-                normalizeStoredCustomization(customization)
-            )
-            .filter(Boolean),
+        customizations: normalizeStoredCustomizations(item.customizations),
         created_at: item.created_at?.toString(),
     }));
 

@@ -5,6 +5,28 @@ type StoredCustomization = Partial<OrderItemCustomization> & {
   calculated_price?: number;
 };
 
+function coerceStoredCustomizations(raw: unknown): StoredCustomization[] {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw.filter(Boolean) as StoredCustomization[];
+  }
+
+  if (typeof raw === "string") {
+    try {
+      return coerceStoredCustomizations(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof raw === "object") {
+    return [raw as StoredCustomization];
+  }
+
+  return [];
+}
+
 export function normalizeStoredCustomization(
   raw: StoredCustomization | null | undefined
 ): OrderItemCustomization | null {
@@ -71,4 +93,10 @@ export function normalizeStoredCustomization(
     production_status: "pending",
     created_at: raw.created_at,
   };
+}
+
+export function normalizeStoredCustomizations(raw: unknown): OrderItemCustomization[] {
+  return coerceStoredCustomizations(raw)
+    .map((entry) => normalizeStoredCustomization(entry))
+    .filter((entry): entry is OrderItemCustomization => Boolean(entry));
 }

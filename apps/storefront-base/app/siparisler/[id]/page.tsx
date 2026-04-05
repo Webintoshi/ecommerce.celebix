@@ -4,7 +4,7 @@ import { formatPrice } from "@/lib/utils";
 import { Check, ChevronRight, ShoppingBag, MapPin, Calendar, CreditCard } from "lucide-react";
 import Link from "next/link";
 import OrderSuccessToast from "@/components/order-success-toast";
-import { normalizeStoredCustomization } from "@/lib/customization/normalize";
+import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 import { OrderItemCustomization } from "@/types/product-customization";
 import { getOrderAccountingSnapshot } from "@/lib/db/accounting";
 
@@ -137,11 +137,7 @@ export default async function OrderSuccessPage({
 
     const items: OrderItem[] = (orderItems || []).map((item) => ({
         ...item,
-        customizations: (item.customizations || [])
-            .map((customization: Partial<OrderItemCustomization>) =>
-                normalizeStoredCustomization(customization)
-            )
-            .filter(Boolean),
+        customizations: normalizeStoredCustomizations(item.customizations),
     }));
 
     let accountingSnapshot = null;

@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import type { OrderItemCustomization } from "@/types/product-customization";
 import type { OrderStatus } from "@/types/order";
-import { normalizeStoredCustomization } from "@/lib/customization/normalize";
+import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 import { getOrderAccountingSnapshot } from "@/lib/db/accounting";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import "./print.css";
@@ -77,11 +77,7 @@ export default async function PrintOrderPage({ params }: PageProps) {
   const order = orderResponse.data;
   const items: PrintOrderItem[] = (itemsResponse.data || []).map((item) => ({
     ...item,
-    customizations: (item.customizations || [])
-      .map((customization: Partial<OrderItemCustomization>) =>
-        normalizeStoredCustomization(customization)
-      )
-      .filter(Boolean),
+    customizations: normalizeStoredCustomizations(item.customizations),
   }));
   const paymentGateways = (settingsResponse.data?.value || []) as PaymentGateway[];
 

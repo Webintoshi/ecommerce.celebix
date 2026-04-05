@@ -6,7 +6,7 @@ import { enqueueAndProcessInvoiceForOrder } from "./accounting";
 import { enqueueInventorySyncByVariantIds, enqueueOrderStatusSync } from "./marketplace-sync";
 import { attemptOrderShippingDispatch } from "./shipping-automation";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
-import { normalizeStoredCustomization } from "@/lib/customization/normalize";
+import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 
 type ShippingAddressInput = {
     firstName?: string;
@@ -19,7 +19,7 @@ type ShippingAddressInput = {
 };
 
 type OrderItemWithCustomizations = {
-    customizations?: unknown[];
+    customizations?: unknown;
 } & Record<string, unknown>;
 
 type OrderWithItems = {
@@ -377,11 +377,7 @@ export async function getOrders(options?: {
                 const typedItem = item as OrderItemWithCustomizations;
                 return {
                     ...item,
-                    customizations: (typedItem.customizations || [])
-                        .map((customization) =>
-                            normalizeStoredCustomization(customization as Partial<OrderItemCustomization>)
-                        )
-                        .filter(Boolean),
+                    customizations: normalizeStoredCustomizations(typedItem.customizations),
                 };
             }),
         };
@@ -414,11 +410,7 @@ export async function getOrderById(id: string) {
             const typedItem = item as OrderItemWithCustomizations;
             return {
                 ...item,
-                customizations: (typedItem.customizations || [])
-                    .map((customization) =>
-                        normalizeStoredCustomization(customization as Partial<OrderItemCustomization>)
-                    )
-                    .filter(Boolean),
+                customizations: normalizeStoredCustomizations(typedItem.customizations),
             };
         }),
     };
@@ -450,11 +442,7 @@ export async function getOrderByNumber(orderNumber: string) {
             const typedItem = item as OrderItemWithCustomizations;
             return {
                 ...item,
-                customizations: (typedItem.customizations || [])
-                    .map((customization) =>
-                        normalizeStoredCustomization(customization as Partial<OrderItemCustomization>)
-                    )
-                    .filter(Boolean),
+                customizations: normalizeStoredCustomizations(typedItem.customizations),
             };
         }),
     };
