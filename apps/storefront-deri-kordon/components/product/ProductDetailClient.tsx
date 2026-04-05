@@ -45,9 +45,6 @@ const ProductCard = React.lazy(() =>
 import React from "react";
 
 type TabType = "features" | "specs" | "shipping";
-type VariantAttribute = {
-  image_url?: string | null;
-};
 type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
 
 function createEmptyCustomizationState(basePrice: number): CustomizationSelectionState {
@@ -187,15 +184,16 @@ export function ProductDetailClient({
     setCustomizationValidationNonce(0);
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
-  // Get variant display images
+  // Product gallery should only use real product/variant images.
+  // Attribute image_url values are swatches and must not replace the main gallery.
   const displayImages = React.useMemo(() => {
     const baseImages = product.images || [];
     
-    // Priority 1: Variant's own images (from variant.images)
+    // Priority 1: Variant's own gallery images
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter((img: string) => img && img.length > 0);
       if (variantImages.length > 0) {
-        // Combine variant image first, then product images
+        // Combine variant images first, then fall back to base product gallery.
         const combined = [...variantImages];
         baseImages.forEach((img: string) => {
           if (!combined.includes(img)) combined.push(img);
@@ -203,22 +201,9 @@ export function ProductDetailClient({
         return combined;
       }
     }
-    
-    // Priority 2: Attribute value images (from variant.attributes)
-    const attrImages =
-      (variant?.attributes as VariantAttribute[] | undefined)
-        ?.map((attr) => attr.image_url)
-        .filter((value): value is string => Boolean(value)) || [];
-    if (attrImages.length > 0) {
-      const combined = [...attrImages];
-      baseImages.forEach((img: string) => {
-        if (!combined.includes(img)) combined.push(img);
-      });
-      return combined;
-    }
-    
+
     return baseImages;
-  }, [product?.images, variant?.images, variant?.attributes]);
+  }, [product?.images, variant?.images]);
 
   if (loading || !product) {
     return (
