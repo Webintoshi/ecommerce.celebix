@@ -11,6 +11,7 @@ import {
 type PersonalizationPreviewProps = {
   category?: string | null;
   subcategory?: string | null;
+  productName?: string | null;
 };
 
 type FontOption = {
@@ -73,7 +74,7 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
-  textPositionClass: "bottom-[18%] right-[13%] w-[34%] text-left",
+  textPositionClass: "inset-0 flex items-center justify-center text-center",
   textToneClass: "text-[#251b15]/80",
   staticText: "YAZI",
 };
@@ -82,20 +83,34 @@ function normalizeCategoryValue(value?: string | null) {
   return (value || "")
     .toLocaleLowerCase("tr-TR")
     .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
-function resolvePreviewConfig(category?: string | null, subcategory?: string | null) {
-  const values = [category, subcategory].map(normalizeCategoryValue);
+function resolvePreviewConfig(
+  category?: string | null,
+  subcategory?: string | null,
+  productName?: string | null
+) {
+  const values = [category, subcategory, productName].map(normalizeCategoryValue);
 
   const belongsToWatchFamily = values.some(
     (value) =>
       value.includes("apple-watch") ||
       value.includes("watch") ||
-      value.includes("saat-kayis")
+      value.includes("saat-kayis") ||
+      value.includes("saat-kordon") ||
+      value.includes("akilli-saat") ||
+      value.includes("tek-katli") ||
+      value.includes("cift-katli") ||
+      value.includes("bund")
   );
 
   if (belongsToWatchFamily) {
@@ -121,10 +136,11 @@ function resolvePreviewConfig(category?: string | null, subcategory?: string | n
 export function PersonalizationPreview({
   category,
   subcategory,
+  productName,
 }: PersonalizationPreviewProps) {
   const previewConfig = useMemo(
-    () => resolvePreviewConfig(category, subcategory),
-    [category, subcategory]
+    () => resolvePreviewConfig(category, subcategory, productName),
+    [category, subcategory, productName]
   );
   const [previewText, setPreviewText] = useState("");
   const [selectedFontId, setSelectedFontId] = useState(FONT_OPTIONS[0]?.id || "");
@@ -138,10 +154,9 @@ export function PersonalizationPreview({
 
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
-  const displayText =
-    previewConfig.staticText || previewText.trim() || "Ön İzleme";
+  const displayText = previewConfig.staticText || previewText.trim() || "On Izleme";
   const previewFontSize = previewConfig.staticText
-    ? "clamp(24px, 2vw, 36px)"
+    ? "clamp(28px, 2.3vw, 40px)"
     : displayText.length > 16
       ? "clamp(17px, 1.45vw, 26px)"
       : displayText.length > 10
@@ -152,7 +167,7 @@ export function PersonalizationPreview({
     <section className="mx-auto w-full max-w-[360px] space-y-3 border-t border-neutral-200 pt-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[10px] font-medium uppercase tracking-[0.3em] text-neutral-700">
-          Kişiselleştirme Ön İzleme
+          Kisisellestirme On Izleme
         </h3>
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
@@ -215,7 +230,7 @@ export function PersonalizationPreview({
           <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-900" />
           <span>
             Urunlerin uzerinde belirtilen kazima alanina yazi / isim kazimasi
-            yapabiliriz. Kisilestirme ornekleridir.
+            yapabiliriz. Kisisellestirme ornekleridir.
           </span>
         </li>
         <li className="flex gap-3">

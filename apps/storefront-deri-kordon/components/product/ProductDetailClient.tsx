@@ -525,6 +525,7 @@ export function ProductDetailClient({
               <PersonalizationPreview
                 category={product.category}
                 subcategory={product.subcategory}
+                productName={product.name}
               />
 
               {/* Accordions — Inline in right column */}
