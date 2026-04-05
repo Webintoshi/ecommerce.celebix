@@ -102,7 +102,7 @@ export function Header() {
 
     const loadCategories = async () => {
       try {
-        const categories = await fetchCategories();
+        const categories = await fetchCategories(locale);
         if (!isMounted) {
           return;
         }
@@ -174,7 +174,7 @@ export function Header() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [locale]);
 
   return (
     <header
@@ -328,6 +328,7 @@ export function Header() {
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
+        locale={locale}
         resolveImageSrc={resolveStorefrontAssetUrl}
       />
     </header>

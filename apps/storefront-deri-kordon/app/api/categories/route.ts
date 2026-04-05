@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import { DEFAULT_LOCALE, isSupportedLocale } from "@/lib/i18n";
+import { translateCategoryRecord } from "@/lib/translation";
 
 // ============================================================================
 // CONFIGURATION
@@ -197,6 +199,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
+    const requestedLocale = searchParams.get("locale");
+    const locale = isSupportedLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
 
     const supabase = await getSupabaseClient();
 
@@ -223,7 +227,7 @@ export async function GET(request: NextRequest) {
         throw new APIError("Category not found", 404, "NOT_FOUND");
       }
 
-      return createSuccessResponse({ category: data });
+      return createSuccessResponse({ category: await translateCategoryRecord(data, locale) });
     }
 
     // Fetch single category by slug
@@ -256,7 +260,7 @@ export async function GET(request: NextRequest) {
         throw new APIError("Category not found", 404, "NOT_FOUND");
       }
 
-      return createSuccessResponse({ category: data });
+      return createSuccessResponse({ category: await translateCategoryRecord(data, locale) });
     }
 
     // Fetch all active categories
@@ -277,7 +281,11 @@ export async function GET(request: NextRequest) {
       throw new APIError("Database error", 500, "DB_ERROR");
     }
 
-    return createSuccessResponse({ categories: data || [] });
+    const translatedCategories = await Promise.all(
+      ((data as CategoryInput[] | null) || []).map((category) => translateCategoryRecord(category, locale)),
+    );
+
+    return createSuccessResponse({ categories: translatedCategories });
 
   } catch (error) {
     return createErrorResponse(error);

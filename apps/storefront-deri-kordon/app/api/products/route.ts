@@ -11,6 +11,8 @@ import {
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
+import { DEFAULT_LOCALE, isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
+import { translateProductRecord } from "@/lib/translation";
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -59,10 +61,38 @@ function hydrateListingProduct(
     return hydrateListingProducts([product], attributeRegistry)[0];
 }
 
+function resolveRequestedLocale(request: NextRequest): StorefrontLocale {
+    const requestedLocale = request.nextUrl.searchParams.get("locale");
+    return isSupportedLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+}
+
+async function translateListingProducts(
+    products: Record<string, unknown>[],
+    locale: StorefrontLocale,
+) {
+    if (products.length === 0 || locale === DEFAULT_LOCALE) {
+        return products;
+    }
+
+    return Promise.all(products.map((product) => translateProductRecord(product, locale)));
+}
+
+async function translateListingProduct(
+    product: Record<string, unknown> | null,
+    locale: StorefrontLocale,
+) {
+    if (!product || locale === DEFAULT_LOCALE) {
+        return product;
+    }
+
+    return translateProductRecord(product, locale);
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
         const attributeRegistryPromise = getVariantAttributeRegistry();
+        const locale = resolveRequestedLocale(request);
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         const featured = searchParams.get("featured");
@@ -86,7 +116,11 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            return NextResponse.json({ success: true, product: hydrateListingProduct(data, await attributeRegistryPromise) });
+            const translatedProduct = await translateListingProduct(data, locale);
+            return NextResponse.json({
+                success: true,
+                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise),
+            });
         } else if (slug) {
             // Fetch single product by slug from Supabase
             const { createServerClient } = await import("@/lib/supabase");
@@ -113,7 +147,11 @@ export async function GET(request: NextRequest) {
                     error: error ? getErrorMessage(error) : "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: hydrateListingProduct(data[0], await attributeRegistryPromise) });
+            const translatedProduct = await translateListingProduct(data[0], locale);
+            return NextResponse.json({
+                success: true,
+                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise),
+            });
         } else if (featured === "true") {
             const { createServerClient } = await import("@/lib/supabase");
             const supabase = createServerClient();
@@ -193,7 +231,10 @@ export async function GET(request: NextRequest) {
             if (error) throw error;
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts((data || []) as Record<string, unknown>[], await attributeRegistryPromise),
+                products: hydrateListingProducts(
+                    await translateListingProducts((data || []) as Record<string, unknown>[], locale),
+                    await attributeRegistryPromise,
+                ),
                 pagination: {
                     page,
                     limit,
@@ -260,7 +301,10 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts((data || []) as Record<string, unknown>[], await attributeRegistryPromise),
+                products: hydrateListingProducts(
+                    await translateListingProducts((data || []) as Record<string, unknown>[], locale),
+                    await attributeRegistryPromise,
+                ),
                 pagination: {
                     page,
                     limit,
@@ -272,7 +316,10 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            products: hydrateListingProducts((products || []) as Record<string, unknown>[], await attributeRegistryPromise),
+            products: hydrateListingProducts(
+                await translateListingProducts((products || []) as Record<string, unknown>[], locale),
+                await attributeRegistryPromise,
+            ),
         });
     } catch (error) {
         console.error("Error fetching products:", error);

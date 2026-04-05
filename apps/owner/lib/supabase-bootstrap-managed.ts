@@ -80,6 +80,10 @@ const SQL_BOOTSTRAP_FILES = [
   {
     name: "product_reviews",
     relativePath: ["apps", "admin", "supabase", "migrations", "20260405010000_product_reviews.sql"]
+  },
+  {
+    name: "translation_cache",
+    relativePath: ["apps", "admin", "supabase", "migrations", "20260405120000_translation_cache.sql"]
   }
 ] as const;
 

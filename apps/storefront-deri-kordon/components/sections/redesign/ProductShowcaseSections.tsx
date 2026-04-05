@@ -8,56 +8,65 @@ import { ProductCard } from "@/components/product/ProductCard";
 const PRODUCT_GROUPS = [
   {
     id: "bestsellers",
-    title: "Çok Satanlar",
-    subtitle: "Seçili Koleksiyon",
+    title: "Cok Satanlar",
+    subtitle: "Secili Koleksiyon",
     link: "/urunler",
     targetNames: [
-      "İç cepli klasik deri cüzdan",
-      "Çıtçıtlı deri kartlık",
-      "Telefon bölmeli uzun cüzdan",
-      "Dikey deri kartlık",
+      "Ic cepli klasik deri cuzdan",
+      "Citcitli deri kartlik",
+      "Telefon bolmeli uzun cuzdan",
+      "Dikey deri kartlik",
     ],
   },
   {
     id: "apple-watch",
-    title: "Apple Watch Kayışları",
-    subtitle: "Öne Çıkanlar",
+    title: "Apple Watch Kayislari",
+    subtitle: "One Cikanlar",
     link: "/apple-watch-saat-kayislari",
     targetNames: [
-      "Bund Çift Katlı Apple Watch Deri Kayış - Acı Kahve",
-      "Bund Çift Katlı Apple Watch Deri Kayış - Antrasit",
-      "Bund Çift Katlı Apple Watch Deri Kayış - Asfalt",
-      "Bund Çift Katlı Apple Watch Deri Kayış - Camel",
+      "Bund Cift Katli Apple Watch Deri Kayis - Aci Kahve",
+      "Bund Cift Katli Apple Watch Deri Kayis - Antrasit",
+      "Bund Cift Katli Apple Watch Deri Kayis - Asfalt",
+      "Bund Cift Katli Apple Watch Deri Kayis - Camel",
     ],
   },
   {
     id: "accessories",
     title: "Aksesuarlar",
-    subtitle: "Tamamlayıcılar",
+    subtitle: "Tamamlayicilar",
     link: "/aksesuar",
     targetNames: [
-      "Deri Gözlük Kılıfı",
+      "Deri Gozluk Kilifi",
       "Deri Rulo Kalemlik",
-      "Deri Airpods Kılıfı",
+      "Deri Airpods Kilifi",
       "Deri Anahtar Kesesi Midi",
     ],
   },
   {
     id: "watch-straps",
-    title: "Deri Saat Kayışları",
-    subtitle: "Klasik Seçim",
+    title: "Deri Saat Kayislari",
+    subtitle: "Klasik Secim",
     link: "/saat-kayislari",
     targetNames: [
-      "Çift Katlı Deri Saat Kayışı - Yeşil",
-      "Çift Katlı Deri Saat Kayışı - Taba",
-      "Çift Katlı Deri Saat Kayışı - Siyah",
-      "Çift Katlı Deri Saat Kayışı - Saffiano Kahve",
+      "Cift Katli Deri Saat Kayisi - Yesil",
+      "Cift Katli Deri Saat Kayisi - Taba",
+      "Cift Katli Deri Saat Kayisi - Siyah",
+      "Cift Katli Deri Saat Kayisi - Saffiano Kahve",
     ],
   },
 ] as const;
 
+type ShowcaseProduct = Product & {
+  translationSourceName?: string;
+};
+
 interface ProductShowcaseSectionsProps {
-  allProducts: Product[];
+  allProducts: ShowcaseProduct[];
+  groupCopy?: Array<{
+    title: string;
+    subtitle: string;
+  }>;
+  viewAllLabel?: string;
 }
 
 function normalizeText(value: string) {
@@ -65,22 +74,27 @@ function normalizeText(value: string) {
     .toLocaleLowerCase("tr-TR")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ı/g, "i")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
 
-function findProductByName(products: Product[], targetName: string): Product | null {
+function getComparableProductName(product: ShowcaseProduct) {
+  return product.translationSourceName || product.name;
+}
+
+function findProductByName(products: ShowcaseProduct[], targetName: string): ShowcaseProduct | null {
   const normalizedTarget = normalizeText(targetName);
   const targetTokens = normalizedTarget.split(" ").filter((token) => token.length > 1);
 
-  const exactMatch = products.find((product) => normalizeText(product.name) === normalizedTarget);
+  const exactMatch = products.find(
+    (product) => normalizeText(getComparableProductName(product)) === normalizedTarget,
+  );
   if (exactMatch) {
     return exactMatch;
   }
 
   const containsMatch = products.find((product) => {
-    const normalizedName = normalizeText(product.name);
+    const normalizedName = normalizeText(getComparableProductName(product));
     return normalizedName.includes(normalizedTarget) || normalizedTarget.includes(normalizedName);
   });
 
@@ -90,7 +104,7 @@ function findProductByName(products: Product[], targetName: string): Product | n
 
   const weightedMatch = products
     .map((product) => {
-      const normalizedName = normalizeText(product.name);
+      const normalizedName = normalizeText(getComparableProductName(product));
       const score = targetTokens.reduce((sum, token) => {
         return sum + (normalizedName.includes(token) ? 1 : 0);
       }, 0);
@@ -103,7 +117,7 @@ function findProductByName(products: Product[], targetName: string): Product | n
   return weightedMatch?.product ?? null;
 }
 
-function getProductsForGroup(products: Product[], targetNames: readonly string[]) {
+function getProductsForGroup(products: ShowcaseProduct[], targetNames: readonly string[]) {
   const usedProductIds = new Set<string>();
 
   return targetNames
@@ -119,15 +133,17 @@ function getProductsForGroup(products: Product[], targetNames: readonly string[]
 
       return match;
     })
-    .filter((product): product is Product => Boolean(product));
+    .filter((product): product is ShowcaseProduct => Boolean(product));
 }
 
 function ProductGroupSection({
   group,
   products,
+  viewAllLabel,
 }: {
   group: (typeof PRODUCT_GROUPS)[0];
-  products: Product[];
+  products: ShowcaseProduct[];
+  viewAllLabel: string;
 }) {
   const matchedProducts = getProductsForGroup(products, group.targetNames);
 
@@ -149,7 +165,7 @@ function ProductGroupSection({
             href={group.link}
             className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
           >
-            Tümünü Gör
+            {viewAllLabel}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
@@ -165,7 +181,7 @@ function ProductGroupSection({
             href={group.link}
             className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
           >
-            Tümünü Gör
+            {viewAllLabel}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -174,15 +190,30 @@ function ProductGroupSection({
   );
 }
 
-export function ProductShowcaseSections({ allProducts }: ProductShowcaseSectionsProps) {
+export function ProductShowcaseSections({
+  allProducts,
+  groupCopy,
+  viewAllLabel = "Tumunu Gor",
+}: ProductShowcaseSectionsProps) {
   if (!allProducts || allProducts.length === 0) {
     return null;
   }
 
+  const effectiveGroups = PRODUCT_GROUPS.map((group, index) => ({
+    ...group,
+    title: groupCopy?.[index]?.title || group.title,
+    subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
+  }));
+
   return (
     <>
-      {PRODUCT_GROUPS.map((group) => (
-        <ProductGroupSection key={group.id} group={group} products={allProducts} />
+      {effectiveGroups.map((group) => (
+        <ProductGroupSection
+          key={group.id}
+          group={group}
+          products={allProducts}
+          viewAllLabel={viewAllLabel}
+        />
       ))}
     </>
   );

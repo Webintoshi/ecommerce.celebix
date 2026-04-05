@@ -9,9 +9,15 @@ import type { HomepageCategory } from "@/lib/homepage";
 
 interface CategoriesSectionProps {
   initialCategories?: HomepageCategory[];
+  eyebrow?: string;
+  heading?: string;
 }
 
-export function CategoriesSection({ initialCategories = [] }: CategoriesSectionProps) {
+export function CategoriesSection({
+  initialCategories = [],
+  eyebrow = "Koleksiyonlar",
+  heading = "Kategoriler",
+}: CategoriesSectionProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const displayCategories = initialCategories
     .filter((category) => category.slug && category.name)
@@ -36,8 +42,8 @@ export function CategoriesSection({ initialCategories = [] }: CategoriesSectionP
     <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
       <div className="container-premium">
         <div className="mb-12 text-center lg:mb-16">
-          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">KOLEKSİYONLAR</p>
-          <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">Kategoriler</h2>
+          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
+          <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">

@@ -12,10 +12,12 @@ import {
   buildLocalizedPath,
   getLocalizedCopy,
 } from "@/lib/i18n";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import { translateCategoryRecord, translateProductRecord, translateTexts } from "@/lib/translation";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductVariant } from "@/types/product";
 import { inferLegacySubcategorySlug, readCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
@@ -309,6 +311,31 @@ function generateFaqSchema(faq: CategoryFAQ[] | null) {
   };
 }
 
+async function translateCategoryFaq(
+  faq: CategoryFAQ[] | null | undefined,
+  locale: StorefrontLocale,
+): Promise<CategoryFAQ[] | null> {
+  if (!faq || faq.length === 0) {
+    return null;
+  }
+
+  const translatedRows = await Promise.all(
+    faq.map(async (item) => {
+      const [question, answer] = await translateTexts([item.question, item.answer], {
+        locale,
+        context: "category-faq",
+      });
+
+      return {
+        question,
+        answer,
+      };
+    }),
+  );
+
+  return translatedRows;
+}
+
 function generateOrganizationSchema() {
   return {
     "@context": "https://schema.org",
@@ -325,7 +352,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const locale = await getRequestLocale();
   const { slug } = await params;
-  const category = await getCategoryBySlug(slug);
+  const rawCategory = await getCategoryBySlug(slug);
+  const category = rawCategory
+    ? ((await translateCategoryRecord(rawCategory, locale)) as Category)
+    : null;
 
   if (!category) {
     const copy = getLocalizedCopy(locale);
@@ -399,16 +429,23 @@ export default async function CollectionPage({
   const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
   const { slug } = await params;
-  const category = await getCategoryBySlug(slug);
+  const rawCategory = await getCategoryBySlug(slug);
+  const category = rawCategory
+    ? ((await translateCategoryRecord(rawCategory, locale)) as Category)
+    : null;
 
   if (!category) {
     notFound();
   }
 
-  const products = await getProductsByCategory(category);
+  const baseProducts = await getProductsByCategory(category);
+  const products = await Promise.all(
+    baseProducts.map((product) => translateProductRecord(product, locale)),
+  );
+  const translatedFaq = await translateCategoryFaq(category.faq, locale);
   const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy);
   const collectionSchema = generateCollectionSchema(category, products, locale);
-  const faqSchema = generateFaqSchema(category.faq);
+  const faqSchema = generateFaqSchema(translatedFaq);
   const organizationSchema = generateOrganizationSchema();
 
   return (
@@ -464,14 +501,14 @@ export default async function CollectionPage({
         <CollectionProductsClient products={products} />
       </main>
 
-      {category.faq && category.faq.length > 0 ? (
+      {translatedFaq && translatedFaq.length > 0 ? (
         <section className="mt-8 border-t border-neutral-200 bg-white">
           <div className="container-premium py-12">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
               {copy.faqHeading}
             </h2>
             <div className="max-w-3xl space-y-4">
-              {category.faq.map((item, index) => (
+              {translatedFaq.map((item, index) => (
                 <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
                   <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}

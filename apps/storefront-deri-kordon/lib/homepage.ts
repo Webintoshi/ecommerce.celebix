@@ -4,6 +4,8 @@ import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import type { StorefrontLocale } from "@/lib/i18n";
+import { translateCategoryRecord, translateProductRecord, translateText } from "@/lib/translation";
 
 interface RawHeroSlide {
   id?: string | number;
@@ -300,7 +302,26 @@ async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createSer
   return fallbackQuery.data ?? [];
 }
 
-export async function getHomepageData(): Promise<HomepageData> {
+async function translateHeroBanners(
+  heroBanners: HomepageHeroBanner[],
+  locale: StorefrontLocale,
+) {
+  return Promise.all(
+    heroBanners.map(async (banner) => ({
+      ...banner,
+      title: banner.title ? await translateText(banner.title, { locale, context: "homepage-hero" }) : banner.title,
+      subtitle: banner.subtitle
+        ? await translateText(banner.subtitle, { locale, context: "homepage-hero" })
+        : banner.subtitle,
+      buttonText: banner.buttonText
+        ? await translateText(banner.buttonText, { locale, context: "homepage-hero" })
+        : banner.buttonText,
+      alt: banner.alt ? await translateText(banner.alt, { locale, context: "homepage-hero" }) : banner.alt,
+    })),
+  );
+}
+
+export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<HomepageData> {
   const supabase = createServerClient();
 
   const [
@@ -332,7 +353,7 @@ export async function getHomepageData(): Promise<HomepageData> {
     (categoriesData || []).map((category) => [category.slug, category]),
   );
 
-  const categories = HOMEPAGE_CATEGORY_ORDER.map((entry) => {
+  const categoryBase = HOMEPAGE_CATEGORY_ORDER.map((entry) => {
     const category = categoriesBySlug.get(entry.slug);
 
     if (!category) {
@@ -341,19 +362,43 @@ export async function getHomepageData(): Promise<HomepageData> {
 
     return {
       id: category.id,
-      name: entry.name,
+      name: category.name || entry.name,
       slug: category.slug,
-      description: null,
+      description: category.description || null,
       image: category.image,
       productCount: typeof category.product_count === "number" ? category.product_count : 0,
+      seo_title: category.seo_title || null,
+      seo_description: category.seo_description || null,
     };
-  }).filter((category): category is HomepageCategory => Boolean(category));
+  }).filter((category): category is HomepageCategory & Record<string, unknown> => Boolean(category));
+
+  const translatedCategories = await Promise.all(
+    categoryBase.map(async (category) => {
+      const translated = await translateCategoryRecord(category, locale);
+      return {
+        id: translated.id,
+        name: translated.name || category.name,
+        slug: translated.slug,
+        description: translated.description || null,
+        image: translated.image,
+        productCount: translated.productCount,
+      } satisfies HomepageCategory;
+    }),
+  );
+
+  const translatedHeroBanners = await translateHeroBanners(heroBanners, locale);
+  const translatedProducts = await Promise.all(
+    (productsData || []).map((product) => translateProductRecord(product, locale)),
+  );
+  const translatedShowcaseProducts = await Promise.all(
+    (allProductsData || []).map((product) => translateProductRecord(product, locale)),
+  );
 
   return {
-    heroBanners,
-    categories,
-    products: hydrateHomepageProducts(productsData || [], attributeRegistry),
+    heroBanners: translatedHeroBanners,
+    categories: translatedCategories,
+    products: hydrateHomepageProducts(translatedProducts || [], attributeRegistry),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: hydrateHomepageProducts(allProductsData || [], attributeRegistry),
+    allProducts: hydrateHomepageProducts(translatedShowcaseProducts || [], attributeRegistry),
   };
 }

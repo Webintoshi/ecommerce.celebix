@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ShoppingCart,
   Star,
@@ -34,6 +35,7 @@ import {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
+import { DEFAULT_LOCALE, getLocaleFromPathname } from "@/lib/i18n";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -111,6 +113,8 @@ export function ProductDetailClient({
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
+  const pathname = usePathname();
+  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -139,7 +143,7 @@ export function ProductDetailClient({
   useEffect(() => {
     if (product?.category) {
       setIsLoadingRelated(true);
-      fetch(`/api/products?category=${product.category}&limit=8`)
+      fetch(`/api/products?category=${product.category}&limit=8&locale=${locale}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.products) {
@@ -149,7 +153,7 @@ export function ProductDetailClient({
         })
       .finally(() => setIsLoadingRelated(false));
     }
-  }, [product?.category, slug]);
+  }, [locale, product?.category, slug]);
 
   useEffect(() => {
     if (!product?.id) return;

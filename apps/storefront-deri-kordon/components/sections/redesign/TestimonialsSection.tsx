@@ -121,7 +121,13 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function TestimonialsSection() {
+export function TestimonialsSection({
+  heading = "Musteri Yorumlari",
+  countLabel = "1581 degerlendirmeden",
+}: {
+  heading?: string;
+  countLabel?: string;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -152,10 +158,8 @@ export function TestimonialsSection() {
     <section className="bg-neutral-50 py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 text-center">
-          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">
-            Musteri Yorumlari
-          </h2>
-          <p className="text-sm text-neutral-500">1581 degerlendirmeden</p>
+          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
+          <p className="text-sm text-neutral-500">{countLabel}</p>
         </div>
 
         <div

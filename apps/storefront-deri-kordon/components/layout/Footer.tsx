@@ -23,19 +23,158 @@ type FooterCategory = {
   slug: string;
 };
 
+type FooterLocaleCopy = {
+  languageLabel: string;
+  aboutHeading: string;
+  categoriesHeading: string;
+  policiesHeading: string;
+  aboutLinks: Array<{ name: string; href: string }>;
+  policyLinks: Array<{ name: string; href: string }>;
+  rights: string;
+  partnerLabel: string;
+};
+
 const LOCALE_SWITCH_OPTIONS: Array<{
   locale: StorefrontLocale;
-  shortLabel: string;
   label: string;
   flag: string;
 }> = [
-  { locale: "tr", shortLabel: "TR", label: "Türkçe", flag: "🇹🇷" },
-  { locale: "en", shortLabel: "EN", label: "English", flag: "🇬🇧" },
-  { locale: "de", shortLabel: "DE", label: "Deutsch", flag: "🇩🇪" },
-  { locale: "ru", shortLabel: "RU", label: "Russkiy", flag: "🇷🇺" },
-  { locale: "ar", shortLabel: "AR", label: "Arabic", flag: "🇸🇦" },
-  { locale: "ka", shortLabel: "KA", label: "Kartuli", flag: "🇬🇪" },
+  { locale: "tr", label: "Türkçe", flag: "🇹🇷" },
+  { locale: "en", label: "English", flag: "🇬🇧" },
+  { locale: "de", label: "Deutsch", flag: "🇩🇪" },
+  { locale: "ru", label: "Русский", flag: "🇷🇺" },
+  { locale: "ar", label: "العربية", flag: "🇸🇦" },
+  { locale: "ka", label: "ქართული", flag: "🇬🇪" },
 ];
+
+const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
+  tr: {
+    languageLabel: "Dil",
+    aboutHeading: "Bizi Tanıyın",
+    categoriesHeading: "Kategoriler",
+    policiesHeading: "Politikalar",
+    aboutLinks: [
+      { name: "Ana Sayfa", href: "/" },
+      { name: "Hakkımızda", href: "/hakkimizda" },
+      { name: "Mağazalarımız", href: "/magazalarimiz" },
+      { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
+      { name: "İletişim", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "Mesafeli Satış Sözleşmesi", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "Teslimat ve İade Politikası", href: "/iade" },
+      { name: "Gizlilik Politikası", href: "/gizlilik" },
+      { name: "KVKK", href: "/kvkk" },
+    ],
+    rights: "Tüm hakları saklıdır.",
+    partnerLabel: "Dijital Çözüm Ortağı",
+  },
+  en: {
+    languageLabel: "Language",
+    aboutHeading: "Discover Us",
+    categoriesHeading: "Categories",
+    policiesHeading: "Policies",
+    aboutLinks: [
+      { name: "Home", href: "/" },
+      { name: "About", href: "/hakkimizda" },
+      { name: "Stores", href: "/magazalarimiz" },
+      { name: "Corporate Products", href: "/kurumsal-urunler" },
+      { name: "Contact", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "Distance Sales Agreement", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "Delivery and Returns", href: "/iade" },
+      { name: "Privacy Policy", href: "/gizlilik" },
+      { name: "Data Privacy", href: "/kvkk" },
+    ],
+    rights: "All rights reserved.",
+    partnerLabel: "Digital Growth Partner",
+  },
+  de: {
+    languageLabel: "Sprache",
+    aboutHeading: "Über Uns",
+    categoriesHeading: "Kategorien",
+    policiesHeading: "Richtlinien",
+    aboutLinks: [
+      { name: "Startseite", href: "/" },
+      { name: "Über uns", href: "/hakkimizda" },
+      { name: "Geschäfte", href: "/magazalarimiz" },
+      { name: "Firmenprodukte", href: "/kurumsal-urunler" },
+      { name: "Kontakt", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "Fernabsatzvertrag", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "Lieferung und Rückgabe", href: "/iade" },
+      { name: "Datenschutz", href: "/gizlilik" },
+      { name: "Datenschutzrecht", href: "/kvkk" },
+    ],
+    rights: "Alle Rechte vorbehalten.",
+    partnerLabel: "Digitaler Lösungspartner",
+  },
+  ru: {
+    languageLabel: "Язык",
+    aboutHeading: "О Нас",
+    categoriesHeading: "Категории",
+    policiesHeading: "Политики",
+    aboutLinks: [
+      { name: "Главная", href: "/" },
+      { name: "О нас", href: "/hakkimizda" },
+      { name: "Магазины", href: "/magazalarimiz" },
+      { name: "Корпоративные товары", href: "/kurumsal-urunler" },
+      { name: "Контакты", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "Договор дистанционной продажи", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "Доставка и возврат", href: "/iade" },
+      { name: "Политика конфиденциальности", href: "/gizlilik" },
+      { name: "Защита данных", href: "/kvkk" },
+    ],
+    rights: "Все права защищены.",
+    partnerLabel: "Цифровой партнер",
+  },
+  ar: {
+    languageLabel: "اللغة",
+    aboutHeading: "اعرفنا",
+    categoriesHeading: "الفئات",
+    policiesHeading: "السياسات",
+    aboutLinks: [
+      { name: "الرئيسية", href: "/" },
+      { name: "من نحن", href: "/hakkimizda" },
+      { name: "متاجرنا", href: "/magazalarimiz" },
+      { name: "المنتجات المؤسسية", href: "/kurumsal-urunler" },
+      { name: "اتصل بنا", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "اتفاقية البيع عن بعد", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "الشحن والاسترجاع", href: "/iade" },
+      { name: "سياسة الخصوصية", href: "/gizlilik" },
+      { name: "خصوصية البيانات", href: "/kvkk" },
+    ],
+    rights: "جميع الحقوق محفوظة.",
+    partnerLabel: "شريك النمو الرقمي",
+  },
+  ka: {
+    languageLabel: "ენა",
+    aboutHeading: "ჩვენ შესახებ",
+    categoriesHeading: "კატეგორიები",
+    policiesHeading: "პოლიტიკები",
+    aboutLinks: [
+      { name: "მთავარი", href: "/" },
+      { name: "ჩვენ შესახებ", href: "/hakkimizda" },
+      { name: "მაღაზიები", href: "/magazalarimiz" },
+      { name: "კორპორატიული პროდუქტები", href: "/kurumsal-urunler" },
+      { name: "კონტაქტი", href: "/iletisim" },
+    ],
+    policyLinks: [
+      { name: "დისტანციური გაყიდვის შეთანხმება", href: "/mesafeli-satis-sozlesmesi" },
+      { name: "მიწოდება და დაბრუნება", href: "/iade" },
+      { name: "კონფიდენციალურობის პოლიტიკა", href: "/gizlilik" },
+      { name: "მონაცემთა დაცვა", href: "/kvkk" },
+    ],
+    rights: "ყველა უფლება დაცულია.",
+    partnerLabel: "ციფრული პარტნიორი",
+  },
+};
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
@@ -49,14 +188,19 @@ export function Footer() {
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
   const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
   const currentPath = stripLocaleFromPathname(pathname || "/");
+  const copy = FOOTER_COPY[locale];
+  const activeLocaleOption =
+    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 
   useEffect(() => {
     let isMounted = true;
 
     const loadCategories = async () => {
       try {
-        const categories = await fetchCategories();
-        if (!isMounted) return;
+        const categories = await fetchCategories(locale);
+        if (!isMounted) {
+          return;
+        }
 
         const topLevelCategories = categories
           .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
@@ -78,7 +222,7 @@ export function Footer() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -90,27 +234,6 @@ export function Footer() {
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
-
-  const activeLocaleOption =
-    useMemo(
-      () => LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0],
-      [locale],
-    ) ?? LOCALE_SWITCH_OPTIONS[0];
-
-  const aboutLinks = [
-    { name: "Ana Sayfa", href: "/" },
-    { name: "Hakkımızda", href: "/hakkimizda" },
-    { name: "Mağazalarımız", href: "/magazalarimiz" },
-    { name: "Kurumsal Sipariş", href: "/kurumsal-urunler" },
-    { name: "İletişim", href: "/iletisim" },
-  ];
-
-  const policyLinks = [
-    { name: "Mesafeli Satış Sözleşmesi", href: "/mesafeli-satis-sozlesmesi" },
-    { name: "Teslimat & İade Politikası", href: "/iade" },
-    { name: "Gizlilik Politikası", href: "/gizlilik" },
-    { name: "KVKK", href: "/kvkk" },
-  ];
 
   return (
     <footer className="bg-[#0B1120] text-white">
@@ -146,7 +269,7 @@ export function Footer() {
 
             <div className="mb-6">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
-                Language
+                {copy.languageLabel}
               </p>
               <div ref={localeMenuRef} className="relative w-fit">
                 <button
@@ -186,13 +309,6 @@ export function Footer() {
                               <span className="text-base leading-none">{option.flag}</span>
                               <span className="text-sm font-medium">{option.label}</span>
                             </span>
-                            <span
-                              className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                                isActive ? "text-[#6A728B]" : "text-[#A7B0C9]"
-                              }`}
-                            >
-                              {option.shortLabel}
-                            </span>
                           </Link>
                         );
                       })}
@@ -225,15 +341,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3
-              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-              style={{ color: "#FFFFFF" }}
-            >
-              Bizi Tanıyın
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.aboutHeading}
             </h3>
             <ul className="space-y-3">
-              {aboutLinks.map((link) => (
-                <li key={link.name}>
+              {copy.aboutLinks.map((link) => (
+                <li key={link.href}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
@@ -246,11 +359,8 @@ export function Footer() {
           </div>
 
           <div>
-            <h3
-              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-              style={{ color: "#FFFFFF" }}
-            >
-              Kategoriler
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.categoriesHeading}
             </h3>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
@@ -267,15 +377,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3
-              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-              style={{ color: "#FFFFFF" }}
-            >
-              Politikalar
+            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.policiesHeading}
             </h3>
             <ul className="space-y-3">
-              {policyLinks.map((link) => (
-                <li key={link.name}>
+              {copy.policyLinks.map((link) => (
+                <li key={link.href}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
@@ -290,25 +397,23 @@ export function Footer() {
       </div>
 
       <div className="border-t border-gray-800">
-        <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <p className="text-xs text-gray-500">
-              © {currentYear} {storeInfo?.name || SITE_NAME}. Tüm hakları saklıdır.
-            </p>
-            <a
-              href="https://celebix.co"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
-            >
-              <span className="text-[10px] uppercase tracking-[0.2em]">Dijital Çözüm Ortağı</span>
-              <img
-                src="https://celebix.co/Logo/koyu%20logo.svg"
-                alt="Celebix"
-                className="h-6 w-auto brightness-0 invert"
-              />
-            </a>
-          </div>
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
+          <p className="text-xs text-gray-500">
+            © {currentYear} {storeInfo?.name || SITE_NAME}. {copy.rights}
+          </p>
+          <a
+            href="https://celebix.co"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
+          >
+            <span className="text-[10px] uppercase tracking-[0.2em]">{copy.partnerLabel}</span>
+            <img
+              src="https://celebix.co/Logo/koyu%20logo.svg"
+              alt="Celebix"
+              className="h-6 w-auto brightness-0 invert"
+            />
+          </a>
         </div>
       </div>
     </footer>

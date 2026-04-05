@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Search, X, Command } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ROUTES } from "@/lib/constants";
+import { buildLocalizedPath, type StorefrontLocale } from "@/lib/i18n";
 
 type SearchProductResult = {
   id: string;
@@ -27,6 +28,7 @@ type SearchProductsResponse = {
 type HeaderSearchOverlayProps = {
   isOpen: boolean;
   onClose: () => void;
+  locale: StorefrontLocale;
   resolveImageSrc?: (src?: string | null) => string;
 };
 
@@ -58,6 +60,7 @@ function getProductImage(
 export function HeaderSearchOverlay({
   isOpen,
   onClose,
+  locale,
   resolveImageSrc,
 }: HeaderSearchOverlayProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -95,7 +98,7 @@ export function HeaderSearchOverlay({
       setIsLoading(true);
       try {
         const res = await fetch(
-          `/api/products?search=${encodeURIComponent(normalizedQuery)}`,
+          `/api/products?search=${encodeURIComponent(normalizedQuery)}&locale=${locale}`,
           { signal: controller.signal, cache: "no-store" }
         );
         const data = (await res.json()) as SearchProductsResponse;
@@ -195,7 +198,7 @@ export function HeaderSearchOverlay({
                 return (
                   <Link
                     key={product.id}
-                    href={ROUTES.product(product.slug)}
+                    href={buildLocalizedPath(ROUTES.product(product.slug), locale)}
                     onClick={onClose}
                     className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-neutral-50"
                   >

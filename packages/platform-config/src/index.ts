@@ -5,6 +5,7 @@ export * from "./typography";
 export * from "./image-formats";
 export * from "./category-hierarchy";
 export * from "./shipping";
+export * from "./translation";
 
 export interface StoreRegistryEntry {
   slug: string;

@@ -9,6 +9,7 @@ import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { translateProductRecord } from "@/lib/translation";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +126,7 @@ function transformProduct(
   };
 }
 
-async function getProducts(): Promise<Product[]> {
+async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>): Promise<Product[]> {
   const supabase = createServerClient();
 
   try {
@@ -150,8 +151,14 @@ async function getProducts(): Promise<Product[]> {
       return [];
     }
 
-    return ((products as DBProduct[]) || []).map((product) =>
-      transformProduct(product, attributeRegistry),
+    const translatedProducts = await Promise.all(
+      (((products as DBProduct[]) || []).map((product) =>
+        translateProductRecord(product, locale),
+      )),
+    );
+
+    return translatedProducts.map((product) =>
+      transformProduct(product as DBProduct, attributeRegistry),
     );
   } catch (error) {
     console.error("Failed to fetch products:", error);
@@ -160,6 +167,7 @@ async function getProducts(): Promise<Product[]> {
 }
 
 export default async function AllProductsPage() {
-  const products = await getProducts();
+  const locale = await getRequestLocale();
+  const products = await getProducts(locale);
   return <ProductsPageClient initialProducts={products} />;
 }

@@ -10,6 +10,11 @@ import {
     type ShippingZone,
 } from "@celebix/platform-config/src/shipping";
 import {
+    DEFAULT_STORE_TRANSLATION_SETTINGS,
+    normalizeStoreTranslationSettings,
+    type StoreTranslationSettings,
+} from "@celebix/platform-config/src/translation";
+import {
     ShippingIntegrationSettings,
 } from "@/types/shipping-integration";
 import {
@@ -102,6 +107,7 @@ export const SETTING_KEYS = {
     ANNOUNCEMENT_BAR: "announcement_bar",
     MARQUEE_SETTINGS: "marquee_settings",
     AI_PROVIDER: "ai_provider",
+    TRANSLATION_SETTINGS: "translation_settings",
 } as const;
 
 // =====================================================
@@ -134,6 +140,7 @@ export interface StoreInfo {
 }
 
 export type SEOSettings = StoreSeoSettings;
+export type TranslationSettings = StoreTranslationSettings;
 
 /**
  * Get payment methods
@@ -221,6 +228,27 @@ export async function setSeoSettings(settings: SEOSettings) {
     return setSetting(
         SETTING_KEYS.SEO_SETTINGS,
         normalizeStoreSeoSettings(settings) as unknown as Record<string, unknown>,
+    );
+}
+
+/**
+ * Get translation settings
+ */
+export async function getTranslationSettings(): Promise<TranslationSettings> {
+    const data = await getSetting(SETTING_KEYS.TRANSLATION_SETTINGS);
+    return normalizeStoreTranslationSettings(
+        data as Partial<StoreTranslationSettings> | null,
+        DEFAULT_STORE_TRANSLATION_SETTINGS,
+    );
+}
+
+/**
+ * Set translation settings
+ */
+export async function setTranslationSettings(settings: TranslationSettings) {
+    return setSetting(
+        SETTING_KEYS.TRANSLATION_SETTINGS,
+        normalizeStoreTranslationSettings(settings) as unknown as Record<string, unknown>,
     );
 }
 

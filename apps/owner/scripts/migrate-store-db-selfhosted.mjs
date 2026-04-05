@@ -45,6 +45,7 @@ const BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "migrations", "20260402020000_default_product_tax_rate_zero.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402183000_products_subcategory_compat.sql"],
   ["apps", "admin", "supabase", "migrations", "20260405010000_product_reviews.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260405120000_translation_cache.sql"],
 ];
 
 function parseArgs(argv) {

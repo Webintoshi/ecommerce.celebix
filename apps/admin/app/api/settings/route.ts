@@ -17,6 +17,7 @@ import {
     getShippingIntegrations,
     getShippingOptions,
     getStoreInfo,
+    getTranslationSettings,
     setAIProviderSettings,
     setAnnouncementBarSettings,
     setMarqueeSettings,
@@ -26,6 +27,7 @@ import {
     setShippingIntegrations,
     setShippingOptions,
     setStoreInfo,
+    setTranslationSettings,
 } from "@/lib/db/settings";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
@@ -133,6 +135,15 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "translation") {
+            const translationSettings = await getTranslationSettings();
+            return NextResponse.json({
+                success: true,
+                translationSettings,
+                hasEnvKey: Boolean(process.env.DEEPL_API_KEY),
+            });
+        }
+
         if (key) {
             const value = await getSetting(key);
             return NextResponse.json({ success: true, setting: { key, value } });
@@ -164,6 +175,7 @@ export async function POST(request: NextRequest) {
             announcementSettings,
             marqueeSettings,
             aiSettings,
+            translationSettings,
         } = body;
 
         if (type === "payment" && paymentMethods !== undefined) {
@@ -231,6 +243,11 @@ export async function POST(request: NextRequest) {
         if (type === "ai-test" && aiSettings !== undefined) {
             const testResult = await testAIConnection(aiSettings);
             return NextResponse.json({ success: true, testResult });
+        }
+
+        if (type === "translation" && translationSettings !== undefined) {
+            await setTranslationSettings(translationSettings);
+            return NextResponse.json({ success: true, message: "Translation settings updated" });
         }
 
         if (key && value !== undefined) {

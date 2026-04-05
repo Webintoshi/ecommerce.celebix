@@ -9,6 +9,7 @@ import {
   getLocalizedCopy,
   type StorefrontLocale,
 } from "@/lib/i18n";
+import { translateSeoStrings } from "@/lib/translation";
 
 type PageKeywords = string[] | string | null | undefined;
 
@@ -110,12 +111,17 @@ export async function getStoreSeoContext(locale: StorefrontLocale): Promise<Stor
   const copy = getLocalizedCopy(locale);
   const siteName = normalizeTitle(seoSettings.siteName) || storeInfo.name || STOREFRONT_RUNTIME.name;
   const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
-  const defaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
-  const defaultDescription =
+  const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
+  const rawDefaultDescription =
     normalizeDescription(seoSettings.defaultDescription) ||
     copy.siteDescription ||
     STOREFRONT_RUNTIME.description ||
     siteName;
+  const [defaultTitle, defaultDescription] = await translateSeoStrings(
+    [rawDefaultTitle, rawDefaultDescription],
+    locale,
+    "store-seo-defaults",
+  );
 
   return {
     locale,

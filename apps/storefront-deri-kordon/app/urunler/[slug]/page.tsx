@@ -10,6 +10,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { translateProductRecord } from "@/lib/translation";
 import {
   getVariantAttributeRegistry,
   hydrateVariantAttributes,
@@ -138,17 +139,19 @@ export async function generateMetadata({
     });
   }
 
+  const translatedProduct = await translateProductRecord(product, locale);
+
   return buildStorePageMetadata({
     locale,
     pathname: `/urunler/${baseSlug}`,
-    title: product.seoTitle || product.name,
+    title: translatedProduct.seoTitle || translatedProduct.name,
     description:
-      product.seoDescription ||
-      product.shortDescription ||
-      product.description?.slice(0, 160) ||
+      translatedProduct.seoDescription ||
+      translatedProduct.shortDescription ||
+      translatedProduct.description?.slice(0, 160) ||
       "",
-    keywords: product.tags,
-    image: product.images && product.images.length > 0 ? product.images[0] : null,
+    keywords: translatedProduct.tags,
+    image: translatedProduct.images && translatedProduct.images.length > 0 ? translatedProduct.images[0] : null,
     type: "website",
   });
 
@@ -337,6 +340,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  product = (await translateProductRecord(product, locale)) as typeof product;
+
   // 4. Determine selected variant based on URL
   let selectedVariantIndex = 0;
   if (product.variants && product.variants.length > 0) {
@@ -354,6 +359,12 @@ export default async function ProductDetailPage({
   } catch {
     // Fallback: empty array
     relatedProducts = [];
+  }
+
+  if (relatedProducts.length > 0) {
+    relatedProducts = await Promise.all(
+      relatedProducts.map((item) => translateProductRecord(item, locale)),
+    );
   }
 
   // Generate JSON-LD Schema
