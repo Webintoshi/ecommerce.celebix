@@ -428,11 +428,8 @@ function FormField({
         : imageSelectColumnCount === 2
           ? 108
           : 140;
-  const imageSelectGridStyle = {
-    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
-  } as CSSProperties;
   const mobileImageSelectGridStyle = {
-    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, minmax(0, 1fr))`,
+    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, minmax(56px, 72px))`,
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
 
@@ -521,7 +518,7 @@ function FormField({
           {label}
           <div
             className={cn(
-              "grid gap-2 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]"
+              "grid justify-start gap-1.5 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]"
             )}
             style={mobileImageSelectGridStyle}
           >
@@ -531,7 +528,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all",
+                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all md:max-w-none",
                   value === option.value
                     ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
                     : "border-neutral-200 hover:border-neutral-300",
@@ -541,7 +538,7 @@ function FormField({
                 <div
                   className={cn(
                     "relative aspect-square bg-neutral-50",
-                    imageWrapperClass === "p-3.5" ? "p-2" : "p-1.5"
+                    imageWrapperClass === "p-3.5" ? "p-1 md:p-2" : "p-1"
                   )}
                 >
                   {option.image_url ? (
@@ -559,12 +556,12 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="p-2 text-left sm:p-3">
-                  <p className="break-words text-[10px] font-medium leading-tight text-neutral-900 sm:text-xs">
+                <div className="p-1.5 text-left sm:p-3">
+                  <p className="break-words text-[9px] font-medium leading-tight text-neutral-900 sm:text-xs">
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="text-[10px] text-emerald-600">
+                    <p className="text-[9px] text-emerald-600">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
