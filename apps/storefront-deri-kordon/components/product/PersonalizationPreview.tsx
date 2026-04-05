@@ -140,6 +140,13 @@ export function PersonalizationPreview({
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const displayText =
     previewConfig.staticText || previewText.trim() || "Ön İzleme";
+  const previewFontSize = previewConfig.staticText
+    ? "clamp(24px, 2vw, 36px)"
+    : displayText.length > 16
+      ? "clamp(17px, 1.45vw, 26px)"
+      : displayText.length > 10
+        ? "clamp(19px, 1.65vw, 29px)"
+        : "clamp(22px, 1.9vw, 32px)";
 
   return (
     <section className="mx-auto w-full max-w-[360px] space-y-3 border-t border-neutral-200 pt-5">
@@ -190,9 +197,10 @@ export function PersonalizationPreview({
             unoptimized={usesProxiedPreview}
           />
           <div
-            className={`pointer-events-none absolute ${previewConfig.textPositionClass} text-[clamp(14px,1.1vw,22px)] leading-none ${previewConfig.textToneClass}`}
+            className={`pointer-events-none absolute ${previewConfig.textPositionClass} leading-none ${previewConfig.textToneClass}`}
             style={{
               fontFamily: selectedFont.family,
+              fontSize: previewFontSize,
               ...selectedFont.style,
               textShadow: "0 1px 1px rgba(255,255,255,0.12)",
             }}
