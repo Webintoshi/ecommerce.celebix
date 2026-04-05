@@ -1,15 +1,13 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartWrapper } from "@/components/cart/CartWrapper";
 import { AnnouncementBar } from "@/components/sections/AnnouncementBar";
-import { stripLocaleFromPathname } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const internalPathname = stripLocaleFromPathname(pathname || "/");
+  const { internalPathname } = useStorefrontRoute();
   const isAdmin = internalPathname.startsWith("/admin");
   const isAuthPage = internalPathname === "/giris" || internalPathname === "/kayit";
 

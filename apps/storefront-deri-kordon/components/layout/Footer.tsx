@@ -3,18 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ChevronDown, Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import {
-  DEFAULT_LOCALE,
   type StorefrontLocale,
   buildLocalizedPath,
-  getLocaleFromPathname,
-  stripLocaleFromPathname,
 } from "@/lib/i18n";
 
 type FooterCategory = {
@@ -180,14 +177,12 @@ export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
-  const pathname = usePathname();
+  const { locale, internalPathname } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
-  const currentPath = stripLocaleFromPathname(pathname || "/");
   const copy = FOOTER_COPY[locale];
   const activeLocaleOption =
     LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
@@ -296,7 +291,7 @@ export function Footer() {
                         return (
                           <Link
                             key={option.locale}
-                            href={buildLocalizedPath(currentPath, option.locale)}
+                            href={buildLocalizedPath(internalPathname, option.locale)}
                             hrefLang={option.locale}
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${

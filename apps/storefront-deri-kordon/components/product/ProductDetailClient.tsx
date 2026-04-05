@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   ShoppingCart,
   Star,
@@ -30,12 +29,13 @@ import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 import {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
-import { DEFAULT_LOCALE, getLocaleFromPathname } from "@/lib/i18n";
+import { buildLocalizedPath } from "@/lib/i18n";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -113,8 +113,7 @@ export function ProductDetailClient({
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
-  const pathname = usePathname();
-  const locale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
+  const { locale } = useStorefrontRoute();
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -312,16 +311,16 @@ export function ProductDetailClient({
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
-              href="/urunler"
+              href={buildLocalizedPath("/urunler", locale)}
               className="flex items-center gap-2 text-neutral-500 hover:text-neutral-900 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
             </Link>
             <div className="flex items-center gap-2 text-neutral-400 ml-auto">
-              <Link href="/" className="hover:text-neutral-600 transition-colors">Ana Sayfa</Link>
+              <Link href={buildLocalizedPath("/", locale)} className="hover:text-neutral-600 transition-colors">Ana Sayfa</Link>
               <ChevronRight className="w-4 h-4" />
-              <Link href="/urunler" className="hover:text-neutral-600 transition-colors">Ürünler</Link>
+              <Link href={buildLocalizedPath("/urunler", locale)} className="hover:text-neutral-600 transition-colors">Ürünler</Link>
               <ChevronRight className="w-4 h-4" />
               <span className="text-neutral-900 font-medium truncate max-w-[150px]">
                 {product.name}
@@ -658,7 +657,7 @@ export function ProductDetailClient({
               </h2>
             </div>
             <Link
-              href="/urunler"
+              href={buildLocalizedPath("/urunler", locale)}
               className="hidden sm:flex items-center gap-1 text-neutral-900 font-medium hover:text-neutral-600 transition-colors"
             >
               Tümünü Gör

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
-import { buildLocalizedPath, getLocaleFromPathname, stripLocaleFromPathname } from "@/lib/i18n";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface AnnouncementSettings {
   message: string;
@@ -49,9 +49,7 @@ export function AnnouncementBar() {
   const [settings, setSettings] = useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isVisible, setIsVisible] = useState(true);
   const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
-  const locale = getLocaleFromPathname(pathname);
-  const internalPathname = stripLocaleFromPathname(pathname || "/");
+  const { locale, internalPathname } = useStorefrontRoute();
 
   useEffect(() => {
     async function fetchSettings() {

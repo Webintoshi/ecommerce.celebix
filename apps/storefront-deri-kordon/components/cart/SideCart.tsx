@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { X, ShoppingBag, Plus, Minus, Trash2, Check, ArrowRight, Lock } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { buildLocalizedPath } from "@/lib/i18n";
 import { formatPrice, cn } from "@/lib/utils";
 import { SHIPPING_THRESHOLD } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +28,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
     getTotalItems,
     lastAddedItem,
   } = useCart();
+  const { locale } = useStorefrontRoute();
 
   const [isMobile, setIsMobile] = useState(false);
   const lastAddedItemImage = lastAddedItem
@@ -162,7 +165,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     <p className="text-gray-500 text-sm mt-1">Henüz sepetinize ürün eklemediniz.</p>
                   </div>
                   <Link
-                    href="/urunler"
+                    href={buildLocalizedPath("/urunler", locale)}
                     onClick={onClose}
                     className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-red-800 transition-colors shadow-lg shadow-primary/20"
                   >
@@ -272,7 +275,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
 
                 {/* Checkout Button - Using Brand Primary Color */}
                 <Link
-                  href="/odeme"
+                  href={buildLocalizedPath("/odeme", locale)}
                   onClick={onClose}
                   className="w-full h-14 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-800 active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
                 >

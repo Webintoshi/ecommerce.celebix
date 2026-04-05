@@ -12,6 +12,7 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
 import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
 import { RTL_LOCALES } from "@/lib/i18n";
+import { StorefrontRouteProvider } from "@/lib/storefront-route-context";
 import { buildStoreRootMetadata } from "@/lib/seo-metadata";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
@@ -35,6 +36,7 @@ export default async function RootLayout({
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
   const locale = await getRequestLocale();
+  const pathname = await getRequestPathname();
   const initialStoreInfo = await getStoreInfo();
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
@@ -73,32 +75,37 @@ export default async function RootLayout({
           </noscript>
         ) : null}
 
-        <TrackingProvider>
-          <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
-            <AuthProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <QuickViewProvider>
-                    <LayoutWrapper>
-                      {children}
-                      <Toaster
-                        position="top-right"
-                        theme="light"
-                        toastOptions={{
-                          style: {
-                            background: "#0F1626",
-                            color: "#FFFFFF",
-                            border: "none",
-                          },
-                        }}
-                      />
-                    </LayoutWrapper>
-                  </QuickViewProvider>
-                </WishlistProvider>
-              </CartProvider>
-            </AuthProvider>
-          </StoreInfoProvider>
-        </TrackingProvider>
+        <StorefrontRouteProvider
+          initialLocale={locale}
+          initialInternalPathname={pathname}
+        >
+          <TrackingProvider>
+            <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
+              <AuthProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <QuickViewProvider>
+                      <LayoutWrapper>
+                        {children}
+                        <Toaster
+                          position="top-right"
+                          theme="light"
+                          toastOptions={{
+                            style: {
+                              background: "#0F1626",
+                              color: "#FFFFFF",
+                              border: "none",
+                            },
+                          }}
+                        />
+                      </LayoutWrapper>
+                    </QuickViewProvider>
+                  </WishlistProvider>
+                </CartProvider>
+              </AuthProvider>
+            </StoreInfoProvider>
+          </TrackingProvider>
+        </StorefrontRouteProvider>
       </body>
     </html>
   );

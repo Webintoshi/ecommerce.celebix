@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { ROUTES } from "@/lib/constants";
+import { buildLocalizedPath } from "@/lib/i18n";
 import { getProductCardSwatches } from "@/lib/variant-selection";
 import { Product } from "@/types/product";
 
@@ -59,14 +61,16 @@ function ProductCardSwatches({ product }: { product: Product }) {
 }
 
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
+  const { locale } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
   const displayPrice = product.variants?.[0]?.price;
+  const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
 
   if (viewMode === "list") {
     return (
-      <Link href={ROUTES.product(product.slug)} className="group block">
+      <Link href={productHref} className="group block">
         <div className="flex gap-6 bg-white p-4">
           <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
             {primaryImage ? (
@@ -98,7 +102,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   }
 
   return (
-    <Link href={ROUTES.product(product.slug)} className="group block">
+    <Link href={productHref} className="group block">
       <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
         {primaryImage ? (
           <Image
