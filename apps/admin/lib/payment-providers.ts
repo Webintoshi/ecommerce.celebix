@@ -1,6 +1,7 @@
 import {
     CARD_TYPES,
     CashOnDeliveryConfig,
+    PaymentEnvironment,
     PaymentBankAccountConfig,
     PaymentFieldDefinition,
     PaymentGateway,
@@ -24,6 +25,27 @@ const DEFAULT_COD_SETTINGS: CashOnDeliveryConfig = {
     applicableRegions: ["TURKIYE"],
     instructions: "",
 };
+
+export const IYZICO_SANDBOX_BASE_URL = "https://sandbox-api.iyzipay.com";
+export const IYZICO_PRODUCTION_BASE_URL = "https://api.iyzipay.com";
+
+export function getDefaultIyzicoBaseUrl(environment: PaymentEnvironment) {
+    return environment === "production" ? IYZICO_PRODUCTION_BASE_URL : IYZICO_SANDBOX_BASE_URL;
+}
+
+export function resolveIyzicoBaseUrl(baseUrl: string | undefined, environment: PaymentEnvironment) {
+    const normalized = typeof baseUrl === "string" ? baseUrl.trim() : "";
+
+    if (!normalized) {
+        return getDefaultIyzicoBaseUrl(environment);
+    }
+
+    if (normalized === IYZICO_SANDBOX_BASE_URL || normalized === IYZICO_PRODUCTION_BASE_URL) {
+        return getDefaultIyzicoBaseUrl(environment);
+    }
+
+    return normalized;
+}
 
 function buildFieldValueMap(fields: PaymentFieldDefinition[], source?: Record<string, unknown>) {
     return fields.reduce<Record<string, string>>((accumulator, field) => {
@@ -77,7 +99,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
             { key: "secretKey", label: "Secret Key", description: "iyzico secret key.", placeholder: "secret-...", required: true, secret: true, type: "password" },
         ],
         configurationFields: [
-            { key: "baseUrl", label: "Base URL", description: "API ortami URL degeri.", placeholder: "https://sandbox-api.iyzipay.com", defaultValue: "https://sandbox-api.iyzipay.com", type: "url" },
+            { key: "baseUrl", label: "Base URL", description: "API ortami URL degeri.", placeholder: IYZICO_SANDBOX_BASE_URL, defaultValue: IYZICO_SANDBOX_BASE_URL, type: "url" },
             { key: "subMerchantKey", label: "Sub Merchant Key", description: "Pazar yeri senaryosu varsa opsiyonel.", placeholder: "sub-merchant-key" },
         ],
     },

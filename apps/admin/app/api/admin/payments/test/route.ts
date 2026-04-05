@@ -5,6 +5,7 @@ import Iyzipay from "iyzipay";
 import Stripe from "stripe";
 import { getAdminAuthContext } from "@/lib/admin-auth";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
+import { resolveIyzicoBaseUrl } from "@/lib/payment-providers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
 function createIyzipayClient(apiKey: string, secretKey: string, uri: string) {
@@ -117,16 +118,11 @@ export async function POST(request: NextRequest) {
             const iyzipay = createIyzipayClient(
                 gateway.credentials.apiKey,
                 gateway.credentials.secretKey,
-                gateway.configuration.baseUrl || "https://sandbox-api.iyzipay.com",
+                resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment),
             );
 
             const result = await iyzipayRetrieve<Record<string, unknown>>((callback) => {
-                iyzipay.installmentInfo.retrieve({
-                    locale: Iyzipay.LOCALE.TR,
-                    conversationId: `test-${Date.now()}`,
-                    binNumber: "552879",
-                    price: "1",
-                }, callback);
+                iyzipay.apiTest.retrieve({}, callback);
             });
 
             const status = typeof result.status === "string" ? result.status.toLowerCase() : "failure";

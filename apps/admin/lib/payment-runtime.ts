@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import Craftgate from "@craftgate/craftgate";
 import Iyzipay from "iyzipay";
 import Stripe from "stripe";
-import { getPaymentGatewayRuntimeStatus } from "@/lib/payment-providers";
+import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/payment-providers";
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import type { PaymentGatewayConfig } from "@/types/payment";
@@ -167,7 +167,7 @@ function buildPaytrBasket(items: CheckoutItemInput[]) {
 function createIyzipayClient(gateway: PaymentGatewayConfig) {
     const apiKey = gateway.credentials.apiKey;
     const secretKey = gateway.credentials.secretKey;
-    const uri = gateway.configuration.baseUrl || "https://sandbox-api.iyzipay.com";
+    const uri = resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment);
 
     if (!apiKey || !secretKey) {
         throw new Error("iyzico API bilgileri eksik.");
