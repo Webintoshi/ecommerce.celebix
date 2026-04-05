@@ -19,15 +19,27 @@ export function CategoriesSection({
   heading = "Kategoriler",
 }: CategoriesSectionProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const normalizeCategoryCopy = (value: string) =>
+    value
+      .toLocaleLowerCase("tr-TR")
+      .replace(/&/g, "ve")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+
   const displayCategories = initialCategories
     .filter((category) => category.slug && category.name)
     .map((category) => {
       const resolvedImage = resolveStorefrontAssetUrl(category.image);
+      const trimmedDescription = (category.description || "").trim();
+      const shouldShowDescription =
+        trimmedDescription.length > 0 &&
+        normalizeCategoryCopy(trimmedDescription) !== normalizeCategoryCopy(category.name);
 
       return {
         id: category.id,
         name: category.name,
-        description: category.description || "",
+        description: shouldShowDescription ? trimmedDescription : "",
         link: ROUTES.category(category.slug),
         image: resolvedImage || null,
         usesProxiedImage: resolvedImage ? isProxiedStorefrontAssetUrl(resolvedImage) : false,
