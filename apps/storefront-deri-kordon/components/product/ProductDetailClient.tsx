@@ -24,7 +24,6 @@ import { PersonalizationPreview } from "@/components/product/PersonalizationPrev
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
-import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
@@ -686,16 +685,6 @@ export function ProductDetailClient({
           )}
         </div>
       </section>
-
-      {/* Mobile Sticky Bar */}
-      {!isSchemaLoading && (
-        <MobileStickyBar
-          price={displayPrice}
-          originalPrice={displayOriginalPrice}
-          onAddToCart={handleAddToCart}
-          isOutOfStock={isOutOfStock}
-        />
-      )}
     </div>
   );
 }
