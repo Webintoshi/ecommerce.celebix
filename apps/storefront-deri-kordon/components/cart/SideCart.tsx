@@ -196,8 +196,8 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                       <div className="flex-1 min-w-0">
                         <div className="mb-1 flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <h3
-                              className="overflow-hidden font-sans text-[13px] font-semibold leading-[1.2] text-gray-900"
+                            <h6
+                              className="m-0 overflow-hidden font-sans text-[13px] font-medium leading-[1.2] text-gray-900"
                               style={{
                                 fontFamily: "var(--store-font-body)",
                                 display: "-webkit-box",
@@ -206,7 +206,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                               }}
                             >
                               {item.product.name}
-                            </h3>
+                            </h6>
                             <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
                               {item.variant.name}
                             </p>
