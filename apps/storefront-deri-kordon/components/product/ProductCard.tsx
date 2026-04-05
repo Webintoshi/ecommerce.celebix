@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
-import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { formatPrice } from "@/lib/utils";
 import { getProductCardSwatches } from "@/lib/variant-selection";
 import { Product } from "@/types/product";
 
@@ -16,13 +17,19 @@ interface ProductCardProps {
 }
 
 function getResolvedProductImages(product: Product) {
-  const legacyImagesV2 = Array.isArray((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2)
-    ? ((product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? [])
+  const legacyImagesV2 = Array.isArray(
+    (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2
+  )
+    ? (
+        (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? []
+      )
         .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
         .filter((image) => image.length > 0)
     : [];
 
-  return (Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2)
+  return (
+    Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2
+  )
     .map((image) => resolveStorefrontAssetUrl(image))
     .filter((image) => image.length > 0);
 }
@@ -92,7 +99,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               {product.name}
             </h3>
             {typeof displayPrice === "number" ? (
-              <p className="mt-1 text-sm font-medium text-neutral-900">{displayPrice} ₺</p>
+              <p className="mt-1 text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
             ) : null}
             <ProductCardSwatches product={product} />
           </div>
@@ -125,7 +132,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       </h3>
 
       {typeof displayPrice === "number" ? (
-        <p className="mt-1 text-center text-sm font-medium text-neutral-900">{displayPrice} ₺</p>
+        <p className="mt-1 text-center text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
       ) : null}
 
       <ProductCardSwatches product={product} />

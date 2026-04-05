@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatPriceValue } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RangeSlider } from "@/components/ui/slider";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
@@ -210,7 +210,7 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
 
   if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000) {
     activeFilters.push({
-      label: `${filters.priceRange[0]}₺ - ${filters.priceRange[1]}₺`,
+      label: `${formatPriceValue(filters.priceRange[0])}₺ - ${formatPriceValue(filters.priceRange[1])}₺`,
       onRemove: () => onFilterChange({ priceRange: [0, 5000] }),
     });
   }

@@ -36,6 +36,7 @@ import {
   CustomizationStep,
 } from "@/types/product-customization";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -385,11 +386,11 @@ export function ProductDetailClient({
               {/* Price */}
               <div className="flex items-center gap-3">
                 <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
-                  {displayPrice} <span className="text-lg font-normal">₺</span>
+                  {formatPrice(displayPrice)}
                 </span>
                 {displayOriginalPrice !== undefined && (
                   <span className="text-lg text-neutral-400 line-through">
-                    {displayOriginalPrice} ₺
+                    {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
               </div>
@@ -457,7 +458,7 @@ export function ProductDetailClient({
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
                     <p className="text-sm text-neutral-500">
-                      +{customizationState.extraPrice} ₺ kişiselleştirme
+                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
                     </p>
                   )}
                 </div>
