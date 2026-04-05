@@ -245,10 +245,26 @@ export function createPaymentGatewayDefaults(gateway: PaymentGateway): PaymentGa
     };
 }
 
+function normalizeProviderSpecificConfiguration(
+    gateway: PaymentGateway,
+    environment: PaymentEnvironment,
+    configuration: Record<string, string>,
+) {
+    if (gateway === "iyzico") {
+        return {
+            ...configuration,
+            baseUrl: resolveIyzicoBaseUrl(configuration.baseUrl, environment),
+        };
+    }
+
+    return configuration;
+}
+
 export function normalizePaymentGatewayConfig(raw: Record<string, unknown>): PaymentGatewayConfig {
     const gateway = raw.gateway as PaymentGateway;
     const base = createPaymentGatewayDefaults(gateway);
     const definition = getPaymentProviderDefinition(gateway);
+    const environment = raw.environment === "production" ? "production" : "sandbox";
 
     const legacyCredentials: Record<string, unknown> = {
         merchantId: raw.merchantId,
@@ -259,6 +275,15 @@ export function normalizePaymentGatewayConfig(raw: Record<string, unknown>): Pay
         secretKey: raw.secretKey,
     };
 
+    const configuration = normalizeProviderSpecificConfiguration(
+        gateway,
+        environment,
+        buildFieldValueMap(
+            definition.configurationFields,
+            typeof raw.configuration === "object" && raw.configuration ? raw.configuration as Record<string, unknown> : {},
+        ),
+    );
+
     return {
         ...base,
         id: typeof raw.id === "string" ? raw.id : base.id,
@@ -266,12 +291,12 @@ export function normalizePaymentGatewayConfig(raw: Record<string, unknown>): Pay
         description: typeof raw.description === "string" ? raw.description : base.description,
         icon: typeof raw.icon === "string" && raw.icon.trim() ? raw.icon : base.icon,
         status: raw.status === "active" || raw.status === "test" ? raw.status : "inactive",
-        environment: raw.environment === "production" ? "production" : "sandbox",
+        environment,
         credentials: buildFieldValueMap(definition.credentialFields, {
             ...legacyCredentials,
             ...(typeof raw.credentials === "object" && raw.credentials ? raw.credentials as Record<string, unknown> : {}),
         }),
-        configuration: buildFieldValueMap(definition.configurationFields, typeof raw.configuration === "object" && raw.configuration ? raw.configuration as Record<string, unknown> : {}),
+        configuration,
         bankAccount: {
             ...base.bankAccount,
             ...(typeof raw.bankAccount === "object" && raw.bankAccount ? raw.bankAccount as PaymentBankAccountConfig : {}),
