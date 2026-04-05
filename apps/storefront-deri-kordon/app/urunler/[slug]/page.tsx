@@ -9,6 +9,7 @@ import { findPreferredVariantIndex } from "@/lib/variant-selection";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import {
   getVariantAttributeRegistry,
   hydrateVariantAttributes,
@@ -128,11 +129,28 @@ export async function generateMetadata({
   const product = normalizeProductForDetail(await getProductBySlug(baseSlug));
   
   if (!product) {
-    return {
+    return buildStorePageMetadata({
+      locale,
+      pathname: `/urunler/${baseSlug}`,
       title: copy.missingProductTitle,
       description: copy.missingProductDescription,
-    };
+      noIndex: true,
+    });
   }
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: `/urunler/${baseSlug}`,
+    title: product.seoTitle || product.name,
+    description:
+      product.seoDescription ||
+      product.shortDescription ||
+      product.description?.slice(0, 160) ||
+      "",
+    keywords: product.tags,
+    image: product.images && product.images.length > 0 ? product.images[0] : null,
+    type: "website",
+  });
 
   // Use seo_title/seo_description if available, fallback to defaults
   const seoTitle = product.seoTitle || `${product.name} | Deri Kordon`;
@@ -349,7 +367,7 @@ export default async function ProductDetailPage({
     url: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
     brand: {
       "@type": "Brand",
-      name: "Deri Kordon",
+      name: STOREFRONT_RUNTIME.name,
     },
     offers: {
       "@type": "Offer",
@@ -362,7 +380,7 @@ export default async function ProductDetailPage({
         : "https://schema.org/OutOfStock",
       seller: {
         "@type": "Organization",
-        name: "Deri Kordon",
+        name: STOREFRONT_RUNTIME.name,
       },
     },
     aggregateRating: product.rating ? {

@@ -313,7 +313,7 @@ function generateOrganizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Deri Kordon",
+    name: STOREFRONT_RUNTIME.name,
     url: STOREFRONT_RUNTIME.siteUrl,
   };
 }
@@ -324,16 +324,32 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
 
   if (!category) {
-    return {
+    const copy = getLocalizedCopy(locale);
+    return buildStorePageMetadata({
+      locale,
+      pathname: `/${slug}`,
       title: copy.missingCategoryTitle,
-      robots: { index: false, follow: false },
-    };
+      description: copy.missingCategoryDescription,
+      noIndex: true,
+    });
   }
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: `/${category.slug}`,
+    title: category.seo_title || category.name,
+    description:
+      category.seo_description ||
+      category.description ||
+      `${category.name} kategorisindeki urunleri kesfedin.`,
+    keywords: category.seo_keywords,
+    image: category.image,
+    type: "website",
+  });
 
   const title = category.seo_title || `${category.name} | Deri Kordon`;
   const description =

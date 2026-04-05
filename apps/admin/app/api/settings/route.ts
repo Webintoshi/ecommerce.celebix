@@ -12,6 +12,7 @@ import {
     getAnnouncementBarSettings,
     getMarqueeSettings,
     getPaymentMethods,
+    getSeoSettings,
     getSetting,
     getShippingIntegrations,
     getShippingOptions,
@@ -20,6 +21,7 @@ import {
     setAnnouncementBarSettings,
     setMarqueeSettings,
     setPaymentMethods,
+    setSeoSettings,
     setSetting,
     setShippingIntegrations,
     setShippingOptions,
@@ -95,6 +97,17 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "seo") {
+            const settings = await getSeoSettings();
+            return NextResponse.json({
+                success: true,
+                seoSettings: {
+                    ...settings,
+                    ogImageUrl: resolveAdminAssetUrl(settings.ogImageUrl) || "",
+                },
+            });
+        }
+
         if (type === "announcement") {
             const settings = await getAnnouncementBarSettings();
             return NextResponse.json({ success: true, announcementSettings: settings });
@@ -147,6 +160,7 @@ export async function POST(request: NextRequest) {
             shippingOptions,
             shippingIntegrations,
             storeInfo,
+            seoSettings,
             announcementSettings,
             marqueeSettings,
             aiSettings,
@@ -192,6 +206,11 @@ export async function POST(request: NextRequest) {
         if (type === "store" && storeInfo !== undefined) {
             await setStoreInfo(storeInfo);
             return NextResponse.json({ success: true, message: "Store info updated" });
+        }
+
+        if (type === "seo" && seoSettings !== undefined) {
+            await setSeoSettings(seoSettings);
+            return NextResponse.json({ success: true, message: "SEO settings updated" });
         }
 
         if (type === "announcement" && announcementSettings !== undefined) {

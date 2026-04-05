@@ -1,12 +1,14 @@
 // SEO Hub - Ana Sayfa
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { getAllPillarSlugs } from '@/lib/seo-content';
-import { generateWebSiteSchema, generateOrganizationSchema, createJsonLd } from '@/lib/seo-schema';
+import { getAllPillarSlugs, getMDXContent } from '@/lib/seo-content';
+import { generateWebSiteSchema, generateOrganizationSchema } from '@/lib/seo-schema';
+import { buildStorePageMetadata } from '@/lib/seo-metadata';
+import { getRequestLocale } from '@/lib/request-locale';
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+const legacyMetadata: Metadata = {
   title: 'SEO Rehberi 2026 | Topikal Otorite Hub',
   description: 'Kapsamlı SEO rehberleri. Teknik SEO, on-page optimizasyon, link building, e-ticaret SEO ve yapay zeka optimizasyonu (GEO) hakkında her şey.',
   alternates: {
@@ -19,6 +21,19 @@ export const metadata: Metadata = {
     url: '/seo',
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/seo",
+    title: "SEO Rehberi 2026",
+    description:
+      "Teknik SEO, on-page optimizasyon, link building, e-ticaret SEO ve GEO stratejilerini bir arada sunan rehber merkezi.",
+    keywords: ["seo", "teknik seo", "e-ticaret seo", "geo", "topical authority"],
+    type: "website",
+  });
+}
 
 export default async function SEOHubPage() {
   const pillarSlugs = await getAllPillarSlugs();

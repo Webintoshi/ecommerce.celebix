@@ -11,12 +11,8 @@ import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
 import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
-import {
-  RTL_LOCALES,
-  buildLocaleAlternates,
-  buildLocalizedPath,
-  getLocalizedCopy,
-} from "@/lib/i18n";
+import { RTL_LOCALES } from "@/lib/i18n";
+import { buildStoreRootMetadata } from "@/lib/seo-metadata";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import {
@@ -26,109 +22,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const metadataTemplate: Metadata = {
-  title: {
-    default: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    template: `%s | Deri Kordon`,
-  },
-  description:
-    "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar. Apple Watch kayışları ve premium deri aksesuarlar.",
-  keywords: [
-    "el yapımı deri kordon",
-    "apple watch deri kayış",
-    "hakiki deri kordon",
-    "premium deri aksesuar",
-    "handmade leather strap",
-    "deri bileklik",
-    "özel tasarım kordon",
-  ],
-  authors: [{ name: "Deri Kordon" }],
-  creator: "Deri Kordon",
-  metadataBase: new URL(STOREFRONT_RUNTIME.siteUrl),
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
-  },
-  openGraph: {
-    type: "website",
-    locale: "tr_TR",
-    url: STOREFRONT_RUNTIME.siteUrl,
-    title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar.",
-    siteName: "Deri Kordon",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    description: "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  alternates: {
-    canonical: "/tr",
-    languages: buildLocaleAlternates("/"),
-  },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-  },
-};
-
-function buildFaviconHref(faviconUrl?: string | null) {
-  const trimmed = typeof faviconUrl === "string" ? faviconUrl.trim() : "";
-  if (!trimmed) {
-    return "/favicon.ico";
-  }
-
-  return `/favicon.ico?v=${encodeURIComponent(trimmed)}`;
-}
-
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
-  const copy = getLocalizedCopy(locale);
-  const storeInfo = await getStoreInfo();
-  const faviconHref = buildFaviconHref(storeInfo?.faviconUrl);
-  const localizedPath = buildLocalizedPath(pathname, locale);
-
-  return {
-    ...metadataTemplate,
-    title: {
-      default: copy.siteTitle,
-      template: `%s | Deri Kordon`,
-    },
-    description: copy.siteDescription,
-    icons: {
-      icon: faviconHref,
-      shortcut: faviconHref,
-      apple: faviconHref,
-    },
-    openGraph: {
-      ...metadataTemplate.openGraph,
-      title: copy.siteTitle,
-      description: copy.siteDescription,
-      locale,
-      url: localizedPath,
-    },
-    twitter: {
-      ...metadataTemplate.twitter,
-      title: copy.siteTitle,
-      description: copy.siteDescription,
-    },
-    alternates: {
-      canonical: localizedPath,
-      languages: buildLocaleAlternates(pathname),
-    },
-  };
+  return buildStoreRootMetadata(locale, pathname);
 }
 
 export default async function RootLayout({

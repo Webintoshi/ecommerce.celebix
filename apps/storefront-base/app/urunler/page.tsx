@@ -1,17 +1,22 @@
-import { createServerClient } from "@/lib/supabase";
-import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { createServerClient } from "@/lib/supabase";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import { Product } from "@/types/product";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Tüm Ürünler | Ornek Magaza",
-  description: "Doğal ve katkısız fıstık ezmesi, fındık ezmesi ve kuruyemiş çeşitlerimizi keşfedin.",
-};
+export async function generateMetadata() {
+  return buildStorePageMetadata({
+    pathname: "/urunler",
+    title: "Tum Urunler",
+    description: "Tum urun koleksiyonunu, kategorileri ve vitrindeki tum urunleri kesfedin.",
+    keywords: ["urunler", "koleksiyon", "kategori", "magaza"],
+  });
+}
 
 interface DBProduct {
   id: string;
@@ -72,19 +77,20 @@ function transformProduct(
     subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
-    variants: hydratedVariants.map(v => ({
-      id: v.id,
-      name: v.name,
-      weight: v.weight ? parseInt(v.weight) : 250,
-      price: Number(v.price),
-      originalPrice: v.original_price ? Number(v.original_price) : undefined,
-      stock: v.stock,
-      sku: v.sku || "",
-      groupName: v.group_name || undefined,
-      images: Array.isArray(v.images) ? v.images : [],
-      attributes: v.attributes,
-      raw_attributes: v.raw_attributes,
-    })) || [],
+    variants:
+      hydratedVariants.map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        weight: variant.weight ? parseInt(variant.weight, 10) : 250,
+        price: Number(variant.price),
+        originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+        stock: variant.stock,
+        sku: variant.sku || "",
+        groupName: variant.group_name || undefined,
+        images: Array.isArray(variant.images) ? variant.images : [],
+        attributes: variant.attributes,
+        raw_attributes: variant.raw_attributes,
+      })) || [],
     vegan: dbProduct.vegan,
     glutenFree: dbProduct.gluten_free,
     sugarFree: dbProduct.sugar_free,
@@ -100,7 +106,7 @@ function transformProduct(
 
 async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
-  
+
   try {
     const [{ data: products, error }, attributeRegistry] = await Promise.all([
       supabase
@@ -114,13 +120,15 @@ async function getProducts(): Promise<Product[]> {
         .order("created_at", { ascending: false }),
       getVariantAttributeRegistry(),
     ]);
-    
+
     if (error) {
       console.error("Supabase error:", error);
       return [];
     }
-    
-    return (products as DBProduct[] || []).map((product) => transformProduct(product, attributeRegistry));
+
+    return (products as DBProduct[] | null | undefined)?.map((product) =>
+      transformProduct(product, attributeRegistry),
+    ) || [];
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return [];
@@ -129,7 +137,7 @@ async function getProducts(): Promise<Product[]> {
 
 async function getCategoryCounts() {
   const supabase = createServerClient();
-  
+
   try {
     const { data: products } = await supabase
       .from("products")
@@ -137,10 +145,10 @@ async function getCategoryCounts() {
       .eq("is_active", true);
 
     const counts: Record<string, number> = {};
-    products?.forEach((p) => {
-      counts[p.category] = (counts[p.category] || 0) + 1;
+    products?.forEach((product) => {
+      counts[product.category] = (counts[product.category] || 0) + 1;
     });
-    
+
     return counts;
   } catch (error) {
     console.error("Failed to fetch category counts:", error);
@@ -153,10 +161,10 @@ export default async function AllProductsPage() {
     getProducts(),
     getCategoryCounts(),
   ]);
-  
+
   return (
-    <ProductsPageClient 
-      initialProducts={products} 
+    <ProductsPageClient
+      initialProducts={products}
       categoryCounts={categoryCounts}
     />
   );

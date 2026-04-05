@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
 import { getProductBySlug, getProductSlug } from "@/lib/products";
 import { createServerClient } from "@/lib/supabase";
-import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
+import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -71,6 +73,28 @@ export async function generateMetadata({
 
   // Get product from static data (fastest)
   const product = await getProductBySlug(baseSlug);
+
+  if (!product) {
+    return buildStorePageMetadata({
+      pathname: `/urunler/${baseSlug}`,
+      title: "Urun Bulunamadi",
+      description: "Aradiginiz urun bulunamadi.",
+      noIndex: true,
+    });
+  }
+
+  return buildStorePageMetadata({
+    pathname: `/urunler/${baseSlug}`,
+    title: product.seo_title || product.name,
+    description:
+      product.seo_description ||
+      product.shortDescription ||
+      product.description?.slice(0, 160) ||
+      "",
+    keywords: product.tags,
+    image: product.images && product.images.length > 0 ? product.images[0] : null,
+    type: "website",
+  });
   
   if (!product) {
     return {
@@ -290,20 +314,24 @@ export default async function ProductDetailPage({
 
   // Generate JSON-LD Schema
   const variant = product.variants?.[selectedVariantIndex || 0];
+  const storeName = STOREFRONT_RUNTIME.name;
+  const homeUrl = absoluteStorefrontUrl("/");
+  const productsUrl = absoluteStorefrontUrl("/urunler");
+  const productUrl = absoluteStorefrontUrl(`/urunler/${baseSlug}`);
   const jsonLd = variant ? {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.seo_description || product.shortDescription || product.description?.slice(0, 160) || "",
     image: product.images && product.images.length > 0 ? product.images[0] : null,
-    url: `https://ornek-magaza.celebix.co/urunler/${baseSlug}`,
+    url: productUrl,
     brand: {
       "@type": "Brand",
-      name: "Ornek Magaza",
+      name: storeName,
     },
     offers: {
       "@type": "Offer",
-      url: `https://ornek-magaza.celebix.co/urunler/${baseSlug}`,
+      url: productUrl,
       priceCurrency: "TRY",
       price: variant.price,
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -312,7 +340,7 @@ export default async function ProductDetailPage({
         : "https://schema.org/OutOfStock",
       seller: {
         "@type": "Organization",
-        name: "Ornek Magaza",
+        name: storeName,
       },
     },
     aggregateRating: product.rating ? {
@@ -332,19 +360,19 @@ export default async function ProductDetailPage({
         "@type": "ListItem",
         position: 1,
         name: "Ana Sayfa",
-        item: "https://ornek-magaza.celebix.co",
+        item: homeUrl,
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Ürünler",
-        item: "https://ornek-magaza.celebix.co/urunler",
+        item: productsUrl,
       },
       {
         "@type": "ListItem",
         position: 3,
         name: product.name,
-        item: `https://ornek-magaza.celebix.co/urunler/${baseSlug}`,
+        item: productUrl,
       },
     ],
   };

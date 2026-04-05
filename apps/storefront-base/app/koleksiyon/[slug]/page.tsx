@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { ProductCard } from "@/components/product/ProductCard";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -221,6 +223,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
+
+  if (!category) {
+    return buildStorePageMetadata({
+      pathname: `/${slug}`,
+      title: "Koleksiyon Bulunamadi",
+      description: "Aradiginiz koleksiyon bulunamadi.",
+      noIndex: true,
+    });
+  }
+
+  return buildStorePageMetadata({
+    pathname: `/${category.slug}`,
+    title: category.seo_title || category.name,
+    description:
+      category.seo_description ||
+      category.description ||
+      `${category.name} kategorisindeki urunlerimizi kesfedin.`,
+    keywords: category.seo_keywords,
+    image: category.image,
+    type: "website",
+  });
   
   if (!category) {
     return {
@@ -289,19 +312,19 @@ function generateBreadcrumbSchema(category: Category): object {
         "@type": "ListItem",
         "position": 1,
         "name": "Ana Sayfa",
-        "item": "https://ornek-magaza.celebix.co"
+        "item": absoluteStorefrontUrl("/")
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Ürünler",
-        "item": "https://ornek-magaza.celebix.co/urunler"
+        "item": absoluteStorefrontUrl("/urunler")
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": category.name,
-        "item": `https://ornek-magaza.celebix.co/${category.slug}`
+        "item": absoluteStorefrontUrl(`/${category.slug}`)
       }
     ]
   };
@@ -313,13 +336,13 @@ function generateCollectionPageSchema(category: Category, products: Product[]): 
     "@type": "CollectionPage",
     "name": category.seo_title || category.name,
     "description": category.seo_description || category.description,
-    "url": `https://ornek-magaza.celebix.co/${category.slug}`,
+    "url": absoluteStorefrontUrl(`/${category.slug}`),
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": products.map((product, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": `https://ornek-magaza.celebix.co/urunler/${product.slug}`
+        "url": absoluteStorefrontUrl(`/urunler/${product.slug}`)
       }))
     }
   };
@@ -346,12 +369,12 @@ function generateOrganizationSchema(): object {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Ornek Magaza",
-    "url": "https://ornek-magaza.celebix.co",
-    "logo": "https://ornek-magaza.celebix.co/logo.png",
+    "name": STOREFRONT_RUNTIME.name,
+    "url": STOREFRONT_RUNTIME.siteUrl,
+    "logo": absoluteStorefrontUrl("/logo.png"),
     "sameAs": [
-      "https://www.instagram.com/ornek-magaza",
-      "https://www.facebook.com/ornek-magaza"
+      STOREFRONT_RUNTIME.socialInstagram,
+      STOREFRONT_RUNTIME.socialFacebook
     ]
   };
 }

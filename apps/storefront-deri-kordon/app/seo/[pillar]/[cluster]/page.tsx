@@ -6,6 +6,8 @@ import { getAllPillarSlugs, getClusterSlugsByPillar, getMDXContent, getRelatedCl
 import { MDXRemote } from 'next-mdx-remote/rsc';
 export const dynamic = "force-dynamic";
 import { generateBreadcrumbSchema, generateArticleSchema, generateFAQSchema } from '@/lib/seo-schema';
+import { buildStorePageMetadata } from '@/lib/seo-metadata';
+import { getRequestLocale } from '@/lib/request-locale';
 
 // ISR - Her saat başı güncelle
 export const revalidate = 3600;
@@ -32,28 +34,34 @@ export async function generateMetadata({
 }: {
   params: { pillar: string; cluster: string };
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
+
   try {
     const { frontmatter } = await getMDXContent(`${params.pillar}/${params.cluster}`);
 
-    return {
+    return buildStorePageMetadata({
+      locale,
+      pathname: `/seo/${params.pillar}/${params.cluster}`,
       title: frontmatter.title,
       description: frontmatter.description,
-      alternates: {
-        canonical: `/seo/${params.pillar}/${params.cluster}`,
-      },
-      openGraph: {
-        title: frontmatter.title,
-        description: frontmatter.description,
-        type: 'article',
-        publishedTime: frontmatter.publishedAt,
-        modifiedTime: frontmatter.updatedAt,
-        url: `/seo/${params.pillar}/${params.cluster}`,
-      },
-    };
+      keywords: [
+        frontmatter.primaryKeyword || frontmatter.title,
+        params.pillar,
+        params.cluster,
+        "seo",
+      ],
+      type: 'article',
+      publishedTime: frontmatter.publishedAt,
+      modifiedTime: frontmatter.updatedAt,
+    });
   } catch {
-    return {
+    return buildStorePageMetadata({
+      locale,
+      pathname: `/seo/${params.pillar}/${params.cluster}`,
       title: 'SEO Rehberi',
-    };
+      description: 'SEO rehberi bulunamadi.',
+      noIndex: true,
+    });
   }
 }
 

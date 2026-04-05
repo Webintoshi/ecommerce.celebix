@@ -1,6 +1,11 @@
 import { createServerClient } from "@/lib/supabase";
 import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 import {
+    DEFAULT_STORE_SEO_SETTINGS,
+    normalizeStoreSeoSettings,
+    type StoreSeoSettings,
+} from "@celebix/platform-config/src/seo";
+import {
     normalizeShippingZones,
     type ShippingZone,
 } from "@celebix/platform-config/src/shipping";
@@ -128,6 +133,8 @@ export interface StoreInfo {
     typography?: StoreTypographySettings;
 }
 
+export type SEOSettings = StoreSeoSettings;
+
 /**
  * Get payment methods
  */
@@ -194,6 +201,27 @@ export async function getStoreInfo(): Promise<StoreInfo | null> {
  */
 export async function setStoreInfo(info: StoreInfo) {
     return setSetting(SETTING_KEYS.STORE_INFO, info as unknown as Record<string, unknown>);
+}
+
+/**
+ * Get SEO settings
+ */
+export async function getSeoSettings(): Promise<SEOSettings> {
+    const data = await getSetting(SETTING_KEYS.SEO_SETTINGS);
+    return normalizeStoreSeoSettings(
+        data as Partial<StoreSeoSettings> | null,
+        DEFAULT_STORE_SEO_SETTINGS,
+    );
+}
+
+/**
+ * Set SEO settings
+ */
+export async function setSeoSettings(settings: SEOSettings) {
+    return setSetting(
+        SETTING_KEYS.SEO_SETTINGS,
+        normalizeStoreSeoSettings(settings) as unknown as Record<string, unknown>,
+    );
 }
 
 // =====================================================

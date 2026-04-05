@@ -9,9 +9,9 @@ import { AuthProvider } from "@/lib/auth-context";
 import { StoreInfoProvider } from "@/lib/store-info-context";
 import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
-import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
+import { buildStoreRootMetadata } from "@/lib/seo-metadata";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
@@ -20,68 +20,8 @@ import {
   buildStoreTypographyStylesheetUrl,
 } from "@celebix/platform-config/src/typography";
 
-const metadataTemplate: Metadata = {
-  title: {
-    default: SITE_NAME,
-    template: `%s | ${SITE_NAME}`,
-  },
-  description: SITE_DESCRIPTION,
-  keywords: ["storefront base", "e-ticaret", "urun vitrini", "kategori", "urun detay"],
-  authors: [{ name: SITE_NAME }],
-  creator: SITE_NAME,
-  metadataBase: new URL(STOREFRONT_RUNTIME.siteUrl),
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
-  },
-  openGraph: {
-    type: "website",
-    locale: "tr_TR",
-    url: STOREFRONT_RUNTIME.siteUrl,
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    siteName: SITE_NAME,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-  alternates: {
-    canonical: "./",
-    languages: {
-      "tr-TR": "./",
-    },
-  },
-};
-
-function buildFaviconHref(faviconUrl?: string | null) {
-  const trimmed = typeof faviconUrl === "string" ? faviconUrl.trim() : "";
-
-  if (!trimmed) {
-    return "/favicon.ico";
-  }
-
-  return `/favicon.ico?v=${encodeURIComponent(trimmed)}`;
-}
-
 export async function generateMetadata(): Promise<Metadata> {
-  const storeInfo = await getStoreInfo();
-  const faviconHref = buildFaviconHref(storeInfo?.faviconUrl);
-
-  return {
-    ...metadataTemplate,
-    icons: {
-      icon: faviconHref,
-      shortcut: faviconHref,
-      apple: faviconHref,
-    },
-  };
+  return buildStoreRootMetadata("/");
 }
 
 export default async function RootLayout({

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { getAllPillarSlugs, getClusterSlugsByPillar, getMDXContent } from '@/lib/seo-content';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { generateBreadcrumbSchema, generateCollectionSchema } from '@/lib/seo-schema';
+import { buildStorePageMetadata } from '@/lib/seo-metadata';
 
 // ISR - Her saat başı güncelle
 export const revalidate = 3600;
@@ -20,23 +21,20 @@ export async function generateMetadata({ params }: { params: { pillar: string } 
   try {
     const { frontmatter } = await getMDXContent(`${params.pillar}/index`);
 
-    return {
+    return buildStorePageMetadata({
+      pathname: `/seo/${params.pillar}`,
       title: frontmatter.title,
       description: frontmatter.description,
-      alternates: {
-        canonical: `/seo/${params.pillar}`,
-      },
-      openGraph: {
-        title: frontmatter.title,
-        description: frontmatter.description,
-        type: 'website',
-        url: `/seo/${params.pillar}`,
-      },
-    };
+      keywords: [frontmatter.title, params.pillar, "seo"],
+      type: 'website',
+    });
   } catch {
-    return {
+    return buildStorePageMetadata({
+      pathname: `/seo/${params.pillar}`,
       title: 'SEO Rehberi',
-    };
+      description: 'SEO rehber kategorisi bulunamadi.',
+      noIndex: true,
+    });
   }
 }
 
