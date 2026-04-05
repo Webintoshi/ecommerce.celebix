@@ -6,7 +6,8 @@ import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
-import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -315,9 +316,11 @@ export default async function ProductDetailPage({
   // Generate JSON-LD Schema
   const variant = product.variants?.[selectedVariantIndex || 0];
   const storeName = STOREFRONT_RUNTIME.name;
-  const homeUrl = absoluteStorefrontUrl("/");
-  const productsUrl = absoluteStorefrontUrl("/urunler");
-  const productUrl = absoluteStorefrontUrl(`/urunler/${baseSlug}`);
+  const [homeUrl, productsUrl, productUrl] = await Promise.all([
+    buildAbsoluteRequestUrl("/"),
+    buildAbsoluteRequestUrl("/urunler"),
+    buildAbsoluteRequestUrl(`/urunler/${baseSlug}`),
+  ]);
   const jsonLd = variant ? {
     "@context": "https://schema.org",
     "@type": "Product",

@@ -3,7 +3,8 @@ import { createServerClient } from "@/lib/supabase";
 import { ProductCard } from "@/components/product/ProductCard";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
-import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getRequestOrigin } from "@/lib/request-origin";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -303,7 +304,8 @@ export async function generateMetadata({
 // SCHEMA GENERATORS
 // ============================================================================
 
-function generateBreadcrumbSchema(category: Category): object {
+function generateBreadcrumbSchema(category: Category, origin: string): object {
+  const buildItem = (path: string) => new URL(path, origin).toString();
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -312,37 +314,37 @@ function generateBreadcrumbSchema(category: Category): object {
         "@type": "ListItem",
         "position": 1,
         "name": "Ana Sayfa",
-        "item": absoluteStorefrontUrl("/")
+        "item": buildItem("/")
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Ürünler",
-        "item": absoluteStorefrontUrl("/urunler")
+        "item": buildItem("/urunler")
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": category.name,
-        "item": absoluteStorefrontUrl(`/${category.slug}`)
+        "item": buildItem(`/${category.slug}`)
       }
     ]
   };
 }
 
-function generateCollectionPageSchema(category: Category, products: Product[]): object {
+function generateCollectionPageSchema(category: Category, products: Product[], origin: string): object {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     "name": category.seo_title || category.name,
     "description": category.seo_description || category.description,
-    "url": absoluteStorefrontUrl(`/${category.slug}`),
+    "url": new URL(`/${category.slug}`, origin).toString(),
     "mainEntity": {
       "@type": "ItemList",
       "itemListElement": products.map((product, index) => ({
         "@type": "ListItem",
         "position": index + 1,
-        "url": absoluteStorefrontUrl(`/urunler/${product.slug}`)
+        "url": new URL(`/urunler/${product.slug}`, origin).toString()
       }))
     }
   };
@@ -365,13 +367,13 @@ function generateFAQSchema(faq: CategoryFAQ[] | null): object | null {
   };
 }
 
-function generateOrganizationSchema(): object {
+function generateOrganizationSchema(origin: string): object {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": STOREFRONT_RUNTIME.name,
-    "url": STOREFRONT_RUNTIME.siteUrl,
-    "logo": absoluteStorefrontUrl("/logo.png"),
+    "url": new URL("/", origin).toString(),
+    "logo": new URL("/logo.png", origin).toString(),
     "sameAs": [
       STOREFRONT_RUNTIME.socialInstagram,
       STOREFRONT_RUNTIME.socialFacebook
@@ -390,6 +392,8 @@ export default async function CollectionPage({
 }) {
   const { slug } = await params;
   
+  const requestOrigin = await getRequestOrigin();
+
   // Parallel data fetching
   const [category, products] = await Promise.all([
     getCategoryBySlug(slug),
@@ -406,10 +410,10 @@ export default async function CollectionPage({
   const geoData = category.geo_data;
 
   // Generate schemas
-  const breadcrumbSchema = generateBreadcrumbSchema(category);
-  const collectionSchema = generateCollectionPageSchema(category, products);
+  const breadcrumbSchema = generateBreadcrumbSchema(category, requestOrigin);
+  const collectionSchema = generateCollectionPageSchema(category, products, requestOrigin);
   const faqSchema = generateFAQSchema(faq);
-  const orgSchema = generateOrganizationSchema();
+  const orgSchema = generateOrganizationSchema(requestOrigin);
 
   return (
     <div className="min-h-screen bg-gray-50">

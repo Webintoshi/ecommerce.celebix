@@ -13,6 +13,7 @@ import {
   getLocalizedCopy,
 } from "@/lib/i18n";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestOrigin } from "@/lib/request-origin";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -70,8 +71,8 @@ interface DBProduct {
   variants: DBVariant[] | null;
 }
 
-function buildAbsoluteUrl(path: string, locale: StorefrontLocale) {
-  return new URL(buildLocalizedPath(path, locale), STOREFRONT_RUNTIME.siteUrl).toString();
+function buildAbsoluteUrl(path: string, locale: StorefrontLocale, origin: string) {
+  return new URL(buildLocalizedPath(path, locale), origin).toString();
 }
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -247,7 +248,12 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
   }
 }
 
-function generateBreadcrumbSchema(category: Category, locale: StorefrontLocale, copy: ReturnType<typeof getLocalizedCopy>) {
+function generateBreadcrumbSchema(
+  category: Category,
+  locale: StorefrontLocale,
+  copy: ReturnType<typeof getLocalizedCopy>,
+  origin: string,
+) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -256,37 +262,42 @@ function generateBreadcrumbSchema(category: Category, locale: StorefrontLocale, 
         "@type": "ListItem",
         position: 1,
         name: copy.breadcrumbHome,
-        item: buildAbsoluteUrl("/", locale),
+        item: buildAbsoluteUrl("/", locale, origin),
       },
       {
         "@type": "ListItem",
         position: 2,
         name: copy.breadcrumbProducts,
-        item: buildAbsoluteUrl("/urunler", locale),
+        item: buildAbsoluteUrl("/urunler", locale, origin),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: category.name,
-        item: buildAbsoluteUrl(`/${category.slug}`, locale),
+        item: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
       },
     ],
   };
 }
 
-function generateCollectionSchema(category: Category, products: Product[], locale: StorefrontLocale) {
+function generateCollectionSchema(
+  category: Category,
+  products: Product[],
+  locale: StorefrontLocale,
+  origin: string,
+) {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: category.seo_title || category.name,
     description: category.seo_description || category.description || category.name,
-    url: buildAbsoluteUrl(`/${category.slug}`, locale),
+    url: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
     mainEntity: {
       "@type": "ItemList",
       itemListElement: products.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale),
+        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale, origin),
       })),
     },
   };
@@ -336,12 +347,12 @@ async function translateCategoryFaq(
   return translatedRows;
 }
 
-function generateOrganizationSchema() {
+function generateOrganizationSchema(origin: string) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: STOREFRONT_RUNTIME.name,
-    url: STOREFRONT_RUNTIME.siteUrl,
+    url: origin,
   };
 }
 
@@ -438,15 +449,18 @@ export default async function CollectionPage({
     notFound();
   }
 
-  const baseProducts = await getProductsByCategory(category);
+  const [baseProducts, requestOrigin] = await Promise.all([
+    getProductsByCategory(category),
+    getRequestOrigin(),
+  ]);
   const products = await Promise.all(
     baseProducts.map((product) => translateProductRecord(product, locale)),
   );
   const translatedFaq = await translateCategoryFaq(category.faq, locale);
-  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy);
-  const collectionSchema = generateCollectionSchema(category, products, locale);
+  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy, requestOrigin);
+  const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin);
   const faqSchema = generateFaqSchema(translatedFaq);
-  const organizationSchema = generateOrganizationSchema();
+  const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">

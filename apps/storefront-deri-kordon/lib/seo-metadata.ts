@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getSeoSettings, getStoreInfo } from "@/lib/db/settings";
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
-import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getRequestOrigin } from "@/lib/request-origin";
 import {
   LOCALE_LANGUAGE_CODES,
   buildLocaleAlternates,
@@ -74,7 +75,7 @@ function dedupeKeywords(primary: string[], fallback: string[]) {
   );
 }
 
-function toAbsoluteAssetUrl(source?: string | null) {
+function toAbsoluteAssetUrl(source: string | null | undefined, origin: string) {
   const directUrl = resolveStorefrontDirectAssetUrl(source);
 
   if (!directUrl) {
@@ -82,7 +83,7 @@ function toAbsoluteAssetUrl(source?: string | null) {
   }
 
   if (directUrl.startsWith("/")) {
-    return absoluteStorefrontUrl(directUrl);
+    return new URL(directUrl, origin).toString();
   }
 
   return directUrl;
@@ -130,7 +131,7 @@ export async function getStoreSeoContext(locale: StorefrontLocale): Promise<Stor
     defaultTitle,
     defaultDescription,
     keywords: dedupeKeywords(normalizeKeywordArray(seoSettings.keywords), normalizeKeywordArray(copy.siteTitle)),
-    ogImageUrl: toAbsoluteAssetUrl(seoSettings.ogImageUrl),
+    ogImageUrl: typeof seoSettings.ogImageUrl === "string" ? seoSettings.ogImageUrl.trim() : "",
     twitterHandle: normalizeTitle(seoSettings.twitterHandle),
     robotsIndex: seoSettings.robotsIndex !== false,
     robotsFollow: seoSettings.robotsFollow !== false,
@@ -142,8 +143,10 @@ export async function buildStoreRootMetadata(
   pathname: string,
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(locale);
+  const requestOrigin = await getRequestOrigin();
   const localizedPath = buildLocalizedPath(pathname, locale);
-  const ogImages = seo.ogImageUrl ? [{ url: seo.ogImageUrl, alt: seo.siteName }] : undefined;
+  const ogImageUrl = toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
+  const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
   const storeInfo = await getStoreInfo();
   const faviconUrl = typeof storeInfo?.faviconUrl === "string" ? storeInfo.faviconUrl.trim() : "";
   const faviconHref = faviconUrl ? `/favicon.ico?v=${encodeURIComponent(faviconUrl)}` : "/favicon.ico";
@@ -153,7 +156,7 @@ export async function buildStoreRootMetadata(
     title,
     description: seo.defaultDescription,
     keywords: seo.keywords,
-    metadataBase: new URL(STOREFRONT_RUNTIME.siteUrl),
+    metadataBase: new URL(requestOrigin),
     icons: {
       icon: faviconHref,
       shortcut: faviconHref,
@@ -201,13 +204,16 @@ export async function buildStorePageMetadata(
   input: BuildStorePageMetadataInput,
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(input.locale);
+  const requestOrigin = await getRequestOrigin();
   const localizedPath = buildLocalizedPath(input.pathname, input.locale);
   const title = buildPageTitle(
     normalizeTitle(input.title) || seo.defaultTitle,
     seo.titleSuffix,
   );
   const description = normalizeDescription(input.description) || seo.defaultDescription;
-  const imageUrl = toAbsoluteAssetUrl(input.image) || seo.ogImageUrl;
+  const imageUrl =
+    toAbsoluteAssetUrl(input.image, requestOrigin) ||
+    toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const keywords = dedupeKeywords(normalizeKeywordArray(input.keywords), seo.keywords);
   const index = input.noIndex ? false : seo.robotsIndex;
   const follow = input.noIndex ? false : seo.robotsFollow;
@@ -217,6 +223,7 @@ export async function buildStorePageMetadata(
     title,
     description,
     keywords,
+    metadataBase: new URL(requestOrigin),
     alternates: {
       canonical: localizedPath,
       languages: buildLocaleAlternates(input.pathname),

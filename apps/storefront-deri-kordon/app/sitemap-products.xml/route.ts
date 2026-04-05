@@ -1,18 +1,23 @@
 import { getAllProducts } from "@/lib/products";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { getRequestOrigin } from "@/lib/request-origin";
 
-function buildUrl(pathname: string, locale: (typeof SUPPORTED_LOCALES)[number]) {
-  return new URL(buildLocalizedPath(pathname, locale), STOREFRONT_RUNTIME.siteUrl).toString();
+function buildUrl(
+  pathname: string,
+  locale: (typeof SUPPORTED_LOCALES)[number],
+  origin: string,
+) {
+  return new URL(buildLocalizedPath(pathname, locale), origin).toString();
 }
 
 export async function GET() {
+  const requestOrigin = await getRequestOrigin();
   const products = await getAllProducts();
   const lastMod = new Date().toISOString();
 
   const productUrls = SUPPORTED_LOCALES.flatMap((locale) =>
     products.map((product) => ({
-      url: buildUrl(`/urunler/${product.slug}`, locale),
+      url: buildUrl(`/urunler/${product.slug}`, locale, requestOrigin),
       lastMod,
     })),
   );

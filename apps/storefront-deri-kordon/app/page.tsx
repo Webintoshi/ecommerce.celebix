@@ -1,9 +1,10 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
-import { STOREFRONT_RUNTIME, absoluteStorefrontUrl } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getHomepageData } from "@/lib/homepage";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
 
 const HOME_UI_COPY = {
@@ -84,11 +85,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, uiCopy] = await Promise.all([
+  const [homepageData, uiCopy, requestOrigin] = await Promise.all([
     getHomepageData(locale),
     getHomepageUiCopy(locale),
+    getRequestOrigin(),
   ]);
-  const localizedProductsUrl = absoluteStorefrontUrl(buildLocalizedPath("/urunler", locale));
+  const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
+  const localizedProductsUrl = new URL(
+    buildLocalizedPath("/urunler", locale),
+    requestOrigin,
+  ).toString();
+  const logoUrl = await buildAbsoluteRequestUrl("/logo.png");
 
   return (
     <>
@@ -101,7 +108,7 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: "Deri Kordon",
-            url: STOREFRONT_RUNTIME.siteUrl,
+            url: localizedHomeUrl,
             description: "El yapimi hakiki deri kordonlar ve Apple Watch kayislari",
             potentialAction: {
               "@type": "SearchAction",
@@ -119,8 +126,8 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Deri Kordon",
-            url: STOREFRONT_RUNTIME.siteUrl,
-            logo: absoluteStorefrontUrl("/logo.png"),
+            url: requestOrigin,
+            logo: logoUrl,
             contactPoint: {
               "@type": "ContactPoint",
               telephone: STOREFRONT_RUNTIME.supportPhone,
@@ -140,7 +147,7 @@ export default async function Home() {
             "@type": "Store",
             name: "Deri Kordon",
             description: "El yapimi deri kordon ve aksesuar magazasi",
-            url: STOREFRONT_RUNTIME.siteUrl,
+            url: requestOrigin,
             telephone: STOREFRONT_RUNTIME.supportPhone,
             email: STOREFRONT_RUNTIME.supportEmail,
             priceRange: "$$",

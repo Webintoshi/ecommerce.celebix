@@ -1,33 +1,29 @@
+import { getRequestOrigin } from "@/lib/request-origin";
+
 export async function GET() {
-    const baseUrl = 'https://ornek-magaza.celebix.co';
-    const lastMod = new Date().toISOString();
+  const baseUrl = await getRequestOrigin();
+  const lastMod = new Date().toISOString();
 
-    const routes = [
-        '',
-        '/hakkimizda',
-        '/iletisim',
-        '/urunler',
-        '/blog',
-    ];
+  const routes = ["", "/hakkimizda", "/iletisim", "/urunler", "/blog"];
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   ${routes
-            .map((route) => {
-                return `
+    .map(
+      (route) => `
   <url>
-    <loc>${baseUrl}${route}</loc>
+    <loc>${new URL(route || "/", baseUrl).toString()}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>${route === '' ? 1.0 : 0.8}</priority>
-  </url>`;
-            })
-            .join('')}
+    <priority>${route === "" ? 1.0 : 0.8}</priority>
+  </url>`,
+    )
+    .join("")}
 </urlset>`;
 
-    return new Response(xml, {
-        headers: {
-            'Content-Type': 'application/xml',
-        },
-    });
+  return new Response(xml, {
+    headers: {
+      "Content-Type": "application/xml",
+    },
+  });
 }

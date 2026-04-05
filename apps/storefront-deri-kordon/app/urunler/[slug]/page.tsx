@@ -10,6 +10,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { translateProductRecord } from "@/lib/translation";
 import {
   getVariantAttributeRegistry,
@@ -155,48 +156,6 @@ export async function generateMetadata({
     type: "website",
   });
 
-  // Use seo_title/seo_description if available, fallback to defaults
-  const seoTitle = product.seoTitle || `${product.name} | Deri Kordon`;
-  const seoDescription = product.seoDescription || product.shortDescription || product.description?.slice(0, 160) || "";
-
-  const canonicalProductPath = `/urunler/${baseSlug}`;
-  const localizedProductPath = buildLocalizedPath(canonicalProductPath, locale);
-
-  return {
-    title: seoTitle,
-    description: seoDescription,
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: seoTitle,
-      description: seoDescription,
-      images: product.images && product.images.length > 0 && product.images[0] 
-        ? [product.images[0]] 
-        : ['/images/og-default.jpg'],
-      type: "website",
-      locale,
-      siteName: "Deri Kordon",
-      url: localizedProductPath,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: seoTitle,
-      description: seoDescription,
-      images: product.images && product.images.length > 0 && product.images[0] 
-        ? [product.images[0]] 
-        : ['/images/og-default.jpg'],
-    },
-    alternates: {
-      canonical: buildLocalizedPath(buildCanonicalUrl(baseSlug), locale),
-      languages: buildLocaleAlternates(canonicalProductPath),
-    },
-  };
-}
-
-function buildAbsoluteLocalizedUrl(pathname: string) {
-  return new URL(pathname, STOREFRONT_RUNTIME.siteUrl).toString();
 }
 
 // Dynamic rendering for fresh data - NO CACHE
@@ -369,20 +328,26 @@ export default async function ProductDetailPage({
 
   // Generate JSON-LD Schema
   const variant = product.variants?.[selectedVariantIndex || 0];
+  const localizedProductPath = buildLocalizedPath(`/urunler/${baseSlug}`, locale);
+  const [homeUrl, productsUrl, productUrl] = await Promise.all([
+    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale)),
+    buildAbsoluteRequestUrl(localizedProductPath),
+  ]);
   const jsonLd = variant ? {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.seo_description || product.shortDescription || product.description?.slice(0, 160) || "",
     image: product.images && product.images.length > 0 ? product.images[0] : null,
-    url: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
+    url: productUrl,
     brand: {
       "@type": "Brand",
       name: STOREFRONT_RUNTIME.name,
     },
     offers: {
       "@type": "Offer",
-      url: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
+      url: productUrl,
       priceCurrency: "TRY",
       price: variant.price,
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -411,19 +376,19 @@ export default async function ProductDetailPage({
         "@type": "ListItem",
         position: 1,
         name: copy.breadcrumbHome,
-        item: buildAbsoluteLocalizedUrl(buildLocalizedPath("/", locale)),
+        item: homeUrl,
       },
       {
         "@type": "ListItem",
         position: 2,
         name: copy.breadcrumbProducts,
-        item: buildAbsoluteLocalizedUrl(buildLocalizedPath("/urunler", locale)),
+        item: productsUrl,
       },
       {
         "@type": "ListItem",
         position: 3,
         name: product.name,
-        item: buildAbsoluteLocalizedUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
+        item: productUrl,
       },
     ],
   };

@@ -1,9 +1,9 @@
-const DEFAULT_SITE_URL = "https://ornek-magaza.celebix.co";
-const DEFAULT_STORE_NAME = "Ornek Magaza";
-const DEFAULT_TAGLINE = "Markana ozel storefront burada sekillenir.";
+const DEFAULT_SITE_URL = "https://derycraft.com";
+const DEFAULT_STORE_NAME = "DeryCraft";
+const DEFAULT_TAGLINE = "El yapimi hakiki deri kordonlar ve premium aksesuarlar.";
 const DEFAULT_DESCRIPTION =
-  "Bu storefront base, Celebix ortak e-ticaret altyapisina bagli yeni magazalar icin placeholder tema olarak kullanilir.";
-const DEFAULT_SUPPORT_EMAIL = "hello@ornek-magaza.celebix.co";
+  "Roarcraft kalitesinde, yuzde yuz el yapimi hakiki deri kordonlar, Apple Watch kayislari ve premium deri aksesuarlar.";
+const DEFAULT_SUPPORT_EMAIL = "bilgi@derycraft.com";
 const DEFAULT_SUPPORT_PHONE = "+90 555 000 00 00";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
 

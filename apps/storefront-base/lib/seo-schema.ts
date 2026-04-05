@@ -6,13 +6,14 @@ import {
   BreadcrumbItem,
   MDXFrontmatter,
 } from './seo-hub-types';
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 /**
  * Site ayarları (bunları environment variable'dan alabiliriz)
  */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://ornek-magaza.celebix.co';
-const SITE_NAME = 'Ornek Magaza';
-const AUTHOR_NAME = 'Ornek Magaza SEO Team';
+const SITE_URL = STOREFRONT_RUNTIME.siteUrl;
+const SITE_NAME = STOREFRONT_RUNTIME.name;
+const AUTHOR_NAME = `${STOREFRONT_RUNTIME.name} SEO Team`;
 const AUTHOR_URL = `${SITE_URL}/hakkimizda`;
 
 /**

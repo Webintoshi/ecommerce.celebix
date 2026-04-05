@@ -1,11 +1,16 @@
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { getRequestOrigin } from "@/lib/request-origin";
 
-function buildUrl(pathname: string, locale: (typeof SUPPORTED_LOCALES)[number]) {
-  return new URL(buildLocalizedPath(pathname, locale), STOREFRONT_RUNTIME.siteUrl).toString();
+function buildUrl(
+  pathname: string,
+  locale: (typeof SUPPORTED_LOCALES)[number],
+  origin: string,
+) {
+  return new URL(buildLocalizedPath(pathname, locale), origin).toString();
 }
 
 export async function GET() {
+  const requestOrigin = await getRequestOrigin();
   const lastMod = new Date().toISOString();
   const routes = ["", "/hakkimizda", "/iletisim", "/kurumsal-urunler", "/urunler", "/blog"];
 
@@ -15,7 +20,7 @@ export async function GET() {
     routes.map(
       (route) => `
   <url>
-    <loc>${buildUrl(route || "/", locale)}</loc>
+    <loc>${buildUrl(route || "/", locale, requestOrigin)}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${route === "" ? 1.0 : 0.8}</priority>

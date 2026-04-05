@@ -1,12 +1,17 @@
 import { createServerClient } from "@/lib/supabase";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { getRequestOrigin } from "@/lib/request-origin";
 
-function buildUrl(pathname: string, locale: (typeof SUPPORTED_LOCALES)[number]) {
-  return new URL(buildLocalizedPath(pathname, locale), STOREFRONT_RUNTIME.siteUrl).toString();
+function buildUrl(
+  pathname: string,
+  locale: (typeof SUPPORTED_LOCALES)[number],
+  origin: string,
+) {
+  return new URL(buildLocalizedPath(pathname, locale), origin).toString();
 }
 
 export async function GET() {
+  const requestOrigin = await getRequestOrigin();
   const supabase = createServerClient();
 
   const { data: categories } = await supabase
@@ -19,7 +24,7 @@ export async function GET() {
       (categories || []).map(
         (category) => `
   <url>
-    <loc>${buildUrl(`/${category.slug}`, locale)}</loc>
+    <loc>${buildUrl(`/${category.slug}`, locale, requestOrigin)}</loc>
     <lastmod>${new Date(category.updated_at || new Date()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
