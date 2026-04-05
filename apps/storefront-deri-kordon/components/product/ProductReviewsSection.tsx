@@ -64,7 +64,7 @@ function ReviewImageTile({ source, fallbackSource, alt, className = "object-cove
   if (failed || !currentSource) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-neutral-100 px-2 text-center text-[11px] font-medium text-neutral-500">
-        Gorsel yuklenemedi
+        Görsel yüklenemedi
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function ProductReviewsSection({
         const payload = await response.json();
 
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error || "Yorumlar yuklenemedi");
+          throw new Error(payload?.error || "Yorumlar yüklenemedi");
         }
 
         if (isMounted) {
@@ -167,7 +167,7 @@ export function ProductReviewsSection({
     if (remainingSlots <= 0) {
       setFeedback({
         type: "error",
-        message: `En fazla ${MAX_PRODUCT_REVIEW_IMAGES} gorsel ekleyebilirsiniz.`,
+        message: `En fazla ${MAX_PRODUCT_REVIEW_IMAGES} görsel ekleyebilirsiniz.`,
       });
       return;
     }
@@ -192,7 +192,7 @@ export function ProductReviewsSection({
 
         const payload = await response.json();
         if (!response.ok || !payload?.success || typeof payload.url !== "string") {
-          throw new Error(payload?.error || `${file.name} yuklenemedi`);
+          throw new Error(payload?.error || `${file.name} yüklenemedi`);
         }
 
         uploaded.push({
@@ -205,7 +205,7 @@ export function ProductReviewsSection({
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Gorseller yuklenemedi.",
+        message: error instanceof Error ? error.message : "Görseller yüklenemedi.",
       });
     } finally {
       setIsUploading(false);
@@ -251,7 +251,7 @@ export function ProductReviewsSection({
       if (!response.ok || !payload?.success) {
         setFeedback({
           type: "error",
-          message: payload?.error || "Yorum gonderilemedi.",
+          message: payload?.error || "Yorum gönderilemedi.",
         });
         return;
       }
@@ -259,7 +259,7 @@ export function ProductReviewsSection({
       resetForm();
       setFeedback({
         type: "success",
-        message: payload?.message || "Yorumunuz onay icin alindi.",
+        message: payload?.message || "Yorumunuz onay için alındı.",
       });
     });
   };
@@ -268,8 +268,8 @@ export function ProductReviewsSection({
     <section className="space-y-8 border-t border-neutral-200 pt-8">
       <div className="space-y-3">
         <div>
-          <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">Urun Yorumlari</p>
-          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Musteri yorumlari</h2>
+          <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">Ürün Yorumları</p>
+          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Müşteri yorumları</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-600">
           <div className="flex items-center gap-1">
@@ -285,10 +285,10 @@ export function ProductReviewsSection({
             ))}
           </div>
           <span className="font-medium text-neutral-900">{summary.rating.toFixed(1)}</span>
-          <span aria-hidden="true" className="text-neutral-300">•</span>
-          <span>{summary.reviewCount} onayli yorum</span>
-          <span aria-hidden="true" className="text-neutral-300">•</span>
-          <span>Yeni yorumlar once moderasyona duser.</span>
+          <span aria-hidden="true" className="text-neutral-300">/</span>
+          <span>{summary.reviewCount} onaylı yorum</span>
+          <span aria-hidden="true" className="text-neutral-300">/</span>
+          <span>Yeni yorumlar önce moderasyona düşer.</span>
         </div>
       </div>
 
@@ -296,13 +296,13 @@ export function ProductReviewsSection({
         <div className="space-y-4">
           {isLoading ? (
             <div className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
-              Yorumlar yukleniyor...
+              Yorumlar yükleniyor...
             </div>
           ) : reviews.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
-              <p className="text-base font-medium text-neutral-900">Bu urun icin henuz onayli yorum yok.</p>
+              <p className="text-base font-medium text-neutral-900">Bu ürün için henüz onaylı yorum yok.</p>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
-                Ilk gorselli yorumu siz gonderin. Onay sonrasi burada yayinlanir.
+                İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.
               </p>
             </div>
           ) : (
@@ -337,7 +337,7 @@ export function ProductReviewsSection({
                         <ReviewImageTile
                           source={resolveStorefrontAssetUrl(imageUrl) || imageUrl}
                           fallbackSource={resolveStorefrontDirectAssetUrl(imageUrl) || imageUrl}
-                          alt={`${productName} yorum gorseli ${index + 1}`}
+                          alt={`${productName} yorum görseli ${index + 1}`}
                           className="object-cover"
                         />
                       </div>
@@ -352,8 +352,8 @@ export function ProductReviewsSection({
         <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-semibold text-neutral-900">Yorum birak</h3>
-              <p className="mt-1 text-sm text-neutral-500">Gorsel ekleyebilir, urunu puanlayabilirsiniz.</p>
+              <h3 className="text-xl font-semibold text-neutral-900">Yorum bırak</h3>
+              <p className="mt-1 text-sm text-neutral-500">Görsel ekleyebilir, ürünü puanlayabilirsiniz.</p>
             </div>
             <Camera className="h-5 w-5 text-neutral-400" />
           </div>
@@ -377,12 +377,12 @@ export function ProductReviewsSection({
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Yorum basligi (opsiyonel)"
+              placeholder="Yorum başlığı (opsiyonel)"
               className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
             />
 
             <div className="space-y-2">
-              <div className="text-sm font-medium text-neutral-900">Puaniniz</div>
+              <div className="text-sm font-medium text-neutral-900">Puanınız</div>
               <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
@@ -405,13 +405,13 @@ export function ProductReviewsSection({
               value={body}
               onChange={(event) => setBody(event.target.value)}
               rows={5}
-              placeholder="Urun hakkindaki deneyiminizi yazin..."
+              placeholder="Ürün hakkındaki deneyiminizi yazın..."
               className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
             />
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-neutral-900">Gorsel ekleyin</div>
+                <div className="text-sm font-medium text-neutral-900">Görsel ekleyin</div>
                 <div className="text-xs text-neutral-500">Maksimum {MAX_PRODUCT_REVIEW_IMAGES}</div>
               </div>
 
@@ -431,7 +431,7 @@ export function ProductReviewsSection({
                 className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                Gorsel Sec
+                Görsel Seç
               </button>
 
               {uploadedImages.length > 0 ? (
@@ -441,7 +441,7 @@ export function ProductReviewsSection({
                       <ReviewImageTile
                         source={image.previewUrl}
                         fallbackSource={image.url}
-                        alt="Yuklenen yorum gorseli"
+                        alt="Yüklenen yorum görseli"
                         className="object-cover"
                       />
                       <button
@@ -458,7 +458,7 @@ export function ProductReviewsSection({
             </div>
 
             <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs leading-6 text-neutral-500">
-              Yorumlar once onaya duser. Onaylanan gorsel ve metinler urun sayfasinda yayinlanir.
+              Yorumlar önce onaya düşer. Onaylanan görsel ve metinler ürün sayfasında yayınlanır.
             </div>
 
             {feedback ? (
@@ -479,7 +479,7 @@ export function ProductReviewsSection({
               disabled={isPending || isUploading}
               className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#8A6B37] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#755a2d] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isPending ? "Gonderiliyor..." : "Yorumu Gonder"}
+              {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
             </button>
           </div>
         </div>
