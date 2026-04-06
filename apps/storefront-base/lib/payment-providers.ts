@@ -50,7 +50,7 @@ function buildFieldValueMap(fields: PaymentFieldDefinition[], source?: Record<st
     return fields.reduce<Record<string, string>>((accumulator, field) => {
         const currentValue = source?.[field.key];
         if (typeof currentValue === "string") {
-            accumulator[field.key] = currentValue;
+            accumulator[field.key] = currentValue.trim();
             return accumulator;
         }
 

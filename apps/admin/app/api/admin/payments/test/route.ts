@@ -26,7 +26,13 @@ function resolveIyzicoRunnerScript() {
     return match;
 }
 
-async function iyzicoApiTest<T>(input: { apiKey: string; secretKey: string; uri: string }) {
+async function iyzicoRunnerRequest<T>(input: {
+    apiKey: string;
+    secretKey: string;
+    uri: string;
+    operation: "apiTest" | "checkoutInit";
+    payload?: Record<string, unknown>;
+}) {
     const runnerPath = resolveIyzicoRunnerScript();
 
     return await new Promise<T>((resolve, reject) => {
@@ -76,10 +82,70 @@ async function iyzicoApiTest<T>(input: { apiKey: string; secretKey: string; uri:
         });
 
         child.stdin.end(JSON.stringify({
-            operation: "apiTest",
-            config: input,
+            operation: input.operation,
+            config: {
+                apiKey: input.apiKey.trim(),
+                secretKey: input.secretKey.trim(),
+                uri: input.uri.trim(),
+            },
+            payload: input.payload || {},
         }));
     });
+}
+
+function buildIyzicoCheckoutSmokePayload(siteUrl: string) {
+    const timestamp = Date.now();
+
+    return {
+        locale: "tr",
+        conversationId: `admin-smoke-${timestamp}`,
+        price: "1.00",
+        paidPrice: "1.00",
+        currency: "TRY",
+        basketId: `SMOKE-${timestamp}`,
+        paymentGroup: "PRODUCT",
+        callbackUrl: `${siteUrl}/api/payments/iyzico/callback`,
+        enabledInstallments: [1],
+        buyer: {
+            id: `smoke-${timestamp}`,
+            name: "Test",
+            surname: "Kullanici",
+            gsmNumber: "+905555555555",
+            email: "test@celebix.local",
+            identityNumber: "11111111111",
+            lastLoginDate: "2026-04-06 09:00:00",
+            registrationDate: "2026-04-06 09:00:00",
+            registrationAddress: "Test Mah. Test Sok. No:1",
+            ip: "127.0.0.1",
+            city: "Istanbul",
+            country: "Turkey",
+            zipCode: "34000",
+        },
+        shippingAddress: {
+            contactName: "Test Kullanici",
+            city: "Istanbul",
+            country: "Turkey",
+            address: "Test Mah. Test Sok. No:1",
+            zipCode: "34000",
+        },
+        billingAddress: {
+            contactName: "Test Kullanici",
+            city: "Istanbul",
+            country: "Turkey",
+            address: "Test Mah. Test Sok. No:1",
+            zipCode: "34000",
+        },
+        basketItems: [
+            {
+                id: `smoke-item-${timestamp}`,
+                name: "Celebix Test Ürünü",
+                category1: "Test",
+                itemType: "PHYSICAL",
+                price: "1.00",
+            },
+        ],
+        paymentSource: "CELEBIX",
+    };
 }
 
 function createPaytrTestToken(input: {
@@ -172,10 +238,15 @@ export async function POST(request: NextRequest) {
         }
 
         if (gateway.gateway === "iyzico") {
-            const result = await iyzicoApiTest<Record<string, unknown>>({
-                apiKey: gateway.credentials.apiKey,
-                secretKey: gateway.credentials.secretKey,
-                uri: resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment),
+            const apiKey = gateway.credentials.apiKey?.trim() || "";
+            const secretKey = gateway.credentials.secretKey?.trim() || "";
+            const uri = resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment);
+
+            const result = await iyzicoRunnerRequest<Record<string, unknown>>({
+                apiKey,
+                secretKey,
+                uri,
+                operation: "apiTest",
             });
 
             const status = typeof result.status === "string" ? result.status.toLowerCase() : "failure";
@@ -183,7 +254,28 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ success: false, error: typeof result.errorMessage === "string" ? result.errorMessage : "iyzico doğrulaması başarısız." }, { status: 422 });
             }
 
-            return NextResponse.json({ success: true, message: "iyzico API erişimi doğrulandı." });
+            const checkoutProbe = await iyzicoRunnerRequest<Record<string, unknown>>({
+                apiKey,
+                secretKey,
+                uri,
+                operation: "checkoutInit",
+                payload: buildIyzicoCheckoutSmokePayload(getBaseUrl(request)),
+            });
+
+            const checkoutStatus = typeof checkoutProbe.status === "string" ? checkoutProbe.status.toLowerCase() : "failure";
+            if (checkoutStatus !== "success") {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: typeof checkoutProbe.errorMessage === "string"
+                            ? `Checkout form testi başarısız: ${checkoutProbe.errorMessage}`
+                            : "iyzico checkout form doğrulaması başarısız.",
+                    },
+                    { status: 422 },
+                );
+            }
+
+            return NextResponse.json({ success: true, message: "iyzico checkout başlatma doğrulandı." });
         }
 
         if (gateway.gateway === "paytr") {

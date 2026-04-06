@@ -178,8 +178,8 @@ function buildPaytrBasket(items: CheckoutItemInput[]) {
 }
 
 function createIyzipayClient(gateway: PaymentGatewayConfig) {
-    const apiKey = gateway.credentials.apiKey;
-    const secretKey = gateway.credentials.secretKey;
+    const apiKey = gateway.credentials.apiKey?.trim();
+    const secretKey = gateway.credentials.secretKey?.trim();
     const uri = resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment);
 
     if (!apiKey || !secretKey) {
