@@ -362,6 +362,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         currency: context.gateway.currency || "TRY",
         basketId: context.order.order_number,
         paymentGroup: "PRODUCT",
+        paymentSource: "CELEBIX",
         callbackUrl: `${context.siteUrl}/api/payments/iyzico/callback`,
         enabledInstallments: [1, 2, 3, 6, 9, 12],
         buyer: {
