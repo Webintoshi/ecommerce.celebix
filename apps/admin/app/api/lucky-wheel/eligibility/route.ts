@@ -13,7 +13,7 @@ const eligibilitySchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const ip = getRequestIp(request);
-    const ipRateLimit = checkRateLimit({
+    const ipRateLimit = await checkRateLimit({
       key: `lucky-wheel:eligibility:ip:${ip}`,
       limit: 40,
       windowMs: 60_000,

@@ -4,7 +4,7 @@ import { enforceLuckyWheelAdminRateLimit, luckyWheelConfigSchema } from "@/app/a
 
 export async function GET(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "config:get", 60, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "config:get", 60, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const configId = request.nextUrl.searchParams.get("configId") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "config:put", 20, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "config:put", 20, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();

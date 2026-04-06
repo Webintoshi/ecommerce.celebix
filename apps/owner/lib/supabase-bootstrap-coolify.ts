@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import {
   getRepoRoot,
   type StoreConfig,
+  upsertStoreAdminEnvLocal,
   updateStoreSupabaseConfig,
-  writeStoreAdminEnvLocal,
 } from "@celebix/platform-config";
 import { upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 import type { SupabaseBootstrapStatus, SupabaseOrganization, SupabaseProvisioningResult } from "@/lib/supabase-bootstrap.shared";
@@ -171,24 +171,43 @@ function buildSupabaseDashboardUrl(store: StoreConfig): string | undefined {
   return dashboardRoot ? `https://${store.slug}.${dashboardRoot}` : undefined;
 }
 
-function buildAdminEnvLocal(store: StoreConfig, projectUrl: string, publicKey: string, serviceKey: string): string {
-  return [
-    `STORE_SLUG=${store.slug}`,
-    "",
-    `NEXT_PUBLIC_SUPABASE_URL=${projectUrl}`,
-    `NEXT_PUBLIC_SUPABASE_ANON_KEY=${publicKey}`,
-    `SUPABASE_SERVICE_ROLE_KEY=${serviceKey}`,
-    "",
-    `NEXT_PUBLIC_SITE_URL=https://${store.domains.storefront}`,
-    `NEXT_PUBLIC_ADMIN_URL=https://${store.domains.admin}`,
-    "",
-    "CLOUDFLARE_ACCOUNT_ID=your-r2-account-id",
-    "R2_ACCESS_KEY_ID=your-r2-access-key",
-    "R2_SECRET_ACCESS_KEY=your-r2-secret",
-    "R2_BUCKET_NAME=your-r2-bucket",
-    `R2_PUBLIC_URL=https://cdn.${store.domains.storefront}`,
-    "",
-  ].join("\n");
+function buildAdminEnvEntries(store: StoreConfig, projectUrl: string, publicKey: string, serviceKey: string): Record<string, string> {
+  return {
+    STORE_SLUG: store.slug,
+    NEXT_PUBLIC_SUPABASE_URL: projectUrl,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: publicKey,
+    SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+    NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
+    NEXT_PUBLIC_ADMIN_URL: `https://${store.domains.admin}`,
+    CLOUDFLARE_ACCOUNT_ID: "your-r2-account-id",
+    R2_ACCESS_KEY_ID: "your-r2-access-key",
+    R2_SECRET_ACCESS_KEY: "your-r2-secret",
+    R2_BUCKET_NAME: "your-r2-bucket",
+    R2_PUBLIC_URL: `https://cdn.${store.domains.storefront}`,
+  };
+}
+
+function getSharedRedisEnvEntries(): Record<string, string> {
+  const redisUrl =
+    process.env.COOLIFY_SHARED_REDIS_URL?.trim() ||
+    process.env.REDIS_URL?.trim() ||
+    process.env.CELEBIX_REDIS_URL?.trim() ||
+    "";
+  const redisPrefix =
+    process.env.COOLIFY_SHARED_REDIS_PREFIX?.trim() ||
+    process.env.REDIS_PREFIX?.trim() ||
+    process.env.CELEBIX_REDIS_PREFIX?.trim() ||
+    "";
+
+  const entries: Record<string, string> = {};
+  if (redisUrl) {
+    entries.REDIS_URL = redisUrl;
+  }
+  if (redisPrefix) {
+    entries.REDIS_PREFIX = redisPrefix;
+  }
+
+  return entries;
 }
 
 function hasExistingProvisionedProject(store: StoreConfig): boolean {
@@ -377,7 +396,10 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     const service = await createSupabaseService(store, projectUuid, environmentName);
     const serviceUuid = resolveIdentifier(service);
     const { publicKey, serviceKey } = await waitForSupabaseKeys(serviceUuid);
-    const adminEnvLocalPath = writeStoreAdminEnvLocal(store.slug, buildAdminEnvLocal(store, publicUrl, publicKey, serviceKey));
+    const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
+      ...buildAdminEnvEntries(store, publicUrl, publicKey, serviceKey),
+      ...getSharedRedisEnvEntries(),
+    });
     await upsertStoreSupabaseSecret({
       slug: store.slug,
       supabaseUrl: publicUrl,

@@ -61,14 +61,14 @@ export const luckyWheelSimulateSchema = z.object({
   spinCount: z.number().int().min(10).max(50000).optional().default(1000),
 });
 
-export function enforceLuckyWheelAdminRateLimit(
+export async function enforceLuckyWheelAdminRateLimit(
   request: NextRequest,
   suffix: string,
   limit = 30,
   windowMs = 60_000,
 ) {
   const ip = getRequestIp(request);
-  const result = checkRateLimit({
+  const result = await checkRateLimit({
     key: `admin:lucky-wheel:${suffix}:${ip}`,
     limit,
     windowMs,

@@ -1,9 +1,23 @@
+import {
+  deleteRedisCacheEntriesByPrefix,
+  deleteRedisCacheEntry,
+  getRedisCacheEntry,
+  setRedisCacheEntry,
+} from "@/lib/redis";
+
 type CacheEntry<T> = {
   value: T;
   expiresAt: number;
 };
 
 const cacheStore = new Map<string, CacheEntry<unknown>>();
+
+function setLocalCachedValue<T>(key: string, value: T, ttlMs: number) {
+  cacheStore.set(key, {
+    value,
+    expiresAt: Date.now() + Math.max(1, ttlMs),
+  });
+}
 
 export function getCachedValue<T>(key: string): T | null {
   const cached = cacheStore.get(key);
@@ -16,14 +30,13 @@ export function getCachedValue<T>(key: string): T | null {
 }
 
 export function setCachedValue<T>(key: string, value: T, ttlMs: number): void {
-  cacheStore.set(key, {
-    value,
-    expiresAt: Date.now() + ttlMs,
-  });
+  setLocalCachedValue(key, value, ttlMs);
+  void setRedisCacheEntry(key, value, ttlMs);
 }
 
 export function deleteCachedValue(key: string): void {
   cacheStore.delete(key);
+  void deleteRedisCacheEntry(key);
 }
 
 export function deleteCachedValuesByPrefix(prefix: string): void {
@@ -32,6 +45,8 @@ export function deleteCachedValuesByPrefix(prefix: string): void {
       cacheStore.delete(key);
     }
   }
+
+  void deleteRedisCacheEntriesByPrefix(prefix);
 }
 
 export async function getOrSetCachedValue<T>(
@@ -41,6 +56,12 @@ export async function getOrSetCachedValue<T>(
 ): Promise<T> {
   const cached = getCachedValue<T>(key);
   if (cached !== null) return cached;
+
+  const redisCached = await getRedisCacheEntry<T>(key);
+  if (redisCached !== null) {
+    setLocalCachedValue(key, redisCached.value, redisCached.ttlMs ?? ttlMs);
+    return redisCached.value;
+  }
 
   const value = await resolver();
   setCachedValue(key, value, ttlMs);

@@ -16,7 +16,7 @@ const spinSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const requestIp = getRequestIp(request);
-    const ipRateLimit = checkRateLimit({
+    const ipRateLimit = await checkRateLimit({
       key: `lucky-wheel:spin:ip:${requestIp}`,
       limit: 8,
       windowMs: 60_000,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fingerprintRateLimit = checkRateLimit({
+    const fingerprintRateLimit = await checkRateLimit({
       key: `lucky-wheel:spin:fingerprint:${parsed.data.fingerprint}`,
       limit: 6,
       windowMs: 60_000,

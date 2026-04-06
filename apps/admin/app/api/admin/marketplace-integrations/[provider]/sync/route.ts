@@ -8,7 +8,7 @@ interface Params {
 
 export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const rateLimitResponse = enforceMarketplaceRateLimit(request, "sync", 10, 60_000);
+    const rateLimitResponse = await enforceMarketplaceRateLimit(request, "sync", 10, 60_000);
     if (rateLimitResponse) {
       return rateLimitResponse;
     }

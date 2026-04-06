@@ -27,14 +27,14 @@ export function getMarketplaceProviderOrResponse(provider: string) {
   return provider as MarketplaceProvider;
 }
 
-export function enforceMarketplaceRateLimit(
+export async function enforceMarketplaceRateLimit(
   request: NextRequest,
   suffix: string,
   limit = 30,
   windowMs = 60_000,
 ) {
   const ip = getRequestIp(request);
-  const result = checkRateLimit({
+  const result = await checkRateLimit({
     key: `marketplace:${suffix}:${ip}`,
     limit,
     windowMs,

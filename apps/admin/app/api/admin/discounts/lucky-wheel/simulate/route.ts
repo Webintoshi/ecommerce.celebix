@@ -4,7 +4,7 @@ import { enforceLuckyWheelAdminRateLimit, luckyWheelSimulateSchema } from "@/app
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "simulate:post", 10, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "simulate:post", 10, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();

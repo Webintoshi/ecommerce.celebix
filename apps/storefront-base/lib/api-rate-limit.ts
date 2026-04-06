@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { consumeRateLimitBucket } from "@/lib/redis";
 
 type RateLimitRecord = {
   count: number;
@@ -37,7 +38,7 @@ export function getRequestIp(request: NextRequest) {
   return request.headers.get("x-real-ip") || "unknown";
 }
 
-export function checkRateLimit(input: RateLimitInput): RateLimitResult {
+function checkRateLimitLocally(input: RateLimitInput): RateLimitResult {
   const now = Date.now();
   cleanupExpiredEntries(now);
 
@@ -66,4 +67,18 @@ export function checkRateLimit(input: RateLimitInput): RateLimitResult {
     remaining: Math.max(0, input.limit - existing.count),
     resetAt: existing.resetAt,
   };
+}
+
+export async function checkRateLimit(input: RateLimitInput): Promise<RateLimitResult> {
+  const redisResult = await consumeRateLimitBucket(input.key, input.windowMs);
+  if (redisResult) {
+    return {
+      allowed: redisResult.count <= input.limit,
+      limit: input.limit,
+      remaining: Math.max(0, input.limit - redisResult.count),
+      resetAt: redisResult.resetAt,
+    };
+  }
+
+  return checkRateLimitLocally(input);
 }

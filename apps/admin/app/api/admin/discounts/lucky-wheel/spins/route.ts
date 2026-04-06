@@ -4,7 +4,7 @@ import { enforceLuckyWheelAdminRateLimit } from "@/app/api/admin/discounts/lucky
 
 export async function GET(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "spins:get", 60, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "spins:get", 60, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const configId = request.nextUrl.searchParams.get("configId") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;

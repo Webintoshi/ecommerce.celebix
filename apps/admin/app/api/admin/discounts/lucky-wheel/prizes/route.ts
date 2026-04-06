@@ -16,7 +16,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "prizes:get", 60, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "prizes:get", 60, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const configId = request.nextUrl.searchParams.get("configId") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "prizes:post", 20, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "prizes:post", 20, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "prizes:put", 20, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "prizes:put", 20, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
@@ -109,7 +109,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceLuckyWheelAdminRateLimit(request, "prizes:delete", 20, 60_000);
+    const rateLimitResponse = await enforceLuckyWheelAdminRateLimit(request, "prizes:delete", 20, 60_000);
     if (rateLimitResponse) return rateLimitResponse;
 
     const configId = request.nextUrl.searchParams.get("configId") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;

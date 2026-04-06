@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import {
   LOCALE_COOKIE_NAME,
   buildLocalizedPath,
@@ -8,7 +9,6 @@ import {
   stripLocaleFromPathname,
 } from "@/lib/i18n";
 
-const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 const AI_BOT_RATE_LIMIT = 10;
@@ -72,22 +72,18 @@ function applyNoCacheHeaders(response: NextResponse, pathname: string) {
   }
 }
 
-function cleanupRateLimitMap() {
-  if (rateLimitMap.size <= 10000) {
-    return;
+function getRequestIp(request: NextRequest) {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0]?.trim() || "unknown";
   }
 
-  const now = Date.now();
-  for (const [key, data] of rateLimitMap.entries()) {
-    if (now - data.timestamp > RATE_LIMIT_WINDOW * 2) {
-      rateLimitMap.delete(key);
-    }
-  }
+  return request.headers.get("x-real-ip") || "unknown";
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "";
-  const ip = request.ip || "unknown";
+  const ip = getRequestIp(request);
   const originalPathname = request.nextUrl.pathname;
 
   if (shouldBypassLocaleHandling(originalPathname)) {
@@ -96,38 +92,28 @@ export function middleware(request: NextRequest) {
 
   const locale = getLocaleFromPathname(originalPathname);
   const internalPathname = locale ? stripLocaleFromPathname(originalPathname) : originalPathname;
-  const isAIBot = AI_BOTS.some((bot) => userAgent.toLowerCase().includes(bot.toLowerCase()));
-  const isGeneralBot = GENERAL_BOTS.some((bot) => userAgent.toLowerCase().includes(bot.toLowerCase()));
+  const normalizedUserAgent = userAgent.toLowerCase();
+  const isAIBot = AI_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
+  const isGeneralBot = GENERAL_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
   const isBot = isAIBot || isGeneralBot;
 
   if (isBot) {
-    const now = Date.now();
-    const limitKey = `${ip}:${userAgent.slice(0, 50)}`;
-    const currentData = rateLimitMap.get(limitKey);
+    const limit = isAIBot ? AI_BOT_RATE_LIMIT : RATE_LIMIT_MAX;
+    const rateLimitResult = await checkRateLimit({
+      key: `bot-middleware:${ip}:${userAgent.slice(0, 50)}`,
+      limit,
+      windowMs: RATE_LIMIT_WINDOW,
+    });
 
-    if (currentData) {
-      if (now - currentData.timestamp > RATE_LIMIT_WINDOW) {
-        rateLimitMap.set(limitKey, { count: 1, timestamp: now });
-      } else {
-        const limit = isAIBot ? AI_BOT_RATE_LIMIT : RATE_LIMIT_MAX;
-        if (currentData.count >= limit) {
-          return new NextResponse("Çok fazla istek. Lütfen daha sonra tekrar deneyin.", {
-            status: 429,
-            headers: {
-              "Retry-After": "60",
-              "X-RateLimit-Limit": String(limit),
-              "X-RateLimit-Remaining": "0",
-            },
-          });
-        }
-
-        rateLimitMap.set(limitKey, {
-          count: currentData.count + 1,
-          timestamp: currentData.timestamp,
-        });
-      }
-    } else {
-      rateLimitMap.set(limitKey, { count: 1, timestamp: now });
+    if (!rateLimitResult.allowed) {
+      return new NextResponse("Cok fazla istek. Lutfen daha sonra tekrar deneyin.", {
+        status: 429,
+        headers: {
+          "Retry-After": "60",
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": "0",
+        },
+      });
     }
 
     if (isAIBot && (internalPathname.startsWith("/admin") || internalPathname.startsWith("/api"))) {
@@ -181,10 +167,10 @@ export function middleware(request: NextRequest) {
     response.headers.set("X-Bot-Type", "crawler");
   }
 
-  cleanupRateLimitMap();
   return response;
 }
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  runtime: "nodejs",
 };

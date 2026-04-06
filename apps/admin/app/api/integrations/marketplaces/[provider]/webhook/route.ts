@@ -16,7 +16,7 @@ function extractHeaders(request: NextRequest) {
 
 export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const rateLimitResponse = enforceMarketplaceRateLimit(request, "webhook", 120, 60_000);
+    const rateLimitResponse = await enforceMarketplaceRateLimit(request, "webhook", 120, 60_000);
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
