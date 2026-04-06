@@ -6,7 +6,12 @@ import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 export const runtime = "nodejs";
 
-const FALLBACK_FAVICON_PATH = path.join(process.cwd(), "public", "favicon.ico");
+const FALLBACK_FAVICON_PATH = path.join(
+  process.cwd(),
+  "public",
+  "icons",
+  "default-favicon.ico",
+);
 
 function buildResponse(body: Buffer, contentType: string) {
   return new NextResponse(body, {
