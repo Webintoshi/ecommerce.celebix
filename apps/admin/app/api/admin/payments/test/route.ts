@@ -1,27 +1,84 @@
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import { NextRequest, NextResponse } from "next/server";
-import Iyzipay from "iyzipay";
 import Stripe from "stripe";
 import { getAdminAuthContext } from "@/lib/admin-auth";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
 import { resolveIyzicoBaseUrl } from "@/lib/payment-providers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
-function createIyzipayClient(apiKey: string, secretKey: string, uri: string) {
-    return new Iyzipay({ apiKey, secretKey, uri });
+function resolveIyzicoRunnerScript() {
+    const candidates = [
+        path.resolve(process.cwd(), "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "..", "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "..", "..", "scripts", "iyzico-runner.cjs"),
+    ];
+
+    const match = candidates.find((candidate) => existsSync(candidate));
+    if (!match) {
+        throw new Error("iyzico runner script bulunamadi.");
+    }
+
+    return match;
 }
 
-function iyzipayRetrieve<T>(executor: (callback: (error: unknown, result: T) => void) => void) {
-    return new Promise<T>((resolve, reject) => {
-        executor((error, result) => {
-            if (error) {
-                reject(error);
+async function iyzicoApiTest<T>(input: { apiKey: string; secretKey: string; uri: string }) {
+    const runnerPath = resolveIyzicoRunnerScript();
+
+    return await new Promise<T>((resolve, reject) => {
+        const child = spawn(process.execPath, [runnerPath], {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        let stdout = "";
+        let stderr = "";
+        const timeout = setTimeout(() => {
+            child.kill("SIGKILL");
+            reject(new Error("iyzico istegi zaman asimina ugradi."));
+        }, 25000);
+
+        child.stdout.on("data", (chunk) => {
+            stdout += chunk.toString();
+        });
+
+        child.stderr.on("data", (chunk) => {
+            stderr += chunk.toString();
+        });
+
+        child.on("error", (error) => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+
+        child.on("close", (code) => {
+            clearTimeout(timeout);
+
+            if (code !== 0) {
+                try {
+                    const parsed = stderr ? JSON.parse(stderr) : null;
+                    reject(new Error(parsed?.error || "iyzico islemi basarisiz."));
+                } catch {
+                    reject(new Error(stderr || "iyzico islemi basarisiz."));
+                }
                 return;
             }
 
-            resolve(result);
+            try {
+                const parsed = JSON.parse(stdout);
+                resolve(parsed.result as T);
+            } catch {
+                reject(new Error("iyzico gecersiz yanit dondurdu."));
+            }
         });
+
+        child.stdin.end(JSON.stringify({
+            operation: "apiTest",
+            config: input,
+        }));
     });
 }
 
@@ -115,14 +172,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (gateway.gateway === "iyzico") {
-            const iyzipay = createIyzipayClient(
-                gateway.credentials.apiKey,
-                gateway.credentials.secretKey,
-                resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment),
-            );
-
-            const result = await iyzipayRetrieve<Record<string, unknown>>((callback) => {
-                iyzipay.apiTest.retrieve({}, callback);
+            const result = await iyzicoApiTest<Record<string, unknown>>({
+                apiKey: gateway.credentials.apiKey,
+                secretKey: gateway.credentials.secretKey,
+                uri: resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment),
             });
 
             const status = typeof result.status === "string" ? result.status.toLowerCase() : "failure";

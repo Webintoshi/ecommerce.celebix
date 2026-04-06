@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
-import Iyzipay from "iyzipay";
 import Stripe from "stripe";
 import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/payment-providers";
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
@@ -184,7 +186,7 @@ function createIyzipayClient(gateway: PaymentGatewayConfig) {
         throw new Error("iyzico API bilgileri eksik.");
     }
 
-    return new Iyzipay({ apiKey, secretKey, uri });
+    return { apiKey, secretKey, uri };
 }
 
 function createStripeClient(gateway: PaymentGatewayConfig) {
@@ -216,16 +218,81 @@ function createCraftgateClient(gateway: PaymentGatewayConfig) {
     });
 }
 
-function iyzipayCreate<T>(executor: (callback: (error: unknown, result: T) => void) => void) {
-    return new Promise<T>((resolve, reject) => {
-        executor((error, result) => {
-            if (error) {
-                reject(error);
+function resolveIyzicoRunnerScript() {
+    const candidates = [
+        path.resolve(process.cwd(), "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "..", "scripts", "iyzico-runner.cjs"),
+        path.resolve(process.cwd(), "..", "..", "..", "scripts", "iyzico-runner.cjs"),
+    ];
+
+    const match = candidates.find((candidate) => existsSync(candidate));
+    if (!match) {
+        throw new Error("iyzico runner script bulunamadi.");
+    }
+
+    return match;
+}
+
+async function iyzicoRequest<T>(input: {
+    gateway: PaymentGatewayConfig;
+    operation: "checkoutInit" | "checkoutRetrieve";
+    body?: Record<string, unknown>;
+}) {
+    const client = createIyzipayClient(input.gateway);
+    const runnerPath = resolveIyzicoRunnerScript();
+
+    return await new Promise<T>((resolve, reject) => {
+        const child = spawn(process.execPath, [runnerPath], {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        let stdout = "";
+        let stderr = "";
+        const timeout = setTimeout(() => {
+            child.kill("SIGKILL");
+            reject(new Error("iyzico istegi zaman asimina ugradi."));
+        }, 25000);
+
+        child.stdout.on("data", (chunk) => {
+            stdout += chunk.toString();
+        });
+
+        child.stderr.on("data", (chunk) => {
+            stderr += chunk.toString();
+        });
+
+        child.on("error", (error) => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+
+        child.on("close", (code) => {
+            clearTimeout(timeout);
+
+            if (code !== 0) {
+                try {
+                    const parsed = stderr ? JSON.parse(stderr) : null;
+                    reject(new Error(parsed?.error || "iyzico islemi basarisiz."));
+                } catch {
+                    reject(new Error(stderr || "iyzico islemi basarisiz."));
+                }
                 return;
             }
 
-            resolve(result);
+            try {
+                const parsed = JSON.parse(stdout);
+                resolve(parsed.result as T);
+            } catch {
+                reject(new Error("iyzico gecersiz yanit dondurdu."));
+            }
         });
+
+        child.stdin.end(JSON.stringify({
+            operation: input.operation,
+            config: client,
+            payload: input.body || {},
+        }));
     });
 }
 
@@ -282,7 +349,6 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         },
     });
 
-    const iyzipay = createIyzipayClient(context.gateway);
     const addressLine = context.shippingAddress.address?.trim() || "Adres bilgisi yok";
     const city = context.shippingAddress.city?.trim() || "Istanbul";
     const country = context.shippingAddress.country?.trim() || "Turkey";
@@ -290,13 +356,13 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
     const now = formatIyzicoDate(new Date());
 
     const request = {
-        locale: Iyzipay.LOCALE.TR,
+        locale: "tr",
         conversationId: paymentAttempt.id,
         price: toCurrencyAmount(context.order.total),
         paidPrice: toCurrencyAmount(context.order.total),
         currency: context.gateway.currency || "TRY",
         basketId: context.order.order_number,
-        paymentGroup: Iyzipay.PAYMENT_GROUP.PRODUCT,
+        paymentGroup: "PRODUCT",
         callbackUrl: `${context.siteUrl}/api/payments/iyzico/callback`,
         enabledInstallments: [1, 2, 3, 6, 9, 12],
         buyer: {
@@ -332,14 +398,16 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
             id: item.productId,
             name: item.productName,
             category1: "Gida",
-            itemType: Iyzipay.BASKET_ITEM_TYPE.PHYSICAL,
+            itemType: "PHYSICAL",
             price: toCurrencyAmount(item.total ?? item.price * item.quantity),
         })),
     };
 
     try {
-        const response = await iyzipayCreate<Record<string, unknown>>((callback) => {
-            iyzipay.checkoutFormInitialize.create(request, callback);
+        const response = await iyzicoRequest<Record<string, unknown>>({
+            gateway: context.gateway,
+            operation: "checkoutInit",
+            body: request,
         });
 
         const token = typeof response.token === "string" ? response.token : null;
@@ -737,13 +805,13 @@ async function initializeCraftgatePayment(context: CheckoutContext): Promise<Pay
 }
 
 export async function retrieveIyzicoPayment(gateway: PaymentGatewayConfig, token: string) {
-    const iyzipay = createIyzipayClient(gateway);
-
-    const response = await iyzipayCreate<Record<string, unknown>>((callback) => {
-        iyzipay.checkoutForm.retrieve({
-            locale: Iyzipay.LOCALE.TR,
+    const response = await iyzicoRequest<Record<string, unknown>>({
+        gateway,
+        operation: "checkoutRetrieve",
+        body: {
+            locale: "tr",
             token,
-        }, callback);
+        },
     });
 
     return response;
