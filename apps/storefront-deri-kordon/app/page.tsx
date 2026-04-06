@@ -1,16 +1,21 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getHomepageData } from "@/lib/homepage";
-import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
   categoriesHeading: "Kategoriler",
   viewAllLabel: "Tümünü Gör",
+  storesEyebrow: "Mağazalarımız",
+  storesHeading: "Deriye yakından dokunun",
+  storesDescription:
+    "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
+  storesLinkLabel: "Tüm şubeleri gör",
   testimonialsHeading: "Müşteri Yorumları",
   testimonialsCountLabel: "1581 değerlendirmeden",
   groupTitle0: "Çok Satanlar",
@@ -30,6 +35,10 @@ async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLoc
     categoriesEyebrow: translated.categoriesEyebrow,
     categoriesHeading: translated.categoriesHeading,
     viewAllLabel: translated.viewAllLabel,
+    storesEyebrow: translated.storesEyebrow,
+    storesHeading: translated.storesHeading,
+    storesDescription: translated.storesDescription,
+    storesLinkLabel: translated.storesLinkLabel,
     testimonialsHeading: translated.testimonialsHeading,
     testimonialsCountLabel: translated.testimonialsCountLabel,
     productGroups: [
@@ -95,11 +104,12 @@ export default async function Home() {
     buildLocalizedPath("/urunler", locale),
     requestOrigin,
   ).toString();
+  const storesHref = buildLocalizedPath("/magazalarimiz", locale);
   const logoUrl = await buildAbsoluteRequestUrl("/logo.png");
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={uiCopy} />
+      <RedesignHome data={homepageData} uiCopy={uiCopy} storesHref={storesHref} />
 
       <script
         type="application/ld+json"
