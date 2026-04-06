@@ -336,9 +336,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+            >
               {copy.aboutHeading}
-            </h3>
+            </p>
             <ul className="space-y-3">
               {copy.aboutLinks.map((link) => (
                 <li key={link.href}>
@@ -354,9 +357,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+            >
               {copy.categoriesHeading}
-            </h3>
+            </p>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
@@ -372,9 +378,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+            >
               {copy.policiesHeading}
-            </h3>
+            </p>
             <ul className="space-y-3">
               {copy.policyLinks.map((link) => (
                 <li key={link.href}>
