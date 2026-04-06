@@ -19,6 +19,7 @@ type RedisCacheEntry<T> = {
 };
 
 type RedisClient = ReturnType<typeof createClient>;
+type RedisKeyBuilder = (key: string, scope?: string) => string;
 
 let redisClient: RedisClient | null = null;
 let redisConnectionPromise: Promise<RedisClient | null> | null = null;
@@ -36,8 +37,8 @@ function getStoreScope() {
   return process.env.STORE_SLUG?.trim() || process.env.NEXT_PUBLIC_STORE_SLUG?.trim() || "shared";
 }
 
-function buildScopedKey(key: string) {
-  return [getRedisPrefix(), getStoreScope(), APP_SCOPE, key].filter(Boolean).join(":");
+function buildScopedKey(key: string, scope = APP_SCOPE) {
+  return [getRedisPrefix(), getStoreScope(), scope, key].filter(Boolean).join(":");
 }
 
 function logRedisError(context: string, error: unknown) {
@@ -99,6 +100,23 @@ async function getRedisClient(): Promise<RedisClient | null> {
     });
 
   return redisConnectionPromise;
+}
+
+export async function runWithRedisClient<T>(
+  operation: string,
+  callback: (client: RedisClient, buildKey: RedisKeyBuilder) => Promise<T>,
+): Promise<T | null> {
+  const client = await getRedisClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    return await callback(client, buildScopedKey);
+  } catch (error) {
+    logRedisError(`${operation} failed`, error);
+    return null;
+  }
 }
 
 function toRateLimitNumber(value: unknown) {

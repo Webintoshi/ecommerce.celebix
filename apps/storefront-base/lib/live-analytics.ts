@@ -7,12 +7,32 @@ import {
   isAnalyticsAdminPath,
   isAnalyticsBot,
 } from "@/lib/analytics-presence";
-import type { LiveAnalyticsEvent, LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 
-const LIVE_CACHE_KEY = "analytics:live:v2";
+const LIVE_CACHE_KEY = "analytics:live:v1";
 const LIVE_WINDOW_MS = 5 * 60 * 1000;
 const RECENT_PAGES_WINDOW_MS = 10 * 60 * 1000;
+
+type LiveAnalyticsPayload = {
+  success: true;
+  data: {
+    liveVisitors: number;
+    devices: {
+      mobile: number;
+      desktop: number;
+      tablet: number;
+    };
+    topPages: Array<{ url: string; count: number }>;
+    abandonedCarts: {
+      count: number;
+      total: number;
+    };
+    today: {
+      addToCart: number;
+      purchases: number;
+    };
+  };
+};
 
 type SessionRow = {
   session_id: string;
@@ -25,22 +45,12 @@ type PageViewRow = {
   session_id: string;
 };
 
-type EventRow = {
-  event_type: string;
-  event_data: Record<string, unknown> | null;
-  page_url: string | null;
-  created_at: string;
-};
-
-export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot> {
+export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsPayload> {
   return getOrSetCachedValue(LIVE_CACHE_KEY, 5_000, async () => {
     const supabase = createServerClient();
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const getDatabasePresenceSnapshot = async (): Promise<
-      Pick<LiveAnalyticsSnapshot, "liveVisitors" | "devices" | "topPages">
-    > => {
+    const getDatabasePresenceSnapshot = async () => {
       const fiveMinutesAgo = new Date(Date.now() - LIVE_WINDOW_MS).toISOString();
       const tenMinutesAgo = new Date(Date.now() - RECENT_PAGES_WINDOW_MS).toISOString();
 
@@ -139,8 +149,6 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
 
     let addToCartCount = 0;
     let purchaseCount = 0;
-    let recentEvents: LiveAnalyticsEvent[] = [];
-
     try {
       const { data: todayEvents } = await supabase
         .from("events")
@@ -156,39 +164,21 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
       purchaseCount = 0;
     }
 
-    try {
-      const { data: recentEventRows } = await supabase
-        .from("events")
-        .select("event_type,event_data,page_url,created_at")
-        .gte("created_at", thirtyMinutesAgo)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      recentEvents = ((recentEventRows || []) as EventRow[])
-        .filter((event) => !isAnalyticsAdminPath(event.page_url || ""))
-        .map((event) => ({
-          type: event.event_type,
-          data: event.event_data || {},
-          pageUrl: event.page_url || "",
-          createdAt: event.created_at,
-        }));
-    } catch {
-      recentEvents = [];
-    }
-
     return {
-      liveVisitors: presenceSnapshot.liveVisitors,
-      devices: presenceSnapshot.devices,
-      topPages: presenceSnapshot.topPages,
-      abandonedCarts: {
-        count: abandonedCount || 0,
-        total: abandonedTotal,
+      success: true,
+      data: {
+        liveVisitors: presenceSnapshot.liveVisitors,
+        devices: presenceSnapshot.devices,
+        topPages: presenceSnapshot.topPages,
+        abandonedCarts: {
+          count: abandonedCount || 0,
+          total: abandonedTotal,
+        },
+        today: {
+          addToCart: addToCartCount,
+          purchases: purchaseCount,
+        },
       },
-      today: {
-        addToCart: addToCartCount,
-        purchases: purchaseCount,
-      },
-      recentEvents,
     };
   });
 }

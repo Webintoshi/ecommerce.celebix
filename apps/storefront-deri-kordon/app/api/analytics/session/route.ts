@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
+import { upsertActivePresence } from "@/lib/analytics-presence";
 
 // POST /api/analytics/session - Create or update session
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { sessionId, userAgent, referrer, deviceType, browser, os, utm_source, utm_medium, utm_campaign } = body;
+        const { sessionId, userAgent, referrer, deviceType, browser, os, utm_source, utm_medium, utm_campaign, path } = body;
 
         if (!sessionId) {
             return NextResponse.json({ success: false, error: "Session ID required" }, { status: 400 });
         }
+
+        await upsertActivePresence({
+            sessionId,
+            path,
+            userAgent,
+            deviceType,
+        });
 
         const supabase = createServerClient();
 

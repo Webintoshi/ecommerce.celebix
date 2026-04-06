@@ -161,6 +161,7 @@ class Tracker {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     sessionId: this.sessionId,
+                    path: window.location.pathname,
                     userAgent: navigator.userAgent,
                     referrer: document.referrer || undefined,
                     deviceType: getDeviceType(),

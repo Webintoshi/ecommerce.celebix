@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
+import { updateActivePresencePath } from "@/lib/analytics-presence";
 
 function isAdminPath(path: string): boolean {
     if (!path) return false;
@@ -33,6 +34,8 @@ export async function POST(request: NextRequest) {
         if (isAdminPath(pageUrl)) {
             return NextResponse.json({ success: true, filtered: true });
         }
+
+        await updateActivePresencePath(sessionId, pageUrl);
 
         const supabase = createServerClient();
 
