@@ -276,9 +276,12 @@ function ListView({
                       )}
                     </div>
                     <div>
-                      <div className="font-medium leading-tight text-gray-900">
+                      <Link
+                        href={`/admin/cms/blog/${post.id}`}
+                        className="font-medium leading-tight text-gray-900 transition-colors hover:text-gray-700"
+                      >
                         {post.title}
-                      </div>
+                      </Link>
                       <div className="mt-1 text-xs text-gray-500">
                         {post.wordCount} kelime
                       </div>
