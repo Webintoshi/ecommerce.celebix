@@ -49,6 +49,8 @@ const nextConfig: NextConfig = {
     quietDeps: true,
   },
   images: {
+    loader: "custom",
+    loaderFile: "./image-loader.js",
     formats: ["image/avif", "image/webp"],
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",

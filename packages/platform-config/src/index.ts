@@ -293,6 +293,7 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "",
     `NEXT_PUBLIC_SITE_URL=https://${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_URL=https://${config.domains.admin}`,
+    "NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=https://images.celebix.co",
     "",
     "REDIS_URL=redis://your-coolify-redis:6379",
     "REDIS_PREFIX=celebix",

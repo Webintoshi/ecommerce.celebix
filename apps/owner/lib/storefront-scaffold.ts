@@ -195,6 +195,7 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
 function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
   return {
     ...buildStorefrontPublicEnv(store),
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: "https://images.celebix.co",
     NEXT_PUBLIC_SUPABASE_URL:
       store.supabase.url !== "configure-in-env"
         ? store.supabase.url
