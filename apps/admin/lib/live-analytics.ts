@@ -63,9 +63,10 @@ type EventRow = {
 };
 
 export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot> {
-  return getOrSetCachedValue("analytics:live:v2", 8_000, async () => {
+  return getOrSetCachedValue("analytics:live:v2", 5_000, async () => {
     const supabase = createServerClient();
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -93,26 +94,17 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
       const pageViewResponse = await supabase
         .from("page_views")
         .select("page_url,session_id")
-        .gte("created_at", fiveMinutesAgo)
+        .gte("created_at", tenMinutesAgo)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(250);
 
       recentPageViews = (pageViewResponse.data || []) as PageViewRow[];
     } catch {
       recentPageViews = [];
     }
 
-    const nonAdminPageViews = recentPageViews.filter(
-      (pageView) => !isAdminPath(pageView.page_url)
-    );
-    const nonAdminSessionIds = new Set(
-      nonAdminPageViews.map((pageView) => pageView.session_id)
-    );
-
     const humanSessions = ((activeSessions || []) as SessionRow[]).filter(
-      (session) =>
-        !isBot(session.user_agent || undefined) &&
-        nonAdminSessionIds.has(session.session_id)
+      (session) => !isBot(session.user_agent || undefined)
     );
 
     const humanSessionIds = new Set(
@@ -120,7 +112,8 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
     );
 
     const pageGroups: Record<string, number> = {};
-    nonAdminPageViews
+    recentPageViews
+      .filter((pageView) => !isAdminPath(pageView.page_url))
       .filter((pageView) => humanSessionIds.has(pageView.session_id))
       .forEach((pageView) => {
         pageGroups[pageView.page_url] = (pageGroups[pageView.page_url] || 0) + 1;

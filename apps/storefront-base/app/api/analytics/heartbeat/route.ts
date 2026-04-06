@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
+import { deleteCachedValue, getOrSetCachedValue } from "@/lib/cache/memory-cache";
 
 const BOT_USER_AGENTS = [
     'bot', 'spider', 'crawler', 'googlebot', 'bingbot', 'yandex', 'duckduckbot',
@@ -24,7 +24,7 @@ function isAdminPath(path: string): boolean {
 
 export async function POST(request: NextRequest) {
     try {
-        let body = { sessionId: '', path: '', userAgent: '' };
+        let body = { sessionId: '', path: '', userAgent: '', deviceType: '' };
         
         try {
             body = await request.json();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, visitors: 0 });
         }
         
-        const { sessionId, userAgent, path } = body;
+        const { sessionId, userAgent, path, deviceType } = body;
 
         if (!sessionId) {
             return NextResponse.json({ success: true, visitors: 0 });
@@ -60,14 +60,16 @@ export async function POST(request: NextRequest) {
                     .from("sessions")
                     .update({
                         last_activity_at: new Date().toISOString(),
-                        is_active: true
+                        is_active: true,
+                        ...(userAgent ? { user_agent: userAgent } : {}),
+                        ...(deviceType ? { device_type: deviceType } : {}),
                     })
                     .eq("session_id", sessionId);
             } else {
                 await supabase.from("sessions").insert({
                     session_id: sessionId,
                     user_agent: userAgent || 'Unknown',
-                    device_type: 'desktop',
+                    device_type: deviceType || 'desktop',
                     started_at: new Date().toISOString(),
                     last_activity_at: new Date().toISOString(),
                     is_active: true,
@@ -75,6 +77,9 @@ export async function POST(request: NextRequest) {
                 });
             }
         } catch {}
+
+        deleteCachedValue("analytics:live:v1");
+        deleteCachedValue("analytics:heartbeat:visitors");
 
         return NextResponse.json({
             success: true,
@@ -88,7 +93,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
     try {
-        const visitors = await getOrSetCachedValue("analytics:heartbeat:visitors", 5_000, async () => {
+        const visitors = await getOrSetCachedValue("analytics:heartbeat:visitors", 3_000, async () => {
             const supabase = createServerClient();
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
             const { data: sessions } = await supabase

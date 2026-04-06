@@ -25,9 +25,10 @@ function isAdminPath(path: string): boolean {
 
 export async function GET() {
     try {
-        const payload = await getOrSetCachedValue("analytics:live:v1", 8_000, async () => {
+        const payload = await getOrSetCachedValue("analytics:live:v1", 5_000, async () => {
             const supabase = createServerClient();
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
             await syncAbandonedCartStatuses(supabase);
@@ -56,20 +57,15 @@ export async function GET() {
                 const pageViewResponse = await supabase
                     .from("page_views")
                     .select("page_url,session_id")
-                    .gte("created_at", fiveMinutesAgo)
+                    .gte("created_at", tenMinutesAgo)
                     .order("created_at", { ascending: false })
-                    .limit(100);
+                    .limit(250);
                 recentPageViews = pageViewResponse.data || [];
             } catch {
                 recentPageViews = [];
             }
 
-            const nonAdminPageViews = recentPageViews.filter((pv) => !isAdminPath(pv.page_url));
-            const nonAdminSessionIds = new Set(nonAdminPageViews.map((pv) => pv.session_id));
-
-            const humanSessions = (activeSessions || []).filter(
-                (s) => !isBot(s.user_agent) && nonAdminSessionIds.has(s.session_id)
-            );
+            const humanSessions = (activeSessions || []).filter((s) => !isBot(s.user_agent));
             const humanCount = humanSessions.length;
 
             const mobileCount = humanSessions.filter((s) => s.device_type === "mobile").length || 0;
@@ -77,7 +73,9 @@ export async function GET() {
             const tabletCount = humanSessions.filter((s) => s.device_type === "tablet").length || 0;
 
             const humanSessionIds = new Set(humanSessions.map((s) => s.session_id));
-            const humanPageViews = nonAdminPageViews.filter((pv) => humanSessionIds.has(pv.session_id));
+            const humanPageViews = recentPageViews
+                .filter((pv) => !isAdminPath(pv.page_url))
+                .filter((pv) => humanSessionIds.has(pv.session_id));
 
             const pageGroups: Record<string, number> = {};
             humanPageViews.forEach((pv) => {

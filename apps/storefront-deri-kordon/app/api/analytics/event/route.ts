@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { deleteCachedValue } from "@/lib/cache/memory-cache";
 
 // POST /api/analytics/event - Track custom event
 export async function POST(request: NextRequest) {
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest) {
             .from("sessions")
             .update({ last_activity_at: new Date().toISOString(), is_active: true })
             .eq("session_id", sessionId);
+
+        deleteCachedValue("analytics:live:v1");
 
         return NextResponse.json({ success: true });
     } catch (error) {

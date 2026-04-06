@@ -22,6 +22,18 @@ export function setCachedValue<T>(key: string, value: T, ttlMs: number): void {
   });
 }
 
+export function deleteCachedValue(key: string): void {
+  cacheStore.delete(key);
+}
+
+export function deleteCachedValuesByPrefix(prefix: string): void {
+  for (const key of cacheStore.keys()) {
+    if (key.startsWith(prefix)) {
+      cacheStore.delete(key);
+    }
+  }
+}
+
 export async function getOrSetCachedValue<T>(
   key: string,
   ttlMs: number,

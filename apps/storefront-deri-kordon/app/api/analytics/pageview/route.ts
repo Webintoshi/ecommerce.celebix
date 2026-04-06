@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { deleteCachedValue } from "@/lib/cache/memory-cache";
 
 function isAdminPath(path: string): boolean {
     if (!path) return false;
@@ -53,6 +54,8 @@ export async function POST(request: NextRequest) {
         } catch {
             // Ignore RPC errors
         }
+
+        deleteCachedValue("analytics:live:v1");
 
         return NextResponse.json({ success: true });
     } catch (error) {

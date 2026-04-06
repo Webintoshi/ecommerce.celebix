@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { deleteCachedValue } from "@/lib/cache/memory-cache";
 
 // POST /api/analytics/session - Create or update session
 export async function POST(request: NextRequest) {
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest) {
                 page_views: 0,
             });
         }
+
+        deleteCachedValue("analytics:live:v2");
+        deleteCachedValue("analytics:heartbeat:visitors");
 
         return NextResponse.json({ success: true });
     } catch (error) {
