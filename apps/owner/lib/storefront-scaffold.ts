@@ -115,7 +115,7 @@ function buildPackageJson(slug: string): string {
         "date-fns": "^4.1.0",
         "framer-motion": "^12.29.0",
         "gray-matter": "^4.0.3",
-        iyzipay: "^2.0.65",
+        iyzipay: "github:iyzico/iyzipay-node#v2.0.67",
         "lucide-react": "^0.563.0",
         next: "16.2.1",
         "next-mdx-remote": "^6.0.0",
