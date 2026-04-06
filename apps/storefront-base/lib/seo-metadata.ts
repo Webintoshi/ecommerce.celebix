@@ -124,7 +124,9 @@ export async function buildStoreRootMetadata(pathname: string): Promise<Metadata
   const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
   const storeInfo = await getStoreInfo();
   const faviconUrl = typeof storeInfo?.faviconUrl === "string" ? storeInfo.faviconUrl.trim() : "";
-  const faviconHref = faviconUrl ? `/favicon.ico?v=${encodeURIComponent(faviconUrl)}` : "/favicon.ico";
+  const faviconHref = faviconUrl
+    ? `/api/favicon?v=${encodeURIComponent(faviconUrl)}`
+    : "/api/favicon";
 
   return {
     title,
