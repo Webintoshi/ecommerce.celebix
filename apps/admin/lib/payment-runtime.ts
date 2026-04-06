@@ -108,6 +108,17 @@ function buildBuyerName(address: CheckoutAddressInput) {
     return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Müşteri";
 }
 
+function formatIyzicoDate(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 function createPaytrToken(payload: {
     merchantId: string;
     userIp: string;
@@ -276,6 +287,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
     const city = context.shippingAddress.city?.trim() || "Istanbul";
     const country = context.shippingAddress.country?.trim() || "Turkey";
     const buyerName = buildBuyerName(context.shippingAddress);
+    const now = formatIyzicoDate(new Date());
 
     const request = {
         locale: Iyzipay.LOCALE.TR,
@@ -294,8 +306,8 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
             gsmNumber: context.shippingAddress.phone || "",
             email: context.customerEmail,
             identityNumber: "11111111111",
-            lastLoginDate: new Date().toISOString(),
-            registrationDate: new Date().toISOString(),
+            lastLoginDate: now,
+            registrationDate: now,
             registrationAddress: addressLine,
             ip: context.customerIp,
             city,
