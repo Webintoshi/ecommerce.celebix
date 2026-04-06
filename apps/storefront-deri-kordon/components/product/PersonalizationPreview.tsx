@@ -66,7 +66,7 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri urun kisilestirme onizleme",
-  textPositionClass: "bottom-[20%] right-[11%] w-[42%] text-left",
+  textPositionClass: "bottom-[20%] right-[8%] w-[56%] text-right",
   textToneClass: "text-[#2d2118]/85",
 };
 
@@ -154,20 +154,23 @@ export function PersonalizationPreview({
 
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
-  const displayText = previewConfig.staticText || previewText.trim() || "On Izleme";
+  const typedText = previewText.trim();
+  const displayText = previewConfig.staticText || typedText || "ÖN İZLEME";
   const previewFontSize = previewConfig.staticText
-    ? "clamp(28px, 2.3vw, 40px)"
-    : displayText.length > 16
-      ? "clamp(17px, 1.45vw, 26px)"
-      : displayText.length > 10
-        ? "clamp(19px, 1.65vw, 29px)"
-        : "clamp(22px, 1.9vw, 32px)";
+    ? "clamp(34px, 7.4vw, 46px)"
+    : !typedText
+      ? "clamp(22px, 5.6vw, 32px)"
+      : displayText.length > 16
+        ? "clamp(18px, 4.3vw, 26px)"
+        : displayText.length > 10
+          ? "clamp(20px, 4.8vw, 28px)"
+          : "clamp(22px, 5.2vw, 30px)";
 
   return (
     <section className="mx-auto w-full max-w-[360px] space-y-3 border-t border-neutral-200 pt-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[10px] font-medium uppercase tracking-[0.3em] text-neutral-700">
-          Kisisellestirme On Izleme
+          Kişiselleştirme Ön İzleme
         </h3>
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
@@ -217,6 +220,11 @@ export function PersonalizationPreview({
               fontFamily: selectedFont.family,
               fontSize: previewFontSize,
               ...selectedFont.style,
+              fontWeight: previewConfig.staticText ? 700 : typedText ? 600 : 700,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "block",
               textShadow: "0 1px 1px rgba(255,255,255,0.12)",
             }}
           >
