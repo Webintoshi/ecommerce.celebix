@@ -57,6 +57,10 @@ function resolveActiveStore() {
 }
 
 const activeStore = resolveActiveStore();
+const inferredImageTransformationUrl =
+  process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
+  process.env.CELEBIX_IMAGE_TRANSFORMATION_URL ??
+  "https://images.celebix.co";
 const configuredAssetUrl = process.env.R2_PUBLIC_URL;
 const configuredAssetHostname = configuredAssetUrl
   ? new URL(
@@ -112,6 +116,7 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_SITE_URL ?? `https://${activeStore.storefrontDomain}`,
     NEXT_PUBLIC_ADMIN_URL:
       process.env.NEXT_PUBLIC_ADMIN_URL ?? `https://${activeStore.adminDomain}`,
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
     NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL:
       process.env.NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL ?? `admin@${activeStore.slug}.local`
   },

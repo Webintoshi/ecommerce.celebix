@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getConfiguredImageTransformationUrl } from "./image-transformation";
 
 export * from "./typography";
 export * from "./image-formats";
+export * from "./image-transformation";
 export * from "./category-hierarchy";
 export * from "./shipping";
 export * from "./translation";
@@ -293,7 +295,7 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "",
     `NEXT_PUBLIC_SITE_URL=https://${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_URL=https://${config.domains.admin}`,
-    "NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=https://images.celebix.co",
+    `NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=${getConfiguredImageTransformationUrl()}`,
     "",
     "REDIS_URL=redis://your-coolify-redis:6379",
     "REDIS_PREFIX=celebix",
@@ -487,6 +489,13 @@ export function upsertStoreAdminEnvLocal(slug: string, entries: Record<string, s
 
   for (const [key, value] of Object.entries(entries)) {
     envMap.set(key, value);
+  }
+
+  if (!envMap.has("NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL")) {
+    envMap.set(
+      "NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL",
+      getConfiguredImageTransformationUrl(),
+    );
   }
 
   if (envMap.has("CLOUDFLARE_ACCOUNT_ID")) {

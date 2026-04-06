@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+const inferredImageTransformationUrl =
+  process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
+  process.env.CELEBIX_IMAGE_TRANSFORMATION_URL ??
+  "https://images.celebix.co";
+
 function buildRemotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
     {
@@ -37,6 +42,9 @@ function buildRemotePatterns(): NonNullable<NextConfig["images"]>["remotePattern
 }
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
+  },
   serverExternalPackages: ["iyzipay"],
   typescript: {
     ignoreBuildErrors: true,

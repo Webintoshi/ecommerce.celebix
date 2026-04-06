@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
   type StoreConfig,
@@ -195,7 +196,7 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
 function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
   return {
     ...buildStorefrontPublicEnv(store),
-    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: "https://images.celebix.co",
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: getConfiguredImageTransformationUrl(),
     NEXT_PUBLIC_SUPABASE_URL:
       store.supabase.url !== "configure-in-env"
         ? store.supabase.url
@@ -332,6 +333,11 @@ export function scaffoldStorefrontApp(slug: string): StorefrontScaffoldResult {
 
   if (!envLocalEntries.NEXT_PUBLIC_SUPABASE_URL && store.supabase.url !== "configure-in-env") {
     envLocalEntries.NEXT_PUBLIC_SUPABASE_URL = store.supabase.url;
+  }
+
+  if (!envLocalEntries.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL) {
+    envLocalEntries.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL =
+      getConfiguredImageTransformationUrl();
   }
 
   fs.writeFileSync(path.join(appDirectory, ".env.local"), serializeEnv(envLocalEntries), "utf8");

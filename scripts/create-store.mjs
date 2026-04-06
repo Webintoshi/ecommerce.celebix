@@ -27,6 +27,14 @@ function ensureSlug(slug) {
   }
 }
 
+function getDefaultImageTransformationUrl() {
+  const configuredValue =
+    process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL?.trim() ||
+    process.env.CELEBIX_IMAGE_TRANSFORMATION_URL?.trim();
+
+  return configuredValue ? configuredValue.replace(/\/+$/, "") : "https://images.celebix.co";
+}
+
 function buildAdminEnvTemplate({ slug, domain }) {
   return [
     `STORE_SLUG=${slug}`,
@@ -37,7 +45,7 @@ function buildAdminEnvTemplate({ slug, domain }) {
     "",
     `NEXT_PUBLIC_SITE_URL=https://${domain}`,
     `NEXT_PUBLIC_ADMIN_URL=https://admin.${domain}`,
-    "NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=https://images.celebix.co",
+    `NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=${getDefaultImageTransformationUrl()}`,
     "",
     "REDIS_URL=redis://your-coolify-redis:6379",
     "REDIS_PREFIX=celebix",

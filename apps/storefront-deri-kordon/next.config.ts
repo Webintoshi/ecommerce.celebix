@@ -108,6 +108,10 @@ const inferredSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? `https://${activeStore.storefrontDomain}`;
 const inferredAdminUrl =
   process.env.NEXT_PUBLIC_ADMIN_URL ?? `https://${activeStore.adminDomain}`;
+const inferredImageTransformationUrl =
+  process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
+  process.env.CELEBIX_IMAGE_TRANSFORMATION_URL ??
+  "https://images.celebix.co";
 const inferredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? activeStore.supabaseUrl;
 const inferredR2PublicUrl = process.env.R2_PUBLIC_URL ?? activeStore.r2PublicUrl;
 
@@ -127,6 +131,7 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_STORE_SUPPORT_PHONE ?? activeStore.supportPhone,
     NEXT_PUBLIC_SITE_URL: inferredSiteUrl,
     NEXT_PUBLIC_ADMIN_URL: inferredAdminUrl,
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
     NEXT_PUBLIC_SUPABASE_URL: inferredSupabaseUrl,
     NEXT_PUBLIC_R2_PUBLIC_URL: process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? inferredR2PublicUrl,
   },
