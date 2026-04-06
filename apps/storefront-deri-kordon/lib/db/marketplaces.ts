@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { createServerClient } from "@/lib/supabase";
 import { decryptMarketplaceCredentials, encryptMarketplaceCredentials } from "@/lib/marketplace-crypto";
+import { RedisLockError, releaseRedisLock, tryAcquireRedisLock } from "@/lib/redis";
 import {
   getMarketplaceProviderAdapter,
   getMarketplaceProviderDefinition,
@@ -126,6 +127,8 @@ type ProductVariantWithProduct = ProductVariantRow & {
 };
 
 const MAX_RETRY_COUNT = 5;
+const SYNC_LOCK_SCOPE = "sync";
+const MARKETPLACE_SYNC_LOCK_TTL_MS = 15 * 60 * 1000;
 
 function isMissingRelationError(error: unknown) {
   const code = typeof error === "object" && error ? String((error as { code?: string }).code || "") : "";
@@ -186,6 +189,14 @@ function computeNextRetryDate(attemptCount: number) {
   date.setMinutes(date.getMinutes() + baseMinutes);
   date.setSeconds(date.getSeconds() + jitterSeconds);
   return date.toISOString();
+}
+
+function buildMarketplaceSyncLockKey(provider: MarketplaceProvider) {
+  return `marketplace:sync:${provider}`;
+}
+
+function buildMarketplaceLockMessage(provider: MarketplaceProvider) {
+  return `${provider} icin pazaryeri senkronizasyonu zaten calisiyor.`;
 }
 
 function mapConnection(row: ProviderConnectionRow): MarketplaceProviderConnection {
@@ -1532,6 +1543,7 @@ export async function runMarketplaceSync(options?: {
   provider?: MarketplaceProvider;
   forceOrders?: boolean;
   forceReconciliation?: boolean;
+  failOnLockedProvider?: boolean;
 }) {
   const supabase = createServerClient();
   const activeProviders = await listActiveProviderRows(options?.provider);
@@ -1557,26 +1569,60 @@ export async function runMarketplaceSync(options?: {
       listingCount: number;
       orderCount: number;
     } | null;
+    lockSkipped?: boolean;
   }> = [];
 
   for (const connection of activeProviders) {
     if (!isMarketplaceProvider(connection.provider)) continue;
 
     const provider = connection.provider;
-    const startedAt = new Date().toISOString();
-    const { data: jobRow } = await supabase
-      .from("marketplace_sync_jobs")
-      .insert({
-        provider,
-        job_type: shouldPullOrders ? "full_sync" : "queue_drain",
-        status: "running",
-        started_at: startedAt,
-        scheduled_at: startedAt,
-      })
-      .select("id")
-      .maybeSingle();
+    const lock = await tryAcquireRedisLock(
+      buildMarketplaceSyncLockKey(provider),
+      MARKETPLACE_SYNC_LOCK_TTL_MS,
+      SYNC_LOCK_SCOPE,
+    );
+    if (lock === false) {
+      const lockMessage = buildMarketplaceLockMessage(provider);
+      if (options?.failOnLockedProvider) {
+        throw new RedisLockError(lockMessage);
+      }
 
+      await insertSyncLog({
+        provider,
+        direction: "system",
+        entityType: "sync_job",
+        entityId: provider,
+        status: "skipped_locked",
+        errorCode: "sync_already_running",
+        errorMessage: lockMessage,
+      });
+
+      summaries.push({
+        provider,
+        queueSummary: { queuedCount: 0, syncedCount: 0, failedCount: 0, manualCount: 0 },
+        orderSummary: { receivedCount: 0, importedCount: 0, duplicateCount: 0, manualCount: 0 },
+        reconciliation: null,
+        lockSkipped: true,
+      });
+      continue;
+    }
+
+    let jobRow: { id: string } | null = null;
     try {
+      const startedAt = new Date().toISOString();
+      const { data } = await supabase
+        .from("marketplace_sync_jobs")
+        .insert({
+          provider,
+          job_type: shouldPullOrders ? "full_sync" : "queue_drain",
+          status: "running",
+          started_at: startedAt,
+          scheduled_at: startedAt,
+        })
+        .select("id")
+        .maybeSingle();
+      jobRow = data;
+
       const queueSummary = await processMarketplaceSyncQueue({ provider, limit: 50 });
       const orderSummary = shouldPullOrders
         ? await pullOrdersForProvider(provider)
@@ -1634,6 +1680,10 @@ export async function runMarketplaceSync(options?: {
             ? providerSyncError.message
             : "Provider sync failed.",
       });
+    } finally {
+      if (lock) {
+        await releaseRedisLock(lock);
+      }
     }
   }
 

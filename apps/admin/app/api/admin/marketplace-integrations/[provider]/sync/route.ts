@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketplaceSync } from "@/lib/db/marketplaces";
 import { enforceMarketplaceRateLimit, getMarketplaceProviderOrResponse } from "@/app/api/admin/marketplace-integrations/_shared";
+import { isRedisLockError } from "@/lib/redis";
 
 interface Params {
   params: Promise<{ provider: string }>;
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       provider: parsedProvider,
       forceOrders: true,
       forceReconciliation: true,
+      failOnLockedProvider: true,
     });
 
     return NextResponse.json({ success: true, summary });
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         success: false,
         error: error instanceof Error ? error.message : "Senkronizasyon basarisiz.",
       },
-      { status: 500 },
+      { status: isRedisLockError(error) ? 409 : 500 },
     );
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runMarketplaceSync } from "@/lib/db/marketplaces";
 import { marketplaceManualSyncSchema } from "@/app/api/admin/marketplace-integrations/_shared";
 import { isMarketplaceProvider } from "@/lib/marketplace-providers";
+import { isRedisLockError } from "@/lib/redis";
 
 async function handleSyncRun(request: NextRequest, body?: unknown) {
   const parsedBody = marketplaceManualSyncSchema.safeParse(body || {});
@@ -25,6 +26,7 @@ async function handleSyncRun(request: NextRequest, body?: unknown) {
     provider: provider && isMarketplaceProvider(provider) ? provider : undefined,
     forceOrders: parsedBody.data.forceOrders,
     forceReconciliation: parsedBody.data.forceReconciliation,
+    failOnLockedProvider: Boolean(provider),
   });
 
   return NextResponse.json({ success: true, summary });
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Zamanlanmis senkronizasyon basarisiz.",
       },
-      { status: 500 },
+      { status: isRedisLockError(error) ? 409 : 500 },
     );
   }
 }
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Senkronizasyon basarisiz.",
       },
-      { status: 500 },
+      { status: isRedisLockError(error) ? 409 : 500 },
     );
   }
 }

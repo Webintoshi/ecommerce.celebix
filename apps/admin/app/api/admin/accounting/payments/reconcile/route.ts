@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reconcileAccountingPayments } from "@/lib/db/accounting";
 import { isAccountingProvider } from "@/lib/accounting-providers";
+import { isRedisLockError } from "@/lib/redis";
 import type { AccountingProvider } from "@/types/accounting";
 
 export async function POST(request: NextRequest) {
@@ -20,8 +21,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Tahsilat uzlastirma basarisiz.",
       },
-      { status: 500 },
+      { status: isRedisLockError(error) ? 409 : 500 },
     );
   }
 }
-

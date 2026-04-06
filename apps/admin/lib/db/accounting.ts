@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { RedisLockError, releaseRedisLock, tryAcquireRedisLock } from "@/lib/redis";
 import {
   getAccountingProviderAdapter,
   getAccountingProviderDefinition,
@@ -61,6 +62,8 @@ type AccountingInvoiceRow = {
 };
 
 const MAX_RETRY_COUNT = 5;
+const SYNC_LOCK_SCOPE = "sync";
+const ACCOUNTING_SYNC_LOCK_TTL_MS = 15 * 60 * 1000;
 
 function isMissingRelationError(error: unknown) {
   const code = typeof error === "object" && error ? String((error as { code?: string }).code || "") : "";
@@ -111,6 +114,14 @@ function computeNextRetryDate(attemptCount: number) {
   const date = new Date();
   date.setMinutes(date.getMinutes() + minutes);
   return date.toISOString();
+}
+
+function buildAccountingSyncLockKey(provider: AccountingProvider) {
+  return `accounting:sync:${provider}`;
+}
+
+function buildAccountingLockMessage(provider: AccountingProvider) {
+  return `${provider} icin muhasebe senkronizasyonu zaten calisiyor.`;
 }
 
 function mapConnection(row: ProviderConnectionRow): AccountingProviderConnection {
@@ -639,12 +650,15 @@ export async function createInvoiceFromOrder(orderId: string, provider?: Account
   return { result, snapshot };
 }
 
-export async function runAccountingSync(provider?: AccountingProvider) {
+export async function runAccountingSync(options?: {
+  provider?: AccountingProvider;
+  failOnLockedProvider?: boolean;
+}) {
   const supabase = createServerClient();
   const activeProviders: AccountingProvider[] = [];
 
-  if (provider) {
-    activeProviders.push(provider);
+  if (options?.provider) {
+    activeProviders.push(options.provider);
   } else {
     const { data, error } = await supabase
       .from("accounting_provider_connections")
@@ -670,97 +684,140 @@ export async function runAccountingSync(provider?: AccountingProvider) {
     failedCount: number;
     manualCount: number;
     paymentsPulled: number;
+    lockSkipped?: boolean;
   }> = [];
 
   for (const activeProvider of activeProviders) {
-    const jobStart = new Date().toISOString();
-    const { data: jobRow } = await supabase
-      .from("accounting_sync_jobs")
-      .insert({
-        provider: activeProvider,
-        job_type: "manual_sync",
-        status: "running",
-        started_at: jobStart,
-        scheduled_at: jobStart,
-      })
-      .select("id")
-      .maybeSingle();
-
-    const queueSummary = await processAccountingInvoiceQueue({ provider: activeProvider, limit: 50 });
-    let paymentsPulled = 0;
-
-    try {
-      const connection = await getProviderConnectionRow(activeProvider);
-      if (connection) {
-        const credentials = decryptAccountingCredentials(connection.encrypted_credentials);
-        const adapter = getAccountingProviderAdapter(activeProvider);
-        const pulled = await adapter.pullPayments({
-          credentials,
-          since: connection.last_sync_at || undefined,
-        });
-
-        for (const payment of pulled) {
-          const { error: upsertError } = await supabase
-            .from("accounting_payments")
-            .upsert(
-              {
-                provider: activeProvider,
-                order_id: payment.orderId,
-                external_payment_id: payment.externalPaymentId,
-                amount: payment.amount,
-                currency: payment.currency,
-                status: payment.status,
-                paid_at: payment.paidAt,
-                payload: payment.raw,
-              },
-              { onConflict: "provider,external_payment_id" },
-            );
-          if (!upsertError) paymentsPulled += 1;
-        }
+    const lock = await tryAcquireRedisLock(
+      buildAccountingSyncLockKey(activeProvider),
+      ACCOUNTING_SYNC_LOCK_TTL_MS,
+      SYNC_LOCK_SCOPE,
+    );
+    if (lock === false) {
+      const lockMessage = buildAccountingLockMessage(activeProvider);
+      if (options?.failOnLockedProvider) {
+        throw new RedisLockError(lockMessage);
       }
-    } catch (paymentError) {
+
       await insertSyncLog({
         provider: activeProvider,
-        direction: "inbound",
-        entityType: "payment_reconcile",
-        entityId: null,
-        status: "failed",
-        errorMessage: paymentError instanceof Error ? paymentError.message : "Tahsilat cekme hatasi",
+        direction: "system",
+        entityType: "sync_job",
+        entityId: activeProvider,
+        status: "skipped_locked",
+        errorCode: "sync_already_running",
+        errorMessage: lockMessage,
       });
+
+      summaries.push({
+        provider: activeProvider,
+        queuedCount: 0,
+        syncedCount: 0,
+        failedCount: 0,
+        manualCount: 0,
+        paymentsPulled: 0,
+        lockSkipped: true,
+      });
+      continue;
     }
 
-    const finishTime = new Date().toISOString();
-    if (jobRow?.id) {
-      await supabase
+    try {
+      const jobStart = new Date().toISOString();
+      const { data: jobRow } = await supabase
         .from("accounting_sync_jobs")
-        .update({
-          status: "completed",
-          finished_at: finishTime,
-          metadata: {
-            ...queueSummary,
-            paymentsPulled,
-          },
+        .insert({
+          provider: activeProvider,
+          job_type: "manual_sync",
+          status: "running",
+          started_at: jobStart,
+          scheduled_at: jobStart,
         })
-        .eq("id", jobRow.id);
+        .select("id")
+        .maybeSingle();
+
+      const queueSummary = await processAccountingInvoiceQueue({ provider: activeProvider, limit: 50 });
+      let paymentsPulled = 0;
+
+      try {
+        const connection = await getProviderConnectionRow(activeProvider);
+        if (connection) {
+          const credentials = decryptAccountingCredentials(connection.encrypted_credentials);
+          const adapter = getAccountingProviderAdapter(activeProvider);
+          const pulled = await adapter.pullPayments({
+            credentials,
+            since: connection.last_sync_at || undefined,
+          });
+
+          for (const payment of pulled) {
+            const { error: upsertError } = await supabase
+              .from("accounting_payments")
+              .upsert(
+                {
+                  provider: activeProvider,
+                  order_id: payment.orderId,
+                  external_payment_id: payment.externalPaymentId,
+                  amount: payment.amount,
+                  currency: payment.currency,
+                  status: payment.status,
+                  paid_at: payment.paidAt,
+                  payload: payment.raw,
+                },
+                { onConflict: "provider,external_payment_id" },
+              );
+            if (!upsertError) paymentsPulled += 1;
+          }
+        }
+      } catch (paymentError) {
+        await insertSyncLog({
+          provider: activeProvider,
+          direction: "inbound",
+          entityType: "payment_reconcile",
+          entityId: null,
+          status: "failed",
+          errorMessage: paymentError instanceof Error ? paymentError.message : "Tahsilat cekme hatasi",
+        });
+      }
+
+      const finishTime = new Date().toISOString();
+      if (jobRow?.id) {
+        await supabase
+          .from("accounting_sync_jobs")
+          .update({
+            status: "completed",
+            finished_at: finishTime,
+            metadata: {
+              ...queueSummary,
+              paymentsPulled,
+            },
+          })
+          .eq("id", jobRow.id);
+      }
+
+      await supabase
+        .from("accounting_provider_connections")
+        .update({ last_sync_at: finishTime })
+        .eq("provider", activeProvider);
+
+      summaries.push({
+        provider: activeProvider,
+        ...queueSummary,
+        paymentsPulled,
+      });
+    } finally {
+      if (lock) {
+        await releaseRedisLock(lock);
+      }
     }
-
-    await supabase
-      .from("accounting_provider_connections")
-      .update({ last_sync_at: finishTime })
-      .eq("provider", activeProvider);
-
-    summaries.push({
-      provider: activeProvider,
-      ...queueSummary,
-      paymentsPulled,
-    });
   }
 
   return summaries;
 }
 
 export async function reconcileAccountingPayments(provider?: AccountingProvider) {
-  const summaries = await runAccountingSync(provider);
+  const summaries = await runAccountingSync({
+    provider,
+    failOnLockedProvider: Boolean(provider),
+  });
   return {
     providers: summaries,
     totalProviders: summaries.length,
@@ -1011,4 +1068,3 @@ export async function recordAccountingWebhook(
 
   return { success: true };
 }
-
