@@ -5,6 +5,7 @@ onlyIncludeFiles = [
   "package-lock.json",
   "node_modules",
   "scripts/prepare-next-standalone.cjs",
+  "scripts/iyzico-runner.cjs",
   "packages/platform-config",
   "stores",
   "apps/admin",
