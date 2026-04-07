@@ -12,17 +12,17 @@
   --brand-light: rgba(235, 101, 30, 0.2);
   
   /* Background Colors - KOYU */
-  --bg: #0F172A;
-  --bg-elevated: #1E293B;
-  --bg-subtle: #1E293B;
-  --bg-hover: #334155;
+  --bg: #1A1A2E;
+  --bg-elevated: #252542;
+  --bg-subtle: #252542;
+  --bg-hover: #353555;
   
   /* Text Colors - AÇIK */
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-tertiary: #64748B;
   --text-muted: #475569;
-  --text-inverse: #0F172A;
+  --text-inverse: #1A1A2E;
   
   /* Border Colors */
   --border-light: #1E293B;
