@@ -60,6 +60,7 @@ export default function CheckoutPage() {
     address: "",
     postalCode: "",
     city: "",
+    district: "",
     phone: "",
     country: "Türkiye",
   });
@@ -186,10 +187,15 @@ export default function CheckoutPage() {
       toast.error("Telefon numarası zorunludur.");
       return;
     }
-    if (!shippingInfo.address || !shippingInfo.city) {
+    if (false) {
       toast.error("Adres ve Şehir alanları zorunludur.");
       return;
     }
+    if (!shippingInfo.address || !shippingInfo.city || !shippingInfo.district) {
+      toast.error("Adres, şehir ve ilçe alanları zorunludur.");
+      return;
+    }
+
     if (!selectedShippingMethod || shippingRates.length === 0) {
       toast.error("Bu teslimat bölgesi için kargo seçeneği bulunamadı.");
       return;
@@ -663,6 +669,8 @@ export default function CheckoutPage() {
                         <label className="text-sm font-medium text-gray-600">İlçe</label>
                         <input
                           type="text"
+                          value={shippingInfo.district}
+                          onChange={(e) => setShippingInfo({ ...shippingInfo, district: e.target.value })}
                           className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                           placeholder="İlçe"
                         />

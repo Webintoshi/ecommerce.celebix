@@ -1,5 +1,8 @@
 import {
   buildBasitKargoOrderPayload,
+  encodeBasitKargoRequestBody,
+  getBasitKargoValidationFailure,
+  normalizeBasitKargoShippingAddress,
   parseBasitKargoDispatchResult,
   resolveDispatchIntegration,
   type ShippingDispatchTrigger,
@@ -89,14 +92,43 @@ async function hasExistingProviderDispatch(orderId: string, provider: string) {
   });
 }
 
+async function insertDispatchFailureLog(
+  serverClient: ReturnType<typeof createServerClient>,
+  order: OrderRow,
+  provider: string,
+  reason: string,
+) {
+  const { error: logError } = await serverClient.from("order_activity_log").insert({
+    order_id: order.id,
+    action: "shipping_dispatch_failed",
+    old_value: {
+      carrier: order.shipping_carrier,
+      trackingNumber: order.tracking_number,
+    },
+    new_value: {
+      provider,
+      reason,
+      source: "shipping-integration",
+    },
+    created_at: new Date().toISOString(),
+  });
+
+  if (logError) {
+    console.error("Shipping dispatch failure log insert error:", logError);
+  }
+}
+
 async function dispatchBasitKargoOrder(order: OrderRow, items: OrderItemRow[], apiToken: string) {
+  const normalizedShippingAddress = await normalizeBasitKargoShippingAddress(
+    order.shipping_address || {},
+  );
   const payload = buildBasitKargoOrderPayload(
     {
       id: order.id,
       orderNumber: order.order_number,
       total: Number(order.total || 0),
       paymentMethod: order.payment_method,
-      shippingAddress: order.shipping_address || {},
+      shippingAddress: normalizedShippingAddress,
     },
     items.map((item) => ({
       productName: item.product_name,
@@ -105,6 +137,7 @@ async function dispatchBasitKargoOrder(order: OrderRow, items: OrderItemRow[], a
       code: item.variant_id || item.product_id || undefined,
     })),
   );
+  const requestBody = encodeBasitKargoRequestBody(payload);
 
   const response = await fetch("https://basitkargo.com/api/v2/order", {
     method: "POST",
@@ -112,8 +145,9 @@ async function dispatchBasitKargoOrder(order: OrderRow, items: OrderItemRow[], a
       Authorization: `Bearer ${apiToken}`,
       "Content-Type": "application/json",
       Accept: "application/json",
+      "Content-Length": String(requestBody.byteLength),
     },
-    body: JSON.stringify(payload),
+    body: requestBody,
     cache: "no-store",
   });
 
@@ -130,6 +164,11 @@ async function dispatchBasitKargoOrder(order: OrderRow, items: OrderItemRow[], a
     throw new Error(
       stringifyError(parsedBody, `Basit Kargo order API hatası (${response.status})`),
     );
+  }
+
+  const validationFailure = getBasitKargoValidationFailure(parsedBody);
+  if (validationFailure) {
+    throw new Error(validationFailure);
   }
 
   return parseBasitKargoDispatchResult(parsedBody, "Basit Kargo");
@@ -172,7 +211,15 @@ export async function attemptOrderShippingDispatch(
     return { attempted: false as const, reason: "missing_credentials" as const };
   }
 
-  const dispatch = await dispatchBasitKargoOrder(order, items, apiToken);
+  let dispatch;
+  try {
+    dispatch = await dispatchBasitKargoOrder(order, items, apiToken);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Basit Kargo gönderimi başarısız oldu.";
+    await insertDispatchFailureLog(serverClient, order, integration.provider, message);
+    throw error;
+  }
 
   const updatePayload: Record<string, unknown> = {};
   if (dispatch.carrier) updatePayload.shipping_carrier = dispatch.carrier;
