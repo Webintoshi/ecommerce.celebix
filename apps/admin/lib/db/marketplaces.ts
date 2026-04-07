@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { createServerClient } from "@/lib/supabase";
 import { decryptMarketplaceCredentials, encryptMarketplaceCredentials } from "@/lib/marketplace-crypto";
+import { syncGoogleMerchantCatalogSnapshot } from "@/lib/google-merchant";
 import { RedisLockError, releaseRedisLock, tryAcquireRedisLock } from "@/lib/redis";
 import {
   getMarketplaceProviderAdapter,
@@ -158,6 +159,31 @@ function mergeAdapterSettings(input: {
     ...(input.settings || {}),
     ...(input.fieldMappings || {}),
   };
+}
+
+function extractGoogleMerchantSettingsPatch(raw: Record<string, unknown> | undefined) {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (typeof raw.feedUrl === "string" && raw.feedUrl.trim()) {
+    patch.feedUrl = raw.feedUrl.trim();
+  }
+  if (typeof raw.feedItemCount === "number") {
+    patch.feedItemCount = raw.feedItemCount;
+  }
+  if (typeof raw.feedIssueCount === "number") {
+    patch.feedIssueCount = raw.feedIssueCount;
+  }
+  if (Array.isArray(raw.sampleIssues)) {
+    patch.sampleIssues = raw.sampleIssues;
+  }
+  if (raw.feedSettings && typeof raw.feedSettings === "object") {
+    Object.assign(patch, raw.feedSettings as Record<string, unknown>);
+  }
+
+  return patch;
 }
 
 function extractProviderErrorCode(payload: Record<string, unknown>) {
@@ -1017,6 +1043,13 @@ export async function saveMarketplaceConnection(provider: MarketplaceProvider, i
         raw: context.raw,
       };
     });
+  const persistedSettings =
+    provider === "google_merchant"
+      ? {
+          ...adapterSettings,
+          ...extractGoogleMerchantSettingsPatch(connectionResult.raw),
+        }
+      : adapterSettings;
 
   const supabase = createServerClient();
   const now = new Date().toISOString();
@@ -1027,7 +1060,7 @@ export async function saveMarketplaceConnection(provider: MarketplaceProvider, i
         provider,
         status: connectionResult.success ? "active" : "error",
         encrypted_credentials: encryptedCredentials,
-        settings: adapterSettings,
+        settings: persistedSettings,
         field_mappings: input.fieldMappings || {},
         supports_webhook: definition.supportsWebhook,
         last_healthcheck_at: now,
@@ -1053,7 +1086,7 @@ export async function saveMarketplaceConnection(provider: MarketplaceProvider, i
     errorCode: connectionResult.providerErrorCode || null,
     errorMessage: connectionResult.success ? null : connectionResult.message,
     payload: {
-      settings: adapterSettings,
+      settings: persistedSettings,
       providerStatusCode: connectionResult.providerStatusCode || null,
       latencyMs: connectionResult.latencyMs || null,
       raw: connectionResult.raw || {},
@@ -1097,6 +1130,13 @@ export async function testMarketplaceConnection(provider: MarketplaceProvider) {
         raw: context.raw,
       };
     });
+  const persistedSettings =
+    provider === "google_merchant"
+      ? {
+          ...adapterSettings,
+          ...extractGoogleMerchantSettingsPatch(result.raw),
+        }
+      : adapterSettings;
   const supabase = createServerClient();
   const now = new Date().toISOString();
 
@@ -1104,6 +1144,7 @@ export async function testMarketplaceConnection(provider: MarketplaceProvider) {
     .from("marketplace_provider_connections")
     .update({
       status: result.success ? "active" : "error",
+      settings: persistedSettings,
       last_healthcheck_at: now,
       last_healthcheck_status: result.success ? "ok" : "failed",
       last_healthcheck_message: result.message,
@@ -1124,6 +1165,7 @@ export async function testMarketplaceConnection(provider: MarketplaceProvider) {
     errorCode: result.providerErrorCode || null,
     errorMessage: result.success ? null : result.message,
     payload: {
+      settings: persistedSettings,
       providerStatusCode: result.providerStatusCode || null,
       latencyMs: result.latencyMs || null,
       raw: result.raw || {},

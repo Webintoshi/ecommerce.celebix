@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   AmazonTrLogo,
+  GoogleMerchantLogo,
   HepsiburadaLogo,
   N11Logo,
   TrendyolLogo,
@@ -66,6 +67,7 @@ const PROVIDER_COLORS: Record<string, ProviderColorStyle> = {
   hepsiburada: { bg: "bg-red-100", text: "text-red-700" },
   n11: { bg: "bg-blue-100", text: "text-blue-700" },
   amazon_tr: { bg: "bg-slate-100", text: "text-slate-700" },
+  google_merchant: { bg: "bg-blue-100", text: "text-blue-700" },
   ciceksepeti: { bg: "bg-pink-100", text: "text-pink-700" },
 };
 
@@ -74,6 +76,7 @@ const PROVIDER_LOGOS: Partial<Record<MarketplaceProvider, ComponentType<{ size?:
   hepsiburada: HepsiburadaLogo,
   n11: N11Logo,
   amazon_tr: AmazonTrLogo,
+  google_merchant: GoogleMerchantLogo,
 };
 
 function ProviderLogo({
@@ -415,6 +418,18 @@ export default function MarketsPage() {
     const colorStyle = PROVIDER_COLORS[providerId] || { bg: "bg-gray-100", text: "text-gray-700" };
     const listings = listingsByProvider[selectedProvider] || [];
     const logs = logsByProvider[selectedProvider] || [];
+    const googleFeedUrl =
+      providerId === "google_merchant" && typeof integration.connection?.settings?.feedUrl === "string"
+        ? integration.connection.settings.feedUrl
+        : "";
+    const googleFeedItemCount =
+      providerId === "google_merchant" && typeof integration.connection?.settings?.feedItemCount === "number"
+        ? integration.connection.settings.feedItemCount
+        : null;
+    const googleFeedIssueCount =
+      providerId === "google_merchant" && typeof integration.connection?.settings?.feedIssueCount === "number"
+        ? integration.connection.settings.feedIssueCount
+        : null;
 
     return (
       <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
@@ -471,6 +486,64 @@ export default function MarketsPage() {
               </div>
             </div>
           </div>
+
+          {providerId === "google_merchant" && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
+                <div className="space-y-2">
+                  <h2 className="font-semibold text-gray-900">Merchant Feed URL</h2>
+                  <p className="text-sm text-gray-500">
+                    Google Merchant Center icinde Scheduled Fetch kaynagi olarak bu adresi kullan.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {googleFeedItemCount !== null && (
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 font-medium text-green-700">
+                      {googleFeedItemCount} hazir urun
+                    </span>
+                  )}
+                  {googleFeedIssueCount !== null && (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700">
+                      {googleFeedIssueCount} issue
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    readOnly
+                    value={googleFeedUrl || "Baglanti kaydedildiginde feed URL burada gorunecek."}
+                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
+                  />
+                  {googleFeedUrl ? (
+                    <a
+                      href={googleFeedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      Ac
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 text-sm text-gray-600 md:grid-cols-3">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  1. Merchant Center &gt; Products &gt; Data sources
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  2. Scheduled Fetch sec ve URL olarak bu feed adresini gir
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  3. Sonra bu ekrandan Senkronize Et ile issue durumlarini kontrol et
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Form */}

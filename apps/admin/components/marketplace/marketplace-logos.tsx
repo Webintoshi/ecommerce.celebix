@@ -13,6 +13,7 @@ const LOGO_PATHS: Record<string, string> = {
   hepsiburada: "/marketplace-logos/hepsiburada.png",
   n11: "/marketplace-logos/n11.png",
   amazon_tr: "/marketplace-logos/amazon-tr.png",
+  google_merchant: "/marketplace-logos/google-merchant.png",
 };
 
 // Placeholder component
@@ -112,6 +113,45 @@ export function AmazonTrLogo({ className = "", size = 40 }: LogoProps) {
     <img
       src={LOGO_PATHS.amazon_tr}
       alt="Amazon TR"
+      width={size}
+      height={size}
+      className={className}
+      style={{ borderRadius: 10, objectFit: "contain" }}
+      onError={() => setError(true)}
+    />
+  );
+}
+
+export function GoogleMerchantLogo({ className = "", size = 40 }: LogoProps) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 10,
+          background: "white",
+          border: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 800,
+          fontSize: size > 40 ? 18 : 14,
+          color: "#4285F4",
+        }}
+      >
+        G
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={LOGO_PATHS.google_merchant}
+      alt="Google Merchant"
       width={size}
       height={size}
       className={className}

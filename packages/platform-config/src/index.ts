@@ -6,6 +6,7 @@ export * from "./typography";
 export * from "./image-formats";
 export * from "./image-transformation";
 export * from "./category-hierarchy";
+export * from "./google-merchant";
 export * from "./shipping";
 export * from "./translation";
 

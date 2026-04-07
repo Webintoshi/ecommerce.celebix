@@ -9,11 +9,13 @@ import { createTrendyolAdapter } from "@/lib/marketplace/adapters/trendyol";
 import { createHepsiburadaAdapter } from "@/lib/marketplace/adapters/hepsiburada";
 import { createN11Adapter } from "@/lib/marketplace/adapters/n11";
 import { createAmazonTrAdapter } from "@/lib/marketplace/adapters/amazon-tr";
+import { createGoogleMerchantAdapter } from "@/lib/marketplace/adapters/google-merchant";
 import {
   TrendyolLogo,
   HepsiburadaLogo,
   N11Logo,
   AmazonTrLogo,
+  GoogleMerchantLogo,
 } from "@/components/marketplace/marketplace-logos";
 
 export const MARKETPLACE_PROVIDER_DEFINITIONS: MarketplaceProviderDefinition[] = [
@@ -111,6 +113,40 @@ export const MARKETPLACE_PROVIDER_DEFINITIONS: MarketplaceProviderDefinition[] =
     ],
     capabilities: ["listing", "inventory", "orders", "status", "polling"],
   },
+  {
+    id: "google_merchant",
+    name: "Google Merchant",
+    description:
+      "Merchant Center Scheduled Fetch icin otomatik urun feed'i, katalog sorunlari ve yayina hazirlik ozeti.",
+    websiteUrl: "https://merchants.google.com",
+    docsUrl: "https://support.google.com/merchants/answer/7052112?hl=en",
+    logo: "G",
+    logoComponent: GoogleMerchantLogo,
+    color: "from-blue-500 via-red-500 to-yellow-500",
+    supportsWebhook: false,
+    credentialFields: [
+      {
+        key: "merchantId",
+        label: "Merchant Center ID",
+        required: false,
+        placeholder: "Opsiyonel",
+        description: "Scheduled Fetch icin zorunlu degildir, sadece referans icin saklanir.",
+      },
+    ],
+    mappingFields: [
+      { key: "contentLanguage", label: "Icerik dili", placeholder: "tr" },
+      { key: "targetCountry", label: "Hedef ulke", placeholder: "TR" },
+      { key: "currency", label: "Para birimi", placeholder: "TRY" },
+      { key: "feedLabel", label: "Feed label", placeholder: "TR" },
+      {
+        key: "googleProductCategory",
+        label: "Google product category",
+        placeholder: "Apparel & Accessories > Jewelry",
+      },
+      { key: "customLabel0", label: "Custom label 0", placeholder: "bestseller" },
+    ],
+    capabilities: ["listing", "feed", "catalog", "scheduled_fetch"],
+  },
 ];
 
 const providerIdSet = new Set<string>(MARKETPLACE_PROVIDER_DEFINITIONS.map((provider) => provider.id));
@@ -146,11 +182,16 @@ const amazonCredentialsSchema = z.object({
   marketplaceId: z.string().trim().optional().or(z.literal("")),
 });
 
+const googleMerchantCredentialsSchema = z.object({
+  merchantId: z.string().trim().optional().or(z.literal("")),
+});
+
 export const MARKETPLACE_CREDENTIAL_SCHEMAS = {
   trendyol: trendyolCredentialsSchema,
   hepsiburada: hepsiburadaCredentialsSchema,
   n11: n11CredentialsSchema,
   amazon_tr: amazonCredentialsSchema,
+  google_merchant: googleMerchantCredentialsSchema,
 } as const;
 
 type CredentialSchemaMap = typeof MARKETPLACE_CREDENTIAL_SCHEMAS;
@@ -185,6 +226,7 @@ const ADAPTERS: Record<MarketplaceProvider, MarketplaceProviderAdapter> = {
   hepsiburada: createHepsiburadaAdapter(),
   n11: createN11Adapter(),
   amazon_tr: createAmazonTrAdapter(),
+  google_merchant: createGoogleMerchantAdapter(),
 };
 
 export function isMarketplaceProvider(value: string): value is MarketplaceProvider {

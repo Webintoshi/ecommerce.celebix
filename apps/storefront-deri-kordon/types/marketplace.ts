@@ -1,4 +1,9 @@
-export type MarketplaceProvider = "trendyol" | "hepsiburada" | "n11" | "amazon_tr";
+export type MarketplaceProvider =
+  | "trendyol"
+  | "hepsiburada"
+  | "n11"
+  | "amazon_tr"
+  | "google_merchant";
 
 export type MarketplaceConnectionStatus = "disconnected" | "active" | "error";
 
@@ -55,11 +60,16 @@ export interface AmazonTrCredentials {
   marketplaceId?: string;
 }
 
+export interface GoogleMerchantCredentials {
+  merchantId?: string;
+}
+
 export type MarketplaceProviderCredentialsMap = {
   trendyol: TrendyolCredentials;
   hepsiburada: HepsiburadaCredentials;
   n11: N11Credentials;
   amazon_tr: AmazonTrCredentials;
+  google_merchant: GoogleMerchantCredentials;
 };
 
 export type MarketplaceProviderCredentials<P extends MarketplaceProvider = MarketplaceProvider> =
