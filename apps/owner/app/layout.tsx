@@ -28,7 +28,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <aside className="sidebar">
             <div className="sidebar-header">
               <Link href="/" className="brand-lockup">
-                <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="logo-img" />
+                <img 
+                  src="https://celebix.co/Logo/koyu%20logo.svg" 
+                  alt="Celebix" 
+                  className="logo-img" 
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
                 <div>
                   <strong>Celebix</strong>
                   <span>Owner Panel</span>
@@ -104,11 +109,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </aside>
 
           <div className="main-area">
-            <header className="topbar">
-              <div className="topbar-meta">
-                <strong>Owner Control Plane</strong>
-                <span>Magaza, operasyon ve gelir yonetimi</span>
-              </div>
+            <header className="topbar" style={{ justifyContent: "flex-end" }}>
               <div className="topbar-user">
                 <span className="pill pill-accent">{roleLabel}</span>
                 <span style={{ color: "#2B2B2B", fontWeight: 600 }}>{userName}</span>
