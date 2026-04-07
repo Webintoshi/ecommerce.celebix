@@ -11,33 +11,43 @@ export default async function OperationsPage() {
       <div className="page-header">
         <div>
           <h1>Operasyon</h1>
-          <p>Supabase, R2, storefront, admin kapsama alani ve son owner aktivitelerini tek panelden izle.</p>
+          <p>Supabase, R2, storefront, admin kapsama alani ve aktiviteleri tek panelden izle.</p>
         </div>
       </div>
 
+      {/* Operation Metrics */}
       <div className="metric-row metric-row-5">
         <div className="metric-box">
-          <div className="metric-box-label">Hazir store</div>
-          <div className="metric-box-value">{summary.totals.readyStores}</div>
+          <div className="metric-box-label">Hazir Store</div>
+          <div className="metric-box-value" style={{ color: "var(--success)" }}>
+            {summary.totals.readyStores}
+          </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Supabase eksik</div>
-          <div className="metric-box-value">{summary.totals.missingSupabase}</div>
+          <div className="metric-box-label">Supabase Eksik</div>
+          <div className="metric-box-value" style={{ color: summary.totals.missingSupabase > 0 ? "var(--error)" : "inherit" }}>
+            {summary.totals.missingSupabase}
+          </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">R2 eksik</div>
-          <div className="metric-box-value">{summary.totals.missingR2}</div>
+          <div className="metric-box-label">R2 Eksik</div>
+          <div className="metric-box-value" style={{ color: summary.totals.missingR2 > 0 ? "var(--error)" : "inherit" }}>
+            {summary.totals.missingR2}
+          </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Admin kapsami eksik</div>
-          <div className="metric-box-value">{summary.totals.missingAdmins}</div>
+          <div className="metric-box-label">Admin Eksik</div>
+          <div className="metric-box-value" style={{ color: summary.totals.missingAdmins > 0 ? "var(--warning)" : "inherit" }}>
+            {summary.totals.missingAdmins}
+          </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Storefront bekleyen</div>
+          <div className="metric-box-label">Storefront Bekleyen</div>
           <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
         </div>
       </div>
 
+      {/* Operations Table & Activity */}
       <div className="split-grid">
         <div className="card">
           <div className="table-wrap">
@@ -49,7 +59,7 @@ export default async function OperationsPage() {
                   <th>Supabase</th>
                   <th>R2</th>
                   <th>Storefront</th>
-                  <th>Son sync</th>
+                  <th>Son Sync</th>
                 </tr>
               </thead>
               <tbody>
@@ -60,10 +70,26 @@ export default async function OperationsPage() {
                       <div className="table-inline-meta">{row.storefrontDomain}</div>
                     </td>
                     <td>
-                      <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>{row.health.label}</span>
+                      <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
+                        {row.health.label}
+                      </span>
                     </td>
-                    <td>{row.supabaseProjectRef || "Eksik"}</td>
-                    <td>{row.r2BucketName || "Eksik"}</td>
+                    <td>
+                      <span style={{ 
+                        color: row.supabaseProjectRef ? "var(--success)" : "var(--error)",
+                        fontWeight: 600
+                      }}>
+                        {row.supabaseProjectRef || "Eksik"}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ 
+                        color: row.r2BucketName ? "var(--success)" : "var(--error)",
+                        fontWeight: 600
+                      }}>
+                        {row.r2BucketName || "Eksik"}
+                      </span>
+                    </td>
                     <td>{row.storefrontStatus}</td>
                     <td>{formatDateTime(row.lastSyncedAt)}</td>
                   </tr>
@@ -74,21 +100,25 @@ export default async function OperationsPage() {
         </div>
 
         <div className="card">
-          <div className="card-title">Son operasyon aktiviteleri</div>
-          <div className="activity-list">
-            {summary.recentActivity.map((item) => (
-              <div key={item.id} className="activity-item">
-                <div>
-                  <strong>{item.targetLabel}</strong>
-                  <p>{item.action.replaceAll("_", " ")}</p>
+          <div className="card-title">Son Operasyon Aktiviteleri</div>
+          {summary.recentActivity.length === 0 ? (
+            <p className="muted">Henüz aktivite kaydı yok.</p>
+          ) : (
+            <div className="activity-list">
+              {summary.recentActivity.map((item) => (
+                <div key={item.id} className="activity-item">
+                  <div>
+                    <strong>{item.targetLabel}</strong>
+                    <p>{item.action.replaceAll("_", " ")}</p>
+                  </div>
+                  <div className="activity-meta">
+                    <span>{item.actorName}</span>
+                    <span>{formatDateTime(item.createdAt)}</span>
+                  </div>
                 </div>
-                <div className="activity-meta">
-                  <span>{item.actorName}</span>
-                  <span>{formatDateTime(item.createdAt)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>

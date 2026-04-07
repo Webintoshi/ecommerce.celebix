@@ -16,23 +16,34 @@ export default async function ClientsPage() {
         </div>
       </div>
 
-      <div className="status-grid">
-        {clients.map((client) => (
-          <Link key={client.id} href={`/stores/${client.slug}`} className="status-card">
-            <div className="status-card-top">
-              <strong>{client.clientCompanyName}</strong>
-              <span className={`pill ${client.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>{client.lifecycleStage}</span>
-            </div>
-            <p>{client.nextAction || "Siradaki aksiyon tanimlanmamis."}</p>
-            <div className="meta-pairs">
-              <span>Magaza: {client.storeName}</span>
-              <span>Ic sorumlu: {client.internalOwner || "Atanmadi"}</span>
-              <span>Iletisim: {client.clientContactName || client.clientContactEmail || "-"}</span>
-              <span>Ciro: {formatCurrency(client.totalRevenue)}</span>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {clients.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <h3>Henüz Müşteri Yok</h3>
+            <p>Müşteriler projelerle birlikte otomatik olarak listelenecektir.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="status-grid">
+          {clients.map((client) => (
+            <Link key={client.id} href={`/stores/${client.slug}`} className="status-card">
+              <div className="status-card-top">
+                <strong>{client.clientCompanyName}</strong>
+                <span className={`pill ${client.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
+                  {client.lifecycleStage}
+                </span>
+              </div>
+              <p>{client.nextAction || "Siradaki aksiyon tanimlanmamis."}</p>
+              <div className="meta-pairs" style={{ marginTop: 12, fontSize: 12 }}>
+                <span>Magaza: <strong>{client.storeName}</strong></span>
+                <span>Ic sorumlu: <strong>{client.internalOwner || "Atanmadi"}</strong></span>
+                <span>Iletisim: <strong>{client.clientContactName || client.clientContactEmail || "-"}</strong></span>
+                <span>Ciro: <strong>{formatCurrency(client.totalRevenue)}</strong></span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </>
   );
 }

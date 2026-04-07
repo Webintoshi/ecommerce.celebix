@@ -32,8 +32,8 @@ export default async function OwnerDashboardPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Control plane</h1>
-          <p>Tum projeleri, teknik sagligi ve ticari akisi tek owner merkezinden yonet.</p>
+          <h1>Dashboard</h1>
+          <p>Tum projeleri, teknik sagligi ve ticari akisi tek merkezden yonet.</p>
         </div>
         <div className="actions">
           <Link className="button button-secondary" href="/stores">
@@ -47,46 +47,50 @@ export default async function OwnerDashboardPage() {
         </div>
       </div>
 
+      {/* Hero Stats - Premium Solid Cards */}
       <div className="hero-grid">
         <div className="hero-card hero-card-primary">
-          <div className="hero-card-label">Toplam proje geliri</div>
+          <div className="hero-card-label">Toplam Proje Geliri</div>
           <div className="hero-card-value">{formatCurrency(totals.setupRevenue)}</div>
           <p>
-            Her yeni proje 19.000 TL kurulum geliri olarak sayiliyor. Su an {totals.activeStores} aktif proje, {totals.draftStores} taslak proje var.
+            Her yeni proje 19.000 TL kurulum geliri olarak kaydedilir. 
+            Su an {totals.activeStores} aktif, {totals.draftStores} taslak proje mevcut.
           </p>
         </div>
         <div className="hero-card">
-          <div className="hero-card-label">Toplam ekosistem GMV</div>
+          <div className="hero-card-label">Toplam Ekosistem GMV</div>
           <div className="hero-card-value">{formatCurrency(totals.revenue)}</div>
           <p>
-            Magazalarin urettigi toplam siparis hacmi. Tahmini affiliate etkisi: {formatCurrency(totals.affiliateExposure)}.
+            Magazalarin urettigi toplam siparis hacmi. 
+            Tahmini affiliate etkisi: {formatCurrency(totals.affiliateExposure)}.
           </p>
         </div>
       </div>
 
+      {/* Metric Row */}
       <div className="metric-row metric-row-6">
         <div className="metric-box">
-          <div className="metric-box-label">Toplam siparis</div>
-          <div className="metric-box-value">{totals.orders}</div>
+          <div className="metric-box-label">Toplam Siparis</div>
+          <div className="metric-box-value">{totals.orders.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Toplam musteri</div>
-          <div className="metric-box-value">{totals.customers}</div>
+          <div className="metric-box-label">Toplam Musteri</div>
+          <div className="metric-box-value">{totals.customers.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Aktif proje</div>
+          <div className="metric-box-label">Aktif Proje</div>
           <div className="metric-box-value">{totals.activeStores}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Taslak proje</div>
+          <div className="metric-box-label">Taslak Proje</div>
           <div className="metric-box-value">{totals.draftStores}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Canli storefront</div>
+          <div className="metric-box-label">Canli Storefront</div>
           <div className="metric-box-value">{totals.liveStorefronts}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Bekleyen siparis</div>
+          <div className="metric-box-label">Bekleyen Siparis</div>
           <div className="metric-box-value">{totals.pendingOrders}</div>
         </div>
       </div>
@@ -97,12 +101,13 @@ export default async function OwnerDashboardPage() {
         </div>
       ) : null}
 
+      {/* Attention Stores */}
       {dashboard && dashboard.attentionStores.length > 0 ? (
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="section-head">
             <div>
-              <div className="card-title">Acil owner dikkati isteyen projeler</div>
-              <p className="section-copy">Kurulum, admin kapsama alani veya operasyon baskisi acisindan takip gerektiren magazalar.</p>
+              <div className="card-title">Dikkat Gerektiren Projeler</div>
+              <p className="section-copy">Kurulum, admin kapsama alani veya operasyon acisindan takip gerektiren magazalar.</p>
             </div>
           </div>
           <div className="status-grid">
@@ -110,13 +115,15 @@ export default async function OwnerDashboardPage() {
               <Link key={store.id} href={`/stores/${store.slug}`} className="status-card">
                 <div className="status-card-top">
                   <strong>{store.name}</strong>
-                  <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>{store.health.label}</span>
+                  <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
+                    {store.health.label}
+                  </span>
                 </div>
                 <p>{store.management.nextAction || "Owner tarafinda sonraki aksiyon henuz tanimlanmamis."}</p>
                 <div className="status-card-meta">
                   <span>Admin: {store.storeAdminCount}</span>
                   <span>R2: {store.health.r2Ready ? "hazir" : "eksik"}</span>
-                  <span>Bekleyen siparis: {store.pendingOrderCount}</span>
+                  <span>Bekleyen: {store.pendingOrderCount}</span>
                 </div>
               </Link>
             ))}
@@ -124,12 +131,13 @@ export default async function OwnerDashboardPage() {
         </div>
       ) : null}
 
+      {/* Split Grid: Spotlight Stores & Recent Activity */}
       <div className="split-grid">
         <div className="card">
           <div className="section-head">
             <div>
-              <div className="card-title">En cok gelir ureten projeler</div>
-              <p className="section-copy">Tek paket yapisinda hangi magazalarin en cok hacim urettigini gor.</p>
+              <div className="card-title">En Cok Gelir Ureten Projeler</div>
+              <p className="section-copy">Hangi magazalarin en cok hacim urettigini gor.</p>
             </div>
             <Link className="button button-secondary" href="/finance">
               Finans paneli
@@ -138,7 +146,7 @@ export default async function OwnerDashboardPage() {
 
           {!dashboard || dashboard.spotlightStores.length === 0 ? (
             <div className="empty-state">
-              <h3>Projeler hazir degil</h3>
+              <h3>Projeler Hazir Degil</h3>
               <p>Ilk senkronlardan sonra burasi dolacak.</p>
             </div>
           ) : (
@@ -150,8 +158,7 @@ export default async function OwnerDashboardPage() {
                     <th>Durum</th>
                     <th>Ciro</th>
                     <th>Siparis</th>
-                    <th>Affiliate</th>
-                    <th style={{ textAlign: "right" }}>Aksiyon</th>
+                    <th style={{ textAlign: "right" }}>Islem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -166,7 +173,6 @@ export default async function OwnerDashboardPage() {
                       </td>
                       <td>{formatCurrency(store.totalRevenue)}</td>
                       <td>{store.orderCount}</td>
-                      <td>%{formatPercent(store.totalAffiliateRate)}</td>
                       <td style={{ textAlign: "right" }}>
                         <div className="actions no-margin" style={{ justifyContent: "flex-end" }}>
                           <Link className="button button-secondary" href={`/stores/${store.slug}`}>
@@ -188,13 +194,15 @@ export default async function OwnerDashboardPage() {
         <div className="card">
           <div className="section-head">
             <div>
-              <div className="card-title">Son owner aktiviteleri</div>
+              <div className="card-title">Son Aktiviteler</div>
               <p className="section-copy">Atama, profil guncelleme ve proje hareketleri.</p>
             </div>
           </div>
 
           {!dashboard || dashboard.recentActivity.length === 0 ? (
-            <p className="muted">Henuz owner audit kaydi yok.</p>
+            <div className="empty-state" style={{ padding: "32px 24px" }}>
+              <p className="muted">Henuz aktivite kaydi yok.</p>
+            </div>
           ) : (
             <div className="activity-list">
               {dashboard.recentActivity.map((item) => (

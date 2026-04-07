@@ -10,7 +10,7 @@ export default async function NewStorePage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Yeni proje olustur</h1>
+          <h1>Yeni Proje Olustur</h1>
           <p>
             Yeni magaza kaydi, config dosyalari ve env sablonu olusturulur.
             {supabaseBootstrap.configured
@@ -20,7 +20,7 @@ export default async function NewStorePage() {
         </div>
       </div>
 
-      <div className="card" style={{ maxWidth: 720 }}>
+      <div className="card" style={{ maxWidth: 800 }}>
         <CreateStoreForm />
       </div>
     </>

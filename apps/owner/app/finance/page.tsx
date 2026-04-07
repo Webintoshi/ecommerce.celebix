@@ -11,13 +11,14 @@ export default async function FinancePage() {
       <div className="page-header">
         <div>
           <h1>Finans</h1>
-          <p>Tek paket yapisinda tum magazalarin GMV, sepet ortalamasi ve affiliate etkisini tek ekranda izle.</p>
+          <p>Tum magazalarin GMV, sepet ortalamasi ve affiliate etkisini tek ekranda izle.</p>
         </div>
       </div>
 
+      {/* Finance Metrics */}
       <div className="metric-row metric-row-6">
         <div className="metric-box">
-          <div className="metric-box-label">Kurulum geliri</div>
+          <div className="metric-box-label">Kurulum Geliri</div>
           <div className="metric-box-value">{formatCurrency(summary.totals.setupRevenue)}</div>
         </div>
         <div className="metric-box">
@@ -25,23 +26,24 @@ export default async function FinancePage() {
           <div className="metric-box-value">{formatCurrency(summary.totals.revenue)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Toplam siparis</div>
-          <div className="metric-box-value">{summary.totals.orders}</div>
+          <div className="metric-box-label">Toplam Siparis</div>
+          <div className="metric-box-value">{summary.totals.orders.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Sepet ortalamasi</div>
+          <div className="metric-box-label">Sepet Ortalamasi</div>
           <div className="metric-box-value">{formatCurrency(summary.totals.averageOrderValue)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Affiliate etkisi</div>
+          <div className="metric-box-label">Affiliate Etkisi</div>
           <div className="metric-box-value">{formatCurrency(summary.totals.affiliateExposure)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Bekleyen siparis</div>
+          <div className="metric-box-label">Bekleyen Siparis</div>
           <div className="metric-box-value">{summary.totals.pendingOrders}</div>
         </div>
       </div>
 
+      {/* Finance Table */}
       <div className="card">
         <div className="table-wrap">
           <table>
@@ -54,7 +56,7 @@ export default async function FinancePage() {
                 <th>Siparis</th>
                 <th>AOV</th>
                 <th>Affiliate</th>
-                <th>Tahmini pay</th>
+                <th>Tahmini Pay</th>
               </tr>
             </thead>
             <tbody>
@@ -68,8 +70,8 @@ export default async function FinancePage() {
                     <span className="pill pill-accent">{row.billingStatus}</span>
                   </td>
                   <td>{formatCurrency(row.setupRevenue)}</td>
-                  <td>{formatCurrency(row.totalRevenue)}</td>
-                  <td>{row.orderCount}</td>
+                  <td style={{ fontWeight: 600 }}>{formatCurrency(row.totalRevenue)}</td>
+                  <td>{row.orderCount.toLocaleString('tr-TR')}</td>
                   <td>{formatCurrency(row.averageOrderValue)}</td>
                   <td>
                     %{formatPercent(row.commissionRate ?? row.totalAffiliateRate)}

@@ -20,38 +20,42 @@ export default async function AffiliatesPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Affiliate yonetimi</h1>
+          <h1>Affiliate Yonetimi</h1>
           <p>Gelir ortaklari olustur, proje ata ve komisyon oranlarini yonet.</p>
         </div>
       </div>
 
       <div className="info-row">
         <div className="card">
-          <div className="card-title">Yeni affiliate ekle</div>
+          <div className="card-title">Yeni Affiliate Ekle</div>
           {superAdmin ? (
             <CreateAffiliateForm stores={stores.map((store) => ({ slug: store.slug, name: store.name }))} />
           ) : (
-            <p className="muted">Bu islem icin super admin yetkisi gerekli.</p>
+            <div className="empty-state" style={{ padding: "32px 24px" }}>
+              <p className="muted">Bu islem icin super admin yetkisi gerekli.</p>
+            </div>
           )}
         </div>
 
         <div className="card">
-          <div className="card-title">Kayitli affiliate hesaplari</div>
+          <div className="card-title">Kayitli Affiliate Hesaplari</div>
           {affiliates.length === 0 ? (
-            <p className="muted">Henüz affiliate hesabi yok.</p>
+            <div className="empty-state" style={{ padding: "32px 24px" }}>
+              <p className="muted">Henüz affiliate hesabi yok.</p>
+            </div>
           ) : (
             <div className="stack-list">
               {affiliates.map((affiliate) => (
                 <div key={affiliate.id} className="inline-card">
                   <div>
                     <strong>{affiliate.fullName || affiliate.email}</strong>
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--text-tertiary)" }}>
                       {affiliate.email}
                     </p>
                   </div>
-                  <div className="actions no-margin">
+                  <div className="actions no-margin" style={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
                     {affiliate.assignments.map((assignment) => (
-                      <span key={`${affiliate.id}-${assignment.storeId}`} className="pill">
+                      <span key={`${affiliate.id}-${assignment.storeId}`} className="pill pill-accent">
                         {assignment.storeName} | %{assignment.commissionRate}
                       </span>
                     ))}

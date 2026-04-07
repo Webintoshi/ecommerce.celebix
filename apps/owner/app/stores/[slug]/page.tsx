@@ -27,73 +27,77 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       <div className="page-header">
         <div>
           <Link href="/stores" className="eyebrow-link">
-            Tum projelere don
+            ← Tum projelere don
           </Link>
           <h1>{store.name}</h1>
-          <p>{store.tagline || "Proje detaylari, operasyon sagligi ve owner yonetim katmani."}</p>
-          <div className="actions" style={{ marginTop: 10 }}>
-            <span className="pill pill-accent">{store.status}</span>
-            <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>{store.health.label}</span>
+          <p>{store.tagline || "Proje detaylari, operasyon sagligi ve yonetim katmani."}</p>
+          <div className="actions" style={{ marginTop: 12 }}>
+            <span className="pill" style={{ textTransform: "capitalize" }}>{store.status}</span>
+            <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
+              {store.health.label}
+            </span>
             <span className="pill">{store.storefrontDomain}</span>
           </div>
         </div>
         <div className="actions">
           <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank">
-            Admini ac
+            Admini Ac
           </Link>
           {superAdmin ? <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} /> : null}
         </div>
       </div>
 
+      {/* Metric Boxes */}
       <div className="metric-row metric-row-6">
         <div className="metric-box">
           <div className="metric-box-label">Urun</div>
-          <div className="metric-box-value">{store.productCount}</div>
+          <div className="metric-box-value">{store.productCount.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Siparis</div>
-          <div className="metric-box-value">{store.orderCount}</div>
+          <div className="metric-box-value">{store.orderCount.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Musteri</div>
-          <div className="metric-box-value">{store.customerCount}</div>
+          <div className="metric-box-value">{store.customerCount.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Bekleyen siparis</div>
+          <div className="metric-box-label">Bekleyen</div>
           <div className="metric-box-value">{store.pendingOrderCount}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Toplam ciro</div>
+          <div className="metric-box-label">Toplam Ciro</div>
           <div className="metric-box-value">{formatCurrency(store.totalRevenue)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Sepet ortalamasi</div>
+          <div className="metric-box-label">Sepet Ort.</div>
           <div className="metric-box-value">{formatCurrency(store.averageOrderValue)}</div>
         </div>
       </div>
 
+      {/* Info Cards */}
       <div className="info-row info-row-3">
         <div className="card">
-          <div className="card-title">Client profili</div>
+          <div className="card-title">Client Profili</div>
           <div className="meta-pairs">
-            <span>Marka: {store.management.clientCompanyName || store.name}</span>
-            <span>Yetkili: {store.management.clientContactName || "-"}</span>
-            <span>E-posta: {store.management.clientContactEmail || "-"}</span>
-            <span>Telefon: {store.management.clientContactPhone || "-"}</span>
-            <span>Ic sorumlu: {store.management.internalOwner || "-"}</span>
-            <span>Tahsilat: {store.management.billingStatus}</span>
+            <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
+            <span>Yetkili: <strong>{store.management.clientContactName || "-"}</strong></span>
+            <span>E-posta: <strong>{store.management.clientContactEmail || "-"}</strong></span>
+            <span>Telefon: <strong>{store.management.clientContactPhone || "-"}</strong></span>
+            <span>Ic sorumlu: <strong>{store.management.internalOwner || "-"}</strong></span>
+            <span>Tahsilat: <strong>{store.management.billingStatus}</strong></span>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-title">Yasam dongusu</div>
+          <div className="card-title">Yasam Dongusu</div>
           <div className="meta-pairs">
-            <span>Asama: {store.management.lifecycleStage}</span>
-            <span>Oncelik: {store.management.priority}</span>
-            <span>Hedef yayin: {formatDate(store.management.launchTarget)}</span>
-            <span>Storefront: {store.storefrontStatus}</span>
-            <span>Affiliate orani: %{formatPercent(store.totalAffiliateRate)}</span>
-            <span>Store admin: {store.storeAdminCount}</span>
+            <span>Asama: <strong>{store.management.lifecycleStage}</strong></span>
+            <span>Oncelik: <strong>{store.management.priority}</strong></span>
+            <span>Hedef yayin: <strong>{formatDate(store.management.launchTarget)}</strong></span>
+            <span>Storefront: <strong>{store.storefrontStatus}</strong></span>
+            <span>Affiliate orani: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
+            <span>Store admin: <strong>{store.storeAdminCount}</strong></span>
           </div>
           <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanimlanmamis."}</p>
         </div>
@@ -101,19 +105,20 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="card">
           <div className="card-title">Altyapi</div>
           <div className="meta-pairs">
-            <span>Supabase ref: {store.supabaseProjectRef || "-"}</span>
-            <span>R2 bucket: {store.r2BucketName || "-"}</span>
-            <span>Admin domain: {store.adminDomain}</span>
-            <span>Support e-posta: {store.supportEmail || "-"}</span>
-            <span>Support telefon: {store.supportPhone || "-"}</span>
-            <span>Son sync: {formatDateTime(store.lastSyncedAt)}</span>
+            <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
+            <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
+            <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
+            <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
+            <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
+            <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
           </div>
         </div>
       </div>
 
+      {/* Store Admins & Affiliates */}
       <div className="split-grid">
         <div className="card">
-          <div className="card-title">Store adminleri</div>
+          <div className="card-title">Store Adminleri</div>
           {store.storeAdmins.length === 0 ? (
             <p className="muted">Atanmis store admin yok.</p>
           ) : (
@@ -126,7 +131,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                   </div>
                   <div className="actions compact-actions">
                     <span className="pill">{admin.role}</span>
-                    <span className="pill">{admin.taskDefinition || "Genel operasyon"}</span>
+                    <span className="pill">{admin.taskDefinition || "Genel"}</span>
                   </div>
                 </div>
               ))}
@@ -135,7 +140,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="card">
-          <div className="card-title">Affiliate erisimi</div>
+          <div className="card-title">Affiliate Erisimi</div>
           {store.affiliateAssignments.length === 0 ? (
             <p className="muted">Atanmis affiliate yok.</p>
           ) : (
@@ -154,9 +159,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </div>
 
+      {/* Recent Activity & Features */}
       <div className="split-grid">
         <div className="card">
-          <div className="card-title">Son owner aktiviteleri</div>
+          <div className="card-title">Son Aktiviteler</div>
           {store.recentActivity.length === 0 ? (
             <p className="muted">Bu proje icin audit kaydi henuz yok.</p>
           ) : (
@@ -178,45 +184,50 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="card">
-          <div className="card-title">Ozellikler ve owner notu</div>
-          <div className="actions compact-actions" style={{ marginBottom: 16 }}>
-            {store.features.map((feature) => (
-              <span key={feature} className="pill">
-                {feature}
-              </span>
-            ))}
+          <div className="card-title">Ozellikler ve Notlar</div>
+          <div className="actions compact-actions" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+            {store.features.length === 0 ? (
+              <span className="muted">Tanimli ozellik yok</span>
+            ) : (
+              store.features.map((feature) => (
+                <span key={feature} className="pill">
+                  {feature}
+                </span>
+              ))
+            )}
           </div>
           <p className="card-note">{store.management.ownerNotes || "Ic owner notu girilmemis."}</p>
         </div>
       </div>
 
+      {/* Forms - Only for Super Admin */}
       {superAdmin ? (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-title">Proje profilini yonet</div>
-          <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>
-          <UpdateStoreProfileForm
-            store={{
-              slug: store.slug,
-              status: store.status,
-              tagline: store.tagline,
-              supportEmail: store.supportEmail,
-              supportPhone: store.supportPhone,
-              management: store.management
-            }}
-          />
-        </div>
-      ) : null}
+        <>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-title">Proje Profilini Guncelle</div>
+            <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>
+            <UpdateStoreProfileForm
+              store={{
+                slug: store.slug,
+                status: store.status,
+                tagline: store.tagline,
+                supportEmail: store.supportEmail,
+                supportPhone: store.supportPhone,
+                management: store.management
+              }}
+            />
+          </div>
 
-      {superAdmin ? (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-title">Bu projeye affiliate ata</div>
-          <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
-        </div>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-title">Bu Projeye Affiliate Ata</div>
+            <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
+          </div>
+        </>
       ) : null}
 
       <div className="card">
-        <div className="card-title">Bu projeye store admin ata</div>
-        <p className="section-copy">Bu magazaya bagli operasyon kullanicilarini owner panelden yonet.</p>
+        <div className="card-title">Bu Projeye Store Admin Ata</div>
+        <p className="section-copy">Bu magazaya bagli operasyon kullanicilarini yonet.</p>
         <CreateStoreAdminForm storeSlug={store.slug} />
       </div>
     </>

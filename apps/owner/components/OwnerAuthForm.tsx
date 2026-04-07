@@ -68,46 +68,232 @@ export function OwnerAuthForm() {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <div className="auth-mode-switch">
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Mode Switch */}
+      <div style={{ 
+        display: "flex", 
+        gap: "8px", 
+        padding: "4px",
+        background: "var(--gray-100)",
+        borderRadius: "10px"
+      }}>
         <button
           type="button"
-          className={mode === "login" ? "button button-primary" : "button button-secondary"}
           onClick={() => setMode("login")}
+          style={{
+            flex: 1,
+            padding: "10px 16px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 600,
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            background: mode === "login" ? "var(--white)" : "transparent",
+            color: mode === "login" ? "var(--gray-800)" : "var(--gray-500)",
+            boxShadow: mode === "login" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
+          }}
         >
-          Giris yap
+          Giris Yap
         </button>
         <button
           type="button"
-          className={mode === "register" ? "button button-primary" : "button button-secondary"}
           onClick={() => setMode("register")}
+          style={{
+            flex: 1,
+            padding: "10px 16px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 600,
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            background: mode === "register" ? "var(--white)" : "transparent",
+            color: mode === "register" ? "var(--gray-800)" : "var(--gray-500)",
+            boxShadow: mode === "register" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
+          }}
         >
-          Hesap olustur
+          Hesap Olustur
         </button>
       </div>
 
+      {/* Full Name - Only for register */}
       {mode === "register" ? (
-        <label className="field">
-          <span>Ad soyad</span>
-          <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Celebix Yonetici" />
-        </label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label style={{ 
+            fontSize: "11px", 
+            fontWeight: 700, 
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--gray-600)"
+          }}>
+            Ad Soyad
+          </label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Celebix Yonetici"
+            style={{
+              padding: "12px 16px",
+              borderRadius: "10px",
+              border: "1px solid var(--gray-200)",
+              fontSize: "14px",
+              fontWeight: 500,
+              background: "var(--white)",
+              color: "var(--gray-800)",
+              outline: "none",
+              transition: "all 0.15s ease"
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#EB651E";
+              e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "var(--gray-200)";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+        </div>
       ) : null}
 
-      <label className="field">
-        <span>E-posta</span>
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="yonetici@celebix.com" required />
-      </label>
+      {/* Email */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <label style={{ 
+          fontSize: "11px", 
+          fontWeight: 700, 
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          color: "var(--gray-600)"
+        }}>
+          E-posta
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="yonetici@celebix.com"
+          required
+          style={{
+            padding: "12px 16px",
+            borderRadius: "10px",
+            border: "1px solid var(--gray-200)",
+            fontSize: "14px",
+            fontWeight: 500,
+            background: "var(--white)",
+            color: "var(--gray-800)",
+            outline: "none",
+            transition: "all 0.15s ease"
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#EB651E";
+            e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "var(--gray-200)";
+            e.target.style.boxShadow = "none";
+          }}
+        />
+      </div>
 
-      <label className="field">
-        <span>Sifre</span>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" minLength={8} required />
-      </label>
+      {/* Password */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <label style={{ 
+          fontSize: "11px", 
+          fontWeight: 700, 
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          color: "var(--gray-600)"
+        }}>
+          Sifre
+        </label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+          minLength={8}
+          required
+          style={{
+            padding: "12px 16px",
+            borderRadius: "10px",
+            border: "1px solid var(--gray-200)",
+            fontSize: "14px",
+            fontWeight: 500,
+            background: "var(--white)",
+            color: "var(--gray-800)",
+            outline: "none",
+            transition: "all 0.15s ease"
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#EB651E";
+            e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "var(--gray-200)";
+            e.target.style.boxShadow = "none";
+          }}
+        />
+      </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
-      {notice ? <p className="form-notice">{notice}</p> : null}
+      {/* Error / Notice */}
+      {error ? (
+        <p style={{ 
+          margin: 0, 
+          fontSize: "13px", 
+          fontWeight: 600,
+          color: "var(--error)",
+          textAlign: "center"
+        }}>
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p style={{ 
+          margin: 0, 
+          fontSize: "13px", 
+          fontWeight: 600,
+          color: "var(--success)",
+          textAlign: "center"
+        }}>
+          {notice}
+        </p>
+      ) : null}
 
-      <button type="submit" className="button button-primary" disabled={isPending}>
-        {isPending ? "Isleniyor..." : mode === "login" ? "Owner paneline gir" : "Owner hesabi ac"}
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={isPending}
+        style={{
+          marginTop: "8px",
+          padding: "14px 24px",
+          borderRadius: "10px",
+          fontSize: "14px",
+          fontWeight: 700,
+          border: "none",
+          cursor: isPending ? "not-allowed" : "pointer",
+          transition: "all 0.15s ease",
+          background: "#EB651E",
+          color: "#fff",
+          opacity: isPending ? 0.7 : 1
+        }}
+        onMouseEnter={(e) => {
+          if (!isPending) {
+            e.currentTarget.style.background = "#D45616";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "#EB651E";
+          e.currentTarget.style.transform = "translateY(0)";
+        }}
+      >
+        {isPending 
+          ? "Isleniyor..." 
+          : mode === "login" 
+            ? "Panel'e Giris Yap" 
+            : "Owner Hesabi Olustur"
+        }
       </button>
     </form>
   );

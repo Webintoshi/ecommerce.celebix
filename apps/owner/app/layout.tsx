@@ -19,7 +19,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   }
 
   const userName = auth?.profile.full_name || auth?.user.email || "";
-  const roleLabel = auth?.profile.role === "super_admin" ? "Super admin" : "Affiliate";
+  const roleLabel = auth?.profile.role === "super_admin" ? "Super Admin" : "Affiliate";
 
   return (
     <html lang="tr">
@@ -30,13 +30,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <Link href="/" className="brand-lockup">
                 <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="logo-img" />
                 <div>
-                  <strong>Celebix Panel</strong>
-                  <span>Control plane</span>
+                  <strong>Celebix</strong>
+                  <span>Owner Panel</span>
                 </div>
               </Link>
             </div>
             <nav className="sidebar-nav">
-              <div className="sidebar-group-label">Genel merkez</div>
+              <div className="sidebar-group-label">Genel</div>
               <SidebarNavLink href="/" exact>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" />
@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 Yeni Proje
               </SidebarNavLink>
 
-              <div className="sidebar-group-label">Operasyon</div>
+              <div className="sidebar-group-label">Yonetim</div>
               <SidebarNavLink href="/clients">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -106,12 +106,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div className="main-area">
             <header className="topbar">
               <div className="topbar-meta">
-                <strong>Celebix Owner</strong>
+                <strong>Owner Control Plane</strong>
                 <span>Magaza, operasyon ve gelir yonetimi</span>
               </div>
               <div className="topbar-user">
                 <span className="pill pill-accent">{roleLabel}</span>
-                <span>{userName}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{userName}</span>
               </div>
             </header>
             <div className="page-content">{children}</div>
