@@ -26,18 +26,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="owner-panel">
         <div className="app-shell">
           <aside className="sidebar">
-            <div className="sidebar-header">
-              <Link href="/" className="brand-lockup">
+            <div className="sidebar-header" style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "24px 20px" }}>
+              <Link href="/">
                 <img 
                   src="https://celebix.co/Logo/koyu%20logo.svg" 
                   alt="Celebix" 
-                  className="logo-img" 
-                  style={{ filter: "brightness(0) invert(1)" }}
+                  style={{ 
+                    filter: "brightness(0) invert(1)",
+                    height: "56px",
+                    width: "auto",
+                    display: "block"
+                  }}
                 />
-                <div>
-                  <strong>Celebix</strong>
-                  <span>Owner Panel</span>
-                </div>
               </Link>
             </div>
             <nav className="sidebar-nav">
