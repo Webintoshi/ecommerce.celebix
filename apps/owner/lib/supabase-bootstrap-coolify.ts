@@ -166,9 +166,14 @@ function buildSupabasePublicUrl(store: StoreConfig): string {
   return `https://${store.slug}.${getSupabaseRootDomain()}`;
 }
 
-function buildSupabaseDashboardUrl(store: StoreConfig): string | undefined {
+function buildSupabaseDashboardUrl(store: StoreConfig): string {
   const dashboardRoot = getSupabaseDashboardRootDomain();
-  return dashboardRoot ? `https://${store.slug}.${dashboardRoot}` : undefined;
+
+  if (dashboardRoot) {
+    return `https://${store.slug}.${dashboardRoot}`;
+  }
+
+  return `${buildSupabasePublicUrl(store)}/project/default`;
 }
 
 function buildAdminEnvEntries(store: StoreConfig, projectUrl: string, publicKey: string, serviceKey: string): Record<string, string> {

@@ -145,6 +145,7 @@ export interface DashboardStoreSummary {
   totalRevenue: number;
   averageOrderValue: number;
   lastSyncedAt: string | null;
+  supabaseDashboardUrl: string | null;
   commissionRate: number | null;
   totalAffiliateRate: number;
   affiliateCount: number;
@@ -192,6 +193,7 @@ export interface StoreDetailSummary extends DashboardStoreSummary {
   tagline: string | null;
   supabaseProjectRef: string | null;
   supabaseUrl: string | null;
+  supabaseDashboardUrl: string | null;
   r2BucketName: string | null;
   r2PublicUrl: string | null;
   r2ManagedDomain: string | null;
@@ -476,6 +478,26 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
       notes: readOptionalString(owner.notes) ?? store.owner?.notes ?? ""
     }
   };
+}
+
+function resolveSupabaseDashboardUrl(configuredDashboardUrl: string | null | undefined, publicUrl: string | null | undefined): string | null {
+  const dashboardUrl = readOptionalString(configuredDashboardUrl);
+  const baseUrl = readOptionalString(publicUrl);
+
+  if (dashboardUrl) {
+    const normalizedDashboardUrl = dashboardUrl.trim();
+    const pointsToRawCoolifyPort = /:\s*8000(?:\/|$)|:\s*8001(?:\/|$)/.test(normalizedDashboardUrl.replace(/\s+/g, ""));
+
+    if (!pointsToRawCoolifyPort) {
+      return normalizedDashboardUrl;
+    }
+  }
+
+  if (!baseUrl) {
+    return null;
+  }
+
+  return `${baseUrl.replace(/\/+$/, "")}/project/default`;
 }
 
 async function createStoreServiceClient(store: StoreConfig): Promise<SupabaseClient | null> {
@@ -790,6 +812,10 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         adminDomain: store.admin_domain,
         storefrontAppDir: store.storefront_app_dir,
         storefrontStatus: store.storefront_status,
+        supabaseDashboardUrl: resolveSupabaseDashboardUrl(
+          storeConfig?.supabase.dashboardUrl ?? null,
+          storeConfig?.supabase.url ?? store.supabase_url
+        ),
         productCount: metric?.product_count ?? 0,
         orderCount: metric?.order_count ?? 0,
         customerCount: metric?.customer_count ?? 0,
@@ -1289,6 +1315,10 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     tagline: storeRow.tagline,
     supabaseProjectRef: storeRow.supabase_project_ref,
     supabaseUrl: storeRow.supabase_url,
+    supabaseDashboardUrl: resolveSupabaseDashboardUrl(
+      storeConfig?.supabase.dashboardUrl ?? null,
+      storeConfig?.supabase.url ?? storeRow.supabase_url
+    ),
     r2BucketName: storeRow.r2_bucket_name,
     r2PublicUrl: storeRow.r2_public_url,
     r2ManagedDomain: storeRow.r2_managed_domain,

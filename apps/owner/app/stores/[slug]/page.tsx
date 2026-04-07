@@ -106,6 +106,18 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="card-title">Altyapi</div>
           <div className="meta-pairs">
             <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
+            <span>
+              Supabase Studio:{" "}
+              {store.supabaseDashboardUrl ? (
+                <strong>
+                  <a href={store.supabaseDashboardUrl} target="_blank" rel="noreferrer">
+                    Studio'yu ac
+                  </a>
+                </strong>
+              ) : (
+                <strong>Eksik</strong>
+              )}
+            </span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
             <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
