@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath } from "@/lib/i18n";
@@ -67,6 +68,31 @@ function ProductCardSwatches({ product }: { product: Product }) {
   );
 }
 
+function ProductCardRating({ product }: { product: Product }) {
+  const rating = Number(product.rating || 0);
+
+  if (!Number.isFinite(rating) || rating <= 0) {
+    return null;
+  }
+
+  const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
+
+  return (
+    <div className="mt-2 flex items-center justify-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <Star
+          key={`${product.id}-rating-${index}`}
+          className={`h-3.5 w-3.5 ${
+            index < filledStars
+              ? "fill-[#8A6B37] text-[#8A6B37]"
+              : "fill-neutral-200 text-neutral-200"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const { locale } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
@@ -98,6 +124,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
               {product.name}
             </h3>
+            <ProductCardRating product={product} />
             {typeof displayPrice === "number" ? (
               <p className="mt-1 text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
             ) : null}
@@ -130,6 +157,8 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
         {product.name}
       </h3>
+
+      <ProductCardRating product={product} />
 
       {typeof displayPrice === "number" ? (
         <p className="mt-1 text-center text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
