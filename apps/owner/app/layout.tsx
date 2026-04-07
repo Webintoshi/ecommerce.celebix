@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang="tr">
-      <body>
+      <body className="owner-panel">
         <div className="app-shell">
           <aside className="sidebar">
             <div className="sidebar-header">
@@ -111,10 +111,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </div>
               <div className="topbar-user">
                 <span className="pill pill-accent">{roleLabel}</span>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{userName}</span>
+                <span style={{ color: "#2B2B2B", fontWeight: 600 }}>{userName}</span>
               </div>
             </header>
-            <div className="page-content">{children}</div>
+            <main className="page-content">{children}</main>
           </div>
         </div>
       </body>
