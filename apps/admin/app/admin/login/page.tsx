@@ -47,13 +47,35 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
       });
 
-      if (error) {
-        toast.error(`Giriş başarısız: ${error.message}`);
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        toast.error(`Giriş başarısız: ${payload.error || "Giriş yapılamadı."}`);
+        return;
+      }
+
+      const session = payload.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        toast.error("Giriş oturumu oluşturulamadı.");
+        return;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      if (sessionError) {
+        toast.error(sessionError.message);
         return;
       }
 
@@ -73,7 +95,6 @@ export default function AdminLoginPage() {
       className="min-h-screen flex items-center justify-center p-4"
       style={{ backgroundColor: "#F8F8F8" }}
     >
-      {/* Subtle pattern overlay */}
       <div
         className="fixed inset-0 opacity-[0.03] pointer-events-none"
         style={{
@@ -82,9 +103,7 @@ export default function AdminLoginPage() {
       />
 
       <div className="w-full max-w-md relative">
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          {/* Logo/Icon */}
           <div className="text-center mb-8">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -101,7 +120,6 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-neutral-900 mb-1.5">
                 E-posta
@@ -119,7 +137,6 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
-            {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-neutral-900 mb-1.5">
                 Şifre
@@ -138,7 +155,6 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -152,7 +168,6 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 pt-6 border-t border-gray-100 text-center">
             <p className="text-xs text-gray-400">
               Güvenli bağlantı ile korunmaktadır
@@ -160,7 +175,6 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* Brand watermark */}
         <div className="text-center mt-6">
           <p className="text-xs text-gray-400 tracking-wide uppercase">
             Celebix Admin
