@@ -198,6 +198,8 @@ export async function provisionR2ForStore(store: StoreConfig): Promise<R2Provisi
 
   try {
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
+      NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
+      NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
       CLOUDFLARE_ACCOUNT_ID: getCloudflareAccountId(),
       R2_ACCESS_KEY_ID: credentials.accessKeyId,
       R2_SECRET_ACCESS_KEY: credentials.secretAccessKey,

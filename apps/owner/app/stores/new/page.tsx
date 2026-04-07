@@ -13,6 +13,8 @@ export default async function NewStorePage() {
           <h1>Yeni Proje Olustur</h1>
           <p>
             Yeni magaza kaydi, config dosyalari ve env sablonu olusturulur.
+            Storefront domain bilgisi zorunludur ve sitemap/canonical/merchant feed gibi
+            tum storefront URL&apos;leri bu alan uzerinden kurulur.
             {supabaseBootstrap.configured
               ? ` ${supabaseBootstrap.provider === "self_hosted_coolify" ? "Self-hosted Supabase" : "Supabase"} baglantisi hazir oldugu icin veritabani da otomatik kurulur.`
               : " Supabase bootstrap ortam degiskenleri eksikse sadece dosya kaydi olusur."}

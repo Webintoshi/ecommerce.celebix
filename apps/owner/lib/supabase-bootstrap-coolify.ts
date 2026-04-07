@@ -177,6 +177,8 @@ function buildAdminEnvEntries(store: StoreConfig, projectUrl: string, publicKey:
     NEXT_PUBLIC_SUPABASE_URL: projectUrl,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: publicKey,
     SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+    NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
+    NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
     NEXT_PUBLIC_ADMIN_URL: `https://${store.domains.admin}`,
     CLOUDFLARE_ACCOUNT_ID: "your-r2-account-id",
