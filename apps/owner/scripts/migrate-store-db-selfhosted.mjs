@@ -57,6 +57,10 @@ const ADDITIVE_BOOTSTRAP_SQL_FILES = [
 function parseArgs(argv) {
   const parsed = {
     store: "",
+    sourceBaseUrl: process.env.SOURCE_SUPABASE_BASE_URL || "",
+    sourceRef: process.env.SOURCE_SUPABASE_PROJECT_REF || "",
+    sourceBasicUser: process.env.SOURCE_SUPABASE_BASIC_USER || "",
+    sourceBasicPassword: process.env.SOURCE_SUPABASE_BASIC_PASSWORD || "",
     targetBaseUrl: process.env.TARGET_SUPABASE_BASE_URL || "",
     targetRef: process.env.TARGET_SUPABASE_PROJECT_REF || "default",
     targetBasicUser: process.env.TARGET_SUPABASE_BASIC_USER || "",
@@ -80,6 +84,30 @@ function parseArgs(argv) {
 
     if (arg === "--target-base-url" && next) {
       parsed.targetBaseUrl = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--source-base-url" && next) {
+      parsed.sourceBaseUrl = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--source-ref" && next) {
+      parsed.sourceRef = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--source-basic-user" && next) {
+      parsed.sourceBasicUser = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--source-basic-password" && next) {
+      parsed.sourceBasicPassword = next;
       index += 1;
       continue;
     }
@@ -143,8 +171,12 @@ function parseArgs(argv) {
     throw new Error("TARGET_SUPABASE_BASIC_USER ve TARGET_SUPABASE_BASIC_PASSWORD gerekli.");
   }
 
-  if (!parsed.sourceAccessToken) {
+  if (!parsed.sourceBaseUrl && !parsed.sourceAccessToken) {
     throw new Error("SUPABASE_ACCESS_TOKEN veya --source-access-token gerekli.");
+  }
+
+  if (parsed.sourceBaseUrl && (!parsed.sourceBasicUser || !parsed.sourceBasicPassword)) {
+    throw new Error("Self-hosted source icin SOURCE_SUPABASE_BASIC_USER ve SOURCE_SUPABASE_BASIC_PASSWORD gerekli.");
   }
 
   if (!Number.isFinite(parsed.batchSize) || parsed.batchSize <= 0) {
@@ -223,6 +255,21 @@ async function targetPgMetaQuery(baseUrl, projectRef, user, password, query) {
   return response.json();
 }
 
+async function sourcePgMetaQuery(baseUrl, projectRef, user, password, query) {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/platform/pg-meta/${projectRef}/query`, {
+    method: "POST",
+    headers: buildTargetHeaders(user, password),
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Source pg-meta query hatasi (${response.status}): ${text || response.statusText}`);
+  }
+
+  return response.json();
+}
+
 async function getTargetTables(baseUrl, projectRef, user, password) {
   const response = await fetch(
     `${baseUrl.replace(/\/+$/, "")}/api/platform/pg-meta/${projectRef}/tables?included_schemas=public,auth`,
@@ -289,8 +336,8 @@ async function ensureTargetSchema(args) {
 }
 
 async function listSourcePublicTables(args, sourceProjectRef) {
-  const rows = await managedQuery(
-    args.sourceAccessToken,
+  const rows = await sourceQuery(
+    args,
     sourceProjectRef,
     `
       select table_schema, table_name
@@ -306,6 +353,20 @@ async function listSourcePublicTables(args, sourceProjectRef) {
     schema: row.table_schema,
     table: row.table_name,
   }));
+}
+
+async function sourceQuery(args, sourceProjectRef, query, name) {
+  if (args.sourceBaseUrl) {
+    return sourcePgMetaQuery(
+      args.sourceBaseUrl,
+      args.sourceRef || sourceProjectRef || "default",
+      args.sourceBasicUser,
+      args.sourceBasicPassword,
+      query,
+    );
+  }
+
+  return managedQuery(args.sourceAccessToken, sourceProjectRef, query, name);
 }
 
 function listAuthTables() {
@@ -340,8 +401,8 @@ function buildOrderBy(targetTable) {
 }
 
 async function getSourceRowCount(args, sourceProjectRef, schema, table) {
-  const result = await managedQuery(
-    args.sourceAccessToken,
+  const result = await sourceQuery(
+    args,
     sourceProjectRef,
     `select count(*)::int as row_count from ${quoteQualified(schema, table)};`,
     `count_${schema}_${table}`,
@@ -352,7 +413,7 @@ async function getSourceRowCount(args, sourceProjectRef, schema, table) {
 
 async function fetchSourceBatch(args, sourceProjectRef, schema, table, orderByClause, limit, offset) {
   const query = `select * from ${quoteQualified(schema, table)}${orderByClause} limit ${limit} offset ${offset};`;
-  return managedQuery(args.sourceAccessToken, sourceProjectRef, query, `dump_${schema}_${table}_${offset}`);
+  return sourceQuery(args, sourceProjectRef, query, `dump_${schema}_${table}_${offset}`);
 }
 
 function buildInsertQuery(schema, table, columns, rows) {
@@ -532,12 +593,17 @@ async function main() {
   const args = parseArgs(process.argv);
   const { config, sourceProjectRef } = readStoreConfig(args.store);
 
-  console.log(`[1/6] Source store: ${config.name} (${args.store})`);
-  console.log(`[2/6] Target self-hosted project: ${args.targetBaseUrl} (${args.targetRef})`);
+  console.log(`[1/7] Source store: ${config.name} (${args.store})`);
+  console.log(
+    `[2/7] Source: ${args.sourceBaseUrl ? `${args.sourceBaseUrl} (${args.sourceRef || sourceProjectRef || "default"})` : `managed ${sourceProjectRef}`}`,
+  );
+  console.log(`[3/7] Target self-hosted project: ${args.targetBaseUrl} (${args.targetRef})`);
 
   const report = {
     store: args.store,
+    sourceBaseUrl: args.sourceBaseUrl || null,
     sourceProjectRef,
+    sourceProjectKind: args.sourceBaseUrl ? "self_hosted" : "managed",
     targetProjectRef: args.targetRef,
     targetBaseUrl: args.targetBaseUrl,
     startedAt: new Date().toISOString(),
@@ -548,13 +614,13 @@ async function main() {
   };
 
   if (!args.skipSchema) {
-    console.log("[3/6] Applying Celebix schema bundle to target if needed...");
+    console.log("[4/7] Applying Celebix schema bundle to target if needed...");
     report.schemaBootstrap = await ensureTargetSchema(args);
   } else {
     report.schemaBootstrap = { applied: false, skipped: true };
   }
 
-  console.log("[4/6] Discovering source and target tables...");
+  console.log("[5/7] Discovering source and target tables...");
   const sourcePublicTables = await listSourcePublicTables(args, sourceProjectRef);
   const targetTables = await getTargetTables(args.targetBaseUrl, args.targetRef, args.targetBasicUser, args.targetBasicPassword);
   const targetTableMap = buildTargetTableMap(targetTables);
@@ -586,13 +652,13 @@ async function main() {
     }
   }
 
-  console.log(`[5/6] Truncating ${uniqueTables.length} target tables before import...`);
+  console.log(`[6/7] Truncating ${uniqueTables.length} target tables before import...`);
   await truncateTargetTables(
     args,
     uniqueTables.map((table) => ({ schema: table.schema, table: table.name })),
   );
 
-  console.log("[6/6] Copying rows...");
+  console.log("[7/7] Copying rows...");
   for (const table of uniqueTables) {
     const result = await copyTable(args, sourceProjectRef, table);
     if (result.skipped) {

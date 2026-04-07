@@ -28,7 +28,7 @@
     "notes": "CLI uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "coolify:deri-kordon:ass33jromulxmpioa5ti9pd5",
+    "projectRef": "coolify:deri-kordon:e12vazf7sq2e111wac5k8zjd",
     "url": "https://supabase.celebix.co",
     "provider": "self_hosted_coolify",
     "dashboardUrl": "https://supabase.celebix.co/project/default",
@@ -40,8 +40,8 @@
     "adminEnvLocalPath": "stores/deri-kordon/admin.env.local",
     "organizationSlug": "jzhvbqbjyrljtdrbvyqg",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProjectName": "celebix-supabase",
-    "supabaseResourceId": "ass33jromulxmpioa5ti9pd5",
+    "supabaseProjectName": "derycraft-db",
+    "supabaseResourceId": "e12vazf7sq2e111wac5k8zjd",
     "supabaseDashboardUrl": "https://supabase.celebix.co/project/default",
     "provisionedAt": "2026-03-28T00:23:53.023Z",
     "supabaseProvisioning": "configured"
