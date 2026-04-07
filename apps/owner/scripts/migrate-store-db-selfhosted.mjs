@@ -23,7 +23,7 @@ const AUTH_TABLES_TO_COPY = [
   "saml_providers",
   "saml_relay_states",
 ];
-const BOOTSTRAP_SQL_FILES = [
+const CORE_BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "schema.sql"],
   ["apps", "admin", "supabase", "migrations", "003_add_auth_integration.sql"],
   ["apps", "admin", "supabase", "migrations", "004_add_customer_addresses.sql"],
@@ -44,8 +44,14 @@ const BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "migrations", "006_add_product_columns.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402020000_default_product_tax_rate_zero.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402183000_products_subcategory_compat.sql"],
+];
+
+const ADDITIVE_BOOTSTRAP_SQL_FILES = [
+  ["apps", "admin", "supabase", "migrations", "20260331000000_customer_import_fields.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260331001000_shopify_product_import_fields.sql"],
   ["apps", "admin", "supabase", "migrations", "20260405010000_product_reviews.sql"],
   ["apps", "admin", "supabase", "migrations", "20260405120000_translation_cache.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260407013000_google_merchant_marketplace_provider.sql"],
 ];
 
 function parseArgs(argv) {
@@ -245,8 +251,8 @@ function escapeLiteral(value) {
   return String(value).replace(/'/g, "''");
 }
 
-function buildBootstrapQueries() {
-  return BOOTSTRAP_SQL_FILES.map((segments) => ({
+function buildBootstrapQueries(files) {
+  return files.map((segments) => ({
     name: segments[segments.length - 1],
     sql: fs.readFileSync(path.join(repoRoot, ...segments), "utf8"),
   }));
@@ -261,11 +267,9 @@ async function ensureTargetSchema(args) {
     "select to_regclass('public.products') is not null as exists;",
   );
 
-  if (productsExists?.[0]?.exists) {
-    return { applied: false };
-  }
-
-  const files = buildBootstrapQueries();
+  const files = productsExists?.[0]?.exists
+    ? buildBootstrapQueries(ADDITIVE_BOOTSTRAP_SQL_FILES)
+    : buildBootstrapQueries([...CORE_BOOTSTRAP_SQL_FILES, ...ADDITIVE_BOOTSTRAP_SQL_FILES]);
 
   for (const file of files) {
     await targetPgMetaQuery(
@@ -277,7 +281,11 @@ async function ensureTargetSchema(args) {
     );
   }
 
-  return { applied: true, files: files.map((file) => file.name) };
+  return {
+    applied: files.length > 0,
+    coreApplied: !productsExists?.[0]?.exists,
+    files: files.map((file) => file.name),
+  };
 }
 
 async function listSourcePublicTables(args, sourceProjectRef) {
