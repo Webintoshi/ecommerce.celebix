@@ -26,7 +26,7 @@ type PreviewConfig = {
   imageAlt: string;
   textPositionClass: string;
   textToneClass: string;
-  staticText?: string | null;
+  defaultText?: string | null;
 };
 
 const FONT_OPTIONS: FontOption[] = [
@@ -66,17 +66,18 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri urun kisilestirme onizleme",
-  textPositionClass: "bottom-[20%] right-[8%] w-[56%] text-right",
+  textPositionClass: "bottom-[20px] left-1/2 w-[68%] -translate-x-1/2 text-center",
   textToneClass: "text-[#2d2118]/85",
+  defaultText: "ON IZLEME",
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
-  textPositionClass: "inset-0 flex items-center justify-center text-center",
+  textPositionClass: "bottom-[20px] left-1/2 w-[68%] -translate-x-1/2 text-center",
   textToneClass: "text-[#251b15]/80",
-  staticText: "YAZI",
+  defaultText: "YAZI",
 };
 
 function normalizeCategoryValue(value?: string | null) {
@@ -155,16 +156,11 @@ export function PersonalizationPreview({
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
-  const displayText = previewConfig.staticText || typedText || "ÖN İZLEME";
-  const previewFontSize = previewConfig.staticText
-    ? "clamp(34px, 7.4vw, 46px)"
-    : !typedText
-      ? "clamp(22px, 5.6vw, 32px)"
-      : displayText.length > 16
-        ? "clamp(18px, 4.3vw, 26px)"
-        : displayText.length > 10
-          ? "clamp(20px, 4.8vw, 28px)"
-          : "clamp(22px, 5.2vw, 30px)";
+  const displayText = typedText || previewConfig.defaultText || "ON IZLEME";
+  const previewFontSize =
+    displayText.length >= 6
+      ? "clamp(24px, 6.6vw, 38px)"
+      : "clamp(28px, 7.2vw, 42px)";
 
   return (
     <section className="mx-auto w-full max-w-[360px] space-y-3 border-t border-neutral-200 pt-5">
@@ -182,8 +178,9 @@ export function PersonalizationPreview({
         <input
           id="personalization-preview-text"
           value={previewText}
-          onChange={(event) => setPreviewText(event.target.value.slice(0, 20))}
+          onChange={(event) => setPreviewText(event.target.value.slice(0, 6))}
           placeholder="Yazinizi Ekleyin"
+          maxLength={6}
           className="h-9 rounded-xl border border-[#9fc1df] bg-white px-3 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(159,193,223,0.15)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6d99bf]"
         />
 
@@ -220,12 +217,12 @@ export function PersonalizationPreview({
               fontFamily: selectedFont.family,
               fontSize: previewFontSize,
               ...selectedFont.style,
-              fontWeight: previewConfig.staticText ? 700 : typedText ? 600 : 700,
+              fontWeight: typedText ? 700 : 800,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textShadow: "0 1px 1px rgba(255,255,255,0.12)",
+              textShadow: "0 1px 1px rgba(255,255,255,0.18)",
             }}
           >
             {displayText}
