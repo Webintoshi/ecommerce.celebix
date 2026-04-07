@@ -24,16 +24,37 @@ export function OwnerAuthForm() {
     setNotice(null);
 
     startTransition(async () => {
-      const supabase = createOwnerBrowserClient();
-
       if (mode === "login") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password
+        const supabase = createOwnerBrowserClient();
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+          }),
         });
 
-        if (signInError) {
-          setError(signInError.message);
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          setError(payload.error || "Giris yapilamadi.");
+          return;
+        }
+
+        const session = payload.session;
+        if (!session?.access_token || !session?.refresh_token) {
+          setError("Giris oturumu olusturulamadi.");
+          return;
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+
+        if (sessionError) {
+          setError(sessionError.message);
           return;
         }
 
@@ -42,6 +63,7 @@ export function OwnerAuthForm() {
         return;
       }
 
+      const supabase = createOwnerBrowserClient();
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
