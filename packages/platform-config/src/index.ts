@@ -294,6 +294,8 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
     "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",
     "",
+    `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
+    `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,
     `NEXT_PUBLIC_SITE_URL=https://${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_URL=https://${config.domains.admin}`,
     `NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL=${getConfiguredImageTransformationUrl()}`,

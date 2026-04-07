@@ -31,6 +31,52 @@ function readJsonFile<T>(filePath: string): T | null {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
 }
 
+function toAbsoluteUrl(value: string): string {
+  return value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `https://${value}`;
+}
+
+function resolveHostname(value: string | undefined): string {
+  if (!value || !value.trim()) {
+    return "";
+  }
+
+  try {
+    return new URL(toAbsoluteUrl(value)).hostname.toLocaleLowerCase("tr");
+  } catch {
+    return value
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/.*$/, "")
+      .toLocaleLowerCase("tr");
+  }
+}
+
+function normalizePublicUrl(url: string | undefined, fallbackDomain: string): string {
+  const fallbackUrl = toAbsoluteUrl(fallbackDomain);
+  const fallbackHost = resolveHostname(fallbackDomain);
+
+  if (!url || !url.trim()) {
+    return fallbackUrl;
+  }
+
+  const normalizedUrl = toAbsoluteUrl(url.trim());
+  const urlHost = resolveHostname(normalizedUrl);
+
+  if (
+    fallbackHost &&
+    urlHost &&
+    fallbackHost !== urlHost &&
+    !fallbackHost.includes("localhost") &&
+    !fallbackHost.endsWith(".local")
+  ) {
+    return fallbackUrl;
+  }
+
+  return normalizedUrl;
+}
+
 function resolveActiveStore() {
   const repoRoot = path.join(__dirname, "../..");
   const configuredSlug = process.env.STORE_SLUG ?? process.env.NEXT_PUBLIC_STORE_SLUG;
@@ -112,10 +158,14 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_STORE_SENDER_EMAIL: activeStore.senderEmail,
     NEXT_PUBLIC_STORE_SMS_SENDER: activeStore.smsSenderTitle,
     NEXT_PUBLIC_DEFAULT_PRODUCT_BRAND: activeStore.defaultProductBrand,
-    NEXT_PUBLIC_SITE_URL:
-      process.env.NEXT_PUBLIC_SITE_URL ?? `https://${activeStore.storefrontDomain}`,
-    NEXT_PUBLIC_ADMIN_URL:
-      process.env.NEXT_PUBLIC_ADMIN_URL ?? `https://${activeStore.adminDomain}`,
+    NEXT_PUBLIC_SITE_URL: normalizePublicUrl(
+      process.env.NEXT_PUBLIC_SITE_URL,
+      activeStore.storefrontDomain,
+    ),
+    NEXT_PUBLIC_ADMIN_URL: normalizePublicUrl(
+      process.env.NEXT_PUBLIC_ADMIN_URL,
+      activeStore.adminDomain,
+    ),
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
     NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL:
       process.env.NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL ?? `admin@${activeStore.slug}.local`

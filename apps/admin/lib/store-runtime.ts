@@ -1,21 +1,57 @@
-function normalizeUrl(url: string | undefined, fallbackDomain: string): string {
-  if (url && url.trim().length > 0) {
-    return url.startsWith("http://") || url.startsWith("https://")
-      ? url
-      : `https://${url}`;
+function toAbsoluteUrl(value: string): string {
+  return value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `https://${value}`;
+}
+
+function resolveHostname(value: string | undefined): string {
+  if (!value || !value.trim()) {
+    return "";
   }
 
-  return fallbackDomain.startsWith("http://") || fallbackDomain.startsWith("https://")
-    ? fallbackDomain
-    : `https://${fallbackDomain}`;
+  try {
+    return new URL(toAbsoluteUrl(value)).hostname.toLocaleLowerCase("tr");
+  } catch {
+    return value.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLocaleLowerCase("tr");
+  }
+}
+
+function normalizeUrl(url: string | undefined, fallbackDomain: string): string {
+  const normalizedFallback = toAbsoluteUrl(fallbackDomain);
+  const fallbackHost = resolveHostname(fallbackDomain);
+
+  if (!url || url.trim().length === 0) {
+    return normalizedFallback;
+  }
+
+  const normalizedUrl = toAbsoluteUrl(url.trim());
+  const urlHost = resolveHostname(normalizedUrl);
+
+  if (
+    fallbackHost &&
+    urlHost &&
+    fallbackHost !== urlHost &&
+    !fallbackHost.includes("localhost") &&
+    !fallbackHost.endsWith(".local")
+  ) {
+    return normalizedFallback;
+  }
+
+  return normalizedUrl;
 }
 
 const storeSlug = process.env.NEXT_PUBLIC_STORE_SLUG || "default-store";
 const storeName = process.env.NEXT_PUBLIC_STORE_NAME || "Celebix E-ticaret";
 const storeTagline =
   process.env.NEXT_PUBLIC_STORE_TAGLINE || "Celebix Panel ortak e-ticaret altyapisi";
-const storefrontDomain = process.env.NEXT_PUBLIC_STORE_DOMAIN || "localhost:3300";
-const adminDomain = process.env.NEXT_PUBLIC_ADMIN_DOMAIN || "localhost:3200";
+const storefrontDomain =
+  process.env.NEXT_PUBLIC_STORE_DOMAIN ||
+  process.env.STORE_DOMAIN ||
+  "localhost:3300";
+const adminDomain =
+  process.env.NEXT_PUBLIC_ADMIN_DOMAIN ||
+  process.env.ADMIN_DOMAIN ||
+  "localhost:3200";
 
 export const STORE_RUNTIME = {
   slug: storeSlug,

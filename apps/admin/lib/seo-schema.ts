@@ -11,7 +11,7 @@ import { STORE_RUNTIME } from "@/lib/store-runtime";
 /**
  * Site ayarları (bunları environment variable'dan alabiliriz)
  */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || STORE_RUNTIME.storefrontUrl;
+const SITE_URL = STORE_RUNTIME.storefrontUrl;
 const SITE_NAME = STORE_RUNTIME.name;
 const AUTHOR_NAME = `${STORE_RUNTIME.name} SEO Team`;
 const AUTHOR_URL = `${SITE_URL}/hakkimizda`;

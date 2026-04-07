@@ -9,7 +9,6 @@ import {
   History,
   Shield,
 } from "lucide-react";
-
 import { buildStorefrontUrl, STORE_RUNTIME } from "@/lib/store-runtime";
 
 const blockedPaths = ["/admin/", "/api/", "/giris/", "/kayit/", "/sepet/", "/odeme/"];
