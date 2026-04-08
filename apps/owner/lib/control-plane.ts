@@ -446,7 +446,7 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 function hasExpandedSecretFields(secret: Awaited<ReturnType<typeof getStoreSupabaseSecret>>): boolean {
-  return Boolean(secret?.supabase_url && secret?.supabase_service_role_key && secret?.supabase_anon_key);
+  return Boolean(secret?.supabase_url && secret?.supabase_service_role_key);
 }
 
 function hasLegacyAuthFields(secret: Awaited<ReturnType<typeof getStoreSupabaseSecret>>): boolean {
@@ -457,18 +457,25 @@ async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreCo
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
   const secretRecord = await getStoreSupabaseSecret(store.slug);
   const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
+  const normalizedConfiguredStoreUrl = normalizeComparableUrl(configuredStoreUrl);
+  const normalizedSecretStoreUrl = normalizeComparableUrl(secretRecord?.supabase_url ?? null);
+  const normalizedEnvStoreUrl = normalizeComparableUrl(envMap.NEXT_PUBLIC_SUPABASE_URL ?? null);
+  const envLooksAuthoritative =
+    Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY) &&
+    (!normalizedConfiguredStoreUrl || normalizedConfiguredStoreUrl === normalizedEnvStoreUrl) &&
+    (!normalizedSecretStoreUrl || normalizedSecretStoreUrl === normalizedEnvStoreUrl);
   const secretAuthorityReady = hasExpandedSecretFields(secretRecord);
   const secretCoverage = Boolean(
-    (secretRecord?.supabase_url || envMap.NEXT_PUBLIC_SUPABASE_URL || configuredStoreUrl) &&
-      (secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY) &&
-      (secretRecord?.supabase_anon_key || envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    (secretRecord?.supabase_url || configuredStoreUrl || (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_URL : null)) &&
+      (secretRecord?.supabase_service_role_key || (envLooksAuthoritative ? envMap.SUPABASE_SERVICE_ROLE_KEY : null))
   );
   const legacyAuthConfigured = Boolean(
     hasLegacyAuthFields(secretRecord) ||
-      (envMap.SUPABASE_LEGACY_URL && envMap.SUPABASE_LEGACY_ANON_KEY)
+      (envLooksAuthoritative && envMap.SUPABASE_LEGACY_URL && envMap.SUPABASE_LEGACY_ANON_KEY)
   );
 
   const shouldBackfillExpandedSecret =
+    envLooksAuthoritative &&
     Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY && envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
     !secretAuthorityReady;
 
@@ -487,15 +494,15 @@ async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreCo
     secretCoverage,
     secretAuthorityReady,
     legacyAuthConfigured,
-    envAdminDomain: envMap.NEXT_PUBLIC_ADMIN_DOMAIN?.trim() || null,
-    envAdminUrl: envMap.NEXT_PUBLIC_ADMIN_URL?.trim() || null,
-    envStoreDomain: envMap.NEXT_PUBLIC_STORE_DOMAIN?.trim() || null,
-    envStorefrontUrl: envMap.NEXT_PUBLIC_SITE_URL?.trim() || null,
-    envSupabaseUrl: envMap.NEXT_PUBLIC_SUPABASE_URL?.trim() || null,
-    hasEnvAnonKey: Boolean(envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
-    hasEnvServiceRoleKey: Boolean(envMap.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    envAdminDomain: envLooksAuthoritative ? envMap.NEXT_PUBLIC_ADMIN_DOMAIN?.trim() || null : null,
+    envAdminUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_ADMIN_URL?.trim() || null : null,
+    envStoreDomain: envLooksAuthoritative ? envMap.NEXT_PUBLIC_STORE_DOMAIN?.trim() || null : null,
+    envStorefrontUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_SITE_URL?.trim() || null : null,
+    envSupabaseUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_URL?.trim() || null : null,
+    hasEnvAnonKey: envLooksAuthoritative && Boolean(envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+    hasEnvServiceRoleKey: envLooksAuthoritative && Boolean(envMap.SUPABASE_SERVICE_ROLE_KEY?.trim()),
     secretSupabaseUrl: secretRecord?.supabase_url?.trim() || null,
-    hasSecretAnonKey: Boolean(secretRecord?.supabase_anon_key?.trim()),
+    hasSecretAnonKey: Boolean(secretRecord?.supabase_anon_key?.trim() || (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() : null)),
     hasSecretServiceRoleKey: Boolean(secretRecord?.supabase_service_role_key?.trim()),
     secretLegacyUrl: secretRecord?.supabase_legacy_url?.trim() || null,
     hasSecretLegacyAnonKey: Boolean(secretRecord?.supabase_legacy_anon_key?.trim())
@@ -599,12 +606,24 @@ function readBillingStatus(value: unknown): BillingStatus {
   return value === "follow_up" || value === "hold" ? value : "healthy";
 }
 
-function parseStoreManagementProfile(metadata: Record<string, unknown> | null): StoreManagementProfile {
+function parseStoreManagementProfile(
+  metadata: Record<string, unknown> | null,
+  fallbackState?: {
+    storeStatus: OwnerStoreStatus;
+    storefrontStatus: StorefrontStatus;
+  }
+): StoreManagementProfile {
   const root = asRecord(metadata);
   const owner = asRecord(root.owner);
   const client = asRecord(root.client);
   const lifecycle = asRecord(root.lifecycle);
   const finance = asRecord(root.finance);
+  const lifecycleStage = readLifecycleStage(lifecycle.stage);
+  const nextAction = readOptionalString(lifecycle.nextAction);
+  const shouldPromoteToLive =
+    lifecycleStage === "building" &&
+    fallbackState?.storeStatus === "active" &&
+    fallbackState?.storefrontStatus === "active";
 
   return {
     clientCompanyName: readOptionalString(client.companyName),
@@ -612,9 +631,9 @@ function parseStoreManagementProfile(metadata: Record<string, unknown> | null): 
     clientContactEmail: readOptionalString(client.contactEmail),
     clientContactPhone: readOptionalString(client.contactPhone),
     internalOwner: readOptionalString(lifecycle.internalOwner),
-    lifecycleStage: readLifecycleStage(lifecycle.stage),
+    lifecycleStage: shouldPromoteToLive ? "live" : lifecycleStage,
     priority: readPriority(lifecycle.priority),
-    nextAction: readOptionalString(lifecycle.nextAction),
+    nextAction: shouldPromoteToLive && !nextAction ? "Canli operasyon izleniyor." : nextAction,
     launchTarget: readOptionalString(lifecycle.launchTarget),
     ownerNotes: readOptionalString(owner.notes),
     billingStatus: readBillingStatus(finance.billingStatus)
@@ -703,7 +722,8 @@ function resolveSupabaseDashboardUrl(configuredDashboardUrl: string | null | und
 async function createStoreServiceClient(store: StoreConfig): Promise<SupabaseClient | null> {
   const secretRecord = await getStoreSupabaseSecret(store.slug);
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
-  const url = secretRecord?.supabase_url || envMap.NEXT_PUBLIC_SUPABASE_URL || store.supabase.url;
+  const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
+  const url = secretRecord?.supabase_url || configuredStoreUrl || envMap.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || url === "configure-in-env" || !serviceKey) {
@@ -734,16 +754,23 @@ async function listStoreAdminsForConfig(store: StoreConfig): Promise<StoreAdminS
     throw new Error(profilesError.message);
   }
 
+  const profiles = (profilesData as StoreAdminProfileRow[]) ?? [];
+
   const {
     data: { users },
     error: usersError,
   } = await client.auth.admin.listUsers();
 
   if (usersError) {
-    throw new Error(usersError.message);
+    return profiles.map((profile) => ({
+      id: profile.id,
+      email: "unknown",
+      fullName: profile.full_name,
+      role: profile.role,
+      taskDefinition: profile.task_definition,
+      createdAt: profile.created_at ?? null,
+    }));
   }
-
-  const profiles = (profilesData as StoreAdminProfileRow[]) ?? [];
 
   return profiles.map((profile) => {
     const user = users.find((entry) => entry.id === profile.id);
@@ -813,6 +840,20 @@ async function collectStoreMetrics(store: StoreConfig): Promise<StoreMetricsSnap
     averageOrderValue: Number(averageOrderValue.toFixed(2)),
     lastSyncedAt: new Date().toISOString()
   };
+}
+
+function isSuspiciousZeroMetrics(metric: OwnerMetricRow | undefined, store: OwnerStoreRow): boolean {
+  if (!metric) {
+    return true;
+  }
+
+  const totalActivity =
+    Number(metric.product_count ?? 0) +
+    Number(metric.order_count ?? 0) +
+    Number(metric.customer_count ?? 0) +
+    Number(metric.pending_order_count ?? 0);
+
+  return totalActivity === 0 && store.status === "active" && store.storefront_status === "active";
 }
 
 function buildOwnerStoreRow(store: StoreConfig, existingMetadata: Record<string, unknown> | null) {
@@ -1192,7 +1233,8 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
     accessible.stores.map(async (store) => {
       const metric = accessible.metricsMap.get(store.id);
       const storeConfig = getStoreConfig(store.slug);
-      const [storeAdmins, connectionReadiness, adminRuntimeHealth] = await Promise.all([
+      const shouldRefreshMetrics = Boolean(storeConfig && isSuspiciousZeroMetrics(metric, store));
+      const [storeAdmins, connectionReadiness, adminRuntimeHealth, refreshedMetrics] = await Promise.all([
         storeConfig ? listStoreAdminsForConfig(storeConfig).catch(() => []) : Promise.resolve([]),
         storeConfig
           ? readStoreConnectionReadiness(storeConfig).catch(() => ({
@@ -1229,8 +1271,21 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
               secretLegacyUrl: null,
               hasSecretLegacyAnonKey: false
             }),
-        readAdminRuntimeHealth(store)
+        readAdminRuntimeHealth(store),
+        shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig).catch(() => null) : Promise.resolve(null)
       ]);
+      const metricsRow = refreshedMetrics
+        ? {
+            ...metric,
+            product_count: refreshedMetrics.productCount,
+            order_count: refreshedMetrics.orderCount,
+            customer_count: refreshedMetrics.customerCount,
+            pending_order_count: refreshedMetrics.pendingOrderCount,
+            total_revenue: refreshedMetrics.totalRevenue,
+            average_order_value: refreshedMetrics.averageOrderValue,
+            last_synced_at: refreshedMetrics.lastSyncedAt
+          }
+        : metric;
       const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
 
       return {
@@ -1248,19 +1303,22 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
           storeConfig?.supabase.dashboardUrl ?? null,
           storeConfig?.supabase.url ?? store.supabase_url
         ),
-        productCount: metric?.product_count ?? 0,
-        orderCount: metric?.order_count ?? 0,
-        customerCount: metric?.customer_count ?? 0,
-        pendingOrderCount: metric?.pending_order_count ?? 0,
-        totalRevenue: metric?.total_revenue ?? 0,
-        averageOrderValue: metric?.average_order_value ?? 0,
-        lastSyncedAt: metric?.last_synced_at ?? null,
+        productCount: metricsRow?.product_count ?? 0,
+        orderCount: metricsRow?.order_count ?? 0,
+        customerCount: metricsRow?.customer_count ?? 0,
+        pendingOrderCount: metricsRow?.pending_order_count ?? 0,
+        totalRevenue: metricsRow?.total_revenue ?? 0,
+        averageOrderValue: metricsRow?.average_order_value ?? 0,
+        lastSyncedAt: metricsRow?.last_synced_at ?? null,
         commissionRate: accessible.commissionMap.get(store.id) ?? null,
         totalAffiliateRate: accessible.affiliateRateMap.get(store.id) ?? 0,
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
         storeAdminCount: storeAdmins.length,
-        management: parseStoreManagementProfile(store.metadata),
-        health: buildStoreHealth(store, metric?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth),
+        management: parseStoreManagementProfile(store.metadata, {
+          storeStatus: store.status,
+          storefrontStatus: store.storefront_status
+        }),
+        health: buildStoreHealth(store, metricsRow?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth),
         consistency
       };
     })
@@ -1317,6 +1375,16 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
   }
 
   const storeIdMap = new Map((ownerStores ?? []).map((store) => [store.slug as string, store.id as string]));
+  const { data: existingMetricsRows, error: existingMetricsError } = await serviceClient
+    .from("owner_store_metrics")
+    .select("*")
+    .in("store_id", Array.from(storeIdMap.values()));
+
+  if (existingMetricsError) {
+    throw new Error(existingMetricsError.message);
+  }
+
+  const existingMetricsMap = new Map(((existingMetricsRows as OwnerMetricRow[]) ?? []).map((row) => [row.store_id, row]));
 
   await Promise.all(
     storeConfigs.map(async (store) => {
@@ -1332,14 +1400,20 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
         metrics = await collectStoreMetrics(store);
       } catch (error) {
         console.error(`Store metrics sync failed for ${store.slug}:`, error);
+        const existingMetric = existingMetricsMap.get(storeId);
+
+        if (!existingMetric) {
+          return;
+        }
+
         metrics = {
-          productCount: 0,
-          orderCount: 0,
-          customerCount: 0,
-          pendingOrderCount: 0,
-          totalRevenue: 0,
-          averageOrderValue: 0,
-          lastSyncedAt: new Date().toISOString()
+          productCount: existingMetric.product_count ?? 0,
+          orderCount: existingMetric.order_count ?? 0,
+          customerCount: existingMetric.customer_count ?? 0,
+          pendingOrderCount: existingMetric.pending_order_count ?? 0,
+          totalRevenue: Number(existingMetric.total_revenue ?? 0),
+          averageOrderValue: Number(existingMetric.average_order_value ?? 0),
+          lastSyncedAt: existingMetric.last_synced_at ?? new Date().toISOString()
         };
       }
 
