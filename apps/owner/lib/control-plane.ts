@@ -264,6 +264,8 @@ export interface StoreDetailSummary extends DashboardStoreSummary {
   r2ManagedDomain: string | null;
   bootstrap: Record<string, unknown> | null;
   features: string[];
+  createdAt: string;
+  updatedAt: string;
   affiliateAssignments: Array<{
     profileId: string;
     email: string;
@@ -1785,25 +1787,40 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
 
   const metadata = (storeRow.metadata ?? {}) as Record<string, unknown>;
   const storeConfig = getStoreConfig(slug);
+  const metadataBootstrap = asRecord(metadata.bootstrap);
+  const configBootstrap = storeConfig?.bootstrap
+    ? (storeConfig.bootstrap as unknown as Record<string, unknown>)
+    : null;
+  const detailBootstrap =
+    Object.keys(metadataBootstrap).length > 0 || !configBootstrap
+      ? metadataBootstrap
+      : configBootstrap;
+  const metadataFeatures = Array.isArray(metadata.features) ? (metadata.features as string[]) : [];
   const storeAdmins = storeConfig ? await listStoreAdminsForConfig(storeConfig) : [];
   const recentActivity = await listRecentOwnerActivity(context, 8, slug);
 
   return {
     ...current,
-    supportEmail: storeRow.support_email,
-    supportPhone: storeRow.support_phone,
-    tagline: storeRow.tagline,
-    supabaseProjectRef: storeRow.supabase_project_ref,
-    supabaseUrl: storeRow.supabase_url,
+    supportEmail: storeRow.support_email ?? storeConfig?.branding?.supportEmail ?? null,
+    supportPhone: storeRow.support_phone ?? storeConfig?.branding?.supportPhone ?? null,
+    tagline: storeRow.tagline ?? storeConfig?.branding?.tagline ?? null,
+    supabaseProjectRef: storeRow.supabase_project_ref ?? storeConfig?.supabase.projectRef ?? null,
+    supabaseUrl:
+      storeRow.supabase_url ??
+      (storeConfig?.supabase.url && storeConfig.supabase.url !== "configure-in-env"
+        ? storeConfig.supabase.url
+        : null),
     supabaseDashboardUrl: resolveSupabaseDashboardUrl(
       storeConfig?.supabase.dashboardUrl ?? null,
       storeConfig?.supabase.url ?? storeRow.supabase_url
     ),
-    r2BucketName: storeRow.r2_bucket_name,
-    r2PublicUrl: storeRow.r2_public_url,
-    r2ManagedDomain: storeRow.r2_managed_domain,
-    bootstrap: (metadata.bootstrap as Record<string, unknown> | null) ?? null,
-    features: Array.isArray(metadata.features) ? (metadata.features as string[]) : [],
+    r2BucketName: storeRow.r2_bucket_name ?? storeConfig?.r2?.bucketName ?? null,
+    r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
+    r2ManagedDomain: storeRow.r2_managed_domain ?? storeConfig?.r2?.managedDomain ?? null,
+    bootstrap: Object.keys(detailBootstrap).length > 0 ? detailBootstrap : null,
+    features: storeConfig?.features?.length ? storeConfig.features : metadataFeatures,
+    createdAt: storeRow.created_at,
+    updatedAt: storeRow.updated_at,
     affiliateAssignments: accessRows.map((access) => ({
       profileId: access.profile_id,
       email: profileMap.get(access.profile_id)?.email ?? "unknown",

@@ -14,6 +14,15 @@ interface StoreDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+function readStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readDateValue(value: unknown): string | null {
+  const parsed = readStringValue(value);
+  return parsed ? formatDateTime(parsed) : "-";
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
   const auth = await requireOwnerAuth();
   const { slug } = await params;
@@ -25,6 +34,18 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   }
 
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
+  const bootstrap = (store.bootstrap ?? {}) as Record<string, unknown>;
+  const supabaseProjectName = readStringValue(bootstrap.supabaseProjectName);
+  const supabaseResourceId = readStringValue(bootstrap.supabaseResourceId);
+  const supabaseProvisioning = readStringValue(bootstrap.supabaseProvisioning);
+  const supabaseDashboardUrl = readStringValue(bootstrap.supabaseDashboardUrl) || store.supabaseDashboardUrl;
+  const adminDeploymentName = readStringValue(bootstrap.adminDeploymentName);
+  const adminDeploymentStatus = readStringValue(bootstrap.adminDeploymentStatus);
+  const adminDeploymentRuntimeUrl = readStringValue(bootstrap.adminDeploymentRuntimeUrl);
+  const adminDeploymentPreparedAt = readDateValue(bootstrap.adminDeploymentPreparedAt);
+  const provisionedAt = readDateValue(bootstrap.provisionedAt);
+  const createdAt = formatDateTime(store.createdAt);
+  const updatedAt = formatDateTime(store.updatedAt);
 
   return (
     <>
@@ -127,7 +148,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
             <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
+            <span>R2 Public URL: <strong>{store.r2PublicUrl || "-"}</strong></span>
+            <span>R2 Managed Domain: <strong>{store.r2ManagedDomain || "-"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
+            <span>Storefront Domain: <strong>{store.storefrontDomain}</strong></span>
             <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
             <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
@@ -222,6 +246,53 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             )}
           </div>
           <p className="card-note">{store.management.ownerNotes || "Ic owner notu girilmemis."}</p>
+        </div>
+      </div>
+
+      <div className="info-row info-row-3">
+        <div className="card">
+          <div className="card-title">Teknik Kimlikler</div>
+          <div className="meta-pairs">
+            <span>Slug: <strong>{store.slug}</strong></span>
+            <span>Theme: <strong>{store.themeKey}</strong></span>
+            <span>Storefront App: <strong>{store.storefrontAppDir || "-"}</strong></span>
+            <span>Storefront Status: <strong>{store.storefrontStatus}</strong></span>
+            <span>Olusturma: <strong>{createdAt}</strong></span>
+            <span>Guncelleme: <strong>{updatedAt}</strong></span>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Supabase Provisioning</div>
+          <div className="meta-pairs">
+            <span>Service Name: <strong>{supabaseProjectName || "-"}</strong></span>
+            <span>Resource ID: <strong>{supabaseResourceId || "-"}</strong></span>
+            <span>Provisioning: <strong>{supabaseProvisioning || "-"}</strong></span>
+            <span>Provisioned At: <strong>{provisionedAt}</strong></span>
+            <span>
+              Studio URL:{" "}
+              <strong>
+                {supabaseDashboardUrl ? (
+                  <a href={supabaseDashboardUrl} target="_blank" rel="noreferrer">
+                    {supabaseDashboardUrl}
+                  </a>
+                ) : (
+                  "-"
+                )}
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Admin Deployment</div>
+          <div className="meta-pairs">
+            <span>Deployment Name: <strong>{adminDeploymentName || adminDeployment?.appName || "-"}</strong></span>
+            <span>Deployment Status: <strong>{adminDeploymentStatus || adminDeployment?.status || "-"}</strong></span>
+            <span>Runtime URL: <strong>{adminDeploymentRuntimeUrl || adminDeployment?.runtimeUrl || "-"}</strong></span>
+            <span>Prepared At: <strong>{adminDeploymentPreparedAt}</strong></span>
+            <span>Resource ID: <strong>{adminDeployment?.resourceId || "-"}</strong></span>
+          </div>
         </div>
       </div>
 
