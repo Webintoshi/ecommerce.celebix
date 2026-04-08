@@ -54,6 +54,12 @@ export default async function OperationsPage() {
           </div>
         </div>
         <div className="metric-box">
+          <div className="metric-box-label">Consistency Block</div>
+          <div className="metric-box-value" style={{ color: summary.totals.consistencyBlockingStores > 0 ? "var(--error)" : "inherit" }}>
+            {summary.totals.consistencyBlockingStores}
+          </div>
+        </div>
+        <div className="metric-box">
           <div className="metric-box-label">Storefront Bekleyen</div>
           <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
         </div>
@@ -71,6 +77,7 @@ export default async function OperationsPage() {
                   <th>Supabase</th>
                   <th>Secrets</th>
                   <th>Admin Runtime</th>
+                  <th>Consistency</th>
                   <th>R2</th>
                   <th>Storefront</th>
                   <th>Son Sync</th>
@@ -122,6 +129,21 @@ export default async function OperationsPage() {
                             ? "Hazir"
                             : "Drift"
                           : "Kapali"}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          color: row.consistency.blocking ? "var(--error)" : "var(--success)",
+                          fontWeight: 600
+                        }}
+                        title={
+                          row.consistency.issues.length > 0
+                            ? row.consistency.issues.map((issue) => issue.message).join(" / ")
+                            : undefined
+                        }
+                      >
+                        {row.consistency.blocking ? `${row.consistency.blockingIssueCount} blok` : "Temiz"}
                       </span>
                     </td>
                     <td>

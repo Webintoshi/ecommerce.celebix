@@ -107,6 +107,18 @@ interface StoreConnectionReadiness {
   secretCoverage: boolean;
   secretAuthorityReady: boolean;
   legacyAuthConfigured: boolean;
+  envAdminDomain: string | null;
+  envAdminUrl: string | null;
+  envStoreDomain: string | null;
+  envStorefrontUrl: string | null;
+  envSupabaseUrl: string | null;
+  hasEnvAnonKey: boolean;
+  hasEnvServiceRoleKey: boolean;
+  secretSupabaseUrl: string | null;
+  hasSecretAnonKey: boolean;
+  hasSecretServiceRoleKey: boolean;
+  secretLegacyUrl: string | null;
+  hasSecretLegacyAnonKey: boolean;
 }
 
 interface AdminRuntimeSnapshot {
@@ -155,6 +167,30 @@ export interface StoreHealthSummary {
   label: HealthLabel;
 }
 
+export interface StoreConsistencyIssue {
+  code:
+    | "missing_store_config"
+    | "owner_domain_mismatch"
+    | "owner_supabase_mismatch"
+    | "secret_supabase_mismatch"
+    | "admin_env_missing"
+    | "admin_env_domain_mismatch"
+    | "admin_env_supabase_mismatch"
+    | "admin_runtime_unreachable"
+    | "admin_runtime_drift";
+  severity: "warning" | "blocking";
+  source: "store_config" | "owner_store" | "owner_secret" | "admin_env" | "admin_runtime";
+  message: string;
+}
+
+export interface StoreConsistencySummary {
+  blocking: boolean;
+  issueCount: number;
+  blockingIssueCount: number;
+  issues: StoreConsistencyIssue[];
+  checkedAt: string;
+}
+
 export interface DashboardStoreSummary {
   id: string;
   slug: string;
@@ -180,6 +216,7 @@ export interface DashboardStoreSummary {
   storeAdminCount: number;
   management: StoreManagementProfile;
   health: StoreHealthSummary;
+  consistency: StoreConsistencySummary;
 }
 
 export interface AffiliateSummary {
@@ -314,6 +351,7 @@ export interface OperationsStoreSummary {
   storefrontDomain: string;
   adminDomain: string;
   health: StoreHealthSummary;
+  consistency: StoreConsistencySummary;
   pendingOrderCount: number;
   lastSyncedAt: string | null;
   supabaseProjectRef: string | null;
@@ -328,6 +366,7 @@ export interface OperationsSummary {
     missingAdmins: number;
     secretDrift: number;
     adminRuntimeIssues: number;
+    consistencyBlockingStores: number;
     pendingStorefronts: number;
   };
   rows: OperationsStoreSummary[];
@@ -445,7 +484,19 @@ async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreCo
   return {
     secretCoverage,
     secretAuthorityReady,
-    legacyAuthConfigured
+    legacyAuthConfigured,
+    envAdminDomain: envMap.NEXT_PUBLIC_ADMIN_DOMAIN?.trim() || null,
+    envAdminUrl: envMap.NEXT_PUBLIC_ADMIN_URL?.trim() || null,
+    envStoreDomain: envMap.NEXT_PUBLIC_STORE_DOMAIN?.trim() || null,
+    envStorefrontUrl: envMap.NEXT_PUBLIC_SITE_URL?.trim() || null,
+    envSupabaseUrl: envMap.NEXT_PUBLIC_SUPABASE_URL?.trim() || null,
+    hasEnvAnonKey: Boolean(envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+    hasEnvServiceRoleKey: Boolean(envMap.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    secretSupabaseUrl: secretRecord?.supabase_url?.trim() || null,
+    hasSecretAnonKey: Boolean(secretRecord?.supabase_anon_key?.trim()),
+    hasSecretServiceRoleKey: Boolean(secretRecord?.supabase_service_role_key?.trim()),
+    secretLegacyUrl: secretRecord?.supabase_legacy_url?.trim() || null,
+    hasSecretLegacyAnonKey: Boolean(secretRecord?.supabase_legacy_anon_key?.trim())
   };
 }
 
@@ -847,6 +898,176 @@ function buildStoreHealth(
   };
 }
 
+function normalizeComparableUrl(value: string | null | undefined): string | null {
+  const trimmed = readOptionalString(value);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = new URL(toAbsoluteUrl(trimmed));
+    return `${url.protocol}//${url.hostname}${url.pathname}`.replace(/\/+$/, "");
+  } catch {
+    return trimmed.replace(/\/+$/, "");
+  }
+}
+
+function buildStoreConsistency(
+  store: OwnerStoreRow,
+  storeConfig: StoreConfig | null,
+  connectionReadiness: StoreConnectionReadiness,
+  adminRuntimeHealth: AdminRuntimeHealth
+): StoreConsistencySummary {
+  const issues: StoreConsistencyIssue[] = [];
+  const checkedAt = new Date().toISOString();
+
+  if (!storeConfig) {
+    issues.push({
+      code: "missing_store_config",
+      severity: "blocking",
+      source: "store_config",
+      message: "Store config bulunamadi; authoritative kaynak eksik."
+    });
+
+    return {
+      blocking: true,
+      issueCount: issues.length,
+      blockingIssueCount: 1,
+      issues,
+      checkedAt
+    };
+  }
+
+  const configStorefrontDomain = normalizeDomainInput(storeConfig.domains.storefront);
+  const configAdminDomain = normalizeDomainInput(storeConfig.domains.admin);
+  const ownerStorefrontDomain = normalizeDomainInput(store.storefront_domain);
+  const ownerAdminDomain = normalizeDomainInput(store.admin_domain);
+  const configSupabaseUrl = normalizeComparableUrl(storeConfig.supabase.url === "configure-in-env" ? null : storeConfig.supabase.url);
+  const ownerSupabaseUrl = normalizeComparableUrl(store.supabase_url);
+  const secretSupabaseUrl = normalizeComparableUrl(connectionReadiness.secretSupabaseUrl);
+  const envSupabaseUrl = normalizeComparableUrl(connectionReadiness.envSupabaseUrl);
+  const envStoreDomain = normalizeDomainInput(connectionReadiness.envStoreDomain);
+  const envAdminDomain = normalizeDomainInput(connectionReadiness.envAdminDomain);
+  const envStorefrontUrl = normalizeDomainInput(connectionReadiness.envStorefrontUrl);
+  const envAdminUrl = normalizeDomainInput(connectionReadiness.envAdminUrl);
+  const adminDeploymentStatus = storeConfig.bootstrap?.adminDeploymentStatus ?? "pending-owner-env";
+  const supabaseProvisioningStatus = storeConfig.bootstrap?.supabaseProvisioning ?? "pending-owner-env";
+
+  if (configStorefrontDomain && ownerStorefrontDomain && configStorefrontDomain !== ownerStorefrontDomain) {
+    issues.push({
+      code: "owner_domain_mismatch",
+      severity: "blocking",
+      source: "owner_store",
+      message: `Owner storefront domaini drift uretmis: ${ownerStorefrontDomain}`
+    });
+  }
+
+  if (configAdminDomain && ownerAdminDomain && configAdminDomain !== ownerAdminDomain) {
+    issues.push({
+      code: "owner_domain_mismatch",
+      severity: "blocking",
+      source: "owner_store",
+      message: `Owner admin domaini drift uretmis: ${ownerAdminDomain}`
+    });
+  }
+
+  if (configSupabaseUrl && ownerSupabaseUrl && configSupabaseUrl !== ownerSupabaseUrl) {
+    issues.push({
+      code: "owner_supabase_mismatch",
+      severity: "blocking",
+      source: "owner_store",
+      message: `Owner store Supabase URL farkli: ${ownerSupabaseUrl}`
+    });
+  }
+
+  if (configSupabaseUrl && secretSupabaseUrl && configSupabaseUrl !== secretSupabaseUrl) {
+    issues.push({
+      code: "secret_supabase_mismatch",
+      severity: "blocking",
+      source: "owner_secret",
+      message: `Secret authority Supabase URL drift uretmis: ${secretSupabaseUrl}`
+    });
+  }
+
+  const adminEnvMissing =
+    !connectionReadiness.envSupabaseUrl ||
+    !connectionReadiness.hasEnvAnonKey ||
+    !connectionReadiness.hasEnvServiceRoleKey ||
+    !connectionReadiness.envStoreDomain ||
+    !connectionReadiness.envAdminDomain;
+
+  if (adminEnvMissing) {
+    issues.push({
+      code: "admin_env_missing",
+      severity: adminDeploymentStatus === "pending-owner-env" ? "warning" : "blocking",
+      source: "admin_env",
+      message:
+        adminDeploymentStatus === "pending-owner-env"
+          ? "Admin env seti henuz owner tarafinda tamamlanmamis."
+          : "Admin env seti eksik; deployment authoritative store DB ile calisamaz."
+    });
+  }
+
+  if (
+    (configStorefrontDomain && envStoreDomain && configStorefrontDomain !== envStoreDomain) ||
+    (configStorefrontDomain && envStorefrontUrl && configStorefrontDomain !== envStorefrontUrl) ||
+    (configAdminDomain && envAdminDomain && configAdminDomain !== envAdminDomain) ||
+    (configAdminDomain && envAdminUrl && configAdminDomain !== envAdminUrl)
+  ) {
+    issues.push({
+      code: "admin_env_domain_mismatch",
+      severity: "blocking",
+      source: "admin_env",
+      message: "Admin env domain alanlari store config ile uyusmuyor."
+    });
+  }
+
+  if (configSupabaseUrl && envSupabaseUrl && configSupabaseUrl !== envSupabaseUrl) {
+    issues.push({
+      code: "admin_env_supabase_mismatch",
+      severity: "blocking",
+      source: "admin_env",
+      message: `Admin env Supabase URL drift uretmis: ${envSupabaseUrl}`
+    });
+  }
+
+  if (!connectionReadiness.secretAuthorityReady && supabaseProvisioningStatus === "configured") {
+    issues.push({
+      code: "secret_supabase_mismatch",
+      severity: "blocking",
+      source: "owner_secret",
+      message: "Owner secret authority eksik; anon/service key authoritative olarak kayitli degil."
+    });
+  }
+
+  if (!adminRuntimeHealth.adminDeploymentReady) {
+    issues.push({
+      code: "admin_runtime_unreachable",
+      severity: adminDeploymentStatus === "pending-owner-env" ? "warning" : "blocking",
+      source: "admin_runtime",
+      message: adminRuntimeHealth.adminRuntimeMessage || "Admin runtime erisilemiyor."
+    });
+  } else if (!adminRuntimeHealth.adminRuntimeConsistent) {
+    issues.push({
+      code: "admin_runtime_drift",
+      severity: "blocking",
+      source: "admin_runtime",
+      message: adminRuntimeHealth.adminRuntimeMessage || "Admin runtime farkli store metadata donuyor."
+    });
+  }
+
+  const blockingIssueCount = issues.filter((issue) => issue.severity === "blocking").length;
+
+  return {
+    blocking: blockingIssueCount > 0,
+    issueCount: issues.length,
+    blockingIssueCount,
+    issues,
+    checkedAt
+  };
+}
+
 async function getAccessibleStoreData(context: OwnerAuthContext): Promise<AccessibleStoreData> {
   const serviceClient = createOwnerServiceClient();
   await syncOwnerStoresAndMetrics();
@@ -975,15 +1196,40 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
           ? readStoreConnectionReadiness(storeConfig).catch(() => ({
               secretCoverage: false,
               secretAuthorityReady: false,
-              legacyAuthConfigured: false
+              legacyAuthConfigured: false,
+              envAdminDomain: null,
+              envAdminUrl: null,
+              envStoreDomain: null,
+              envStorefrontUrl: null,
+              envSupabaseUrl: null,
+              hasEnvAnonKey: false,
+              hasEnvServiceRoleKey: false,
+              secretSupabaseUrl: null,
+              hasSecretAnonKey: false,
+              hasSecretServiceRoleKey: false,
+              secretLegacyUrl: null,
+              hasSecretLegacyAnonKey: false
             }))
           : Promise.resolve({
               secretCoverage: false,
               secretAuthorityReady: false,
-              legacyAuthConfigured: false
+              legacyAuthConfigured: false,
+              envAdminDomain: null,
+              envAdminUrl: null,
+              envStoreDomain: null,
+              envStorefrontUrl: null,
+              envSupabaseUrl: null,
+              hasEnvAnonKey: false,
+              hasEnvServiceRoleKey: false,
+              secretSupabaseUrl: null,
+              hasSecretAnonKey: false,
+              hasSecretServiceRoleKey: false,
+              secretLegacyUrl: null,
+              hasSecretLegacyAnonKey: false
             }),
         readAdminRuntimeHealth(store)
       ]);
+      const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
 
       return {
         id: store.id,
@@ -1012,7 +1258,8 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
         storeAdminCount: storeAdmins.length,
         management: parseStoreManagementProfile(store.metadata),
-        health: buildStoreHealth(store, metric?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth)
+        health: buildStoreHealth(store, metric?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth),
+        consistency
       };
     })
   );
@@ -1117,6 +1364,38 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
 
 export async function listDashboardStores(context: OwnerAuthContext): Promise<DashboardStoreSummary[]> {
   return buildDashboardStoreSummaries(context);
+}
+
+export async function getStoreConsistencyForSlug(
+  context: OwnerAuthContext,
+  slug: string
+): Promise<StoreConsistencySummary | null> {
+  const stores = await listDashboardStores(context);
+  return stores.find((store) => store.slug === slug)?.consistency ?? null;
+}
+
+export async function assertStoreConsistencyForAdminMutation(
+  context: OwnerAuthContext,
+  slug: string,
+  actionLabel: string
+): Promise<void> {
+  const consistency = await getStoreConsistencyForSlug(context, slug);
+
+  if (!consistency) {
+    throw new Error("Proje bulunamadi.");
+  }
+
+  if (!consistency.blocking) {
+    return;
+  }
+
+  const message = consistency.issues
+    .filter((issue) => issue.severity === "blocking")
+    .map((issue) => issue.message)
+    .slice(0, 3)
+    .join(" / ");
+
+  throw new Error(`${actionLabel} once store drift sorunlarini cozmelisin: ${message}`);
 }
 
 export async function listRecentOwnerActivity(
@@ -1365,6 +1644,7 @@ export async function getOperationsSummary(context: OwnerAuthContext): Promise<O
       missingAdmins: stores.filter((store) => !store.health.adminCoverage).length,
       secretDrift: stores.filter((store) => !store.health.secretAuthorityReady).length,
       adminRuntimeIssues: stores.filter((store) => !store.health.adminRuntimeConsistent || !store.health.adminDeploymentReady).length,
+      consistencyBlockingStores: stores.filter((store) => store.consistency.blocking).length,
       pendingStorefronts: stores.filter((store) => store.storefrontStatus !== "active").length
     },
     rows: stores.map((store) => ({
@@ -1376,6 +1656,7 @@ export async function getOperationsSummary(context: OwnerAuthContext): Promise<O
       storefrontDomain: store.storefrontDomain,
       adminDomain: store.adminDomain,
       health: store.health,
+      consistency: store.consistency,
       pendingOrderCount: store.pendingOrderCount,
       lastSyncedAt: store.lastSyncedAt,
       supabaseProjectRef: getStoreConfig(store.slug)?.supabase.projectRef ?? null,

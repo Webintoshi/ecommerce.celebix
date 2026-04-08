@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createOrAssignStoreAdmin } from "@/lib/control-plane";
+import { assertStoreConsistencyForAdminMutation, createOrAssignStoreAdmin } from "@/lib/control-plane";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
 
 interface RouteContext {
@@ -30,6 +30,8 @@ export async function POST(request: Request, { params }: RouteContext) {
     if (!slug || !email || !password || !role) {
       return NextResponse.json({ error: "Tum store admin alanlari zorunludur." }, { status: 400 });
     }
+
+    await assertStoreConsistencyForAdminMutation(auth, slug, "Store admin atamasi yapmadan");
 
     const result = await createOrAssignStoreAdmin(auth, {
       email,

@@ -116,6 +116,7 @@ export default async function OwnerDashboardPage() {
                   <span>Admin: {store.storeAdminCount}</span>
                   <span>Secrets: {store.health.secretAuthorityReady ? "Hazir" : "Drift"}</span>
                   <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazir" : "Sorun"}</span>
+                  <span>Consistency: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "Temiz"}</span>
                   <span>Bekleyen: {store.pendingOrderCount}</span>
                 </div>
               </Link>

@@ -249,6 +249,36 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         )}
       </div>
 
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-title">Consistency Guardrail</div>
+        <div className="meta-pairs">
+          <span>Toplam issue: <strong>{store.consistency.issueCount}</strong></span>
+          <span>Blocking issue: <strong>{store.consistency.blockingIssueCount}</strong></span>
+          <span>Durum: <strong>{store.consistency.blocking ? "Bloklu" : "Temiz"}</strong></span>
+          <span>Kontrol zamani: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
+        </div>
+        {store.consistency.issues.length > 0 ? (
+          <div className="stack-list" style={{ marginTop: 16 }}>
+            {store.consistency.issues.map((issue, index) => (
+              <div key={`${issue.code}-${index}`} className="inline-card">
+                <div>
+                  <strong>{issue.code}</strong>
+                  <p>{issue.message}</p>
+                </div>
+                <div className="actions compact-actions">
+                  <span className={`pill ${issue.severity === "blocking" ? "pill-accent" : "pill-success"}`}>
+                    {issue.severity}
+                  </span>
+                  <span className="pill">{issue.source}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="card-note">Config, owner secrets ve canlı admin runtime aynı authoritative store kaynağını izliyor.</p>
+        )}
+      </div>
+
       {/* Forms - Only for Super Admin */}
       {superAdmin ? (
         <>
