@@ -45,7 +45,7 @@
     "adminDeploymentPreparedAt": "2026-04-08T00:00:00.000Z",
     "organizationSlug": "jzhvbqbjyrljtdrbvyqg",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProjectName": "derycraft-db-std",
+    "supabaseProjectName": "derycraft-db",
     "supabaseResourceId": "xunl5elgny3wzmq7xylb6ts6",
     "supabaseDashboardUrl": "https://supabasekong-derycraft.46.225.183.57.sslip.io/project/default",
     "provisionedAt": "2026-03-28T00:23:53.023Z",
