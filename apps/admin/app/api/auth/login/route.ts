@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
@@ -8,12 +7,6 @@ import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 type LoginBody = {
   email?: string;
   password?: string;
-};
-
-type PendingCookie = {
-  name: string;
-  value: string;
-  options?: Record<string, unknown>;
 };
 
 type UserRecord = {
@@ -24,6 +17,15 @@ type UserRecord = {
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function createAdminLoginClient() {
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -43,7 +45,7 @@ async function repairSelfHostedPassword(email: string, password: string) {
   const existingUser = adminUsers.find((entry) => normalizeEmail(entry.email || "") === normalizedEmail);
 
   if (!existingUser) {
-    return { repaired: false, reason: "admin_user_missing" as const };
+    return { repaired: false as const, reason: "admin_user_missing" as const };
   }
 
   const serviceClient = createAdminServiceClient();
@@ -60,27 +62,19 @@ async function repairSelfHostedPassword(email: string, password: string) {
   return { repaired: true as const };
 }
 
-function createAdminRouteClient(
-  requestCookies: Awaited<ReturnType<typeof cookies>>,
-  cookieMutations: PendingCookie[],
-) {
-  return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    cookies: {
-      getAll() {
-        return requestCookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          const { name, value, ...options } = cookie;
-          cookieMutations.push({
-            name,
-            value,
-            options,
-          });
-        }
-      },
-    },
-  });
+function readAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const maybeMessage = Reflect.get(error, "message");
+    if (typeof maybeMessage === "string" && maybeMessage.trim()) {
+      return maybeMessage;
+    }
+  }
+
+  return "Giris yapilamadi.";
 }
 
 export async function POST(request: Request) {
@@ -88,27 +82,24 @@ export async function POST(request: Request) {
     const { email, password }: LoginBody = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: "E-posta ve şifre zorunludur." }, { status: 400 });
+      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
     }
 
-    const requestCookies = await cookies();
-    const cookieMutations: PendingCookie[] = [];
     let repaired = false;
-
-    let publicClient = createAdminRouteClient(requestCookies, cookieMutations);
+    let publicClient = createAdminLoginClient();
     let { data, error } = await publicClient.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
-    if (error?.message?.includes("Invalid login credentials")) {
+    if (readAuthErrorMessage(error).includes("Invalid login credentials")) {
       const legacyVerified = await verifyLegacyAdminPassword(email, password);
 
       if (legacyVerified) {
         const repairResult = await repairSelfHostedPassword(email, password);
         repaired = repairResult.repaired;
 
-        publicClient = createAdminRouteClient(requestCookies, cookieMutations);
+        publicClient = createAdminLoginClient();
         ({ data, error } = await publicClient.auth.signInWithPassword({
           email: email.trim(),
           password,
@@ -118,12 +109,12 @@ export async function POST(request: Request) {
 
     if (error || !data.session) {
       return NextResponse.json(
-        { error: error?.message || "Giriş yapılamadı." },
+        { error: readAuthErrorMessage(error) },
         { status: 400 },
       );
     }
 
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         session: data.session,
         user: data.user,
@@ -131,14 +122,8 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
-
-    for (const cookie of cookieMutations) {
-      response.cookies.set(cookie.name, cookie.value, cookie.options as never);
-    }
-
-    return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Giriş yapılamadı.";
+    const message = error instanceof Error ? error.message : "Giris yapilamadi.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
