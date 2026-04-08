@@ -59,7 +59,7 @@ export default async function StoresPage() {
                         {store.health.label}
                       </span>
                       <div className="table-inline-meta">
-                        R2: {store.health.r2Ready ? "hazir" : "eksik"}
+                        Runtime: {store.health.adminRuntimeConsistent ? "hazir" : "sorunlu"} / Secrets: {store.health.secretAuthorityReady ? "hazir" : "drift"}
                       </div>
                     </td>
                     <td>

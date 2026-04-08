@@ -527,6 +527,9 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
       slug: store.slug,
       supabaseUrl: publicUrl,
       supabaseServiceRoleKey: serviceKey,
+      supabaseAnonKey: publicKey,
+      supabaseLegacyUrl: legacyAdminAuthEntries.SUPABASE_LEGACY_URL ?? null,
+      supabaseLegacyAnonKey: legacyAdminAuthEntries.SUPABASE_LEGACY_ANON_KEY ?? null,
     });
 
     updateStoreSupabaseConfig(store.slug, {

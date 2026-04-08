@@ -16,7 +16,7 @@ export default async function OperationsPage() {
       </div>
 
       {/* Operation Metrics */}
-      <div className="metric-row metric-row-5">
+      <div className="metric-row metric-row-6">
         <div className="metric-box">
           <div className="metric-box-label">Hazir Store</div>
           <div className="metric-box-value" style={{ color: "var(--success)" }}>
@@ -42,6 +42,18 @@ export default async function OperationsPage() {
           </div>
         </div>
         <div className="metric-box">
+          <div className="metric-box-label">Secret Drift</div>
+          <div className="metric-box-value" style={{ color: summary.totals.secretDrift > 0 ? "var(--warning)" : "inherit" }}>
+            {summary.totals.secretDrift}
+          </div>
+        </div>
+        <div className="metric-box">
+          <div className="metric-box-label">Runtime Sorunu</div>
+          <div className="metric-box-value" style={{ color: summary.totals.adminRuntimeIssues > 0 ? "var(--error)" : "inherit" }}>
+            {summary.totals.adminRuntimeIssues}
+          </div>
+        </div>
+        <div className="metric-box">
           <div className="metric-box-label">Storefront Bekleyen</div>
           <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
         </div>
@@ -57,6 +69,8 @@ export default async function OperationsPage() {
                   <th>Proje</th>
                   <th>Saglik</th>
                   <th>Supabase</th>
+                  <th>Secrets</th>
+                  <th>Admin Runtime</th>
                   <th>R2</th>
                   <th>Storefront</th>
                   <th>Son Sync</th>
@@ -80,6 +94,34 @@ export default async function OperationsPage() {
                         fontWeight: 600
                       }}>
                         {row.supabaseProjectRef || "Eksik"}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          color: row.health.secretAuthorityReady ? "var(--success)" : "var(--warning)",
+                          fontWeight: 600
+                        }}
+                      >
+                        {row.health.secretAuthorityReady ? "Hazir" : "Drift"}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          color:
+                            row.health.adminDeploymentReady && row.health.adminRuntimeConsistent
+                              ? "var(--success)"
+                              : "var(--error)",
+                          fontWeight: 600
+                        }}
+                        title={row.health.adminRuntimeMessage || undefined}
+                      >
+                        {row.health.adminDeploymentReady
+                          ? row.health.adminRuntimeConsistent
+                            ? "Hazir"
+                            : "Drift"
+                          : "Kapali"}
                       </span>
                     </td>
                     <td>

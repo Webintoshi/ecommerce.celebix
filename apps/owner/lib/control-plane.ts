@@ -5,7 +5,7 @@ import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import type { OwnerAuthContext, OwnerProfile } from "@/lib/owner-auth";
-import { getStoreSupabaseSecret } from "@/lib/store-secrets";
+import { getStoreSupabaseSecret, upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 import {
   getRepoRoot,
   getStoreConfig,
@@ -103,6 +103,27 @@ interface AccessibleStoreData {
   affiliateCountMap: Map<string, number>;
 }
 
+interface StoreConnectionReadiness {
+  secretCoverage: boolean;
+  secretAuthorityReady: boolean;
+  legacyAuthConfigured: boolean;
+}
+
+interface AdminRuntimeSnapshot {
+  slug: string | null;
+  storefrontDomain: string | null;
+  adminDomain: string | null;
+  storefrontUrl: string | null;
+  adminUrl: string | null;
+}
+
+interface AdminRuntimeHealth {
+  adminDeploymentReady: boolean;
+  adminRuntimeConsistent: boolean;
+  adminRuntimeMessage: string | null;
+  adminRuntimeUrl: string | null;
+}
+
 export interface StoreManagementProfile {
   clientCompanyName: string | null;
   clientContactName: string | null;
@@ -122,6 +143,13 @@ export interface StoreHealthSummary {
   r2Ready: boolean;
   storefrontReady: boolean;
   adminCoverage: boolean;
+  secretCoverage: boolean;
+  secretAuthorityReady: boolean;
+  legacyAuthConfigured: boolean;
+  adminDeploymentReady: boolean;
+  adminRuntimeConsistent: boolean;
+  adminRuntimeMessage: string | null;
+  adminRuntimeUrl: string | null;
   metricsFreshnessMinutes: number | null;
   score: number;
   label: HealthLabel;
@@ -298,6 +326,8 @@ export interface OperationsSummary {
     missingSupabase: number;
     missingR2: number;
     missingAdmins: number;
+    secretDrift: number;
+    adminRuntimeIssues: number;
     pendingStorefronts: number;
   };
   rows: OperationsStoreSummary[];
@@ -372,6 +402,123 @@ function parseEnvFile(filePath: string): Record<string, string> {
 
       return accumulator;
     }, {});
+}
+
+function hasExpandedSecretFields(secret: Awaited<ReturnType<typeof getStoreSupabaseSecret>>): boolean {
+  return Boolean(secret?.supabase_url && secret?.supabase_service_role_key && secret?.supabase_anon_key);
+}
+
+function hasLegacyAuthFields(secret: Awaited<ReturnType<typeof getStoreSupabaseSecret>>): boolean {
+  return Boolean(secret?.supabase_legacy_url && secret?.supabase_legacy_anon_key);
+}
+
+async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreConnectionReadiness> {
+  const envMap = parseEnvFile(resolveStoreEnvPath(store));
+  const secretRecord = await getStoreSupabaseSecret(store.slug);
+  const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
+  const secretAuthorityReady = hasExpandedSecretFields(secretRecord);
+  const secretCoverage = Boolean(
+    (secretRecord?.supabase_url || envMap.NEXT_PUBLIC_SUPABASE_URL || configuredStoreUrl) &&
+      (secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY) &&
+      (secretRecord?.supabase_anon_key || envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  );
+  const legacyAuthConfigured = Boolean(
+    hasLegacyAuthFields(secretRecord) ||
+      (envMap.SUPABASE_LEGACY_URL && envMap.SUPABASE_LEGACY_ANON_KEY)
+  );
+
+  const shouldBackfillExpandedSecret =
+    Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY && envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
+    !secretAuthorityReady;
+
+  if (shouldBackfillExpandedSecret) {
+    await upsertStoreSupabaseSecret({
+      slug: store.slug,
+      supabaseUrl: envMap.NEXT_PUBLIC_SUPABASE_URL,
+      supabaseServiceRoleKey: envMap.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseAnonKey: envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseLegacyUrl: envMap.SUPABASE_LEGACY_URL ?? null,
+      supabaseLegacyAnonKey: envMap.SUPABASE_LEGACY_ANON_KEY ?? null
+    }).catch(() => undefined);
+  }
+
+  return {
+    secretCoverage,
+    secretAuthorityReady: secretAuthorityReady || shouldBackfillExpandedSecret,
+    legacyAuthConfigured
+  };
+}
+
+function toAbsoluteUrl(value: string): string {
+  return value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
+}
+
+function normalizeDomainInput(value: string | null | undefined): string | null {
+  const trimmed = readOptionalString(value);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return new URL(toAbsoluteUrl(trimmed)).hostname.toLocaleLowerCase("tr");
+  } catch {
+    return trimmed.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLocaleLowerCase("tr");
+  }
+}
+
+async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntimeHealth> {
+  const adminRuntimeUrl = toAbsoluteUrl(store.admin_domain);
+
+  try {
+    const response = await fetch(`${adminRuntimeUrl.replace(/\/+$/, "")}/api/public/runtime`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000)
+    });
+
+    if (!response.ok) {
+      return {
+        adminDeploymentReady: false,
+        adminRuntimeConsistent: false,
+        adminRuntimeMessage: `Admin runtime okunamadi (${response.status})`,
+        adminRuntimeUrl
+      };
+    }
+
+    const payload = (await response.json()) as Partial<AdminRuntimeSnapshot>;
+    const expectedSlug = store.slug;
+    const expectedStorefrontDomain = normalizeDomainInput(store.storefront_domain);
+    const expectedAdminDomain = normalizeDomainInput(store.admin_domain);
+    const runtimeStorefrontDomain = normalizeDomainInput(payload.storefrontDomain ?? payload.storefrontUrl ?? null);
+    const runtimeAdminDomain = normalizeDomainInput(payload.adminDomain ?? payload.adminUrl ?? null);
+    const mismatches: string[] = [];
+
+    if (payload.slug && payload.slug !== expectedSlug) {
+      mismatches.push(`slug ${payload.slug}`);
+    }
+
+    if (runtimeStorefrontDomain && expectedStorefrontDomain && runtimeStorefrontDomain !== expectedStorefrontDomain) {
+      mismatches.push(`storefront ${runtimeStorefrontDomain}`);
+    }
+
+    if (runtimeAdminDomain && expectedAdminDomain && runtimeAdminDomain !== expectedAdminDomain) {
+      mismatches.push(`admin ${runtimeAdminDomain}`);
+    }
+
+    return {
+      adminDeploymentReady: true,
+      adminRuntimeConsistent: mismatches.length === 0,
+      adminRuntimeMessage: mismatches.length > 0 ? `Runtime drift: ${mismatches.join(" / ")}` : null,
+      adminRuntimeUrl
+    };
+  } catch (error) {
+    return {
+      adminDeploymentReady: false,
+      adminRuntimeConsistent: false,
+      adminRuntimeMessage: error instanceof Error ? error.message : "Admin runtime erisilemiyor.",
+      adminRuntimeUrl
+    };
+  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -641,24 +788,40 @@ function buildOwnerStoreRow(store: StoreConfig, existingMetadata: Record<string,
 function buildStoreHealth(
   store: OwnerStoreRow,
   lastSyncedAt: string | null,
-  storeAdminCount: number
+  storeAdminCount: number,
+  connectionReadiness: StoreConnectionReadiness,
+  adminRuntimeHealth: AdminRuntimeHealth
 ): StoreHealthSummary {
   const supabaseReady = Boolean(store.supabase_project_ref && store.supabase_url);
   const r2Ready = Boolean(store.r2_bucket_name && store.r2_public_url);
   const storefrontReady = store.storefront_status === "active" || store.storefront_status === "scaffolded";
   const adminCoverage = storeAdminCount > 0;
+  const secretCoverage = connectionReadiness.secretCoverage;
+  const secretAuthorityReady = connectionReadiness.secretAuthorityReady;
+  const legacyAuthConfigured = connectionReadiness.legacyAuthConfigured;
+  const adminDeploymentReady = adminRuntimeHealth.adminDeploymentReady;
+  const adminRuntimeConsistent = adminRuntimeHealth.adminRuntimeConsistent;
   const metricsFreshnessMinutes = lastSyncedAt
     ? Math.max(0, Math.round((Date.now() - new Date(lastSyncedAt).getTime()) / 60000))
     : null;
-  const score = [supabaseReady, r2Ready, storefrontReady, adminCoverage].filter(Boolean).length;
+  const score = [
+    supabaseReady,
+    r2Ready,
+    storefrontReady,
+    adminCoverage,
+    secretCoverage,
+    secretAuthorityReady,
+    adminDeploymentReady,
+    adminRuntimeConsistent
+  ].filter(Boolean).length;
 
   let label: HealthLabel = "hazir";
 
-  if (score <= 1) {
+  if (!supabaseReady || !adminDeploymentReady || !adminRuntimeConsistent) {
     label = "kritik";
-  } else if (score === 2) {
+  } else if (!r2Ready || !storefrontReady) {
     label = "kurulum";
-  } else if (score === 3) {
+  } else if (!adminCoverage || !secretCoverage || !secretAuthorityReady) {
     label = "operasyonel";
   }
 
@@ -671,6 +834,13 @@ function buildStoreHealth(
     r2Ready,
     storefrontReady,
     adminCoverage,
+    secretCoverage,
+    secretAuthorityReady,
+    legacyAuthConfigured,
+    adminDeploymentReady,
+    adminRuntimeConsistent,
+    adminRuntimeMessage: adminRuntimeHealth.adminRuntimeMessage,
+    adminRuntimeUrl: adminRuntimeHealth.adminRuntimeUrl,
     metricsFreshnessMinutes,
     score,
     label
@@ -799,7 +969,21 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
     accessible.stores.map(async (store) => {
       const metric = accessible.metricsMap.get(store.id);
       const storeConfig = getStoreConfig(store.slug);
-      const storeAdmins = storeConfig ? await listStoreAdminsForConfig(storeConfig).catch(() => []) : [];
+      const [storeAdmins, connectionReadiness, adminRuntimeHealth] = await Promise.all([
+        storeConfig ? listStoreAdminsForConfig(storeConfig).catch(() => []) : Promise.resolve([]),
+        storeConfig
+          ? readStoreConnectionReadiness(storeConfig).catch(() => ({
+              secretCoverage: false,
+              secretAuthorityReady: false,
+              legacyAuthConfigured: false
+            }))
+          : Promise.resolve({
+              secretCoverage: false,
+              secretAuthorityReady: false,
+              legacyAuthConfigured: false
+            }),
+        readAdminRuntimeHealth(store)
+      ]);
 
       return {
         id: store.id,
@@ -828,7 +1012,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
         storeAdminCount: storeAdmins.length,
         management: parseStoreManagementProfile(store.metadata),
-        health: buildStoreHealth(store, metric?.last_synced_at ?? null, storeAdmins.length)
+        health: buildStoreHealth(store, metric?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth)
       };
     })
   );
@@ -1067,11 +1251,24 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
         store.storeAdminCount === 0 ||
         !store.health.supabaseReady ||
         !store.health.r2Ready ||
+        !store.health.secretAuthorityReady ||
+        !store.health.adminDeploymentReady ||
+        !store.health.adminRuntimeConsistent ||
         store.pendingOrderCount > 0
     )
     .sort((left, right) => {
-      const leftScore = Number(left.health.score < 4) * 10 + Number(left.storeAdminCount === 0) * 5 + left.pendingOrderCount;
-      const rightScore = Number(right.health.score < 4) * 10 + Number(right.storeAdminCount === 0) * 5 + right.pendingOrderCount;
+      const leftScore =
+        Number(left.health.label === "kritik") * 20 +
+        Number(!left.health.secretAuthorityReady) * 8 +
+        Number(!left.health.adminRuntimeConsistent) * 8 +
+        Number(left.storeAdminCount === 0) * 5 +
+        left.pendingOrderCount;
+      const rightScore =
+        Number(right.health.label === "kritik") * 20 +
+        Number(!right.health.secretAuthorityReady) * 8 +
+        Number(!right.health.adminRuntimeConsistent) * 8 +
+        Number(right.storeAdminCount === 0) * 5 +
+        right.pendingOrderCount;
       return rightScore - leftScore;
     })
     .slice(0, 6);
@@ -1166,6 +1363,8 @@ export async function getOperationsSummary(context: OwnerAuthContext): Promise<O
       missingSupabase: stores.filter((store) => !store.health.supabaseReady).length,
       missingR2: stores.filter((store) => !store.health.r2Ready).length,
       missingAdmins: stores.filter((store) => !store.health.adminCoverage).length,
+      secretDrift: stores.filter((store) => !store.health.secretAuthorityReady).length,
+      adminRuntimeIssues: stores.filter((store) => !store.health.adminRuntimeConsistent || !store.health.adminDeploymentReady).length,
       pendingStorefronts: stores.filter((store) => store.storefrontStatus !== "active").length
     },
     rows: stores.map((store) => ({

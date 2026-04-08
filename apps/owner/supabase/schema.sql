@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS public.owner_store_secrets (
   store_id UUID PRIMARY KEY REFERENCES public.owner_stores(id) ON DELETE CASCADE,
   supabase_url TEXT,
   supabase_service_role_key TEXT,
+  supabase_anon_key TEXT,
+  supabase_legacy_url TEXT,
+  supabase_legacy_anon_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

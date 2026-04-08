@@ -119,13 +119,20 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 <strong>Eksik</strong>
               )}
             </span>
+            <span>Secret Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Drift"}</strong></span>
+            <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
+            <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
             <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
             <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
           </div>
-          <p className="card-note">Supabase tarafi musteri domaini kullanmaz; her proje stock-host uzerinden izole calisir.</p>
+          <p className="card-note">
+            {store.health.adminRuntimeMessage
+              ? `Admin runtime notu: ${store.health.adminRuntimeMessage}`
+              : "Supabase tarafi musteri domaini kullanmaz; her proje stock-host uzerinden izole calisir."}
+          </p>
         </div>
       </div>
 

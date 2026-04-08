@@ -114,7 +114,8 @@ export default async function OwnerDashboardPage() {
                 <p>{store.management.nextAction || "Sonraki aksiyon bekleniyor..."}</p>
                 <div className="status-card-meta">
                   <span>Admin: {store.storeAdminCount}</span>
-                  <span>R2: {store.health.r2Ready ? "Hazır" : "Eksik"}</span>
+                  <span>Secrets: {store.health.secretAuthorityReady ? "Hazir" : "Drift"}</span>
+                  <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazir" : "Sorun"}</span>
                   <span>Bekleyen: {store.pendingOrderCount}</span>
                 </div>
               </Link>

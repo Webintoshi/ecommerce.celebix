@@ -496,7 +496,8 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     await upsertStoreSupabaseSecret({
       slug: store.slug,
       supabaseUrl: projectUrl,
-      supabaseServiceRoleKey: serviceKey
+      supabaseServiceRoleKey: serviceKey,
+      supabaseAnonKey: publicKey
     });
 
     updateStoreSupabaseConfig(store.slug, {

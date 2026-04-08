@@ -1,7 +1,7 @@
 {
   "name": "Deri Kordon",
   "slug": "deri-kordon",
-  "status": "draft",
+  "status": "active",
   "theme": {
     "key": "leather",
     "label": "Leather",
@@ -62,7 +62,7 @@
   },
   "storefront": {
     "appDir": "apps/storefront-deri-kordon",
-    "status": "scaffolded",
+    "status": "active",
     "lastScaffoldedAt": "2026-03-29T10:30:00.000Z"
   }
 }
