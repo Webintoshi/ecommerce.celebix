@@ -133,6 +133,14 @@ interface AdminRuntimeSnapshot {
   adminUrl: string | null;
 }
 
+interface AdminControlPlaneSnapshot {
+  slug: string | null;
+  storefrontDomain: string | null;
+  adminDomain: string | null;
+  metrics: StoreMetricsSnapshot | null;
+  storeAdmins: StoreAdminSummary[];
+}
+
 interface AdminRuntimeHealth {
   adminDeploymentReady: boolean;
   adminRuntimeConsistent: boolean;
@@ -483,7 +491,7 @@ async function readStoreConnectionReadiness(store: StoreConfig, ownerStoreId?: s
   const shouldBackfillExpandedSecret =
     envLooksAuthoritative &&
     Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY && envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
-    !secretAuthorityReady;
+    !Boolean(secretRecord?.supabase_anon_key?.trim());
 
   if (shouldBackfillExpandedSecret) {
     await upsertStoreSupabaseSecret({
@@ -584,6 +592,46 @@ async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntim
       adminRuntimeMessage: error instanceof Error ? error.message : "Admin runtime erisilemiyor.",
       adminRuntimeUrl
     };
+  }
+}
+
+async function readAdminControlPlaneSnapshot(
+  store: OwnerStoreRow,
+  ownerStoreId: string
+): Promise<AdminControlPlaneSnapshot | null> {
+  const secretRecord = await getStoreSupabaseSecretByStoreId(ownerStoreId);
+  const serviceRoleKey = secretRecord?.supabase_service_role_key?.trim();
+
+  if (!serviceRoleKey) {
+    return null;
+  }
+
+  const adminRuntimeUrl = toAbsoluteUrl(store.admin_domain);
+
+  try {
+    const response = await fetch(`${adminRuntimeUrl.replace(/\/+$/, "")}/api/public/control-plane-snapshot`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+      headers: {
+        "x-celebix-store-service-key": serviceRoleKey
+      }
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as Partial<AdminControlPlaneSnapshot>;
+
+    return {
+      slug: payload.slug ?? null,
+      storefrontDomain: payload.storefrontDomain ?? null,
+      adminDomain: payload.adminDomain ?? null,
+      metrics: payload.metrics ?? null,
+      storeAdmins: Array.isArray(payload.storeAdmins) ? payload.storeAdmins : []
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -1043,12 +1091,10 @@ function buildStoreConsistency(
 
   const adminEnvMissing =
     !connectionReadiness.envSupabaseUrl ||
-    !connectionReadiness.hasEnvAnonKey ||
-    !connectionReadiness.hasEnvServiceRoleKey ||
     !connectionReadiness.envStoreDomain ||
     !connectionReadiness.envAdminDomain;
 
-  if (adminEnvMissing) {
+  if (adminEnvMissing && !adminRuntimeHealth.adminDeploymentReady) {
     issues.push({
       code: "admin_env_missing",
       severity: adminDeploymentStatus === "pending-owner-env" ? "warning" : "blocking",
@@ -1083,12 +1129,12 @@ function buildStoreConsistency(
     });
   }
 
-  if (!connectionReadiness.secretAuthorityReady && supabaseProvisioningStatus === "configured") {
+  if (!connectionReadiness.secretSupabaseUrl && supabaseProvisioningStatus === "configured") {
     issues.push({
       code: "secret_supabase_mismatch",
       severity: "blocking",
       source: "owner_secret",
-      message: "Owner secret authority eksik; anon/service key authoritative olarak kayitli degil."
+      message: "Owner secret authority eksik; store Supabase URL/service key authoritative olarak kayitli degil."
     });
   }
 
@@ -1282,16 +1328,23 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         readAdminRuntimeHealth(store),
         shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig, store.id).catch(() => null) : Promise.resolve(null)
       ]);
-      const metricsRow = refreshedMetrics
+      const runtimeSnapshot =
+        storeConfig && (!refreshedMetrics || storeAdmins.length === 0)
+          ? await readAdminControlPlaneSnapshot(store, store.id).catch(() => null)
+          : null;
+      const resolvedStoreAdmins =
+        storeAdmins.length > 0 ? storeAdmins : runtimeSnapshot?.storeAdmins?.length ? runtimeSnapshot.storeAdmins : storeAdmins;
+      const resolvedMetrics = refreshedMetrics ?? runtimeSnapshot?.metrics ?? null;
+      const metricsRow = resolvedMetrics
         ? {
             ...metric,
-            product_count: refreshedMetrics.productCount,
-            order_count: refreshedMetrics.orderCount,
-            customer_count: refreshedMetrics.customerCount,
-            pending_order_count: refreshedMetrics.pendingOrderCount,
-            total_revenue: refreshedMetrics.totalRevenue,
-            average_order_value: refreshedMetrics.averageOrderValue,
-            last_synced_at: refreshedMetrics.lastSyncedAt
+            product_count: resolvedMetrics.productCount,
+            order_count: resolvedMetrics.orderCount,
+            customer_count: resolvedMetrics.customerCount,
+            pending_order_count: resolvedMetrics.pendingOrderCount,
+            total_revenue: resolvedMetrics.totalRevenue,
+            average_order_value: resolvedMetrics.averageOrderValue,
+            last_synced_at: resolvedMetrics.lastSyncedAt
           }
         : metric;
       const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
@@ -1321,12 +1374,18 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         commissionRate: accessible.commissionMap.get(store.id) ?? null,
         totalAffiliateRate: accessible.affiliateRateMap.get(store.id) ?? 0,
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
-        storeAdminCount: storeAdmins.length,
+        storeAdminCount: resolvedStoreAdmins.length,
         management: parseStoreManagementProfile(store.metadata, {
           storeStatus: store.status,
           storefrontStatus: store.storefront_status
         }),
-        health: buildStoreHealth(store, metricsRow?.last_synced_at ?? null, storeAdmins.length, connectionReadiness, adminRuntimeHealth),
+        health: buildStoreHealth(
+          store,
+          metricsRow?.last_synced_at ?? null,
+          resolvedStoreAdmins.length,
+          connectionReadiness,
+          adminRuntimeHealth
+        ),
         consistency
       };
     })
@@ -1884,6 +1943,13 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     readAdminRuntimeHealth(storeRow),
     storeConfig ? collectStoreMetrics(storeConfig, storeRow.id).catch(() => null) : Promise.resolve(null)
   ]);
+  const runtimeSnapshot =
+    storeConfig && (!refreshedMetrics || storeAdmins.length === 0)
+      ? await readAdminControlPlaneSnapshot(storeRow, storeRow.id).catch(() => null)
+      : null;
+  const resolvedStoreAdmins =
+    storeAdmins.length > 0 ? storeAdmins : runtimeSnapshot?.storeAdmins?.length ? runtimeSnapshot.storeAdmins : storeAdmins;
+  const resolvedMetrics = refreshedMetrics ?? runtimeSnapshot?.metrics ?? null;
   const recentActivity = await listRecentOwnerActivity(context, 8, slug);
   const consistency =
     storeConfig && connectionReadiness
@@ -1893,8 +1959,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     storeConfig && connectionReadiness
       ? buildStoreHealth(
           storeRow,
-          refreshedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
-          storeAdmins.length,
+          resolvedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
+          resolvedStoreAdmins.length,
           connectionReadiness,
           adminRuntimeHealth
         )
@@ -1902,14 +1968,14 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
 
   return {
     ...current,
-    productCount: refreshedMetrics?.productCount ?? current.productCount,
-    orderCount: refreshedMetrics?.orderCount ?? current.orderCount,
-    customerCount: refreshedMetrics?.customerCount ?? current.customerCount,
-    pendingOrderCount: refreshedMetrics?.pendingOrderCount ?? current.pendingOrderCount,
-    totalRevenue: refreshedMetrics?.totalRevenue ?? current.totalRevenue,
-    averageOrderValue: refreshedMetrics?.averageOrderValue ?? current.averageOrderValue,
-    lastSyncedAt: refreshedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
-    storeAdminCount: storeAdmins.length,
+    productCount: resolvedMetrics?.productCount ?? current.productCount,
+    orderCount: resolvedMetrics?.orderCount ?? current.orderCount,
+    customerCount: resolvedMetrics?.customerCount ?? current.customerCount,
+    pendingOrderCount: resolvedMetrics?.pendingOrderCount ?? current.pendingOrderCount,
+    totalRevenue: resolvedMetrics?.totalRevenue ?? current.totalRevenue,
+    averageOrderValue: resolvedMetrics?.averageOrderValue ?? current.averageOrderValue,
+    lastSyncedAt: resolvedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
+    storeAdminCount: resolvedStoreAdmins.length,
     health,
     consistency,
     supportEmail: storeRow.support_email ?? storeConfig?.branding?.supportEmail ?? null,
@@ -1938,7 +2004,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
       fullName: profileMap.get(access.profile_id)?.full_name ?? null,
       commissionRate: access.commission_rate
     })),
-    storeAdmins,
+    storeAdmins: resolvedStoreAdmins,
     recentActivity
   };
 }

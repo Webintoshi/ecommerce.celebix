@@ -1,6 +1,5 @@
 import "server-only";
 
-import fs from "node:fs";
 import path from "node:path";
 import {
   getRepoRoot,
@@ -38,29 +37,6 @@ function toAbsoluteUrl(value: string): string {
   return value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
 }
 
-function parseEnvFile(contents: string): Record<string, string> {
-  const envMap: Record<string, string> = {};
-
-  for (const line of contents.split(/\r?\n/)) {
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    const value = line.slice(separatorIndex + 1);
-    if (key) {
-      envMap[key] = value;
-    }
-  }
-
-  return envMap;
-}
-
 function normalizeDomain(value: string | null | undefined): string | null {
   if (!value?.trim()) {
     return null;
@@ -84,13 +60,17 @@ function resolveEnvTemplatePath(store: StoreConfig): string {
 }
 
 function readAdminEnvEntries(store: StoreConfig): Record<string, string> {
-  const envLocalPath = resolveEnvLocalPath(store);
+  const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
+  const supabaseUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
 
-  if (!fs.existsSync(envLocalPath)) {
-    return {};
-  }
-
-  return parseEnvFile(fs.readFileSync(envLocalPath, "utf8"));
+  return {
+    STORE_SLUG: store.slug,
+    NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+    NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
+    NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
+    NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
+    NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin
+  };
 }
 
 async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): Promise<{
@@ -149,22 +129,16 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
   const store = requireStoreConfig(slug);
   const envEntries = readAdminEnvEntries(store);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
-  const hasRequiredEnv = Boolean(
-    envEntries.NEXT_PUBLIC_SUPABASE_URL &&
-      envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      envEntries.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const hasRequiredEnv = Boolean(envEntries.NEXT_PUBLIC_SUPABASE_URL);
 
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
-  let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment env seti eksik.";
+  let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  if (hasRequiredEnv) {
-    const runtime = await readRuntimeConsistency(store, runtimeUrl);
-    runtimeConsistent = runtime.consistent;
-    runtimeMessage = runtime.message;
-    status = runtime.configured && runtime.consistent ? "configured" : "prepared";
-  }
+  const runtime = await readRuntimeConsistency(store, runtimeUrl);
+  runtimeConsistent = runtime.consistent;
+  runtimeMessage = runtime.message;
+  status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
 
   return {
     storeSlug: store.slug,
