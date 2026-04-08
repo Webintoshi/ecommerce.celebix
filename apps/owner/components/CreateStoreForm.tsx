@@ -123,6 +123,9 @@ export function CreateStoreForm() {
           placeholder="derikordon.com"
           required
         />
+        <small className="muted">
+          Bu alan storefront ve admin domaini icindir. Self-hosted Supabase stock-host ile ayrica uretilir.
+        </small>
       </label>
 
       {/* Tema */}

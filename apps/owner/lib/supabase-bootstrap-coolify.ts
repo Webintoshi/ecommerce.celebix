@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
@@ -154,7 +155,7 @@ function normalizeArrayPayload<T>(payload: unknown): T[] {
 }
 
 function buildSupabaseServiceName(store: StoreConfig): string {
-  return `celebix-${store.slug}-supabase`.replace(/[^a-z0-9-]/gi, "-");
+  return `${sanitizeSupabaseHostLabel(store.slug)}-db`;
 }
 
 function buildSupabaseDashboardUrl(publicUrl: string): string {
@@ -171,9 +172,72 @@ function sanitizeSupabaseHostLabel(value: string): string {
 }
 
 function pickSupabaseHostLabel(store: StoreConfig): string {
-  const storefrontDomain = store.domains.storefront?.trim().toLocaleLowerCase("tr") || "";
-  const candidate = storefrontDomain.split(".")[0] || store.slug;
-  return sanitizeSupabaseHostLabel(candidate);
+  return sanitizeSupabaseHostLabel(store.slug);
+}
+
+function parseEnvFile(contents: string): Record<string, string> {
+  const envMap: Record<string, string> = {};
+
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1);
+
+    if (key) {
+      envMap[key] = value;
+    }
+  }
+
+  return envMap;
+}
+
+function resolveAdminEnvLocalPath(store: StoreConfig): string {
+  const relativePath = store.bootstrap?.adminEnvLocalPath || `stores/${store.slug}/admin.env.local`;
+  return path.isAbsolute(relativePath) ? relativePath : path.join(getRepoRoot(), relativePath);
+}
+
+function buildLegacyAdminAuthEnvEntries(store: StoreConfig, nextSupabaseUrl: string): Record<string, string> {
+  const envLocalPath = resolveAdminEnvLocalPath(store);
+
+  if (!fs.existsSync(envLocalPath)) {
+    return {};
+  }
+
+  const envMap = parseEnvFile(fs.readFileSync(envLocalPath, "utf8"));
+  const legacyUrl = envMap.SUPABASE_LEGACY_URL?.trim();
+  const legacyAnonKey = envMap.SUPABASE_LEGACY_ANON_KEY?.trim();
+
+  if (legacyUrl && legacyAnonKey) {
+    return {
+      SUPABASE_LEGACY_URL: legacyUrl,
+      SUPABASE_LEGACY_ANON_KEY: legacyAnonKey,
+    };
+  }
+
+  const currentUrl = envMap.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const currentAnonKey = envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (
+    currentUrl &&
+    currentAnonKey &&
+    currentUrl !== nextSupabaseUrl &&
+    currentUrl !== "configure-in-env"
+  ) {
+    return {
+      SUPABASE_LEGACY_URL: currentUrl,
+      SUPABASE_LEGACY_ANON_KEY: currentAnonKey,
+    };
+  }
+
+  return {};
 }
 
 function isIpv4Address(value: string): boolean {
@@ -453,7 +517,9 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     const service = await createSupabaseService(store, projectUuid, environmentUuid);
     const serviceUuid = resolveIdentifier(service);
     const { publicUrl, dashboardUrl, publicKey, serviceKey } = await waitForSupabaseRuntime(serviceUuid);
+    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, publicUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
+      ...legacyAdminAuthEntries,
       ...buildAdminEnvEntries(store, publicUrl, publicKey, serviceKey),
       ...getSharedRedisEnvEntries(),
     });

@@ -106,6 +106,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="card-title">Altyapi</div>
           <div className="meta-pairs">
             <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
+            <span>Supabase Host: <strong>{store.supabaseUrl || "Eksik"}</strong></span>
             <span>
               Supabase Studio:{" "}
               {store.supabaseDashboardUrl ? (
@@ -124,6 +125,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
           </div>
+          <p className="card-note">Supabase tarafi musteri domaini kullanmaz; her proje stock-host uzerinden izole calisir.</p>
         </div>
       </div>
 

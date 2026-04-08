@@ -12,7 +12,8 @@ export default async function NewStorePage() {
         <div>
           <h1>Yeni Proje Olustur</h1>
           <p>
-            Yeni magaza kaydi, config dosyalari ve env sablonu olusturulur.
+            Yeni magaza kaydi, config dosyalari ve env sablonu olusturulur. Domain alani storefront ve admin icindir;
+            self-hosted Supabase stock-host ile ayrica uretilir.
             {supabaseBootstrap.configured
               ? ` ${supabaseBootstrap.provider === "self_hosted_coolify" ? "Self-hosted Supabase" : "Supabase"} baglantisi hazir oldugu icin veritabani da otomatik kurulur.`
               : " Supabase bootstrap ortam degiskenleri eksikse sadece dosya kaydi olusur."}

@@ -285,14 +285,20 @@ function buildRegistryEntry(config: StoreConfig): StoreRegistryEntry {
 }
 
 function buildAdminEnvTemplate(config: StoreConfig): string {
+  const supabaseUrlLine =
+    config.supabase.provider === "self_hosted_coolify"
+      ? "NEXT_PUBLIC_SUPABASE_URL=https://supabasekong-your-store-slug.127.0.0.1.sslip.io"
+      : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co";
+
   return [
     `STORE_SLUG=${config.slug}`,
     "",
-    config.supabase.provider === "self_hosted_coolify"
-      ? "NEXT_PUBLIC_SUPABASE_URL=https://supabasekong-your-service-id.example.sslip.io"
-      : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co",
+    supabaseUrlLine,
     "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
     "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",
+    "# Opsiyonel migration fallback",
+    "# SUPABASE_LEGACY_URL=https://your-old-project.supabase.co",
+    "# SUPABASE_LEGACY_ANON_KEY=your-old-anon-key",
     "",
     `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,
