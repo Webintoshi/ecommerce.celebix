@@ -289,7 +289,7 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     `STORE_SLUG=${config.slug}`,
     "",
     config.supabase.provider === "self_hosted_coolify"
-      ? "NEXT_PUBLIC_SUPABASE_URL=https://your-store-supabase.example.com"
+      ? "NEXT_PUBLIC_SUPABASE_URL=https://supabasekong-your-service-id.example.sslip.io"
       : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
     "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",

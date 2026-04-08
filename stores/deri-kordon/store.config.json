@@ -28,10 +28,10 @@
     "notes": "CLI uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "coolify:deri-kordon:e12vazf7sq2e111wac5k8zjd",
-    "url": "https://supabase.celebix.co",
+    "projectRef": "coolify:deri-kordon:xunl5elgny3wzmq7xylb6ts6",
+    "url": "https://supabasekong-derycraft.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "dashboardUrl": "https://supabase.celebix.co/project/default",
+    "dashboardUrl": "https://supabasekong-derycraft.46.225.183.57.sslip.io/project/default",
     "storage": "separate-project-per-store"
   },
   "bootstrap": {
@@ -40,9 +40,9 @@
     "adminEnvLocalPath": "stores/deri-kordon/admin.env.local",
     "organizationSlug": "jzhvbqbjyrljtdrbvyqg",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProjectName": "derycraft-db",
-    "supabaseResourceId": "e12vazf7sq2e111wac5k8zjd",
-    "supabaseDashboardUrl": "https://supabase.celebix.co/project/default",
+    "supabaseProjectName": "derycraft-db-std",
+    "supabaseResourceId": "xunl5elgny3wzmq7xylb6ts6",
+    "supabaseDashboardUrl": "https://supabasekong-derycraft.46.225.183.57.sslip.io/project/default",
     "provisionedAt": "2026-03-28T00:23:53.023Z",
     "supabaseProvisioning": "configured"
   },

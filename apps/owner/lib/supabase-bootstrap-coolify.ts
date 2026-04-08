@@ -1,5 +1,6 @@
 import path from "node:path";
 import crypto from "node:crypto";
+import { lookup } from "node:dns/promises";
 import {
   getRepoRoot,
   type StoreConfig,
@@ -30,6 +31,10 @@ interface CoolifyEnvironmentVariable {
   key?: string;
   name?: string;
   value?: string | null;
+}
+
+interface CoolifyServer {
+  ip?: string | null;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
@@ -84,18 +89,8 @@ function getCoolifyDestinationUuid(): string {
   return value;
 }
 
-function getSupabaseRootDomain(): string {
-  const value = process.env.COOLIFY_SUPABASE_ROOT_DOMAIN?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-
-  if (!value) {
-    throw new Error("COOLIFY_SUPABASE_ROOT_DOMAIN tanimli degil.");
-  }
-
-  return value;
-}
-
-function getSupabaseDashboardRootDomain(): string | null {
-  const value = process.env.COOLIFY_SUPABASE_DASHBOARD_ROOT_DOMAIN?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+function getCoolifyServerPublicIp(): string | null {
+  const value = process.env.COOLIFY_SERVER_PUBLIC_IP?.trim();
   return value || null;
 }
 
@@ -162,18 +157,60 @@ function buildSupabaseServiceName(store: StoreConfig): string {
   return `celebix-${store.slug}-supabase`.replace(/[^a-z0-9-]/gi, "-");
 }
 
-function buildSupabasePublicUrl(store: StoreConfig): string {
-  return `https://${store.slug}.${getSupabaseRootDomain()}`;
+function buildSupabaseDashboardUrl(publicUrl: string): string {
+  return `${publicUrl.replace(/\/+$/, "")}/project/default`;
 }
 
-function buildSupabaseDashboardUrl(store: StoreConfig): string {
-  const dashboardRoot = getSupabaseDashboardRootDomain();
+function sanitizeSupabaseHostLabel(value: string): string {
+  const normalized = value
+    .toLocaleLowerCase("tr")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
-  if (dashboardRoot) {
-    return `https://${store.slug}.${dashboardRoot}`;
+  return normalized.slice(0, 40) || "store";
+}
+
+function pickSupabaseHostLabel(store: StoreConfig): string {
+  const storefrontDomain = store.domains.storefront?.trim().toLocaleLowerCase("tr") || "";
+  const candidate = storefrontDomain.split(".")[0] || store.slug;
+  return sanitizeSupabaseHostLabel(candidate);
+}
+
+function isIpv4Address(value: string): boolean {
+  return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(value.trim());
+}
+
+async function resolveCoolifyPublicIp(): Promise<string> {
+  const explicitIp = getCoolifyServerPublicIp();
+  if (explicitIp) {
+    if (!isIpv4Address(explicitIp)) {
+      throw new Error("COOLIFY_SERVER_PUBLIC_IP gecersiz. IPv4 adresi bekleniyor.");
+    }
+
+    return explicitIp;
   }
 
-  return `${buildSupabasePublicUrl(store)}/project/default`;
+  const server = await coolifyFetch<CoolifyServer>(`/servers/${getCoolifyServerUuid()}`);
+  const serverIp = server.ip?.trim();
+
+  if (serverIp && isIpv4Address(serverIp)) {
+    return serverIp;
+  }
+
+  const apiHostname = new URL(getCoolifyApiUrl()).hostname;
+  const resolved = await lookup(apiHostname, { family: 4 });
+
+  if (!resolved.address || !isIpv4Address(resolved.address)) {
+    throw new Error("Coolify public IPv4 adresi cozulmedi. COOLIFY_SERVER_PUBLIC_IP tanimlayin.");
+  }
+
+  return resolved.address;
+}
+
+async function buildSupabasePublicUrl(store: StoreConfig): Promise<string> {
+  const publicIp = await resolveCoolifyPublicIp();
+  const hostLabel = pickSupabaseHostLabel(store);
+  return `https://supabasekong-${hostLabel}.${publicIp}.sslip.io`;
 }
 
 function buildAdminEnvEntries(store: StoreConfig, projectUrl: string, publicKey: string, serviceKey: string): Record<string, string> {
@@ -278,7 +315,9 @@ async function ensureEnvironment(projectUuid: string): Promise<CoolifyEnvironmen
   });
 }
 
-async function createSupabaseService(store: StoreConfig, projectUuid: string, environmentName: string): Promise<CoolifyService> {
+async function createSupabaseService(store: StoreConfig, projectUuid: string, environmentUuid: string): Promise<CoolifyService> {
+  const publicUrl = await buildSupabasePublicUrl(store);
+
   return coolifyFetch<CoolifyService>("/services", {
     method: "POST",
     body: JSON.stringify({
@@ -286,17 +325,17 @@ async function createSupabaseService(store: StoreConfig, projectUuid: string, en
       name: buildSupabaseServiceName(store),
       description: `Self-hosted Supabase for ${store.slug}`,
       project_uuid: projectUuid,
-      environment_name: environmentName,
+      environment_uuid: environmentUuid,
       server_uuid: getCoolifyServerUuid(),
       destination_uuid: getCoolifyDestinationUuid(),
       instant_deploy: true,
       urls: [
         {
-          name: `${store.slug}-supabase`,
-          url: buildSupabasePublicUrl(store),
+          name: "supabase-kong",
+          url: publicUrl,
         },
       ],
-      force_domain_override: false,
+      force_domain_override: true,
     }),
   });
 }
@@ -316,12 +355,21 @@ function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: strin
   return match?.value?.trim() || null;
 }
 
-async function waitForSupabaseKeys(serviceUuid: string): Promise<{ publicKey: string; serviceKey: string }> {
+async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
+  dashboardUrl: string;
+  publicKey: string;
+  publicUrl: string;
+  serviceKey: string;
+}> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < ENV_POLL_ATTEMPTS; attempt += 1) {
     try {
       const variables = await listServiceEnvs(serviceUuid);
+      const publicUrl = findEnvValue(variables, [
+        "SERVICE_URL_SUPABASEKONG",
+        "SUPABASE_URL",
+      ])?.replace(/\/+$/, "") || null;
       const publicKey = findEnvValue(variables, [
         "SERVICE_SUPABASEANON_KEY",
         "SERVICE_SUPABASE_ANON_KEY",
@@ -333,11 +381,16 @@ async function waitForSupabaseKeys(serviceUuid: string): Promise<{ publicKey: st
         "SUPABASE_SERVICE_ROLE_KEY",
       ]);
 
-      if (publicKey && serviceKey) {
-        return { publicKey, serviceKey };
+      if (publicUrl && publicKey && serviceKey) {
+        return {
+          publicUrl,
+          dashboardUrl: buildSupabaseDashboardUrl(publicUrl),
+          publicKey,
+          serviceKey,
+        };
       }
 
-      lastError = new Error("Coolify Supabase env anahtarlari henuz hazir degil.");
+      lastError = new Error("Coolify Supabase runtime env bilgileri henuz hazir degil.");
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Coolify service env bilgileri okunamadi.");
     }
@@ -345,7 +398,7 @@ async function waitForSupabaseKeys(serviceUuid: string): Promise<{ publicKey: st
     await sleep(ENV_POLL_DELAY_MS);
   }
 
-  throw lastError ?? new Error("Coolify Supabase env anahtarlari alinmadi.");
+  throw lastError ?? new Error("Coolify Supabase runtime env bilgileri alinmadi.");
 }
 
 function buildProjectReference(store: StoreConfig, serviceUuid: string): string {
@@ -366,8 +419,7 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
   const hasToken = Boolean(process.env.COOLIFY_API_TOKEN?.trim());
   const hasServer = Boolean(process.env.COOLIFY_SERVER_UUID?.trim());
   const hasDestination = Boolean(process.env.COOLIFY_DESTINATION_UUID?.trim());
-  const hasRootDomain = Boolean(process.env.COOLIFY_SUPABASE_ROOT_DOMAIN?.trim());
-  const configured = hasApiUrl && hasToken && hasServer && hasDestination && hasRootDomain;
+  const configured = hasApiUrl && hasToken && hasServer && hasDestination;
 
   return {
     configured,
@@ -380,7 +432,7 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
     resolvedOrganizationSlug: configured ? buildOrganization().slug : null,
     lastError: configured
       ? undefined
-      : "Self-hosted Supabase icin COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_SERVER_UUID, COOLIFY_DESTINATION_UUID ve COOLIFY_SUPABASE_ROOT_DOMAIN gerekli.",
+      : "Self-hosted Supabase icin COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_SERVER_UUID ve COOLIFY_DESTINATION_UUID gerekli.",
   };
 }
 
@@ -395,14 +447,12 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   const project = await ensureProject();
   const projectUuid = resolveIdentifier(project);
   const environment = await ensureEnvironment(projectUuid);
-  const environmentName = environment.name || getCoolifyEnvironmentName();
-  const publicUrl = buildSupabasePublicUrl(store);
-  const dashboardUrl = buildSupabaseDashboardUrl(store);
+  const environmentUuid = resolveIdentifier(environment);
 
   try {
-    const service = await createSupabaseService(store, projectUuid, environmentName);
+    const service = await createSupabaseService(store, projectUuid, environmentUuid);
     const serviceUuid = resolveIdentifier(service);
-    const { publicKey, serviceKey } = await waitForSupabaseKeys(serviceUuid);
+    const { publicUrl, dashboardUrl, publicKey, serviceKey } = await waitForSupabaseRuntime(serviceUuid);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...buildAdminEnvEntries(store, publicUrl, publicKey, serviceKey),
       ...getSharedRedisEnvEntries(),
@@ -438,11 +488,11 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   } catch (error) {
     updateStoreSupabaseConfig(store.slug, {
       projectRef: store.supabase.projectRef || "pending-owner-bootstrap",
-      url: publicUrl,
+      url: store.supabase.url,
       provider: "self_hosted_coolify",
       organizationSlug: organization.slug,
       provisioningStatus: "failed",
-      dashboardUrl,
+      dashboardUrl: store.supabase.dashboardUrl,
       projectName: buildSupabaseServiceName(store),
       lastProvisionError: error instanceof Error ? error.message : "Coolify Supabase provisioning basarisiz oldu.",
     });
