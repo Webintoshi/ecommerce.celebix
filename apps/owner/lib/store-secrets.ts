@@ -2,7 +2,7 @@ import "server-only";
 
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 
-interface OwnerStoreSecretRow {
+export interface OwnerStoreSecretRow {
   store_id: string;
   supabase_url: string | null;
   supabase_service_role_key: string | null;
@@ -44,13 +44,7 @@ async function resolveStoreId(slug: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
-export async function getStoreSupabaseSecret(slug: string): Promise<OwnerStoreSecretRow | null> {
-  const storeId = await resolveStoreId(slug);
-
-  if (!storeId) {
-    return null;
-  }
-
+export async function getStoreSupabaseSecretByStoreId(storeId: string): Promise<OwnerStoreSecretRow | null> {
   const serviceClient = createOwnerServiceClient();
   const expandedQuery = serviceClient
     .from("owner_store_secrets")
@@ -87,6 +81,16 @@ export async function getStoreSupabaseSecret(slug: string): Promise<OwnerStoreSe
   }
 
   return data ?? null;
+}
+
+export async function getStoreSupabaseSecret(slug: string): Promise<OwnerStoreSecretRow | null> {
+  const storeId = await resolveStoreId(slug);
+
+  if (!storeId) {
+    return null;
+  }
+
+  return getStoreSupabaseSecretByStoreId(storeId);
 }
 
 export async function upsertStoreSupabaseSecret(input: {

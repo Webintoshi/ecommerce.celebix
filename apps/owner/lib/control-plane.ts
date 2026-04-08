@@ -5,7 +5,11 @@ import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import type { OwnerAuthContext, OwnerProfile } from "@/lib/owner-auth";
-import { getStoreSupabaseSecret, upsertStoreSupabaseSecret } from "@/lib/store-secrets";
+import {
+  getStoreSupabaseSecret,
+  getStoreSupabaseSecretByStoreId,
+  upsertStoreSupabaseSecret
+} from "@/lib/store-secrets";
 import {
   getRepoRoot,
   getStoreConfig,
@@ -453,9 +457,11 @@ function hasLegacyAuthFields(secret: Awaited<ReturnType<typeof getStoreSupabaseS
   return Boolean(secret?.supabase_legacy_url && secret?.supabase_legacy_anon_key);
 }
 
-async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreConnectionReadiness> {
+async function readStoreConnectionReadiness(store: StoreConfig, ownerStoreId?: string): Promise<StoreConnectionReadiness> {
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
-  const secretRecord = await getStoreSupabaseSecret(store.slug);
+  const secretRecord = ownerStoreId
+    ? await getStoreSupabaseSecretByStoreId(ownerStoreId)
+    : await getStoreSupabaseSecret(store.slug);
   const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
   const normalizedConfiguredStoreUrl = normalizeComparableUrl(configuredStoreUrl);
   const normalizedSecretStoreUrl = normalizeComparableUrl(secretRecord?.supabase_url ?? null);
@@ -719,8 +725,10 @@ function resolveSupabaseDashboardUrl(configuredDashboardUrl: string | null | und
   return `${baseUrl.replace(/\/+$/, "")}/project/default`;
 }
 
-async function createStoreServiceClient(store: StoreConfig): Promise<SupabaseClient | null> {
-  const secretRecord = await getStoreSupabaseSecret(store.slug);
+async function createStoreServiceClient(store: StoreConfig, ownerStoreId?: string): Promise<SupabaseClient | null> {
+  const secretRecord = ownerStoreId
+    ? await getStoreSupabaseSecretByStoreId(ownerStoreId)
+    : await getStoreSupabaseSecret(store.slug);
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
   const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
   const url = secretRecord?.supabase_url || configuredStoreUrl || envMap.NEXT_PUBLIC_SUPABASE_URL;
@@ -738,8 +746,8 @@ async function createStoreServiceClient(store: StoreConfig): Promise<SupabaseCli
   });
 }
 
-async function listStoreAdminsForConfig(store: StoreConfig): Promise<StoreAdminSummary[]> {
-  const client = await createStoreServiceClient(store);
+async function listStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<StoreAdminSummary[]> {
+  const client = await createStoreServiceClient(store, ownerStoreId);
 
   if (!client) {
     return [];
@@ -796,8 +804,8 @@ async function getExactCount(query: PromiseLike<{ count: number | null; error: {
   return count ?? 0;
 }
 
-async function collectStoreMetrics(store: StoreConfig): Promise<StoreMetricsSnapshot> {
-  const client = await createStoreServiceClient(store);
+async function collectStoreMetrics(store: StoreConfig, ownerStoreId?: string): Promise<StoreMetricsSnapshot> {
+  const client = await createStoreServiceClient(store, ownerStoreId);
 
   if (!client) {
     return {
@@ -1235,9 +1243,9 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
       const storeConfig = getStoreConfig(store.slug);
       const shouldRefreshMetrics = Boolean(storeConfig && isSuspiciousZeroMetrics(metric, store));
       const [storeAdmins, connectionReadiness, adminRuntimeHealth, refreshedMetrics] = await Promise.all([
-        storeConfig ? listStoreAdminsForConfig(storeConfig).catch(() => []) : Promise.resolve([]),
+        storeConfig ? listStoreAdminsForConfig(storeConfig, store.id).catch(() => []) : Promise.resolve([]),
         storeConfig
-          ? readStoreConnectionReadiness(storeConfig).catch(() => ({
+          ? readStoreConnectionReadiness(storeConfig, store.id).catch(() => ({
               secretCoverage: false,
               secretAuthorityReady: false,
               legacyAuthConfigured: false,
@@ -1272,7 +1280,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
               hasSecretLegacyAnonKey: false
             }),
         readAdminRuntimeHealth(store),
-        shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig).catch(() => null) : Promise.resolve(null)
+        shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig, store.id).catch(() => null) : Promise.resolve(null)
       ]);
       const metricsRow = refreshedMetrics
         ? {
@@ -1397,7 +1405,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
       let metrics: StoreMetricsSnapshot;
 
       try {
-        metrics = await collectStoreMetrics(store);
+        metrics = await collectStoreMetrics(store, storeId);
       } catch (error) {
         console.error(`Store metrics sync failed for ${store.slug}:`, error);
         const existingMetric = existingMetricsMap.get(storeId);
@@ -1870,11 +1878,40 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
       ? metadataBootstrap
       : configBootstrap;
   const metadataFeatures = Array.isArray(metadata.features) ? (metadata.features as string[]) : [];
-  const storeAdmins = storeConfig ? await listStoreAdminsForConfig(storeConfig) : [];
+  const [storeAdmins, connectionReadiness, adminRuntimeHealth, refreshedMetrics] = await Promise.all([
+    storeConfig ? listStoreAdminsForConfig(storeConfig, storeRow.id).catch(() => []) : Promise.resolve([]),
+    storeConfig ? readStoreConnectionReadiness(storeConfig, storeRow.id).catch(() => null) : Promise.resolve(null),
+    readAdminRuntimeHealth(storeRow),
+    storeConfig ? collectStoreMetrics(storeConfig, storeRow.id).catch(() => null) : Promise.resolve(null)
+  ]);
   const recentActivity = await listRecentOwnerActivity(context, 8, slug);
+  const consistency =
+    storeConfig && connectionReadiness
+      ? buildStoreConsistency(storeRow, storeConfig, connectionReadiness, adminRuntimeHealth)
+      : current.consistency;
+  const health =
+    storeConfig && connectionReadiness
+      ? buildStoreHealth(
+          storeRow,
+          refreshedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
+          storeAdmins.length,
+          connectionReadiness,
+          adminRuntimeHealth
+        )
+      : current.health;
 
   return {
     ...current,
+    productCount: refreshedMetrics?.productCount ?? current.productCount,
+    orderCount: refreshedMetrics?.orderCount ?? current.orderCount,
+    customerCount: refreshedMetrics?.customerCount ?? current.customerCount,
+    pendingOrderCount: refreshedMetrics?.pendingOrderCount ?? current.pendingOrderCount,
+    totalRevenue: refreshedMetrics?.totalRevenue ?? current.totalRevenue,
+    averageOrderValue: refreshedMetrics?.averageOrderValue ?? current.averageOrderValue,
+    lastSyncedAt: refreshedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
+    storeAdminCount: storeAdmins.length,
+    health,
+    consistency,
     supportEmail: storeRow.support_email ?? storeConfig?.branding?.supportEmail ?? null,
     supportPhone: storeRow.support_phone ?? storeConfig?.branding?.supportPhone ?? null,
     tagline: storeRow.tagline ?? storeConfig?.branding?.tagline ?? null,
