@@ -83,8 +83,10 @@ export interface StoreConfig {
     adminDeploymentProvider?: "coolify";
     adminDeploymentName?: string;
     adminDeploymentRuntimeUrl?: string;
+    adminDeploymentResourceId?: string;
     adminDeploymentStatus?: "pending-owner-env" | "prepared" | "configured" | "failed";
     adminDeploymentPreparedAt?: string;
+    adminDeploymentDeployedAt?: string;
     adminDeploymentLastError?: string;
     organizationSlug?: string;
     supabaseProvider?: SupabaseProvider;
@@ -140,6 +142,8 @@ export interface StoreAdminDeploymentUpdateInput {
   deploymentStatus: "pending-owner-env" | "prepared" | "configured" | "failed";
   deploymentName?: string;
   runtimeUrl?: string;
+  resourceId?: string;
+  deployedAt?: string;
   lastError?: string;
 }
 
@@ -280,6 +284,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       adminDeploymentProvider: "coolify",
       adminDeploymentName: `${input.slug}-admin`,
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
+      adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
       supabaseProvider: defaultSupabaseProvider,
       supabaseProvisioning: "pending-owner-env"
@@ -355,8 +360,10 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
           adminDeploymentProvider: config.bootstrap.adminDeploymentProvider ?? "coolify",
           adminDeploymentName: config.bootstrap.adminDeploymentName ?? `${config.slug}-admin`,
           adminDeploymentRuntimeUrl: config.bootstrap.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
+          adminDeploymentResourceId: config.bootstrap.adminDeploymentResourceId,
           adminDeploymentStatus: config.bootstrap.adminDeploymentStatus ?? "pending-owner-env",
           supabaseProvider: config.bootstrap.supabaseProvider ?? config.supabase.provider ?? "managed",
+          adminDeploymentDeployedAt: config.bootstrap.adminDeploymentDeployedAt,
         }
       : config.bootstrap,
   };
@@ -491,8 +498,10 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
+      adminDeploymentResourceId: current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
       adminDeploymentPreparedAt: current.bootstrap?.adminDeploymentPreparedAt,
+      adminDeploymentDeployedAt: current.bootstrap?.adminDeploymentDeployedAt,
       adminDeploymentLastError: current.bootstrap?.adminDeploymentLastError,
       organizationSlug: input.organizationSlug ?? current.bootstrap?.organizationSlug,
       supabaseProvider: input.provider,
@@ -516,11 +525,13 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
+      adminDeploymentResourceId: input.resourceId ?? current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: input.deploymentStatus,
       adminDeploymentPreparedAt:
         input.deploymentStatus === "prepared" || input.deploymentStatus === "configured"
           ? new Date().toISOString()
           : current.bootstrap?.adminDeploymentPreparedAt,
+      adminDeploymentDeployedAt: input.deployedAt ?? current.bootstrap?.adminDeploymentDeployedAt,
       adminDeploymentLastError: input.lastError,
       organizationSlug: current.bootstrap?.organizationSlug,
       supabaseProvider: current.bootstrap?.supabaseProvider ?? current.supabase.provider,

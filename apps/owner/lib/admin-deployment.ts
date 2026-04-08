@@ -13,6 +13,7 @@ export interface StoreAdminDeploymentBlueprint {
   storeSlug: string;
   appName: string;
   runtimeUrl: string;
+  resourceId: string | null;
   workspace: string;
   installCommand: string;
   buildCommand: string;
@@ -169,6 +170,7 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
     storeSlug: store.slug,
     appName: store.bootstrap?.adminDeploymentName || `${store.slug}-admin`,
     runtimeUrl,
+    resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
     buildCommand: "npm run build --workspace @celebix/admin",

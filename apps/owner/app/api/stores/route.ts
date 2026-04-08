@@ -5,6 +5,7 @@ import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } f
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
+import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
 
 export async function GET() {
   const auth = await getOwnerAuthContext();
@@ -70,6 +71,11 @@ export async function POST(request: Request) {
       await prepareStoreAdminDeployment(result.store.slug);
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
+    }
+    try {
+      await provisionAdminDeploymentForStore(result.store.slug);
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
     }
     await recordOwnerAuditLog({
       actorId: auth.user.id,

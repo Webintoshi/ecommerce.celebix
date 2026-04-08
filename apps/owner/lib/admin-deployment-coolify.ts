@@ -1,0 +1,408 @@
+import "server-only";
+
+import type { StoreConfig } from "@celebix/platform-config";
+import { requireStoreConfig, updateStoreAdminDeploymentConfig } from "@celebix/platform-config";
+import { getStoreAdminDeploymentBlueprint, type StoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+
+interface CoolifyProject {
+  uuid?: string;
+  name?: string;
+}
+
+interface CoolifyEnvironment {
+  uuid?: string;
+  name?: string;
+}
+
+interface CoolifyApplication {
+  uuid?: string;
+  name?: string;
+  fqdn?: string | null;
+  domain?: string | null;
+}
+
+interface CoolifyBulkEnvEntry {
+  key: string;
+  value: string;
+  is_literal?: boolean;
+  is_build_time?: boolean;
+  is_runtime?: boolean;
+  is_multiline?: boolean;
+}
+
+export interface AdminDeploymentProvisioningResult {
+  appName: string;
+  resourceId: string | null;
+  runtimeUrl: string;
+  status: "prepared" | "configured" | "failed";
+  runtimeConsistent: boolean;
+  message: string | null;
+  externallyManaged: boolean;
+}
+
+const COOLIFY_API_PREFIX = "/api/v1";
+const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
+const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 24;
+
+function getCoolifyApiUrl(): string {
+  const raw = process.env.COOLIFY_API_URL?.trim();
+
+  if (!raw) {
+    throw new Error("COOLIFY_API_URL tanimli degil.");
+  }
+
+  return raw.replace(/\/+$/, "");
+}
+
+function getCoolifyApiToken(): string {
+  const token = process.env.COOLIFY_API_TOKEN?.trim();
+
+  if (!token) {
+    throw new Error("COOLIFY_API_TOKEN tanimli degil.");
+  }
+
+  return token;
+}
+
+function getCoolifyProjectName(): string {
+  return process.env.COOLIFY_PROJECT_NAME?.trim() || "CELEBIX E-COMMERCE YONETIM";
+}
+
+function getCoolifyEnvironmentName(): string {
+  return process.env.COOLIFY_ENVIRONMENT_NAME?.trim() || "production";
+}
+
+function getCoolifyServerUuid(): string {
+  const value = process.env.COOLIFY_SERVER_UUID?.trim();
+
+  if (!value) {
+    throw new Error("COOLIFY_SERVER_UUID tanimli degil.");
+  }
+
+  return value;
+}
+
+function getCoolifyDestinationUuid(): string {
+  const value = process.env.COOLIFY_DESTINATION_UUID?.trim();
+
+  if (!value) {
+    throw new Error("COOLIFY_DESTINATION_UUID tanimli degil.");
+  }
+
+  return value;
+}
+
+function getRepositoryUrl(): string {
+  return (
+    process.env.COOLIFY_APPLICATION_REPOSITORY_URL?.trim() ||
+    process.env.CELEBIX_GIT_REPOSITORY?.trim() ||
+    "https://github.com/Webintoshi/ecommerce.celebix"
+  );
+}
+
+function getRepositoryBranch(): string {
+  return (
+    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
+    process.env.CELEBIX_GIT_BRANCH?.trim() ||
+    "main"
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${getCoolifyApiToken()}`,
+    "Content-Type": "application/json"
+  };
+}
+
+async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${getCoolifyApiUrl()}${COOLIFY_API_PREFIX}${pathname}`, {
+    ...init,
+    headers: {
+      ...buildHeaders(),
+      ...(init.headers ?? {})
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Coolify API hatasi (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+function normalizeArrayPayload<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (payload && typeof payload === "object") {
+    if ("data" in payload && Array.isArray((payload as { data?: unknown }).data)) {
+      return (payload as { data: T[] }).data;
+    }
+
+    if ("applications" in payload && Array.isArray((payload as { applications?: unknown }).applications)) {
+      return (payload as { applications: T[] }).applications;
+    }
+
+    if ("projects" in payload && Array.isArray((payload as { projects?: unknown }).projects)) {
+      return (payload as { projects: T[] }).projects;
+    }
+
+    if ("environments" in payload && Array.isArray((payload as { environments?: unknown }).environments)) {
+      return (payload as { environments: T[] }).environments;
+    }
+  }
+
+  return [];
+}
+
+function resolveIdentifier(value: CoolifyProject | CoolifyEnvironment | CoolifyApplication): string {
+  if (!value.uuid) {
+    throw new Error("Coolify kaynagi icin UUID donmedi.");
+  }
+
+  return value.uuid;
+}
+
+async function listProjects(): Promise<CoolifyProject[]> {
+  const payload = await coolifyFetch<unknown>("/projects");
+  return normalizeArrayPayload<CoolifyProject>(payload);
+}
+
+async function ensureProject(): Promise<CoolifyProject> {
+  const targetName = getCoolifyProjectName();
+  const existing = (await listProjects()).find((project) => project.name === targetName);
+
+  if (existing) {
+    return existing;
+  }
+
+  return coolifyFetch<CoolifyProject>("/projects", {
+    method: "POST",
+    body: JSON.stringify({
+      name: targetName,
+      description: "Celebix shared admin and storefront applications"
+    })
+  });
+}
+
+async function listEnvironments(projectUuid: string): Promise<CoolifyEnvironment[]> {
+  const payload = await coolifyFetch<unknown>(`/projects/${projectUuid}/environments`);
+  return normalizeArrayPayload<CoolifyEnvironment>(payload);
+}
+
+async function ensureEnvironment(projectUuid: string): Promise<CoolifyEnvironment> {
+  const targetName = getCoolifyEnvironmentName();
+  const existing = (await listEnvironments(projectUuid)).find((environment) => environment.name === targetName);
+
+  if (existing) {
+    return existing;
+  }
+
+  return coolifyFetch<CoolifyEnvironment>(`/projects/${projectUuid}/environments`, {
+    method: "POST",
+    body: JSON.stringify({ name: targetName })
+  });
+}
+
+async function listApplications(): Promise<CoolifyApplication[]> {
+  const payload = await coolifyFetch<unknown>("/applications");
+  return normalizeArrayPayload<CoolifyApplication>(payload);
+}
+
+function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymentBlueprint, projectUuid: string, environmentUuid: string) {
+  return {
+    project_uuid: projectUuid,
+    environment_uuid: environmentUuid,
+    environment_name: getCoolifyEnvironmentName(),
+    server_uuid: getCoolifyServerUuid(),
+    destination_uuid: getCoolifyDestinationUuid(),
+    git_repository: getRepositoryUrl(),
+    git_branch: getRepositoryBranch(),
+    build_pack: "nixpacks",
+    name: blueprint.appName,
+    description: `Celebix shared admin deployment for ${store.slug}`,
+    domains: blueprint.runtimeUrl,
+    ports_exposes: "3000",
+    base_directory: ".",
+    install_command: blueprint.installCommand,
+    build_command: blueprint.buildCommand,
+    start_command: blueprint.startCommand,
+    health_check_enabled: true,
+    health_check_path: "/api/public/runtime",
+    health_check_port: "3000",
+    is_force_https_enabled: true,
+    is_auto_deploy_enabled: true,
+    instant_deploy: true
+  };
+}
+
+async function ensureAdminApplication(
+  store: StoreConfig,
+  blueprint: StoreAdminDeploymentBlueprint,
+  projectUuid: string,
+  environmentUuid: string
+): Promise<CoolifyApplication> {
+  const applications = await listApplications();
+  const runtimeUrl = blueprint.runtimeUrl.replace(/\/+$/, "");
+  const existing =
+    applications.find((application) => application.uuid === blueprint.resourceId) ||
+    applications.find((application) => application.name === blueprint.appName) ||
+    applications.find((application) => {
+      const fqdn = application.fqdn?.replace(/\/+$/, "") || application.domain?.replace(/\/+$/, "");
+      return fqdn === runtimeUrl;
+    });
+
+  if (!existing) {
+    return coolifyFetch<CoolifyApplication>("/applications/public", {
+      method: "POST",
+      body: JSON.stringify(buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid))
+    });
+  }
+
+  const applicationUuid = resolveIdentifier(existing);
+
+  await coolifyFetch(`/applications/${applicationUuid}`, {
+    method: "PATCH",
+    body: JSON.stringify(buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid))
+  });
+
+  return existing;
+}
+
+async function syncApplicationEnv(applicationUuid: string, envEntries: Record<string, string>): Promise<void> {
+  const payload = {
+    data: Object.entries(envEntries).map(([key, value]) => ({
+      key,
+      value,
+      is_literal: true,
+      is_build_time: true,
+      is_runtime: true,
+      is_multiline: false
+    } satisfies CoolifyBulkEnvEntry))
+  };
+
+  await coolifyFetch(`/applications/${applicationUuid}/envs/bulk`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+async function restartApplication(applicationUuid: string): Promise<void> {
+  await coolifyFetch(`/applications/${applicationUuid}/restart`, {
+    method: "POST"
+  });
+}
+
+async function waitForAdminRuntime(store: StoreConfig): Promise<StoreAdminDeploymentBlueprint> {
+  let lastBlueprint: StoreAdminDeploymentBlueprint | null = null;
+
+  for (let attempt = 0; attempt < ADMIN_DEPLOYMENT_POLL_ATTEMPTS; attempt += 1) {
+    lastBlueprint = await getStoreAdminDeploymentBlueprint(store.slug);
+
+    if (lastBlueprint.runtimeConsistent) {
+      return lastBlueprint;
+    }
+
+    await sleep(ADMIN_DEPLOYMENT_POLL_DELAY_MS);
+  }
+
+  return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug);
+}
+
+export async function provisionAdminDeploymentForStore(slug: string): Promise<AdminDeploymentProvisioningResult> {
+  const store = requireStoreConfig(slug);
+  const blueprint = await getStoreAdminDeploymentBlueprint(slug);
+
+  if (
+    blueprint.runtimeConsistent &&
+    blueprint.status === "configured" &&
+    !blueprint.resourceId
+  ) {
+    return {
+      appName: blueprint.appName,
+      resourceId: null,
+      runtimeUrl: blueprint.runtimeUrl,
+      status: "configured",
+      runtimeConsistent: true,
+      message: "Mevcut dis deployment bu store icin zaten tutarli calisiyor.",
+      externallyManaged: true
+    };
+  }
+
+  if (blueprint.status === "pending-owner-env") {
+    updateStoreAdminDeploymentConfig(slug, {
+      deploymentStatus: "pending-owner-env",
+      deploymentName: blueprint.appName,
+      runtimeUrl: blueprint.runtimeUrl,
+      resourceId: blueprint.resourceId ?? undefined,
+      lastError: blueprint.runtimeMessage ?? "Admin env seti eksik."
+    });
+
+    return {
+      appName: blueprint.appName,
+      resourceId: blueprint.resourceId,
+      runtimeUrl: blueprint.runtimeUrl,
+      status: "prepared",
+      runtimeConsistent: false,
+      message: blueprint.runtimeMessage ?? "Admin env seti eksik.",
+      externallyManaged: false
+    };
+  }
+
+  const project = await ensureProject();
+  const projectUuid = resolveIdentifier(project);
+  const environment = await ensureEnvironment(projectUuid);
+  const environmentUuid = resolveIdentifier(environment);
+
+  try {
+    const application = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
+    const applicationUuid = resolveIdentifier(application);
+    await syncApplicationEnv(applicationUuid, blueprint.envEntries);
+    await restartApplication(applicationUuid);
+
+    const runtimeBlueprint = await waitForAdminRuntime(store);
+    const deploymentStatus = runtimeBlueprint.runtimeConsistent ? "configured" : "prepared";
+    const deployedAt = runtimeBlueprint.runtimeConsistent ? new Date().toISOString() : undefined;
+
+    updateStoreAdminDeploymentConfig(slug, {
+      deploymentStatus,
+      deploymentName: blueprint.appName,
+      runtimeUrl: blueprint.runtimeUrl,
+      resourceId: applicationUuid,
+      deployedAt,
+      lastError: runtimeBlueprint.runtimeMessage ?? undefined
+    });
+
+    return {
+      appName: blueprint.appName,
+      resourceId: applicationUuid,
+      runtimeUrl: blueprint.runtimeUrl,
+      status: deploymentStatus,
+      runtimeConsistent: runtimeBlueprint.runtimeConsistent,
+      message: runtimeBlueprint.runtimeMessage,
+      externallyManaged: false
+    };
+  } catch (error) {
+    updateStoreAdminDeploymentConfig(slug, {
+      deploymentStatus: "failed",
+      deploymentName: blueprint.appName,
+      runtimeUrl: blueprint.runtimeUrl,
+      resourceId: blueprint.resourceId ?? undefined,
+      lastError: error instanceof Error ? error.message : "Admin deployment otomasyonu basarisiz oldu."
+    });
+
+    throw error;
+  }
+}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
@@ -228,10 +229,14 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="card-title">Admin Deployment Blueprint</div>
         {adminDeployment ? (
           <>
+            <div className="actions compact-actions" style={{ marginBottom: 16 }}>
+              <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} />
+            </div>
             <div className="meta-pairs">
               <span>App Name: <strong>{adminDeployment.appName}</strong></span>
               <span>Durum: <strong>{adminDeployment.status}</strong></span>
               <span>Runtime URL: <strong>{adminDeployment.runtimeUrl}</strong></span>
+              <span>Resource ID: <strong>{adminDeployment.resourceId || "-"}</strong></span>
               <span>Workspace: <strong>{adminDeployment.workspace}</strong></span>
               <span>Env Local: <strong>{adminDeployment.envLocalPath}</strong></span>
               <span>Env Template: <strong>{adminDeployment.envTemplatePath}</strong></span>
