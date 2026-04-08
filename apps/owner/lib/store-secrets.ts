@@ -55,11 +55,11 @@ export async function getStoreSupabaseSecretByStoreId(storeId: string): Promise<
   const { data, error } = await expandedQuery;
 
   if (error) {
-    if (/owner_store_secrets/i.test(error.message)) {
-      return null;
-    }
-
     if (!isExpandedSecretColumnError(error.message)) {
+      if (/owner_store_secrets/i.test(error.message)) {
+        return null;
+      }
+
       throw new Error(error.message);
     }
 
