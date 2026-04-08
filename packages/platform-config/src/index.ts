@@ -20,6 +20,12 @@ export interface StoreRegistryEntry {
 
 export type SupabaseProvider = "managed" | "self_hosted_coolify";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
+export type StorefrontDeploymentStatus =
+  | "pending-owner-env"
+  | "pending-repo-sync"
+  | "prepared"
+  | "configured"
+  | "failed";
 
 export interface StoreThemeConfig {
   key: string;
@@ -45,6 +51,14 @@ export interface StorefrontConfig {
   status: StorefrontStatus;
   lastScaffoldedAt?: string;
   lastScaffoldError?: string;
+  deploymentProvider?: "coolify";
+  deploymentName?: string;
+  runtimeUrl?: string;
+  resourceId?: string;
+  deploymentStatus?: StorefrontDeploymentStatus;
+  preparedAt?: string;
+  deployedAt?: string;
+  lastDeploymentError?: string;
 }
 
 export interface StoreConfig {
@@ -151,6 +165,16 @@ export interface StorefrontUpdateInput {
   appDir: string;
   status: StorefrontStatus;
   lastScaffoldError?: string;
+}
+
+export interface StorefrontDeploymentUpdateInput {
+  deploymentStatus: StorefrontDeploymentStatus;
+  deploymentName?: string;
+  runtimeUrl?: string;
+  resourceId?: string;
+  preparedAt?: string;
+  deployedAt?: string;
+  lastError?: string;
 }
 
 function findRepoRoot(startDirectory = process.cwd()): string {
@@ -290,7 +314,11 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       supabaseProvisioning: "pending-owner-env"
     },
     storefront: {
-      status: "not_started"
+      status: "not_started",
+      deploymentProvider: "coolify",
+      deploymentName: `${input.slug}-storefront`,
+      runtimeUrl: `https://${input.domain}`,
+      deploymentStatus: "pending-owner-env"
     },
     features: ["catalog", "orders", "customers", "discounts", "cms", "frontend_from_existing_store"]
   };
@@ -366,6 +394,15 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
           adminDeploymentDeployedAt: config.bootstrap.adminDeploymentDeployedAt,
         }
       : config.bootstrap,
+    storefront: config.storefront
+      ? {
+          ...config.storefront,
+          deploymentProvider: config.storefront.deploymentProvider ?? "coolify",
+          deploymentName: config.storefront.deploymentName ?? `${config.slug}-storefront`,
+          runtimeUrl: config.storefront.runtimeUrl ?? `https://${config.domains.storefront}`,
+          deploymentStatus: config.storefront.deploymentStatus ?? "pending-owner-env",
+        }
+      : config.storefront,
   };
 }
 
@@ -613,7 +650,45 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
       appDir: input.appDir,
       status: input.status,
       lastScaffoldedAt: input.status === "scaffolded" || input.status === "active" ? new Date().toISOString() : current.storefront?.lastScaffoldedAt,
-      lastScaffoldError: input.lastScaffoldError
+      lastScaffoldError: input.lastScaffoldError,
+      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
+      deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
+      runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
+      resourceId: current.storefront?.resourceId,
+      deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
+      preparedAt: current.storefront?.preparedAt,
+      deployedAt: current.storefront?.deployedAt,
+      lastDeploymentError: current.storefront?.lastDeploymentError
+    }
+  }));
+}
+
+export function updateStoreStorefrontDeploymentConfig(
+  slug: string,
+  input: StorefrontDeploymentUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => ({
+    ...current,
+    storefront: {
+      appDir: current.storefront?.appDir,
+      status:
+        input.deploymentStatus === "configured"
+          ? "active"
+          : current.storefront?.status ?? "not_started",
+      lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
+      lastScaffoldError: current.storefront?.lastScaffoldError,
+      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
+      deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
+      runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
+      resourceId: input.resourceId ?? current.storefront?.resourceId,
+      deploymentStatus: input.deploymentStatus,
+      preparedAt:
+        input.preparedAt ??
+        ((input.deploymentStatus === "prepared" || input.deploymentStatus === "configured")
+          ? new Date().toISOString()
+          : current.storefront?.preparedAt),
+      deployedAt: input.deployedAt ?? current.storefront?.deployedAt,
+      lastDeploymentError: input.lastError
     }
   }));
 }

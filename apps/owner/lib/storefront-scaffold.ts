@@ -178,6 +178,8 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SITE_URL: normalizeUrl(store.domains.storefront),
     NEXT_PUBLIC_ADMIN_URL: normalizeUrl(store.domains.admin),
+    NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
+    NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
     NEXT_PUBLIC_STORE_NAME: store.name,
     NEXT_PUBLIC_STORE_TAGLINE:
       store.branding?.tagline || `${store.name} icin Celebix storefront referansi`,

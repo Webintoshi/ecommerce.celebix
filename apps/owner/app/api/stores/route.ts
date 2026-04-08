@@ -6,6 +6,9 @@ import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/sup
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
+import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
+import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
+import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 
 export async function GET() {
   const auth = await getOwnerAuthContext();
@@ -76,6 +79,30 @@ export async function POST(request: Request) {
       await provisionAdminDeploymentForStore(result.store.slug);
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
+    }
+    try {
+      if (result.store.storefront?.status === "not_started") {
+        scaffoldStorefrontApp(result.store.slug);
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Storefront scaffold tamamlanamadi.");
+    }
+    try {
+      await prepareStorefrontDeployment(result.store.slug);
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Storefront deployment blueprint hazirlanamadi.");
+    }
+    try {
+      const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug);
+
+      if (storefrontDeployment.status !== "configured") {
+        warnings.push(
+          storefrontDeployment.message ||
+            "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
+        );
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
     }
     await recordOwnerAuditLog({
       actorId: auth.user.id,

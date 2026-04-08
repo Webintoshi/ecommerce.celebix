@@ -5,6 +5,7 @@ import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
@@ -34,6 +35,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   }
 
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
+  const storefrontDeployment = await getStorefrontDeploymentBlueprint(store.slug).catch(() => null);
   const bootstrap = (store.bootstrap ?? {}) as Record<string, unknown>;
   const supabaseProjectName = readStringValue(bootstrap.supabaseProjectName);
   const supabaseResourceId = readStringValue(bootstrap.supabaseResourceId);
@@ -43,6 +45,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const adminDeploymentStatus = readStringValue(bootstrap.adminDeploymentStatus);
   const adminDeploymentRuntimeUrl = readStringValue(bootstrap.adminDeploymentRuntimeUrl);
   const adminDeploymentPreparedAt = readDateValue(bootstrap.adminDeploymentPreparedAt);
+  const storefrontConfig = (store.storefront ?? {}) as Record<string, unknown>;
+  const storefrontDeploymentName = readStringValue(storefrontConfig.deploymentName);
+  const storefrontDeploymentStatus = readStringValue(storefrontConfig.deploymentStatus);
+  const storefrontRuntimeUrl = readStringValue(storefrontConfig.runtimeUrl);
+  const storefrontPreparedAt = readDateValue(storefrontConfig.preparedAt);
+  const storefrontDeployedAt = readDateValue(storefrontConfig.deployedAt);
   const provisionedAt = readDateValue(bootstrap.provisionedAt);
   const createdAt = formatDateTime(store.createdAt);
   const updatedAt = formatDateTime(store.updatedAt);
@@ -257,6 +265,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Theme: <strong>{store.themeKey}</strong></span>
             <span>Storefront App: <strong>{store.storefrontAppDir || "-"}</strong></span>
             <span>Storefront Status: <strong>{store.storefrontStatus}</strong></span>
+            <span>Storefront Deploy: <strong>{storefrontDeploymentStatus || storefrontDeployment?.status || "-"}</strong></span>
             <span>Olusturma: <strong>{createdAt}</strong></span>
             <span>Guncelleme: <strong>{updatedAt}</strong></span>
           </div>
@@ -294,6 +303,38 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Resource ID: <strong>{adminDeployment?.resourceId || "-"}</strong></span>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-title">Storefront Deployment Blueprint</div>
+        {storefrontDeployment ? (
+          <>
+            <div className="actions compact-actions" style={{ marginBottom: 16 }}>
+              <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
+            </div>
+            <div className="meta-pairs">
+              <span>Deployment Name: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
+              <span>Durum: <strong>{storefrontDeploymentStatus || storefrontDeployment.status}</strong></span>
+              <span>Runtime URL: <strong>{storefrontRuntimeUrl || storefrontDeployment.runtimeUrl}</strong></span>
+              <span>Prepared At: <strong>{storefrontPreparedAt}</strong></span>
+              <span>Deployed At: <strong>{storefrontDeployedAt}</strong></span>
+              <span>Resource ID: <strong>{storefrontDeployment.resourceId || "-"}</strong></span>
+              <span>Workspace: <strong>{storefrontDeployment.workspace}</strong></span>
+              <span>Repo Sync: <strong>{storefrontDeployment.repoSynced ? "Hazir" : "Bekliyor"}</strong></span>
+              <span>Env Local: <strong>{storefrontDeployment.envLocalPath || "-"}</strong></span>
+              <span>Env Template: <strong>{storefrontDeployment.envTemplatePath || "-"}</strong></span>
+              <span>Build: <strong>{storefrontDeployment.buildCommand}</strong></span>
+              <span>Start: <strong>{storefrontDeployment.startCommand}</strong></span>
+            </div>
+            <p className="card-note">
+              {storefrontDeployment.runtimeMessage
+                ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
+                : "Storefront deployment standardi owner tarafinda hazir."}
+            </p>
+          </>
+        ) : (
+          <p className="muted">Storefront deployment blueprint okunamadi.</p>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>

@@ -275,6 +275,7 @@ export interface StoreDetailSummary extends DashboardStoreSummary {
   r2PublicUrl: string | null;
   r2ManagedDomain: string | null;
   bootstrap: Record<string, unknown> | null;
+  storefront: Record<string, unknown> | null;
   features: string[];
   createdAt: string;
   updatedAt: string;
@@ -944,7 +945,7 @@ function buildStoreHealth(
 ): StoreHealthSummary {
   const supabaseReady = Boolean(store.supabase_project_ref && store.supabase_url);
   const r2Ready = Boolean(store.r2_bucket_name && store.r2_public_url);
-  const storefrontReady = store.storefront_status === "active" || store.storefront_status === "scaffolded";
+  const storefrontReady = store.storefront_status === "active";
   const adminCoverage = storeAdminCount > 0;
   const secretCoverage = connectionReadiness.secretCoverage;
   const secretAuthorityReady = connectionReadiness.secretAuthorityReady;
@@ -1932,6 +1933,10 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
   const configBootstrap = storeConfig?.bootstrap
     ? (storeConfig.bootstrap as unknown as Record<string, unknown>)
     : null;
+  const storefrontConfig =
+    storeConfig?.storefront
+      ? (storeConfig.storefront as unknown as Record<string, unknown>)
+      : null;
   const detailBootstrap =
     Object.keys(metadataBootstrap).length > 0 || !configBootstrap
       ? metadataBootstrap
@@ -1995,6 +2000,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
     r2ManagedDomain: storeRow.r2_managed_domain ?? storeConfig?.r2?.managedDomain ?? null,
     bootstrap: Object.keys(detailBootstrap).length > 0 ? detailBootstrap : null,
+    storefront: storefrontConfig,
     features: storeConfig?.features?.length ? storeConfig.features : metadataFeatures,
     createdAt: storeRow.created_at,
     updatedAt: storeRow.updated_at,
