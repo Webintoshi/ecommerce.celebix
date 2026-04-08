@@ -4,6 +4,7 @@ import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
+import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
 
 export async function GET() {
   const auth = await getOwnerAuthContext();
@@ -65,6 +66,11 @@ export async function POST(request: Request) {
     }
 
     await syncOwnerStoresAndMetrics();
+    try {
+      await prepareStoreAdminDeployment(result.store.slug);
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
+    }
     await recordOwnerAuditLog({
       actorId: auth.user.id,
       action: "store_created",

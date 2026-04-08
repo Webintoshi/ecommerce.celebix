@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
@@ -21,6 +22,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   if (!store) {
     notFound();
   }
+
+  const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
 
   return (
     <>
@@ -219,6 +222,31 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           </div>
           <p className="card-note">{store.management.ownerNotes || "Ic owner notu girilmemis."}</p>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-title">Admin Deployment Blueprint</div>
+        {adminDeployment ? (
+          <>
+            <div className="meta-pairs">
+              <span>App Name: <strong>{adminDeployment.appName}</strong></span>
+              <span>Durum: <strong>{adminDeployment.status}</strong></span>
+              <span>Runtime URL: <strong>{adminDeployment.runtimeUrl}</strong></span>
+              <span>Workspace: <strong>{adminDeployment.workspace}</strong></span>
+              <span>Env Local: <strong>{adminDeployment.envLocalPath}</strong></span>
+              <span>Env Template: <strong>{adminDeployment.envTemplatePath}</strong></span>
+              <span>Build: <strong>{adminDeployment.buildCommand}</strong></span>
+              <span>Start: <strong>{adminDeployment.startCommand}</strong></span>
+            </div>
+            <p className="card-note">
+              {adminDeployment.runtimeMessage
+                ? `Deployment notu: ${adminDeployment.runtimeMessage}`
+                : "Bu store icin admin deployment standardi owner tarafinda hazir."}
+            </p>
+          </>
+        ) : (
+          <p className="muted">Admin deployment blueprint okunamadi.</p>
+        )}
       </div>
 
       {/* Forms - Only for Super Admin */}

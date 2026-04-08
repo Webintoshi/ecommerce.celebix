@@ -80,6 +80,12 @@ export interface StoreConfig {
     createdAt: string;
     envTemplatePath: string;
     adminEnvLocalPath?: string;
+    adminDeploymentProvider?: "coolify";
+    adminDeploymentName?: string;
+    adminDeploymentRuntimeUrl?: string;
+    adminDeploymentStatus?: "pending-owner-env" | "prepared" | "configured" | "failed";
+    adminDeploymentPreparedAt?: string;
+    adminDeploymentLastError?: string;
     organizationSlug?: string;
     supabaseProvider?: SupabaseProvider;
     supabaseProjectName?: string;
@@ -128,6 +134,13 @@ export interface StoreR2UpdateInput {
   provisioningStatus: "configured" | "failed";
   managedDomain?: string;
   lastProvisionError?: string;
+}
+
+export interface StoreAdminDeploymentUpdateInput {
+  deploymentStatus: "pending-owner-env" | "prepared" | "configured" | "failed";
+  deploymentName?: string;
+  runtimeUrl?: string;
+  lastError?: string;
 }
 
 export interface StorefrontUpdateInput {
@@ -264,6 +277,10 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     bootstrap: {
       createdAt: new Date().toISOString(),
       envTemplatePath: `stores/${input.slug}/admin.env.example`,
+      adminDeploymentProvider: "coolify",
+      adminDeploymentName: `${input.slug}-admin`,
+      adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
+      adminDeploymentStatus: "pending-owner-env",
       supabaseProvider: defaultSupabaseProvider,
       supabaseProvisioning: "pending-owner-env"
     },
@@ -292,6 +309,13 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
 
   return [
     `STORE_SLUG=${config.slug}`,
+    "",
+    "# Admin deployment blueprint",
+    `# APP_NAME=${config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`}`,
+    `# APP_RUNTIME_URL=https://${config.domains.admin}`,
+    "# INSTALL_COMMAND=npm ci --include=optional --no-audit --no-fund",
+    "# BUILD_COMMAND=npm run build --workspace @celebix/admin",
+    "# START_COMMAND=npm run start --workspace @celebix/admin",
     "",
     supabaseUrlLine,
     "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
@@ -328,6 +352,10 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     bootstrap: config.bootstrap
       ? {
           ...config.bootstrap,
+          adminDeploymentProvider: config.bootstrap.adminDeploymentProvider ?? "coolify",
+          adminDeploymentName: config.bootstrap.adminDeploymentName ?? `${config.slug}-admin`,
+          adminDeploymentRuntimeUrl: config.bootstrap.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
+          adminDeploymentStatus: config.bootstrap.adminDeploymentStatus ?? "pending-owner-env",
           supabaseProvider: config.bootstrap.supabaseProvider ?? config.supabase.provider ?? "managed",
         }
       : config.bootstrap,
@@ -460,6 +488,12 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: input.adminEnvLocalPath ?? current.bootstrap?.adminEnvLocalPath,
+      adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
+      adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
+      adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
+      adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
+      adminDeploymentPreparedAt: current.bootstrap?.adminDeploymentPreparedAt,
+      adminDeploymentLastError: current.bootstrap?.adminDeploymentLastError,
       organizationSlug: input.organizationSlug ?? current.bootstrap?.organizationSlug,
       supabaseProvider: input.provider,
       supabaseProjectName: input.projectName ?? current.bootstrap?.supabaseProjectName,
@@ -468,6 +502,34 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       provisionedAt: input.provisioningStatus === "configured" ? new Date().toISOString() : current.bootstrap?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
       supabaseProvisioning: input.provisioningStatus
+    }
+  }));
+}
+
+export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdminDeploymentUpdateInput): StoreConfig {
+  return updateStoreConfig(slug, (current) => ({
+    ...current,
+    bootstrap: {
+      createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
+      envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
+      adminEnvLocalPath: current.bootstrap?.adminEnvLocalPath,
+      adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
+      adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
+      adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
+      adminDeploymentStatus: input.deploymentStatus,
+      adminDeploymentPreparedAt:
+        input.deploymentStatus === "prepared" || input.deploymentStatus === "configured"
+          ? new Date().toISOString()
+          : current.bootstrap?.adminDeploymentPreparedAt,
+      adminDeploymentLastError: input.lastError,
+      organizationSlug: current.bootstrap?.organizationSlug,
+      supabaseProvider: current.bootstrap?.supabaseProvider ?? current.supabase.provider,
+      supabaseProjectName: current.bootstrap?.supabaseProjectName,
+      supabaseResourceId: current.bootstrap?.supabaseResourceId,
+      supabaseDashboardUrl: current.bootstrap?.supabaseDashboardUrl,
+      provisionedAt: current.bootstrap?.provisionedAt,
+      lastProvisionError: current.bootstrap?.lastProvisionError,
+      supabaseProvisioning: current.bootstrap?.supabaseProvisioning ?? "pending-owner-env"
     }
   }));
 }

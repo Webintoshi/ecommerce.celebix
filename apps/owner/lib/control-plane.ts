@@ -444,7 +444,7 @@ async function readStoreConnectionReadiness(store: StoreConfig): Promise<StoreCo
 
   return {
     secretCoverage,
-    secretAuthorityReady: secretAuthorityReady || shouldBackfillExpandedSecret,
+    secretAuthorityReady,
     legacyAuthConfigured
   };
 }
