@@ -16,9 +16,11 @@ import {
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
+const OWNER_PUBLIC_API_PREFIX = "/api/public/";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+const STATIC_FILE_PATTERN = /\.[^/]+$/;
 
 type OwnerProfileRecord = {
   role: string;
@@ -58,6 +60,17 @@ function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginR
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);
+
+  if (
+    pathname.startsWith(OWNER_PUBLIC_API_PREFIX) ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname.startsWith("/sitemap") ||
+    pathname.startsWith("/_next") ||
+    STATIC_FILE_PATTERN.test(pathname)
+  ) {
+    return withSecurity(request, NextResponse.next());
+  }
 
   if (pathname === OWNER_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
