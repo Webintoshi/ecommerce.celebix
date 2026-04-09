@@ -382,23 +382,58 @@ export async function provisionStorefrontDeploymentForStore(
     };
   }
 
-  const project = await ensureProject();
-  const projectUuid = resolveIdentifier(project);
-  const environment = await ensureEnvironment(projectUuid);
-  const environmentUuid = resolveIdentifier(environment);
-
   try {
+    const project = await ensureProject().catch((error) => {
+      throw new Error(
+        `Storefront deployment için Coolify proje/erişim hazirlanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    const projectUuid = resolveIdentifier(project);
+    const environment = await ensureEnvironment(projectUuid).catch((error) => {
+      throw new Error(
+        `Storefront deployment için Coolify environment hazirlanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    const environmentUuid = resolveIdentifier(environment);
     const application = await ensureStorefrontApplication(
       store,
       blueprint,
       projectUuid,
       environmentUuid,
-    );
+    ).catch((error) => {
+      throw new Error(
+        `Storefront application create/update basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
     const applicationUuid = resolveIdentifier(application);
-    await syncApplicationEnv(applicationUuid, blueprint.envEntries);
-    await restartApplication(applicationUuid);
+    await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
+      throw new Error(
+        `Storefront env senkronu basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    await restartApplication(applicationUuid).catch((error) => {
+      throw new Error(
+        `Storefront deployment restart basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
 
-    const runtimeBlueprint = await waitForStorefrontRuntime(store);
+    const runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
+      throw new Error(
+        `Storefront runtime smoke test basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
     const deploymentStatus = runtimeBlueprint.runtimeConsistent ? "configured" : "prepared";
     const deployedAt = runtimeBlueprint.runtimeConsistent
       ? new Date().toISOString()

@@ -62,6 +62,8 @@ export async function POST(request: Request) {
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : "Supabase otomatik kurulumu tamamlanamadi.");
       }
+    } else {
+      warnings.push(bootstrapStatus.lastError || "Supabase otomasyonu icin owner env eksik.");
     }
 
     if (r2BootstrapStatus.configured) {
@@ -70,6 +72,8 @@ export async function POST(request: Request) {
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : "R2 otomatik kurulumu tamamlanamadi.");
       }
+    } else {
+      warnings.push(r2BootstrapStatus.lastError || "R2 otomasyonu icin owner env eksik.");
     }
 
     try {

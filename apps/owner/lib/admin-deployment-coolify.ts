@@ -361,18 +361,47 @@ export async function provisionAdminDeploymentForStore(slug: string): Promise<Ad
     };
   }
 
-  const project = await ensureProject();
-  const projectUuid = resolveIdentifier(project);
-  const environment = await ensureEnvironment(projectUuid);
-  const environmentUuid = resolveIdentifier(environment);
-
   try {
+    const project = await ensureProject().catch((error) => {
+      throw new Error(
+        `Admin deployment için Coolify proje/erişim hazirlanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    const projectUuid = resolveIdentifier(project);
+    const environment = await ensureEnvironment(projectUuid).catch((error) => {
+      throw new Error(
+        `Admin deployment için Coolify environment hazirlanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    const environmentUuid = resolveIdentifier(environment);
     const application = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
     const applicationUuid = resolveIdentifier(application);
-    await syncApplicationEnv(applicationUuid, blueprint.envEntries);
-    await restartApplication(applicationUuid);
+    await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
+      throw new Error(
+        `Admin deployment env senkronu basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
+    await restartApplication(applicationUuid).catch((error) => {
+      throw new Error(
+        `Admin deployment restart basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
 
-    const runtimeBlueprint = await waitForAdminRuntime(store);
+    const runtimeBlueprint = await waitForAdminRuntime(store).catch((error) => {
+      throw new Error(
+        `Admin runtime smoke test basarisiz: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    });
     const deploymentStatus = runtimeBlueprint.runtimeConsistent ? "configured" : "prepared";
     const deployedAt = runtimeBlueprint.runtimeConsistent ? new Date().toISOString() : undefined;
 
