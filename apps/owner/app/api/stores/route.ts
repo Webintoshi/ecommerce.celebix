@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createStore } from "@celebix/platform-config";
+import { createStore, updateStoreStorefrontConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
@@ -84,7 +84,11 @@ export async function POST(request: Request) {
     }
     try {
       if (result.store.storefront?.status === "not_started") {
-        await scaffoldStorefrontApp(result.store.slug);
+        const scaffoldResult = await scaffoldStorefrontApp(result.store.slug);
+        updateStoreStorefrontConfig(result.store.slug, {
+          appDir: scaffoldResult.relativeAppDirectory,
+          status: "scaffolded",
+        });
       }
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Storefront scaffold tamamlanamadi.");

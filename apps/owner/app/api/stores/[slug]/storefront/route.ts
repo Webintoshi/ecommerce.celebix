@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { getStoreConfig } from "@celebix/platform-config";
+import { getStoreConfig, updateStoreStorefrontConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
@@ -44,6 +44,13 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
           appDirectory,
           relativeAppDirectory,
         };
+
+    if (result.relativeAppDirectory) {
+      updateStoreStorefrontConfig(slug, {
+        appDir: result.relativeAppDirectory,
+        status: "scaffolded",
+      });
+    }
 
     let repoSync = null;
     let blueprint = await prepareStorefrontDeployment(slug);
