@@ -62,7 +62,7 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
       blueprint = await prepareStorefrontDeployment(slug);
     }
 
-    const deployment = await provisionStorefrontDeploymentForStore(slug);
+    const deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
     await syncOwnerStoresAndMetrics();
 
     return NextResponse.json(

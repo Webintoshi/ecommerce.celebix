@@ -24,7 +24,7 @@ export async function POST(_: Request, { params }: RouteContext) {
 
   try {
     await ensureStoreConfigFromOwnerAuthority(slug);
-    const deployment = await provisionAdminDeploymentForStore(slug);
+    const deployment = await provisionAdminDeploymentForStore(slug, { waitForRuntime: false });
     return NextResponse.json({ success: true, deployment }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
