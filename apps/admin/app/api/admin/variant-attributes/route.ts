@@ -725,14 +725,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const storedAttribute = await getStoredVariantAttributeById(id);
     const { error } = await supabase.from("variant_attributes").update({ is_active: false }).eq("id", id);
 
     if (error) {
       if (isVariantAttributeTableMissing(error)) {
-        const deleted = await deleteStoredVariantAttribute(id);
-        if (!deleted) {
-          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        if (!storedAttribute) {
+          return NextResponse.json({ success: true, message: "Nitelik zaten silinmis" });
         }
+        await deleteStoredVariantAttribute(id);
         try {
           await syncCatalogVariantAttributeSnapshots(supabase);
         } catch (syncError) {
@@ -741,9 +742,24 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
       }
       if (getMissingColumn(error, "variant_attributes") === "is_active") {
-        await supabase.from("variant_attribute_values").delete().eq("attribute_id", id);
+        const { error: deleteValuesError } = await supabase.from("variant_attribute_values").delete().eq("attribute_id", id);
+        if (deleteValuesError && !isVariantAttributeValueTableMissing(deleteValuesError)) {
+          throw deleteValuesError;
+        }
         const { error: deleteError } = await supabase.from("variant_attributes").delete().eq("id", id);
         if (deleteError) {
+          if (isVariantAttributeTableMissing(deleteError)) {
+            if (!storedAttribute) {
+              return NextResponse.json({ success: true, message: "Nitelik zaten silinmis" });
+            }
+            await deleteStoredVariantAttribute(id);
+            try {
+              await syncCatalogVariantAttributeSnapshots(supabase);
+            } catch (syncError) {
+              logCatalogVariantSyncError(syncError, "delete:fallback-hard-delete");
+            }
+            return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
+          }
           throw deleteError;
         }
       } else {
