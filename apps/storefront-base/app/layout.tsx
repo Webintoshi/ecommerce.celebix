@@ -11,6 +11,9 @@ import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
+import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
+import { RTL_LOCALES } from "@/lib/i18n";
+import { StorefrontRouteProvider } from "@/lib/storefront-route-context";
 import { buildStoreRootMetadata } from "@/lib/seo-metadata";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
@@ -20,8 +23,12 @@ import {
   buildStoreTypographyStylesheetUrl,
 } from "@celebix/platform-config/src/typography";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
-  return buildStoreRootMetadata("/");
+  const locale = await getRequestLocale();
+  const pathname = await getRequestPathname();
+  return buildStoreRootMetadata(locale, pathname);
 }
 
 export default async function RootLayout({
@@ -30,12 +37,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const gtmId = STOREFRONT_RUNTIME.gtmId;
+  const locale = await getRequestLocale();
+  const pathname = await getRequestPathname();
   const initialStoreInfo = await getStoreInfo();
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
+  const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
 
   return (
-    <html lang="tr" suppressHydrationWarning style={typographyStyle}>
+    <html lang={locale} dir={dir} suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -50,7 +60,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased" suppressHydrationWarning>
+      <body className="font-sans antialiased bg-[#F8F8F8F8]" suppressHydrationWarning>
         {gtmId ? (
           <noscript>
             <iframe
@@ -62,22 +72,24 @@ export default async function RootLayout({
           </noscript>
         ) : null}
         <PromotionalBannersPreload />
-        <TrackingProvider>
-          <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
-            <AuthProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <QuickViewProvider>
-                    <LayoutWrapper>
-                      {children}
-                      <Toaster position="top-right" theme="light" />
-                    </LayoutWrapper>
-                  </QuickViewProvider>
-                </WishlistProvider>
-              </CartProvider>
-            </AuthProvider>
-          </StoreInfoProvider>
-        </TrackingProvider>
+        <StorefrontRouteProvider initialLocale={locale} initialInternalPathname={pathname}>
+          <TrackingProvider>
+            <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
+              <AuthProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <QuickViewProvider>
+                      <LayoutWrapper>
+                        {children}
+                        <Toaster position="top-right" theme="light" />
+                      </LayoutWrapper>
+                    </QuickViewProvider>
+                  </WishlistProvider>
+                </CartProvider>
+              </AuthProvider>
+            </StoreInfoProvider>
+          </TrackingProvider>
+        </StorefrontRouteProvider>
       </body>
     </html>
   );

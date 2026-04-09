@@ -1,4 +1,6 @@
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
+import { getLocalizedCopy } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/request-locale";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { createServerClient } from "@/lib/supabase";
 import {
@@ -10,10 +12,13 @@ import { Product } from "@/types/product";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   return buildStorePageMetadata({
+    locale,
     pathname: "/urunler",
-    title: "Tum Urunler",
-    description: "Tum urun koleksiyonunu, kategorileri ve vitrindeki tum urunleri kesfedin.",
+    title: copy.productsTitle,
+    description: copy.productsDescription,
     keywords: ["urunler", "koleksiyon", "kategori", "magaza"],
   });
 }
@@ -73,8 +78,8 @@ function transformProduct(
     slug: dbProduct.slug,
     description: dbProduct.description || "",
     shortDescription: dbProduct.short_description || "",
-    category: (dbProduct.category as Product["category"]) || "fistik-ezmesi",
-    subcategory: (dbProduct.subcategory as Product["subcategory"]) || "klasik",
+    category: ((dbProduct.category || "genel") as unknown) as Product["category"],
+    subcategory: ((dbProduct.subcategory || "genel") as unknown) as Product["subcategory"],
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
     variants:
@@ -157,10 +162,7 @@ async function getCategoryCounts() {
 }
 
 export default async function AllProductsPage() {
-  const [products, categoryCounts] = await Promise.all([
-    getProducts(),
-    getCategoryCounts(),
-  ]);
+  const [products, categoryCounts] = await Promise.all([getProducts(), getCategoryCounts()]);
 
   return (
     <ProductsPageClient

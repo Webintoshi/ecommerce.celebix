@@ -3,10 +3,18 @@ import { getSeoSettings, getStoreInfo } from "@/lib/db/settings";
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getRequestOrigin } from "@/lib/request-origin";
+import {
+  LOCALE_LANGUAGE_CODES,
+  buildLocaleAlternates,
+  buildLocalizedPath,
+  getLocalizedCopy,
+  type StorefrontLocale,
+} from "@/lib/i18n";
 
 type PageKeywords = string[] | string | null | undefined;
 
 type BuildStorePageMetadataInput = {
+  locale?: StorefrontLocale;
   pathname: string;
   title?: string | null;
   description?: string | null;
@@ -19,6 +27,7 @@ type BuildStorePageMetadataInput = {
 };
 
 type StoreSeoContext = {
+  locale: StorefrontLocale;
   siteName: string;
   titleSuffix: string;
   defaultTitle: string;
@@ -79,6 +88,10 @@ function toAbsoluteAssetUrl(source: string | null | undefined, origin: string) {
   return directUrl;
 }
 
+function toOgLocale(locale: StorefrontLocale) {
+  return LOCALE_LANGUAGE_CODES[locale].replace("-", "_");
+}
+
 function buildPageTitle(title: string, titleSuffix: string) {
   if (!title) {
     return titleSuffix;
@@ -93,17 +106,20 @@ function buildPageTitle(title: string, titleSuffix: string) {
   return `${title} | ${titleSuffix}`;
 }
 
-export async function getStoreSeoContext(): Promise<StoreSeoContext> {
+export async function getStoreSeoContext(locale: StorefrontLocale = "tr"): Promise<StoreSeoContext> {
   const [storeInfo, seoSettings] = await Promise.all([getStoreInfo(), getSeoSettings()]);
+  const copy = getLocalizedCopy(locale);
   const siteName = normalizeTitle(seoSettings.siteName) || storeInfo.name || STOREFRONT_RUNTIME.name;
   const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
-  const defaultTitle = normalizeTitle(seoSettings.defaultTitle) || siteName;
+  const defaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
   const defaultDescription =
     normalizeDescription(seoSettings.defaultDescription) ||
+    copy.siteDescription ||
     STOREFRONT_RUNTIME.description ||
     siteName;
 
   return {
+    locale,
     siteName,
     titleSuffix,
     defaultTitle,
@@ -116,9 +132,18 @@ export async function getStoreSeoContext(): Promise<StoreSeoContext> {
   };
 }
 
-export async function buildStoreRootMetadata(pathname: string): Promise<Metadata> {
-  const seo = await getStoreSeoContext();
+export async function buildStoreRootMetadata(
+  localeOrPathname: StorefrontLocale | string,
+  maybePathname?: string,
+): Promise<Metadata> {
+  const locale =
+    typeof maybePathname === "string"
+      ? (localeOrPathname as StorefrontLocale)
+      : "tr";
+  const pathname = typeof maybePathname === "string" ? maybePathname : (localeOrPathname as string);
+  const seo = await getStoreSeoContext(locale);
   const requestOrigin = await getRequestOrigin();
+  const localizedPath = buildLocalizedPath(pathname, locale);
   const title = buildPageTitle(seo.defaultTitle, seo.titleSuffix);
   const ogImageUrl = toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
@@ -140,8 +165,8 @@ export async function buildStoreRootMetadata(pathname: string): Promise<Metadata
     },
     openGraph: {
       type: "website",
-      locale: "tr_TR",
-      url: pathname,
+      locale: toOgLocale(locale),
+      url: localizedPath,
       title,
       description: seo.defaultDescription,
       siteName: seo.siteName,
@@ -167,7 +192,8 @@ export async function buildStoreRootMetadata(pathname: string): Promise<Metadata
       },
     },
     alternates: {
-      canonical: pathname,
+      canonical: localizedPath,
+      languages: buildLocaleAlternates(pathname),
     },
     verification: {
       google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
@@ -178,8 +204,10 @@ export async function buildStoreRootMetadata(pathname: string): Promise<Metadata
 export async function buildStorePageMetadata(
   input: BuildStorePageMetadataInput,
 ): Promise<Metadata> {
-  const seo = await getStoreSeoContext();
+  const locale = input.locale || "tr";
+  const seo = await getStoreSeoContext(locale);
   const requestOrigin = await getRequestOrigin();
+  const localizedPath = buildLocalizedPath(input.pathname, locale);
   const title = buildPageTitle(
     normalizeTitle(input.title) || seo.defaultTitle,
     seo.titleSuffix,
@@ -199,15 +227,16 @@ export async function buildStorePageMetadata(
     keywords,
     metadataBase: new URL(requestOrigin),
     alternates: {
-      canonical: input.pathname,
+      canonical: localizedPath,
+      languages: buildLocaleAlternates(input.pathname),
     },
     openGraph: {
       title,
       description,
       type: input.type || "website",
-      locale: "tr_TR",
+      locale: toOgLocale(locale),
       siteName: seo.siteName,
-      url: input.pathname,
+      url: localizedPath,
       images: ogImages,
       publishedTime: input.publishedTime,
       modifiedTime: input.modifiedTime,

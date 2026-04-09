@@ -15,7 +15,7 @@ function getSupabase() {
 }
 
 // Supabase'den kategorileri çek (Client-side)
-export async function fetchCategories(): Promise<CategoryInfo[]> {
+export async function fetchCategories(_locale?: string): Promise<CategoryInfo[]> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase

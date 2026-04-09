@@ -1,29 +1,31 @@
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
-import { AnnouncementBar } from "@/components/sections/AnnouncementBar";
 import { getStoreInfo } from "@/lib/db/settings";
 import { buildStoreRootMetadata, getStoreSeoContext } from "@/lib/seo-metadata";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildLocalizedPath } from "@/lib/i18n";
 
 export async function generateMetadata() {
-  return buildStoreRootMetadata("/");
+  const locale = await getRequestLocale();
+  return buildStoreRootMetadata(locale, "/");
 }
 
 export default async function Home() {
+  const locale = await getRequestLocale();
   const [storeInfo, seo, requestOrigin] = await Promise.all([
     getStoreInfo(),
-    getStoreSeoContext(),
+    getStoreSeoContext(locale),
     getRequestOrigin(),
   ]);
   const siteName = storeInfo?.name || seo.siteName || STOREFRONT_RUNTIME.name;
   const siteDescription = seo.defaultDescription || STOREFRONT_RUNTIME.description;
   const logoUrl = storeInfo?.logoUrl || STOREFRONT_RUNTIME.logoPath;
-  const productsUrl = await buildAbsoluteRequestUrl("/urunler");
+  const productsUrl = await buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale));
   const resolvedLogoUrl = await buildAbsoluteRequestUrl(logoUrl);
 
   return (
     <>
-      <AnnouncementBar />
       <RedesignHome />
 
       <script
@@ -33,7 +35,7 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: siteName,
-            url: requestOrigin,
+            url: buildLocalizedPath("/", locale),
             description: siteDescription,
             potentialAction: {
               "@type": "SearchAction",

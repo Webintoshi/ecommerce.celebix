@@ -6,8 +6,10 @@ import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -67,6 +69,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
 
   // Parse URL slug to extract base slug
@@ -77,14 +81,16 @@ export async function generateMetadata({
 
   if (!product) {
     return buildStorePageMetadata({
+      locale,
       pathname: `/urunler/${baseSlug}`,
-      title: "Urun Bulunamadi",
-      description: "Aradiginiz urun bulunamadi.",
+      title: copy.missingProductTitle,
+      description: copy.missingProductDescription,
       noIndex: true,
     });
   }
 
   return buildStorePageMetadata({
+    locale,
     pathname: `/urunler/${baseSlug}`,
     title: product.seo_title || product.name,
     description:
@@ -316,10 +322,11 @@ export default async function ProductDetailPage({
   // Generate JSON-LD Schema
   const variant = product.variants?.[selectedVariantIndex || 0];
   const storeName = STOREFRONT_RUNTIME.name;
+  const locale = await getRequestLocale();
   const [homeUrl, productsUrl, productUrl] = await Promise.all([
-    buildAbsoluteRequestUrl("/"),
-    buildAbsoluteRequestUrl("/urunler"),
-    buildAbsoluteRequestUrl(`/urunler/${baseSlug}`),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale)),
+    buildAbsoluteRequestUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
   ]);
   const jsonLd = variant ? {
     "@context": "https://schema.org",

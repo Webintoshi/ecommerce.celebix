@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/api-rate-limit";
+import {
+  LOCALE_COOKIE_NAME,
+  buildLocalizedPath,
+  detectPreferredLocale,
+  getLocaleFromPathname,
+  stripLocaleFromPathname,
+} from "@/lib/i18n";
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 const AI_BOT_RATE_LIMIT = 10;
+const STATIC_FILE_PATTERN = /\.[^/]+$/;
 
 const AI_BOTS = [
   "GPTBot",
@@ -41,6 +49,17 @@ const GENERAL_BOTS = [
   "amazonbot",
 ];
 
+function shouldBypassLocaleHandling(pathname: string) {
+  return (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname.startsWith("/sitemap") ||
+    STATIC_FILE_PATTERN.test(pathname)
+  );
+}
+
 function applyNoCacheHeaders(response: NextResponse, pathname: string) {
   if (pathname.startsWith("/urunler/") || pathname.startsWith("/api/")) {
     response.headers.set(
@@ -65,22 +84,14 @@ function getRequestIp(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "";
   const ip = getRequestIp(request);
-  const pathname = request.nextUrl.pathname;
+  const originalPathname = request.nextUrl.pathname;
 
-  const response = NextResponse.next({
-    request: {
-      headers: new Headers(request.headers),
-    },
-  });
-
-  applyNoCacheHeaders(response, pathname);
-
-  const staticExtensions = [".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2"];
-  const isStatic = staticExtensions.some((extension) => pathname.endsWith(extension));
-  if (isStatic) {
+  if (shouldBypassLocaleHandling(originalPathname)) {
     return NextResponse.next();
   }
 
+  const locale = getLocaleFromPathname(originalPathname);
+  const internalPathname = locale ? stripLocaleFromPathname(originalPathname) : originalPathname;
   const normalizedUserAgent = userAgent.toLowerCase();
   const isAIBot = AI_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
   const isGeneralBot = GENERAL_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
@@ -105,17 +116,55 @@ export async function middleware(request: NextRequest) {
       });
     }
 
-    if (isAIBot) {
-      response.headers.set("X-Robots-Tag", "noai, noimageai");
-      response.headers.set("X-Bot-Type", "AI");
-      response.headers.set("X-RateLimit-Limit", String(AI_BOT_RATE_LIMIT));
-
-      if (pathname.startsWith("/admin") || pathname.startsWith("/api")) {
-        return new NextResponse("Forbidden", { status: 403 });
-      }
-    } else if (isGeneralBot) {
-      response.headers.set("X-Bot-Type", "crawler");
+    if (isAIBot && (internalPathname.startsWith("/admin") || internalPathname.startsWith("/api"))) {
+      return new NextResponse("Forbidden", { status: 403 });
     }
+  }
+
+  if (!locale) {
+    const preferredLocale = detectPreferredLocale(
+      request.cookies.get(LOCALE_COOKIE_NAME)?.value,
+      request.headers.get("accept-language"),
+    );
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = buildLocalizedPath(originalPathname, preferredLocale);
+
+    const response = NextResponse.redirect(redirectUrl);
+    response.cookies.set(LOCALE_COOKIE_NAME, preferredLocale, {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return response;
+  }
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-celebix-locale", locale);
+  requestHeaders.set("x-celebix-pathname", internalPathname);
+
+  const response =
+    internalPathname !== originalPathname
+      ? NextResponse.rewrite(new URL(`${internalPathname}${request.nextUrl.search}`, request.url), {
+          request: { headers: requestHeaders },
+        })
+      : NextResponse.next({
+          request: { headers: requestHeaders },
+        });
+
+  response.cookies.set(LOCALE_COOKIE_NAME, locale, {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  applyNoCacheHeaders(response, internalPathname);
+
+  if (isAIBot) {
+    response.headers.set("X-Robots-Tag", "noai, noimageai");
+    response.headers.set("X-Bot-Type", "AI");
+    response.headers.set("X-RateLimit-Limit", String(AI_BOT_RATE_LIMIT));
+  } else if (isGeneralBot) {
+    response.headers.set("X-Bot-Type", "crawler");
   }
 
   return response;

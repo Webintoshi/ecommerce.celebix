@@ -1,502 +1,277 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ChevronRight,
-  Facebook,
-  Heart,
-  HelpCircle,
-  Home,
-  Instagram,
-  Menu,
-  Phone,
-  Search,
-  ShoppingBag,
-  Truck,
-  User,
-  X,
-} from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  CONTACT_INFO,
-  NAV_LINKS,
-  ROUTES,
-  SITE_LOGO_PATH,
-  SITE_NAME,
-  SOCIAL_LINKS,
-  TOP_BAR_MESSAGE,
-} from "@/lib/constants";
+import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { ROUTES, SITE_NAME, SITE_LOGO_PATH } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { fetchCategories } from "@/lib/categories";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
-import type { CategoryInfo } from "@/types/product";
+import {
+  buildLocalizedPath,
+  getLocalizedCategoryLabel,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 
-const quickCategoryTones = [
-  "from-amber-50 to-orange-100 text-amber-700",
-  "from-slate-100 to-slate-200 text-slate-700",
-  "from-emerald-50 to-teal-100 text-emerald-700",
-];
+type NavSubcategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type NavCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  children: NavSubcategory[];
+};
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [categories, setCategories] = useState<CategoryInfo[]>([]);
-  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [headerCategories, setHeaderCategories] = useState<NavCategory[]>([]);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { storeInfo } = useStoreInfo();
+  const { locale } = useStorefrontRoute();
+
+  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
-  const previousBodyOverflowRef = useRef<string | null>(null);
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
+  const logoAlt = storeInfo?.name || SITE_NAME;
+  const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
   useEffect(() => {
-    async function loadCategories() {
-      try {
-        const { fetchCategories } = await import("@/lib/categories");
-        const data = await fetchCategories();
-        setCategories(data);
-      } catch (error) {
-        console.error("Failed to load categories:", error);
-      }
-    }
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
 
-    loadCategories();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
-    if (isMenuOpen) {
-      previousBodyOverflowRef.current = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
+    let isMounted = true;
 
-      return () => {
-        document.body.style.overflow = previousBodyOverflowRef.current ?? "";
-        previousBodyOverflowRef.current = null;
-      };
-    }
-
-    if (previousBodyOverflowRef.current !== null) {
-      document.body.style.overflow = previousBodyOverflowRef.current;
-      previousBodyOverflowRef.current = null;
-    }
-  }, [isMenuOpen]);
-
-  useEffect(() => {
-    const loadFavorites = () => {
+    const loadCategories = async () => {
       try {
-        const stored = localStorage.getItem("celebix_storefront_favorites");
-        if (!stored) {
-          setFavoritesCount(0);
+        const categories = await fetchCategories(locale);
+        if (!isMounted) {
           return;
         }
 
-        const favorites = JSON.parse(stored);
-        setFavoritesCount(Array.isArray(favorites) ? favorites.length : 0);
-      } catch {
-        setFavoritesCount(0);
+        const activeCategories = categories
+          .filter((category) => category.is_active !== false && category.slug)
+          .sort((left, right) => {
+            const sortDiff = (left.sort_order || 0) - (right.sort_order || 0);
+            if (sortDiff !== 0) {
+              return sortDiff;
+            }
+
+            return left.name.localeCompare(right.name, "tr");
+          });
+
+        const childrenByParent = new Map<string, NavSubcategory[]>();
+
+        for (const category of activeCategories) {
+          if (!category.parent_id) {
+            continue;
+          }
+
+          const siblings = childrenByParent.get(category.parent_id) || [];
+          siblings.push({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          });
+          childrenByParent.set(category.parent_id, siblings);
+        }
+
+        const topLevelCategories = activeCategories
+          .filter((category) => !category.parent_id)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+            children: (childrenByParent.get(category.id) || []).sort((left, right) =>
+              left.name.localeCompare(right.name, "tr"),
+            ),
+          }));
+
+        setHeaderCategories(topLevelCategories);
+      } catch (error) {
+        console.error("Failed to load header categories:", error);
       }
     };
 
-    loadFavorites();
-    window.addEventListener("storage", loadFavorites);
+    void loadCategories();
 
     return () => {
-      window.removeEventListener("storage", loadFavorites);
+      isMounted = false;
     };
-  }, []);
-
-  const menuItems = [
-    { icon: Home, label: "Ana Sayfa", href: ROUTES.home },
-    { icon: ShoppingBag, label: "Tum Urunler", href: ROUTES.products },
-    { icon: Heart, label: "Favorilerim", href: ROUTES.wishlist, badge: favoritesCount },
-    { icon: User, label: user ? "Hesabim" : "Giris Yap", href: user ? "/hesap" : ROUTES.login },
-  ];
-
-  const quickCategoryCards =
-    categories.length > 0
-      ? categories.slice(0, 3).map((category) => ({
-          href: ROUTES.category(category.slug),
-          title: category.name,
-          subtitle: `${category.productCount} urun`,
-          shortLabel: category.name.slice(0, 2).toLocaleUpperCase("tr"),
-        }))
-      : [
-          {
-            href: ROUTES.products,
-            title: "Tum Urunler",
-            subtitle: "Katalog",
-            shortLabel: "TU",
-          },
-          {
-            href: `${ROUTES.products}?sort=featured`,
-            title: "One Cikanlar",
-            subtitle: "Secki",
-            shortLabel: "OC",
-          },
-          {
-            href: `${ROUTES.products}?sort=newest`,
-            title: "Yeni Gelenler",
-            subtitle: "Yeni",
-            shortLabel: "YG",
-          },
-        ];
-
-  const handleLogout = async () => {
-    await signOut();
-    setIsMenuOpen(false);
-  };
-
-  const logoSrc = storeInfo?.logoUrl || SITE_LOGO_PATH;
-  const logoAlt = storeInfo?.name || SITE_NAME;
+  }, [locale]);
 
   return (
-    <header className="sticky top-0 z-[100] w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
-      <div className="flex items-center justify-center gap-2 border-b border-primary/5 bg-primary/5 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
-        <Truck className="h-3 w-3" />
-        <span>{TOP_BAR_MESSAGE}</span>
-      </div>
-
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center gap-4 lg:h-20">
-          <Link
-            href={ROUTES.home}
-            className="relative flex h-10 w-[148px] items-center transition-transform duration-300 hover:scale-105 sm:w-[164px] lg:h-12 lg:w-[188px]"
-            aria-label={logoAlt}
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
+          : "bg-[#F8F8F8F8]"
+      }`}
+    >
+      <div className="container-premium">
+        <div className="flex h-16 items-center justify-between lg:h-20">
+          <button
+            className="-ml-2 p-2 lg:hidden"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            aria-label={copy.menuLabel}
+            type="button"
           >
-            <Image
-              src={logoSrc}
-              alt={logoAlt}
-              fill
-              className="object-contain object-left"
-              priority
-              sizes="(max-width: 640px) 148px, (max-width: 1024px) 164px, 188px"
-              unoptimized={logoSrc.startsWith("http")}
-            />
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          <Link href={buildLocalizedPath(ROUTES.home, locale)} className="flex-shrink-0" aria-label={logoAlt}>
+            {logoSrc ? (
+              <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  fill
+                  priority
+                  className="object-contain object-left"
+                  sizes="(max-width: 640px) 104px, (max-width: 1024px) 118px, 128px"
+                  unoptimized={usesProxiedLogo}
+                />
+              </div>
+            ) : (
+              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
+                {logoAlt}
+              </span>
+            )}
           </Link>
 
-          <nav className="hidden flex-1 items-center justify-center gap-10 lg:flex">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="store-nav-text group relative text-gray-900/70 transition-all hover:text-primary"
-              >
-                {link.name}
-                <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-primary transition-all group-hover:w-full" />
-              </Link>
-            ))}
+          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
+            {headerCategories.map((category) => {
+              const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+
+              if (category.children.length === 0) {
+                return (
+                  <Link
+                    key={category.id}
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                  >
+                    {localizedCategoryName}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={category.id} className="group relative">
+                  <Link
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                  >
+                    {localizedCategoryName}
+                    <ChevronDown className="h-4 w-4" />
+                  </Link>
+
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                      <div className="space-y-1">
+                        {category.children.map((subcategory) => (
+                          <Link
+                            key={subcategory.id}
+                            href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                            className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              className="rounded-xl p-2.5 transition-all hover:bg-primary/5"
+              className="p-2"
+              aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
-              aria-label="Ara"
             >
-              <Search className="h-5 w-5 text-gray-700 transition-colors hover:text-primary" />
+              <Search className="h-5 w-5 text-neutral-600" />
             </button>
 
-            <Link
-              href={ROUTES.wishlist}
-              className="hidden rounded-xl p-2.5 transition-all hover:bg-primary/5 sm:flex"
-              aria-label="Favoriler"
-            >
-              <Heart className="h-5 w-5 text-gray-700 transition-colors hover:text-primary" />
-            </Link>
-
-            <Link
-              href={user ? "/hesap" : ROUTES.login}
-              className="hidden rounded-xl p-2.5 transition-all hover:bg-primary/5 sm:flex"
-              aria-label={user ? "Hesabim" : "Giris Yap"}
-            >
-              <User className="h-5 w-5 text-gray-700 transition-colors hover:text-primary" />
+            <Link href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)} className="hidden p-2 sm:block">
+              <User className="h-5 w-5 text-neutral-600" />
             </Link>
 
             <button
+              type="button"
+              className="relative p-2"
+              aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
-              className="relative rounded-xl bg-primary/5 p-2.5 transition-all hover:bg-primary/10"
-              aria-label="Sepet"
             >
-              <ShoppingBag className="h-6 w-6 text-primary" />
+              <ShoppingBag className="h-5 w-5 text-neutral-600" />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-black text-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
                   {cartItemCount}
                 </span>
               ) : null}
-            </button>
-
-            <button
-              className="rounded-xl p-2.5 transition-all hover:bg-primary/5 lg:hidden"
-              onClick={() => setIsMenuOpen(true)}
-              aria-label="Menuyu ac"
-            >
-              <Menu className="h-5 w-5 text-gray-700" />
             </button>
           </div>
         </div>
       </div>
 
+      {isMenuOpen ? (
+        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
+          <nav className="container-premium space-y-4 py-4">
+            {headerCategories.map((category) => (
+              <div key={category.id} className="space-y-2">
+                <Link
+                  href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {getLocalizedCategoryLabel(category.slug, category.name, locale)}
+                </Link>
+
+                {category.children.length > 0 ? (
+                  <div className="space-y-2 border-l border-neutral-200 pl-4">
+                    {category.children.map((subcategory) => (
+                      <Link
+                        key={subcategory.id}
+                        href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {subcategory.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </nav>
+        </div>
+      ) : null}
+
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
+        locale={locale}
+        resolveImageSrc={resolveStorefrontAssetUrl}
       />
-
-      {isMenuOpen && typeof window !== "undefined"
-        ? createPortal(
-            <AnimatePresence>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[99998] bg-black/50 lg:hidden"
-                onClick={() => setIsMenuOpen(false)}
-              />
-              <motion.aside
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 30, stiffness: 320 }}
-                className="fixed inset-y-0 right-0 z-[99999] flex w-full flex-col overflow-hidden bg-white shadow-2xl lg:hidden"
-              >
-                <div className="shrink-0 border-b border-gray-100 bg-white px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Link href={ROUTES.home} onClick={() => setIsMenuOpen(false)}>
-                      <Image
-                        src={SITE_LOGO_PATH}
-                        alt={SITE_NAME}
-                        width={84}
-                        height={28}
-                        className="h-7 w-auto"
-                        sizes="84px"
-                      />
-                    </Link>
-
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={ROUTES.wishlist}
-                        onClick={() => setIsMenuOpen(false)}
-                        className="relative rounded-xl p-2"
-                      >
-                        <Heart className="h-5 w-5 text-gray-700" />
-                        {favoritesCount > 0 ? (
-                          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-                            {favoritesCount}
-                          </span>
-                        ) : null}
-                      </Link>
-
-                      <button
-                        onClick={() => {
-                          setIsCartOpen(true);
-                          setIsMenuOpen(false);
-                        }}
-                        className="relative rounded-xl p-2"
-                      >
-                        <ShoppingBag className="h-5 w-5 text-gray-700" />
-                        {cartItemCount > 0 ? (
-                          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-                            {cartItemCount}
-                          </span>
-                        ) : null}
-                      </button>
-
-                      <Link
-                        href={user ? "/hesap" : ROUTES.login}
-                        onClick={() => setIsMenuOpen(false)}
-                        className="rounded-xl p-2"
-                      >
-                        <User className="h-5 w-5 text-gray-700" />
-                      </Link>
-
-                      <button onClick={() => setIsMenuOpen(false)} className="ml-1 rounded-xl p-2">
-                        <X className="h-6 w-6 text-gray-700" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto bg-white">
-                  <div className="px-6 pb-4 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        setIsSearchOpen(true);
-                      }}
-                      className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-4 text-left shadow-sm transition hover:border-primary/20 hover:bg-primary/5"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                          <Search className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">Arama ac</p>
-                          <p className="text-xs text-gray-500">
-                            Tam ekran popup ile ajax arama yap
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-gray-300" />
-                    </button>
-                  </div>
-
-                  <nav className="space-y-1 px-6 pb-6">
-                    {menuItems.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setIsMenuOpen(false)}
-                        className="group flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-gray-50"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 transition-all group-hover:bg-primary group-hover:text-white">
-                            <item.icon className="h-5 w-5" />
-                          </div>
-                          <span className="store-nav-text text-gray-900">{item.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {"badge" in item && item.badge ? (
-                            <span className="rounded-lg bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                              {item.badge}
-                            </span>
-                          ) : null}
-                          <ChevronRight className="h-5 w-5 text-gray-300 transition-colors group-hover:text-primary" />
-                        </div>
-                      </Link>
-                    ))}
-                  </nav>
-
-                  <div className="px-6 pb-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900">
-                        Kategoriler
-                      </h3>
-                      <Link
-                        href="/koleksiyon"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="text-xs font-semibold text-primary"
-                      >
-                        Tumunu Gor
-                      </Link>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      {quickCategoryCards.map((card, index) => (
-                        <Link
-                          key={card.href}
-                          href={card.href}
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white p-4 transition-all hover:border-primary/50 hover:shadow-md active:scale-95"
-                        >
-                          <div
-                            className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${quickCategoryTones[index % quickCategoryTones.length]}`}
-                          >
-                            <span className="text-sm font-black uppercase tracking-wide">
-                              {card.shortLabel}
-                            </span>
-                          </div>
-                          <div className="space-y-0.5 text-center leading-tight">
-                            <span className="block text-[11px] font-bold text-gray-700">{card.title}</span>
-                            <span className="block text-[10px] font-medium text-gray-500">
-                              {card.subtitle}
-                            </span>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-
-                  {!user ? (
-                    <div className="px-6 pb-6">
-                      <div className="flex gap-3">
-                        <Link
-                          href={ROUTES.login}
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex-1 rounded-xl bg-primary py-3 text-center font-bold text-white"
-                        >
-                          Giris Yap
-                        </Link>
-                        <Link
-                          href={ROUTES.register}
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex-1 rounded-xl border-2 border-primary py-3 text-center font-bold text-primary"
-                        >
-                          Kayit Ol
-                        </Link>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="border-t border-gray-100 bg-gray-50 px-6 py-6">
-                    <div className="mb-6 space-y-3">
-                      <Link
-                        href="/sss"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-white"
-                      >
-                        <div className="flex items-center gap-3">
-                          <HelpCircle className="h-5 w-5 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-700">Sikca Sorulan Sorular</span>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
-                      </Link>
-
-                      <a
-                        href={`tel:${CONTACT_INFO.phone}`}
-                        className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-white"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5 text-gray-500" />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Musteri Hizmetleri</span>
-                            <p className="text-xs text-gray-500">{CONTACT_INFO.phone}</p>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
-                      </a>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-4 border-t border-gray-200 py-4">
-                      <a
-                        href={SOCIAL_LINKS.instagram}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 transition-all hover:bg-[#E4405F] hover:text-white"
-                      >
-                        <Instagram className="h-5 w-5" />
-                      </a>
-                      <a
-                        href={SOCIAL_LINKS.facebook}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 transition-all hover:bg-[#1877F2] hover:text-white"
-                      >
-                        <Facebook className="h-5 w-5" />
-                      </a>
-                    </div>
-
-                    {user ? (
-                      <button
-                        onClick={handleLogout}
-                        className="mt-4 w-full rounded-xl border-2 border-gray-200 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-100"
-                      >
-                        Cikis Yap
-                      </button>
-                    ) : null}
-
-                    <p className="mt-4 text-center text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                      © {new Date().getFullYear()} {SITE_NAME}
-                    </p>
-                  </div>
-                </div>
-              </motion.aside>
-            </AnimatePresence>,
-            document.body
-          )
-        : null}
     </header>
   );
 }

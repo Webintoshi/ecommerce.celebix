@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
+import { type StorefrontLocale, buildLocalizedPath } from "@/lib/i18n";
 
 type SearchProductResult = {
   id: string;
@@ -27,6 +28,7 @@ type HeaderSearchOverlayProps = {
   isOpen: boolean;
   onClose: () => void;
   resolveImageSrc?: (src?: string | null) => string;
+  locale?: StorefrontLocale;
 };
 
 const SEARCH_DELAY_MS = 250;
@@ -61,6 +63,7 @@ export function HeaderSearchOverlay({
   isOpen,
   onClose,
   resolveImageSrc,
+  locale = "tr",
 }: HeaderSearchOverlayProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
@@ -300,7 +303,7 @@ export function HeaderSearchOverlay({
                   return (
                     <Link
                       key={product.id}
-                      href={ROUTES.product(product.slug)}
+                      href={buildLocalizedPath(ROUTES.product(product.slug), locale)}
                       onClick={onClose}
                       className="flex items-center gap-4 rounded-[1.5rem] border border-neutral-200 bg-white p-3 transition hover:border-neutral-300 hover:shadow-sm"
                     >

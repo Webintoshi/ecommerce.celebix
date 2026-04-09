@@ -1,175 +1,282 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { ArrowRight, Instagram, Mail, Phone } from "lucide-react";
-import {
-  CONTACT_INFO,
-  FOOTER_LINKS,
-  SITE_DESCRIPTION,
-  SITE_LOGO_PATH,
-  SITE_NAME,
-  SOCIAL_LINKS,
-} from "@/lib/constants";
+import Link from "next/link";
+import { ChevronDown, Instagram, Youtube } from "lucide-react";
+import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { fetchCategories } from "@/lib/categories";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import {
+  type StorefrontLocale,
+  buildLocalizedPath,
+  getLocalizedCopy,
+} from "@/lib/i18n";
 
-function FooterLinkList({
-  title,
-  items,
-}: {
-  title: string;
-  items: Array<{ name: string; href: string }>;
-}) {
-  return (
-    <div>
-      <h4 className="mb-4 text-sm font-semibold text-gray-900">{title}</h4>
-      <ul className="space-y-3">
-        {items.map((item) => (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              className="text-sm text-gray-500 transition-colors hover:text-[#7B1113]"
-            >
-              {item.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+type FooterCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+const LOCALE_SWITCH_OPTIONS: Array<{
+  locale: StorefrontLocale;
+  label: string;
+}> = [
+  { locale: "tr", label: "TR" },
+  { locale: "en", label: "EN" },
+  { locale: "de", label: "DE" },
+  { locale: "ru", label: "RU" },
+  { locale: "ar", label: "AR" },
+  { locale: "ka", label: "KA" },
+];
 
 export function Footer() {
   const { storeInfo } = useStoreInfo();
+  const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
+  const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
+  const { locale, internalPathname } = useStorefrontRoute();
+  const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
-  const logoSrc = storeInfo?.logoUrl || SITE_LOGO_PATH;
+  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
+  const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const activeLocaleOption =
+    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 
-  const contactInfo = {
-    email: storeInfo?.email || CONTACT_INFO.email,
-    phone: storeInfo?.phone || CONTACT_INFO.phone,
-    address: storeInfo?.address || CONTACT_INFO.address,
-  };
+  const contactEmail = storeInfo?.email || "hello@ornek-magaza.celebix.co";
+  const contactPhone = storeInfo?.phone || "+90 555 000 00 00";
+  const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
+  const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
 
-  const socialLinks = {
-    instagram: storeInfo?.socialInstagram || SOCIAL_LINKS.instagram,
-    facebook: SOCIAL_LINKS.facebook,
-    twitter: storeInfo?.socialTwitter || SOCIAL_LINKS.twitter,
-  };
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const categories = await fetchCategories(locale);
+        if (!isMounted) {
+          return;
+        }
+
+        const topLevelCategories = categories
+          .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
+          .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          }));
+
+        setCategoryLinks(topLevelCategories);
+      } catch (error) {
+        console.error("Failed to load footer categories:", error);
+      }
+    };
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [locale]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!localeMenuRef.current?.contains(event.target as Node)) {
+        setIsLocaleMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  const aboutLinks = [
+    { name: copy.footerHome, href: "/" },
+    { name: copy.footerAbout, href: "/hakkimizda" },
+    { name: copy.footerStores, href: "/magazalarimiz" },
+    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
+    { name: copy.footerContact, href: "/iletisim" },
+  ];
+
+  const policyLinks = [
+    { name: copy.footerDistanceSales, href: "/mesafeli-satis-sozlesmesi" },
+    { name: copy.footerReturns, href: "/iade" },
+    { name: copy.footerPrivacy, href: "/gizlilik" },
+    { name: copy.footerKvkk, href: "/kvkk" },
+  ];
 
   return (
-    <footer className="border-t border-gray-200 bg-[#faf7f4]">
-      <div className="container mx-auto grid gap-10 px-4 py-14 md:grid-cols-2 lg:grid-cols-12 lg:gap-8 lg:py-20">
-        <div className="lg:col-span-4">
-          <Link href="/" className="inline-flex items-center gap-3">
-            <Image
-              src={logoSrc}
-              alt={logoAlt}
-              width={150}
-              height={52}
-              className="h-11 w-auto"
-              sizes="150px"
-              unoptimized={logoSrc.startsWith("http")}
-            />
-          </Link>
-          <p className="mt-5 max-w-sm text-sm leading-7 text-gray-600">{SITE_DESCRIPTION}</p>
+    <footer className="bg-[#0B1120] text-white">
+      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <div className="lg:col-span-1">
+            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
+              {logoSrc ? (
+                <div className="relative h-10 w-[150px]">
+                  <Image
+                    src={logoSrc}
+                    alt={logoAlt}
+                    fill
+                    className="object-contain object-left brightness-0 invert"
+                    sizes="150px"
+                    unoptimized={usesProxiedLogo}
+                  />
+                </div>
+              ) : (
+                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
+              )}
+            </Link>
 
-          <div className="mt-6 flex items-center gap-3">
-            <a
-              href={socialLinks.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-all hover:border-[#7B1113] hover:bg-[#7B1113] hover:text-white"
-              aria-label="Instagram"
-            >
-              <Instagram className="h-4 w-4" />
-            </a>
-            <a
-              href={socialLinks.facebook}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-all hover:border-[#7B1113] hover:bg-[#7B1113] hover:text-white"
-              aria-label="Facebook"
-            >
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073C24 5.446 18.627.073 12 .073S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073Z" />
-              </svg>
-            </a>
-            <a
-              href={socialLinks.twitter}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-all hover:border-[#7B1113] hover:bg-[#7B1113] hover:text-white"
-              aria-label="Twitter"
-            >
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117Z" />
-              </svg>
-            </a>
-          </div>
-        </div>
-
-        <div className="lg:col-span-2">
-          <FooterLinkList title="Kesfet" items={FOOTER_LINKS.discover} />
-        </div>
-
-        <div className="lg:col-span-2">
-          <FooterLinkList title="Kurumsal" items={FOOTER_LINKS.company} />
-        </div>
-
-        <div className="lg:col-span-2">
-          <FooterLinkList title="Politikalar" items={FOOTER_LINKS.policies} />
-        </div>
-
-        <div className="lg:col-span-2">
-          <h4 className="mb-4 text-sm font-semibold text-gray-900">Iletisim</h4>
-          <ul className="space-y-4">
-            <li>
-              <a
-                href={`mailto:${contactInfo.email}`}
-                className="flex items-center gap-3 text-sm text-gray-500 transition-colors hover:text-[#7B1113]"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
-                  <Mail className="h-4 w-4" />
-                </span>
-                <span className="break-all">{contactInfo.email}</span>
-              </a>
-            </li>
-            <li>
-              <a
-                href={`tel:${contactInfo.phone}`}
-                className="flex items-center gap-3 text-sm text-gray-500 transition-colors hover:text-[#7B1113]"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
-                  <Phone className="h-4 w-4" />
-                </span>
-                <span>{contactInfo.phone}</span>
-              </a>
-            </li>
-          </ul>
-
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="mb-3 text-sm font-medium text-gray-900">
-              E-bulten ve kampanya alani
-            </p>
-            <div className="relative">
-              <input
-                type="email"
-                placeholder="E-posta adresin"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-sm transition-all focus:border-[#7B1113] focus:outline-none focus:ring-1 focus:ring-[#7B1113]"
-              />
-              <button className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-[#7B1113] text-white transition-colors hover:bg-[#5d0e0f]">
-                <ArrowRight className="h-4 w-4" />
-              </button>
+            <div className="mb-6 space-y-2">
+              <p className="text-sm text-gray-300">{contactPhone}</p>
+              <p className="break-all text-sm text-gray-300">{contactEmail}</p>
             </div>
+
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
+                Language
+              </p>
+              <div ref={localeMenuRef} className="relative w-fit">
+                <button
+                  type="button"
+                  onClick={() => setIsLocaleMenuOpen((current) => !current)}
+                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                  aria-expanded={isLocaleMenuOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
+                    <span className="text-sm">{locale.toUpperCase()}</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {isLocaleMenuOpen ? (
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                    <div className="space-y-1">
+                      {LOCALE_SWITCH_OPTIONS.map((option) => {
+                        const isActive = option.locale === locale;
+                        return (
+                          <Link
+                            key={option.locale}
+                            href={buildLocalizedPath(internalPathname, option.locale)}
+                            hrefLang={option.locale}
+                            onClick={() => setIsLocaleMenuOpen(false)}
+                            className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
+                              isActive
+                                ? "bg-white text-[#0B1120]"
+                                : "text-white/88 hover:bg-white/10 hover:text-white"
+                            }`}
+                          >
+                            <span className="text-sm font-medium">{option.label}</span>
+                            <span className="text-xs uppercase">{option.locale}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                aria-label="Instagram"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a
+                href={youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                aria-label="YouTube"
+              >
+                <Youtube className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.aboutHeading}
+            </p>
+            <ul className="space-y-3">
+              {aboutLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.categoriesHeading}
+            </p>
+            <ul className="space-y-3">
+              {categoryLinks.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+              {copy.policiesHeading}
+            </p>
+            <ul className="space-y-3">
+              {policyLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-gray-200">
-        <div className="container mx-auto flex flex-col gap-4 px-4 py-5 text-sm text-gray-400 md:flex-row md:items-center md:justify-between">
-          <p>© {currentYear} {SITE_NAME}. Tum haklari saklidir.</p>
-          <p>{contactInfo.address}</p>
+      <div className="border-t border-gray-800">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
+          <p className="text-xs text-gray-500">
+            &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
+          </p>
+          <a
+            href="https://celebix.co"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+          >
+            Powered by Celebix
+          </a>
         </div>
       </div>
     </footer>

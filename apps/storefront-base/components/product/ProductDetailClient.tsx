@@ -29,6 +29,8 @@ import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 import {
   CustomizationSchema,
@@ -108,6 +110,7 @@ export function ProductDetailClient({
   initialRelatedProducts = [],
   initialVariantIndex = 0,
 }: ProductDetailClientProps) {
+  const { locale } = useStorefrontRoute();
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>(
@@ -329,7 +332,7 @@ export function ProductDetailClient({
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-4 py-4">
             <Link
-              href="/urunler"
+              href={buildLocalizedPath("/urunler", locale)}
               className="flex items-center gap-2 text-sm text-[#6b4b4c] hover:text-[#7B1113] transition-colors"
             >
               <div className="w-8 h-8 rounded-full bg-[#F3E0E1] flex items-center justify-center">
@@ -338,9 +341,9 @@ export function ProductDetailClient({
               <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
             </Link>
             <div className="flex items-center gap-2 text-sm text-[#6b4b4c] ml-auto">
-              <Link href="/" className="hover:text-[#7B1113]">Ana Sayfa</Link>
+              <Link href={buildLocalizedPath("/", locale)} className="hover:text-[#7B1113]">Ana Sayfa</Link>
               <ChevronRight className="w-4 h-4" />
-              <Link href="/urunler" className="hover:text-[#7B1113]">Ürünler</Link>
+              <Link href={buildLocalizedPath("/urunler", locale)} className="hover:text-[#7B1113]">Ürünler</Link>
               <ChevronRight className="w-4 h-4" />
               <span className="text-[#7B1113] font-medium truncate max-w-[150px]">
                 {product.name}
@@ -673,7 +676,7 @@ export function ProductDetailClient({
               Benzer Ürünler
             </h2>
             <Link
-              href="/urunler"
+              href={buildLocalizedPath("/urunler", locale)}
               className="flex items-center gap-2 text-[#7B1113] font-medium hover:gap-3 transition-all"
             >
               Tümünü Gör
