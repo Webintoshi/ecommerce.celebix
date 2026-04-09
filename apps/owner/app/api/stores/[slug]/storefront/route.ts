@@ -39,7 +39,7 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
       !fs.existsSync(appDirectory);
 
     let result = shouldScaffold
-      ? scaffoldStorefrontApp(slug)
+      ? await scaffoldStorefrontApp(slug)
       : {
           appDirectory,
           relativeAppDirectory,

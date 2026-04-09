@@ -54,6 +54,8 @@ export async function POST(request: Request) {
     const bootstrapStatus = await getSupabaseBootstrapStatus();
     const r2BootstrapStatus = await getR2BootstrapStatus();
 
+    await syncOwnerStoresAndMetrics();
+
     if (bootstrapStatus.configured) {
       try {
         await provisionSupabaseForStore(result.store);
@@ -70,7 +72,6 @@ export async function POST(request: Request) {
       }
     }
 
-    await syncOwnerStoresAndMetrics();
     try {
       await prepareStoreAdminDeployment(result.store.slug);
     } catch (error) {
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     }
     try {
       if (result.store.storefront?.status === "not_started") {
-        scaffoldStorefrontApp(result.store.slug);
+        await scaffoldStorefrontApp(result.store.slug);
       }
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Storefront scaffold tamamlanamadi.");
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
     }
+    await syncOwnerStoresAndMetrics();
     await recordOwnerAuditLog({
       actorId: auth.user.id,
       action: "store_created",

@@ -15,6 +15,15 @@ interface StorefrontScaffoldResult {
   relativeAppDirectory: string;
 }
 
+interface GitHubContentEntry {
+  type?: "file" | "dir";
+  name?: string;
+  path?: string;
+  url?: string;
+  content?: string;
+  encoding?: string;
+}
+
 const TEXT_FILE_EXTENSIONS = new Set([
   ".css",
   ".cjs",
@@ -220,6 +229,135 @@ function getBaseStorefrontDirectory(repoRoot: string): string {
   return path.join(repoRoot, "apps", "storefront-base");
 }
 
+function getGitHubSyncToken(): string {
+  const token = process.env.GITHUB_SYNC_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim() || "";
+
+  if (!token) {
+    throw new Error("storefront-base klasoru bulunamadi ve GITHUB_SYNC_TOKEN tanimli degil.");
+  }
+
+  return token;
+}
+
+function normalizeRepositoryIdentifier(raw: string): string {
+  const value = raw.trim();
+
+  if (!value) {
+    throw new Error("GitHub repository bilgisi bos.");
+  }
+
+  if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) {
+    return value;
+  }
+
+  const match = value.match(/github\.com[/:]([^/]+\/[^/.]+)(?:\.git)?$/i);
+
+  if (!match?.[1]) {
+    throw new Error("GitHub repository bilgisi gecersiz.");
+  }
+
+  return match[1];
+}
+
+function getGitHubRepository(): string {
+  return normalizeRepositoryIdentifier(
+    process.env.GITHUB_SYNC_REPOSITORY?.trim() ||
+      process.env.COOLIFY_APPLICATION_REPOSITORY_URL?.trim() ||
+      process.env.CELEBIX_GIT_REPOSITORY?.trim() ||
+      "Webintoshi/ecommerce.celebix",
+  );
+}
+
+function getGitHubBranch(): string {
+  return (
+    process.env.GITHUB_SYNC_BRANCH?.trim() ||
+    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
+    process.env.CELEBIX_GIT_BRANCH?.trim() ||
+    "main"
+  );
+}
+
+async function githubFetch<T>(pathname: string): Promise<T> {
+  const response = await fetch(`https://api.github.com${pathname}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${getGitHubSyncToken()}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`GitHub template okunamadi (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function writeGitHubDirectoryRecursive(
+  repository: string,
+  branch: string,
+  sourcePath: string,
+  targetDirectory: string,
+): Promise<void> {
+  const encodedPath = sourcePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const response = await githubFetch<GitHubContentEntry[] | GitHubContentEntry>(
+    `/repos/${repository}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`,
+  );
+
+  if (Array.isArray(response)) {
+    fs.mkdirSync(targetDirectory, { recursive: true });
+
+    for (const entry of response) {
+      if (!entry.type || !entry.name || !entry.path) {
+        continue;
+      }
+
+      const nextTargetPath = path.join(targetDirectory, entry.name);
+
+      if (entry.type === "dir") {
+        await writeGitHubDirectoryRecursive(repository, branch, entry.path, nextTargetPath);
+        continue;
+      }
+
+      if (entry.type === "file") {
+        const fileResponse = await githubFetch<GitHubContentEntry>(
+          `/repos/${repository}/contents/${encodeURIComponent(entry.path).replace(/%2F/g, "/")}?ref=${encodeURIComponent(branch)}`,
+        );
+        const content = fileResponse.content ?? "";
+        const encoding = fileResponse.encoding ?? "base64";
+
+        if (encoding !== "base64") {
+          throw new Error(`GitHub template encoding desteklenmiyor: ${entry.path}`);
+        }
+
+        fs.mkdirSync(path.dirname(nextTargetPath), { recursive: true });
+        fs.writeFileSync(nextTargetPath, Buffer.from(content.replace(/\n/g, ""), "base64"));
+      }
+    }
+
+    return;
+  }
+
+  throw new Error("GitHub template dizini okunamadi.");
+}
+
+async function materializeBaseStorefrontDirectory(repoRoot: string): Promise<string> {
+  const fallbackDirectory = path.join(repoRoot, ".generated", "storefront-base-template");
+  fs.rmSync(fallbackDirectory, { recursive: true, force: true });
+  await writeGitHubDirectoryRecursive(
+    getGitHubRepository(),
+    getGitHubBranch(),
+    "apps/storefront-base",
+    fallbackDirectory,
+  );
+  return fallbackDirectory;
+}
+
 function getAdminEnvLocalPath(repoRoot: string, store: StoreConfig): string {
   const relativePath = store.bootstrap?.adminEnvLocalPath || `stores/${store.slug}/admin.env.local`;
   return path.join(repoRoot, relativePath);
@@ -294,10 +432,13 @@ function replaceStorefrontPlaceholders(appDirectory: string, store: StoreConfig)
   }
 }
 
-export function scaffoldStorefrontApp(slug: string): StorefrontScaffoldResult {
+export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontScaffoldResult> {
   const store = requireStoreConfig(slug);
   const repoRoot = getRepoRoot();
-  const baseDirectory = getBaseStorefrontDirectory(repoRoot);
+  const localBaseDirectory = getBaseStorefrontDirectory(repoRoot);
+  const baseDirectory = fs.existsSync(localBaseDirectory)
+    ? localBaseDirectory
+    : await materializeBaseStorefrontDirectory(repoRoot);
   const relativeAppDirectory = path.posix.join("apps", `storefront-${slug}`);
   const appDirectory = path.join(repoRoot, relativeAppDirectory);
 
