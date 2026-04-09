@@ -23,6 +23,7 @@ interface GitHubContentEntry {
   content?: string;
   encoding?: string;
   download_url?: string | null;
+  git_url?: string | null;
 }
 
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -296,20 +297,54 @@ async function githubFetch<T>(pathname: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function downloadRawGitHubFile(downloadUrl: string): Promise<Buffer> {
-  const response = await fetch(downloadUrl, {
+async function githubAbsoluteFetch<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
     headers: {
+      Accept: "application/vnd.github+json",
       Authorization: `Bearer ${getGitHubSyncToken()}`,
+      "X-GitHub-Api-Version": "2022-11-28",
     },
     cache: "no-store",
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`GitHub raw template indirilemedi (${response.status}): ${errorText || response.statusText}`);
+    throw new Error(`GitHub blob template okunamadi (${response.status}): ${errorText || response.statusText}`);
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  return (await response.json()) as T;
+}
+
+async function downloadGitHubBlob(gitUrl: string, fallbackDownloadUrl?: string | null): Promise<Buffer> {
+  try {
+    const payload = await githubAbsoluteFetch<GitHubContentEntry>(gitUrl);
+
+    if (payload.content && (payload.encoding ?? "base64") === "base64") {
+      return Buffer.from(payload.content.replace(/\n/g, ""), "base64");
+    }
+  } catch (error) {
+    if (!fallbackDownloadUrl) {
+      throw error;
+    }
+  }
+
+  if (!fallbackDownloadUrl) {
+    throw new Error("GitHub blob icerigi okunamadi.");
+  }
+
+  const rawResponse = await fetch(fallbackDownloadUrl, {
+    headers: {
+      Authorization: `Bearer ${getGitHubSyncToken()}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!rawResponse.ok) {
+    const errorText = await rawResponse.text();
+    throw new Error(`GitHub raw template indirilemedi (${rawResponse.status}): ${errorText || rawResponse.statusText}`);
+  }
+
+  return Buffer.from(await rawResponse.arrayBuffer());
 }
 
 async function writeGitHubDirectoryRecursive(
@@ -348,17 +383,18 @@ async function writeGitHubDirectoryRecursive(
         const content = fileResponse.content ?? "";
         const encoding = fileResponse.encoding ?? "base64";
         const downloadUrl = fileResponse.download_url || entry.download_url;
+        const gitUrl = fileResponse.git_url || entry.git_url;
 
-        if (!content && downloadUrl) {
+        if (!content && (gitUrl || downloadUrl)) {
           fs.mkdirSync(path.dirname(nextTargetPath), { recursive: true });
-          fs.writeFileSync(nextTargetPath, await downloadRawGitHubFile(downloadUrl));
+          fs.writeFileSync(nextTargetPath, await downloadGitHubBlob(gitUrl || "", downloadUrl));
           continue;
         }
 
         if (encoding !== "base64") {
-          if (downloadUrl) {
+          if (gitUrl || downloadUrl) {
             fs.mkdirSync(path.dirname(nextTargetPath), { recursive: true });
-            fs.writeFileSync(nextTargetPath, await downloadRawGitHubFile(downloadUrl));
+            fs.writeFileSync(nextTargetPath, await downloadGitHubBlob(gitUrl || "", downloadUrl));
             continue;
           }
 
