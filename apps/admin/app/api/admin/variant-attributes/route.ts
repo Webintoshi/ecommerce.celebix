@@ -205,6 +205,13 @@ async function fetchAttributeWithValues(id: string) {
     .single();
 
   if (attributeError) {
+    if (isVariantAttributeTableMissing(attributeError) || isVariantAttributeValueTableMissing(attributeError)) {
+      const storedAttribute = await getStoredVariantAttributeById(id);
+      if (!storedAttribute) {
+        return null;
+      }
+      return normalizeAttribute((storedAttribute ?? {}) as Record<string, unknown>);
+    }
     throw attributeError;
   }
 
@@ -216,6 +223,13 @@ async function fetchAttributeWithValues(id: string) {
     .order("value");
 
   if (valuesError) {
+    if (isVariantAttributeValueTableMissing(valuesError) || isVariantAttributeTableMissing(valuesError)) {
+      const storedAttribute = await getStoredVariantAttributeById(id);
+      if (!storedAttribute) {
+        return null;
+      }
+      return normalizeAttribute((storedAttribute ?? {}) as Record<string, unknown>);
+    }
     throw valuesError;
   }
 
@@ -235,6 +249,9 @@ export async function GET(request: NextRequest) {
     if (id) {
       try {
         const attribute = await fetchAttributeWithValues(id);
+        if (!attribute) {
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        }
         return NextResponse.json({ success: true, attribute });
       } catch (error: any) {
         if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
@@ -276,6 +293,16 @@ export async function GET(request: NextRequest) {
             .order("name");
 
           if (attributesError) {
+            if (isVariantAttributeTableMissing(attributesError) || isVariantAttributeValueTableMissing(attributesError)) {
+              try {
+                await backfillVariantAttributeRegistryFromCatalog(supabase);
+              } catch (backfillError) {
+                console.error("Error backfilling variant attributes from catalog:", backfillError);
+              }
+              return (await getStoredVariantAttributes()).map((attribute) =>
+                normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
+              );
+            }
             throw attributesError;
           }
 
@@ -286,6 +313,16 @@ export async function GET(request: NextRequest) {
             .order("value");
 
           if (valuesError) {
+            if (isVariantAttributeValueTableMissing(valuesError) || isVariantAttributeTableMissing(valuesError)) {
+              try {
+                await backfillVariantAttributeRegistryFromCatalog(supabase);
+              } catch (backfillError) {
+                console.error("Error backfilling variant attributes from catalog:", backfillError);
+              }
+              return (await getStoredVariantAttributes()).map((attribute) =>
+                normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
+              );
+            }
             throw valuesError;
           }
 
