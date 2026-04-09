@@ -110,6 +110,14 @@ function normalizeAttribute(attribute: Record<string, unknown>) {
   };
 }
 
+function isVariantAttributeRelationshipMissing(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("message" in error)) return false;
+  const message = String(error.message ?? "");
+  return /Could not find a relationship between 'variant_attributes' and 'variant_attribute_values' in the schema cache/i.test(
+    message,
+  );
+}
+
 function logCatalogVariantSyncError(error: unknown, context: string) {
   console.error(`Variant attribute catalog snapshot sync failed (${context}):`, error);
 }
@@ -173,7 +181,7 @@ function extractIncomingValues(
 
 async function fetchAttributeWithValues(id: string) {
   const supabase = createServerClient();
-  const { data, error } = await supabase
+  const joinedResult = await supabase
     .from("variant_attributes")
     .select(`
       *,
@@ -182,11 +190,39 @@ async function fetchAttributeWithValues(id: string) {
     .eq("id", id)
     .single();
 
-  if (error) {
-    throw error;
+  if (!joinedResult.error) {
+    return normalizeAttribute((joinedResult.data ?? {}) as Record<string, unknown>);
   }
 
-  return normalizeAttribute((data ?? {}) as Record<string, unknown>);
+  if (!isVariantAttributeRelationshipMissing(joinedResult.error)) {
+    throw joinedResult.error;
+  }
+
+  const { data: attribute, error: attributeError } = await supabase
+    .from("variant_attributes")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (attributeError) {
+    throw attributeError;
+  }
+
+  const { data: values, error: valuesError } = await supabase
+    .from("variant_attribute_values")
+    .select("*")
+    .eq("attribute_id", id)
+    .order("display_order")
+    .order("value");
+
+  if (valuesError) {
+    throw valuesError;
+  }
+
+  return normalizeAttribute({
+    ...((attribute ?? {}) as Record<string, unknown>),
+    values: values ?? [],
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -233,6 +269,45 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await query;
       if (error) {
+        if (withValues && isVariantAttributeRelationshipMissing(error)) {
+          const { data: attributesData, error: attributesError } = await supabase
+            .from("variant_attributes")
+            .select("*")
+            .order("name");
+
+          if (attributesError) {
+            throw attributesError;
+          }
+
+          const { data: valuesData, error: valuesError } = await supabase
+            .from("variant_attribute_values")
+            .select("*")
+            .order("display_order")
+            .order("value");
+
+          if (valuesError) {
+            throw valuesError;
+          }
+
+          const valuesByAttributeId = new Map<string, Record<string, unknown>[]>();
+          for (const value of (valuesData || []) as Record<string, unknown>[]) {
+            const attributeId = typeof value.attribute_id === "string" ? value.attribute_id : null;
+            if (!attributeId) continue;
+            const bucket = valuesByAttributeId.get(attributeId) ?? [];
+            bucket.push(value);
+            valuesByAttributeId.set(attributeId, bucket);
+          }
+
+          return (attributesData || [])
+            .map((attribute) =>
+              normalizeAttribute({
+                ...((attribute ?? {}) as Record<string, unknown>),
+                values: valuesByAttributeId.get(String((attribute as Record<string, unknown>).id ?? "")) ?? [],
+              }),
+            )
+            .filter((attribute) => attribute.is_active !== false);
+        }
+
         if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
           try {
             await backfillVariantAttributeRegistryFromCatalog(supabase);
