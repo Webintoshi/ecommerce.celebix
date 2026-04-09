@@ -1424,22 +1424,53 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
 
   const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
     .from("owner_stores")
-    .select("id, slug, metadata, supabase_url")
-    .in(
-      "slug",
-      storeConfigs.map((store) => store.slug)
-    );
+    .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url");
 
   if (existingStoreRowsError) {
     throw new Error(existingStoreRowsError.message);
   }
 
-  const existingRows = (existingStoreRows as Array<{
+  const allExistingRows = (existingStoreRows as Array<{
     id: string;
     slug: string;
+    status: "draft" | "active" | "paused";
+    storefront_domain: string;
+    admin_domain: string;
     metadata: Record<string, unknown> | null;
     supabase_url: string | null;
   }>) ?? [];
+  const activeStoreSlugs = new Set(storeConfigs.map((store) => store.slug));
+  const orphanedSmokeRows = allExistingRows.filter((row) => {
+    if (activeStoreSlugs.has(row.slug)) {
+      return false;
+    }
+
+    const storefrontDomain = row.storefront_domain?.trim().toLocaleLowerCase("tr") || "";
+    const adminDomain = row.admin_domain?.trim().toLocaleLowerCase("tr") || "";
+
+    return (
+      row.status === "draft" &&
+      (row.slug.startsWith("smoke-") ||
+        storefrontDomain.includes(".sslip.io") ||
+        adminDomain.includes(".sslip.io"))
+    );
+  });
+
+  if (orphanedSmokeRows.length > 0) {
+    const { error: orphanDeleteError } = await serviceClient
+      .from("owner_stores")
+      .delete()
+      .in(
+        "id",
+        orphanedSmokeRows.map((row) => row.id),
+      );
+
+    if (orphanDeleteError) {
+      throw new Error(orphanDeleteError.message);
+    }
+  }
+
+  const existingRows = allExistingRows.filter((row) => activeStoreSlugs.has(row.slug));
   const metadataMap = new Map<string, Record<string, unknown> | null>(
     existingRows.map((row) => [
       row.slug,
