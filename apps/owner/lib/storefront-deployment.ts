@@ -22,6 +22,7 @@ export interface StorefrontDeploymentBlueprint {
   appName: string;
   runtimeUrl: string;
   resourceId: string | null;
+  serverPort: string;
   workspace: string;
   installCommand: string;
   buildCommand: string;
@@ -154,6 +155,30 @@ function readWorkspaceName(store: StoreConfig): string {
   } catch {
     return `@celebix/storefront-${store.slug}`;
   }
+}
+
+function readWorkspaceServerPort(store: StoreConfig): string {
+  const packageJsonPath = resolvePackageJsonPath(store);
+
+  if (!packageJsonPath) {
+    return "3000";
+  }
+
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const startScript = packageJson.scripts?.start?.trim() || "";
+    const explicitPort = startScript.match(/--port\s+(\d{2,5})/i)?.[1];
+
+    if (explicitPort) {
+      return explicitPort;
+    }
+  } catch {
+    // fall through to the default port
+  }
+
+  return "3000";
 }
 
 function hasGitMetadata(): boolean {
@@ -393,6 +418,7 @@ export async function getStorefrontDeploymentBlueprint(
   const repoSynced = await isRepoSynced(store, relativeAppDir);
   const requiredEnvReady = hasRequiredEnv(envEntries);
   const workspace = readWorkspaceName(store);
+  const serverPort = readWorkspaceServerPort(store);
 
   let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed";
   let runtimeConsistent = false;
@@ -419,6 +445,7 @@ export async function getStorefrontDeploymentBlueprint(
     appName: store.storefront?.deploymentName || `${store.slug}-storefront`,
     runtimeUrl,
     resourceId: store.storefront?.resourceId ?? null,
+    serverPort,
     workspace,
     installCommand: "npm ci --include=optional --no-audit --no-fund",
     buildCommand: `npm run build --workspace ${workspace}`,
