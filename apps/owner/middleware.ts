@@ -15,6 +15,7 @@ import {
 
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
+const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -38,7 +39,11 @@ function isProtectedOwnerPage(pathname: string) {
 }
 
 function isProtectedOwnerApi(pathname: string) {
-  return pathname.startsWith("/api") && pathname !== OWNER_LOGIN_API_PATH;
+  return (
+    pathname.startsWith("/api") &&
+    pathname !== OWNER_LOGIN_API_PATH &&
+    pathname !== OWNER_PUBLIC_RUNTIME_API_PATH
+  );
 }
 
 function buildLoginRedirect(request: NextRequest) {
