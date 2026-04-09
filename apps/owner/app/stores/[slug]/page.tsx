@@ -49,6 +49,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const storefrontDeploymentName = readStringValue(storefrontConfig.deploymentName);
   const storefrontDeploymentStatus = readStringValue(storefrontConfig.deploymentStatus);
   const storefrontRuntimeUrl = readStringValue(storefrontConfig.runtimeUrl);
+  const storefrontRepoSyncStatus = readStringValue(storefrontConfig.repoSyncStatus);
+  const storefrontRepoCommitSha = readStringValue(storefrontConfig.repoCommitSha);
+  const storefrontRepoSyncedAt = readDateValue(storefrontConfig.repoSyncedAt);
   const storefrontPreparedAt = readDateValue(storefrontConfig.preparedAt);
   const storefrontDeployedAt = readDateValue(storefrontConfig.deployedAt);
   const provisionedAt = readDateValue(bootstrap.provisionedAt);
@@ -320,7 +323,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Deployed At: <strong>{storefrontDeployedAt}</strong></span>
               <span>Resource ID: <strong>{storefrontDeployment.resourceId || "-"}</strong></span>
               <span>Workspace: <strong>{storefrontDeployment.workspace}</strong></span>
-              <span>Repo Sync: <strong>{storefrontDeployment.repoSynced ? "Hazir" : "Bekliyor"}</strong></span>
+              <span>Repo Sync: <strong>{storefrontDeployment.repoSynced ? "synced" : storefrontRepoSyncStatus || "pending"}</strong></span>
+              <span>Repo Synced At: <strong>{storefrontRepoSyncedAt}</strong></span>
+              <span>Repo Commit: <strong>{storefrontRepoCommitSha || "-"}</strong></span>
               <span>Env Local: <strong>{storefrontDeployment.envLocalPath || "-"}</strong></span>
               <span>Env Template: <strong>{storefrontDeployment.envTemplatePath || "-"}</strong></span>
               <span>Build: <strong>{storefrontDeployment.buildCommand}</strong></span>

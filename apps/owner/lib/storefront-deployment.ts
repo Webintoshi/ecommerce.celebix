@@ -11,6 +11,10 @@ import {
   updateStoreStorefrontDeploymentConfig,
 } from "@celebix/platform-config";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
+import {
+  checkStorefrontRepoSyncOnGithub,
+  isGitHubRepoSyncConfigured,
+} from "@/lib/storefront-repo-sync";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -155,13 +159,17 @@ function hasGitMetadata(): boolean {
   return fs.existsSync(path.join(getRepoRoot(), ".git"));
 }
 
-function isRepoSynced(store: StoreConfig, relativeAppDir: string | null): boolean {
+async function isRepoSynced(store: StoreConfig, relativeAppDir: string | null): Promise<boolean> {
+  if (store.storefront?.repoSyncStatus === "synced" && store.storefront?.repoSyncedAt) {
+    return true;
+  }
+
   if (!relativeAppDir?.trim()) {
     return false;
   }
 
   if (!hasGitMetadata()) {
-    return store.storefront?.status === "active";
+    return checkStorefrontRepoSyncOnGithub(store.slug);
   }
 
   const packageJsonPath = `${relativeAppDir.replace(/\\/g, "/")}/package.json`;
@@ -380,7 +388,7 @@ export async function getStorefrontDeploymentBlueprint(
   const appDirectory = resolveAppDirectory(store);
   const packageJsonPath = resolvePackageJsonPath(store);
   const relativeAppDir = store.storefront?.appDir ?? null;
-  const repoSynced = isRepoSynced(store, relativeAppDir);
+  const repoSynced = await isRepoSynced(store, relativeAppDir);
   const requiredEnvReady = hasRequiredEnv(envEntries);
   const workspace = readWorkspaceName(store);
 
@@ -393,7 +401,9 @@ export async function getStorefrontDeploymentBlueprint(
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
   } else if (!packageJsonPath || !repoSynced) {
     status = "pending-repo-sync";
-    runtimeMessage = "Storefront app dizini repo'da takip edilmiyor. Git senkronu gerekli.";
+    runtimeMessage = isGitHubRepoSyncConfigured()
+      ? "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
+      : "Storefront app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
   } else {
     status = "prepared";
     const runtime = await readRuntimeConsistency(store, runtimeUrl);

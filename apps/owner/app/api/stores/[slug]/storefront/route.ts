@@ -8,6 +8,7 @@ import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { getRepoRoot } from "@celebix/platform-config";
+import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 
 interface StorefrontRouteProps {
   params: Promise<{ slug: string }>;
@@ -44,7 +45,14 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
           relativeAppDirectory,
         };
 
-    const blueprint = await prepareStorefrontDeployment(slug);
+    let repoSync = null;
+    let blueprint = await prepareStorefrontDeployment(slug);
+
+    if (blueprint.status === "pending-repo-sync") {
+      repoSync = await syncStorefrontRepoForStore(slug);
+      blueprint = await prepareStorefrontDeployment(slug);
+    }
+
     const deployment = await provisionStorefrontDeploymentForStore(slug);
     await syncOwnerStoresAndMetrics();
 
@@ -54,6 +62,7 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
         slug,
         appDir: result.relativeAppDirectory,
         blueprint,
+        repoSync,
         deployment,
       },
       { status: 201 }

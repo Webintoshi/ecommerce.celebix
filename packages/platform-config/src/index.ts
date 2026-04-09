@@ -51,6 +51,10 @@ export interface StorefrontConfig {
   status: StorefrontStatus;
   lastScaffoldedAt?: string;
   lastScaffoldError?: string;
+  repoSyncStatus?: "pending" | "synced" | "failed";
+  repoSyncedAt?: string;
+  repoCommitSha?: string;
+  lastRepoSyncError?: string;
   deploymentProvider?: "coolify";
   deploymentName?: string;
   runtimeUrl?: string;
@@ -174,6 +178,13 @@ export interface StorefrontDeploymentUpdateInput {
   resourceId?: string;
   preparedAt?: string;
   deployedAt?: string;
+  lastError?: string;
+}
+
+export interface StorefrontRepoSyncUpdateInput {
+  syncStatus: "pending" | "synced" | "failed";
+  commitSha?: string;
+  syncedAt?: string;
   lastError?: string;
 }
 
@@ -315,6 +326,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     },
     storefront: {
       status: "not_started",
+      repoSyncStatus: "pending",
       deploymentProvider: "coolify",
       deploymentName: `${input.slug}-storefront`,
       runtimeUrl: `https://${input.domain}`,
@@ -397,6 +409,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     storefront: config.storefront
       ? {
           ...config.storefront,
+          repoSyncStatus: config.storefront.repoSyncStatus ?? "pending",
           deploymentProvider: config.storefront.deploymentProvider ?? "coolify",
           deploymentName: config.storefront.deploymentName ?? `${config.slug}-storefront`,
           runtimeUrl: config.storefront.runtimeUrl ?? `https://${config.domains.storefront}`,
@@ -651,6 +664,10 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
       status: input.status,
       lastScaffoldedAt: input.status === "scaffolded" || input.status === "active" ? new Date().toISOString() : current.storefront?.lastScaffoldedAt,
       lastScaffoldError: input.lastScaffoldError,
+      repoSyncStatus: current.storefront?.repoSyncStatus ?? "pending",
+      repoSyncedAt: current.storefront?.repoSyncedAt,
+      repoCommitSha: current.storefront?.repoCommitSha,
+      lastRepoSyncError: current.storefront?.lastRepoSyncError,
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
@@ -677,6 +694,10 @@ export function updateStoreStorefrontDeploymentConfig(
           : current.storefront?.status ?? "not_started",
       lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
       lastScaffoldError: current.storefront?.lastScaffoldError,
+      repoSyncStatus: current.storefront?.repoSyncStatus ?? "pending",
+      repoSyncedAt: current.storefront?.repoSyncedAt,
+      repoCommitSha: current.storefront?.repoCommitSha,
+      lastRepoSyncError: current.storefront?.lastRepoSyncError,
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
       runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
@@ -689,6 +710,35 @@ export function updateStoreStorefrontDeploymentConfig(
           : current.storefront?.preparedAt),
       deployedAt: input.deployedAt ?? current.storefront?.deployedAt,
       lastDeploymentError: input.lastError
+    }
+  }));
+}
+
+export function updateStoreStorefrontRepoSyncConfig(
+  slug: string,
+  input: StorefrontRepoSyncUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => ({
+    ...current,
+    storefront: {
+      appDir: current.storefront?.appDir,
+      status: current.storefront?.status ?? "not_started",
+      lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
+      lastScaffoldError: current.storefront?.lastScaffoldError,
+      repoSyncStatus: input.syncStatus,
+      repoSyncedAt:
+        input.syncedAt ??
+        (input.syncStatus === "synced" ? new Date().toISOString() : current.storefront?.repoSyncedAt),
+      repoCommitSha: input.commitSha ?? current.storefront?.repoCommitSha,
+      lastRepoSyncError: input.lastError,
+      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
+      deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
+      runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
+      resourceId: current.storefront?.resourceId,
+      deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
+      preparedAt: current.storefront?.preparedAt,
+      deployedAt: current.storefront?.deployedAt,
+      lastDeploymentError: current.storefront?.lastDeploymentError
     }
   }));
 }

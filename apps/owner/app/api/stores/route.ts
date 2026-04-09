@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createStore, getStores } from "@celebix/platform-config";
+import { createStore } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
@@ -9,6 +9,7 @@ import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
+import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 
 export async function GET() {
   const auth = await getOwnerAuthContext();
@@ -91,6 +92,15 @@ export async function POST(request: Request) {
       await prepareStorefrontDeployment(result.store.slug);
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Storefront deployment blueprint hazirlanamadi.");
+    }
+    try {
+      const repoSync = await syncStorefrontRepoForStore(result.store.slug);
+
+      if (repoSync.status !== "synced") {
+        warnings.push(repoSync.message || "Storefront repo senkronu tamamlanamadi.");
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
     }
     try {
       const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug);
