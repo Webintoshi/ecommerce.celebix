@@ -21,6 +21,8 @@ interface CoolifyApplication {
   domain?: string | null;
 }
 
+type AdminApplicationPayload = ReturnType<typeof buildAdminAppPayload>;
+
 interface CoolifyBulkEnvEntry {
   key: string;
   value: string;
@@ -252,6 +254,36 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
   };
 }
 
+function buildLegacyCompatibleAdminPayload(payload: AdminApplicationPayload) {
+  const legacyPayload = { ...payload };
+  delete (legacyPayload as Partial<AdminApplicationPayload>).project_uuid;
+  delete (legacyPayload as Partial<AdminApplicationPayload>).environment_uuid;
+  delete (legacyPayload as Partial<AdminApplicationPayload>).environment_name;
+  delete (legacyPayload as Partial<AdminApplicationPayload>).server_uuid;
+  delete (legacyPayload as Partial<AdminApplicationPayload>).destination_uuid;
+  return legacyPayload;
+}
+
+function isLegacyApplicationPayloadError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message;
+  const legacyFieldNames = [
+    "project_uuid",
+    "environment_uuid",
+    "environment_name",
+    "server_uuid",
+    "destination_uuid"
+  ];
+
+  return (
+    message.includes("Validation failed.") &&
+    legacyFieldNames.some((fieldName) => message.includes(fieldName))
+  );
+}
+
 async function ensureAdminApplication(
   store: StoreConfig,
   blueprint: StoreAdminDeploymentBlueprint,
@@ -260,6 +292,7 @@ async function ensureAdminApplication(
 ): Promise<CoolifyApplication> {
   const applications = await listApplications();
   const runtimeUrl = blueprint.runtimeUrl.replace(/\/+$/, "");
+  const payload = buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid);
   const existing =
     applications.find((application) => application.uuid === blueprint.resourceId) ||
     applications.find((application) => application.name === blueprint.appName) ||
@@ -269,18 +302,40 @@ async function ensureAdminApplication(
     });
 
   if (!existing) {
-    return coolifyFetch<CoolifyApplication>("/applications/public", {
-      method: "POST",
-      body: JSON.stringify(buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid))
-    });
+    try {
+      return await coolifyFetch<CoolifyApplication>("/applications/public", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      if (!isLegacyApplicationPayloadError(error)) {
+        throw error;
+      }
+
+      return coolifyFetch<CoolifyApplication>("/applications/public", {
+        method: "POST",
+        body: JSON.stringify(buildLegacyCompatibleAdminPayload(payload))
+      });
+    }
   }
 
   const applicationUuid = resolveIdentifier(existing);
 
-  await coolifyFetch(`/applications/${applicationUuid}`, {
-    method: "PATCH",
-    body: JSON.stringify(buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid))
-  });
+  try {
+    await coolifyFetch(`/applications/${applicationUuid}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    if (!isLegacyApplicationPayloadError(error)) {
+      throw error;
+    }
+
+    await coolifyFetch(`/applications/${applicationUuid}`, {
+      method: "PATCH",
+      body: JSON.stringify(buildLegacyCompatibleAdminPayload(payload))
+    });
+  }
 
   return existing;
 }
