@@ -49,6 +49,7 @@ interface AdminDeploymentProvisioningOptions {
 const COOLIFY_API_PREFIX = "/api/v1";
 const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 24;
+const COOLIFY_API_TIMEOUT_MS = 15000;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -126,14 +127,25 @@ function buildHeaders(): HeadersInit {
 }
 
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${getCoolifyApiUrl()}${COOLIFY_API_PREFIX}${pathname}`, {
-    ...init,
-    headers: {
-      ...buildHeaders(),
-      ...(init.headers ?? {})
-    },
-    cache: "no-store"
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${getCoolifyApiUrl()}${COOLIFY_API_PREFIX}${pathname}`, {
+      ...init,
+      headers: {
+        ...buildHeaders(),
+        ...(init.headers ?? {})
+      },
+      cache: "no-store",
+      signal: init.signal ?? AbortSignal.timeout(COOLIFY_API_TIMEOUT_MS)
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error(`Coolify API zaman asimina ugradi (${COOLIFY_API_TIMEOUT_MS}ms): ${pathname}`);
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
