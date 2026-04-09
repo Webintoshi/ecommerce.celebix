@@ -432,9 +432,7 @@ function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: strin
 }
 
 async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
-  dashboardUrl: string;
   publicKey: string;
-  publicUrl: string;
   serviceKey: string;
 }> {
   let lastError: Error | null = null;
@@ -459,8 +457,6 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
 
       if (publicUrl && publicKey && serviceKey) {
         return {
-          publicUrl,
-          dashboardUrl: buildSupabaseDashboardUrl(publicUrl),
           publicKey,
           serviceKey,
         };
@@ -524,20 +520,22 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   const projectUuid = resolveIdentifier(project);
   const environment = await ensureEnvironment(projectUuid);
   const environmentUuid = resolveIdentifier(environment);
+  const targetPublicUrl = await buildSupabasePublicUrl(store);
+  const targetDashboardUrl = buildSupabaseDashboardUrl(targetPublicUrl);
 
   try {
     const service = await createSupabaseService(store, projectUuid, environmentUuid);
     const serviceUuid = resolveIdentifier(service);
-    const { publicUrl, dashboardUrl, publicKey, serviceKey } = await waitForSupabaseRuntime(serviceUuid);
-    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, publicUrl);
+    const { publicKey, serviceKey } = await waitForSupabaseRuntime(serviceUuid);
+    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, targetPublicUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...legacyAdminAuthEntries,
-      ...buildAdminEnvEntries(store, publicUrl, publicKey, serviceKey),
+      ...buildAdminEnvEntries(store, targetPublicUrl, publicKey, serviceKey),
       ...getSharedRedisEnvEntries(),
     });
     await upsertStoreSupabaseSecret({
       slug: store.slug,
-      supabaseUrl: publicUrl,
+      supabaseUrl: targetPublicUrl,
       supabaseServiceRoleKey: serviceKey,
       supabaseAnonKey: publicKey,
       supabaseLegacyUrl: legacyAdminAuthEntries.SUPABASE_LEGACY_URL ?? null,
@@ -546,11 +544,11 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
 
     updateStoreSupabaseConfig(store.slug, {
       projectRef: buildProjectReference(store, serviceUuid),
-      url: publicUrl,
+      url: targetPublicUrl,
       provider: "self_hosted_coolify",
       organizationSlug: organization.slug,
       provisioningStatus: "configured",
-      dashboardUrl,
+      dashboardUrl: targetDashboardUrl,
       projectName: service.name || buildSupabaseServiceName(store),
       resourceId: serviceUuid,
       adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
@@ -560,9 +558,9 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
       provider: "self_hosted_coolify",
       organization,
       projectRef: buildProjectReference(store, serviceUuid),
-      projectUrl: publicUrl,
+      projectUrl: targetPublicUrl,
       adminEnvLocalPath,
-      dashboardUrl,
+      dashboardUrl: targetDashboardUrl,
       projectName: service.name || buildSupabaseServiceName(store),
       resourceId: serviceUuid,
     };

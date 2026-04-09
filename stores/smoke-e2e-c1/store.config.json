@@ -29,9 +29,9 @@
   },
   "supabase": {
     "projectRef": "coolify:smoke-e2e-c1:y1130jh3d0foxiza2dwmi9ji",
-    "url": "http://supabasekong-y1130jh3d0foxiza2dwmi9ji.46.225.183.57.sslip.io",
+    "url": "https://supabasekong-smoke-e2e-c1.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "dashboardUrl": "http://supabasekong-y1130jh3d0foxiza2dwmi9ji.46.225.183.57.sslip.io/project/default",
+    "dashboardUrl": "https://supabasekong-smoke-e2e-c1.46.225.183.57.sslip.io/project/default",
     "storage": "separate-project-per-store"
   },
   "bootstrap": {
@@ -49,7 +49,7 @@
     "supabaseProvider": "self_hosted_coolify",
     "supabaseProjectName": "smoke-e2e-c1-db",
     "supabaseResourceId": "y1130jh3d0foxiza2dwmi9ji",
-    "supabaseDashboardUrl": "http://supabasekong-y1130jh3d0foxiza2dwmi9ji.46.225.183.57.sslip.io/project/default",
+    "supabaseDashboardUrl": "https://supabasekong-smoke-e2e-c1.46.225.183.57.sslip.io/project/default",
     "provisionedAt": "2026-04-09T13:42:50.295Z",
     "supabaseProvisioning": "configured"
   },
