@@ -1106,7 +1106,7 @@ function buildStoreConsistency(
     !connectionReadiness.envStoreDomain ||
     !connectionReadiness.envAdminDomain;
 
-  if (adminEnvMissing && !adminRuntimeHealth.adminDeploymentReady) {
+  if (adminEnvMissing && !connectionReadiness.secretAuthorityReady && !adminRuntimeHealth.adminDeploymentReady) {
     issues.push({
       code: "admin_env_missing",
       severity: adminDeploymentStatus === "pending-owner-env" ? "warning" : "blocking",
