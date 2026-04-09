@@ -1,13 +1,16 @@
 import "server-only";
 
+import fs from "node:fs";
 import path from "node:path";
 import {
+  getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
   resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
+import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
   storeSlug: string;
@@ -60,19 +63,134 @@ function resolveEnvTemplatePath(store: StoreConfig): string {
   return path.isAbsolute(relativePath) ? relativePath : path.join(getRepoRoot(), relativePath);
 }
 
-function readAdminEnvEntries(store: StoreConfig): Record<string, string> {
-  const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
-  const supabaseUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
+function parseEnvFile(contents: string): Record<string, string> {
+  const envMap: Record<string, string> = {};
 
-  return {
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf("=");
+
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1);
+
+    if (key) {
+      envMap[key] = value;
+    }
+  }
+
+  return envMap;
+}
+
+function readExistingAdminEnvMap(store: StoreConfig): Record<string, string> {
+  const envLocalPath = resolveEnvLocalPath(store);
+
+  if (!fs.existsSync(envLocalPath)) {
+    return {};
+  }
+
+  return parseEnvFile(fs.readFileSync(envLocalPath, "utf8"));
+}
+
+function getSharedRedisEnvEntries(): Record<string, string> {
+  const redisUrl =
+    process.env.COOLIFY_SHARED_REDIS_URL?.trim() ||
+    process.env.REDIS_URL?.trim() ||
+    process.env.CELEBIX_REDIS_URL?.trim() ||
+    "";
+  const redisPrefix =
+    process.env.COOLIFY_SHARED_REDIS_PREFIX?.trim() ||
+    process.env.REDIS_PREFIX?.trim() ||
+    process.env.CELEBIX_REDIS_PREFIX?.trim() ||
+    "";
+
+  const entries: Record<string, string> = {};
+
+  if (redisUrl) {
+    entries.REDIS_URL = redisUrl;
+  }
+
+  if (redisPrefix) {
+    entries.REDIS_PREFIX = redisPrefix;
+  }
+
+  return entries;
+}
+
+async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
+  const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
+  const existingEnv = readExistingAdminEnvMap(store);
+  const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
+  const supabaseUrl =
+    secretRecord?.supabase_url?.trim() ||
+    existingEnv.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    (store.supabase.url !== "configure-in-env" ? store.supabase.url : "");
+  const anonKey =
+    secretRecord?.supabase_anon_key?.trim() ||
+    existingEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    "";
+  const serviceRoleKey =
+    secretRecord?.supabase_service_role_key?.trim() ||
+    existingEnv.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    "";
+
+  const envEntries: Record<string, string> = {
     CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
     NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
     NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
-    NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin
+    NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
+    NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL:
+      existingEnv.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL?.trim() ||
+      process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL?.trim() ||
+      getConfiguredImageTransformationUrl(),
+    ...getSharedRedisEnvEntries(),
   };
+
+  if (anonKey) {
+    envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY = anonKey;
+  }
+
+  if (serviceRoleKey) {
+    envEntries.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
+  }
+
+  if (secretRecord?.supabase_legacy_url?.trim() || existingEnv.SUPABASE_LEGACY_URL?.trim()) {
+    envEntries.SUPABASE_LEGACY_URL =
+      secretRecord?.supabase_legacy_url?.trim() || existingEnv.SUPABASE_LEGACY_URL.trim();
+  }
+
+  if (secretRecord?.supabase_legacy_anon_key?.trim() || existingEnv.SUPABASE_LEGACY_ANON_KEY?.trim()) {
+    envEntries.SUPABASE_LEGACY_ANON_KEY =
+      secretRecord?.supabase_legacy_anon_key?.trim() || existingEnv.SUPABASE_LEGACY_ANON_KEY.trim();
+  }
+
+  for (const key of [
+    "CLOUDFLARE_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET_NAME",
+    "R2_PUBLIC_URL",
+  ] as const) {
+    const value =
+      existingEnv[key]?.trim() ||
+      (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
+      (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+
+    if (value) {
+      envEntries[key] = value;
+    }
+  }
+
+  return envEntries;
 }
 
 async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): Promise<{
@@ -129,9 +247,13 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
 
 export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<StoreAdminDeploymentBlueprint> {
   const store = requireStoreConfig(slug);
-  const envEntries = readAdminEnvEntries(store);
+  const envEntries = await readAdminEnvEntries(store);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
-  const hasRequiredEnv = Boolean(envEntries.NEXT_PUBLIC_SUPABASE_URL);
+  const hasRequiredEnv = Boolean(
+    envEntries.NEXT_PUBLIC_SUPABASE_URL &&
+      envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      envEntries.SUPABASE_SERVICE_ROLE_KEY
+  );
 
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
