@@ -77,6 +77,11 @@ function readAuthErrorMessage(error: unknown): string {
   return "Giris yapilamadi.";
 }
 
+function isCredentialFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("invalid login credentials") || normalized.includes("invalid credentials");
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password }: LoginBody = await request.json();
@@ -107,9 +112,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const errorMessage = readAuthErrorMessage(error);
+
     if (error || !data.session) {
       return NextResponse.json(
-        { error: readAuthErrorMessage(error) },
+        { error: isCredentialFailure(errorMessage) ? "E-posta veya sifre hatali." : errorMessage },
         { status: 400 },
       );
     }

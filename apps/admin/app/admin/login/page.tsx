@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
@@ -20,7 +21,7 @@ export default function AdminLoginPage() {
     const redirectIfAuthenticated = async () => {
       const next =
         typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("next") || "/admin"
+          ? sanitizeInternalRedirectPath(new URLSearchParams(window.location.search).get("next"), "/admin")
           : "/admin";
       if (mounted) {
         setNextPath(next);

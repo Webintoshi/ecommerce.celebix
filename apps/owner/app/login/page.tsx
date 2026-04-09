@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { OwnerAuthForm } from "@/components/OwnerAuthForm";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
 
@@ -11,7 +12,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   if (auth) {
-    redirect(params.next || "/");
+    redirect(sanitizeInternalRedirectPath(params.next, "/"));
   }
 
   return (

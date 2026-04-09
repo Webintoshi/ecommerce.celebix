@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
+import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
 
 type AuthMode = "login" | "register";
@@ -16,7 +17,10 @@ export function OwnerAuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
+  const nextPath = useMemo(
+    () => sanitizeInternalRedirectPath(searchParams.get("next"), "/"),
+    [searchParams],
+  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

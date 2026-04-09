@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  applySecurityHeaders,
+  hasExpectedInternalApiToken,
+  isMutationMethod,
+  validateSameOriginRequest,
+} from "@celebix/platform-config/src/http-security";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import {
   LOCALE_COOKIE_NAME,
@@ -12,7 +18,28 @@ import {
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 const AI_BOT_RATE_LIMIT = 10;
+const PUBLIC_WRITE_RATE_LIMIT_WINDOW = 10 * 60 * 1000;
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
+const INTERNAL_WRITE_API_PATHS = [
+  "/api/categories",
+  "/api/lucky-wheel/admin",
+  "/api/pages",
+  "/api/products",
+  "/api/revalidate",
+  "/api/seo",
+  "/api/settings",
+  "/api/upload/optimize",
+] as const;
+const PUBLIC_SENSITIVE_WRITE_API_PATHS = [
+  "/api/abandoned-carts",
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/customers",
+  "/api/orders",
+  "/api/payments/checkout",
+  "/api/product-reviews",
+  "/api/upload",
+] as const;
 
 const AI_BOTS = [
   "GPTBot",
@@ -60,6 +87,10 @@ function shouldBypassLocaleHandling(pathname: string) {
   );
 }
 
+function withSecurity(request: NextRequest, response: NextResponse) {
+  return applySecurityHeaders(request, response, "storefront");
+}
+
 function applyNoCacheHeaders(response: NextResponse, pathname: string) {
   if (pathname.startsWith("/urunler/") || pathname.startsWith("/api/")) {
     response.headers.set(
@@ -72,6 +103,10 @@ function applyNoCacheHeaders(response: NextResponse, pathname: string) {
   }
 }
 
+function isSecureRequest(request: NextRequest) {
+  return request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+}
+
 function getRequestIp(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
@@ -81,13 +116,101 @@ function getRequestIp(request: NextRequest) {
   return request.headers.get("x-real-ip") || "unknown";
 }
 
+function matchesPath(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isInternalWriteProtectedApi(pathname: string, method: string) {
+  return isMutationMethod(method) && INTERNAL_WRITE_API_PATHS.some((prefix) => matchesPath(pathname, prefix));
+}
+
+function isPublicSensitiveWriteApi(pathname: string, method: string) {
+  return (
+    isMutationMethod(method) &&
+    PUBLIC_SENSITIVE_WRITE_API_PATHS.some((prefix) => matchesPath(pathname, prefix))
+  );
+}
+
+function getPublicWriteLimit(pathname: string) {
+  if (matchesPath(pathname, "/api/upload")) {
+    return 10;
+  }
+
+  if (matchesPath(pathname, "/api/product-reviews")) {
+    return 12;
+  }
+
+  if (matchesPath(pathname, "/api/auth/login") || matchesPath(pathname, "/api/auth/register")) {
+    return 10;
+  }
+
+  if (matchesPath(pathname, "/api/orders") || matchesPath(pathname, "/api/payments/checkout")) {
+    return 20;
+  }
+
+  return 15;
+}
+
+function sameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginRequest>["reason"]) {
+  if (reason === "missing-origin") {
+    return "Guvenlik dogrulamasi icin origin basligi gerekli.";
+  }
+
+  return "Bu istek farkli bir origin uzerinden gonderilemez.";
+}
+
+async function handleBypassedRequest(request: NextRequest, pathname: string, ip: string) {
+  if (isInternalWriteProtectedApi(pathname, request.method)) {
+    const internalApiToken =
+      process.env.CELEBIX_INTERNAL_API_TOKEN?.trim() ||
+      process.env.STORE_INTERNAL_API_TOKEN?.trim();
+
+    if (!hasExpectedInternalApiToken(request, internalApiToken)) {
+      return NextResponse.json(
+        { success: false, error: "Bu endpoint yalnizca ic otomasyon icin kullanilabilir." },
+        { status: 403 },
+      );
+    }
+  } else if (isPublicSensitiveWriteApi(pathname, request.method)) {
+    const originCheck = validateSameOriginRequest(request);
+    if (!originCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: sameOriginErrorMessage(originCheck.reason) },
+        { status: 403 },
+      );
+    }
+
+    const limit = getPublicWriteLimit(pathname);
+    const rateLimitResult = await checkRateLimit({
+      key: `storefront-write:${pathname}:${ip}`,
+      limit,
+      windowMs: PUBLIC_WRITE_RATE_LIMIT_WINDOW,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const response = NextResponse.json(
+        { success: false, error: "Cok fazla istek. Lutfen biraz sonra tekrar deneyin." },
+        { status: 429 },
+      );
+      response.headers.set("Retry-After", "600");
+      response.headers.set("X-RateLimit-Limit", String(limit));
+      response.headers.set("X-RateLimit-Remaining", String(rateLimitResult.remaining));
+      return response;
+    }
+  }
+
+  const response = NextResponse.next();
+  applyNoCacheHeaders(response, pathname);
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "";
   const ip = getRequestIp(request);
   const originalPathname = request.nextUrl.pathname;
 
   if (shouldBypassLocaleHandling(originalPathname)) {
-    return NextResponse.next();
+    return withSecurity(request, await handleBypassedRequest(request, originalPathname, ip));
   }
 
   const locale = getLocaleFromPathname(originalPathname);
@@ -133,9 +256,10 @@ export async function middleware(request: NextRequest) {
     response.cookies.set(LOCALE_COOKIE_NAME, preferredLocale, {
       path: "/",
       sameSite: "lax",
+      secure: isSecureRequest(request),
       maxAge: 60 * 60 * 24 * 365,
     });
-    return response;
+    return withSecurity(request, response);
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -154,6 +278,7 @@ export async function middleware(request: NextRequest) {
   response.cookies.set(LOCALE_COOKIE_NAME, locale, {
     path: "/",
     sameSite: "lax",
+    secure: isSecureRequest(request),
     maxAge: 60 * 60 * 24 * 365,
   });
 
@@ -167,7 +292,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set("X-Bot-Type", "crawler");
   }
 
-  return response;
+  return withSecurity(request, response);
 }
 
 export const config = {

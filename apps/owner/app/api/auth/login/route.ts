@@ -22,6 +22,26 @@ type UserRecord = {
   user_metadata?: Record<string, unknown> | null;
 };
 
+function normalizeAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const maybeMessage = Reflect.get(error, "message");
+    if (typeof maybeMessage === "string" && maybeMessage.trim()) {
+      return maybeMessage;
+    }
+  }
+
+  return "Giris yapilamadi.";
+}
+
+function isCredentialFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("invalid login credentials") || normalized.includes("invalid credentials");
+}
+
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -116,9 +136,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const errorMessage = normalizeAuthErrorMessage(error);
+
     if (error || !data.session) {
       return NextResponse.json(
-        { error: error?.message || "Giris yapilamadi." },
+        { error: isCredentialFailure(errorMessage) ? "E-posta veya sifre hatali." : errorMessage },
         { status: 400 },
       );
     }
