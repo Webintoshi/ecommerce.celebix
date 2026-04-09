@@ -11,11 +11,9 @@ import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_LOGIN_API_PATH = "/api/auth/login";
-const ADMIN_PUBLIC_API_PREFIX = "/api/public/";
 const ADMIN_ROLES = new Set(["super_admin", "product_manager", "content_creator", "order_manager"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
-const STATIC_FILE_PATTERN = /\.[^/]+$/;
 
 function isProtectedAdminPage(pathname: string) {
   return pathname.startsWith("/admin") && pathname !== ADMIN_LOGIN_PATH;
@@ -62,17 +60,6 @@ function isProtectedApi(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedAdminPage(pathname) || isProtectedApi(request);
-
-  if (
-    pathname.startsWith(ADMIN_PUBLIC_API_PREFIX) ||
-    pathname === "/favicon.ico" ||
-    pathname === "/robots.txt" ||
-    pathname.startsWith("/sitemap") ||
-    pathname.startsWith("/_next") ||
-    STATIC_FILE_PATTERN.test(pathname)
-  ) {
-    return applySecurityHeaders(request, NextResponse.next(), "admin");
-  }
 
   if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
