@@ -100,6 +100,7 @@ export interface StoreConfig {
     createdAt: string;
     envTemplatePath: string;
     adminEnvLocalPath?: string;
+    coolifyProjectName?: string;
     adminDeploymentProvider?: "coolify";
     adminDeploymentName?: string;
     adminDeploymentRuntimeUrl?: string;
@@ -129,6 +130,9 @@ export interface CreateStoreInput {
   tagline?: string;
   supportEmail?: string;
   supportPhone?: string;
+  coolifyProjectName?: string;
+  adminDeploymentName?: string;
+  storefrontDeploymentName?: string;
 }
 
 export interface CreateStoreResult {
@@ -276,6 +280,9 @@ function ensureDomain(domain: string): string {
 
 function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
   const defaultSupabaseProvider = resolveDefaultSupabaseProvider();
+  const coolifyProjectName = input.coolifyProjectName || input.name;
+  const adminDeploymentName = input.adminDeploymentName || `${input.name} admin`;
+  const storefrontDeploymentName = input.storefrontDeploymentName || `${input.name} websitesi`;
 
   return {
     name: input.name,
@@ -318,8 +325,9 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     bootstrap: {
       createdAt: new Date().toISOString(),
       envTemplatePath: `stores/${input.slug}/admin.env.example`,
+      coolifyProjectName,
       adminDeploymentProvider: "coolify",
-      adminDeploymentName: `${input.slug}-admin`,
+      adminDeploymentName,
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
@@ -330,7 +338,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       status: "not_started",
       repoSyncStatus: "pending",
       deploymentProvider: "coolify",
-      deploymentName: `${input.slug}-storefront`,
+      deploymentName: storefrontDeploymentName,
       runtimeUrl: `https://${input.domain}`,
       deploymentStatus: "pending-owner-env"
     },
@@ -360,6 +368,7 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "",
     "# Admin deployment blueprint",
     `# APP_NAME=${config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`}`,
+    `# COOLIFY_PROJECT_NAME=${config.bootstrap?.coolifyProjectName ?? config.name}`,
     `# APP_RUNTIME_URL=https://${config.domains.admin}`,
     "# INSTALL_COMMAND=npm ci --include=optional --no-audit --no-fund",
     "# BUILD_COMMAND=npm run build --workspace @celebix/admin",
@@ -400,6 +409,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     bootstrap: config.bootstrap
       ? {
           ...config.bootstrap,
+          coolifyProjectName: config.bootstrap.coolifyProjectName ?? config.name,
           adminDeploymentProvider: config.bootstrap.adminDeploymentProvider ?? "coolify",
           adminDeploymentName: config.bootstrap.adminDeploymentName ?? `${config.slug}-admin`,
           adminDeploymentRuntimeUrl: config.bootstrap.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
@@ -504,7 +514,10 @@ export function createStore(input: CreateStoreInput): CreateStoreResult {
     theme,
     tagline: input.tagline?.trim() || "",
     supportEmail: input.supportEmail?.trim() || "",
-    supportPhone: input.supportPhone?.trim() || ""
+    supportPhone: input.supportPhone?.trim() || "",
+    coolifyProjectName: input.coolifyProjectName?.trim() || name,
+    adminDeploymentName: input.adminDeploymentName?.trim() || `${name} admin`,
+    storefrontDeploymentName: input.storefrontDeploymentName?.trim() || `${name} websitesi`,
   });
 
   const registryEntry = buildRegistryEntry(config);
@@ -548,6 +561,7 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: input.adminEnvLocalPath ?? current.bootstrap?.adminEnvLocalPath,
+      coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
@@ -575,6 +589,7 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: current.bootstrap?.adminEnvLocalPath,
+      coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,

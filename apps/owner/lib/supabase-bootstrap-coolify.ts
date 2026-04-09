@@ -63,8 +63,12 @@ function getCoolifyApiToken(): string {
   return token;
 }
 
-function getCoolifyProjectName(): string {
+function getDefaultCoolifyProjectName(): string {
   return process.env.COOLIFY_PROJECT_NAME?.trim() || "CELEBIX E-COMMERCE YONETIM";
+}
+
+function getCoolifyProjectName(store?: StoreConfig): string {
+  return store?.bootstrap?.coolifyProjectName?.trim() || getDefaultCoolifyProjectName();
 }
 
 function getCoolifyEnvironmentName(): string {
@@ -353,8 +357,8 @@ async function listProjects(): Promise<CoolifyProject[]> {
   return normalizeArrayPayload<CoolifyProject>(payload);
 }
 
-async function ensureProject(): Promise<CoolifyProject> {
-  const targetName = getCoolifyProjectName();
+async function ensureProject(store?: StoreConfig): Promise<CoolifyProject> {
+  const targetName = getCoolifyProjectName(store);
   const existing = (await listProjects()).find((project) => project.name === targetName);
 
   if (existing) {
@@ -477,8 +481,8 @@ function buildProjectReference(store: StoreConfig, serviceUuid: string): string 
   return `coolify:${store.slug}:${serviceUuid}`;
 }
 
-function buildOrganization(): SupabaseOrganization {
-  const projectName = getCoolifyProjectName();
+function buildOrganization(store?: StoreConfig): SupabaseOrganization {
+  const projectName = getCoolifyProjectName(store);
   return {
     id: crypto.createHash("sha1").update(projectName).digest("hex").slice(0, 12),
     slug: projectName.toLocaleLowerCase("tr").replace(/[^a-z0-9]+/g, "-"),
@@ -515,8 +519,8 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     );
   }
 
-  const organization = buildOrganization();
-  const project = await ensureProject();
+  const organization = buildOrganization(store);
+  const project = await ensureProject(store);
   const projectUuid = resolveIdentifier(project);
   const environment = await ensureEnvironment(projectUuid);
   const environmentUuid = resolveIdentifier(environment);

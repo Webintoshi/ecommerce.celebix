@@ -71,8 +71,12 @@ function getCoolifyApiToken(): string {
   return token;
 }
 
-function getCoolifyProjectName(): string {
+function getDefaultCoolifyProjectName(): string {
   return process.env.COOLIFY_PROJECT_NAME?.trim() || "CELEBIX E-COMMERCE YONETIM";
+}
+
+function getCoolifyProjectName(store?: StoreConfig): string {
+  return store?.bootstrap?.coolifyProjectName?.trim() || getDefaultCoolifyProjectName();
 }
 
 function getCoolifyEnvironmentName(): string {
@@ -198,8 +202,8 @@ async function listProjects(): Promise<CoolifyProject[]> {
   return normalizeArrayPayload<CoolifyProject>(payload);
 }
 
-async function ensureProject(): Promise<CoolifyProject> {
-  const targetName = getCoolifyProjectName();
+async function ensureProject(store?: StoreConfig): Promise<CoolifyProject> {
+  const targetName = getCoolifyProjectName(store);
   const existing = (await listProjects()).find((project) => project.name === targetName);
 
   if (existing) {
@@ -437,7 +441,7 @@ export async function provisionAdminDeploymentForStore(
   }
 
   try {
-    const project = await ensureProject().catch((error) => {
+    const project = await ensureProject(store).catch((error) => {
       throw new Error(
         `Admin deployment için Coolify proje/erişim hazirlanamadi: ${
           error instanceof Error ? error.message : "bilinmeyen hata"

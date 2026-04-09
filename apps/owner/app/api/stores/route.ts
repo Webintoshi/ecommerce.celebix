@@ -38,6 +38,9 @@ export async function POST(request: Request) {
       tagline?: string;
       supportEmail?: string;
       supportPhone?: string;
+      coolifyProjectName?: string;
+      adminDeploymentName?: string;
+      storefrontDeploymentName?: string;
     };
 
     const result = createStore({
@@ -47,7 +50,10 @@ export async function POST(request: Request) {
       theme: body.theme,
       tagline: body.tagline,
       supportEmail: body.supportEmail,
-      supportPhone: body.supportPhone
+      supportPhone: body.supportPhone,
+      coolifyProjectName: body.coolifyProjectName,
+      adminDeploymentName: body.adminDeploymentName,
+      storefrontDeploymentName: body.storefrontDeploymentName,
     });
 
     const warnings: string[] = [];
