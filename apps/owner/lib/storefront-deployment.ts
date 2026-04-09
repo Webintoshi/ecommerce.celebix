@@ -348,9 +348,7 @@ function hasRequiredEnv(envEntries: Record<string, string>): boolean {
   return Boolean(
     envEntries.NEXT_PUBLIC_SUPABASE_URL &&
       envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      envEntries.SUPABASE_SERVICE_ROLE_KEY &&
-      envEntries.R2_BUCKET_NAME &&
-      envEntries.R2_PUBLIC_URL,
+      envEntries.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
 
