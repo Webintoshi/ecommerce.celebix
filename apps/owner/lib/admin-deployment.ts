@@ -53,6 +53,24 @@ function normalizeDomain(value: string | null | undefined): string | null {
   }
 }
 
+function resolveRuntimeDomain(
+  domainValue: string | null | undefined,
+  urlValue: string | null | undefined,
+): string | null {
+  const domain = normalizeDomain(domainValue);
+  const urlDomain = normalizeDomain(urlValue);
+
+  if (
+    domain &&
+    !domain.includes("localhost") &&
+    !domain.endsWith(".local")
+  ) {
+    return domain;
+  }
+
+  return urlDomain ?? domain;
+}
+
 function resolveEnvLocalPath(store: StoreConfig): string {
   const relativePath = store.bootstrap?.adminEnvLocalPath || `stores/${store.slug}/admin.env.local`;
   return path.isAbsolute(relativePath) ? relativePath : path.join(getRepoRoot(), relativePath);
@@ -216,8 +234,8 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
     const mismatches: string[] = [];
     const expectedStorefront = normalizeDomain(store.domains.storefront);
     const expectedAdmin = normalizeDomain(store.domains.admin);
-    const runtimeStorefront = normalizeDomain(payload.storefrontDomain ?? payload.storefrontUrl);
-    const runtimeAdmin = normalizeDomain(payload.adminDomain ?? payload.adminUrl);
+    const runtimeStorefront = resolveRuntimeDomain(payload.storefrontDomain, payload.storefrontUrl);
+    const runtimeAdmin = resolveRuntimeDomain(payload.adminDomain, payload.adminUrl);
 
     if (payload.slug && payload.slug !== store.slug) {
       mismatches.push(`slug ${payload.slug}`);

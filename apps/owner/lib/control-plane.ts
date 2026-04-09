@@ -553,6 +553,24 @@ function normalizeDomainInput(value: string | null | undefined): string | null {
   }
 }
 
+function resolveRuntimeDomain(
+  domainValue: string | null | undefined,
+  urlValue: string | null | undefined,
+): string | null {
+  const domain = normalizeDomainInput(domainValue);
+  const urlDomain = normalizeDomainInput(urlValue);
+
+  if (
+    domain &&
+    !domain.includes("localhost") &&
+    !domain.endsWith(".local")
+  ) {
+    return domain;
+  }
+
+  return urlDomain ?? domain;
+}
+
 async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntimeHealth> {
   const adminRuntimeUrl = toAbsoluteUrl(store.admin_domain);
 
@@ -575,8 +593,8 @@ async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntim
     const expectedSlug = store.slug;
     const expectedStorefrontDomain = normalizeDomainInput(store.storefront_domain);
     const expectedAdminDomain = normalizeDomainInput(store.admin_domain);
-    const runtimeStorefrontDomain = normalizeDomainInput(payload.storefrontDomain ?? payload.storefrontUrl ?? null);
-    const runtimeAdminDomain = normalizeDomainInput(payload.adminDomain ?? payload.adminUrl ?? null);
+    const runtimeStorefrontDomain = resolveRuntimeDomain(payload.storefrontDomain, payload.storefrontUrl);
+    const runtimeAdminDomain = resolveRuntimeDomain(payload.adminDomain, payload.adminUrl);
     const mismatches: string[] = [];
 
     if (payload.slug && payload.slug !== expectedSlug) {
@@ -1416,7 +1434,8 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
   const serviceClient = createOwnerServiceClient();
   const storeConfigs = getStores()
     .map((store) => getStoreConfig(store.slug))
-    .filter((store): store is StoreConfig => Boolean(store));
+    .filter((store): store is StoreConfig => Boolean(store))
+    .filter((store) => !store.slug.startsWith("smoke-"));
 
   if (storeConfigs.length === 0) {
     return;
