@@ -75,3 +75,4 @@ Detaylar:
 
 - [Mimari](./docs/architecture.md)
 - [Magaza Acilis Akisi](./docs/store-launch-flow.md)
+- [Agent Runbook](./docs/agent-runbook.md)
