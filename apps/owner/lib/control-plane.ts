@@ -17,6 +17,7 @@ import {
   type StoreConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
+import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
 type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
@@ -419,6 +420,16 @@ const DEFAULT_MANAGEMENT: StoreManagementProfile = {
   ownerNotes: null,
   billingStatus: "healthy"
 };
+
+async function getAuthoritativeStoreConfig(slug: string): Promise<StoreConfig | null> {
+  const existing = getStoreConfig(slug);
+
+  if (existing) {
+    return existing;
+  }
+
+  return ensureStoreConfigFromOwnerAuthority(slug).catch(() => null);
+}
 
 function resolveStoreEnvPath(store: StoreConfig): string {
   const repoRoot = getRepoRoot();
@@ -1287,7 +1298,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
   return Promise.all(
     accessible.stores.map(async (store) => {
       const metric = accessible.metricsMap.get(store.id);
-      const storeConfig = getStoreConfig(store.slug);
+      const storeConfig = await getAuthoritativeStoreConfig(store.slug);
       const shouldRefreshMetrics = Boolean(storeConfig && isSuspiciousZeroMetrics(metric, store));
       const [storeAdmins, connectionReadiness, adminRuntimeHealth, refreshedMetrics] = await Promise.all([
         storeConfig ? listStoreAdminsForConfig(storeConfig, store.id).catch(() => []) : Promise.resolve([]),
@@ -1928,7 +1939,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
   }
 
   const metadata = (storeRow.metadata ?? {}) as Record<string, unknown>;
-  const storeConfig = getStoreConfig(slug);
+  const storeConfig = await getAuthoritativeStoreConfig(slug);
   const metadataBootstrap = asRecord(metadata.bootstrap);
   const configBootstrap = storeConfig?.bootstrap
     ? (storeConfig.bootstrap as unknown as Record<string, unknown>)
@@ -2136,7 +2147,7 @@ export async function createOrAssignStoreAdmin(
     throw new Error("Bu store icin yonetici atama yetkin yok.");
   }
 
-  const storeConfig = getStoreConfig(input.storeSlug);
+  const storeConfig = await getAuthoritativeStoreConfig(input.storeSlug);
 
   if (!storeConfig) {
     throw new Error("Store konfigurasyonu bulunamadi.");
