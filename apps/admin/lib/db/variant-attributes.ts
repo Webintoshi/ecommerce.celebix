@@ -65,13 +65,21 @@ function normalizeAttribute(attribute: Partial<VariantAttributeRecord>): Variant
 export function isVariantAttributeTableMissing(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) return false;
   const message = String(error.message ?? "");
-  return /Could not find the table 'public\.variant_attributes' in the schema cache/i.test(message);
+  return (
+    /Could not find the table 'public\.variant_attributes' in the schema cache/i.test(message) ||
+    /relation ["']public\.variant_attributes["'] does not exist/i.test(message) ||
+    /relation ["']variant_attributes["'] does not exist/i.test(message)
+  );
 }
 
 export function isVariantAttributeValueTableMissing(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) return false;
   const message = String(error.message ?? "");
-  return /Could not find the table 'public\.variant_attribute_values' in the schema cache/i.test(message);
+  return (
+    /Could not find the table 'public\.variant_attribute_values' in the schema cache/i.test(message) ||
+    /relation ["']public\.variant_attribute_values["'] does not exist/i.test(message) ||
+    /relation ["']variant_attribute_values["'] does not exist/i.test(message)
+  );
 }
 
 export async function getStoredVariantAttributes(): Promise<VariantAttributeRecord[]> {
