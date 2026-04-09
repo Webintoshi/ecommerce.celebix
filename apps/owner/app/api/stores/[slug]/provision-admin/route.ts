@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStoreDetail } from "@/lib/control-plane";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
+import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -22,6 +23,7 @@ export async function POST(_: Request, { params }: RouteContext) {
   }
 
   try {
+    await ensureStoreConfigFromOwnerAuthority(slug);
     const deployment = await provisionAdminDeploymentForStore(slug);
     return NextResponse.json({ success: true, deployment }, { status: 200 });
   } catch (error) {

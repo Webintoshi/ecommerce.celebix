@@ -3,6 +3,7 @@ import { getStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
+import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
 interface ProvisionSupabaseRouteProps {
   params: Promise<{ slug: string }>;
@@ -17,6 +18,7 @@ export async function POST(_request: Request, { params }: ProvisionSupabaseRoute
 
   try {
     const { slug } = await params;
+    await ensureStoreConfigFromOwnerAuthority(slug);
     const store = getStoreConfig(slug);
 
     if (!store) {

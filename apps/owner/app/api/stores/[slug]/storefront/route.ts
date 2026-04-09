@@ -9,6 +9,7 @@ import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { getRepoRoot } from "@celebix/platform-config";
 import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
 interface StorefrontRouteProps {
   params: Promise<{ slug: string }>;
@@ -23,6 +24,7 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
 
   try {
     const { slug } = await params;
+    await ensureStoreConfigFromOwnerAuthority(slug);
     const store = getStoreConfig(slug);
 
     if (!store) {
