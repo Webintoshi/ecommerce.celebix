@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { HeroSection } from "./ExistingSections";
-import ShopByCategory from "./ShopByCategory";
-import BestSellers from "./BestSellers";
-import PromotionalBanners from "./PromotionalBanners";
-import ShopByLifestyle from "./ShopByLifestyle";
+import { CategoriesSection } from "./CategoriesSection";
+import { ProductShowcaseSections } from "./ProductShowcaseSections";
+import { StoreLocationsSection } from "./StoreLocationsSection";
+import { TestimonialsSection } from "./TestimonialsSection";
 
 interface HeroSlide {
   id: number;
@@ -24,6 +24,7 @@ interface HomepageData {
   categories: unknown[];
   products: unknown[];
   promoBanners: unknown[];
+  allProducts: unknown[];
 }
 
 export default function RedesignHome() {
@@ -45,6 +46,7 @@ export default function RedesignHome() {
           categories: Array.isArray(payload.categories) ? payload.categories : [],
           products: Array.isArray(payload.products) ? payload.products : [],
           promoBanners: Array.isArray(payload.promoBanners) ? payload.promoBanners : [],
+          allProducts: Array.isArray(payload.allProducts) ? payload.allProducts : [],
         });
       } catch (err) {
         console.error(err);
@@ -100,11 +102,10 @@ export default function RedesignHome() {
   return (
     <main className="min-h-screen">
       <HeroSection slides={data?.heroBanners || []} />
-      
-      <ShopByCategory initialCategories={data?.categories || []} />
-      <BestSellers initialProducts={data?.products || []} />
-      <PromotionalBanners initialBanners={data?.promoBanners || []} />
-      <ShopByLifestyle />
+      <CategoriesSection initialCategories={(data?.categories as never[]) || []} />
+      <ProductShowcaseSections allProducts={(data?.allProducts as never[]) || []} />
+      <StoreLocationsSection storesHref="/magazalarimiz" />
+      <TestimonialsSection />
     </main>
   );
 }

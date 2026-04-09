@@ -221,6 +221,44 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
         throw fallbackQuery.error;
     }
 
+  return fallbackQuery.data ?? [];
+}
+
+async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
+    const strictQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
+        .eq("is_active", true)
+        .or("status.eq.published,status.is.null")
+        .order("created_at", { ascending: false })
+        .limit(16);
+
+    if (!strictQuery.error && (strictQuery.data?.length ?? 0) > 0) {
+        return strictQuery.data ?? [];
+    }
+
+    const publishedQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(16);
+
+    if (!publishedQuery.error && (publishedQuery.data?.length ?? 0) > 0) {
+        return publishedQuery.data ?? [];
+    }
+
+    const fallbackQuery = await supabase
+        .from("products")
+        .select("*, variants:product_variants(*, raw_attributes:attributes)")
+        .order("created_at", { ascending: false })
+        .limit(16);
+
+    if (fallbackQuery.error) {
+        console.error("Failed to fetch showcase products:", fallbackQuery.error);
+        return [];
+    }
+
     return fallbackQuery.data ?? [];
 }
 
@@ -233,6 +271,7 @@ export async function GET(request: NextRequest) {
             categoriesData,
             productsData,
             promoBannersData,
+            allProductsData,
             attributeRegistry,
         ] = await Promise.all([
             supabase
@@ -247,6 +286,7 @@ export async function GET(request: NextRequest) {
                 .select("value")
                 .eq("key", "promo_banners")
                 .maybeSingle(),
+            fetchAllProductsForShowcase(supabase),
             getVariantAttributeRegistry(),
         ]);
 
@@ -264,6 +304,7 @@ export async function GET(request: NextRequest) {
         }));
 
         const products = hydrateHomepageProducts(productsData || [], attributeRegistry);
+        const allProducts = hydrateHomepageProducts(allProductsData || [], attributeRegistry);
 
         // Process promo banners
         const promoBanners = normalizePromoBanners(promoBannersData.data?.value);
@@ -272,6 +313,7 @@ export async function GET(request: NextRequest) {
             heroBanners,
             categories,
             products,
+            allProducts,
             promoBanners,
             timestamp: new Date().toISOString()
         });
