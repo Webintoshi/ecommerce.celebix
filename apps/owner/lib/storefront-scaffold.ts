@@ -22,6 +22,7 @@ interface GitHubContentEntry {
   url?: string;
   content?: string;
   encoding?: string;
+  download_url?: string | null;
 }
 
 const TEXT_FILE_EXTENSIONS = new Set([
@@ -295,6 +296,22 @@ async function githubFetch<T>(pathname: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function downloadRawGitHubFile(downloadUrl: string): Promise<Buffer> {
+  const response = await fetch(downloadUrl, {
+    headers: {
+      Authorization: `Bearer ${getGitHubSyncToken()}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`GitHub raw template indirilemedi (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  return Buffer.from(await response.arrayBuffer());
+}
+
 async function writeGitHubDirectoryRecursive(
   repository: string,
   branch: string,
@@ -330,8 +347,21 @@ async function writeGitHubDirectoryRecursive(
         );
         const content = fileResponse.content ?? "";
         const encoding = fileResponse.encoding ?? "base64";
+        const downloadUrl = fileResponse.download_url || entry.download_url;
+
+        if (!content && downloadUrl) {
+          fs.mkdirSync(path.dirname(nextTargetPath), { recursive: true });
+          fs.writeFileSync(nextTargetPath, await downloadRawGitHubFile(downloadUrl));
+          continue;
+        }
 
         if (encoding !== "base64") {
+          if (downloadUrl) {
+            fs.mkdirSync(path.dirname(nextTargetPath), { recursive: true });
+            fs.writeFileSync(nextTargetPath, await downloadRawGitHubFile(downloadUrl));
+            continue;
+          }
+
           throw new Error(`GitHub template encoding desteklenmiyor: ${entry.path}`);
         }
 
