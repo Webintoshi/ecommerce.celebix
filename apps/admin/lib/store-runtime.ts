@@ -16,6 +16,11 @@ function resolveHostname(value: string | undefined): string {
   }
 }
 
+function inferDomainFromUrl(url: string | undefined): string {
+  const hostname = resolveHostname(url);
+  return hostname || "";
+}
+
 function normalizeUrl(url: string | undefined, fallbackDomain: string): string {
   const normalizedFallback = toAbsoluteUrl(fallbackDomain);
   const fallbackHost = resolveHostname(fallbackDomain);
@@ -44,13 +49,23 @@ const storeSlug = process.env.NEXT_PUBLIC_STORE_SLUG || "default-store";
 const storeName = process.env.NEXT_PUBLIC_STORE_NAME || "Celebix E-ticaret";
 const storeTagline =
   process.env.NEXT_PUBLIC_STORE_TAGLINE || "Celebix Panel ortak e-ticaret altyapisi";
+const storefrontUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.STORE_URL ||
+  "https://localhost:3300";
+const adminUrl =
+  process.env.NEXT_PUBLIC_ADMIN_URL ||
+  process.env.ADMIN_URL ||
+  "https://localhost:3200";
 const storefrontDomain =
   process.env.NEXT_PUBLIC_STORE_DOMAIN ||
   process.env.STORE_DOMAIN ||
+  inferDomainFromUrl(storefrontUrl) ||
   "localhost:3300";
 const adminDomain =
   process.env.NEXT_PUBLIC_ADMIN_DOMAIN ||
   process.env.ADMIN_DOMAIN ||
+  inferDomainFromUrl(adminUrl) ||
   "localhost:3200";
 
 export const STORE_RUNTIME = {
@@ -59,8 +74,8 @@ export const STORE_RUNTIME = {
   tagline: storeTagline,
   storefrontDomain,
   adminDomain,
-  storefrontUrl: normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL, storefrontDomain),
-  adminUrl: normalizeUrl(process.env.NEXT_PUBLIC_ADMIN_URL, adminDomain),
+  storefrontUrl: normalizeUrl(storefrontUrl, storefrontDomain),
+  adminUrl: normalizeUrl(adminUrl, adminDomain),
   supportEmail:
     process.env.NEXT_PUBLIC_STORE_SUPPORT_EMAIL || `destek@${storeSlug}.local`,
   supportPhone: process.env.NEXT_PUBLIC_STORE_SUPPORT_PHONE || "",
