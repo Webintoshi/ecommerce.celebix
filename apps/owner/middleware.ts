@@ -34,7 +34,7 @@ function jsonResponse(request: NextRequest, body: Record<string, unknown>, statu
 }
 
 function isProtectedOwnerPage(pathname: string) {
-  return pathname !== OWNER_LOGIN_PATH && !pathname.startsWith(OWNER_CONFIRM_PREFIX);
+  return !pathname.startsWith("/api") && pathname !== OWNER_LOGIN_PATH && !pathname.startsWith(OWNER_CONFIRM_PREFIX);
 }
 
 function isProtectedOwnerApi(pathname: string) {
