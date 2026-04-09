@@ -370,8 +370,8 @@ async function syncApplicationEnv(applicationUuid: string, envEntries: Record<st
   });
 }
 
-async function restartApplication(applicationUuid: string): Promise<void> {
-  await coolifyFetch(`/applications/${applicationUuid}/restart`, {
+async function startApplication(applicationUuid: string): Promise<void> {
+  await coolifyFetch(`/applications/${applicationUuid}/start?force=true&instant_deploy=true`, {
     method: "POST"
   });
 }
@@ -462,9 +462,9 @@ export async function provisionAdminDeploymentForStore(
         }`,
       );
     });
-    await restartApplication(applicationUuid).catch((error) => {
+    await startApplication(applicationUuid).catch((error) => {
       throw new Error(
-        `Admin deployment restart basarisiz: ${
+        `Admin deployment start basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
         }`,
       );
