@@ -5,5 +5,12 @@
     "domain": "derycraft.com",
     "theme": "leather",
     "status": "draft"
+  },
+  {
+    "slug": "test1",
+    "name": "test1",
+    "domain": "test1.46.225.183.57.sslip.io",
+    "theme": "atelier",
+    "status": "draft"
   }
 ]

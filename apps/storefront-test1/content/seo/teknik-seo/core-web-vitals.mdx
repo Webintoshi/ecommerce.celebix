@@ -1,0 +1,269 @@
+---
+title: "Core Web Vitals Nedir? 2026 Kapsamlı Rehber"
+description: "Google Core Web Vitals metriklerini (LCP, INP, CLS) öğrenin. Nasıl ölçülür, iyileştirilir ve Good seviyesine nasıl ulaşılır?"
+primaryKeyword: "core web vitals nedir"
+secondaryKeywords:
+  - "lcp nedir"
+  - "cls nedir"
+  - "inp nedir"
+  - "page experience"
+searchIntent: "informational"
+publishedAt: "2026-02-19"
+updatedAt: "2026-02-19"
+readingTime: 10
+wordCount: 2800
+pillarTitle: "Teknik SEO"
+relatedClusters:
+  - "teknik-seo/site-hizi"
+  - "teknik-seo/taranabilirlik"
+keyTakeaways:
+  - "Core Web Vitals, Google'ın resmi page experience metrikleridir ve arama sıralamalarını etkiler"
+  - "LCP (yükleme hızı), INP (etkileşim) ve CLS (görsel stabilite) olmak üzere 3 ana metrik vardır"
+  - "Good seviyesi için: LCP < 2.5s, INP < 200ms, CLS < 0.1 hedeflenmelidir"
+  - "PageSpeed Insights ve Search Console ile ücretsiz ölçüm yapabilirsiniz"
+faq:
+  - question: "Core Web Vitals ne sıklıkla güncellenir?"
+    answer: "Google, Core Web Vitals metriklerini yaklaşık olarak yılda bir kez günceller. 2024'te FIP yerine INP geldi. Her güncellemedeThreshold değerleri değişebilir."
+  - question: "CLS puanım yüksek ama nedenini bulamıyorum"
+    answer: "CLS genellikle resimler, reklamlar veya embed içeriklerin yer ayırmamasından kaynaklanır. width ve height attributelarını ekleyerek veya CSS ile space reservation yaparak çözebilirsiniz."
+  - question: "Mobil ve desktop skorlarımda büyük fark var, normal mi?"
+    answer: "Evet, bu normaldir. Mobil cihazlar daha az güçlü işlemcilere ve yavaş bağlantılara sahiptir. Google mobile-first indexing kullandığı için mobil skorlar önceliklidir."
+---
+
+## Core Web Vitals Nedir?
+
+Core Web Vitals, Google'ın 2021'de tanıttığı ve page experience (sayfa deneyimi) olarak adlandırdığı resmi metrik setidir. Bu metrikler, kullanıcıların web sayfanızı nasıl deneyimlediğini ölçer ve **doğrudan arama sıralamalarını etkiler.**
+
+2026 itibarıyla, Core Web Vitals 3 ana metriğe dayanır:
+
+| Metrik | Tam Adı | İyi Eşik Değeri |
+|---|---|---|
+| **LCP** | Largest Contentful Paint | < 2.5 saniye |
+| **INP** | Interaction to Next Paint | < 200 ms |
+| **CLS** | Cumulative Layout Shift | < 0.1 |
+
+Bu metriklerin **hepsi "Good" (yeşil) seviyesinde olmalıdır.** Sadece biri bile "Poor" (kırmızı) ise page experience olarak başarısız sayılırsınız.
+
+## LCP: Largest Contentful Paint (En Büyük İçerikli Boya)
+
+### Tanım
+
+LCP, sayfanın ana içeriğinin (genellikle büyük bir resim, video veya text block) yüklenme süresini ölçer. Kullanıcının bakış açısından: *"Sayfa gerçekten ne zaman yüklendi?"*
+
+### Hedef Değerler
+- 🟢 **Good:** < 2.5 saniye
+- 🟡 **Needs Improvement:** 2.5 - 4 saniye
+- 🔴 **Poor:** > 4 saniye
+
+### En Yaygın Nedenler
+1. **Yavaş sunucu response time** (TTFB)
+2. **Optimize edilmemiş resimler** (çok büyük boyutlar)
+3. **CSS/JS render-blocking**
+4. **Client-side rendering** (React SPA'ler)
+
+### İyileştirme Stratejileri
+
+```javascript
+// 1. Resim optimizasyonu örneği (Next.js)
+import Image from 'next/image';
+
+// ❌ Yanlış - width/height yok
+<img src="/hero.jpg" alt="Hero" />
+
+// ✅ Doğru - dimensions belirtilmiş
+<Image
+  src="/hero.jpg"
+  alt="Hero"
+  width={1920}
+  height={1080}
+  priority // LCP için kritik
+/>
+
+// 2. Preload kritik kaynaklar
+<link rel="preload" href="/font.woff2" as="font" type="font/woff2" crossOrigin />
+<link rel="preconnect" href="https://cdn.example.com" />
+```
+
+**Pratik İpuçları:**
+- LCP öğesini (genellikle hero image) **priority** ile yükleyin
+- WebP formatı kullanın (JPG'den %30 daha küçük)
+- Cloudflare veya AWS CloudFront gibi CDN kullanın
+- Server response time'ı < 600 ms tutun
+
+## INP: Interaction to Next Paint (Etkileşim Sonrası Boya)
+
+### Tanım
+
+INP, kullanıcının bir etkileşimde bulunması (tıklama, tuş basması) ve sayfanın buna görsel yanıt vermesi arasındaki gecikmeyi ölçer. 2024'te FIB (First Input Delay) yerine geldi.
+
+### Hedef Değerler
+- 🟢 **Good:** < 200 ms
+- 🟡 **Needs Improvement:** 200 - 500 ms
+- 🔴 **Poor:** > 500 ms
+
+### En Yaygın Nedenler
+1. **Uzun JavaScript task'ler** (blocking main thread)
+2. **Inefficient event listeners**
+3. **Heavy animations** (reflow/repaint)
+4. **Third-party scripts** (analytics, chat widgets)
+
+### İyileştirme Stratejileri
+
+```javascript
+// ❌ Yanlış - Blocking task
+function handleClick() {
+  // 500ms süren ağır işlem
+  const result = heavyCalculation(data);
+  renderResult(result);
+}
+
+// ✅ Doğru - Task splitting
+async function handleClick() {
+  // UI'ı hemen güncelle
+  setLoading(true);
+
+  // Ağır işlemi beklet
+  requestIdleCallback(() => {
+    const result = heavyCalculation(data);
+    setLoading(false);
+    renderResult(result);
+  });
+}
+
+// 3. Event delegation kullanın
+// ❌ Her item için ayrı listener
+items.forEach(item => {
+  item.addEventListener('click', handler);
+});
+
+// ✅ Tek listener (delegation)
+container.addEventListener('click', (e) => {
+  if (e.target.matches('.item')) {
+    handler(e);
+  }
+});
+```
+
+## CLS: Cumulative Layout Shift (Kümülatif Düzen Kayması)
+
+### Tanım
+
+CLS, sayfanın ömrü boyunca gerçekleşen beklenmedik düzen kaymalarını ölçer. Kullanıcı bir şeye tıklayacakken butonun yerinin değişmesi gibi durumlar.
+
+### Hedef Değerler
+- 🟢 **Good:** < 0.1
+- 🟡 **Needs Improvement:** 0.1 - 0.25
+- 🔴 **Poor:** > 0.25
+
+### En Yaygın Nedenler
+1. **Resimler için width/height eksikliği**
+2. **Reklamlar ve embed'ler**
+3. **Dinamik içerik enjekte etme**
+4. **Web font yüklenmesi (FOIT/FOUT)**
+
+### İyileştirme Stratejileri
+
+```css
+/* ❌ Yanlış - Space reservation yok */
+.hero-image {
+  /* Resim yüklendiğinde layout kayacak */
+}
+
+/* ✅ Doğru - Aspect ratio ile yer ayırma */
+.hero-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #f0f0f0; /* Placeholder color */
+}
+
+/* ✅ Font yükleme için */
+@font-face {
+  font-family: 'CustomFont';
+  src: url('/font.woff2') format('woff2');
+  font-display: swap; /* Critical */
+}
+```
+
+```html
+<!-- ✅ Resim için space reservation -->
+<img
+  src="/hero.jpg"
+  width="1920"
+  height="1080"
+  style="aspect-ratio: 16/9; background: #f0f0f0;"
+/>
+
+<!-- ✅ Reklam/iframe için -->
+<div style="min-height: 250px;">
+  <iframe src="/ad.html"></iframe>
+</div>
+```
+
+## Core Web Vitals Ölçme Araçları
+
+### 1. PageSpeed Insights (Ücretsiz)
+Google'ın resmi aracı. Lab ve field data verir:
+- [pagespeed.web.dev](https://pagespeed.web.dev)
+
+### 2. Search Console (Ücretsiz)
+Real user data (CrUX tabanlı):
+- Search Console → Web Vitals raporu
+
+### 3. Chrome DevTools (Geliştirici için)
+```javascript
+// Console'da çalıştırın
+// LCP ölç
+new PerformanceObserver((list) => {
+  const entries = list.getEntries();
+  const lastEntry = entries[entries.length - 1];
+  console.log('LCP:', lastEntry.startTime);
+}).observe({entryTypes: ['largest-contentful-paint']});
+
+// CLS ölç
+let clsValue = 0;
+new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (!entry.hadRecentInput) {
+      clsValue += entry.value;
+      console.log('CLS:', clsValue);
+    }
+  }
+}).observe({entryTypes: ['layout-shift']});
+```
+
+### 4. Lighthouse (CI/CD için)
+```bash
+# CLI ile çalıştırma
+lighthouse https://example.com --view
+
+# Automate edilebilir
+lighthouse https://example.com --output=json --output-path=./report.json
+```
+
+## Core Web Vitals İyileştirme Roadmap
+
+### Faz 1: Quick Wins (1 hafta)
+- [ ] Tüm resimlere width/height ekle
+- [ ] WebP formatına geç
+- [ ] Font-display: swap kullan
+- [ ] Third-party script'leri defer
+
+### Faz 2: Mid-term Optimizations (1 ay)
+- [ ] CDN entegrasyonu
+- [ ] Image lazy loading
+- [ ] CSS critical inline
+- [ ] JS code splitting
+
+### Faz 3: Advanced (3 ay)
+- [ ] Server-side rendering (SSR)
+- [ ] Edge caching
+- [ ] Resource hints (preload, preconnect)
+- [ ] Service worker implementation
+
+## Sonraki Adımlar
+
+Core Web Vitals'i iyileştirdikten sonra:
+
+1. **[Site Hızı Optimizasyonu](/seo/teknik-seo/site-hizi)** - Detaylı performans taktikleri
+2. **[Taranabilirlik](/seo/teknik-seo/taranabilirlik)** - Crawl budget yönetimi
+3. **[Sayfa İçi SEO](/seo/sayfa-ici-seo)** - İçerik optimizasyonu

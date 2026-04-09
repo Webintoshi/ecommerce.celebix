@@ -1,0 +1,67 @@
+{
+  "name": "test1",
+  "slug": "test1",
+  "status": "draft",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "test1 icin ortak Celebix commerce kurulumu",
+    "supportEmail": "destek@test1.46.225.183.57.sslip.io",
+    "supportPhone": "+90 532 000 00 00",
+    "senderEmail": "noreply@test1.46.225.183.57.sslip.io",
+    "smsSenderTitle": "TEST1",
+    "defaultProductBrand": "test1"
+  },
+  "domains": {
+    "storefront": "test1.46.225.183.57.sslip.io",
+    "admin": "admin.test1.46.225.183.57.sslip.io"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-09T21:54:47.598Z",
+    "envTemplatePath": "stores/test1/admin.env.example",
+    "coolifyProjectName": "test1",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "test1 admin",
+    "adminDeploymentRuntimeUrl": "https://admin.test1.46.225.183.57.sslip.io",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "scaffolded",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "test1 websitesi",
+    "runtimeUrl": "https://test1.46.225.183.57.sslip.io",
+    "deploymentStatus": "pending-owner-env",
+    "appDir": "apps/storefront-test1"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
