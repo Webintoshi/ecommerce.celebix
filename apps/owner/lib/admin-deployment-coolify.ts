@@ -40,6 +40,10 @@ export interface AdminDeploymentProvisioningResult {
   externallyManaged: boolean;
 }
 
+interface AdminDeploymentProvisioningOptions {
+  waitForRuntime?: boolean;
+}
+
 const COOLIFY_API_PREFIX = "/api/v1";
 const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 24;
@@ -321,9 +325,13 @@ async function waitForAdminRuntime(store: StoreConfig): Promise<StoreAdminDeploy
   return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug);
 }
 
-export async function provisionAdminDeploymentForStore(slug: string): Promise<AdminDeploymentProvisioningResult> {
+export async function provisionAdminDeploymentForStore(
+  slug: string,
+  options: AdminDeploymentProvisioningOptions = {},
+): Promise<AdminDeploymentProvisioningResult> {
   const store = requireStoreConfig(slug);
   const blueprint = await getStoreAdminDeploymentBlueprint(slug);
+  const shouldWaitForRuntime = options.waitForRuntime ?? true;
 
   if (
     blueprint.runtimeConsistent &&
@@ -394,6 +402,26 @@ export async function provisionAdminDeploymentForStore(slug: string): Promise<Ad
         }`,
       );
     });
+
+    if (!shouldWaitForRuntime) {
+      updateStoreAdminDeploymentConfig(slug, {
+        deploymentStatus: "prepared",
+        deploymentName: blueprint.appName,
+        runtimeUrl: blueprint.runtimeUrl,
+        resourceId: applicationUuid,
+        lastError: "Admin deployment tetiklendi. Runtime dogrulamasi owner health ekranindan izlenmeli.",
+      });
+
+      return {
+        appName: blueprint.appName,
+        resourceId: applicationUuid,
+        runtimeUrl: blueprint.runtimeUrl,
+        status: "prepared",
+        runtimeConsistent: false,
+        message: "Admin deployment tetiklendi. Runtime dogrulamasi daha sonra yapilacak.",
+        externallyManaged: false,
+      };
+    }
 
     const runtimeBlueprint = await waitForAdminRuntime(store).catch((error) => {
       throw new Error(

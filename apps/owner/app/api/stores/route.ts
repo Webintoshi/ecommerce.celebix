@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
     }
     try {
-      await provisionAdminDeploymentForStore(result.store.slug);
+      await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
     }
@@ -112,7 +112,9 @@ export async function POST(request: Request) {
       warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
     }
     try {
-      const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug);
+      const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
+        waitForRuntime: false,
+      });
 
       if (storefrontDeployment.status !== "configured") {
         warnings.push(

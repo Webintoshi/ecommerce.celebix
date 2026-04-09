@@ -47,6 +47,10 @@ export interface StorefrontDeploymentProvisioningResult {
   repoSynced: boolean;
 }
 
+interface StorefrontDeploymentProvisioningOptions {
+  waitForRuntime?: boolean;
+}
+
 const COOLIFY_API_PREFIX = "/api/v1";
 const STOREFRONT_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 24;
@@ -358,9 +362,11 @@ async function waitForStorefrontRuntime(
 
 export async function provisionStorefrontDeploymentForStore(
   slug: string,
+  options: StorefrontDeploymentProvisioningOptions = {},
 ): Promise<StorefrontDeploymentProvisioningResult> {
   const store = requireStoreConfig(slug);
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
+  const shouldWaitForRuntime = options.waitForRuntime ?? true;
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
     updateStoreStorefrontDeploymentConfig(slug, {
@@ -426,6 +432,31 @@ export async function provisionStorefrontDeploymentForStore(
         }`,
       );
     });
+
+    if (!shouldWaitForRuntime) {
+      updateStoreStorefrontConfig(slug, {
+        appDir: store.storefront?.appDir ?? "",
+        status: store.storefront?.status ?? "scaffolded",
+        lastScaffoldError: store.storefront?.lastScaffoldError,
+      });
+      updateStoreStorefrontDeploymentConfig(slug, {
+        deploymentStatus: "prepared",
+        deploymentName: blueprint.appName,
+        runtimeUrl: blueprint.runtimeUrl,
+        resourceId: applicationUuid,
+        lastError: "Storefront deployment tetiklendi. Runtime dogrulamasi owner health ekranindan izlenmeli.",
+      });
+
+      return {
+        appName: blueprint.appName,
+        resourceId: applicationUuid,
+        runtimeUrl: blueprint.runtimeUrl,
+        status: "prepared",
+        runtimeConsistent: false,
+        message: "Storefront deployment tetiklendi. Runtime dogrulamasi daha sonra yapilacak.",
+        repoSynced: blueprint.repoSynced,
+      };
+    }
 
     const runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
       throw new Error(
