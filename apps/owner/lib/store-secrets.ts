@@ -1,5 +1,6 @@
 import "server-only";
 
+import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 
 export interface OwnerStoreSecretRow {
@@ -13,6 +14,22 @@ export interface OwnerStoreSecretRow {
 
 const BASE_SECRET_SELECT = "store_id, supabase_url, supabase_service_role_key";
 const FULL_SECRET_SELECT = `${BASE_SECRET_SELECT}, supabase_anon_key, supabase_legacy_url, supabase_legacy_anon_key`;
+const METADATA_SECRET_KEY = "_ownerSecretAuthority";
+
+interface OwnerStoreMetadataRow {
+  slug?: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 function isExpandedSecretColumnError(message: string | undefined): boolean {
   return /(supabase_anon_key|supabase_legacy_url|supabase_legacy_anon_key)/i.test(message || "");
@@ -33,6 +50,26 @@ function withExpandedDefaults(
   };
 }
 
+function mergeMetadataFallback(
+  row: OwnerStoreSecretRow | null,
+  metadataRow: OwnerStoreMetadataRow | null
+): OwnerStoreSecretRow | null {
+  if (!row) {
+    return null;
+  }
+
+  const metadata = asRecord(metadataRow?.metadata);
+  const fallback = asRecord(metadata[METADATA_SECRET_KEY]);
+
+  return {
+    ...row,
+    supabase_anon_key: row.supabase_anon_key ?? normalizeOptionalString(fallback.supabase_anon_key),
+    supabase_legacy_url: row.supabase_legacy_url ?? normalizeOptionalString(fallback.supabase_legacy_url),
+    supabase_legacy_anon_key:
+      row.supabase_legacy_anon_key ?? normalizeOptionalString(fallback.supabase_legacy_anon_key),
+  };
+}
+
 async function resolveStoreId(slug: string): Promise<string | null> {
   const serviceClient = createOwnerServiceClient();
   const { data, error } = await serviceClient.from("owner_stores").select("id").eq("slug", slug).maybeSingle<{ id: string }>();
@@ -44,6 +81,90 @@ async function resolveStoreId(slug: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
+async function getStoreMetadataByStoreId(storeId: string): Promise<OwnerStoreMetadataRow | null> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("slug, metadata")
+    .eq("id", storeId)
+    .maybeSingle<OwnerStoreMetadataRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? null;
+}
+
+function readBootstrapSupabaseResourceId(metadataRow: OwnerStoreMetadataRow | null): string | null {
+  const metadata = asRecord(metadataRow?.metadata);
+  const bootstrap = asRecord(metadata.bootstrap);
+  return normalizeOptionalString(bootstrap.supabaseResourceId);
+}
+
+async function upsertMetadataSecretFallbackByStoreId(input: {
+  storeId: string;
+  supabaseAnonKey?: string | null;
+  supabaseLegacyUrl?: string | null;
+  supabaseLegacyAnonKey?: string | null;
+}): Promise<void> {
+  const current = await getStoreMetadataByStoreId(input.storeId);
+  const metadata = asRecord(current?.metadata);
+  const existingFallback = asRecord(metadata[METADATA_SECRET_KEY]);
+
+  const nextFallback = {
+    ...existingFallback,
+    ...(input.supabaseAnonKey !== undefined
+      ? { supabase_anon_key: input.supabaseAnonKey?.trim() || null }
+      : {}),
+    ...(input.supabaseLegacyUrl !== undefined
+      ? { supabase_legacy_url: input.supabaseLegacyUrl?.trim() || null }
+      : {}),
+    ...(input.supabaseLegacyAnonKey !== undefined
+      ? { supabase_legacy_anon_key: input.supabaseLegacyAnonKey?.trim() || null }
+      : {}),
+  };
+  const nextMetadata = {
+    ...metadata,
+    [METADATA_SECRET_KEY]: nextFallback,
+  };
+  const serviceClient = createOwnerServiceClient();
+  const { error } = await serviceClient.from("owner_stores").update({ metadata: nextMetadata }).eq("id", input.storeId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function recoverRuntimeSecretFallbackByStoreId(
+  storeId: string,
+  row: OwnerStoreSecretRow | null,
+  metadataRow: OwnerStoreMetadataRow | null
+): Promise<OwnerStoreSecretRow | null> {
+  if (!row || row.supabase_anon_key?.trim()) {
+    return row;
+  }
+
+  const serviceUuid = readBootstrapSupabaseResourceId(metadataRow);
+  const runtimeAuthority = await readCoolifySupabaseRuntimeAuthority(serviceUuid || "");
+
+  if (!runtimeAuthority) {
+    return row;
+  }
+
+  await upsertMetadataSecretFallbackByStoreId({
+    storeId,
+    supabaseAnonKey: runtimeAuthority.publicKey,
+  }).catch(() => undefined);
+
+  return {
+    ...row,
+    supabase_anon_key: runtimeAuthority.publicKey,
+    supabase_url: row.supabase_url ?? runtimeAuthority.publicUrl,
+    supabase_service_role_key: row.supabase_service_role_key ?? runtimeAuthority.serviceKey,
+  };
+}
+
 export async function getStoreSupabaseSecretByStoreId(storeId: string): Promise<OwnerStoreSecretRow | null> {
   const serviceClient = createOwnerServiceClient();
   const expandedQuery = serviceClient
@@ -53,11 +174,12 @@ export async function getStoreSupabaseSecretByStoreId(storeId: string): Promise<
     .maybeSingle<OwnerStoreSecretRow>();
 
   const { data, error } = await expandedQuery;
+  const metadataRow = await getStoreMetadataByStoreId(storeId).catch(() => null);
 
   if (error) {
     if (!isExpandedSecretColumnError(error.message)) {
       if (/owner_store_secrets/i.test(error.message)) {
-        return null;
+        return recoverRuntimeSecretFallbackByStoreId(storeId, mergeMetadataFallback(null, metadataRow), metadataRow);
       }
 
       throw new Error(error.message);
@@ -71,16 +193,20 @@ export async function getStoreSupabaseSecretByStoreId(storeId: string): Promise<
 
     if (fallbackError) {
       if (/owner_store_secrets/i.test(fallbackError.message)) {
-        return null;
+        return recoverRuntimeSecretFallbackByStoreId(storeId, mergeMetadataFallback(null, metadataRow), metadataRow);
       }
 
       throw new Error(fallbackError.message);
     }
 
-    return withExpandedDefaults(fallbackData ?? null);
+    return recoverRuntimeSecretFallbackByStoreId(
+      storeId,
+      mergeMetadataFallback(withExpandedDefaults(fallbackData ?? null), metadataRow),
+      metadataRow
+    );
   }
 
-  return data ?? null;
+  return recoverRuntimeSecretFallbackByStoreId(storeId, mergeMetadataFallback(data ?? null, metadataRow), metadataRow);
 }
 
 export async function getStoreSupabaseSecret(slug: string): Promise<OwnerStoreSecretRow | null> {
@@ -135,5 +261,12 @@ export async function upsertStoreSupabaseSecret(input: {
     if (fallbackError) {
       throw new Error(fallbackError.message);
     }
+
+    await upsertMetadataSecretFallbackByStoreId({
+      storeId,
+      supabaseAnonKey: input.supabaseAnonKey ?? null,
+      supabaseLegacyUrl: input.supabaseLegacyUrl ?? null,
+      supabaseLegacyAnonKey: input.supabaseLegacyAnonKey ?? null,
+    });
   }
 }
