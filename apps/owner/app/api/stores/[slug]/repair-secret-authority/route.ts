@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { getStoreDetail } from "@/lib/control-plane";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
@@ -35,6 +36,28 @@ export async function POST(_: Request, { params }: RouteContext) {
         supabaseServiceRoleKey: runtimeAuthority.serviceKey,
         supabaseAnonKey: runtimeAuthority.publicKey,
       });
+
+      const serviceClient = createOwnerServiceClient();
+      const currentMetadata =
+        (await serviceClient
+          .from("owner_stores")
+          .select("metadata")
+          .eq("slug", slug)
+          .maybeSingle<{ metadata: Record<string, unknown> | null }>()).data?.metadata ?? {};
+      const nextMetadata = {
+        ...(currentMetadata ?? {}),
+        bootstrap: {
+          ...(((currentMetadata ?? {}) as Record<string, unknown>).bootstrap as Record<string, unknown> | undefined),
+          supabaseDashboardUrl: runtimeAuthority.dashboardUrl,
+        },
+      };
+      await serviceClient
+        .from("owner_stores")
+        .update({
+          supabase_url: runtimeAuthority.publicUrl,
+          metadata: nextMetadata,
+        })
+        .eq("slug", slug);
     }
 
     const secret = await getStoreSupabaseSecret(slug);

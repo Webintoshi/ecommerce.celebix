@@ -924,7 +924,13 @@ function isSuspiciousZeroMetrics(metric: OwnerMetricRow | undefined, store: Owne
   return totalActivity === 0 && store.status === "active" && store.storefront_status === "active";
 }
 
-function buildOwnerStoreRow(store: StoreConfig, existingMetadata: Record<string, unknown> | null) {
+function buildOwnerStoreRow(
+  store: StoreConfig,
+  existingMetadata: Record<string, unknown> | null,
+  authority?: {
+    supabaseUrl?: string | null;
+  }
+) {
   return {
     slug: store.slug,
     name: store.name,
@@ -937,7 +943,9 @@ function buildOwnerStoreRow(store: StoreConfig, existingMetadata: Record<string,
     support_phone: store.branding?.supportPhone ?? null,
     tagline: store.branding?.tagline ?? null,
     supabase_project_ref: store.supabase.projectRef === "pending-owner-bootstrap" ? null : store.supabase.projectRef,
-    supabase_url: store.supabase.url === "configure-in-env" ? null : store.supabase.url,
+    supabase_url:
+      authority?.supabaseUrl?.trim() ||
+      (store.supabase.url === "configure-in-env" ? null : store.supabase.url),
     r2_bucket_name: store.r2?.bucketName ?? null,
     r2_public_url: store.r2?.publicUrl ?? null,
     r2_managed_domain: store.r2?.managedDomain ?? null,
@@ -1416,7 +1424,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
 
   const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
     .from("owner_stores")
-    .select("slug, metadata")
+    .select("id, slug, metadata, supabase_url")
     .in(
       "slug",
       storeConfigs.map((store) => store.slug)
@@ -1426,16 +1434,46 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
     throw new Error(existingStoreRowsError.message);
   }
 
+  const existingRows = (existingStoreRows as Array<{
+    id: string;
+    slug: string;
+    metadata: Record<string, unknown> | null;
+    supabase_url: string | null;
+  }>) ?? [];
   const metadataMap = new Map<string, Record<string, unknown> | null>(
-    ((existingStoreRows as Array<{ slug: string; metadata: Record<string, unknown> | null }>) ?? []).map((row) => [
+    existingRows.map((row) => [
       row.slug,
       row.metadata ?? null
     ])
   );
+  const storeIdBySlug = new Map(existingRows.map((row) => [row.slug, row.id]));
+  const secretUrlBySlug = new Map<string, string>();
+
+  for (const store of storeConfigs) {
+    const storeId = storeIdBySlug.get(store.slug);
+
+    if (!storeId) {
+      continue;
+    }
+
+    const secretRecord = await getStoreSupabaseSecretByStoreId(storeId).catch(() => null);
+    const secretUrl = secretRecord?.supabase_url?.trim();
+
+    if (secretUrl) {
+      secretUrlBySlug.set(store.slug, secretUrl);
+    }
+  }
 
   const { error: upsertStoresError } = await serviceClient
     .from("owner_stores")
-    .upsert(storeConfigs.map((store) => buildOwnerStoreRow(store, metadataMap.get(store.slug) ?? null)), { onConflict: "slug" });
+    .upsert(
+      storeConfigs.map((store) =>
+        buildOwnerStoreRow(store, metadataMap.get(store.slug) ?? null, {
+          supabaseUrl: secretUrlBySlug.get(store.slug) ?? null,
+        })
+      ),
+      { onConflict: "slug" }
+    );
 
   if (upsertStoresError) {
     throw new Error(upsertStoresError.message);
@@ -1982,6 +2020,13 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
         )
       : current.health;
 
+  const resolvedSupabaseUrl =
+    connectionReadiness?.secretSupabaseUrl ??
+    storeRow.supabase_url ??
+    (storeConfig?.supabase.url && storeConfig.supabase.url !== "configure-in-env"
+      ? storeConfig.supabase.url
+      : null);
+
   return {
     ...current,
     productCount: resolvedMetrics?.productCount ?? current.productCount,
@@ -1998,14 +2043,10 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     supportPhone: storeRow.support_phone ?? storeConfig?.branding?.supportPhone ?? null,
     tagline: storeRow.tagline ?? storeConfig?.branding?.tagline ?? null,
     supabaseProjectRef: storeRow.supabase_project_ref ?? storeConfig?.supabase.projectRef ?? null,
-    supabaseUrl:
-      storeRow.supabase_url ??
-      (storeConfig?.supabase.url && storeConfig.supabase.url !== "configure-in-env"
-        ? storeConfig.supabase.url
-        : null),
+    supabaseUrl: resolvedSupabaseUrl,
     supabaseDashboardUrl: resolveSupabaseDashboardUrl(
       storeConfig?.supabase.dashboardUrl ?? null,
-      storeConfig?.supabase.url ?? storeRow.supabase_url
+      resolvedSupabaseUrl
     ),
     r2BucketName: storeRow.r2_bucket_name ?? storeConfig?.r2?.bucketName ?? null,
     r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
