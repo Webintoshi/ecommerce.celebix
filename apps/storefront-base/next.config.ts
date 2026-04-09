@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
+import { resolveNextBuildCpuCap } from "@celebix/platform-config";
 
 const inferredImageTransformationUrl =
   process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
   process.env.CELEBIX_IMAGE_TRANSFORMATION_URL ??
   "https://images.celebix.co";
+const buildCpuCap = resolveNextBuildCpuCap(3, ["CELEBIX_STOREFRONT_BUILD_CPUS"]);
 
 function buildRemotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
@@ -69,6 +71,7 @@ const nextConfig: NextConfig = {
     remotePatterns: buildRemotePatterns(),
   },
   experimental: {
+    cpus: buildCpuCap,
     serverActions: {
       bodySizeLimit: "10mb",
     },

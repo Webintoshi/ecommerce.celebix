@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { NextConfig } from "next";
+import { resolveNextBuildCpuCap } from "@celebix/platform-config";
 
 interface StoreRegistryEntry {
   slug: string;
@@ -107,6 +108,7 @@ const inferredImageTransformationUrl =
   process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
   process.env.CELEBIX_IMAGE_TRANSFORMATION_URL ??
   "https://images.celebix.co";
+const buildCpuCap = resolveNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]);
 const configuredAssetUrl = process.env.R2_PUBLIC_URL;
 const configuredAssetHostname = configuredAssetUrl
   ? new URL(
@@ -196,6 +198,7 @@ const nextConfig: NextConfig = {
     remotePatterns
   },
   experimental: {
+    cpus: buildCpuCap,
     serverActions: {
       bodySizeLimit: "10mb"
     },

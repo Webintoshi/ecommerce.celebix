@@ -6,6 +6,7 @@ import {
   getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
+  resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
   updateStoreStorefrontConfig,
 } from "@celebix/platform-config";
@@ -186,6 +187,7 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
   const socialHandle = store.slug.replace(/-/g, "");
 
   return {
+    CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(3, ["CELEBIX_STOREFRONT_BUILD_CPUS"]),
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SITE_URL: normalizeUrl(store.domains.storefront),
     NEXT_PUBLIC_ADMIN_URL: normalizeUrl(store.domains.admin),

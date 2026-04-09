@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   getRepoRoot,
   requireStoreConfig,
+  resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
@@ -64,6 +65,7 @@ function readAdminEnvEntries(store: StoreConfig): Record<string, string> {
   const supabaseUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
 
   return {
+    CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,

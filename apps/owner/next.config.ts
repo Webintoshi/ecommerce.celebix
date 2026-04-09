@@ -1,5 +1,8 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { resolveNextBuildCpuCap } from "@celebix/platform-config";
+
+const buildCpuCap = resolveNextBuildCpuCap(2, ["CELEBIX_OWNER_BUILD_CPUS"]);
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -7,6 +10,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@celebix/platform-config"],
   turbopack: {
     root: path.join(__dirname, "../..")
+  },
+  experimental: {
+    cpus: buildCpuCap,
   },
   poweredByHeader: false
 };

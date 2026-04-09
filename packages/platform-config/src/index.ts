@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getConfiguredImageTransformationUrl } from "./image-transformation";
+import { resolveProvisionedNextBuildCpuCap } from "./next-build";
 
 export * from "./typography";
 export * from "./image-formats";
@@ -9,6 +10,7 @@ export * from "./category-hierarchy";
 export * from "./google-merchant";
 export * from "./shipping";
 export * from "./translation";
+export * from "./next-build";
 
 export interface StoreRegistryEntry {
   slug: string;
@@ -354,6 +356,7 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
 
   return [
     `STORE_SLUG=${config.slug}`,
+    `CELEBIX_NEXT_BUILD_CPUS=${resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"])}`,
     "",
     "# Admin deployment blueprint",
     `# APP_NAME=${config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`}`,
