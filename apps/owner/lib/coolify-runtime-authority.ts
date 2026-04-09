@@ -6,6 +6,8 @@ interface CoolifyEnvironmentVariable {
   value?: string;
 }
 
+const COOLIFY_API_PREFIX = "/api/v1";
+
 function getCoolifyApiUrl(): string | null {
   const value = process.env.COOLIFY_API_URL?.trim();
   return value ? value.replace(/\/+$/, "") : null;
@@ -42,7 +44,7 @@ async function coolifyFetch<T>(path: string): Promise<T> {
     throw new Error("Coolify API authority eksik.");
   }
 
-  const response = await fetch(`${apiUrl}${path}`, {
+    const response = await fetch(`${apiUrl}${COOLIFY_API_PREFIX}${path}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
