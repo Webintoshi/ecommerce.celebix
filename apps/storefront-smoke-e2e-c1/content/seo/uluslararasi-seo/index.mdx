@@ -1,0 +1,38 @@
+---
+title: "Uluslararası SEO ve Hreflang Implementasyonu"
+description: "Çoklu dil ve coğrafi hedefleme için uluslararası SEO. Hreflang tags, ccTLD'ler ve geo-targeting."
+icon: "🌍"
+readingTime: 9
+wordCount: 2500
+---
+
+## Uluslararası SEO Nedir?
+
+Uluslararası SEO, çoklu dil ve/veya çoklu ülke hedeflemesi için yapılan optimizasyonlardır.
+
+**Kullanım Senaryoları:**
+- Türkiye + Almanya için ayrı siteler
+- Türkçe + İngilizce içerik
+- .com.tr + .de domain'leri
+
+## Hreflang Tags
+
+Hreflang, Google'a sayfanın hangi dil/bölge için olduğunu bildirir.
+
+```html
+<link rel="alternate" hreflang="tr" href="https://example.com/tr/" />
+<link rel="alternate" hreflang="de" href="https://example.com/de/" />
+<link rel="alternate" hreflang="en" href="https://example.com/en/" />
+<link rel="alternate" hreflang="x-default" href="https://example.com/" />
+```
+
+## Domain Structure Seçimi
+
+| Structure | Pros | Cons |
+|---|---|---|
+| **ccTLD** (.com.tr) | Strong geo-signal | Pahalı, her ülke için ayrı |
+| **Subdomain** (tr.example.com) | Kolay setup | Weak geo-signal |
+| **Subdirectory** (example.com/tr/) | Authority inheritance | Teknik karmaşıklık |
+| **gTLD** (.com) | Global reach | Geo-signal yok |
+
+Sonraki: [Hreflang](/seo/uluslararasi-seo/hreflang)

@@ -5,5 +5,12 @@
     "domain": "derycraft.com",
     "theme": "leather",
     "status": "draft"
+  },
+  {
+    "slug": "smoke-e2e-c1",
+    "name": "Smoke E2E C1",
+    "domain": "smoke-e2e-c1.46.225.183.57.sslip.io",
+    "theme": "atelier",
+    "status": "draft"
   }
 ]

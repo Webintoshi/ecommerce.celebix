@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Kavanoz gövdesi -->
+  <path d="M128 160 L128 400 Q128 432 160 432 L352 432 Q384 432 384 400 L384 160" fill="#D2691E" stroke="#8B4513" stroke-width="3"/>
+  <!-- Kavanoz üst kısmı -->
+  <path d="M128 160 L384 160 L384 120 Q384 100 364 100 L148 100 Q128 100 128 120 Z" fill="#CD853F" stroke="#8B4513" stroke-width="3"/>
+  <!-- Kapak -->
+  <rect x="138" y="80" width="236" height="20" rx="5" fill="#8B4513"/>
+  <!-- Etiket -->
+  <rect x="168" y="200" width="176" height="120" rx="10" fill="#FFF8DC" stroke="#8B4513" stroke-width="2"/>
+  <!-- Fıstık şekli etikette -->
+  <ellipse cx="256" cy="260" rx="40" ry="25" fill="#D2691E"/>
+  <!-- Fıstık detayları -->
+  <path d="M240 250 Q256 240 272 250" stroke="#8B4513" stroke-width="2" fill="none"/>
+  <path d="M235 260 Q256 270 277 260" stroke="#8B4513" stroke-width="2" fill="none"/>
+  <!-- Parlaklık -->
+  <ellipse cx="200" cy="180" rx="15" ry="8" fill="rgba(255,255,255,0.3)"/>
+</svg>
