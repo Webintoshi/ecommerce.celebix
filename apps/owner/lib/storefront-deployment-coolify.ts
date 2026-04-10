@@ -10,6 +10,7 @@ import {
   getStorefrontDeploymentBlueprint,
   type StorefrontDeploymentBlueprint,
 } from "@/lib/storefront-deployment";
+import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 
 interface CoolifyProject {
   uuid?: string;
@@ -111,10 +112,10 @@ function getCoolifyDestinationUuid(): string {
 }
 
 function getRepositoryUrl(): string {
-  return (
+  return normalizeCoolifyRepository(
     process.env.COOLIFY_APPLICATION_REPOSITORY_URL?.trim() ||
     process.env.CELEBIX_GIT_REPOSITORY?.trim() ||
-    "https://github.com/Webintoshi/ecommerce.celebix"
+    "Webintoshi/ecommerce.celebix",
   );
 }
 
