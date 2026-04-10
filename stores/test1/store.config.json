@@ -1,7 +1,7 @@
 {
   "name": "test1",
   "slug": "test1",
-  "status": "draft",
+  "status": "active",
   "theme": {
     "key": "atelier",
     "label": "Atelier",
@@ -28,10 +28,11 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
+    "projectRef": "test1-db",
+    "url": "https://supabasekong-test1.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store"
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-test1.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
     "provisioning": "pending-owner-env"
@@ -43,17 +44,28 @@
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "test1 admin",
     "adminDeploymentRuntimeUrl": "https://admin.test1.46.225.183.57.sslip.io",
-    "adminDeploymentStatus": "pending-owner-env",
+    "adminDeploymentResourceId": "th7pmljxt3m2h9nh05uaifhh",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-04-10T13:39:00.000Z",
+    "adminDeploymentDeployedAt": "2026-04-10T13:39:00.000Z",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProvisioning": "pending-owner-env"
+    "supabaseProjectName": "test1-db",
+    "supabaseDashboardUrl": "https://supabasekong-test1.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-10T13:39:00.000Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
-    "status": "scaffolded",
-    "repoSyncStatus": "pending",
+    "status": "active",
+    "repoSyncStatus": "synced",
+    "lastScaffoldedAt": "2026-04-10T13:39:00.000Z",
+    "repoSyncedAt": "2026-04-10T13:39:00.000Z",
     "deploymentProvider": "coolify",
     "deploymentName": "test1 websitesi",
     "runtimeUrl": "https://test1.46.225.183.57.sslip.io",
-    "deploymentStatus": "pending-owner-env",
+    "resourceId": "lkd1mblggux8idang6gy5amj",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-04-10T13:39:00.000Z",
+    "deployedAt": "2026-04-10T13:39:00.000Z",
     "appDir": "apps/storefront-test1"
   },
   "features": [
