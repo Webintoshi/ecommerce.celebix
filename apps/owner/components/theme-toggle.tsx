@@ -1,73 +1,88 @@
 "use client";
 
+import type { CSSProperties, ReactElement } from "react";
 import { useTheme } from "./theme-provider";
 
 type Theme = "light" | "dark" | "system";
 
+const OPTIONS: Array<{
+  value: Theme;
+  label: string;
+  shortLabel: string;
+  icon: ReactElement;
+}> = [
+  {
+    value: "light",
+    label: "Gunduz modu",
+    shortLabel: "Gunduz",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="4.5" />
+        <line x1="12" y1="2.5" x2="12" y2="5" />
+        <line x1="12" y1="19" x2="12" y2="21.5" />
+        <line x1="4.9" y1="4.9" x2="6.7" y2="6.7" />
+        <line x1="17.3" y1="17.3" x2="19.1" y2="19.1" />
+        <line x1="2.5" y1="12" x2="5" y2="12" />
+        <line x1="19" y1="12" x2="21.5" y2="12" />
+        <line x1="4.9" y1="19.1" x2="6.7" y2="17.3" />
+        <line x1="17.3" y1="6.7" x2="19.1" y2="4.9" />
+      </svg>
+    )
+  },
+  {
+    value: "dark",
+    label: "Gece modu",
+    shortLabel: "Gece",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 13.2a8.8 8.8 0 1 1-10.2-10A7 7 0 0 0 21 13.2Z" />
+      </svg>
+    )
+  },
+  {
+    value: "system",
+    label: "Sistem modunu takip et",
+    shortLabel: "Sistem",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="12" rx="2" />
+        <path d="M8 20h8" />
+        <path d="M12 16v4" />
+      </svg>
+    )
+  }
+];
+
 export function ThemeToggle() {
-  let theme: Theme | undefined;
-  let setTheme: ((theme: Theme) => void) | undefined;
-  let resolvedTheme: "light" | "dark" | undefined;
-  
-  // SSR-safe: ThemeProvider olmayabilir, o zaman varsayılan değerler kullan
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    setTheme = themeContext.setTheme;
-    resolvedTheme = themeContext.resolvedTheme;
-  } catch {
-    // ThemeProvider yoksa varsayılan değerler
-    return (
-      <button className="theme-toggle" aria-label="Tema değiştir" disabled>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-        </svg>
-      </button>
-    );
-  }
-
-  function toggleTheme() {
-    if (!setTheme || !resolvedTheme) return;
-    
-    if (theme === "system") {
-      setTheme(resolvedTheme === "dark" ? "light" : "dark");
-    } else {
-      setTheme(theme === "dark" ? "light" : "dark");
-    }
-  }
-
-  const isDark = resolvedTheme === "dark";
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const activeIndex = OPTIONS.findIndex((option) => option.value === theme);
 
   return (
-    <button
-      onClick={toggleTheme}
-      className="theme-toggle"
-      title={isDark ? "Aydınlık moda geç" : "Karanlık moda geç"}
-      aria-label={isDark ? "Aydınlık moda geç" : "Karanlık moda geç"}
+    <div
+      className="theme-toggle-control"
+      role="radiogroup"
+      aria-label="Tema secimi"
+      style={{ "--active-index": String(activeIndex < 0 ? 0 : activeIndex) } as CSSProperties}
     >
-      {isDark ? (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
-      ) : (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-      )}
-    </button>
+      <span className="theme-toggle-indicator" aria-hidden />
+      {OPTIONS.map((option) => {
+        const active = theme === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            className={`theme-toggle-option${active ? " is-active" : ""}`}
+            title={option.label}
+            onClick={() => setTheme(option.value)}
+          >
+            <span className="theme-toggle-icon">{option.icon}</span>
+            <span className="theme-toggle-label">{option.shortLabel}</span>
+            {option.value === "system" ? <span className="theme-toggle-meta">{resolvedTheme}</span> : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }

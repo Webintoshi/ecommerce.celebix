@@ -16,19 +16,22 @@ export const metadata: Metadata = {
 const themeScript = `
   (function() {
     function getThemePreference() {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem('owner-theme')) {
-        return localStorage.getItem('owner-theme');
+      if (typeof localStorage !== 'undefined') {
+        var stored = localStorage.getItem('owner-theme');
+        if (stored === 'light' || stored === 'dark' || stored === 'system') {
+          return stored;
+        }
       }
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      return 'system';
     }
-    const theme = getThemePreference();
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      document.documentElement.style.colorScheme = 'dark';
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.documentElement.style.colorScheme = 'light';
-    }
+
+    var mode = getThemePreference();
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
+
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-mode', mode);
+    document.documentElement.style.colorScheme = resolved;
   })();
 `;
 
@@ -50,16 +53,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <aside className="sidebar">
                 <div className="sidebar-header">
                   <Link href="/">
-                    <img 
-                      src="https://celebix.co/Logo/koyu%20logo.svg" 
-                      alt="Celebix" 
-                      style={{ 
-                        filter: "brightness(0) invert(1)",
-                        height: "56px",
-                        width: "auto",
-                        display: "block"
-                      }}
-                    />
+                    <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="brand-logo" />
                   </Link>
                 </div>
                 <nav className="sidebar-nav">
@@ -131,11 +125,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </aside>
 
               <div className="main-area">
-                <header className="topbar" style={{ justifyContent: "flex-end" }}>
+                <header className="topbar">
                   <ThemeToggle />
                   <div className="topbar-user">
                     <span className="pill pill-accent">{roleLabel}</span>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{userName}</span>
+                    <span className="topbar-user-name">{userName}</span>
                   </div>
                 </header>
                 <main className="page-content">{children}</main>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -19,90 +19,83 @@ interface ThemeProviderProps {
   disableTransitionOnChange?: boolean;
 }
 
+function resolveTheme(themeMode: Theme): "light" | "dark" {
+  if (themeMode === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  return themeMode;
+}
+
+function applyTheme(nextResolvedTheme: "light" | "dark", themeMode: Theme, disableTransition: boolean) {
+  const root = document.documentElement;
+
+  if (disableTransition) {
+    root.style.transition = "none";
+  }
+
+  root.setAttribute("data-theme", nextResolvedTheme);
+  root.setAttribute("data-theme-mode", themeMode);
+  root.style.colorScheme = nextResolvedTheme;
+
+  if (disableTransition) {
+    void root.offsetHeight;
+    root.style.transition = "";
+  }
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
   enableSystem = true,
-  disableTransitionOnChange = false,
+  disableTransitionOnChange = false
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
-  // Initialize theme from localStorage or system preference
   useEffect(() => {
     setMounted(true);
-    
+
     const storedTheme = localStorage.getItem("owner-theme") as Theme | null;
     const initialTheme = storedTheme || defaultTheme;
-    
+
     setThemeState(initialTheme);
-    
-    // Resolve the actual theme (handle 'system')
+
     const resolved = resolveTheme(initialTheme);
     setResolvedTheme(resolved);
-    applyTheme(resolved, disableTransitionOnChange);
+    applyTheme(resolved, initialTheme, disableTransitionOnChange);
   }, [defaultTheme, disableTransitionOnChange]);
 
-  // Listen for system preference changes
   useEffect(() => {
     if (!enableSystem || theme !== "system") return;
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    
-    const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? "dark" : "light";
-      setResolvedTheme(newTheme);
-      applyTheme(newTheme, disableTransitionOnChange);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      const nextResolvedTheme = event.matches ? "dark" : "light";
+      setResolvedTheme(nextResolvedTheme);
+      applyTheme(nextResolvedTheme, "system", disableTransitionOnChange);
     };
 
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme, enableSystem, disableTransitionOnChange]);
 
-  function resolveTheme(theme: Theme): "light" | "dark" {
-    if (theme === "system") {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    return theme;
+  function setTheme(nextTheme: Theme) {
+    setThemeState(nextTheme);
+    localStorage.setItem("owner-theme", nextTheme);
+
+    const nextResolvedTheme = resolveTheme(nextTheme);
+    setResolvedTheme(nextResolvedTheme);
+    applyTheme(nextResolvedTheme, nextTheme, disableTransitionOnChange);
   }
 
-  function applyTheme(newTheme: "light" | "dark", disableTransition: boolean) {
-    const root = document.documentElement;
-    
-    if (disableTransition) {
-      root.style.transition = "none";
-    }
-    
-    root.setAttribute("data-theme", newTheme);
-    root.style.colorScheme = newTheme;
-    
-    if (disableTransition) {
-      // Force reflow
-      void root.offsetHeight;
-      root.style.transition = "";
-    }
-  }
-
-  function setTheme(newTheme: Theme) {
-    setThemeState(newTheme);
-    localStorage.setItem("owner-theme", newTheme);
-    
-    const resolved = resolveTheme(newTheme);
-    setResolvedTheme(resolved);
-    applyTheme(resolved, disableTransitionOnChange);
-  }
-
-  // Prevent hydration mismatch
   if (!mounted) {
     return <>{children}</>;
   }
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
@@ -110,5 +103,6 @@ export function useTheme() {
   if (context === undefined) {
     throw new Error("useTheme must be used within a ThemeProvider");
   }
+
   return context;
 }
