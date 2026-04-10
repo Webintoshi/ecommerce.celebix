@@ -260,6 +260,11 @@ async function listApplications(): Promise<CoolifyApplication[]> {
   return normalizeArrayPayload<CoolifyApplication>(payload);
 }
 
+function isGeneratedAutoDeployEnabled(): boolean {
+  const raw = process.env.COOLIFY_GENERATED_AUTO_DEPLOY?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
 function buildStorefrontAppPayload(
   store: StoreConfig,
   blueprint: StorefrontDeploymentBlueprint,
@@ -287,8 +292,9 @@ function buildStorefrontAppPayload(
     health_check_path: "/api/public/runtime",
     health_check_port: blueprint.serverPort,
     is_force_https_enabled: true,
-    is_auto_deploy_enabled: true,
-    instant_deploy: true,
+    // Generated store apps should not redeploy on every repo push by default.
+    is_auto_deploy_enabled: isGeneratedAutoDeployEnabled(),
+    instant_deploy: false,
   };
 }
 
