@@ -19,43 +19,43 @@ export default async function OperationsPage() {
       <div className="metric-row metric-row-6">
         <div className="metric-box">
           <div className="metric-box-label">Hazir Store</div>
-          <div className="metric-box-value" style={{ color: "var(--success)" }}>
+          <div className="metric-box-value status-text-success">
             {summary.totals.readyStores}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Supabase Eksik</div>
-          <div className="metric-box-value" style={{ color: summary.totals.missingSupabase > 0 ? "var(--error)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.missingSupabase > 0 ? "status-text-error" : ""}`}>
             {summary.totals.missingSupabase}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">R2 Eksik</div>
-          <div className="metric-box-value" style={{ color: summary.totals.missingR2 > 0 ? "var(--error)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.missingR2 > 0 ? "status-text-error" : ""}`}>
             {summary.totals.missingR2}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Admin Eksik</div>
-          <div className="metric-box-value" style={{ color: summary.totals.missingAdmins > 0 ? "var(--warning)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.missingAdmins > 0 ? "status-text-warning" : ""}`}>
             {summary.totals.missingAdmins}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Secret Drift</div>
-          <div className="metric-box-value" style={{ color: summary.totals.secretDrift > 0 ? "var(--warning)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.secretDrift > 0 ? "status-text-warning" : ""}`}>
             {summary.totals.secretDrift}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Runtime Sorunu</div>
-          <div className="metric-box-value" style={{ color: summary.totals.adminRuntimeIssues > 0 ? "var(--error)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.adminRuntimeIssues > 0 ? "status-text-error" : ""}`}>
             {summary.totals.adminRuntimeIssues}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">Consistency Block</div>
-          <div className="metric-box-value" style={{ color: summary.totals.consistencyBlockingStores > 0 ? "var(--error)" : "inherit" }}>
+          <div className={`metric-box-value ${summary.totals.consistencyBlockingStores > 0 ? "status-text-error" : ""}`}>
             {summary.totals.consistencyBlockingStores}
           </div>
         </div>
@@ -96,34 +96,17 @@ export default async function OperationsPage() {
                       </span>
                     </td>
                     <td>
-                      <span style={{ 
-                        color: row.supabaseProjectRef ? "var(--success)" : "var(--error)",
-                        fontWeight: 600
-                      }}>
+                      <span className={`status-text ${row.supabaseProjectRef ? "status-text-success" : "status-text-error"}`}>
                         {row.supabaseProjectRef || "Eksik"}
                       </span>
                     </td>
                     <td>
-                      <span
-                        style={{
-                          color: row.health.secretAuthorityReady ? "var(--success)" : "var(--warning)",
-                          fontWeight: 600
-                        }}
-                      >
+                      <span className={`status-text ${row.health.secretAuthorityReady ? "status-text-success" : "status-text-warning"}`}>
                         {row.health.secretAuthorityReady ? "Hazir" : "Drift"}
                       </span>
                     </td>
                     <td>
-                      <span
-                        style={{
-                          color:
-                            row.health.adminDeploymentReady && row.health.adminRuntimeConsistent
-                              ? "var(--success)"
-                              : "var(--error)",
-                          fontWeight: 600
-                        }}
-                        title={row.health.adminRuntimeMessage || undefined}
-                      >
+                      <span className={`status-text ${row.health.adminDeploymentReady && row.health.adminRuntimeConsistent ? "status-text-success" : "status-text-error"}`} title={row.health.adminRuntimeMessage || undefined}>
                         {row.health.adminDeploymentReady
                           ? row.health.adminRuntimeConsistent
                             ? "Hazir"
@@ -132,25 +115,12 @@ export default async function OperationsPage() {
                       </span>
                     </td>
                     <td>
-                      <span
-                        style={{
-                          color: row.consistency.blocking ? "var(--error)" : "var(--success)",
-                          fontWeight: 600
-                        }}
-                        title={
-                          row.consistency.issues.length > 0
-                            ? row.consistency.issues.map((issue) => issue.message).join(" / ")
-                            : undefined
-                        }
-                      >
+                      <span className={`status-text ${row.consistency.blocking ? "status-text-error" : "status-text-success"}`} title={row.consistency.issues.length > 0 ? row.consistency.issues.map((issue) => issue.message).join(" / ") : undefined}>
                         {row.consistency.blocking ? `${row.consistency.blockingIssueCount} blok` : "Temiz"}
                       </span>
                     </td>
                     <td>
-                      <span style={{ 
-                        color: row.r2BucketName ? "var(--success)" : "var(--error)",
-                        fontWeight: 600
-                      }}>
+                      <span className={`status-text ${row.r2BucketName ? "status-text-success" : "status-text-error"}`}>
                         {row.r2BucketName || "Eksik"}
                       </span>
                     </td>

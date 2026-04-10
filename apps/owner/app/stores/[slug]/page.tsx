@@ -67,8 +67,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           </Link>
           <h1>{store.name}</h1>
           <p>{store.tagline || "Proje detaylari, operasyon sagligi ve yonetim katmani."}</p>
-          <div className="actions" style={{ marginTop: 12 }}>
-            <span className="pill" style={{ textTransform: "capitalize" }}>{store.status}</span>
+          <div className="actions stack-top-sm">
+            <span className="pill pill-capitalize">{store.status}</span>
             <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
               {store.health.label}
             </span>
@@ -245,7 +245,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
         <div className="card">
           <div className="card-title">Ozellikler ve Notlar</div>
-          <div className="actions compact-actions" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+          <div className="actions compact-actions wrap stack-top-sm">
             {store.features.length === 0 ? (
               <span className="muted">Tanimli ozellik yok</span>
             ) : (
@@ -308,11 +308,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 24 }}>
+      <div className="card section-tight">
         <div className="card-title">Storefront Deployment Blueprint</div>
         {storefrontDeployment ? (
           <>
-            <div className="actions compact-actions" style={{ marginBottom: 16 }}>
+            <div className="actions compact-actions stack-top-sm">
               <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
             </div>
             <div className="meta-pairs">
@@ -342,11 +342,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 24 }}>
+      <div className="card section-tight">
         <div className="card-title">Admin Deployment Blueprint</div>
         {adminDeployment ? (
           <>
-            <div className="actions compact-actions" style={{ marginBottom: 16 }}>
+            <div className="actions compact-actions stack-top-sm">
               <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} />
             </div>
             <div className="meta-pairs">
@@ -371,7 +371,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 24 }}>
+      <div className="card section-tight">
         <div className="card-title">Consistency Guardrail</div>
         <div className="meta-pairs">
           <span>Toplam issue: <strong>{store.consistency.issueCount}</strong></span>
@@ -380,7 +380,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <span>Kontrol zamani: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
         </div>
         {store.consistency.issues.length > 0 ? (
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="stack-list stack-top-md">
             {store.consistency.issues.map((issue, index) => (
               <div key={`${issue.code}-${index}`} className="inline-card">
                 <div>
@@ -404,7 +404,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {/* Forms - Only for Super Admin */}
       {superAdmin ? (
         <>
-          <div className="card" style={{ marginBottom: 24 }}>
+          <div className="card section-tight">
             <div className="card-title">Proje Profilini Guncelle</div>
             <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>
             <UpdateStoreProfileForm
@@ -419,7 +419,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             />
           </div>
 
-          <div className="card" style={{ marginBottom: 24 }}>
+          <div className="card section-tight">
             <div className="card-title">Bu Projeye Affiliate Ata</div>
             <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
           </div>

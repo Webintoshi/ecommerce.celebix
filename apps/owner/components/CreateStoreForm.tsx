@@ -178,7 +178,7 @@ export function CreateStoreForm() {
       {error && <p className="form-error field-full">{error}</p>}
 
       {/* Submit */}
-      <div className="actions field-full" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+      <div className="actions field-full actions-end stack-top-sm">
         <button
           type="button"
           className="button button-ghost"

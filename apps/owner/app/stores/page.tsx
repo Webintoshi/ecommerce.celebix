@@ -40,7 +40,7 @@ export default async function StoresPage() {
                   <th>Admin</th>
                   <th>Ciro</th>
                   <th>Son sync</th>
-                  <th style={{ textAlign: "right" }}>Islem</th>
+                  <th className="table-cell-right">Islem</th>
                 </tr>
               </thead>
               <tbody>
@@ -68,12 +68,12 @@ export default async function StoresPage() {
                         Affiliate: %{formatPercent(store.totalAffiliateRate)}
                       </div>
                     </td>
-                    <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                    <td className="table-strong">
                       {formatCurrency(store.totalRevenue)}
                     </td>
                     <td>{formatDateTime(store.lastSyncedAt)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className="actions no-margin" style={{ justifyContent: "flex-end" }}>
+                    <td className="table-cell-right">
+                      <div className="actions no-margin actions-end">
                         <Link className="button button-secondary" href={`/stores/${store.slug}`}>
                           Detay
                         </Link>

@@ -70,7 +70,7 @@ export default async function FinancePage() {
                     <span className="pill pill-accent">{row.billingStatus}</span>
                   </td>
                   <td>{formatCurrency(row.setupRevenue)}</td>
-                  <td style={{ fontWeight: 600 }}>{formatCurrency(row.totalRevenue)}</td>
+                  <td className="table-strong">{formatCurrency(row.totalRevenue)}</td>
                   <td>{row.orderCount.toLocaleString('tr-TR')}</td>
                   <td>{formatCurrency(row.averageOrderValue)}</td>
                   <td>

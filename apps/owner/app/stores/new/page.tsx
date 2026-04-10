@@ -21,7 +21,7 @@ export default async function NewStorePage() {
         </div>
       </div>
 
-      <div className="card" style={{ maxWidth: 800 }}>
+      <div className="card card-cap">
         <CreateStoreForm />
       </div>
     </>

@@ -31,7 +31,7 @@ export default async function AffiliatesPage() {
           {superAdmin ? (
             <CreateAffiliateForm stores={stores.map((store) => ({ slug: store.slug, name: store.name }))} />
           ) : (
-            <div className="empty-state" style={{ padding: "32px 24px" }}>
+            <div className="empty-state empty-state-compact">
               <p className="muted">Bu islem icin super admin yetkisi gerekli.</p>
             </div>
           )}
@@ -40,7 +40,7 @@ export default async function AffiliatesPage() {
         <div className="card">
           <div className="card-title">Kayitli Affiliate Hesaplari</div>
           {affiliates.length === 0 ? (
-            <div className="empty-state" style={{ padding: "32px 24px" }}>
+            <div className="empty-state empty-state-compact">
               <p className="muted">Henüz affiliate hesabi yok.</p>
             </div>
           ) : (
@@ -49,11 +49,11 @@ export default async function AffiliatesPage() {
                 <div key={affiliate.id} className="inline-card">
                   <div>
                     <strong>{affiliate.fullName || affiliate.email}</strong>
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--text-tertiary)" }}>
+                    <p className="muted">
                       {affiliate.email}
                     </p>
                   </div>
-                  <div className="actions no-margin" style={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <div className="actions no-margin status-actions">
                     {affiliate.assignments.map((assignment) => (
                       <span key={`${affiliate.id}-${assignment.storeId}`} className="pill pill-accent">
                         {assignment.storeName} | %{assignment.commissionRate}

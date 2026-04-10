@@ -88,14 +88,14 @@ export default async function OwnerDashboardPage() {
       </div>
 
       {dashboardError && (
-        <div className="card" style={{ borderColor: "#FCA5A5", background: "#FEF2F2" }}>
+        <div className="card surface-alert">
           <p className="form-error">{dashboardError}</p>
         </div>
       )}
 
       {/* Attention Stores */}
       {dashboard && dashboard.attentionStores.length > 0 && (
-        <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card section-tight">
           <div className="section-head">
             <div>
               <div className="card-title">Dikkat Gerektiren Projeler</div>
@@ -151,7 +151,7 @@ export default async function OwnerDashboardPage() {
                     <th>Durum</th>
                     <th>Ciro</th>
                     <th>Sipariş</th>
-                    <th style={{ textAlign: "right" }}>İşlem</th>
+                    <th className="table-cell-right">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -166,8 +166,8 @@ export default async function OwnerDashboardPage() {
                       </td>
                       <td>{formatCurrency(store.totalRevenue)}</td>
                       <td>{store.orderCount}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <div className="actions no-margin" style={{ justifyContent: "flex-end" }}>
+                      <td className="table-cell-right">
+                        <div className="actions no-margin actions-end">
                           <Link href={`/stores/${store.slug}`} className="button button-secondary">Detay</Link>
                           {superAdmin && (
                             <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
@@ -192,7 +192,7 @@ export default async function OwnerDashboardPage() {
           </div>
 
           {!dashboard || dashboard.recentActivity.length === 0 ? (
-            <div className="empty-state" style={{ padding: "32px 24px" }}>
+            <div className="empty-state empty-state-compact">
               <p className="muted">Henüz aktivite kaydı yok.</p>
             </div>
           ) : (

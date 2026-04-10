@@ -34,7 +34,7 @@ export default async function ClientsPage() {
                 </span>
               </div>
               <p>{client.nextAction || "Siradaki aksiyon tanimlanmamis."}</p>
-              <div className="meta-pairs" style={{ marginTop: 12, fontSize: 12 }}>
+              <div className="meta-pairs meta-pairs-compact">
                 <span>Magaza: <strong>{client.storeName}</strong></span>
                 <span>Ic sorumlu: <strong>{client.internalOwner || "Atanmadi"}</strong></span>
                 <span>Iletisim: <strong>{client.clientContactName || client.clientContactEmail || "-"}</strong></span>
