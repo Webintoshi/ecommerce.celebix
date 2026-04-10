@@ -10,6 +10,12 @@ import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import {
+  type DeploymentWindowHandle,
+  releaseGeneratedDeploymentWindow,
+  reserveGeneratedDeploymentWindow,
+} from "@/lib/generated-deployment-guard";
+import { isRedisLockError } from "@/lib/redis";
 
 function shouldAutoProvisionGeneratedApps(): boolean {
   const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
@@ -95,9 +101,19 @@ export async function POST(request: Request) {
     const shouldAutoProvisionApps = shouldAutoProvisionGeneratedApps();
 
     if (shouldAutoProvisionApps) {
+      let deploymentWindow: DeploymentWindowHandle | null = null;
+
       try {
+        deploymentWindow = await reserveGeneratedDeploymentWindow({
+          slug: result.store.slug,
+          target: "admin",
+        });
         await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
       } catch (error) {
+        if (deploymentWindow) {
+          await releaseGeneratedDeploymentWindow(deploymentWindow);
+        }
+
         warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
       }
     } else {
@@ -129,7 +145,13 @@ export async function POST(request: Request) {
       warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
     }
     if (shouldAutoProvisionApps) {
+      let deploymentWindow: DeploymentWindowHandle | null = null;
+
       try {
+        deploymentWindow = await reserveGeneratedDeploymentWindow({
+          slug: result.store.slug,
+          target: "storefront",
+        });
         const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
           waitForRuntime: false,
         });
@@ -141,6 +163,10 @@ export async function POST(request: Request) {
           );
         }
       } catch (error) {
+        if (deploymentWindow) {
+          await releaseGeneratedDeploymentWindow(deploymentWindow);
+        }
+
         warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
       }
     } else {
@@ -161,6 +187,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ...result, warnings }, { status: 201 });
   } catch (error) {
+    if (isRedisLockError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     const message = error instanceof Error ? error.message : "Magaza olusturulamadi.";
     return NextResponse.json({ error: message }, { status: 400 });
   }

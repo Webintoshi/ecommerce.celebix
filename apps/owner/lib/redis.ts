@@ -13,11 +13,33 @@ local ttl = redis.call("PTTL", KEYS[1])
 return { current, ttl }
 `;
 
+const RELEASE_LOCK_SCRIPT = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0
+`;
+
 type RedisClient = ReturnType<typeof createClient>;
+export type RedisKeyBuilder = (key: string) => string;
+
+export type RedisLockHandle = {
+  key: string;
+  token: string;
+};
 
 let redisClient: RedisClient | null = null;
 let redisConnectionPromise: Promise<RedisClient | null> | null = null;
 let hasLoggedRedisError = false;
+
+export class RedisLockError extends Error {
+  readonly code = "REDIS_LOCKED";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "RedisLockError";
+  }
+}
 
 function getRedisUrl() {
   return process.env.REDIS_URL?.trim() || process.env.CELEBIX_REDIS_URL?.trim() || "";
@@ -29,6 +51,14 @@ function getRedisPrefix() {
 
 function buildScopedKey(key: string) {
   return [getRedisPrefix(), APP_SCOPE, key].filter(Boolean).join(":");
+}
+
+function createLockToken() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function logRedisError(context: string, error: unknown) {
@@ -126,5 +156,73 @@ export async function consumeRateLimitBucket(
   } catch (error) {
     logRedisError("rate limit failed", error);
     return null;
+  }
+}
+
+export function isRedisLockError(error: unknown): error is RedisLockError {
+  return error instanceof RedisLockError;
+}
+
+export async function runWithRedisClient<T>(
+  operation: string,
+  callback: (client: RedisClient, buildKey: RedisKeyBuilder) => Promise<T>,
+): Promise<T | null> {
+  const client = await getRedisClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    return await callback(client, buildScopedKey);
+  } catch (error) {
+    logRedisError(`${operation} failed`, error);
+    return null;
+  }
+}
+
+export async function tryAcquireRedisLock(
+  key: string,
+  ttlMs: number,
+): Promise<RedisLockHandle | false | null> {
+  const client = await getRedisClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const scopedKey = buildScopedKey(`lock:${key}`);
+    const token = createLockToken();
+    const reserved = await client.set(scopedKey, token, {
+      NX: true,
+      PX: Math.max(1, ttlMs),
+    });
+
+    if (reserved !== "OK") {
+      return false;
+    }
+
+    return {
+      key: scopedKey,
+      token,
+    };
+  } catch (error) {
+    logRedisError("lock acquire failed", error);
+    return null;
+  }
+}
+
+export async function releaseRedisLock(lock: RedisLockHandle): Promise<void> {
+  const client = await getRedisClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.eval(RELEASE_LOCK_SCRIPT, {
+      keys: [lock.key],
+      arguments: [lock.token],
+    });
+  } catch (error) {
+    logRedisError("lock release failed", error);
   }
 }

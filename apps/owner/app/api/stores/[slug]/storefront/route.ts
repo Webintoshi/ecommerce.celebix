@@ -9,6 +9,12 @@ import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { getRepoRoot } from "@celebix/platform-config";
 import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import {
+  type DeploymentWindowHandle,
+  releaseGeneratedDeploymentWindow,
+  reserveGeneratedDeploymentWindow,
+} from "@/lib/generated-deployment-guard";
+import { isRedisLockError } from "@/lib/redis";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
 interface StorefrontRouteProps {
@@ -62,7 +68,19 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
       blueprint = await prepareStorefrontDeployment(slug);
     }
 
-    const deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
+    const deploymentWindow: DeploymentWindowHandle = await reserveGeneratedDeploymentWindow({
+      slug,
+      target: "storefront",
+    });
+    let deployment;
+
+    try {
+      deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
+    } catch (error) {
+      await releaseGeneratedDeploymentWindow(deploymentWindow);
+      throw error;
+    }
+
     await syncOwnerStoresAndMetrics();
 
     return NextResponse.json(
@@ -77,6 +95,10 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
       { status: 201 }
     );
   } catch (error) {
+    if (isRedisLockError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Storefront klasoru olusturulamadi."
