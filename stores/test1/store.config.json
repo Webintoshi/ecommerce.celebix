@@ -35,7 +35,11 @@
     "dashboardUrl": "https://supabasekong-test1.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
-    "provisioning": "pending-owner-env"
+    "bucketName": "test1-assets",
+    "publicUrl": "https://pub-7866ff3be8354260a5096596cc6038ab.r2.dev",
+    "managedDomain": "pub-7866ff3be8354260a5096596cc6038ab.r2.dev",
+    "provisionedAt": "2026-04-11T01:14:00.000Z",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-04-09T21:54:47.598Z",

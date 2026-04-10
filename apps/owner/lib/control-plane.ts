@@ -50,6 +50,13 @@ interface OwnerStoreRow {
   updated_at: string;
 }
 
+interface OwnerStoreAuthorityFields {
+  metadata: Record<string, unknown> | null;
+  r2_bucket_name: string | null;
+  r2_public_url: string | null;
+  r2_managed_domain: string | null;
+}
+
 interface OwnerMetricRow {
   store_id: string;
   product_count: number;
@@ -944,7 +951,7 @@ function isSuspiciousZeroMetrics(metric: OwnerMetricRow | undefined, store: Owne
 
 function buildOwnerStoreRow(
   store: StoreConfig,
-  existingMetadata: Record<string, unknown> | null,
+  existingAuthority: OwnerStoreAuthorityFields | null,
   authority?: {
     supabaseUrl?: string | null;
   }
@@ -964,13 +971,36 @@ function buildOwnerStoreRow(
     supabase_url:
       authority?.supabaseUrl?.trim() ||
       (store.supabase.url === "configure-in-env" ? null : store.supabase.url),
-    r2_bucket_name: store.r2?.bucketName ?? null,
-    r2_public_url: store.r2?.publicUrl ?? null,
-    r2_managed_domain: store.r2?.managedDomain ?? null,
+    r2_bucket_name: store.r2?.bucketName ?? existingAuthority?.r2_bucket_name ?? null,
+    r2_public_url: store.r2?.publicUrl ?? existingAuthority?.r2_public_url ?? null,
+    r2_managed_domain: store.r2?.managedDomain ?? existingAuthority?.r2_managed_domain ?? null,
     storefront_app_dir: store.storefront?.appDir ?? null,
     storefront_status: store.storefront?.status ?? "not_started",
-    metadata: mergeStoreMetadata(store, existingMetadata)
+    metadata: mergeStoreMetadata(store, existingAuthority?.metadata ?? null)
   };
+}
+
+export async function updateOwnerStoreR2Authority(
+  slug: string,
+  input: {
+    bucketName: string;
+    publicUrl: string;
+    managedDomain?: string | null;
+  }
+): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const { error } = await serviceClient
+    .from("owner_stores")
+    .update({
+      r2_bucket_name: input.bucketName,
+      r2_public_url: input.publicUrl,
+      r2_managed_domain: input.managedDomain ?? null,
+    })
+    .eq("slug", slug);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 function buildStoreHealth(
@@ -1443,7 +1473,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
 
   const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
     .from("owner_stores")
-    .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url");
+    .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain");
 
   if (existingStoreRowsError) {
     throw new Error(existingStoreRowsError.message);
@@ -1457,6 +1487,9 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
     admin_domain: string;
     metadata: Record<string, unknown> | null;
     supabase_url: string | null;
+    r2_bucket_name: string | null;
+    r2_public_url: string | null;
+    r2_managed_domain: string | null;
   }>) ?? [];
   const activeStoreSlugs = new Set(storeConfigs.map((store) => store.slug));
   const orphanedSmokeRows = allExistingRows.filter((row) => {
@@ -1490,10 +1523,15 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
   }
 
   const existingRows = allExistingRows.filter((row) => activeStoreSlugs.has(row.slug));
-  const metadataMap = new Map<string, Record<string, unknown> | null>(
+  const authorityMap = new Map<string, OwnerStoreAuthorityFields>(
     existingRows.map((row) => [
       row.slug,
-      row.metadata ?? null
+      {
+        metadata: row.metadata ?? null,
+        r2_bucket_name: row.r2_bucket_name ?? null,
+        r2_public_url: row.r2_public_url ?? null,
+        r2_managed_domain: row.r2_managed_domain ?? null,
+      }
     ])
   );
   const storeIdBySlug = new Map(existingRows.map((row) => [row.slug, row.id]));
@@ -1518,7 +1556,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
     .from("owner_stores")
     .upsert(
       storeConfigs.map((store) =>
-        buildOwnerStoreRow(store, metadataMap.get(store.slug) ?? null, {
+        buildOwnerStoreRow(store, authorityMap.get(store.slug) ?? null, {
           supabaseUrl: secretUrlBySlug.get(store.slug) ?? null,
         })
       ),

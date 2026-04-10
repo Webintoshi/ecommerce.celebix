@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createStore, updateStoreStorefrontConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
-import { listDashboardStores, recordOwnerAuditLog, syncOwnerStoresAndMetrics } from "@/lib/control-plane";
+import {
+  listDashboardStores,
+  recordOwnerAuditLog,
+  syncOwnerStoresAndMetrics,
+  updateOwnerStoreR2Authority,
+} from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
@@ -99,7 +104,12 @@ export async function POST(request: Request) {
 
     if (r2BootstrapStatus.configured) {
       try {
-        await provisionR2ForStore(result.store);
+        const r2Provisioning = await provisionR2ForStore(result.store);
+        await updateOwnerStoreR2Authority(result.store.slug, {
+          bucketName: r2Provisioning.bucketName,
+          publicUrl: r2Provisioning.publicUrl,
+          managedDomain: r2Provisioning.managedDomain,
+        });
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : "R2 otomatik kurulumu tamamlanamadi.");
       }

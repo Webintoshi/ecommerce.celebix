@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
-import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
+import { syncOwnerStoresAndMetrics, updateOwnerStoreR2Authority } from "@/lib/control-plane";
 import { provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 
@@ -26,6 +26,11 @@ export async function POST(_request: Request, { params }: ProvisionR2RouteProps)
     }
 
     const result = await provisionR2ForStore(store);
+    await updateOwnerStoreR2Authority(slug, {
+      bucketName: result.bucketName,
+      publicUrl: result.publicUrl,
+      managedDomain: result.managedDomain,
+    });
     await syncOwnerStoresAndMetrics();
 
     return NextResponse.json(
