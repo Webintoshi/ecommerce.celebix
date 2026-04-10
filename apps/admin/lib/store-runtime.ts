@@ -21,6 +21,34 @@ function inferDomainFromUrl(url: string | undefined): string {
   return hostname || "";
 }
 
+function isLocalDomain(value: string | undefined): boolean {
+  const normalized = resolveHostname(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.includes("localhost") || normalized.endsWith(".local");
+}
+
+function resolvePublicDomain(
+  domainValue: string | undefined,
+  urlValue: string | undefined,
+  fallbackDomain: string,
+): string {
+  if (domainValue?.trim() && !isLocalDomain(domainValue)) {
+    return resolveHostname(domainValue) || fallbackDomain;
+  }
+
+  const inferredFromUrl = inferDomainFromUrl(urlValue);
+
+  if (inferredFromUrl && !isLocalDomain(inferredFromUrl)) {
+    return inferredFromUrl;
+  }
+
+  return fallbackDomain;
+}
+
 function normalizeUrl(url: string | undefined, fallbackDomain: string): string {
   const normalizedFallback = toAbsoluteUrl(fallbackDomain);
   const fallbackHost = resolveHostname(fallbackDomain);
@@ -57,16 +85,16 @@ const adminUrl =
   process.env.NEXT_PUBLIC_ADMIN_URL ||
   process.env.ADMIN_URL ||
   "https://localhost:3200";
-const storefrontDomain =
-  process.env.NEXT_PUBLIC_STORE_DOMAIN ||
-  process.env.STORE_DOMAIN ||
-  inferDomainFromUrl(storefrontUrl) ||
-  "localhost:3300";
-const adminDomain =
-  process.env.NEXT_PUBLIC_ADMIN_DOMAIN ||
-  process.env.ADMIN_DOMAIN ||
-  inferDomainFromUrl(adminUrl) ||
-  "localhost:3200";
+const storefrontDomain = resolvePublicDomain(
+  process.env.NEXT_PUBLIC_STORE_DOMAIN || process.env.STORE_DOMAIN,
+  storefrontUrl,
+  "localhost:3300",
+);
+const adminDomain = resolvePublicDomain(
+  process.env.NEXT_PUBLIC_ADMIN_DOMAIN || process.env.ADMIN_DOMAIN,
+  adminUrl,
+  "localhost:3200",
+);
 
 export const STORE_RUNTIME = {
   slug: storeSlug,
