@@ -11,7 +11,13 @@ export function SignOutButton() {
   function handleClick() {
     startTransition(async () => {
       const supabase = createOwnerBrowserClient();
-      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }).catch(() => undefined);
+      await supabase.auth.signOut({ scope: "local" });
       router.replace("/login");
       router.refresh();
     });
