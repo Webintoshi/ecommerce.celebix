@@ -6,6 +6,7 @@ import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/sup
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
+import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
@@ -76,6 +77,19 @@ export async function POST(request: Request) {
     if (bootstrapStatus.configured) {
       try {
         await provisionSupabaseForStore(result.store);
+        try {
+          const starterSeed = await seedStarterStorefrontContent(result.store);
+
+          if (starterSeed.status === "skipped") {
+            warnings.push(starterSeed.message);
+          }
+        } catch (error) {
+          warnings.push(
+            error instanceof Error
+              ? error.message
+              : "Starter storefront icerigi otomatik olarak yazilamadi.",
+          );
+        }
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : "Supabase otomatik kurulumu tamamlanamadi.");
       }
