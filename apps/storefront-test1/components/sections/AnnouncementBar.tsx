@@ -13,9 +13,9 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Ilk siparisinizde %10 indirim!",
-  link: "/kampanyalar",
-  linkText: "Hemen Kesfet",
+  message: "Markanizin ilk premium vitrini hazir.",
+  link: "/urunler",
+  linkText: "Koleksiyonu Kesfet",
   enabled: true,
   backgroundColor: "#7B1113",
 };

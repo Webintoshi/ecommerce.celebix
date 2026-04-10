@@ -41,7 +41,77 @@ export function CategoriesSection({
     });
 
   if (displayCategories.length === 0) {
-    return null;
+    const starterCategories = [
+      {
+        id: "starter-1",
+        name: "Hazir Koleksiyon Alani",
+        link: ROUTES.products,
+        image: "/placeholders/promo-banner-1.svg",
+      },
+      {
+        id: "starter-2",
+        name: "One Cikan Seriler",
+        link: ROUTES.products,
+        image: "/placeholders/promo-banner-2.svg",
+      },
+      {
+        id: "starter-3",
+        name: "Yeni Sezon Vitrini",
+        link: ROUTES.products,
+        image: "/placeholders/promo-banner-3.svg",
+      },
+    ];
+
+    return (
+      <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
+        <div className="container-premium">
+          <div className="mb-12 text-center lg:mb-16">
+            <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
+            <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-neutral-500">
+              Kategoriler adminden aktiflestiginde bu blok otomatik olarak gercek koleksiyonlarinizla dolar.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+            {starterCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={category.link}
+                className="group relative block aspect-[3/2] overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_20px_50px_-38px_rgba(41,24,15,0.35)]"
+              >
+                <Image
+                  src={category.image}
+                  alt={category.name}
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-6">
+                  <p className="category-card-title" style={{ color: "#ffffff" }}>
+                    {category.name}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <style jsx>{`
+          .category-card-title {
+            max-width: 88%;
+            font-size: 18px !important;
+            font-weight: 600;
+            line-height: 1.08 !important;
+            text-wrap: balance;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+            -webkit-text-size-adjust: none;
+            text-size-adjust: none;
+          }
+        `}</style>
+      </section>
+    );
   }
 
   return (

@@ -1,9 +1,9 @@
-const DEFAULT_SITE_URL = "https://derycraft.com";
-const DEFAULT_STORE_NAME = "DeryCraft";
-const DEFAULT_TAGLINE = "El yapimi hakiki deri kordonlar ve premium aksesuarlar.";
+const DEFAULT_SITE_URL = "https://test1.46.225.183.57.sslip.io";
+const DEFAULT_STORE_NAME = "Ornek Magaza";
+const DEFAULT_TAGLINE = "Premium magazanizi Celebix altyapisiyla hizli sekilde canliya alin.";
 const DEFAULT_DESCRIPTION =
-  "Roarcraft kalitesinde, yuzde yuz el yapimi hakiki deri kordonlar, Apple Watch kayislari ve premium deri aksesuarlar.";
-const DEFAULT_SUPPORT_EMAIL = "bilgi@derycraft.com";
+  "Celebix ile yonetilen premium e-ticaret deneyimi. Urunlerinizi, kategorilerinizi ve iceriklerinizi adminden yonetin; storefront otomatik olarak guncellensin.";
+const DEFAULT_SUPPORT_EMAIL = "destek@test1.46.225.183.57.sslip.io";
 const DEFAULT_SUPPORT_PHONE = "+90 555 000 00 00";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
 
@@ -39,13 +39,13 @@ export const STOREFRONT_RUNTIME = {
     process.env.NEXT_PUBLIC_STORE_SUPPORT_PHONE || DEFAULT_SUPPORT_PHONE
   ),
   socialInstagram:
-    process.env.NEXT_PUBLIC_STORE_INSTAGRAM || "https://instagram.com/ornekmagaza",
+    process.env.NEXT_PUBLIC_STORE_INSTAGRAM || "https://instagram.com/celebix.co",
   socialFacebook:
-    process.env.NEXT_PUBLIC_STORE_FACEBOOK || "https://facebook.com/ornekmagaza",
+    process.env.NEXT_PUBLIC_STORE_FACEBOOK || "https://facebook.com/celebixco",
   socialTwitter:
-    process.env.NEXT_PUBLIC_STORE_TWITTER || "https://twitter.com/ornekmagaza",
+    process.env.NEXT_PUBLIC_STORE_TWITTER || "https://twitter.com/celebixco",
   shippingMessage:
-    process.env.NEXT_PUBLIC_FREE_SHIPPING_TEXT || "500 TL uzeri siparislerde ucretsiz kargo",
+    process.env.NEXT_PUBLIC_FREE_SHIPPING_TEXT || "Ilk koleksiyonunuz birkac ayar sonra burada canlanir",
   gtmId: process.env.NEXT_PUBLIC_GTM_ID || "",
 } as const;
 

@@ -75,6 +75,16 @@ export interface HomepageData {
   products: Record<string, unknown>[];
   promoBanners: Record<string, unknown>[];
   allProducts: Record<string, unknown>[];
+  testimonials: HomepageTestimonial[];
+}
+
+export interface HomepageTestimonial {
+  id: string;
+  name: string;
+  rating: number;
+  body: string;
+  image?: string | null;
+  title?: string | null;
 }
 
 function hydrateHomepageProducts(
@@ -227,7 +237,31 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
     throw error;
   }
 
-  return data ?? [];
+  if ((data?.length ?? 0) > 0) {
+    return data ?? [];
+  }
+
+  const fallbackQuery = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .is("parent_id", null)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true })
+      .limit(6);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
+
+  if (fallbackQuery.error) {
+    throw fallbackQuery.error;
+  }
+
+  return fallbackQuery.data ?? [];
 }
 
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
@@ -321,6 +355,35 @@ async function translateHeroBanners(
   );
 }
 
+async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServerClient>) {
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("id, reviewer_name, rating, body, title, image_urls")
+    .eq("status", "approved")
+    .order("approved_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  if (error) {
+    console.error("Failed to fetch homepage testimonials:", error);
+    return [];
+  }
+
+  return (
+    data?.map((review) => ({
+      id: review.id,
+      name: review.reviewer_name,
+      rating: Number(review.rating || 0),
+      body: review.body || "",
+      title: review.title || null,
+      image:
+        Array.isArray(review.image_urls) && review.image_urls.length > 0
+          ? review.image_urls[0]
+          : null,
+    })) ?? []
+  );
+}
+
 export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<HomepageData> {
   const supabase = createServerClient();
 
@@ -331,6 +394,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     promoBannersData,
     allProductsData,
     attributeRegistry,
+    testimonialsData,
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -346,31 +410,43 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       .maybeSingle(),
     fetchAllProductsForShowcase(supabase),
     getVariantAttributeRegistry(),
+    fetchHomepageTestimonials(supabase),
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categoriesBySlug = new Map(
-    (categoriesData || []).map((category) => [category.slug, category]),
+  const categoryOrder = new Map(
+    HOMEPAGE_CATEGORY_ORDER.map((entry, index) => [entry.slug, index]),
   );
 
-  const categoryBase = HOMEPAGE_CATEGORY_ORDER.map((entry) => {
-    const category = categoriesBySlug.get(entry.slug);
+  const categoryBase = (categoriesData || [])
+    .filter((category) => category.slug && category.name)
+    .sort((left, right) => {
+      const leftPriority = categoryOrder.get(left.slug) ?? 99;
+      const rightPriority = categoryOrder.get(right.slug) ?? 99;
 
-    if (!category) {
-      return null;
-    }
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
 
-    return {
+      const leftSort = typeof left.sort_order === "number" ? left.sort_order : 999;
+      const rightSort = typeof right.sort_order === "number" ? right.sort_order : 999;
+
+      if (leftSort !== rightSort) {
+        return leftSort - rightSort;
+      }
+
+      return String(left.name).localeCompare(String(right.name), "tr");
+    })
+    .map((category) => ({
       id: category.id,
-      name: category.name || entry.name,
+      name: category.name,
       slug: category.slug,
       description: category.description || null,
       image: category.image,
       productCount: typeof category.product_count === "number" ? category.product_count : 0,
       seo_title: category.seo_title || null,
       seo_description: category.seo_description || null,
-    };
-  }).filter((category): category is HomepageCategory & Record<string, unknown> => Boolean(category));
+    }));
 
   const translatedCategories = await Promise.all(
     categoryBase.map(async (category) => {
@@ -400,5 +476,6 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     products: hydrateHomepageProducts(translatedProducts || [], attributeRegistry),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
     allProducts: hydrateHomepageProducts(translatedShowcaseProducts || [], attributeRegistry),
+    testimonials: testimonialsData,
   };
 }

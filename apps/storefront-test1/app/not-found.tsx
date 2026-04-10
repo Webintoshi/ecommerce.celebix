@@ -9,103 +9,81 @@ export default function NotFound() {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery) {
+  const handleSearch = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && searchQuery) {
       router.push(`/urunler?q=${encodeURIComponent(searchQuery)}`);
     }
   };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
-      <div className="container mx-auto px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          {/* 404 Illustration */}
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
+      <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
+        <div className="max-w-2xl text-center">
           <div className="mb-8">
-            <h1 className="text-9xl font-bold text-primary mb-4">404</h1>
-            <div className="text-6xl mb-4">🥜</div>
+            <h1 className="mb-4 text-9xl font-bold text-primary">404</h1>
+            <div className="mb-4 text-6xl">?</div>
           </div>
 
-          {/* Message */}
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Sayfa Bulunamadı
+          <h2 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
+            Sayfa Bulunamadi
           </h2>
-          <p className="text-lg text-gray-600 mb-8">
-            Aradığınız sayfa taşınmış, silinmiş veya hiç var olmamış olabilir.
-            <br />
-            Endişelenmeyin, size yardımcı olabiliriz!
+          <p className="mb-8 text-lg text-gray-600">
+            Aradiginiz sayfa tasinmis, silinmis veya henuz hazir degil olabilir.
+            Endiselenmeyin, sizi dogru yere yonlendirebiliriz.
           </p>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Link
               href="/"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              <Home className="w-5 h-5" />
-              Ana Sayfaya Dön
+              <Home className="h-5 w-5" />
+              Ana Sayfaya Don
             </Link>
             <Link
               href="/urunler"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-primary/20 rounded-lg font-medium hover:bg-primary/5 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 px-6 py-3 font-medium transition-colors hover:bg-primary/5"
             >
-              <ShoppingBag className="w-5 h-5" />
-              Ürünleri İncele
+              <ShoppingBag className="h-5 w-5" />
+              Urunleri Incele
             </Link>
           </div>
 
-          {/* Search Suggestion */}
-          <div className="mt-12 pt-8 border-t border-gray-200">
-            <p className="text-gray-600 mb-4">
-              Veya aradığınız ürünü bulabilirsiniz:
-            </p>
-            <div className="max-w-md mx-auto">
+          <div className="mt-12 border-t border-gray-200 pt-8">
+            <p className="mb-4 text-gray-600">Veya aradiginiz urunu burada arayin:</p>
+            <div className="mx-auto max-w-md">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Ürün ara..."
+                  placeholder="Urun ara..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={handleSearch}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 focus:border-transparent focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
           </div>
 
-          {/* Popular Links */}
           <div className="mt-12">
-            <p className="text-sm text-gray-600 mb-4">Popüler Sayfalar:</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Link
-                href="/kategori/fistik-ezmesi-koleksiyonu-2025"
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm hover:border-primary hover:text-primary transition-colors"
-              >
-                Fıstık Ezmeleri
-              </Link>
-              <Link
-                href="/kategori/findik-ezmesi-koleksiyonu"
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm hover:border-primary hover:text-primary transition-colors"
-              >
-                Fındık Ezmeleri
-              </Link>
-              <Link
-                href="/kategori/kuruyemisler"
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm hover:border-primary hover:text-primary transition-colors"
-              >
-                Kuruyemişler
-              </Link>
-              <Link
-                href="/blog"
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm hover:border-primary hover:text-primary transition-colors"
-              >
-                Blog
-              </Link>
-              <Link
-                href="/iletisim"
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm hover:border-primary hover:text-primary transition-colors"
-              >
-                İletişim
-              </Link>
+            <p className="mb-4 text-sm text-gray-600">Populer Sayfalar:</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { href: "/urunler", label: "Urunler" },
+                { href: "/hakkimizda", label: "Hakkimizda" },
+                { href: "/magazalarimiz", label: "Magazalarimiz" },
+                { href: "/kurumsal-urunler", label: "Kurumsal Urunler" },
+                { href: "/iletisim", label: "Iletisim" },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm transition-colors hover:border-primary hover:text-primary"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

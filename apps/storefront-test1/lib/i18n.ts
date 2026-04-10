@@ -1,3 +1,5 @@
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+
 export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -38,6 +40,7 @@ type LocaleCopy = {
   missingProductTitle: string;
   missingProductDescription: string;
   missingCategoryTitle: string;
+  missingCategoryDescription?: string;
   menuLabel: string;
   searchLabel: string;
   cartLabel: string;
@@ -58,6 +61,60 @@ type LocaleCopy = {
   breadcrumbProducts: string;
   faqHeading: string;
 };
+
+function getRuntimeCopyDefaults(locale: StorefrontLocale) {
+  const name = STOREFRONT_RUNTIME.name;
+
+  switch (locale) {
+    case "en":
+      return {
+        siteTitle: `${name} | Premium Storefront`,
+        siteDescription:
+          "Premium storefront experience that automatically turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+        homeTitle: `${name} | Premium Storefront`,
+        homeDescription:
+          "Premium storefront experience that automatically turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+        productsTitle: `All Products | ${name}`,
+        productsDescription:
+          "Discover the published products, featured collections, and premium merchandising blocks managed from your admin panel.",
+        contactTitle: `Contact | ${name}`,
+        contactDescription:
+          "Reach out for support, wholesale requests, and custom project inquiries.",
+        corporateTitle: `Corporate Products | ${name}`,
+        corporateDescription:
+          "Present your brand with premium products, curated gifting, and admin-driven corporate showcase pages.",
+        missingProductTitle: `Product Not Found | ${name}`,
+        missingProductDescription:
+          "The product you are looking for could not be found.",
+        missingCategoryTitle: `Category Not Found | ${name}`,
+        missingCategoryDescription:
+          "The requested collection is not available yet. Published categories will appear here automatically.",
+      };
+    default:
+      return {
+        siteTitle: `${name} | Premium Magaza Deneyimi`,
+        siteDescription:
+          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlarla otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+        homeTitle: `${name} | Premium Magaza Deneyimi`,
+        homeDescription:
+          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlarla otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+        productsTitle: `Tum Urunler | ${name}`,
+        productsDescription:
+          "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
+        contactTitle: `Iletisim | ${name}`,
+        contactDescription:
+          "Destek, toptan satis ve ozel proje talepleriniz icin bizimle iletisime gecin.",
+        corporateTitle: `Kurumsal Urunler | ${name}`,
+        corporateDescription:
+          "Markanizi premium urunler, ozel hediye setleri ve admin yonetimli kurumsal vitrinle guclendirin.",
+        missingProductTitle: `Urun Bulunamadi | ${name}`,
+        missingProductDescription: "Aradiginiz urun bulunamadi.",
+        missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
+        missingCategoryDescription:
+          "Istenen koleksiyon henuz hazir degil. Yayinlanan kategoriler otomatik olarak burada listelenecek.",
+      };
+  }
+}
 
 export const LOCALE_COPY: Record<StorefrontLocale, LocaleCopy> = {
   tr: {
@@ -382,7 +439,11 @@ export function buildLocaleAlternates(pathname: string) {
 }
 
 export function getLocalizedCopy(locale: StorefrontLocale) {
-  return LOCALE_COPY[locale] || LOCALE_COPY[DEFAULT_LOCALE];
+  const baseCopy = LOCALE_COPY[locale] || LOCALE_COPY[DEFAULT_LOCALE];
+  return {
+    ...baseCopy,
+    ...getRuntimeCopyDefaults(locale),
+  };
 }
 
 export function getLocalizedCategoryLabel(

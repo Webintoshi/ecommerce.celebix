@@ -1,126 +1,86 @@
-"use client";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getStorefrontProfile } from "@/lib/storefront-profile";
 
-export default function GizlilikPage() {
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const profile = await getStorefrontProfile();
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/gizlilik",
+    title: `Gizlilik Politikasi | ${profile.name}`,
+    description:
+      `${profile.name} tarafindan toplanan veriler, kullanimi ve iletisim surecleri hakkinda ozet gizlilik bilgilendirmesi.`,
+  });
+}
+
+export default async function PrivacyPage() {
+  const profile = await getStorefrontProfile();
+
+  const sections = [
+    {
+      title: "Hangi verileri topluyoruz?",
+      body:
+        "Siparis, teslimat, odeme ve destek sureclerini yurutmek icin ad, adres, telefon, e-posta, siparis icerigi ve teknik oturum bilgileri islenebilir.",
+    },
+    {
+      title: "Bu verileri neden kullaniyoruz?",
+      body:
+        "Siparisleri tamamlamak, musteriyi bilgilendirmek, iade ve teslimat sureclerini yonetmek, sahteciligi azaltmak ve storefront deneyimini gelistirmek icin kullaniriz.",
+    },
+    {
+      title: "Veriler kimlerle paylasilabilir?",
+      body:
+        "Odeme, kargo, barindirma ve yasal zorunluluklar kapsamindaki hizmet saglayicilarla yalnizca gereken asgari veriler paylasilir.",
+    },
+    {
+      title: "Haklariniz nelerdir?",
+      body:
+        "Verilerinize erisim, duzeltme, silme veya iletisim tercihlerini guncelleme taleplerinizi bize iletebilirsiniz.",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Gizlilik Politikası
-          </h1>
-          
-          <p className="text-sm text-gray-500 mb-8">
-            Son Güncelleme: 30 Kasım 2025
+    <div className="min-h-screen bg-[#F8F8F8]">
+      <section className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-4xl px-6 py-16 lg:py-20">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            Gizlilik
           </p>
-
-          <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
-            <p>
-              Ornek Magaza, siz müşterilere kişisel bir alışveriş deneyimi ("Hizmetler") sunmak amacıyla tüm ilgili bilgiler, içerikler, özellikler, araçlar, ürünler ve hizmetler de dahil olmak üzere bu mağazayı ve web sitesini işletmektedir. Ornek Magaza, size Hizmetler'i sunmamızı sağlayan Shopify tarafından desteklenmektedir. İşbu Gizlilik Politikası, Hizmetler'i ziyaret ettiğinizde, kullandığınızda veya Hizmetler aracılığıyla bir satın alma ya da başka bir işlem gerçekleştirdiğinizde veya bizimle başka bir şekilde iletişim kurduğunuzda, kişisel bilgilerinizi nasıl topladığımızı, kullandığımızı ve paylaştığımızı açıklamaktadır.
-            </p>
-
-            <p>
-              Lütfen işbu Gizlilik Politikası'nı dikkatlice okuyunuz. Hizmetler'den herhangi birini kullanarak ve bunlara erişerek, işbu Gizlilik Politikası'nı okuduğunuzu ve bilgilerinizin bu Gizlilik Politikası'nda açıklandığı şekilde toplanmasını, kullanılmasını ve paylaşılmasını anladığınızı kabul etmiş olursunuz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Topladığımız veya İşlediğimiz Kişisel Bilgiler
-            </h2>
-
-            <p>
-              "Kişisel bilgiler" terimini kullandığımızda, sizin veya başka bir kişinin kimliğini açığa çıkaran ya da sizinle veya başka biriyle makul şekilde bağlantısı kurulabilen bilgileri kastederiz. Aşağıdaki kişisel bilgi kategorilerini toplayabilir ya da işleyebiliriz:
-            </p>
-
-            <ul className="list-disc pl-6 space-y-2">
-              <li><strong>İletişim bilgileri:</strong> Adınız, adresiniz, fatura adresiniz, kargo adresiniz, telefon numaranız ve e‑posta adresiniz.</li>
-              <li><strong>Finansal bilgiler:</strong> Kredi kartı, banka kartı ve finansal hesap numaraları, ödeme kartı bilgileri, işlem ayrıntıları.</li>
-              <li><strong>Hesap bilgileri:</strong> Kullanıcı adınız, parolanız, güvenlik sorularınız, tercihleriniz ve ayarlarınız.</li>
-              <li><strong>İşlem bilgileri:</strong> Sepete eklediğiniz, satın aldığınız, iade ettiğiniz ürünler ve geçmiş işlemleriniz.</li>
-              <li><strong>Cihaz bilgileri:</strong> Cihazınız, tarayıcınız, IP adresiniz ve diğer benzersiz tanımlayıcılar.</li>
-              <li><strong>Kullanım bilgileri:</strong> Hizmetler ile ne zaman ve nasıl etkileşimde bulunduğunuz.</li>
-            </ul>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kişisel Bilgilerinizi Nasıl Kullanırız?
-            </h2>
-
-            <ul className="list-disc pl-6 space-y-2">
-              <li><strong>Hizmetleri Sağlama:</strong> Siparişlerinizi işlemek, ödemelerinizi almak, kargo düzenlemek, hesabınızı yönetmek.</li>
-              <li><strong>Pazarlama ve Reklam:</strong> Size e-posta, kısa mesaj veya posta yoluyla pazarlama iletişimleri göndermek.</li>
-              <li><strong>Güvenlik ve Sahtekarlık Önleme:</strong> Hesabınızı doğrulamak, güvenli bir ödeme deneyimi sunmak.</li>
-              <li><strong>Sizinle İletişim Kurma:</strong> Müşteri desteği sağlamak, hızlı yanıt vermek.</li>
-              <li><strong>Hukuki Nedenler:</strong> Yürürlükteki yasalara uymak, hukuki süreçlere yanıt vermek.</li>
-            </ul>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kişisel Bilgilerinizi Nasıl Paylaşırız?
-            </h2>
-
-            <p>Belirli durumlarda, kişisel bilgilerinizi üçüncü taraflarla paylaşabiliriz:</p>
-
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Bizim adımıza hizmet veren üçüncü taraflar (ödeme işleme, kargo, müşteri desteği, bulut depolama).</li>
-              <li>Pazarlama hizmetleri ve reklam sunmak için iş ve pazarlama ortaklarımız.</li>
-              <li>Siz yönlendirdiğinizde veya açık rızanızla belirli bilgilerin paylaşılması.</li>
-              <li>Yasal yükümlülüklere uymak, hizmet şartlarını uygulamak amacıyla.</li>
-            </ul>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Shopify ile İlişki
-            </h2>
-
-            <p>
-              Hizmetler, Shopify tarafından barındırılmakta olup size Hizmetler'i sunmak amacıyla kişisel bilgileri toplamakta ve işlemektedir. Shopify'ın kişisel bilgilerinizi nasıl kullandığı hakkında daha fazla bilgi için Shopify Tüketici Gizlilik Politikası'nı inceleyebilirsiniz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Çocuklara Ait Veriler
-            </h2>
-
-            <p>
-              Hizmetler, çocuklar tarafından kullanılmak üzere tasarlanmamıştır ve yaşadığınız yargı bölgesinde yasal reşit olma yaşının altındaki çocuklara ait herhangi bir kişisel bilgiyi kasıtlı olarak toplamayız.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bilgilerinizin Güvenliği ve Saklanması
-            </h2>
-
-            <p>
-              Hiçbir güvenlik önlemi kusursuz değildir ve "mükemmel güvenlik" garantisi vermemiz mümkün değildir. Hassas bilgileri bize iletmek için güvenli olmayan iletişim kanallarını kullanmamanızı öneririz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Haklarınız ve Seçenekleriniz
-            </h2>
-
-            <p>İkamet ettiğiniz yere bağlı olarak, kişisel bilgilerinizle ilgili aşağıdaki haklara sahip olabilirsiniz:</p>
-
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Kişisel bilgilerinize erişim ve kopyasını talep etme</li>
-              <li>Kişisel bilgilerinizin düzeltilmesini talep etme</li>
-              <li>Kişisel bilgilerinizin silinmesini talep etme</li>
-              <li>Kişisel bilgilerinizin işlenmesine itiraz etme veya sınırlandırma talep etme</li>
-              <li>Pazarlama iletişimlerinden çıkma</li>
-            </ul>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              İletişim
-            </h2>
-
-            <p>
-              Gizlilik uygulamalarımız veya bu Gizlilik Politikası hakkında herhangi bir sorunuz varsa:
-            </p>
-
-            <div className="bg-gray-50 p-6 rounded-lg mt-4">
-              <p className="font-semibold">E-posta:</p>
-              <p className="mb-4">ornek-magazashopify@proton.me</p>
-              
-              <p className="font-semibold">Adres:</p>
-              <p>Akyazı Mahallesi 873. Sokak No:2 Daire:4</p>
-              <p>Altınordu / Ordu, Türkiye</p>
-            </div>
-          </div>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            Gizlilik politikasi
+          </h1>
+          <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
+            {profile.name} uzerinden toplanan siparis ve iletisim verilerinin nasil
+            kullanildigina dair kisa bilgilendirme.
+          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="mx-auto max-w-4xl px-6 py-12 lg:py-16">
+        <div className="space-y-6">
+          {sections.map((section) => (
+            <article
+              key={section.title}
+              className="rounded-[24px] border border-black/5 bg-white p-6 shadow-[0_20px_50px_-42px_rgba(41,24,15,0.35)]"
+            >
+              <h2 className="text-2xl font-semibold text-[#18110B]">{section.title}</h2>
+              <p className="mt-4 text-sm leading-7 text-[#5F5147]">{section.body}</p>
+            </article>
+          ))}
+
+          <article className="rounded-[24px] border border-black/5 bg-white p-6 shadow-[0_20px_50px_-42px_rgba(41,24,15,0.35)]">
+            <h2 className="text-2xl font-semibold text-[#18110B]">Iletisim</h2>
+            <p className="mt-4 text-sm leading-7 text-[#5F5147]">
+              Gizlilik veya veri talepleriniz icin bize {profile.email} adresinden
+              veya {profile.phone} numarasindan ulasabilirsiniz.
+            </p>
+          </article>
+        </div>
+      </section>
     </div>
   );
 }
