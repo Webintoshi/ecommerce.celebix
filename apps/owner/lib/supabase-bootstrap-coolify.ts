@@ -42,6 +42,36 @@ const COOLIFY_API_PREFIX = "/api/v1";
 const ENV_POLL_DELAY_MS = 5000;
 const ENV_POLL_ATTEMPTS = 24;
 const COOLIFY_API_TIMEOUT_MS = 15000;
+const SELF_HOSTED_PG_META_REF = "default";
+const CORE_BOOTSTRAP_SQL_FILES = [
+  ["apps", "admin", "supabase", "schema.sql"],
+  ["apps", "admin", "supabase", "migrations", "003_add_auth_integration.sql"],
+  ["apps", "admin", "supabase", "migrations", "004_add_customer_addresses.sql"],
+  ["apps", "admin", "supabase", "migrations", "005_add_customer_preferences.sql"],
+  ["apps", "admin", "supabase", "migrations", "008_product_wizard_schema.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260209_admin_roles.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260219000000_seo_hub.sql"],
+  ["apps", "admin", "supabase", "migrations", "020_create_pages_table.sql"],
+  ["apps", "admin", "supabase", "migrations", "021_create_cart_system.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260402000000_analytics_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260402010000_abandoned_cart_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260224000000_product_customization.sql"],
+  ["apps", "admin", "supabase", "migrations", "025_create_accounting_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260314000100_product_tag_suggestions.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260314001000_marketplace_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260315002000_lucky_wheel_production.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260328000000_payment_runtime.sql"],
+  ["apps", "admin", "supabase", "migrations", "006_add_product_columns.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260402020000_default_product_tax_rate_zero.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260402183000_products_subcategory_compat.sql"],
+] as const;
+const ADDITIVE_BOOTSTRAP_SQL_FILES = [
+  ["apps", "admin", "supabase", "migrations", "20260331000000_customer_import_fields.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260331001000_shopify_product_import_fields.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260405010000_product_reviews.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260405120000_translation_cache.sql"],
+  ["apps", "admin", "supabase", "migrations", "20260407013000_google_merchant_marketplace_provider.sql"],
+] as const;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -111,6 +141,14 @@ function buildHeaders(): HeadersInit {
   };
 }
 
+function buildBasicAuthHeaders(user: string, password: string): HeadersInit {
+  const token = Buffer.from(`${user}:${password}`, "utf8").toString("base64");
+  return {
+    Authorization: `Basic ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
 
@@ -176,6 +214,17 @@ function buildSupabaseServiceName(store: StoreConfig): string {
 
 function buildSupabaseDashboardUrl(publicUrl: string): string {
   return `${publicUrl.replace(/\/+$/, "")}/project/default`;
+}
+
+function buildBootstrapQueries(
+  fileList: ReadonlyArray<readonly string[]>,
+): Array<{ name: string; sql: string }> {
+  const repoRoot = getRepoRoot();
+
+  return fileList.map((segments) => ({
+    name: segments[segments.length - 1],
+    sql: fs.readFileSync(path.join(repoRoot, ...segments), "utf8"),
+  }));
 }
 
 function sanitizeSupabaseHostLabel(value: string): string {
@@ -425,6 +474,31 @@ async function listServiceEnvs(serviceUuid: string): Promise<CoolifyEnvironmentV
   return normalizeArrayPayload<CoolifyEnvironmentVariable>(payload);
 }
 
+async function runSelfHostedPgMetaQuery(
+  baseUrl: string,
+  adminUser: string,
+  adminPassword: string,
+  query: string,
+) {
+  const response = await fetch(
+    `${baseUrl.replace(/\/+$/, "")}/api/platform/pg-meta/${SELF_HOSTED_PG_META_REF}/query`,
+    {
+      method: "POST",
+      headers: buildBasicAuthHeaders(adminUser, adminPassword),
+      body: JSON.stringify({ query }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(COOLIFY_API_TIMEOUT_MS),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Self-hosted pg-meta hatasi (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  return response.json();
+}
+
 function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: string[]): string | null {
   const candidateSet = new Set(candidates.map((value) => value.toUpperCase()));
   const match = variables.find((variable) => {
@@ -438,6 +512,8 @@ function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: strin
 async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
   publicKey: string;
   serviceKey: string;
+  adminUser: string;
+  adminPassword: string;
 }> {
   let lastError: Error | null = null;
 
@@ -458,11 +534,15 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
         "SERVICE_SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
       ]);
+      const adminUser = findEnvValue(variables, ["SERVICE_USER_ADMIN"]);
+      const adminPassword = findEnvValue(variables, ["SERVICE_PASSWORD_ADMIN"]);
 
-      if (publicUrl && publicKey && serviceKey) {
+      if (publicUrl && publicKey && serviceKey && adminUser && adminPassword) {
         return {
           publicKey,
           serviceKey,
+          adminUser,
+          adminPassword,
         };
       }
 
@@ -475,6 +555,27 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
   }
 
   throw lastError ?? new Error("Coolify Supabase runtime env bilgileri alinmadi.");
+}
+
+async function ensureSelfHostedStoreSchema(
+  publicUrl: string,
+  adminUser: string,
+  adminPassword: string,
+): Promise<void> {
+  const productsExists = await runSelfHostedPgMetaQuery(
+    publicUrl,
+    adminUser,
+    adminPassword,
+    "select to_regclass('public.products') is not null as exists;",
+  );
+  const needsCoreBundle = !productsExists?.[0]?.exists;
+  const queries = needsCoreBundle
+    ? buildBootstrapQueries([...CORE_BOOTSTRAP_SQL_FILES, ...ADDITIVE_BOOTSTRAP_SQL_FILES])
+    : buildBootstrapQueries(ADDITIVE_BOOTSTRAP_SQL_FILES);
+
+  for (const query of queries) {
+    await runSelfHostedPgMetaQuery(publicUrl, adminUser, adminPassword, query.sql);
+  }
 }
 
 function buildProjectReference(store: StoreConfig, serviceUuid: string): string {
@@ -530,7 +631,8 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   try {
     const service = await createSupabaseService(store, projectUuid, environmentUuid);
     const serviceUuid = resolveIdentifier(service);
-    const { publicKey, serviceKey } = await waitForSupabaseRuntime(serviceUuid);
+    const { publicKey, serviceKey, adminUser, adminPassword } = await waitForSupabaseRuntime(serviceUuid);
+    await ensureSelfHostedStoreSchema(targetPublicUrl, adminUser, adminPassword);
     const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, targetPublicUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...legacyAdminAuthEntries,
