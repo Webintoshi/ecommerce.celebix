@@ -9,6 +9,7 @@ import {
     PaymentGatewayRuntimeStatus,
     PaymentProviderDefinition,
 } from "@/types/payment";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const DEFAULT_BANK_ACCOUNT: PaymentBankAccountConfig = {
     bankName: "",
@@ -78,7 +79,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
             { key: "merchantSalt", label: "Merchant Salt", description: "Hash imzalari icin kullanilan salt.", placeholder: "merchant_salt", required: true, secret: true, type: "password" },
         ],
         configurationFields: [
-            { key: "callbackUrl", label: "Callback URL", description: "Odeme sonucu donus adresi.", type: "url", placeholder: "https://ornek-magaza.celebix.co/api/payments/paytr/callback" },
+            { key: "callbackUrl", label: "Callback URL", description: "Odeme sonucu donus adresi.", type: "url", placeholder: `${STOREFRONT_RUNTIME.siteUrl}/api/payments/paytr/callback` },
         ],
     },
     {
@@ -168,7 +169,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         shortName: "Havale",
         description: "Banka hesabina manuel odeme kabul etmek icin kullanilir.",
         category: "bank_transfer",
-        homepageUrl: "https://ornek-magaza.celebix.co",
+        homepageUrl: STOREFRONT_RUNTIME.siteUrl,
         accentClassName: "from-green-600 to-emerald-500",
         supportedMethods: ["bank_transfer", "eft"],
         supportedCardTypes: [],
@@ -184,7 +185,7 @@ export const PAYMENT_PROVIDER_REGISTRY: PaymentProviderDefinition[] = [
         shortName: "Kapida",
         description: "Kargoda tahsilat veya teslimatta nakit odeme secenegi.",
         category: "cash_on_delivery",
-        homepageUrl: "https://ornek-magaza.celebix.co",
+        homepageUrl: STOREFRONT_RUNTIME.siteUrl,
         accentClassName: "from-amber-700 to-orange-500",
         supportedMethods: ["cash"],
         supportedCardTypes: [],

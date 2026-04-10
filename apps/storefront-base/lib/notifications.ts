@@ -1,4 +1,5 @@
 import { NotificationSettings, EmailConfig, SMSConfig } from "@/types/notification";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 // Mock initial data
 const defaultSettings: NotificationSettings = {
@@ -9,14 +10,14 @@ const defaultSettings: NotificationSettings = {
         secure: false,
         user: "user@example.com",
         password: "",
-        senderName: "Ornek Magaza",
-        senderEmail: "noreply@ornek-magaza.celebix.co",
+        senderName: STOREFRONT_RUNTIME.name,
+        senderEmail: STOREFRONT_RUNTIME.supportEmail,
     },
     sms: {
         provider: "netgsm",
         apiKey: "",
         apiSecret: "",
-        senderTitle: "ORNEK MAGAZA",
+        senderTitle: STOREFRONT_RUNTIME.name.replace(/\s+/g, " ").slice(0, 11).toUpperCase(),
     },
     push: {
         provider: "firebase",

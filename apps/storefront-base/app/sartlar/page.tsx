@@ -1,150 +1,97 @@
-"use client";
+import { Scale, Shield, Wallet, ScrollText } from "lucide-react";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getStorefrontProfile } from "@/lib/storefront-profile";
 
-export default function SartlarPage() {
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const profile = await getStorefrontProfile();
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/sartlar",
+    title: `Kullanim Sartlari | ${profile.name}`,
+    description:
+      `${profile.name} storefrontunu kullanirken gecerli olan temel kosullar, iletisim ve operasyon prensipleri.`,
+  });
+}
+
+export default async function TermsPage() {
+  const profile = await getStorefrontProfile();
+
+  const sections = [
+    {
+      title: "Genel Kullanim",
+      text: `${profile.name} storefrontu; yayinlanan urunler, sayfalar ve siparis akislari icin resmi dijital vitrin olarak hizmet verir. Siteyi kullanmak, yayindaki politika ve kosullarin kabul edildigi anlamina gelir.`,
+      icon: ScrollText,
+    },
+    {
+      title: "Siparis ve Odeme",
+      text: "Siparisler, stok ve odeme dogrulamasi sonrasi onaylanir. Fiyatlar, kampanyalar ve operasyon kosullari guncellenebilir; onay anindaki bilgiler siparis icin esas kabul edilir.",
+      icon: Wallet,
+    },
+    {
+      title: "Icerik ve Marka Haklari",
+      text: "Site icerigi, gorseller, marka unsurlari ve yayinlanan urun kartlari ilgili magaza markasinin operasyonu icin kullanilir. Yetkisiz kopyalama veya kotu niyetli kullanim kabul edilmez.",
+      icon: Shield,
+    },
+    {
+      title: "Hukuki Cerceve",
+      text: "Uyusmazliklarda ilgili mevzuat, mesafeli satis ve tuketici hukuku esas alinir. Operasyonel iletisim bilgileri bu sayfada ve iletisim bolumunde guncel tutulur.",
+      icon: Scale,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
-            Hizmet Şartları
+    <div className="min-h-screen bg-[#F8F8F8]">
+      <section className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            Hukuki Cerceve
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            Kullanim sartlari sade, acik ve operasyonla uyumlu
           </h1>
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+            {profile.name} icin yayinlanan storefront, siparis ve destek akislarinin temel kosullarini
+            bu sayfada toplar.
+          </p>
+        </div>
+      </section>
 
-          <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 1 – Genel Bakış
-            </h2>
+      <section className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
+        <div className="grid gap-6 lg:grid-cols-2">
+          {sections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <article
+                key={section.title}
+                className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h2 className="mt-5 text-2xl font-semibold text-[#18110B]">{section.title}</h2>
+                <p className="mt-4 text-sm leading-7 text-[#5F5147]">{section.text}</p>
+              </article>
+            );
+          })}
+        </div>
 
-            <p>
-              Ornek Magaza'ya hoş geldiniz. Bu metinde geçen "biz", "bize" ve "bizim" ifadeleri Ornek Magaza'yu ifade eder. Ornek Magaza, bu internet sitesi ve çevrimiçi mağaza üzerinden sunulan tüm bilgi, içerik, özellik, araç, ürün ve hizmetleri (hep birlikte "Hizmetler") işletmektedir.
-            </p>
-
-            <p>
-              Hizmetler'den yararlanmanız, bu Kullanım Şartları ("Şartlar") ile atıf yapılan tüm politika ve metinlere uymanız koşuluna bağlıdır. Lütfen bu Kullanım Şartları'nı dikkatle okuyun; zira sorumluluk sınırlamaları ve garanti reddi gibi hukuki açıdan önemli hükümler içermektedir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 2 – Erişim ve Hesap
-            </h2>
-
-            <p>
-              Bu Şartlar'ı kabul ederek, ikamet ettiğiniz ülkede yasal reşit yaşta olduğunuzu ve sizin adınıza Hizmetler'i kullanan reşit olmayan kişilere izin verme hakkına sahip olduğunuzu beyan edersiniz.
-            </p>
-
-            <p>
-              Hesap bilgilerinizin gizliliğini sağlamak ve hesabınız üzerinden gerçekleşen tüm işlemlerden sorumlu olmak size aittir. Hesabınızı hiçbir şekilde üçüncü kişilere devredemez, satamaz veya kiralayamazsınız.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 3 – Ürünlerimiz
-            </h2>
-
-            <p>
-              Ornek Magaza, doğal fındık, fıstık, badem ezmeleri ve ilgili ürünlerini çevrimiçi mağazasında olabildiğince doğru ve güncel şekilde göstermeye özen gösterir. Ancak ekran renk ve ayar farklılıkları sebebiyle ürün renk ve görünümünde cihazlar arasında ufak farklılıklar olabilir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 4 – Siparişler
-            </h2>
-
-            <p>
-              Web sitemiz üzerinden sipariş verdiğinizde, ilgili ürün(ler)i satın almak için Ornek Magaza'ya bir teklif sunmuş olursunuz. Ornek Magaza, herhangi bir sebep göstermeksizin siparişinizi kabul etmeme veya iptal etme hakkına sahiptir.
-            </p>
-
-            <p>
-              Siparişiniz, Ornek Magaza tarafından onay e‑postası gönderilene ve ödemeniz başarıyla işlenene kadar kabul edilmiş sayılmaz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 5 – Fiyatlar ve Ödeme
-            </h2>
-
-            <p>
-              Sitede yer alan tüm fiyat, indirim ve kampanyalar önceden haber verilmeksizin değiştirilebilir. Sipariş verdiğiniz anda geçerli olan fiyat, sipariş onay e‑postasında gösterilecek ve o sipariş için geçerli olacaktır.
-            </p>
-
-            <p>
-              Sipariş sırasında sunduğunuz ödeme bilgilerini güncel, doğru ve eksiksiz tutmayı ve ödeme araçlarını kullanmaya yetkili olduğunuzu kabul edersiniz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 6 – Kargo ve Teslimat
-            </h2>
-
-            <p>
-              Sitede belirtilen teslimat süreleri tahmini sürelerdir ve garanti niteliği taşımaz. Kargo firması kaynaklı gecikmeler, hava koşulları, resmi tatiller veya Ornek Magaza'nun kontrolü dışındaki diğer nedenlerle oluşan teslimat gecikmelerinden Ornek Magaza sorumlu tutulamaz.
-            </p>
-
-            <div className="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg my-6">
-              <p className="font-semibold text-gray-900 mb-2">İade Adresi:</p>
-              <p>Akyazı Mahallesi 873. Sokak No:2 Daire:4</p>
-              <p>Altınordu / Ordu – Türkiye</p>
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 7 – Fikri Mülkiyet Hakları
-            </h2>
-
-            <p>
-              Ornek Magaza internet sitesi ve Hizmetler kapsamında yer alan tüm marka, logo, ticari unvan, metin, görsel, grafik, video, ses, tasarım ve diğer içerikler Ornek Magaza'ya veya lisans veren üçüncü kişilere aittir ve ilgili mevzuat kapsamında korunmaktadır.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 8 – Yasaklanmış Kullanımlar
-            </h2>
-
-            <p>Hizmetler'i yalnızca hukuka uygun amaçlarla kullanabilirsiniz. Aşağıdakiler yasaktır:</p>
-
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Her türlü yasa dışı veya kötü niyetli faaliyet</li>
-              <li>Fikri mülkiyet haklarını ihlal eden işlemler</li>
-              <li>Hakaret, tehdit, taciz, nefret söylemi</li>
-              <li>Yanıltıcı, yanlış veya eksik bilgi yaymak</li>
-              <li>Spam, kimlik avı ve benzeri istenmeyen ileti gönderimi</li>
-              <li>Virüs, kötü amaçlı yazılım içeren veri iletimi</li>
-            </ul>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 9 – Garanti Reddi
-            </h2>
-
-            <p>
-              Hizmetler ve ürünler "olduğu gibi" ve "mevcut olduğu sürece" sunulur; satılabilirlik, belirli bir amaca uygunluk, süreklilik, kesintisizlik gibi açık veya zımni hiçbir garanti verilmemektedir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 10 – Sorumluluğun Sınırlandırılması
-            </h2>
-
-            <p>
-              Yürürlükteki hukukun izin verdiği azami ölçüde, Ornek Magaza; Hizmetler'in veya ürünlerin kullanımından kaynaklanan dolaylı, arızi, cezai veya sonuç olarak ortaya çıkan zararlardan sorumlu tutulamaz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Bölüm 11 – Uygulanacak Hukuk
-            </h2>
-
-            <p>
-              İşbu Kullanım Şartları ve Hizmetler'den doğan uyuşmazlıklar, Türkiye Cumhuriyeti hukuku uyarınca yorumlanır ve çözümlenir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              İletişim Bilgileri
-            </h2>
-
-            <div className="bg-gray-50 p-6 rounded-lg mt-4">
-              <p className="font-semibold">Ticari Unvan:</p>
-              <p className="mb-4">Ornek Magaza</p>
-              
-              <p className="font-semibold">E‑posta:</p>
-              <p className="mb-4">ornek-magazashopify@proton.me</p>
-              
-              <p className="font-semibold">Adres:</p>
-              <p>Akyazı Mahallesi 873. Sokak No:2 Daire:4</p>
-              <p>Altınordu / Ordu – Türkiye</p>
-            </div>
+        <div className="mt-8 rounded-[32px] bg-[#11192D] px-6 py-8 text-white sm:px-8">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
+            Iletisim ve Bildirim
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold">{profile.name}</h2>
+          <div className="mt-5 space-y-2 text-sm leading-7 text-white/78">
+            <p>{profile.address}</p>
+            <p>{profile.phone}</p>
+            <p>{profile.email}</p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type {
   AccountingProviderAdapterResult,
   AccountingProviderDefinition,
 } from "@/types/accounting";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 export interface AccountingProviderAdapter {
   connect(input: {
@@ -160,14 +161,16 @@ function buildMockAdapter(provider: AccountingProvider): AccountingProviderAdapt
       return { success: true, message: "Müşteri kartı eşitlendi." };
     },
     async createInvoice({ payload }) {
-      const orderNumber = String(payload.orderNumber || payload.order_number || "ORNEK MAGAZA");
+      const orderNumber = String(
+        payload.orderNumber || payload.order_number || STOREFRONT_RUNTIME.slug.toUpperCase(),
+      );
       const externalId = `acc_${provider}_${Date.now()}`;
       return {
         success: true,
         message: "Fatura sağlayıcı kuyruğuna iletildi.",
         externalId,
         invoiceNo: `${provider.toUpperCase()}-${orderNumber}`,
-        invoiceUrl: `https://ornek-magaza.celebix.co/admin/muhasebe/fatura-entegrasyonu?invoice=${externalId}`,
+        invoiceUrl: `${STOREFRONT_RUNTIME.adminUrl}/admin/muhasebe/fatura-entegrasyonu?invoice=${externalId}`,
         raw: { simulated: true, provider },
       };
     },
@@ -200,4 +203,3 @@ const ADAPTERS: Record<AccountingProvider, AccountingProviderAdapter> = {
 export function getAccountingProviderAdapter(provider: AccountingProvider) {
   return ADAPTERS[provider];
 }
-

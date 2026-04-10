@@ -14,6 +14,7 @@ import {
   buildLocalizedPath,
   getLocalizedCopy,
 } from "@/lib/i18n";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type FooterCategory = {
   id: string;
@@ -47,8 +48,8 @@ export function Footer() {
   const activeLocaleOption =
     LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 
-  const contactEmail = storeInfo?.email || "hello@ornek-magaza.celebix.co";
-  const contactPhone = storeInfo?.phone || "+90 555 000 00 00";
+  const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
+  const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
   const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
 

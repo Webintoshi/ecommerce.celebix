@@ -1,10 +1,10 @@
 const DEFAULT_SITE_URL = "https://test1.46.225.183.57.sslip.io";
-const DEFAULT_STORE_NAME = "Ornek Magaza";
-const DEFAULT_TAGLINE = "Premium magazanizi Celebix altyapisiyla hizli sekilde canliya alin.";
+const DEFAULT_STORE_NAME = "Premium Storefront";
+const DEFAULT_TAGLINE = "Adminden yonetilen premium magaza deneyimi.";
 const DEFAULT_DESCRIPTION =
   "Celebix ile yonetilen premium e-ticaret deneyimi. Urunlerinizi, kategorilerinizi ve iceriklerinizi adminden yonetin; storefront otomatik olarak guncellensin.";
 const DEFAULT_SUPPORT_EMAIL = "destek@test1.46.225.183.57.sslip.io";
-const DEFAULT_SUPPORT_PHONE = "+90 555 000 00 00";
+const DEFAULT_SUPPORT_PHONE = "+90 532 000 00 00";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
 
 function normalizeUrl(value: string | undefined, fallback: string): string {

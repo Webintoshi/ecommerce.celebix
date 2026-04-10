@@ -5,6 +5,7 @@ import {
     ShippingIntegrationSettings,
     ShippingProviderDefinition,
 } from "@/types/shipping-integration";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const DEFAULT_AUTOMATION = {
     autoCreateShipment: false,
@@ -39,8 +40,8 @@ export const SHIPPING_PROVIDER_REGISTRY: ShippingProviderDefinition[] = [
                 key: "senderProfile",
                 label: "Gönderici Profili",
                 description: "Basit Kargo içinde tanımlı gönderici profil adı.",
-                placeholder: "Ornek Magaza",
-                defaultValue: "Ornek Magaza",
+                placeholder: STOREFRONT_RUNTIME.name,
+                defaultValue: STOREFRONT_RUNTIME.name,
             },
             {
                 key: "addressPreference",
@@ -71,7 +72,7 @@ export const SHIPPING_PROVIDER_REGISTRY: ShippingProviderDefinition[] = [
                 key: "email",
                 label: "Hesap E-postası",
                 description: "Shipink API token üretiminde kullanılan kullanıcı e-postası.",
-                placeholder: "operasyon@ornek-magaza.celebix.co",
+                placeholder: STOREFRONT_RUNTIME.supportEmail,
                 required: true,
                 type: "email",
             },
@@ -96,7 +97,7 @@ export const SHIPPING_PROVIDER_REGISTRY: ShippingProviderDefinition[] = [
                 key: "channelCode",
                 label: "Kanal Kodu",
                 description: "Shipink tarafında mağazanıza atanmış kanal kodu varsa girin.",
-                placeholder: "ornek-magaza-web",
+                placeholder: `${STOREFRONT_RUNTIME.name.toLocaleLowerCase("tr").replace(/[^a-z0-9]+/g, "-")}-web`,
             },
         ],
     },
@@ -126,7 +127,7 @@ export const SHIPPING_PROVIDER_REGISTRY: ShippingProviderDefinition[] = [
                 key: "organizationCode",
                 label: "Organizasyon Kodu",
                 description: "Geliver hesabınıza atanmış organizasyon kodu.",
-                placeholder: "ornek-magaza",
+                placeholder: STOREFRONT_RUNTIME.name.toLocaleLowerCase("tr").replace(/[^a-z0-9]+/g, "-"),
             },
             {
                 key: "defaultCarrierCode",

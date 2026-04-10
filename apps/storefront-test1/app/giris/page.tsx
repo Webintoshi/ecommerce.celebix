@@ -21,6 +21,9 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const showLogoImage =
+    typeof SITE_LOGO_PATH === "string" &&
+    !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -68,7 +71,13 @@ export default function LoginPage() {
           className="text-center mb-8"
         >
           <Link href="/" className="inline-block">
-            <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+            {showLogoImage ? (
+              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+            ) : (
+              <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
+                {SITE_NAME}
+              </span>
+            )}
           </Link>
         </motion.div>
 

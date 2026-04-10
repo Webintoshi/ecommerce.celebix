@@ -1,84 +1,113 @@
-"use client";
+import { Truck, ShieldCheck, PackageCheck, MapPinned } from "lucide-react";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getStorefrontProfile } from "@/lib/storefront-profile";
 
-export default function KargoPage() {
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const profile = await getStorefrontProfile();
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/kargo",
+    title: `Kargo ve Teslimat | ${profile.name}`,
+    description:
+      `${profile.name} siparislerinde teslimat akislarinin nasil isledigini, kargo sureclerini ve destek adimlarini inceleyin.`,
+  });
+}
+
+export default async function ShippingPage() {
+  const profile = await getStorefrontProfile();
+
+  const cards = [
+    {
+      title: "Hazirlama",
+      text: "Yayindaki urunler ve siparisler admin panelinden takip edilir. Siparis onayi sonrasinda hazirlama sureci otomatik kayit altina alinir.",
+      icon: PackageCheck,
+    },
+    {
+      title: "Teslimat",
+      text: "Kargo sureleri sehir, yogunluk ve resmi tatil etkilerine gore degisebilir. Guncel durum siparis akisi ve bildirimlerle desteklenir.",
+      icon: Truck,
+    },
+    {
+      title: "Destek",
+      text: "Eksik adres, teslimat sorusu veya hasar kaydi gibi durumlarda destek ekibiyle hizli sekilde baglanti kurulabilir.",
+      icon: ShieldCheck,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
-            Kargo ve Teslimat Politikası
+    <div className="min-h-screen bg-[#F8F8F8]">
+      <section className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            Lojistik Akisi
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            Kargo ve teslimat sureci net, premium ve guvenli
           </h1>
-
-          <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
-            <p className="text-lg">
-              Ornek Magaza olarak siparişlerinizi en kısa sürede ve en taze şekilde ulaştırmak için çalışıyoruz. Aksi belirtilmedikçe, tüm siparişleriniz ödeme onayı alındıktan sonra <strong>3–4 iş günü</strong> içerisinde kargoya verilir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Teslimat Süreleri
-            </h2>
-
-            <p>
-              Kargo firmalarının yoğunluk durumuna, resmi tatillere ve bulunduğunuz şehre göre teslimat süreleri değişiklik gösterebilir. Genellikle kargo firmasının operasyonuna bağlı olarak, paketiniz kargoya verildikten sonra birkaç iş günü içinde adresinize teslim edilir.
-            </p>
-
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-lg my-6">
-              <p className="text-amber-900">
-                <strong>Önemli:</strong> Resmî tatiller, hafta sonları, olumsuz hava koşulları ve kargo firmasının kendi operasyonel aksaklıkları teslimat süresini uzatabilir; bu durumlarda Ornek Magaza'nun teslimat süresine doğrudan müdahale imkânı bulunmamaktadır.
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kargo Ücretleri
-            </h2>
-
-            <p>
-              Kargo ücreti, sepet tutarı ve teslimat adresinize göre değişiklik gösterebilir. Güncel kargo ücretleri ve varsa ücretsiz kargo kampanyaları, ödeme sayfasında ve/veya sepet adımında görüntülenir.
-            </p>
-
-            <div className="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg my-6">
-              <p className="text-primary font-semibold">
-                🚚 500 ₺ üzeri siparişlerde kargo ücretsiz!
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Kargo Takibi
-            </h2>
-
-            <p>
-              Siparişiniz kargoya verildiğinde, kayıtlı e‑posta adresinize veya telefon numaranıza kargo takip numaranız iletilir. Bu numara üzerinden kargo firmasının web sitesi veya uygulaması aracılığıyla gönderinizi takip edebilirsiniz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Adres ve Teslimat Problemleri
-            </h2>
-
-            <p>
-              Sipariş oluştururken teslimat adresinizi eksiksiz ve doğru girdiğinizden emin olun. Eksik veya hatalı adres nedeniyle gerçekleşmeyen teslimatlardan doğabilecek gecikmelerden Ornek Magaza sorumlu tutulamaz.
-            </p>
-
-            <p>
-              Kargo görevlisi adreste size ulaşamazsa, kargo firması politikalarına göre tekrar dağıtıma çıkabilir veya en yakın şubeden teslim almanız istenebilir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Hasarlı Paketler ve Kargo Esnasında Oluşan Sorunlar
-            </h2>
-
-            <p>
-              Paketinizi teslim alırken dış ambalajda yırtılma, açılma veya ezilme gibi bir hasar fark ederseniz, lütfen kargo görevlisinin yanında tutanak tutturarak ürünü teslim almayın ve durumu en kısa sürede bize bildirin.
-            </p>
-
-            <div className="bg-gray-50 p-6 rounded-lg mt-8">
-              <p className="font-semibold text-gray-900 mb-2">
-                Herhangi bir kargo veya teslimat sorununda bizimle iletişime geçin:
-              </p>
-              <p className="text-primary font-semibold">ornek-magazashopify@proton.me</p>
-            </div>
-          </div>
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+            {profile.name} siparislerinde teslimat akislarini, iletisim noktasini ve operasyon
+            guvencelerini bu sayfadan yonetebilirsiniz.
+          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article
+                key={card.title}
+                className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h2 className="mt-5 text-2xl font-semibold text-[#18110B]">{card.title}</h2>
+                <p className="mt-4 text-sm leading-7 text-[#5F5147]">{card.text}</p>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <article className="rounded-[32px] border border-black/5 bg-[#FBF8F4] p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.35)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+              Operasyon Notlari
+            </p>
+            <ul className="mt-4 space-y-4 text-sm leading-7 text-[#5F5147]">
+              <li>Siparis onayi alinan urunler operasyon durumuna gore hazirlanir ve sevk edilir.</li>
+              <li>Teslimat hizi; lokasyon, kargo firmasi yogunlugu ve resmi tatil takvimine bagli olarak degisebilir.</li>
+              <li>Adres eksikligi veya teslimat istisnalarinda musteriyle dogrudan baglanti kurulur.</li>
+              <li>Hasarli paketler icin teslim aninda tutanak tutturulmasi tavsiye edilir.</li>
+            </ul>
+          </article>
+
+          <article className="rounded-[32px] bg-[#11192D] p-6 text-white shadow-[0_24px_60px_-44px_rgba(17,25,45,0.55)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10">
+                <MapPinned className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
+                  Destek Noktasi
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold">{profile.name}</h2>
+              </div>
+            </div>
+            <p className="mt-5 text-sm leading-7 text-white/75">{profile.address}</p>
+            <div className="mt-6 space-y-2 text-sm text-white/82">
+              <p>{profile.phone}</p>
+              <p>{profile.email}</p>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   );
 }

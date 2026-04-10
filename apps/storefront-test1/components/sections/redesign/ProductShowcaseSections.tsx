@@ -113,7 +113,7 @@ function EmptyShowcaseState() {
             Vitrin Hazir
           </span>
           <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunleriniz geldikce bu alan Derycraft kalitesinde otomatik dolar
+            Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
             Ayrica ek bir tasarim eforu gerektirmez. Adminden urun, kategori ve gorsel girdikce

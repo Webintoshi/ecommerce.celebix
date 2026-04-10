@@ -11,6 +11,7 @@ export * from "./google-merchant";
 export * from "./shipping";
 export * from "./translation";
 export * from "./next-build";
+export * from "./seo";
 
 export interface StoreRegistryEntry {
   slug: string;

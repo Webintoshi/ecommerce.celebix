@@ -8,6 +8,7 @@ import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/paym
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { PaymentAttempt, PaymentInitResult } from "@/types/payment-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 interface CheckoutAddressInput {
     firstName?: string;
@@ -678,7 +679,7 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
         phone: context.shippingAddress.phone || undefined,
         send_mail: false,
         send_sms: false,
-        note: `Ornek Magaza siparis no: ${context.order.order_number}`,
+        note: `${STOREFRONT_RUNTIME.name} siparis no: ${context.order.order_number}`,
         agent_note: context.order.order_number,
         reference_no: paymentAttempt.id,
         succeed_url: successUrl.toString(),

@@ -65,7 +65,10 @@ export default async function Home() {
     requestOrigin,
   ).toString();
   const storesHref = buildLocalizedPath("/magazalarimiz", locale);
-  const logoUrl = await buildAbsoluteRequestUrl(storeInfo?.logoUrl || STOREFRONT_RUNTIME.logoPath);
+  const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
+  const logoUrl = hasRealLogo
+    ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
+    : "";
 
   return (
     <>
@@ -97,7 +100,7 @@ export default async function Home() {
             "@type": "Organization",
             name: siteName,
             url: requestOrigin,
-            logo: logoUrl,
+            ...(logoUrl ? { logo: logoUrl } : {}),
             contactPoint: {
               "@type": "ContactPoint",
               telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,

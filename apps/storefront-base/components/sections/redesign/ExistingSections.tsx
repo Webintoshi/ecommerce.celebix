@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
+import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {
@@ -67,7 +67,62 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   }, [slides]);
 
   if (!isLoaded || !slides || slides.length === 0) {
-    return null;
+    return (
+      <section className="relative overflow-hidden bg-[#F4ECE5]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(123,17,19,0.14),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(31,41,55,0.14),_transparent_35%)]" />
+        <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="max-w-2xl">
+              <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
+                Premium Starter Theme
+              </span>
+              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
+                {SITE_NAME}
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
+                Magaza ayarlarinizi, hero bannerlarinizi, kategorilerinizi ve urunlerinizi
+                adminden girdiginizde bu alan otomatik olarak gercek vitrininize donusur.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href={ROUTES.products}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
+                >
+                  Koleksiyonu Incele
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href={ROUTES.contact}
+                  className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
+                >
+                  Iletisim Bilgilerini Tamamla
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                { title: "Hero Bannerlar", text: "Adminden eklenen ilk bannerlar burada tam ekran mercek alir." },
+                { title: "Kategori Vitrini", text: "Aktif kategoriler, sira ayarina gore anasayfaya tasinir." },
+                { title: "Urun Gruplari", text: "Yayinlanan urunler kategori bazli bloklarda otomatik sergilenir." },
+                { title: "Musteri Guveni", text: "Onayli yorumlar ve magaza bilgileri sayfaya otomatik baglanir." },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)] backdrop-blur"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                    Hazir
+                  </p>
+                  <h2 className="mt-3 text-xl font-semibold text-[#18110B]">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const slide = slides[current];

@@ -1,15 +1,13 @@
 /**
  * Page (Static Pages) Domain Model - Single Source of Truth
- * 
+ *
  * Canonical type definitions for static pages SEO (Home, Contact, About, etc.)
- * 
+ *
  * @module types/page
  * @version 1.0.0
  */
 
-// ============================================================================
-// VALUE OBJECTS
-// ============================================================================
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 export interface PageFAQ {
   question: string;
@@ -21,45 +19,22 @@ export interface PageGEO {
   entities: string[];
 }
 
-// ============================================================================
-// DOMAIN ENTITY
-// ============================================================================
-
-/**
- * Static Page entity for SEO management
- * Stores metadata for pages like Home, Contact, About, etc.
- */
 export interface StaticPage {
-  // Core Identity
   id: string;
-  name: string;           // Display name (e.g., "Ana Sayfa")
-  slug: string;           // URL slug (e.g., "", "iletisim", "hakkimizda")
-  
-  // Schema & Structure
-  schema_type: string;    // WebSite, ContactPage, AboutPage, etc.
-  icon?: string;          // Lucide icon name or emoji
-  
-  // SEO Fields
+  name: string;
+  slug: string;
+  schema_type: string;
+  icon?: string;
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string[] | null;
-  
-  // Structured Data
   faq: PageFAQ[] | null;
   geo_data: PageGEO | null;
-  
-  // Status
   is_active: boolean;
   sort_order: number;
-  
-  // Metadata
   created_at: string;
   updated_at: string;
 }
-
-// ============================================================================
-// DTOs
-// ============================================================================
 
 export interface PageApiResponse {
   success: boolean;
@@ -69,81 +44,66 @@ export interface PageApiResponse {
   code?: string;
 }
 
-export type PageInput = Omit<Partial<StaticPage>, 'id' | 'created_at' | 'updated_at'>;
-
-// ============================================================================
-// VIEW MODELS
-// ============================================================================
+export type PageInput = Omit<Partial<StaticPage>, "id" | "created_at" | "updated_at">;
 
 export interface PageSEOViewModel extends StaticPage {
-  // UI Aliases
   metaTitle: string;
   metaDescription: string;
   geo: PageGEO;
   url: string;
-  
-  // Computed
   score: number;
   issues: string[];
 }
 
-// ============================================================================
-// TYPE GUARDS
-// ============================================================================
-
 export function isValidPage(value: unknown): value is StaticPage {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== "object" || value === null) return false;
   const p = value as StaticPage;
   return (
-    typeof p.id === 'string' &&
-    typeof p.name === 'string' &&
-    typeof p.slug === 'string' &&
-    typeof p.schema_type === 'string'
+    typeof p.id === "string" &&
+    typeof p.name === "string" &&
+    typeof p.slug === "string" &&
+    typeof p.schema_type === "string"
   );
 }
-
-// ============================================================================
-// TRANSFORMERS
-// ============================================================================
 
 function calculatePageScore(page: StaticPage): { score: number; issues: string[] } {
   let score = 100;
   const issues: string[] = [];
-  
-  const title = page.seo_title || '';
-  const desc = page.seo_description || '';
-  
+
+  const title = page.seo_title || "";
+  const desc = page.seo_description || "";
+
   if (!title) {
-    issues.push("Meta başlık eksik");
+    issues.push("Meta baslik eksik");
     score -= 25;
   } else if (title.length < 30 || title.length > 60) {
-    issues.push("Meta başlık uzunluğu ideal değil");
+    issues.push("Meta baslik uzunlugu ideal degil");
     score -= 10;
   }
-  
+
   if (!desc) {
-    issues.push("Meta açıklama eksik");
+    issues.push("Meta aciklama eksik");
     score -= 25;
   } else if (desc.length < 120 || desc.length > 160) {
-    issues.push("Meta açıklama uzunluğu ideal değil");
+    issues.push("Meta aciklama uzunlugu ideal degil");
     score -= 10;
   }
-  
+
   return { score: Math.max(0, score), issues };
 }
 
 export function toPageSEOViewModel(page: StaticPage): PageSEOViewModel {
-  const defaultTitle = `${page.name} | Ornek Magaza`;
-  const defaultDesc = '';
+  const defaultTitle = `${page.name} | ${STOREFRONT_RUNTIME.name}`;
+  const defaultDesc = "";
   const defaultGEO: PageGEO = { keyTakeaways: [], entities: [] };
   const { score, issues } = calculatePageScore(page);
-  
+
   return {
     ...page,
     metaTitle: page.seo_title || defaultTitle,
     metaDescription: page.seo_description || defaultDesc,
     geo: page.geo_data || defaultGEO,
-    url: page.slug === '' ? '/' : `/${page.slug}`,
+    url: page.slug === "" ? "/" : `/${page.slug}`,
     score,
     issues,
   };
@@ -151,76 +111,74 @@ export function toPageSEOViewModel(page: StaticPage): PageSEOViewModel {
 
 export function toPageInput(viewModel: Partial<PageSEOViewModel>): PageInput {
   const input: PageInput = {};
-  
+
   if (viewModel.name !== undefined) input.name = viewModel.name;
   if (viewModel.slug !== undefined) input.slug = viewModel.slug;
   if (viewModel.schema_type !== undefined) input.schema_type = viewModel.schema_type;
   if (viewModel.icon !== undefined) input.icon = viewModel.icon;
   if (viewModel.is_active !== undefined) input.is_active = viewModel.is_active;
   if (viewModel.sort_order !== undefined) input.sort_order = viewModel.sort_order;
-  
-  // Map from UI aliases
   if (viewModel.metaTitle !== undefined) input.seo_title = viewModel.metaTitle;
   if (viewModel.metaDescription !== undefined) input.seo_description = viewModel.metaDescription;
   if (viewModel.seo_keywords !== undefined) input.seo_keywords = viewModel.seo_keywords;
   if (viewModel.faq !== undefined) input.faq = viewModel.faq;
   if (viewModel.geo !== undefined) input.geo_data = viewModel.geo;
-  
+
   return input;
 }
 
-// ============================================================================
-// DEFAULT PAGES (Seed Data)
-// ============================================================================
-
-export const DEFAULT_PAGES: Omit<StaticPage, 'id' | 'created_at' | 'updated_at'>[] = [
+export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">[] = [
   {
     name: "Ana Sayfa",
     slug: "",
     schema_type: "WebSite",
     icon: "Home",
-    seo_title: "Ornek Magaza | Doğal Fıstık Ezmesi & Kuruyemiş Ezmeleri",
-    seo_description: "Türkiye'nin en kaliteli doğal ezme markası. Fıstık ezmesi, badem ezmesi, fındık ezmesi ve daha fazlası. %100 doğal, şekersiz, katkısız.",
-    seo_keywords: ["doğal ezme", "fıstık ezmesi", "badem ezmesi", "fındık ezmesi"],
+    seo_title: `${STOREFRONT_RUNTIME.name} | Premium Magaza Deneyimi`,
+    seo_description:
+      "Adminden yonetilen urunler, kategoriler ve bannerlarla otomatik olarak guncellenen premium storefront deneyimi.",
+    seo_keywords: ["premium storefront", "e-ticaret", "urun vitrini", "celebix"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["WebSite", "Organization"] },
     is_active: true,
     sort_order: 1,
   },
   {
-    name: "Ürünler",
+    name: "Urunler",
     slug: "urunler",
     schema_type: "CollectionPage",
     icon: "Package",
-    seo_title: "Tüm Ürünler | Doğal Ezmeler | Ornek Magaza",
-    seo_description: "Ornek Magaza'nun tüm doğal ezme çeşitlerini keşfedin. Fıstık, badem, fındık, Antep fıstığı ezmeleri.",
-    seo_keywords: ["ezme çeşitleri", "doğal ezme", "kuruyemiş ezmesi"],
+    seo_title: `Tum Urunler | ${STOREFRONT_RUNTIME.name}`,
+    seo_description:
+      "Yayindaki urunleri, secili koleksiyonlari ve admin panelinden yonetilen premium vitrin bloklarini kesfedin.",
+    seo_keywords: ["tum urunler", "koleksiyonlar", "premium vitrin"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["CollectionPage"] },
     is_active: true,
     sort_order: 2,
   },
   {
-    name: "İletişim",
+    name: "Iletisim",
     slug: "iletisim",
     schema_type: "ContactPage",
     icon: "Mail",
-    seo_title: "İletişim | Bize Ulaşın | Ornek Magaza",
-    seo_description: "Sorularınız mı var? Ornek Magaza müşteri hizmetleri ile iletişime geçin. 7/24 destek!",
-    seo_keywords: ["iletişim", "müşteri hizmetleri", "destek"],
+    seo_title: `Iletisim | ${STOREFRONT_RUNTIME.name}`,
+    seo_description:
+      "Destek, toptan satis ve proje talepleriniz icin markayla ayni gun baglanti kurun.",
+    seo_keywords: ["iletisim", "destek", "teklif", "toptan satis"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["ContactPage"] },
     is_active: true,
     sort_order: 3,
   },
   {
-    name: "Hakkımızda",
+    name: "Hakkimizda",
     slug: "hakkimizda",
     schema_type: "AboutPage",
     icon: "Info",
-    seo_title: "Hakkımızda | Ornek Magaza Hikayesi",
-    seo_description: "Ornek Magaza'nun doğal üretim hikayesi, değerleri ve misyonu.",
-    seo_keywords: ["hakkımızda", "ornek-magaza hikayesi", "doğal üretim"],
+    seo_title: `Hakkimizda | ${STOREFRONT_RUNTIME.name}`,
+    seo_description:
+      "Marka profili, vitrin mantigi ve kurumsal iletisim detaylari bu sayfada sunulur.",
+    seo_keywords: ["hakkimizda", "marka profili", "kurumsal magaza"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["AboutPage"] },
     is_active: true,
@@ -231,9 +189,10 @@ export const DEFAULT_PAGES: Omit<StaticPage, 'id' | 'created_at' | 'updated_at'>
     slug: "sss",
     schema_type: "FAQPage",
     icon: "HelpCircle",
-    seo_title: "Sıkça Sorulan Sorular | Ornek Magaza",
-    seo_description: "Ornek Magaza ürünleri, sipariş, kargo ve iade hakkında sıkça sorulan sorular.",
-    seo_keywords: ["sss", "sıkça sorulan sorular", "yardım"],
+    seo_title: `Sikca Sorulan Sorular | ${STOREFRONT_RUNTIME.name}`,
+    seo_description:
+      "Siparis, kargo, iade ve kurumsal sureclerle ilgili en cok sorulan sorularin toplandigi yardim merkezi.",
+    seo_keywords: ["sss", "yardim merkezi", "siparis", "kargo", "iade"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["FAQPage"] },
     is_active: true,

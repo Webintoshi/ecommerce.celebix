@@ -10,6 +10,7 @@ import {
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -337,7 +338,7 @@ export async function POST(request: NextRequest) {
                 is_draft: productData.is_draft || false,
                 published_at: productData.published_at || new Date().toISOString(),
                 tax_rate: productData.tax_rate || 10,
-                brand: productData.brand || 'Ornek Magaza',
+                brand: productData.brand || STOREFRONT_RUNTIME.name,
                 country_of_origin: productData.country_of_origin || 'Türkiye',
                 sku: productData.sku || null,
                 gtin: productData.gtin || null,

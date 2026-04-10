@@ -43,7 +43,13 @@ export function Header() {
 
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
-  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
+  const shouldUsePlaceholderLogo =
+    !storeInfo?.logoUrl &&
+    typeof SITE_LOGO_PATH === "string" &&
+    SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+  const logoSrc = shouldUsePlaceholderLogo
+    ? ""
+    : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 

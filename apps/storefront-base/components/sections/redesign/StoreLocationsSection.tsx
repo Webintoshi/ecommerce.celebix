@@ -1,33 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Clock3, ExternalLink, MapPin } from "lucide-react";
-
-const STORE_LOCATIONS = [
-  {
-    id: "flagship",
-    badge: "Flagship",
-    name: "Merkez Mağaza",
-    city: "İstanbul",
-    summary:
-      "Yeni mağaza açılışlarında bu alan markanın fiziksel deneyimini, showroom bilgisini veya üretim atölyesini öne çıkarmak için kullanılır.",
-    hours: "Pzt - Cmt / 10:00 - 19:00",
-    address: "Adres bilgisi owner panelden veya marka onboarding aşamasında güncellenir.",
-    mapUrl: "#",
-    images: ["/placeholders/promo-banner-1.svg", "/placeholders/promo-banner-2.svg"],
-  },
-  {
-    id: "atelier",
-    badge: "Atölye",
-    name: "Üretim Alanı",
-    city: "İzmir",
-    summary:
-      "Derycraft’taki güven hissini taşıyan ama mağazaya özel veriler içermeyen placeholder alan. Yeni marka için kolayca değiştirilebilir.",
-    hours: "Randevu ile ziyaret",
-    address: "Markaya özel mağaza veya atölye bilgisi burada gösterilir.",
-    mapUrl: "#",
-    images: ["/placeholders/promo-banner-3.svg", "/placeholder.svg"],
-  },
-] as const;
+import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { useStoreInfo } from "@/lib/store-info-context";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -35,23 +12,97 @@ interface StoreLocationsSectionProps {
   description?: string;
   linkLabel?: string;
   storesHref: string;
+  heroBanners?: Array<{ desktop?: string; mobile?: string; alt?: string }>;
+  promoBanners?: Array<{ image?: string; mobileImage?: string; title?: string }>;
+}
+
+function buildGalleryImages({
+  heroBanners,
+  promoBanners,
+  storeName,
+}: Pick<StoreLocationsSectionProps, "heroBanners" | "promoBanners"> & { storeName: string }) {
+  const realImages = [
+    ...(heroBanners || []).flatMap((banner, index) =>
+      [banner.desktop, banner.mobile]
+        .filter((image): image is string => Boolean(image))
+        .map((image, imageIndex) => ({
+          id: `hero-${index}-${imageIndex}`,
+          src: image,
+          alt: banner.alt || `${storeName} vitrin gorunumu`,
+          city: "Vitrin",
+        })),
+    ),
+    ...(promoBanners || []).flatMap((banner, index) =>
+      [banner.image, banner.mobileImage]
+        .filter((image): image is string => Boolean(image))
+        .map((image, imageIndex) => ({
+          id: `promo-${index}-${imageIndex}`,
+          src: image,
+          alt: banner.title || `${storeName} koleksiyon gorseli`,
+          city: "Koleksiyon",
+        })),
+    ),
+  ].slice(0, 4);
+
+  if (realImages.length > 0) {
+    return realImages;
+  }
+
+  return [
+    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak gorunum 1`, city: "Studio" },
+    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak gorunum 2`, city: "Showroom" },
+    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak gorunum 3`, city: "Atolye" },
+    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak gorunum 4`, city: "Marka" },
+  ];
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Mağazalarımız",
-  heading = "Markanızı fiziksel dünyada da anlatın",
-  description = "Bu alan yeni mağazalarda showroom, butik, atölye veya teslim noktası gibi fiziksel temas alanlarını şık bir şekilde sergilemek için hazır gelir.",
-  linkLabel = "Tüm şubeleri gör",
+  eyebrow = "Magaza Deneyimi",
+  heading = "Markanizi fiziksel temas noktalariyla guclendirin",
+  description = "Genel ayarlara girdiginiz iletisim ve adres verileri, bu alanda otomatik olarak premium bir sunuma donusur.",
+  linkLabel = "Magaza detaylarini gor",
   storesHref,
+  heroBanners = [],
+  promoBanners = [],
 }: StoreLocationsSectionProps) {
-  const galleryImages = STORE_LOCATIONS.flatMap((store) =>
-    store.images.map((image, index) => ({
-      id: `${store.id}-${index}`,
-      src: image,
-      alt: `${store.name} görünümü ${index + 1}`,
-      city: store.city,
-    })),
-  ).slice(0, 4);
+  const { storeInfo } = useStoreInfo();
+  const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
+  const address = storeInfo?.address || "Adres bilgisi admin genel ayarlarda tanimlandiginda burada otomatik gorunur.";
+  const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
+  const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
+  const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
+  const mapUrl = storeInfo?.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
+    : storesHref;
+
+  const cards = [
+    {
+      id: "main",
+      badge: "Magaza & Deneyim",
+      name: `${storeName} Studio`,
+      summary:
+        storeInfo?.address
+          ? `${storeName} icin girdiginiz adres ve iletisim bilgileri burada premium bir vitrinde gosterilir.`
+          : `${storeName} icin adres ve iletisim bilgilerini adminden tamamladiginizda bu alan tam magaza deneyimine donusur.`,
+      hours: "Pzt - Cmt / 10:00 - 19:00",
+      address,
+      actionHref: mapUrl,
+      actionLabel: storeInfo?.address ? "Harita" : "Detaylari Ac",
+      icon: <MapPin className="size-4" />,
+    },
+    {
+      id: "support",
+      badge: "Iletisim",
+      name: "Destek ve Teklif Hatti",
+      summary:
+        "Kurumsal talepler, teslimat sorulari ve musteri destek akislari ayarlardan gelen telefon ve e-posta ile otomatik guncellenir.",
+      hours: "Hafta ici hizli geri donus",
+      address: `${phone} • ${email}`,
+      actionHref: `mailto:${email}`,
+      actionLabel: "E-Posta",
+      icon: <Mail className="size-4" />,
+    },
+  ];
 
   return (
     <section className="bg-white py-16 sm:py-20">
@@ -90,36 +141,49 @@ export function StoreLocationsSection({
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {STORE_LOCATIONS.map((store) => (
+          {cards.map((card) => (
             <article
-              key={store.id}
+              key={card.id}
               className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
-                    {store.badge}
+                    {card.badge}
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{store.name}</h3>
+                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{card.name}</h3>
                 </div>
 
                 <a
-                  href={store.mapUrl}
+                  href={card.actionHref}
                   className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
                 >
-                  <MapPin className="size-4" />
-                  <span>Harita</span>
+                  {card.icon}
+                  <span>{card.actionLabel}</span>
                 </a>
               </div>
 
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{store.summary}</p>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{card.summary}</p>
 
-              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#4D3C2F]">
+              <div className="mt-5 space-y-3 text-sm text-[#4D3C2F]">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
                   <Clock3 className="size-4 text-[#8C6D4C]" />
-                  <span>{store.hours}</span>
+                  <span>{card.hours}</span>
                 </div>
-                <p className="text-sm leading-6 text-[#6A5A4E]">{store.address}</p>
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-1 size-4 text-[#8C6D4C]" />
+                  <p className="text-sm leading-6 text-[#6A5A4E]">{card.address}</p>
+                </div>
+                <div className="flex flex-wrap gap-5 text-[#6A5A4E]">
+                  <span className="inline-flex items-center gap-2">
+                    <Phone className="size-4 text-[#8C6D4C]" />
+                    {phone}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Mail className="size-4 text-[#8C6D4C]" />
+                    {email}
+                  </span>
+                </div>
               </div>
             </article>
           ))}

@@ -8,6 +8,8 @@
  * @version 1.0.0
  */
 
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+
 // ============================================================================
 // VALUE OBJECTS
 // ============================================================================
@@ -233,7 +235,7 @@ export function toProductSEOViewModel(product: ProductWithSEO): ProductSEOViewMo
   const { score, issues } = calculateSEOScore(product);
   
   // Default values when null
-  const defaultTitle = `${product.name} | Ornek Magaza`;
+  const defaultTitle = `${product.name} | ${STOREFRONT_RUNTIME.name}`;
   const defaultDesc = product.short_description || description.slice(0, 160) || '';
   const defaultGEO: ProductGEO = { keyTakeaways: [], entities: [] };
   

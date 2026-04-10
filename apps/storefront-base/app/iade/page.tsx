@@ -1,103 +1,64 @@
-"use client";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getStorefrontProfile } from "@/lib/storefront-profile";
 
-export default function IadePage() {
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const profile = await getStorefrontProfile();
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/iade",
+    title: `Teslimat ve Iade Politikasi | ${profile.name}`,
+    description:
+      `${profile.name} icin teslimat, iade ve degisim sureclerine dair genel bilgilendirme.`,
+  });
+}
+
+export default async function ReturnsPage() {
+  const profile = await getStorefrontProfile();
+
+  const steps = [
+    "Teslim aldiginiz urunu siparis detaylariyla birlikte kontrol edin.",
+    `Iade veya degisim talebinizi ${profile.email} adresine iletin.`,
+    "Onay sonrasi urunu orijinal durumunu koruyarak gonderin.",
+    "Inceleme tamamlandiginda sonuc ve odeme bilgilendirmesi tarafiniza ulasir.",
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
-            İade Politikası
+    <div className="min-h-screen bg-[#F8F8F8]">
+      <section className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-4xl px-6 py-16 lg:py-20">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            Teslimat ve Iade
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            Teslimat ve iade sureci
           </h1>
-
-          <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
-            <p className="text-lg">
-              30 günlük bir iade politikamız vardır. Bu, ürünü teslim aldığınız tarihten itibaren 30 gün içinde iade talebinde bulunabileceğiniz anlamına gelir.
-            </p>
-
-            <p>
-              İadeye uygun olabilmesi için ürününüzü, teslim aldığınız andakiyle aynı durumda, kullanılmamış, açılmamış, etiketi sökülmemiş ve orijinal ambalajında göndermeniz gerekir. Ayrıca fiş veya satın alma kanıtına da ihtiyaç vardır.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              İade Talebi Nasıl Başlatılır?
-            </h2>
-
-            <p>
-              İade sürecini başlatmak için bizimle <strong>ornek-magazashopify@proton.me</strong> adresinden iletişime geçebilirsiniz.
-            </p>
-
-            <div className="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg my-6">
-              <p className="font-semibold text-gray-900 mb-2">İade Adresi:</p>
-              <p>Akyazı Mahallesi 873. Sokak No:2 Daire:4</p>
-              <p>Altınordu / Ordu – Türkiye</p>
-            </div>
-
-            <p>
-              İade talebiniz onaylandığında, size bir iade kargo etiketi ve paketinizi nasıl ve nereye göndereceğinize dair talimatlar iletilir. Önceden iade talebi açılmadan tarafımıza gönderilen paketler kabul edilmeyecektir.
-            </p>
-
-            <p>
-              İade ile ilgili her türlü sorunuz için her zaman <strong>ornek-magazashopify@proton.me</strong> adresinden bizimle iletişime geçebilirsiniz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Hasarlı ve Hatalı Ürünler
-            </h2>
-
-            <p>
-              Siparişinizi teslim alır almaz lütfen ürünü kontrol edin ve ürün hatalı, hasarlıysa veya yanlış ürün gönderildiyse derhâl bizimle iletişime geçin. Böylece sorunu değerlendirebilir ve en kısa sürede çözüme kavuşturabiliriz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              İstisnalar / İade Edilemeyen Ürünler
-            </h2>
-
-            <p>
-              Belirli ürün tipleri iade edilemez. Kolay bozulan ürünler (gıda ürünleri vb.), kişiye özel üretilmiş veya özel sipariş ürünler ve kişisel bakım ürünleri bu kapsama girebilir. Ayrıca tehlikeli madde, yanıcı sıvı ya da gaz içeren ürünler için iade kabul edemeyiz.
-            </p>
-
-            <p>
-              Belirli bir ürününüzle ilgili iade konusunda sorunuz varsa lütfen bizimle iletişime geçin.
-            </p>
-
-            <p className="font-semibold">
-              Ne yazık ki indirimli/satış ürünleri ve hediye kartları için iade kabul edemiyoruz.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Değişim İşlemleri
-            </h2>
-
-            <p>
-              İstediğiniz ürünü en hızlı şekilde almanın yolu, elinizdeki ürünü iade etmek ve iadeniz onaylandıktan sonra talep ettiğiniz yeni ürün için ayrı bir sipariş vermektir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Avrupa Birliği 14 Günlük Cayma Hakkı
-            </h2>
-
-            <p>
-              Yukarıdaki hükümlere ek olarak, ürününüz Avrupa Birliği ülkelerine gönderiliyorsa, siparişinizi herhangi bir gerekçe göstermeksizin, ürünü teslim alma tarihinden itibaren 14 gün içinde iptal etme veya iade etme hakkına sahipsiniz.
-            </p>
-
-            <p>
-              Bu kapsamda da ürünün, teslim aldığınız andakiyle aynı durumda, kullanılmamış, açılmamış, etiketi sökülmemiş ve orijinal ambalajında olması; ayrıca fiş veya satın alma kanıtının bulunması gerekir.
-            </p>
-
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">
-              Geri Ödemeler
-            </h2>
-
-            <p>
-              İade ürününüz bize ulaştıktan ve incelendikten sonra, geri ödemenizin onaylanıp onaylanmadığı konusunda sizi bilgilendireceğiz. İadeniz onaylanırsa, <strong>10 iş günü</strong> içinde ödemenizi orijinal ödeme yönteminize otomatik olarak iade ederiz.
-            </p>
-
-            <p>
-              Lütfen bankanızın veya kredi kartı sağlayıcınızın geri ödemeyi hesabınıza yansıtmasının biraz zaman alabileceğini unutmayın. İade talebinizin onaylanmasının üzerinden 15 iş gününden fazla zaman geçtiyse ve hâlâ hesabınıza yansımadıysa, lütfen <strong>ornek-magazashopify@proton.me</strong> adresinden bizimle iletişime geçin.
-            </p>
-          </div>
+          <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
+            Her magaza kendi operasyon planina gore teslimat ve iade kurallarini netlestirebilir.
+            Bu sayfa storefront icinde profesyonel bir temel politika alani olarak hazir gelir.
+          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="mx-auto max-w-4xl px-6 py-12 lg:py-16">
+        <div className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_20px_50px_-42px_rgba(41,24,15,0.35)]">
+          <h2 className="text-2xl font-semibold text-[#18110B]">Iade adimlari</h2>
+          <ol className="mt-6 space-y-4">
+            {steps.map((step, index) => (
+              <li key={step} className="flex gap-4">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7B1113]/8 text-sm font-semibold text-[#7B1113]">
+                  {index + 1}
+                </span>
+                <p className="pt-1 text-sm leading-7 text-[#5F5147]">{step}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
     </div>
   );
 }

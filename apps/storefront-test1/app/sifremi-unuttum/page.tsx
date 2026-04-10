@@ -14,6 +14,9 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const showLogoImage =
+    typeof SITE_LOGO_PATH === "string" &&
+    !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +75,13 @@ export default function ForgotPasswordPage() {
           className="text-center mb-8"
         >
           <Link href="/" className="inline-block">
-            <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+            {showLogoImage ? (
+              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+            ) : (
+              <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
+                {SITE_NAME}
+              </span>
+            )}
           </Link>
         </motion.div>
 

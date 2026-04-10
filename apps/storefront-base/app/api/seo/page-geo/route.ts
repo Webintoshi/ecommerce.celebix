@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAI } from "@/lib/ai";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractJSON(text: string): any {
@@ -24,6 +25,7 @@ async function callAIForJSON(prompt: string): Promise<any> {
 }
 
 function buildPageGEOPrompt(name: string, url?: string, description?: string): string {
+  const brand = STOREFRONT_RUNTIME.name;
   return `Sen Toshi - 15 yillik deneyimli bir GEO (Generative Engine Optimization) ve LLM Optimization uzmanisisin.
 
 SAYFA: ${name}
@@ -35,7 +37,7 @@ GOREV: Bu SAYFA icin ChatGPT, Perplexity, Claude ve diger AI sistemlerinin dogru
 SAYFA OLDUGUNU UNUTMA! Bu bir urun veya kategori degil, bir bilgi/icerik sayfasi (Hakkimizda, Iletisim, vb.).
 
 NEDIR BU?
-GEO/LLM Optimizasyonu, AI sistemlerinin sayfayi dogru anlamasini saglar. Ornegin bir kullanici "Ornek Magaza hakkinda bilgi" dediginde AI bu sayfayi onerebilsin.
+GEO/LLM Optimizasyonu, AI sistemlerinin sayfayi dogru anlamasini saglar. Ornegin bir kullanici "${brand} hakkinda bilgi" dediginde AI bu sayfayi onerebilsin.
 
 KURALLAR:
 1. Her cikarim 1 cumle, net ve oz olmali

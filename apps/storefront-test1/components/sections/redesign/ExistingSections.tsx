@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
+import { ROUTES, SITE_NAME } from "@/lib/constants";
 import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {

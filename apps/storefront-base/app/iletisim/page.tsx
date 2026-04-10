@@ -1,139 +1,98 @@
-"use client";
-
 import { Mail, MapPin, Phone } from "lucide-react";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getStorefrontProfile } from "@/lib/storefront-profile";
 
-export default function IletisimPage() {
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const locale = await getRequestLocale();
+  const profile = await getStorefrontProfile();
+
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/iletisim",
+    title: `Iletisim | ${profile.name}`,
+    description:
+      `${profile.name} ile destek, teklif, toptan satis ve proje talepleri icin iletisime gecin.`,
+  });
+}
+
+export default async function ContactPage() {
+  const profile = await getStorefrontProfile();
+
+  const cards = [
+    {
+      title: "Adres",
+      value: profile.address,
+      href: profile.mapSearchUrl,
+      icon: MapPin,
+      linkLabel: "Haritada Ac",
+    },
+    {
+      title: "E-posta",
+      value: profile.email,
+      href: `mailto:${profile.email}`,
+      icon: Mail,
+      linkLabel: "Mail Gonder",
+    },
+    {
+      title: "Telefon",
+      value: profile.phone,
+      href: `tel:${profile.phoneLink}`,
+      icon: Phone,
+      linkLabel: "Hemen Ara",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
-            İletişim Bilgileri
-          </h1>
-
-          <div className="space-y-8">
-            {/* Türkiye Ofisi */}
-            <div className="border-l-4 border-primary pl-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Türkiye Ofisi
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Marka</p>
-                  <p className="text-lg font-semibold text-gray-900">Ornek Magaza</p>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Adres</p>
-                    <p className="text-gray-900">
-                      Akyazı Mahallesi 873. Sokak No:2 Daire:4<br />
-                      Altınordu / Ordu, Türkiye
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">E-posta</p>
-                    <a 
-                      href="mailto:ornek-magazashopify@proton.me"
-                      className="text-primary hover:underline font-medium"
-                    >
-                      ornek-magazashopify@proton.me
-                    </a>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Telefon</p>
-                    <a 
-                      href="tel:+905551234567"
-                      className="text-primary hover:underline font-medium"
-                    >
-                      +90 555 123 4567
-                    </a>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Vergi Kimlik Numarası</p>
-                  <p className="text-gray-900 font-mono">2340684642</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ABD Ofisi */}
-            <div className="border-l-4 border-gray-300 pl-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                ABD Ofisi
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Şirket Adı</p>
-                  <p className="text-lg font-semibold text-gray-900">WEBINTOSH LLC</p>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Adres</p>
-                    <p className="text-gray-900">
-                      1209 Mountain Road Pl NE Ste N<br />
-                      Albuquerque, NM 87110, USA
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">EIN</p>
-                  <p className="text-gray-900 font-mono">37-2197807</p>
-                </div>
-              </div>
-            </div>
-
-            {/* İletişim Formu Bilgisi */}
-            <div className="bg-primary/5 rounded-lg p-6 mt-8">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                Bize Ulaşın
-              </h3>
-              <p className="text-gray-700 mb-4">
-                Sorularınız, önerileriniz veya geri bildirimleriniz için bizimle iletişime geçmekten çekinmeyin. Size en kısa sürede dönüş yapacağız.
-              </p>
-              <a
-                href="mailto:ornek-magazashopify@proton.me"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
-              >
-                <Mail className="w-5 h-5" />
-                E-posta Gönder
-              </a>
-            </div>
-
-            {/* Çalışma Saatleri */}
-            <div className="border-t pt-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
-                Müşteri Hizmetleri Çalışma Saatleri
-              </h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="font-semibold text-gray-900 mb-2">Hafta İçi</p>
-                  <p className="text-gray-700">Pazartesi - Cuma: 09:00 - 18:00</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="font-semibold text-gray-900 mb-2">Hafta Sonu</p>
-                  <p className="text-gray-700">Cumartesi - Pazar: Kapalı</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-[#F8F8F8]">
+      <section className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+              Iletisim
+            </p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+              {profile.name} ile ayni gun baglanti kurun
+            </h1>
+            <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
+              Genel ayarlarda girdiginiz iletisim bilgileri bu sayfayi otomatik olarak
+              premium bir destek merkezine donusturur. Teklif, destek ve proje talepleriniz
+              icin dogrudan baglanabilirsiniz.
+            </p>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
+        <div className="grid gap-6 md:grid-cols-3">
+          {cards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <article
+                key={card.title}
+                className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                  {card.title}
+                </p>
+                <p className="mt-3 text-base leading-7 text-[#221813]">{card.value}</p>
+                <a
+                  href={card.href}
+                  className="mt-5 inline-flex items-center rounded-full border border-[#C7A985] px-4 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
+                >
+                  {card.linkLabel}
+                </a>
+              </article>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

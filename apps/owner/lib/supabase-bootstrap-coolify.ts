@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
 import {
   getRepoRoot,
+  normalizeStoreSeoSettings,
   type StoreConfig,
   upsertStoreAdminEnvLocal,
   updateStoreSupabaseConfig,
@@ -214,6 +215,135 @@ function buildSupabaseServiceName(store: StoreConfig): string {
 
 function buildSupabaseDashboardUrl(publicUrl: string): string {
   return `${publicUrl.replace(/\/+$/, "")}/project/default`;
+}
+
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function serializeJsonLiteral(value: unknown): string {
+  return `'${escapeSqlLiteral(JSON.stringify(value))}'::jsonb`;
+}
+
+function buildInitialStoreSettings(store: StoreConfig, publicUrl: string) {
+  const supportEmail =
+    store.branding?.supportEmail?.trim() || `destek@${store.domains.storefront}`;
+  const supportPhone = store.branding?.supportPhone?.trim() || "+90 532 000 00 00";
+  const tagline =
+    store.branding?.tagline?.trim() ||
+    `${store.name} icin premium storefront deneyimi`;
+
+  const storeInfo = {
+    name: store.name,
+    email: supportEmail,
+    phone: supportPhone,
+    address: `${store.name} Studio, Istanbul / Turkiye`,
+    currency: "TRY",
+    taxRate: 20,
+    timezone: "Europe/Istanbul",
+    logoUrl: "",
+    faviconUrl: "",
+    socialInstagram: "",
+    socialTwitter: "",
+  };
+
+  const announcementBar = {
+    message: `${store.name} vitrini hazir. Ilk koleksiyonunuzu yayina alin.`,
+    link: "/urunler",
+    linkText: "Hemen Kesfet",
+    enabled: true,
+    backgroundColor: "#7B1113",
+  };
+
+  const seoSettings = normalizeStoreSeoSettings({
+    siteName: store.name,
+    titleSuffix: store.name,
+    defaultTitle: `${store.name} | Premium Magaza Deneyimi`,
+    defaultDescription:
+      `${store.name} icin admin baglantili premium storefront deneyimi. Urunlerinizi, kategorilerinizi ve vitrin iceriklerinizi tek panelden yonetin.`,
+    keywords: [
+      store.name,
+      "premium storefront",
+      "e-ticaret",
+      "celebix",
+      "urun vitrini",
+    ],
+    ogImageUrl: "",
+    twitterHandle: "",
+    robotsIndex: true,
+    robotsFollow: true,
+  });
+
+  const marqueeSettings = {
+    items: [
+      { id: "1", text: `${store.name} vitrini hazir`, icon: "sparkle", badge: "Canli" },
+      { id: "2", text: "Kategori ve urunler adminden baglanir", icon: "award", badge: "Otomatik" },
+      { id: "3", text: "Banner ve yorum bloklari tek panelden yonetilir", icon: "shield", badge: "Merkezi" },
+      { id: "4", text: supportPhone, icon: "truck", badge: "Destek" },
+    ],
+    speed: "normal",
+    direction: "left",
+    pauseOnHover: true,
+    showStars: true,
+    animation: "marquee",
+    enabled: true,
+  };
+
+  return [
+    { key: "store_info", value: storeInfo },
+    { key: "announcement_bar", value: announcementBar },
+    { key: "seo_settings", value: seoSettings },
+    { key: "marquee_settings", value: marqueeSettings },
+    { key: "hero_banners", value: [] },
+    { key: "promo_banners", value: [] },
+    {
+      key: "translation_settings",
+      value: {
+        enabled: false,
+        provider: "deepl",
+        sourceLocale: "tr",
+        enabledLocales: ["en", "de", "ru", "ar", "ka"],
+        apiKey: "",
+        translateCatalog: true,
+        translateSeo: true,
+        translateUi: true,
+      },
+    },
+    {
+      key: "storefront_bootstrap",
+      value: {
+        provider: "owner",
+        siteUrl: publicUrl,
+        generatedAt: new Date().toISOString(),
+      },
+    },
+  ] as const;
+}
+
+async function seedSelfHostedStoreSettings(
+  store: StoreConfig,
+  publicUrl: string,
+  adminUser: string,
+  adminPassword: string,
+): Promise<void> {
+  const values = buildInitialStoreSettings(store, publicUrl)
+    .map(
+      (entry) =>
+        `('${escapeSqlLiteral(entry.key)}', ${serializeJsonLiteral(entry.value)})`,
+    )
+    .join(",\n");
+
+  await runSelfHostedPgMetaQuery(
+    publicUrl,
+    adminUser,
+    adminPassword,
+    `
+      insert into public.settings (key, value)
+      values
+      ${values}
+      on conflict (key) do nothing;
+    `,
+  );
 }
 
 function buildBootstrapQueries(
@@ -633,6 +763,7 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     const serviceUuid = resolveIdentifier(service);
     const { publicKey, serviceKey, adminUser, adminPassword } = await waitForSupabaseRuntime(serviceUuid);
     await ensureSelfHostedStoreSchema(targetPublicUrl, adminUser, adminPassword);
+    await seedSelfHostedStoreSettings(store, targetPublicUrl, adminUser, adminPassword);
     const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, targetPublicUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...legacyAdminAuthEntries,

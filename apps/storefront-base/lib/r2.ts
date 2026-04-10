@@ -10,7 +10,7 @@ const r2Client = new S3Client({
     },
 });
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME || "ornek-magaza-assets";
+const BUCKET_NAME = process.env.R2_BUCKET_NAME || "store-assets";
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
 
 // R2 public URL fallback (if custom domain not set)

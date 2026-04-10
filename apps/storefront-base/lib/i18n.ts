@@ -1,3 +1,5 @@
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+
 export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -38,6 +40,7 @@ type LocaleCopy = {
   missingProductTitle: string;
   missingProductDescription: string;
   missingCategoryTitle: string;
+  missingCategoryDescription?: string;
   menuLabel: string;
   searchLabel: string;
   cartLabel: string;
@@ -59,65 +62,82 @@ type LocaleCopy = {
   faqHeading: string;
 };
 
-export const LOCALE_COPY: Record<StorefrontLocale, LocaleCopy> = {
+function getRuntimeCopyDefaults(locale: StorefrontLocale) {
+  const name = STOREFRONT_RUNTIME.name;
+
+  switch (locale) {
+    case "en":
+      return {
+        siteTitle: `${name} | Premium Storefront`,
+        siteDescription:
+          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+        homeTitle: `${name} | Premium Storefront`,
+        homeDescription:
+          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+        productsTitle: `All Products | ${name}`,
+        productsDescription:
+          "Discover all published products, curated collections, and merchandising blocks managed from your admin panel.",
+        contactTitle: `Contact | ${name}`,
+        contactDescription:
+          "Get in touch for support, wholesale inquiries, and custom project requests.",
+        corporateTitle: `Corporate Products | ${name}`,
+        corporateDescription:
+          "Showcase premium corporate gifting, branded product sets, and admin-managed presentation pages.",
+        missingProductTitle: `Product Not Found | ${name}`,
+        missingProductDescription: "The product you are looking for could not be found.",
+        missingCategoryTitle: `Category Not Found | ${name}`,
+        missingCategoryDescription:
+          "This collection is not available yet. Published categories will appear here automatically.",
+      };
+    default:
+      return {
+        siteTitle: `${name} | Premium Magaza Deneyimi`,
+        siteDescription:
+          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+        homeTitle: `${name} | Premium Magaza Deneyimi`,
+        homeDescription:
+          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+        productsTitle: `Tum Urunler | ${name}`,
+        productsDescription:
+          "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
+        contactTitle: `Iletisim | ${name}`,
+        contactDescription:
+          "Destek, toptan satis ve ozel proje talepleriniz icin bizimle iletisime gecin.",
+        corporateTitle: `Kurumsal Urunler | ${name}`,
+        corporateDescription:
+          "Markanizi premium urunler, ozel hediye setleri ve admin yonetimli kurumsal vitrinle guclendirin.",
+        missingProductTitle: `Urun Bulunamadi | ${name}`,
+        missingProductDescription: "Aradiginiz urun bulunamadi.",
+        missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
+        missingCategoryDescription:
+          "Istenen koleksiyon henuz hazir degil. Yayinlanan kategoriler otomatik olarak burada listelenecek.",
+      };
+  }
+}
+
+const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnType<typeof getRuntimeCopyDefaults>>> = {
   tr: {
-    siteTitle: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    siteDescription:
-      "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarlar.",
-    homeTitle: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
-    homeDescription:
-      "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarlar.",
-    productsTitle: "Tüm Ürünler | Deri Kordon",
-    productsDescription:
-      "El yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarları keşfedin.",
-    contactTitle: "İletişim | Deri Kordon",
-    contactDescription:
-      "Sorularınız, önerileriniz ve özel sipariş talepleriniz için bizimle iletişime geçin.",
-    corporateTitle: "Kurumsal Ürünler | Deri Kordon",
-    corporateDescription:
-      "Şirketinize özel deri ürünler ve kişiselleştirilmiş kurumsal hediyeler. Markanıza prestij katın.",
-    missingProductTitle: "Ürün Bulunamadı | Deri Kordon",
-    missingProductDescription: "Aradığınız ürün bulunamadı.",
-    missingCategoryTitle: "Kategori Bulunamadı | Deri Kordon",
-    menuLabel: "Menü",
+    menuLabel: "Menu",
     searchLabel: "Ara",
-    cartLabel: "Sepeti aç",
+    cartLabel: "Sepeti ac",
     categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Tanıyın",
+    aboutHeading: "Bizi Taniyin",
     policiesHeading: "Politikalar",
     footerHome: "Ana Sayfa",
-    footerAbout: "Hakkımızda",
-    footerStores: "Mağazalarımız",
-    footerCorporate: "Kurumsal Ürünler",
-    footerContact: "İletişim",
-    footerDistanceSales: "Mesafeli Satış Sözleşmesi",
-    footerReturns: "Teslimat ve İade Politikası",
-    footerPrivacy: "Gizlilik Politikası",
+    footerAbout: "Hakkimizda",
+    footerStores: "Magazalarimiz",
+    footerCorporate: "Kurumsal Urunler",
+    footerContact: "Iletisim",
+    footerDistanceSales: "Mesafeli Satis Sozlesmesi",
+    footerReturns: "Teslimat ve Iade Politikasi",
+    footerPrivacy: "Gizlilik Politikasi",
     footerKvkk: "KVKK",
-    footerRights: "Tüm hakları saklıdır.",
+    footerRights: "Tum haklari saklidir.",
     breadcrumbHome: "Ana Sayfa",
-    breadcrumbProducts: "Ürünler",
-    faqHeading: "Sıkça sorulan sorular",
+    breadcrumbProducts: "Urunler",
+    faqHeading: "Sikca sorulan sorular",
   },
   en: {
-    siteTitle: "Deri Kordon | Handmade Genuine Leather Straps",
-    siteDescription:
-      "Handmade genuine leather straps, Apple Watch bands, and premium leather accessories crafted with refined workmanship.",
-    homeTitle: "Deri Kordon | Handmade Genuine Leather Straps",
-    homeDescription:
-      "Handmade genuine leather straps, Apple Watch bands, and premium leather accessories crafted with refined workmanship.",
-    productsTitle: "All Products | Deri Kordon",
-    productsDescription:
-      "Discover handmade genuine leather straps, Apple Watch bands, and premium leather accessories.",
-    contactTitle: "Contact | Deri Kordon",
-    contactDescription:
-      "Get in touch with us for questions, custom requests, and product support.",
-    corporateTitle: "Corporate Products | Deri Kordon",
-    corporateDescription:
-      "Tailored leather products and personalized corporate gifts for your brand.",
-    missingProductTitle: "Product Not Found | Deri Kordon",
-    missingProductDescription: "The product you are looking for could not be found.",
-    missingCategoryTitle: "Category Not Found | Deri Kordon",
     menuLabel: "Menu",
     searchLabel: "Search",
     cartLabel: "Open cart",
@@ -139,207 +159,92 @@ export const LOCALE_COPY: Record<StorefrontLocale, LocaleCopy> = {
     faqHeading: "Frequently asked questions",
   },
   de: {
-    siteTitle: "Deri Kordon | Handgefertigte Echtlederarmbänder",
-    siteDescription:
-      "Handgefertigte Echtlederarmbänder, Apple Watch Armbänder und hochwertige Lederaccessoires mit feiner Verarbeitung.",
-    homeTitle: "Deri Kordon | Handgefertigte Echtlederarmbänder",
-    homeDescription:
-      "Handgefertigte Echtlederarmbänder, Apple Watch Armbänder und hochwertige Lederaccessoires mit feiner Verarbeitung.",
-    productsTitle: "Alle Produkte | Deri Kordon",
-    productsDescription:
-      "Entdecken Sie handgefertigte Echtlederarmbänder, Apple Watch Armbänder und hochwertige Lederaccessoires.",
-    contactTitle: "Kontakt | Deri Kordon",
-    contactDescription:
-      "Kontaktieren Sie uns für Fragen, Sonderanfertigungen und Produktunterstützung.",
-    corporateTitle: "Firmenprodukte | Deri Kordon",
-    corporateDescription:
-      "Individuelle Lederprodukte und personalisierte Firmengeschenke für Ihre Marke.",
-    missingProductTitle: "Produkt nicht gefunden | Deri Kordon",
-    missingProductDescription: "Das gesuchte Produkt wurde nicht gefunden.",
-    missingCategoryTitle: "Kategorie nicht gefunden | Deri Kordon",
-    menuLabel: "Menü",
+    menuLabel: "Menu",
     searchLabel: "Suche",
-    cartLabel: "Warenkorb öffnen",
+    cartLabel: "Warenkorb",
     categoriesHeading: "Kategorien",
-    aboutHeading: "Über uns",
+    aboutHeading: "Uber Uns",
     policiesHeading: "Richtlinien",
     footerHome: "Startseite",
-    footerAbout: "Über uns",
+    footerAbout: "Uber uns",
     footerStores: "Filialen",
     footerCorporate: "Firmenprodukte",
     footerContact: "Kontakt",
     footerDistanceSales: "Fernabsatzvertrag",
-    footerReturns: "Lieferung und Rückgabe",
+    footerReturns: "Lieferung und Ruckgabe",
     footerPrivacy: "Datenschutz",
     footerKvkk: "Datenschutzrecht",
     footerRights: "Alle Rechte vorbehalten.",
     breadcrumbHome: "Startseite",
     breadcrumbProducts: "Produkte",
-    faqHeading: "Häufige Fragen",
+    faqHeading: "Haufige Fragen",
   },
   ru: {
-    siteTitle: "Deri Kordon | Кожаные ремешки ручной работы",
-    siteDescription:
-      "Кожаные ремешки ручной работы, ремешки для Apple Watch и премиальные кожаные аксессуары.",
-    homeTitle: "Deri Kordon | Кожаные ремешки ручной работы",
-    homeDescription:
-      "Кожаные ремешки ручной работы, ремешки для Apple Watch и премиальные кожаные аксессуары.",
-    productsTitle: "Все товары | Deri Kordon",
-    productsDescription:
-      "Откройте для себя кожаные ремешки ручной работы, ремешки Apple Watch и премиальные аксессуары.",
-    contactTitle: "Контакты | Deri Kordon",
-    contactDescription:
-      "Свяжитесь с нами по вопросам, индивидуальным заказам и поддержке по продуктам.",
-    corporateTitle: "Корпоративные товары | Deri Kordon",
-    corporateDescription:
-      "Индивидуальные кожаные изделия и корпоративные подарки для вашего бренда.",
-    missingProductTitle: "Товар не найден | Deri Kordon",
-    missingProductDescription: "Запрашиваемый товар не найден.",
-    missingCategoryTitle: "Категория не найдена | Deri Kordon",
-    menuLabel: "Меню",
-    searchLabel: "Поиск",
-    cartLabel: "Открыть корзину",
-    categoriesHeading: "Категории",
-    aboutHeading: "О нас",
-    policiesHeading: "Политики",
-    footerHome: "Главная",
-    footerAbout: "О нас",
-    footerStores: "Магазины",
-    footerCorporate: "Корпоративные товары",
-    footerContact: "Контакты",
-    footerDistanceSales: "Договор дистанционной продажи",
-    footerReturns: "Доставка и возврат",
-    footerPrivacy: "Политика конфиденциальности",
-    footerKvkk: "Защита данных",
-    footerRights: "Все права защищены.",
-    breadcrumbHome: "Главная",
-    breadcrumbProducts: "Товары",
-    faqHeading: "Часто задаваемые вопросы",
+    menuLabel: "Menu",
+    searchLabel: "Poisk",
+    cartLabel: "Korzinа",
+    categoriesHeading: "Kategorii",
+    aboutHeading: "O nas",
+    policiesHeading: "Politiki",
+    footerHome: "Glavnaya",
+    footerAbout: "O nas",
+    footerStores: "Magaziny",
+    footerCorporate: "Korporativnye tovary",
+    footerContact: "Kontakty",
+    footerDistanceSales: "Distantsionnaya prodazha",
+    footerReturns: "Dostavka i vozvrat",
+    footerPrivacy: "Konfidentsialnost",
+    footerKvkk: "Zashchita dannykh",
+    footerRights: "Vse prava zashchishcheny.",
+    breadcrumbHome: "Glavnaya",
+    breadcrumbProducts: "Produkty",
+    faqHeading: "Chasto zadavaemye voprosy",
   },
   ar: {
-    siteTitle: "Deri Kordon | أحزمة جلدية يدوية فاخرة",
-    siteDescription:
-      "أحزمة جلدية يدوية، أحزمة Apple Watch، وإكسسوارات جلدية فاخرة مصنوعة بعناية.",
-    homeTitle: "Deri Kordon | أحزمة جلدية يدوية فاخرة",
-    homeDescription:
-      "أحزمة جلدية يدوية، أحزمة Apple Watch، وإكسسوارات جلدية فاخرة مصنوعة بعناية.",
-    productsTitle: "كل المنتجات | Deri Kordon",
-    productsDescription:
-      "اكتشف الأحزمة الجلدية اليدوية وأحزمة Apple Watch والإكسسوارات الجلدية الفاخرة.",
-    contactTitle: "تواصل معنا | Deri Kordon",
-    contactDescription:
-      "تواصل معنا للاستفسارات والطلبات الخاصة ودعم المنتجات.",
-    corporateTitle: "منتجات الشركات | Deri Kordon",
-    corporateDescription:
-      "منتجات جلدية مخصصة وهدايا مؤسسية شخصية تعكس قيمة علامتك التجارية.",
-    missingProductTitle: "المنتج غير موجود | Deri Kordon",
-    missingProductDescription: "المنتج الذي تبحث عنه غير موجود.",
-    missingCategoryTitle: "الفئة غير موجودة | Deri Kordon",
-    menuLabel: "القائمة",
-    searchLabel: "بحث",
-    cartLabel: "فتح السلة",
-    categoriesHeading: "الفئات",
-    aboutHeading: "تعرف علينا",
-    policiesHeading: "السياسات",
-    footerHome: "الرئيسية",
-    footerAbout: "من نحن",
-    footerStores: "متاجرنا",
-    footerCorporate: "المنتجات المؤسسية",
-    footerContact: "اتصل بنا",
-    footerDistanceSales: "اتفاقية البيع عن بعد",
-    footerReturns: "الشحن والاسترجاع",
-    footerPrivacy: "سياسة الخصوصية",
-    footerKvkk: "خصوصية البيانات",
-    footerRights: "جميع الحقوق محفوظة.",
-    breadcrumbHome: "الرئيسية",
-    breadcrumbProducts: "المنتجات",
-    faqHeading: "الأسئلة الشائعة",
+    menuLabel: "Menu",
+    searchLabel: "Search",
+    cartLabel: "Cart",
+    categoriesHeading: "Categories",
+    aboutHeading: "About",
+    policiesHeading: "Policies",
+    footerHome: "Home",
+    footerAbout: "About",
+    footerStores: "Stores",
+    footerCorporate: "Corporate Products",
+    footerContact: "Contact",
+    footerDistanceSales: "Distance Sales",
+    footerReturns: "Returns",
+    footerPrivacy: "Privacy",
+    footerKvkk: "Data Privacy",
+    footerRights: "All rights reserved.",
+    breadcrumbHome: "Home",
+    breadcrumbProducts: "Products",
+    faqHeading: "Frequently asked questions",
   },
   ka: {
-    siteTitle: "Deri Kordon | ხელნაკეთი ნატურალური ტყავის სამაჯურები",
-    siteDescription:
-      "ხელნაკეთი ნატურალური ტყავის სამაჯურები, Apple Watch-ის სამაჯურები და პრემიუმ ტყავის აქსესუარები.",
-    homeTitle: "Deri Kordon | ხელნაკეთი ნატურალური ტყავის სამაჯურები",
-    homeDescription:
-      "ხელნაკეთი ნატურალური ტყავის სამაჯურები, Apple Watch-ის სამაჯურები და პრემიუმ ტყავის აქსესუარები.",
-    productsTitle: "ყველა პროდუქტი | Deri Kordon",
-    productsDescription:
-      "აღმოაჩინეთ ხელნაკეთი ტყავის სამაჯურები, Apple Watch-ის სამაჯურები და პრემიუმ აქსესუარები.",
-    contactTitle: "კონტაქტი | Deri Kordon",
-    contactDescription:
-      "დაგვიკავშირდით კითხვებისთვის, სპეციალური შეკვეთებისთვის და პროდუქტის მხარდაჭერისთვის.",
-    corporateTitle: "კორპორატიული პროდუქტები | Deri Kordon",
-    corporateDescription:
-      "ბრენდზე მორგებული ტყავის პროდუქცია და პერსონალიზებული კორპორატიული საჩუქრები.",
-    missingProductTitle: "პროდუქტი ვერ მოიძებნა | Deri Kordon",
-    missingProductDescription: "მოთხოვნილი პროდუქტი ვერ მოიძებნა.",
-    missingCategoryTitle: "კატეგორია ვერ მოიძებნა | Deri Kordon",
-    menuLabel: "მენიუ",
-    searchLabel: "ძებნა",
-    cartLabel: "კალათის გახსნა",
-    categoriesHeading: "კატეგორიები",
-    aboutHeading: "ჩვენ შესახებ",
-    policiesHeading: "პოლიტიკები",
-    footerHome: "მთავარი",
-    footerAbout: "ჩვენ შესახებ",
-    footerStores: "მაღაზიები",
-    footerCorporate: "კორპორატიული პროდუქტები",
-    footerContact: "კონტაქტი",
-    footerDistanceSales: "დისტანციური გაყიდვის შეთანხმება",
-    footerReturns: "მიწოდება და დაბრუნება",
-    footerPrivacy: "კონფიდენციალურობის პოლიტიკა",
-    footerKvkk: "მონაცემთა დაცვა",
-    footerRights: "ყველა უფლება დაცულია.",
-    breadcrumbHome: "მთავარი",
-    breadcrumbProducts: "პროდუქტები",
-    faqHeading: "ხშირად დასმული კითხვები",
+    menuLabel: "Menu",
+    searchLabel: "Search",
+    cartLabel: "Cart",
+    categoriesHeading: "Categories",
+    aboutHeading: "About",
+    policiesHeading: "Policies",
+    footerHome: "Home",
+    footerAbout: "About",
+    footerStores: "Stores",
+    footerCorporate: "Corporate Products",
+    footerContact: "Contact",
+    footerDistanceSales: "Distance Sales",
+    footerReturns: "Returns",
+    footerPrivacy: "Privacy",
+    footerKvkk: "Data Privacy",
+    footerRights: "All rights reserved.",
+    breadcrumbHome: "Home",
+    breadcrumbProducts: "Products",
+    faqHeading: "Frequently asked questions",
   },
 };
 
-const CATEGORY_LABELS: Record<string, Partial<Record<StorefrontLocale, string>>> = {
-  "cuzdan-kartlik": {
-    en: "Wallets & Cardholders",
-    de: "Geldbörsen & Kartenetuis",
-    ru: "Кошельки и картхолдеры",
-    ar: "المحافظ وحافظات البطاقات",
-    ka: "საფულეები და ბარათების ჩასადებები",
-  },
-  "apple-watch-saat-kayislari": {
-    en: "Apple Watch Straps",
-    de: "Apple Watch Armbänder",
-    ru: "Ремешки Apple Watch",
-    ar: "أحزمة Apple Watch",
-    ka: "Apple Watch-ის სამაჯურები",
-  },
-  "saat-kayislari": {
-    en: "Watch Straps",
-    de: "Uhrenarmbänder",
-    ru: "Ремешки для часов",
-    ar: "أحزمة الساعات",
-    ka: "საათის სამაჯურები",
-  },
-  "canta-organizer": {
-    en: "Bags & Organizers",
-    de: "Taschen & Organizer",
-    ru: "Сумки и органайзеры",
-    ar: "الحقائب والمنظمات",
-    ka: "ჩანთები და ორგანიზერები",
-  },
-  aksesuar: {
-    en: "Accessories",
-    de: "Accessoires",
-    ru: "Аксессуары",
-    ar: "الإكسسوارات",
-    ka: "აქსესუარები",
-  },
-  "gunluk-yasam": {
-    en: "Everyday Carry",
-    de: "Alltag",
-    ru: "Повседневная жизнь",
-    ar: "الاستخدام اليومي",
-    ka: "ყოველდღიური ცხოვრება",
-  },
-};
+const CATEGORY_LABELS: Record<string, Partial<Record<StorefrontLocale, string>>> = {};
 
 export function isSupportedLocale(value?: string | null): value is StorefrontLocale {
   return Boolean(value && SUPPORTED_LOCALES.includes(value as StorefrontLocale));
@@ -381,8 +286,11 @@ export function buildLocaleAlternates(pathname: string) {
   );
 }
 
-export function getLocalizedCopy(locale: StorefrontLocale) {
-  return LOCALE_COPY[locale] || LOCALE_COPY[DEFAULT_LOCALE];
+export function getLocalizedCopy(locale: StorefrontLocale): LocaleCopy {
+  return {
+    ...BASE_LOCALE_COPY[locale],
+    ...getRuntimeCopyDefaults(locale),
+  };
 }
 
 export function getLocalizedCategoryLabel(
