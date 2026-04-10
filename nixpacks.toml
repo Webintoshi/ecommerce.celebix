@@ -6,9 +6,7 @@ onlyIncludeFiles = [
   "node_modules",
   "scripts/prepare-next-standalone.cjs",
   "scripts/iyzico-runner.cjs",
-  "packages/platform-config",
+  "packages",
   "stores",
-  "apps/admin",
-  "apps/owner",
-  "apps/storefront-deri-kordon",
+  "apps",
 ]
