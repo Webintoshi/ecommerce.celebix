@@ -11,6 +11,11 @@ import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 
+function shouldAutoProvisionGeneratedApps(): boolean {
+  const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
 export async function GET() {
   const auth = await getOwnerAuthContext();
 
@@ -87,10 +92,16 @@ export async function POST(request: Request) {
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
     }
-    try {
-      await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
+    const shouldAutoProvisionApps = shouldAutoProvisionGeneratedApps();
+
+    if (shouldAutoProvisionApps) {
+      try {
+        await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
+      } catch (error) {
+        warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
+      }
+    } else {
+      warnings.push("Admin deployment otomasyonu varsayilan olarak kapali. Gerekirse store detayindan manuel tetikle.");
     }
     try {
       if (result.store.storefront?.status === "not_started") {
@@ -117,19 +128,23 @@ export async function POST(request: Request) {
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
     }
-    try {
-      const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
-        waitForRuntime: false,
-      });
+    if (shouldAutoProvisionApps) {
+      try {
+        const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
+          waitForRuntime: false,
+        });
 
-      if (storefrontDeployment.status !== "configured") {
-        warnings.push(
-          storefrontDeployment.message ||
-            "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
-        );
+        if (storefrontDeployment.status !== "configured") {
+          warnings.push(
+            storefrontDeployment.message ||
+              "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
+          );
+        }
+      } catch (error) {
+        warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
       }
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
+    } else {
+      warnings.push("Storefront deployment otomasyonu varsayilan olarak kapali. Gerekirse store detayindan manuel tetikle.");
     }
     await syncOwnerStoresAndMetrics();
     await recordOwnerAuditLog({
