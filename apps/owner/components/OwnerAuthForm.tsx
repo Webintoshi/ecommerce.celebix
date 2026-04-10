@@ -17,10 +17,7 @@ export function OwnerAuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const nextPath = useMemo(
-    () => sanitizeInternalRedirectPath(searchParams.get("next"), "/"),
-    [searchParams],
-  );
+  const nextPath = useMemo(() => sanitizeInternalRedirectPath(searchParams.get("next"), "/"), [searchParams]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,8 +32,8 @@ export function OwnerAuthForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: email.trim(),
-            password,
-          }),
+            password
+          })
         });
 
         const payload = await response.json().catch(() => ({}));
@@ -54,7 +51,7 @@ export function OwnerAuthForm() {
 
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          refresh_token: session.refresh_token
         });
 
         if (sessionError) {
@@ -94,232 +91,68 @@ export function OwnerAuthForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {/* Mode Switch */}
-      <div style={{ 
-        display: "flex", 
-        gap: "8px", 
-        padding: "4px",
-        background: "var(--gray-100)",
-        borderRadius: "10px"
-      }}>
+    <form onSubmit={handleSubmit} className="owner-auth-form">
+      <div className="owner-auth-switch" role="tablist" aria-label="Giris modu secimi">
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "login"}
+          className={`owner-auth-switch-btn${mode === "login" ? " is-active" : ""}`}
           onClick={() => setMode("login")}
-          style={{
-            flex: 1,
-            padding: "10px 16px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            fontWeight: 600,
-            border: "none",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-            background: mode === "login" ? "var(--white)" : "transparent",
-            color: mode === "login" ? "var(--gray-800)" : "var(--gray-500)",
-            boxShadow: mode === "login" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
-          }}
         >
           Giris Yap
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "register"}
+          className={`owner-auth-switch-btn${mode === "register" ? " is-active" : ""}`}
           onClick={() => setMode("register")}
-          style={{
-            flex: 1,
-            padding: "10px 16px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            fontWeight: 600,
-            border: "none",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-            background: mode === "register" ? "var(--white)" : "transparent",
-            color: mode === "register" ? "var(--gray-800)" : "var(--gray-500)",
-            boxShadow: mode === "register" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
-          }}
         >
           Hesap Olustur
         </button>
       </div>
 
-      {/* Full Name - Only for register */}
       {mode === "register" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label style={{ 
-            fontSize: "11px", 
-            fontWeight: 700, 
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            color: "var(--gray-600)"
-          }}>
-            Ad Soyad
-          </label>
+        <label className="owner-auth-field">
+          <span>Ad Soyad</span>
           <input
             type="text"
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(event) => setFullName(event.target.value)}
             placeholder="Celebix Yonetici"
-            style={{
-              padding: "12px 16px",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-200)",
-              fontSize: "14px",
-              fontWeight: 500,
-              background: "var(--white)",
-              color: "var(--gray-800)",
-              outline: "none",
-              transition: "all 0.15s ease"
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#EB651E";
-              e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "var(--gray-200)";
-              e.target.style.boxShadow = "none";
-            }}
           />
-        </div>
+        </label>
       ) : null}
 
-      {/* Email */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <label style={{ 
-          fontSize: "11px", 
-          fontWeight: 700, 
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          color: "var(--gray-600)"
-        }}>
-          E-posta
-        </label>
+      <label className="owner-auth-field">
+        <span>E-posta</span>
         <input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="yonetici@celebix.com"
           required
-          style={{
-            padding: "12px 16px",
-            borderRadius: "10px",
-            border: "1px solid var(--gray-200)",
-            fontSize: "14px",
-            fontWeight: 500,
-            background: "var(--white)",
-            color: "var(--gray-800)",
-            outline: "none",
-            transition: "all 0.15s ease"
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = "#EB651E";
-            e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = "var(--gray-200)";
-            e.target.style.boxShadow = "none";
-          }}
         />
-      </div>
+      </label>
 
-      {/* Password */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <label style={{ 
-          fontSize: "11px", 
-          fontWeight: 700, 
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          color: "var(--gray-600)"
-        }}>
-          Sifre
-        </label>
+      <label className="owner-auth-field">
+        <span>Sifre</span>
         <input
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="En az 8 karakter"
           minLength={8}
           required
-          style={{
-            padding: "12px 16px",
-            borderRadius: "10px",
-            border: "1px solid var(--gray-200)",
-            fontSize: "14px",
-            fontWeight: 500,
-            background: "var(--white)",
-            color: "var(--gray-800)",
-            outline: "none",
-            transition: "all 0.15s ease"
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = "#EB651E";
-            e.target.style.boxShadow = "0 0 0 3px rgba(235, 101, 30, 0.1)";
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = "var(--gray-200)";
-            e.target.style.boxShadow = "none";
-          }}
         />
-      </div>
+      </label>
 
-      {/* Error / Notice */}
-      {error ? (
-        <p style={{ 
-          margin: 0, 
-          fontSize: "13px", 
-          fontWeight: 600,
-          color: "var(--error)",
-          textAlign: "center"
-        }}>
-          {error}
-        </p>
-      ) : null}
-      {notice ? (
-        <p style={{ 
-          margin: 0, 
-          fontSize: "13px", 
-          fontWeight: 600,
-          color: "var(--success)",
-          textAlign: "center"
-        }}>
-          {notice}
-        </p>
-      ) : null}
+      {error ? <p className="owner-auth-message is-error">{error}</p> : null}
+      {notice ? <p className="owner-auth-message is-notice">{notice}</p> : null}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isPending}
-        style={{
-          marginTop: "8px",
-          padding: "14px 24px",
-          borderRadius: "10px",
-          fontSize: "14px",
-          fontWeight: 700,
-          border: "none",
-          cursor: isPending ? "not-allowed" : "pointer",
-          transition: "all 0.15s ease",
-          background: "#EB651E",
-          color: "#fff",
-          opacity: isPending ? 0.7 : 1
-        }}
-        onMouseEnter={(e) => {
-          if (!isPending) {
-            e.currentTarget.style.background = "#D45616";
-            e.currentTarget.style.transform = "translateY(-1px)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "#EB651E";
-          e.currentTarget.style.transform = "translateY(0)";
-        }}
-      >
-        {isPending 
-          ? "Isleniyor..." 
-          : mode === "login" 
-            ? "Panel'e Giris Yap" 
-            : "Owner Hesabi Olustur"
-        }
+      <button type="submit" disabled={isPending} className="button button-primary owner-auth-submit">
+        {isPending ? "Isleniyor..." : mode === "login" ? "Panel'e Giris Yap" : "Owner Hesabi Olustur"}
       </button>
     </form>
   );
