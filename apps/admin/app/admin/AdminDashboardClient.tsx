@@ -12,7 +12,6 @@ import {
   ArrowDownRight,
   Clock,
   AlertTriangle,
-  Sparkles,
   Calendar,
   Plus,
   FileText,
@@ -39,36 +38,30 @@ interface StatConfig {
   format: (value: number) => string;
   trend?: { value: string; isPositive: boolean };
   href: string;
-  accent: "accent" | "neutral" | "warning" | "success" | "danger";
 }
 
 const ANIMATION_CONFIG = {
-  stagger: 0.08,
-  duration: 0.5,
-  ease: [0.34, 1.56, 0.64, 1] as const,
+  stagger: 0.06,
+  duration: 0.4,
+  ease: [0.22, 1, 0.36, 1] as const,
 };
-
-const SURFACE_CLASS =
-  "rounded-[26px] border border-[#2B2B2B]/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] shadow-[0_18px_50px_rgba(43,43,43,0.06)] backdrop-blur";
 
 const STAT_CONFIGS: StatConfig[] = [
   {
     key: "totalProducts",
-    title: "Toplam Ürün",
+    title: "Ürün",
     icon: Package,
     format: (v) => v.toLocaleString("tr-TR"),
     trend: { value: "+12%", isPositive: true },
     href: "/admin/urunler",
-    accent: "neutral",
   },
   {
     key: "totalOrders",
-    title: "Toplam Sipariş",
+    title: "Sipariş",
     icon: ShoppingCart,
     format: (v) => v.toLocaleString("tr-TR"),
     trend: { value: "+8%", isPositive: true },
     href: "/admin/siparisler",
-    accent: "accent",
   },
   {
     key: "pendingOrders",
@@ -76,16 +69,14 @@ const STAT_CONFIGS: StatConfig[] = [
     icon: Clock,
     format: (v) => v.toLocaleString("tr-TR"),
     href: "/admin/siparisler",
-    accent: "warning",
   },
   {
     key: "totalRevenue",
-    title: "Toplam Satış",
+    title: "Satış",
     icon: TrendingUp,
     format: (v) => `₺${v.toLocaleString("tr-TR")}`,
     trend: { value: "+24%", isPositive: true },
     href: "/admin/analizler",
-    accent: "success",
   },
   {
     key: "lowStockProducts",
@@ -93,7 +84,6 @@ const STAT_CONFIGS: StatConfig[] = [
     icon: AlertTriangle,
     format: (v) => v.toLocaleString("tr-TR"),
     href: "/admin/urunler",
-    accent: "danger",
   },
 ];
 
@@ -115,13 +105,13 @@ function formatDateTR(): string {
 
 function getOrderStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: "border-amber-200 bg-amber-50 text-amber-700",
-    processing: "border-[#FE6100]/20 bg-[#FE6100]/10 text-[#C74C00]",
-    shipped: "border-[#2B2B2B]/12 bg-[#2B2B2B]/6 text-[#2B2B2B]",
-    delivered: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+    pending: "bg-gray-100 text-gray-600",
+    processing: "bg-orange-100 text-orange-700",
+    shipped: "bg-gray-100 text-gray-600",
+    delivered: "bg-green-100 text-green-700",
+    cancelled: "bg-red-100 text-red-700",
   };
-  return colors[status] || "border-[#2B2B2B]/10 bg-[#2B2B2B]/5 text-[#2B2B2B]/70";
+  return colors[status] || "bg-gray-100 text-gray-600";
 }
 
 function getOrderStatusLabel(status: string): string {
@@ -129,7 +119,7 @@ function getOrderStatusLabel(status: string): string {
     pending: "Bekliyor",
     processing: "İşleniyor",
     shipped: "Kargoda",
-    delivered: "Teslim Edildi",
+    delivered: "Teslim",
     cancelled: "İptal",
   };
   return labels[status] || status;
@@ -145,8 +135,8 @@ function AnimatedCounter({
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    const duration = 800;
-    const steps = 30;
+    const duration = 600;
+    const steps = 25;
     const increment = value / steps;
     let current = 0;
     let step = 0;
@@ -166,22 +156,6 @@ function AnimatedCounter({
   return <span>{formatter(displayValue)}</span>;
 }
 
-function AccentIcon({ icon: Icon, accent }: { icon: ElementType; accent: StatConfig["accent"] }) {
-  const accents = {
-    accent: "bg-[#FE6100] text-white shadow-[0_12px_24px_rgba(254,97,0,0.24)]",
-    neutral: "bg-[#2B2B2B] text-white shadow-[0_12px_24px_rgba(43,43,43,0.16)]",
-    warning: "bg-amber-500 text-white shadow-[0_12px_24px_rgba(245,158,11,0.18)]",
-    success: "bg-emerald-500 text-white shadow-[0_12px_24px_rgba(16,185,129,0.18)]",
-    danger: "bg-rose-500 text-white shadow-[0_12px_24px_rgba(244,63,94,0.18)]",
-  };
-
-  return (
-    <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl", accents[accent])}>
-      <Icon className="h-5 w-5" />
-    </div>
-  );
-}
-
 function StatCard({
   config,
   value,
@@ -195,7 +169,7 @@ function StatCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: ANIMATION_CONFIG.duration,
@@ -204,41 +178,33 @@ function StatCard({
       }}
     >
       <Link href={config.href}>
-        <div
-          className={cn(
-            SURFACE_CLASS,
-            "group relative overflow-hidden p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_54px_rgba(43,43,43,0.08)]"
-          )}
-        >
-          <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,rgba(254,97,0,0.00),rgba(254,97,0,0.34),rgba(254,97,0,0.00))]" />
-          <div className="flex items-start justify-between gap-4">
-            <AccentIcon icon={config.icon} accent={config.accent} />
-
-            {config.trend ? (
-              <div
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium",
-                  config.trend.isPositive
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-rose-200 bg-rose-50 text-rose-700"
-                )}
-              >
-                <TrendIcon className="h-3 w-3" />
-                {config.trend.value}
+        <div className="group rounded-xl bg-white p-5 transition-all duration-200 hover:bg-gray-50">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+                <config.icon className="h-5 w-5" />
               </div>
-            ) : null}
+              {config.trend ? (
+                <div
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                    config.trend.isPositive
+                      ? "bg-green-50 text-green-700"
+                      : "bg-red-50 text-red-700"
+                  )}
+                >
+                  <TrendIcon className="h-3 w-3" />
+                  {config.trend.value}
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <div className="mt-5 space-y-1">
-            <p className="text-sm font-medium text-[#2B2B2B]/56">{config.title}</p>
-            <p className="text-[34px] font-semibold tracking-[-0.05em] text-[#2B2B2B]">
+          <div className="mt-4">
+            <p className="text-2xl font-semibold text-gray-900">
               <AnimatedCounter value={value} formatter={config.format} />
             </p>
-          </div>
-
-          <div className="mt-5 flex items-center justify-between text-xs text-[#2B2B2B]/42">
-            <span>Detaya git</span>
-            <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <p className="mt-1 text-sm text-gray-500">{config.title}</p>
           </div>
         </div>
       </Link>
@@ -258,49 +224,34 @@ function DashboardHeader({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: ANIMATION_CONFIG.ease }}
-      className={cn(SURFACE_CLASS, "overflow-hidden p-6 md:p-8")}
+      transition={{ duration: 0.4, ease: ANIMATION_CONFIG.ease }}
+      className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,rgba(254,97,0,0.11),transparent_56%)]" />
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-[#FE6100]/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FE6100]">
-            <Sparkles className="h-3.5 w-3.5" />
-            Yönetim görünümü
-          </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">{greeting}</h1>
+        <p className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+          <Calendar className="h-4 w-4" />
+          {date}
+        </p>
+      </div>
 
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[#2B2B2B] md:text-[40px]">
-                {greeting}
-              </h1>
-              <Sparkles className="h-5 w-5 text-[#FE6100]" />
-            </div>
-            <p className="mt-2 flex items-center gap-2 text-sm text-[#2B2B2B]/58 md:text-[15px]">
-              <Calendar className="h-4 w-4 text-[#FE6100]" />
-              {date}
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onRefresh}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+        >
+          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+        </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onRefresh}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#2B2B2B]/10 bg-white/80 text-[#2B2B2B]/72 transition-all duration-200 hover:border-[#FE6100]/20 hover:text-[#FE6100] active:scale-95"
-          >
-            <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
-          </button>
-
-          <Link
-            href="/admin/urunler/yeni"
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#2B2B2B] px-5 py-3 text-sm font-medium text-white shadow-[0_14px_28px_rgba(43,43,43,0.16)] transition-all duration-200 hover:bg-[#1f1f1f] active:scale-95"
-          >
-            <Plus className="h-4 w-4 text-[#FE6100]" />
-            Yeni Ürün
-          </Link>
-        </div>
+        <Link
+          href="/admin/urunler/yeni"
+          className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+        >
+          <Plus className="h-4 w-4" />
+          Yeni Ürün
+        </Link>
       </div>
     </motion.div>
   );
@@ -319,28 +270,22 @@ function QuickActions() {
       {actions.map((action, index) => (
         <motion.div
           key={action.label}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{
-            duration: 0.4,
-            delay: 0.24 + index * 0.05,
+            duration: 0.3,
+            delay: 0.15 + index * 0.04,
             ease: ANIMATION_CONFIG.ease,
           }}
         >
           <Link
             href={action.href}
-            className={cn(
-              SURFACE_CLASS,
-              "group flex items-center gap-3 p-4 transition-all duration-200 hover:border-[#FE6100]/18 hover:bg-white/95"
-            )}
+            className="flex items-center gap-3 rounded-xl bg-white p-4 transition-colors hover:bg-gray-50"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2B2B2B] text-white transition-colors duration-200 group-hover:bg-[#FE6100]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
               <action.icon className="h-5 w-5" />
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[#2B2B2B]">{action.label}</p>
-              <p className="text-xs text-[#2B2B2B]/46">Hızlı erişim</p>
-            </div>
+            <span className="text-sm font-medium text-gray-700">{action.label}</span>
           </Link>
         </motion.div>
       ))}
@@ -352,27 +297,23 @@ function SectionCard({
   title,
   icon: Icon,
   children,
-  className,
   action,
 }: {
   title: string;
   icon: ElementType;
   children: ReactNode;
-  className?: string;
   action?: ReactNode;
 }) {
   return (
-    <div className={cn(SURFACE_CLASS, "overflow-hidden", className)}>
-      <div className="flex items-center justify-between border-b border-[#2B2B2B]/7 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#FE6100]/10 text-[#FE6100]">
-            <Icon className="h-[18px] w-[18px]" />
-          </div>
-          <h3 className="font-semibold text-[#2B2B2B]">{title}</h3>
+    <div className="rounded-xl bg-white">
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <Icon className="h-5 w-5 text-gray-400" />
+          <h3 className="font-medium text-gray-900">{title}</h3>
         </div>
         {action}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
@@ -385,63 +326,57 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
       action={
         <Link
           href="/admin/siparisler"
-          className="text-sm font-medium text-[#2B2B2B]/52 transition-colors hover:text-[#FE6100]"
+          className="text-sm text-gray-500 hover:text-gray-900"
         >
-          Tümünü gör
+          Tümü
         </Link>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         {orders.length > 0 ? (
           orders.map((order, index) => (
             <motion.div
               key={order.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.05 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: index * 0.03 }}
             >
               <Link href={`/admin/siparisler/${order.id}`}>
-                <div className="group flex items-center gap-4 rounded-[20px] border border-transparent bg-white/62 px-4 py-3 transition-all duration-200 hover:border-[#FE6100]/14 hover:bg-white/92">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#F2F1F8] text-sm font-semibold text-[#2B2B2B] ring-1 ring-[#2B2B2B]/6">
+                <div className="group flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-gray-50">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-sm font-medium text-gray-600">
                     #{order.orderNumber?.slice(-3) || "---"}
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-[#2B2B2B]">
+                    <p className="truncate text-sm font-medium text-gray-900">
                       {order.shippingAddress?.firstName || "Müşteri"}{" "}
                       {order.shippingAddress?.lastName || ""}
                     </p>
-                    <p className="text-sm text-[#2B2B2B]/52">
+                    <p className="text-xs text-gray-500">
                       {new Date(order.createdAt).toLocaleDateString("tr-TR")}
                     </p>
                   </div>
 
                   <div
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium",
+                      "rounded-full px-2.5 py-1 text-xs font-medium",
                       getOrderStatusColor(order.status)
                     )}
                   >
                     {getOrderStatusLabel(order.status)}
                   </div>
 
-                  <div className="text-right">
-                    <p className="font-semibold text-[#2B2B2B]">
-                      ₺{Number(order.total).toLocaleString("tr-TR")}
-                    </p>
-                  </div>
-
-                  <ArrowUpRight className="h-[18px] w-[18px] flex-shrink-0 text-[#2B2B2B]/28 transition-colors group-hover:text-[#FE6100]" />
+                  <p className="text-sm font-medium text-gray-900">
+                    ₺{Number(order.total).toLocaleString("tr-TR")}
+                  </p>
                 </div>
               </Link>
             </motion.div>
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F2F1F8] text-[#2B2B2B]/42">
-              <ShoppingCart className="h-8 w-8" />
-            </div>
-            <p className="text-[#2B2B2B]/56">Henüz sipariş yok</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <ShoppingCart className="h-8 w-8 text-gray-300" />
+            <p className="mt-2 text-sm text-gray-500">Henüz sipariş yok</p>
           </div>
         )}
       </div>
@@ -451,8 +386,8 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
 
 function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
   return (
-    <SectionCard title="Düşük Stok Uyarısı" icon={AlertTriangle}>
-      <div className="space-y-3">
+    <SectionCard title="Düşük Stok" icon={AlertTriangle}>
+      <div className="space-y-2">
         {products.length > 0 ? (
           products.slice(0, 5).map((product, index) => {
             const lowStockVariant = product.variants?.find((variant) => variant.stock < 10);
@@ -461,41 +396,28 @@ function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
             return (
               <motion.div
                 key={product.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, delay: index * 0.03 }}
               >
                 <Link href={`/admin/urunler/${product.id}/duzenle`}>
-                  <div className="group flex items-center gap-4 rounded-[20px] border border-transparent bg-white/62 px-4 py-3 transition-all duration-200 hover:border-[#FE6100]/14 hover:bg-white/92">
+                  <div className="group flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-gray-50">
                     <div
                       className={cn(
-                        "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-semibold",
+                        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-medium",
                         stockLevel <= 3
-                          ? "bg-rose-50 text-rose-700"
+                          ? "bg-red-100 text-red-700"
                           : stockLevel <= 6
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-[#FE6100]/10 text-[#C74C00]"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-yellow-100 text-yellow-700"
                       )}
                     >
                       {stockLevel}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-[#2B2B2B]">{product.name}</p>
-                      <p className="text-sm text-[#2B2B2B]/52">{lowStockVariant?.name || "Varsayılan"}</p>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "rounded-full px-2.5 py-1 text-xs font-medium",
-                        stockLevel <= 3
-                          ? "bg-rose-50 text-rose-700"
-                          : stockLevel <= 6
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-[#FE6100]/10 text-[#C74C00]"
-                      )}
-                    >
-                      {stockLevel <= 3 ? "Kritik" : stockLevel <= 6 ? "Acil" : "Düşük"}
+                      <p className="truncate text-sm font-medium text-gray-900">{product.name}</p>
+                      <p className="text-xs text-gray-500">{lowStockVariant?.name || "Varsayılan"}</p>
                     </div>
                   </div>
                 </Link>
@@ -503,23 +425,21 @@ function LowStockCard({ products }: { products: DashboardLowStockProduct[] }) {
             );
           })
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <Package className="h-8 w-8" />
-            </div>
-            <p className="text-[#2B2B2B]/56">Tüm ürünler yeterli stokta</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Package className="h-8 w-8 text-gray-300" />
+            <p className="mt-2 text-sm text-gray-500">Tüm ürünler yeterli stokta</p>
           </div>
         )}
       </div>
 
       {products.length > 0 ? (
-        <div className="mt-4 border-t border-[#2B2B2B]/7 pt-4">
+        <div className="mt-4 border-t border-gray-100 pt-4">
           <Link
             href="/admin/urunler"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-[#2B2B2B] py-3 text-sm font-medium text-white transition-all hover:bg-[#1f1f1f]"
+            className="flex items-center justify-center gap-1 rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
           >
-            Tüm ürünleri görüntüle
-            <ArrowUpRight className="h-4 w-4 text-[#FE6100]" />
+            Tüm ürünleri gör
+            <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
       ) : null}
@@ -602,29 +522,34 @@ export default function AdminDashboardClient({
   }, []);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(254,97,0,0.09),transparent_24%),linear-gradient(180deg,#F7F5FB_0%,#F2F1F8_46%,#ECEAF4_100%)]">
+    <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-[1600px] p-6 md:p-8">
-        <div className="space-y-8">
+        <div className="space-y-6">
           <DashboardHeader onRefresh={() => void refreshDashboard()} isRefreshing={isRefreshing} />
 
           {errorMessage ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm font-medium text-amber-800 shadow-sm">
+            <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
               {errorMessage}
             </div>
           ) : null}
 
           <QuickActions />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {STAT_CONFIGS.map((config, index) => (
-              <StatCard key={config.key} config={config} value={stats[config.key]} index={index} />
+              <StatCard
+                key={config.key}
+                config={config}
+                value={stats[config.key]}
+                index={index}
+              />
             ))}
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
+            transition={{ duration: 0.4, delay: 0.35 }}
             className="grid grid-cols-1 gap-6 lg:grid-cols-3"
           >
             <LiveVisitors data={liveData} />
@@ -633,9 +558,9 @@ export default function AdminDashboardClient({
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
+            transition={{ duration: 0.4, delay: 0.45 }}
             className="grid grid-cols-1 gap-6 lg:grid-cols-5"
           >
             <div className="lg:col-span-3">
