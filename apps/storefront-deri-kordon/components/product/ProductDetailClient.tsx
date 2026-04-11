@@ -544,14 +544,14 @@ export function ProductDetailClient({
                           <Clock className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Üretim Süresi</p>
-                            <p className="text-sm font-medium text-neutral-900">3-5 İş Günü</p>
+                            <p className="text-sm font-medium text-neutral-900">1–3 İş Günü</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <BadgeCheck className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
                           <div>
                             <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Garanti</p>
-                            <p className="text-sm font-medium text-neutral-900">2 Yıl</p>
+                            <p className="text-sm font-medium text-neutral-900">El Yapımı Zanaatkar Kalitesi</p>
                           </div>
                         </div>
                       </div>
