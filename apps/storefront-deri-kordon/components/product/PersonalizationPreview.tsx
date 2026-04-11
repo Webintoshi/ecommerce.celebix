@@ -135,7 +135,7 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri ürün kişiselleştirme ön izlemesi",
   textPositionClass:
-    "bottom-[12%] right-[7%] w-[66%] text-right sm:bottom-[14%] sm:right-[9%]",
+    "bottom-[11%] right-[6%] w-[72%] text-right sm:bottom-[13%] sm:right-[8%]",
   textToneClass: "text-[#1f140f]",
   defaultText: "Ön izleme",
   sizePreset: "leather",
@@ -244,7 +244,7 @@ function getInitialPreviewFontSize(
 }
 
 function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
-  return preset === "watch" ? 26 : 24;
+  return preset === "watch" ? 26 : 30;
 }
 
 export function PersonalizationPreview({
