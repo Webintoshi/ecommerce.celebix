@@ -228,23 +228,11 @@ function getInitialPreviewFontSize(
     return 60;
   }
 
-  if (displayText.length >= 16) {
-    return 28;
-  }
-
-  if (displayText.length >= 10) {
-    return 34;
-  }
-
-  if (displayText.length >= 6) {
-    return 40;
-  }
-
-  return 44;
+  return 28;
 }
 
 function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
-  return preset === "watch" ? 26 : 30;
+  return preset === "watch" ? 26 : 28;
 }
 
 export function PersonalizationPreview({
