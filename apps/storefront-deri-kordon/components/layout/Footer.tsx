@@ -9,6 +9,7 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import type { PolicyFooterLink } from "@/lib/policy-pages";
 import {
   type StorefrontLocale,
   buildLocalizedPath,
@@ -176,6 +177,7 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
+  const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
   const { locale, internalPathname } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -192,7 +194,12 @@ export function Footer() {
 
     const loadCategories = async () => {
       try {
-        const categories = await fetchCategories(locale);
+        const [categories, policyResponse] = await Promise.all([
+          fetchCategories(locale),
+          fetch(`/api/policies?locale=${encodeURIComponent(locale)}`, {
+            cache: "no-store",
+          }),
+        ]);
         if (!isMounted) {
           return;
         }
@@ -207,8 +214,17 @@ export function Footer() {
           }));
 
         setCategoryLinks(topLevelCategories);
+        if (policyResponse.ok) {
+          const payload = (await policyResponse.json()) as {
+            pages?: PolicyFooterLink[];
+          };
+          setPolicyLinks(Array.isArray(payload.pages) ? payload.pages : []);
+        } else {
+          setPolicyLinks([]);
+        }
       } catch (error) {
         console.error("Failed to load footer categories:", error);
+        setPolicyLinks([]);
       }
     };
 
@@ -377,6 +393,7 @@ export function Footer() {
             </ul>
           </div>
 
+          {policyLinks.length > 0 ? (
           <div>
             <p
               className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
@@ -385,18 +402,19 @@ export function Footer() {
               {copy.policiesHeading}
             </p>
             <ul className="space-y-3">
-              {copy.policyLinks.map((link) => (
-                <li key={link.href}>
+              {policyLinks.map((link) => (
+                <li key={link.slug}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
-                    {link.name}
+                    {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
+          ) : null}
         </div>
       </div>
 

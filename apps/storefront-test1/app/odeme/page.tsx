@@ -609,7 +609,7 @@ export default function CheckoutPage() {
                                   Kullanım Koşulları
                                 </Link>
                                 {" "}ve{" "}
-                                <Link href="/gizlilik-politikasi" className="text-primary hover:underline" target="_blank">
+                                <Link href="/gizlilik" className="text-primary hover:underline" target="_blank">
                                   Gizlilik Politikası
                                 </Link>
                                 {" "}nı kabul etmiş olursunuz.

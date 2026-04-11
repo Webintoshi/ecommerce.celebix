@@ -95,6 +95,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Blog Yazıları", href: "/admin/cms/blog" },
       { title: "Sayfalar", href: "/admin/cms/sayfalar" },
+      { title: "Politikalar", href: "/admin/cms/politikalar" },
     ],
   },
   {

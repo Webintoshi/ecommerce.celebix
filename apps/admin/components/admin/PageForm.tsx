@@ -23,6 +23,20 @@ import { tr } from "date-fns/locale";
 
 interface PageFormProps {
   initialData?: CmsPage;
+  template?: {
+    title: string;
+    slug: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    schemaType?: string;
+    icon?: string;
+    sortOrder?: number;
+  };
+  lockTitle?: boolean;
+  lockSlug?: boolean;
+  backHref?: string;
+  formTitle?: string;
+  formDescription?: string;
 }
 
 const DEFAULT_FORM_DATA: CmsPage = {
@@ -36,12 +50,28 @@ const DEFAULT_FORM_DATA: CmsPage = {
   updatedAt: new Date(),
 };
 
-export function PageForm({ initialData }: PageFormProps) {
+export function PageForm({
+  initialData,
+  template,
+  lockTitle = false,
+  lockSlug = false,
+  backHref = "/admin/cms/sayfalar",
+  formTitle,
+  formDescription,
+}: PageFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const pageBaseUrl = `${STORE_RUNTIME.storefrontUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}/`;
-  const [formData, setFormData] = useState<CmsPage>(initialData || DEFAULT_FORM_DATA);
+  const [formData, setFormData] = useState<CmsPage>(
+    initialData || {
+      ...DEFAULT_FORM_DATA,
+      title: template?.title || DEFAULT_FORM_DATA.title,
+      slug: template?.slug || DEFAULT_FORM_DATA.slug,
+      metaTitle: template?.metaTitle || DEFAULT_FORM_DATA.metaTitle,
+      metaDescription: template?.metaDescription || DEFAULT_FORM_DATA.metaDescription,
+    },
+  );
 
   function generateSlug(title: string) {
     return title
@@ -65,6 +95,9 @@ export function PageForm({ initialData }: PageFormProps) {
         content: formData.content,
         status: formData.status,
         is_active: formData.status === "published",
+        schema_type: template?.schemaType,
+        icon: template?.icon,
+        sort_order: template?.sortOrder,
       };
 
       const response = await fetch("/api/pages", {
@@ -85,7 +118,7 @@ export function PageForm({ initialData }: PageFormProps) {
       }
 
       toast.success(initialData ? "Sayfa guncellendi" : "Sayfa olusturuldu");
-      router.push("/admin/cms/sayfalar");
+      router.push(backHref);
       router.refresh();
     } catch (error) {
       console.error("CMS page save error:", error);
@@ -100,17 +133,17 @@ export function PageForm({ initialData }: PageFormProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/admin/cms/sayfalar"
+            href={backHref}
             className="rounded-lg border border-transparent p-2 transition-colors hover:border-gray-200 hover:bg-white"
           >
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              {initialData ? "Sayfayi Duzenle" : "Yeni Sayfa Ekle"}
+              {formTitle || (initialData ? "Sayfayi Duzenle" : "Yeni Sayfa Ekle")}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Kurumsal veya ozel landing page tanimlarini buradan yonetin.
+              {formDescription || "Kurumsal veya ozel landing page tanimlarini buradan yonetin."}
             </p>
           </div>
         </div>
@@ -172,14 +205,19 @@ export function PageForm({ initialData }: PageFormProps) {
                       type="text"
                       value={formData.title}
                       onChange={(event) => {
+                        if (lockTitle) {
+                          return;
+                        }
+
                         const nextTitle = event.target.value;
                         setFormData((prev) => ({
                           ...prev,
                           title: nextTitle,
-                          slug: initialData ? prev.slug : generateSlug(nextTitle),
+                          slug: initialData || lockSlug ? prev.slug : generateSlug(nextTitle),
                         }));
                       }}
                       placeholder="Orn: Kargo ve Teslimat"
+                      disabled={lockTitle}
                       className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                   </div>
@@ -191,7 +229,13 @@ export function PageForm({ initialData }: PageFormProps) {
                       <input
                         type="text"
                         value={formData.slug}
-                        onChange={(event) => setFormData((prev) => ({ ...prev, slug: event.target.value }))}
+                        onChange={(event) => {
+                          if (lockSlug) {
+                            return;
+                          }
+                          setFormData((prev) => ({ ...prev, slug: event.target.value }));
+                        }}
+                        disabled={lockSlug}
                         className="w-full rounded-lg border border-gray-200 py-2 pl-24 pr-4 font-mono text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
                       />
                     </div>

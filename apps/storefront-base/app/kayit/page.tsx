@@ -327,7 +327,7 @@ export default function RegisterPage() {
                   Kullanim Kosullari
                 </Link>
                 {" "}ve{" "}
-                <Link href="/gizlilik-politikasi" className="text-primary hover:underline font-medium">
+                <Link href="/gizlilik" className="text-primary hover:underline font-medium">
                   Gizlilik Politikasi
                 </Link>
                 {" "}ni okudum ve kabul ediyorum.

@@ -14,6 +14,7 @@ export * from "./next-build";
 export * from "./seo";
 export * from "./product-listing-order";
 export * from "./product-pricing";
+export * from "./policy-pages";
 
 export interface StoreRegistryEntry {
   slug: string;

@@ -203,12 +203,16 @@ export async function GET(request: NextRequest) {
 
     // Fetch single page by slug
     if (slug !== null) {
-      const { data, error } = await supabase
+      let pageBySlugQuery = supabase
         .from("pages")
         .select("*")
-        .eq("slug", slug)
-        .eq("is_active", true)
-        .single();
+        .eq("slug", slug);
+
+      if (!includeInactive) {
+        pageBySlugQuery = pageBySlugQuery.eq("is_active", true);
+      }
+
+      const { data, error } = await pageBySlugQuery.single();
       
       if (error) {
         if (error.code === "PGRST116") {
