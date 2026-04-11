@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Search } from "lucide-react";
 import {
@@ -18,7 +18,8 @@ type FontOption = {
   id: string;
   label: string;
   src: string;
-  family: string;
+  faceFamily: string;
+  fallbackFamily: string;
   style: CSSProperties;
 };
 
@@ -35,8 +36,9 @@ const FONT_OPTIONS: FontOption[] = [
     id: "monotype",
     label: "1. Monotype",
     src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Monotype-Corsiva-Regular.ttf",
-    family:
-      '"Derycraft Monotype", "Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
+    faceFamily: '"Derycraft Monotype"',
+    fallbackFamily:
+      '"Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
     style: {
       fontStyle: "italic",
       fontWeight: 500,
@@ -47,8 +49,9 @@ const FONT_OPTIONS: FontOption[] = [
     id: "book-antiqua",
     label: "2. Book Antiqua",
     src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/bookantiqua.ttf",
-    family:
-      '"Derycraft Book Antiqua", "Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
+    faceFamily: '"Derycraft Book Antiqua"',
+    fallbackFamily:
+      '"Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
     style: {
       fontWeight: 500,
       letterSpacing: "0.01em",
@@ -58,7 +61,8 @@ const FONT_OPTIONS: FontOption[] = [
     id: "stoic",
     label: "3. Stoic",
     src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Stoic-Regular.ttf",
-    family: '"Derycraft Stoic", "Baskerville", "Times New Roman", Georgia, serif',
+    faceFamily: '"Derycraft Stoic"',
+    fallbackFamily: '"Baskerville", "Times New Roman", Georgia, serif',
     style: {
       fontWeight: 700,
       letterSpacing: "0.03em",
@@ -95,15 +99,15 @@ const PERSONALIZATION_FONT_FACE_CSS = `
 const PREVIEW_COPY = [
   {
     lead: "Dikkat:",
-    text: "Bu onizleme temsilidir.",
+    text: "Bu on izleme temsilidir.",
   },
   {
     lead: null,
-    text: "Urunleriniz uzerinde sectiginiz kisilestirme alanina isim veya ozel bir yazi yapabiliriz. Yazi, belirtilen kazi̇ma alanina okunakli simetrik ve estetik bir sekilde islenecektir.",
+    text: "Urunleriniz uzerinde sectiginiz kisilestirme alanina isim veya ozel bir yazi yapabiliriz. Yazi, belirtilen kazima alanina okunakli, simetrik ve estetik bir sekilde islenecektir.",
   },
   {
     lead: null,
-    text: "Yazi, belirtilen kazi̇ma alanina tercihlerinizi (buyuk/kucuk harf/noktalama/bosluk) tam olarak belirttiginiz gibi islenecektir. Lutfen yazinizi dikkatlice kontrol ediniz.",
+    text: "Yazi, belirtilen kazima alanina tercihlerinizi buyuk-kucuk harf, noktalama ve bosluk dahil tam olarak belirttiginiz gibi islenecektir. Lutfen yazinizi dikkatlice kontrol ediniz.",
   },
   {
     lead: "Not:",
@@ -114,31 +118,31 @@ const PREVIEW_COPY = [
 const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
-  imageAlt: "Deri urun kisilestirme onizleme",
+  imageAlt: "Deri urun kisilestirme on izlemesi",
   textPositionClass: "right-[10%] bottom-[15%] w-[52%] text-right",
   textToneClass: "text-[#1f140f]",
-  defaultText: "On izleme",
+  defaultText: "\u00d6n izleme",
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
-  imageAlt: "Saat kayisi kisilestirme onizleme",
+  imageAlt: "Saat kayisi kisilestirme on izlemesi",
   textPositionClass:
     "left-[calc(50%+6px)] bottom-[20px] -translate-x-1/2 w-[70%] text-center",
   textToneClass: "text-[#1a0f0a]",
-  defaultText: "Yazi",
+  defaultText: "Yaz\u0131",
 };
 
 function normalizeCategoryValue(value?: string | null) {
   return (value || "")
     .toLocaleLowerCase("tr-TR")
-    .replace(/ı/g, "i")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
+    .replace(/\u0131/g, "i")
+    .replace(/\u011f/g, "g")
+    .replace(/\u00fc/g, "u")
+    .replace(/\u015f/g, "s")
+    .replace(/\u00f6/g, "o")
+    .replace(/\u00e7/g, "c")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
@@ -148,7 +152,7 @@ function normalizeCategoryValue(value?: string | null) {
 function resolvePreviewConfig(
   category?: string | null,
   subcategory?: string | null,
-  productName?: string | null,
+  productName?: string | null
 ) {
   const values = [category, subcategory, productName].map(normalizeCategoryValue);
 
@@ -161,7 +165,7 @@ function resolvePreviewConfig(
       value.includes("akilli-saat") ||
       value.includes("tek-katli") ||
       value.includes("cift-katli") ||
-      value.includes("bund"),
+      value.includes("bund")
   );
 
   if (belongsToWatchFamily) {
@@ -174,7 +178,7 @@ function resolvePreviewConfig(
       value.includes("kartlik") ||
       value.includes("aksesuar") ||
       value.includes("canta") ||
-      value.includes("organizer"),
+      value.includes("organizer")
   );
 
   if (belongsToLeatherGoodsFamily) {
@@ -207,13 +211,57 @@ export function PersonalizationPreview({
 }: PersonalizationPreviewProps) {
   const previewConfig = useMemo(
     () => resolvePreviewConfig(category, subcategory, productName),
-    [category, subcategory, productName],
+    [category, subcategory, productName]
   );
   const [previewText, setPreviewText] = useState("");
   const [selectedFontId, setSelectedFontId] = useState(FONT_OPTIONS[0]?.id || "");
+  const [loadedFontId, setLoadedFontId] = useState(FONT_OPTIONS[0]?.id || "");
 
   const selectedFont =
     FONT_OPTIONS.find((option) => option.id === selectedFontId) || FONT_OPTIONS[0];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function ensureFontLoaded() {
+      if (typeof document === "undefined" || !selectedFont) {
+        return;
+      }
+
+      try {
+        const fontFace = new FontFace(
+          selectedFont.faceFamily.replaceAll('"', ""),
+          `url(${selectedFont.src})`,
+          {
+            style: String(selectedFont.style.fontStyle || "normal"),
+            weight: String(selectedFont.style.fontWeight || 400),
+          }
+        );
+
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        await document.fonts.load(
+          `${selectedFont.style.fontStyle || "normal"} ${selectedFont.style.fontWeight || 400} 32px ${selectedFont.faceFamily}`,
+          "\u00d6n izleme \u0130i\u015f\u011f\u00fc"
+        );
+
+        if (!cancelled) {
+          setLoadedFontId(selectedFont.id);
+        }
+      } catch (error) {
+        console.error("Failed to load personalization preview font:", error);
+        if (!cancelled) {
+          setLoadedFontId("");
+        }
+      }
+    }
+
+    void ensureFontLoaded();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFont]);
 
   if (!previewConfig) {
     return null;
@@ -222,8 +270,12 @@ export function PersonalizationPreview({
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
-  const displayText = typedText || previewConfig.defaultText || "On izleme";
+  const displayText = typedText || previewConfig.defaultText || "\u00d6n izleme";
   const previewFontSize = getPreviewFontSize(displayText);
+  const previewFontFamily =
+    loadedFontId === selectedFont.id
+      ? `${selectedFont.faceFamily}, ${selectedFont.fallbackFamily}`
+      : selectedFont.fallbackFamily;
 
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
@@ -234,7 +286,7 @@ export function PersonalizationPreview({
           style={{ fontSize: "24px", lineHeight: "31px" }}
           className="font-semibold tracking-[0.02em] text-neutral-950"
         >
-          Kisilestirme Onizlemesi
+          Ki\u015fiselle\u015ftirme \u00d6nizlemesi
         </h3>
         <Search className="absolute right-0 h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
@@ -282,7 +334,7 @@ export function PersonalizationPreview({
           <div
             className={`pointer-events-none absolute ${previewConfig.textPositionClass} leading-none ${previewConfig.textToneClass}`}
             style={{
-              fontFamily: selectedFont.family,
+              fontFamily: previewFontFamily,
               fontSize: previewFontSize,
               ...selectedFont.style,
               fontWeight: typedText ? 700 : 600,
@@ -291,6 +343,9 @@ export function PersonalizationPreview({
               textOverflow: "ellipsis",
               display: "block",
               lineHeight: 1.02,
+              fontKerning: "normal",
+              fontVariantLigatures: "common-ligatures",
+              textRendering: "geometricPrecision",
               textShadow:
                 "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
             }}
