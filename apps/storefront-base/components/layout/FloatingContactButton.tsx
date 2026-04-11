@@ -45,7 +45,7 @@ export function FloatingContactButton() {
           ...channel,
           resolvedHref: resolveFloatingContactHref(channel),
         }))
-        .filter((channel) => channel.enabled && channel.resolvedHref),
+        .filter((channel) => (channel.enabled || channel.href.trim().length > 0) && channel.resolvedHref),
     [settings.channels]
   );
 

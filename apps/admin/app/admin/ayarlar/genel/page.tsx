@@ -460,9 +460,22 @@ export default function GeneralSettingsPage() {
         ...prev,
         floatingContact: {
           ...current,
-          channels: current.channels.map((channel) =>
-            channel.type === channelType ? { ...channel, [key]: value } : channel
-          ),
+          channels: current.channels.map((channel) => {
+            if (channel.type !== channelType) {
+              return channel;
+            }
+
+            if (key === "href") {
+              const hrefValue = typeof value === "string" ? value : "";
+              return {
+                ...channel,
+                href: hrefValue,
+                enabled: hrefValue.trim().length > 0 ? true : false,
+              };
+            }
+
+            return { ...channel, [key]: value };
+          }),
         },
       };
     });
