@@ -111,27 +111,27 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
   const eventTypes = useMemo(() => [...new Set(events.map((event) => event.type))], [events]);
 
   return (
-    <div className="rounded-xl bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div className="flex items-center gap-2">
+    <div className="rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-100/80 px-6 py-4">
+        <div className="flex items-center gap-2.5">
           <Zap className="h-5 w-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">Aktivite</h3>
+          <h3 className="font-semibold text-gray-900">Aktivite</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
-          <span className="text-xs text-gray-500">Canlı</span>
+          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs font-medium text-gray-500">Canlı</span>
         </div>
       </div>
 
       {eventTypes.length > 0 && (
-        <div className="border-b border-gray-100 px-4 py-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="border-b border-gray-100/80 px-5 py-3">
+          <div className="flex items-center gap-2 overflow-x-auto">
             <button
               onClick={() => setFilter(null)}
               className={cn(
-                "flex-shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
                 filter === null
-                  ? "bg-gray-900 text-white"
+                  ? "bg-gray-900 text-white shadow-sm"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
@@ -147,13 +147,13 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                   key={type}
                   onClick={() => setFilter(filter === type ? null : type)}
                   className={cn(
-                    "flex flex-shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    "flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
                     filter === type
-                      ? "bg-gray-900 text-white"
+                      ? "bg-gray-900 text-white shadow-sm"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   )}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3.5 w-3.5" />
                   {config.label}
                 </button>
               );
@@ -162,14 +162,14 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
         </div>
       )}
 
-      <div className="max-h-[300px] overflow-y-auto">
+      <div className="max-h-[320px] overflow-y-auto">
         {filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <TrendingUp className="h-8 w-8 text-gray-300" />
-            <p className="mt-2 text-sm text-gray-500">Henüz aktivite yok</p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <TrendingUp className="h-10 w-10 text-gray-300" />
+            <p className="mt-3 text-sm font-medium text-gray-500">Henüz aktivite yok</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-100/80">
             <AnimatePresence mode="popLayout">
               {filteredEvents.slice(0, 6).map((event, index) => {
                 const config = EVENT_CONFIGS[event.type] || {
@@ -186,11 +186,11 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+                    className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-gray-50/80 transition-colors"
                   >
                     <div
                       className={cn(
-                        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg",
+                        "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl",
                         config.bgColor
                       )}
                     >
@@ -198,11 +198,11 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-900">{config.label}</p>
-                      <p className="text-xs text-gray-400">{formatPageUrl(event.pageUrl)}</p>
+                      <p className="text-sm font-semibold text-gray-900">{config.label}</p>
+                      <p className="text-xs text-gray-500 font-medium">{formatPageUrl(event.pageUrl)}</p>
                     </div>
 
-                    <span className="text-xs text-gray-400">{formatTimeAgo(event.createdAt)}</span>
+                    <span className="text-xs font-medium text-gray-400">{formatTimeAgo(event.createdAt)}</span>
                   </motion.div>
                 );
               })}
@@ -212,12 +212,12 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       </div>
 
       {events.length > 0 && (
-        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-500">
+        <div className="flex items-center justify-between border-t border-gray-100/80 bg-gray-50/50 px-5 py-3 text-xs font-medium text-gray-500">
           <span>
-            Son <span className="font-medium text-gray-700">{Math.min(events.length, 6)}</span> etkinlik
+            Son <span className="font-semibold text-gray-700">{Math.min(events.length, 6)}</span> etkinlik
           </span>
-          <span className="flex items-center gap-1">
-            <Filter className="h-3 w-3" />
+          <span className="flex items-center gap-1.5">
+            <Filter className="h-3.5 w-3.5" />
             Güncel
           </span>
         </div>

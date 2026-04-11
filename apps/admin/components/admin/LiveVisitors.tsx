@@ -57,32 +57,32 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
   ];
 
   return (
-    <div className="rounded-xl bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div className="flex items-center gap-2">
+    <div className="rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-100/80 px-6 py-4">
+        <div className="flex items-center gap-2.5">
           <Globe className="h-5 w-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">Canlı Ziyaretçiler</h3>
+          <h3 className="font-semibold text-gray-900">Canlı Ziyaretçiler</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
-          <span className="text-xs text-gray-500">Canlı</span>
+          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs font-medium text-gray-500">Canlı</span>
         </div>
       </div>
 
-      <div className="p-5">
+      <div className="p-6">
         <div className="flex items-end gap-2">
-          <span className="text-4xl font-semibold text-gray-900">
+          <span className="text-4xl font-semibold text-gray-900 tracking-tight">
             <AnimatedNumber value={data.liveVisitors || 0} />
           </span>
-          <span className="mb-1 text-sm text-gray-500">kişi</span>
+          <span className="mb-1.5 text-sm font-medium text-gray-500">kişi</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-3 gap-3">
           {deviceStats.map((stat) => (
-            <div key={stat.label} className="rounded-lg bg-gray-50 p-3 text-center">
+            <div key={stat.label} className="rounded-xl bg-gray-50/80 p-3 text-center border border-gray-100">
               <stat.icon className="mx-auto h-4 w-4 text-gray-400" />
-              <div className="mt-1 text-lg font-medium text-gray-900">{stat.value}</div>
-              <div className="text-xs text-gray-500">{stat.label}</div>
+              <div className="mt-2 text-lg font-semibold text-gray-900 tracking-tight">{stat.value}</div>
+              <div className="text-xs font-medium text-gray-500">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -109,8 +109,8 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
         </div>
 
         {data.topPages && data.topPages.length > 0 && (
-          <div className="mt-4 border-t border-gray-100 pt-4">
-            <h4 className="mb-2 text-xs font-medium text-gray-500">Popüler Sayfalar</h4>
+          <div className="mt-5 border-t border-gray-100/80 pt-4">
+            <h4 className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Popüler Sayfalar</h4>
             <div className="space-y-1">
               <AnimatePresence>
                 {data.topPages.slice(0, 3).map((page, index) => (
@@ -119,12 +119,12 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: index * 0.03 }}
-                    className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-gray-50"
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
-                    <span className="truncate text-gray-600">
+                    <span className="truncate text-gray-600 font-medium">
                       {page.url === "/" ? "Ana Sayfa" : page.url}
                     </span>
-                    <span className="text-gray-900">{page.count}</span>
+                    <span className="text-gray-900 font-semibold">{page.count}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>

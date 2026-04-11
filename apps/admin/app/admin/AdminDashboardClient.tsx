@@ -178,19 +178,19 @@ function StatCard({
       }}
     >
       <Link href={config.href}>
-        <div className="group rounded-xl bg-white p-5 transition-all duration-200 hover:bg-gray-50">
+        <div className="group rounded-2xl bg-white p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 transition-all duration-200 hover:shadow-md hover:bg-gray-50/50">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
                 <config.icon className="h-5 w-5" />
               </div>
               {config.trend ? (
                 <div
                   className={cn(
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                    "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
                     config.trend.isPositive
-                      ? "bg-green-50 text-green-700"
-                      : "bg-red-50 text-red-700"
+                      ? "bg-green-100/80 text-green-700"
+                      : "bg-red-100/80 text-red-700"
                   )}
                 >
                   <TrendIcon className="h-3 w-3" />
@@ -200,11 +200,11 @@ function StatCard({
             </div>
           </div>
 
-          <div className="mt-4">
-            <p className="text-2xl font-semibold text-gray-900">
+          <div className="mt-5">
+            <p className="text-3xl font-semibold text-gray-900 tracking-tight">
               <AnimatedCounter value={value} formatter={config.format} />
             </p>
-            <p className="mt-1 text-sm text-gray-500">{config.title}</p>
+            <p className="mt-1.5 text-sm font-medium text-gray-500">{config.title}</p>
           </div>
         </div>
       </Link>
@@ -280,12 +280,12 @@ function QuickActions() {
         >
           <Link
             href={action.href}
-            className="flex items-center gap-3 rounded-xl bg-white p-4 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 transition-all duration-200 hover:shadow-md hover:bg-gray-50/50"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
               <action.icon className="h-5 w-5" />
             </div>
-            <span className="text-sm font-medium text-gray-700">{action.label}</span>
+            <span className="text-sm font-semibold text-gray-700">{action.label}</span>
           </Link>
         </motion.div>
       ))}
@@ -305,15 +305,15 @@ function SectionCard({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div className="flex items-center gap-2">
+    <div className="rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-100/80 px-6 py-4">
+        <div className="flex items-center gap-2.5">
           <Icon className="h-5 w-5 text-gray-400" />
-          <h3 className="font-medium text-gray-900">{title}</h3>
+          <h3 className="font-semibold text-gray-900">{title}</h3>
         </div>
         {action}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 }
@@ -522,9 +522,9 @@ export default function AdminDashboardClient({
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F5F7]">
       <div className="mx-auto max-w-[1600px] p-6 md:p-8">
-        <div className="space-y-6">
+        <div className="space-y-8">
           <DashboardHeader onRefresh={() => void refreshDashboard()} isRefreshing={isRefreshing} />
 
           {errorMessage ? (
@@ -535,7 +535,7 @@ export default function AdminDashboardClient({
 
           <QuickActions />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
             {STAT_CONFIGS.map((config, index) => (
               <StatCard
                 key={config.key}
@@ -546,11 +546,11 @@ export default function AdminDashboardClient({
             ))}
           </div>
 
-          <motion.div
+          <            motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.35 }}
-            className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start"
           >
             <LiveVisitors data={liveData} />
             <AbandonedCartsWidget data={liveData} />
