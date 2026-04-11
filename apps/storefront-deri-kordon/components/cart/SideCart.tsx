@@ -7,7 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { formatPrice, cn } from "@/lib/utils";
-import { SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
 import { getPrimaryResolvedProductImage } from "@/lib/product-images";
@@ -25,12 +25,16 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
     subtotal,
     shipping,
     total,
+    shippingThreshold,
+    freeShippingRemaining,
+    freeShippingProgress,
     getTotalItems,
     lastAddedItem,
   } = useCart();
   const { locale } = useStorefrontRoute();
 
   const [isMobile, setIsMobile] = useState(false);
+  const SHIPPING_THRESHOLD = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
   const lastAddedItemImage = lastAddedItem
     ? getPrimaryResolvedProductImage(lastAddedItem.product, lastAddedItem.variant)
     : "";
@@ -139,7 +143,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             )}
 
             {/* Free Shipping Progress Bar */}
-            {items.length > 0 && shipping > 0 && (
+            {items.length > 0 && shipping > 0 && shippingThreshold != null && (
               <div className="px-6 py-3 bg-gray-50 border-b border-gray-100">
                 <p className="text-xs text-gray-600 mb-2">
                   <span className="font-bold text-primary">{formatPrice(SHIPPING_THRESHOLD - subtotal)}</span> daha harcayıp <span className="font-bold text-emerald-600">ücretsiz kargo</span> kazanın!
@@ -147,7 +151,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min((subtotal / SHIPPING_THRESHOLD) * 100, 100)}%` }}
+                    style={{ width: `${freeShippingProgress}%` }}
                   />
                 </div>
               </div>

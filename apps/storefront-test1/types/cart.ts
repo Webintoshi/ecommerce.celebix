@@ -49,6 +49,9 @@ export interface CartContextType {
   getTotalItems: () => number;
   subtotal: number;
   shipping: number;
+  shippingThreshold: number | null;
+  freeShippingRemaining: number;
+  freeShippingProgress: number;
   total: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;

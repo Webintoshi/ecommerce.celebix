@@ -5,6 +5,7 @@ import { CartItem, CartContextType } from "@/types/cart";
 import { Product, ProductVariant } from "@/types/product";
 import { CartCustomizationPayload } from "@/types/product-customization";
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from "@/lib/constants";
+import { fetchShippingZonesFromSettings, getCartShippingSummary, type ShippingZone } from "@/lib/shipping";
 import { getSessionId } from "@/lib/tracking";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -163,7 +164,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(true);
   const [lastAddedItem, setLastAddedItem] = useState<CartItem | null>(null);
+  const [shippingZones, setShippingZones] = useState<ShippingZone[] | null>(null);
   const preserveServerCartRef = useRef(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchShippingZonesFromSettings()
+      .then((zones) => {
+        if (isMounted) {
+          setShippingZones(zones);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load shipping settings for cart:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Save cart to localStorage and database whenever items change
   useEffect(() => {
@@ -262,7 +282,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     0
   );
 
-  const shipping = subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  const shippingSummary = shippingZones
+    ? getCartShippingSummary(shippingZones, subtotal)
+    : {
+        threshold: SHIPPING_THRESHOLD,
+        shippingCost: subtotal >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST,
+        remaining: Math.max(SHIPPING_THRESHOLD - subtotal, 0),
+        progress: Math.min((subtotal / SHIPPING_THRESHOLD) * 100, 100),
+        qualifiesForFreeShipping: subtotal >= SHIPPING_THRESHOLD,
+      };
+
+  const shipping = shippingSummary.shippingCost;
+  const shippingThreshold = shippingSummary.threshold;
+  const freeShippingRemaining = shippingSummary.remaining;
+  const freeShippingProgress = shippingSummary.progress;
 
   const total = subtotal + shipping;
 
@@ -278,6 +311,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         getTotalItems,
         subtotal,
         shipping,
+        shippingThreshold,
+        freeShippingRemaining,
+        freeShippingProgress,
         total,
         isOpen,
         setIsOpen,

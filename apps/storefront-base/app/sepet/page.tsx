@@ -4,7 +4,7 @@ import { useCart } from "@/lib/cart-context";
 import { Trash2, ShoppingBag, Plus, Minus } from "lucide-react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
-import { SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
 
 export default function CartPage() {
@@ -14,9 +14,12 @@ export default function CartPage() {
     updateQuantity,
     subtotal,
     shipping,
+    shippingThreshold,
+    freeShippingRemaining,
     total,
     getTotalItems,
   } = useCart();
+  const SHIPPING_THRESHOLD = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
 
   if (items.length === 0) {
     return (
@@ -157,7 +160,7 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                {shipping > 0 && (
+                {shipping > 0 && shippingThreshold != null && (
                   <div className="text-xs text-muted bg-primary/5 p-3 rounded-lg">
                     {formatPrice(SHIPPING_THRESHOLD - subtotal)} daha alırsanız
                     kargo ücretsiz!
