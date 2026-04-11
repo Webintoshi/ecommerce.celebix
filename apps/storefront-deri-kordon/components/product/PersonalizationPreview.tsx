@@ -243,8 +243,8 @@ function getInitialPreviewFontSize(
   return 44;
 }
 
-function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
-  return preset === "watch" ? 26 : 18;
+function getMinimumPreviewFontSize() {
+  return 15;
 }
 
 export function PersonalizationPreview({
@@ -287,7 +287,7 @@ export function PersonalizationPreview({
       return;
     }
 
-    const minimumFontSize = getMinimumPreviewFontSize(previewConfig.sizePreset);
+    const minimumFontSize = getMinimumPreviewFontSize();
 
     const fitText = () => {
       let nextFontSize = initialPreviewFontSize;
