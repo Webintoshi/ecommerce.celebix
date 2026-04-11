@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bold,
@@ -70,6 +71,7 @@ export function RichTextEditor({
   minHeightClassName = "min-h-[220px]",
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const normalizedValue = useMemo(() => normalizeProductDescriptionHtml(value), [value]);
   const plainTextValue = useMemo(
@@ -108,9 +110,32 @@ export function RichTextEditor({
     editorRef.current?.focus();
   }, []);
 
+  const saveSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (!isSelectionInsideEditor(selection, editorRef.current) || selection.rangeCount === 0) {
+      return;
+    }
+
+    savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+  }, []);
+
+  const restoreSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const savedRange = savedSelectionRef.current;
+
+    if (!selection || !savedRange) {
+      return false;
+    }
+
+    selection.removeAllRanges();
+    selection.addRange(savedRange);
+    return true;
+  }, []);
+
   const runToolbarAction = useCallback(
     (action: ToolbarAction) => {
       focusEditor();
+      restoreSelection();
 
       const selection = window.getSelection();
       if (!isSelectionInsideEditor(selection, editorRef.current)) {
@@ -125,12 +150,14 @@ export function RichTextEditor({
 
         document.execCommand("createLink", false, href);
         syncEditorState();
+        saveSelection();
         return;
       }
 
       if (action === "clear") {
         document.execCommand("removeFormat");
         syncEditorState();
+        saveSelection();
         return;
       }
 
@@ -143,33 +170,38 @@ export function RichTextEditor({
 
         document.execCommand("formatBlock", false, blockMap[action]);
         syncEditorState();
+        saveSelection();
         return;
       }
 
       if (action === "ul") {
         document.execCommand("insertUnorderedList");
         syncEditorState();
+        saveSelection();
         return;
       }
 
       if (action === "ol") {
         document.execCommand("insertOrderedList");
         syncEditorState();
+        saveSelection();
         return;
       }
 
       if (action === "bold") {
         document.execCommand("bold");
         syncEditorState();
+        saveSelection();
         return;
       }
 
       if (action === "italic") {
         document.execCommand("italic");
         syncEditorState();
+        saveSelection();
       }
     },
-    [focusEditor, syncEditorState],
+    [focusEditor, restoreSelection, saveSelection, syncEditorState],
   );
 
   const handlePaste = useCallback(
@@ -182,8 +214,17 @@ export function RichTextEditor({
 
       document.execCommand("insertHTML", false, nextValue);
       syncEditorState();
+      saveSelection();
     },
-    [syncEditorState],
+    [saveSelection, syncEditorState],
+  );
+
+  const handleToolbarMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, action: ToolbarAction) => {
+      event.preventDefault();
+      runToolbarAction(action);
+    },
+    [runToolbarAction],
   );
 
   return (
@@ -193,7 +234,7 @@ export function RichTextEditor({
           <button
             key={action.id}
             type="button"
-            onClick={() => runToolbarAction(action.id)}
+            onMouseDown={(event) => handleToolbarMouseDown(event, action.id)}
             className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
           >
             <action.icon className="h-3.5 w-3.5" />
@@ -219,12 +260,21 @@ export function RichTextEditor({
           ref={editorRef}
           contentEditable
           suppressContentEditableWarning
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => {
+            setIsFocused(true);
+            restoreSelection();
+          }}
           onBlur={() => {
             setIsFocused(false);
+            saveSelection();
             syncEditorState();
           }}
-          onInput={syncEditorState}
+          onInput={() => {
+            syncEditorState();
+            saveSelection();
+          }}
+          onMouseUp={saveSelection}
+          onKeyUp={saveSelection}
           onPaste={handlePaste}
           className={cn(
             "prose prose-neutral max-w-none px-5 py-4 text-sm text-gray-900 outline-none",
