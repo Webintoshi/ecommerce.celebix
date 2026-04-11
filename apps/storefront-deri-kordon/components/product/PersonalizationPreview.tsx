@@ -198,11 +198,11 @@ export function PersonalizationPreview({
 
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-center gap-3 relative">
         <h3 style={{ fontSize: "24px", lineHeight: "31px" }} className="font-semibold tracking-[0.02em] text-neutral-950">
           Kişiselleştirme Önizlemesi
         </h3>
-        <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
+        <Search className="h-3.5 w-3.5 text-[#8A6B37] absolute right-0" />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px]">
