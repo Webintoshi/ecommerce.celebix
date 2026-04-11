@@ -595,11 +595,6 @@ export function BlogForm({ initialData }: BlogFormProps) {
                       placeholder="Blog yazinizi baslik, paragraf, liste, alinti ve baglanti yapisiyla buraya girin..."
                       minHeightClassName="min-h-[620px]"
                     />
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-600">
-                      Kapak gorseli ve icerik gorselleri link yapistirmadan dogrudan yuklenir.
-                      Rich text editor artik secim koruma, yapistirma ve bicimlendirme tarafinda
-                      ortak Tiptap standardini kullanir.
-                    </div>
                   </div>
 
                   {editorMode === "split" && (
@@ -756,7 +751,6 @@ export function BlogForm({ initialData }: BlogFormProps) {
                     <div className="flex h-40 items-center justify-center rounded-xl border border-gray-200 bg-white">
                       <div className="text-center text-sm text-gray-500">
                         <ImageIcon className="mx-auto mb-2 h-6 w-6 text-gray-400" />
-                        Link yapistirmadan dogrudan dosya yukleyin
                       </div>
                     </div>
                     <button
@@ -775,10 +769,6 @@ export function BlogForm({ initialData }: BlogFormProps) {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-blue-900">
-              Kapak ve icerik gorselleri dogrudan dosya yukleme ile calisir. Blog yazisi artik
-              markdown textarea yerine rich text editor kullaniyor.
             </div>
           </div>
         </div>

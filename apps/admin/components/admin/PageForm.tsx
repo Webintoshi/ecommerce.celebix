@@ -191,9 +191,6 @@ export function PageForm({
                   __html: formData.content || "<p>Henuz icerik girilmedi.</p>",
                 }}
               />
-              <div className="mt-6 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-500">
-                Bu onizleme storefront tasariminin birebir kopyasi degil; kaydedilecek icerigin akis ve hiyerarsisini gormek icindir.
-              </div>
             </div>
           ) : (
             <>
@@ -257,9 +254,6 @@ export function PageForm({
                       placeholder="Bu sayfanin govde icerigini baslik, liste ve paragraflarla birlikte buraya girin..."
                       minHeightClassName="min-h-[320px]"
                     />
-                    <p className="mt-2 text-xs text-gray-500">
-                      Yalnizca bu sayfanin yayinda gorunmesini istediginiz icerigi yazin. Storefront bu HTML icerigi dogrudan kullanir.
-                    </p>
                   </div>
                 </div>
               </div>

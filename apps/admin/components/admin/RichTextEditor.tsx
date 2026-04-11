@@ -135,7 +135,7 @@ function canRunAction(editor: Editor | null, action: ToolbarAction) {
 export function RichTextEditor({
   value,
   onChange,
-  placeholder = "Metni buraya yazın veya WordPress benzeri editörlerden doğrudan yapıştırın...",
+  placeholder = "Metni buraya yazın...",
   error,
   minHeightClassName = "min-h-[220px]",
 }: RichTextEditorProps) {
@@ -294,7 +294,8 @@ export function RichTextEditor({
                 isActive
                   ? "border-gray-900 bg-gray-900 text-white"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-900 hover:text-gray-900",
-                isDisabled && "cursor-not-allowed opacity-45 hover:border-gray-200 hover:text-gray-600",
+                isDisabled &&
+                  "cursor-not-allowed opacity-45 hover:border-gray-200 hover:text-gray-600",
               )}
             >
               <action.icon className="h-3.5 w-3.5" />
@@ -314,8 +315,7 @@ export function RichTextEditor({
         <EditorContent editor={editor} />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <p>WordPress veya başka editörlerden başlık, liste ve kalın metni birlikte yapıştırabilirsiniz.</p>
+      <div className="flex justify-end text-xs text-gray-500">
         <p>{plainTextValue.length} karakter</p>
       </div>
     </div>
