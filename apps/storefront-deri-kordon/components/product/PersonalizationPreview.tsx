@@ -199,7 +199,7 @@ export function PersonalizationPreview({
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-[9px] font-semibold uppercase tracking-[0.18em] text-neutral-950 sm:text-[10px] whitespace-nowrap">
+        <h3 style={{ fontSize: "24px", lineHeight: "31px" }} className="font-semibold uppercase tracking-[0.12em] text-neutral-950">
           Kişiselleştirme Ön İzleme
         </h3>
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
