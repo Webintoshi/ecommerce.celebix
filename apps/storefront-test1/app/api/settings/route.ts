@@ -30,6 +30,7 @@ import {
     setTranslationSettings,
 } from "@/lib/db/settings";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { normalizeFloatingContactSettings } from "@celebix/platform-config/src/floating-contact";
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
 
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
                         ...info,
                         logoUrl: resolveStorefrontAssetUrl(info.logoUrl) || "",
                         faviconUrl: resolveStorefrontAssetUrl(info.faviconUrl) || "",
+                        floatingContact: normalizeFloatingContactSettings(info.floatingContact),
                     }
                     : info,
             });
@@ -219,7 +221,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (type === "store" && storeInfo !== undefined) {
-            await setStoreInfo(storeInfo);
+            await setStoreInfo({
+                ...storeInfo,
+                floatingContact: normalizeFloatingContactSettings(storeInfo.floatingContact),
+            });
             return NextResponse.json({ success: true, message: "Store info updated" });
         }
 

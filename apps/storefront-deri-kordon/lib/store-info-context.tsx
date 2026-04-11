@@ -3,6 +3,10 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { buildStoreTypographyCssVariables } from "@celebix/platform-config/src/typography";
 import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
+import {
+    normalizeFloatingContactSettings,
+    type FloatingContactSettings,
+} from "@celebix/platform-config/src/floating-contact";
 
 export interface StoreInfo {
     name: string;
@@ -16,6 +20,7 @@ export interface StoreInfo {
     socialInstagram?: string;
     socialTwitter?: string;
     typography?: StoreTypographySettings;
+    floatingContact?: FloatingContactSettings;
 }
 
 interface StoreInfoContextType {
@@ -43,7 +48,9 @@ export function StoreInfoProvider({
     children,
     initialStoreInfo = null,
 }: StoreInfoProviderProps) {
-    const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(initialStoreInfo);
+    const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(
+        normalizeStoreInfo(initialStoreInfo),
+    );
     const [loading, setLoading] = useState(initialStoreInfo === null);
 
     const fetchStoreInfo = async () => {
@@ -51,7 +58,7 @@ export function StoreInfoProvider({
             const res = await fetch("/api/settings?type=store");
             const data = await res.json();
             if (data.success && data.storeInfo) {
-                setStoreInfo(data.storeInfo);
+                setStoreInfo(normalizeStoreInfo(data.storeInfo));
             } else if (!data.success) {
                 throw new Error(data.error || "Store info getirilemedi.");
             }
@@ -81,4 +88,15 @@ export function StoreInfoProvider({
             {children}
         </StoreInfoContext.Provider>
     );
+}
+
+function normalizeStoreInfo(value: StoreInfo | null | undefined): StoreInfo | null {
+    if (!value) {
+        return null;
+    }
+
+    return {
+        ...value,
+        floatingContact: normalizeFloatingContactSettings(value.floatingContact),
+    };
 }

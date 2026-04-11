@@ -20,6 +20,10 @@ import {
     type ProductListingOrderSettings,
 } from "@celebix/platform-config/src/product-listing-order";
 import {
+    normalizeFloatingContactSettings,
+    type FloatingContactSettings,
+} from "@celebix/platform-config/src/floating-contact";
+import {
     ShippingIntegrationSettings,
 } from "@/types/shipping-integration";
 import {
@@ -143,6 +147,7 @@ export interface StoreInfo {
     socialInstagram?: string;
     socialTwitter?: string;
     typography?: StoreTypographySettings;
+    floatingContact?: FloatingContactSettings;
 }
 
 export type SEOSettings = StoreSeoSettings;
@@ -207,14 +212,29 @@ export async function setShippingIntegrations(settings: ShippingIntegrationSetti
  */
 export async function getStoreInfo(): Promise<StoreInfo | null> {
     const data = await getSetting(SETTING_KEYS.STORE_INFO);
-    return data as StoreInfo | null;
+    if (!data) {
+        return null;
+    }
+
+    return {
+        ...(data as StoreInfo),
+        floatingContact: normalizeFloatingContactSettings(
+            (data as StoreInfo).floatingContact,
+        ),
+    };
 }
 
 /**
  * Set store info
  */
 export async function setStoreInfo(info: StoreInfo) {
-    return setSetting(SETTING_KEYS.STORE_INFO, info as unknown as Record<string, unknown>);
+    return setSetting(
+        SETTING_KEYS.STORE_INFO,
+        {
+            ...info,
+            floatingContact: normalizeFloatingContactSettings(info.floatingContact),
+        } as unknown as Record<string, unknown>,
+    );
 }
 
 /**

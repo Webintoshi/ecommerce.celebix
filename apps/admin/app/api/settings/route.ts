@@ -30,6 +30,7 @@ import {
     setTranslationSettings,
 } from "@/lib/db/settings";
 import { extractAdminStoredAssetUrl, resolveAdminAssetUrl } from "@/lib/asset-url";
+import { normalizeFloatingContactSettings } from "@celebix/platform-config/src/floating-contact";
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
 
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
                         ...info,
                         logoUrl: resolveAdminAssetUrl(info.logoUrl) || "",
                         faviconUrl: resolveAdminAssetUrl(info.faviconUrl) || "",
+                        floatingContact: normalizeFloatingContactSettings(info.floatingContact),
                     }
                     : info,
             });
@@ -220,6 +222,7 @@ export async function POST(request: NextRequest) {
                 ...storeInfo,
                 logoUrl: extractAdminStoredAssetUrl(storeInfo.logoUrl),
                 faviconUrl: extractAdminStoredAssetUrl(storeInfo.faviconUrl),
+                floatingContact: normalizeFloatingContactSettings(storeInfo.floatingContact),
             });
             return NextResponse.json({ success: true, message: "Store info updated" });
         }

@@ -6,6 +6,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { WishlistProvider } from "@/lib/wishlist-context";
 import { AuthProvider } from "@/lib/auth-context";
 import { StoreInfoProvider } from "@/lib/store-info-context";
+import { FloatingContactButton } from "@/components/layout/FloatingContactButton";
 import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
@@ -87,6 +88,7 @@ export default async function RootLayout({
                     <QuickViewProvider>
                       <LayoutWrapper>
                         {children}
+                        <FloatingContactButton />
                         <Toaster
                           position="top-right"
                           theme="light"

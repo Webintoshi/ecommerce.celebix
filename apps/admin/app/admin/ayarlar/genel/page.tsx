@@ -21,6 +21,7 @@ import {
   Bell,
   Store,
   Contact,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TypographyFontPicker } from "@/components/admin/TypographyFontPicker";
@@ -39,6 +40,14 @@ import {
   type StoreTypographyRoleMode,
   type StoreTypographySettings,
 } from "@celebix/platform-config/src/typography";
+import {
+  DEFAULT_FLOATING_CONTACT_SETTINGS,
+  getFloatingContactDefaultLabel,
+  normalizeFloatingContactSettings,
+  type FloatingContactChannelType,
+  type FloatingContactPosition,
+  type FloatingContactSettings,
+} from "@celebix/platform-config/src/floating-contact";
 
 interface StoreInfo {
   name: string;
@@ -52,6 +61,7 @@ interface StoreInfo {
   socialInstagram?: string;
   socialTwitter?: string;
   typography?: StoreTypographySettings;
+  floatingContact?: FloatingContactSettings;
 }
 
 interface AnnouncementSettings {
@@ -80,7 +90,40 @@ const DEFAULT_STORE_INFO: StoreInfo = {
   socialInstagram: "",
   socialTwitter: "",
   typography: DEFAULT_STORE_TYPOGRAPHY,
+  floatingContact: DEFAULT_FLOATING_CONTACT_SETTINGS,
 };
+
+const FLOATING_CONTACT_POSITION_OPTIONS: Array<{
+  value: FloatingContactPosition;
+  label: string;
+}> = [
+  { value: "bottom-right", label: "Sag Alt" },
+  { value: "bottom-left", label: "Sol Alt" },
+  { value: "top-right", label: "Sag Ust" },
+  { value: "top-left", label: "Sol Ust" },
+];
+
+const FLOATING_CONTACT_CHANNELS: Array<{
+  type: FloatingContactChannelType;
+  description: string;
+  placeholder: string;
+}> = [
+  {
+    type: "whatsapp",
+    description: "Numara veya tam WhatsApp linki girin.",
+    placeholder: "+90 555 123 45 67",
+  },
+  {
+    type: "instagram",
+    description: "Kullanici adi veya profil linki girin.",
+    placeholder: "@markaniz",
+  },
+  {
+    type: "form",
+    description: "Iletisim veya destek formu linki girin.",
+    placeholder: "/iletisim",
+  },
+];
 
 const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
   message: `${STORE_RUNTIME.name} icin yeni koleksiyonlar yayinda.`,
@@ -317,6 +360,9 @@ export default function GeneralSettingsPage() {
           typography: normalizeStoreTypographySettings(
             settingsPayload.storeInfo.typography
           ),
+          floatingContact: normalizeFloatingContactSettings(
+            settingsPayload.storeInfo.floatingContact
+          ),
         });
       }
 
@@ -387,6 +433,39 @@ export default function GeneralSettingsPage() {
         [key]: value,
       },
     }));
+  }
+
+  function handleFloatingContactChange<Key extends keyof FloatingContactSettings>(
+    key: Key,
+    value: FloatingContactSettings[Key]
+  ) {
+    setFormData((prev) => ({
+      ...prev,
+      floatingContact: {
+        ...normalizeFloatingContactSettings(prev.floatingContact),
+        [key]: value,
+      },
+    }));
+  }
+
+  function handleFloatingContactChannelChange(
+    channelType: FloatingContactChannelType,
+    key: "enabled" | "label" | "href",
+    value: boolean | string
+  ) {
+    setFormData((prev) => {
+      const current = normalizeFloatingContactSettings(prev.floatingContact);
+
+      return {
+        ...prev,
+        floatingContact: {
+          ...current,
+          channels: current.channels.map((channel) =>
+            channel.type === channelType ? { ...channel, [key]: value } : channel
+          ),
+        },
+      };
+    });
   }
 
   async function handleAssetUpload(
@@ -463,6 +542,7 @@ export default function GeneralSettingsPage() {
           storeInfo: {
             ...formData,
             typography: normalizeStoreTypographySettings(formData.typography),
+            floatingContact: normalizeFloatingContactSettings(formData.floatingContact),
           },
         }),
       });
@@ -504,6 +584,7 @@ export default function GeneralSettingsPage() {
   }
 
   const typography = normalizeStoreTypographySettings(formData.typography);
+  const floatingContact = normalizeFloatingContactSettings(formData.floatingContact);
   const announcementColor = normalizeAnnouncementColor(announcementData.backgroundColor);
   const announcementTextColor = getAnnouncementTextColor(announcementColor);
   const announcementButtonClass =
@@ -551,6 +632,12 @@ export default function GeneralSettingsPage() {
               label="İletişim"
               active={activeSection === "contact"}
               onClick={() => scrollToSection("contact")}
+            />
+            <NavItem
+              icon={MessageCircle}
+              label="Floating Iletisim"
+              active={activeSection === "floating-contact"}
+              onClick={() => scrollToSection("floating-contact")}
             />
             <NavItem
               icon={Globe}
@@ -707,6 +794,135 @@ export default function GeneralSettingsPage() {
                   placeholder="İşletme adresiniz..."
                   rows={2}
                 />
+              </div>
+            </Card>
+
+            <Card title="Floating Iletisim" icon={MessageCircle} id="floating-contact">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      Yuzen iletisim butonu
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Sadece aktif edilen ve link girilen kanallar vitrinde gosterilir.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={floatingContact.enabled}
+                      onChange={(event) =>
+                        handleFloatingContactChange("enabled", event.target.checked)
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-neutral-900 peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-['']" />
+                    <span className="ml-3 text-sm font-medium text-gray-900">
+                      {floatingContact.enabled ? "Aktif" : "Pasif"}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+                  <Select
+                    label="Konum"
+                    name="floatingContactPosition"
+                    value={floatingContact.position}
+                    onChange={(event) =>
+                      handleFloatingContactChange(
+                        "position",
+                        event.target.value as FloatingContactPosition
+                      )
+                    }
+                    options={FLOATING_CONTACT_POSITION_OPTIONS}
+                  />
+
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-4">
+                    <span className="text-sm font-medium text-gray-700">Not</span>
+                    <p className="mt-2 text-sm leading-6 text-gray-500">
+                      WhatsApp ve Instagram alanlari kullanici adi veya tam link kabul eder.
+                      Form alani icin dahili rota ya da tam URL girebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {FLOATING_CONTACT_CHANNELS.map((channelConfig) => {
+                    const channel =
+                      floatingContact.channels.find(
+                        (item) => item.type === channelConfig.type
+                      ) ?? null;
+
+                    return (
+                      <div
+                        key={channelConfig.type}
+                        className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">
+                              {getFloatingContactDefaultLabel(channelConfig.type)}
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                              {channelConfig.description}
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(channel?.enabled)}
+                              onChange={(event) =>
+                                handleFloatingContactChannelChange(
+                                  channelConfig.type,
+                                  "enabled",
+                                  event.target.checked
+                                )
+                              }
+                              className="sr-only peer"
+                            />
+                            <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-neutral-900 peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-['']" />
+                            <span className="ml-3 text-sm font-medium text-gray-900">
+                              {channel?.enabled ? "Aktif" : "Kapali"}
+                            </span>
+                          </label>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <Input
+                            label="Gorunen Baslik"
+                            name={`${channelConfig.type}-label`}
+                            value={
+                              channel?.label ||
+                              getFloatingContactDefaultLabel(channelConfig.type)
+                            }
+                            onChange={(event) =>
+                              handleFloatingContactChannelChange(
+                                channelConfig.type,
+                                "label",
+                                event.target.value
+                              )
+                            }
+                            placeholder={getFloatingContactDefaultLabel(channelConfig.type)}
+                          />
+                          <Input
+                            label="Baglanti"
+                            name={`${channelConfig.type}-href`}
+                            value={channel?.href || ""}
+                            onChange={(event) =>
+                              handleFloatingContactChannelChange(
+                                channelConfig.type,
+                                "href",
+                                event.target.value
+                              )
+                            }
+                            placeholder={channelConfig.placeholder}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
 
