@@ -1,5 +1,5 @@
 {
-  "name": "Deri Kordon",
+  "name": "DeryCraft",
   "slug": "deri-kordon",
   "status": "active",
   "theme": {
@@ -17,7 +17,7 @@
     "supportPhone": "+90 532 000 00 00",
     "senderEmail": "noreply@derycraft.com",
     "smsSenderTitle": "DERIKORDON",
-    "defaultProductBrand": "Deri Kordon"
+    "defaultProductBrand": "DeryCraft"
   },
   "domains": {
     "storefront": "derycraft.com",

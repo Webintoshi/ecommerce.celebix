@@ -164,6 +164,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
     NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
+    NEXT_PUBLIC_STORE_NAME: store.name,
+    NEXT_PUBLIC_STORE_TAGLINE: store.branding?.tagline?.trim() || "",
+    NEXT_PUBLIC_DEFAULT_PRODUCT_BRAND:
+      store.branding?.defaultProductBrand?.trim() || store.name,
     NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
     NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL:
