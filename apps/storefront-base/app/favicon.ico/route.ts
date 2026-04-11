@@ -5,6 +5,7 @@ import { getStoreInfo } from "@/lib/db/settings";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const FALLBACK_FAVICON_PATH = path.join(
   process.cwd(),
@@ -18,7 +19,7 @@ function buildResponse(body: Buffer, contentType: string) {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }
