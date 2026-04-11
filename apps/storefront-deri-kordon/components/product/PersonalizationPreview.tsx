@@ -197,7 +197,7 @@ export function PersonalizationPreview({
   const previewFontSize = getPreviewFontSize(displayText);
 
   return (
-    <section className="w-full max-w-[420px] border-t border-neutral-200 pt-5">
+    <section className="w-full max-w-[360px] border-t border-neutral-200 pt-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.36em] text-neutral-950 sm:text-[12px]">
           Kişiselleştirme Ön İzleme
@@ -215,7 +215,7 @@ export function PersonalizationPreview({
           onChange={(event) => setPreviewText(event.target.value.slice(0, 6))}
           placeholder="Yazinizi Ekleyin"
           maxLength={6}
-          className="h-11 rounded-[14px] border border-[#8cb8df] bg-white px-4 text-[14px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6b9fce]"
+          className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6b9fce]"
         />
 
         <label className="sr-only" htmlFor="personalization-preview-font">
@@ -225,7 +225,7 @@ export function PersonalizationPreview({
           id="personalization-preview-font"
           value={selectedFontId}
           onChange={(event) => setSelectedFontId(event.target.value)}
-          className="h-11 rounded-[14px] border border-[#8cb8df] bg-white px-4 text-[14px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors focus:border-[#6b9fce]"
+          className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors focus:border-[#6b9fce]"
         >
           {FONT_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>
@@ -235,8 +235,8 @@ export function PersonalizationPreview({
         </select>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-[20px] shadow-[0_16px_28px_rgba(63,41,28,0.16)]">
-        <div className="relative aspect-[16/6.2] bg-[#ead8c5]">
+      <div className="mt-2.5 overflow-hidden rounded-[20px] shadow-[0_16px_28px_rgba(63,41,28,0.16)]">
+        <div className="relative aspect-[16/7] bg-[#ead8c5]">
           <Image
             src={previewImage}
             alt={previewConfig.imageAlt}
@@ -265,7 +265,7 @@ export function PersonalizationPreview({
         </div>
       </div>
 
-      <ul className="mt-4 space-y-3 text-[14px] leading-7 text-neutral-900">
+      <ul className="mt-3 space-y-2.5 text-[14px] leading-7 text-neutral-900">
         {PREVIEW_COPY.map((item) => (
           <li key={item.text} className="flex gap-3">
             <span className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-900" />
