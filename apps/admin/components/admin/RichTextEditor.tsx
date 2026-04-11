@@ -11,12 +11,16 @@ import {
   List,
   ListOrdered,
   Quote,
+  Redo2,
+  Underline as UnderlineIcon,
+  Undo2,
   X,
 } from "lucide-react";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import { cn } from "@/lib/utils";
 import {
   extractPlainTextFromProductDescription,
@@ -24,10 +28,13 @@ import {
 } from "@celebix/platform-config/src/product-description-rich-text";
 
 type ToolbarAction =
+  | "undo"
+  | "redo"
   | "h2"
   | "h3"
   | "bold"
   | "italic"
+  | "underline"
   | "ul"
   | "ol"
   | "quote"
@@ -47,10 +54,13 @@ const TOOLBAR_ACTIONS: Array<{
   label: string;
   icon: LucideIcon;
 }> = [
+  { id: "undo", label: "Geri Al", icon: Undo2 },
+  { id: "redo", label: "Yinele", icon: Redo2 },
   { id: "h2", label: "H2", icon: Heading2 },
   { id: "h3", label: "H3", icon: Heading3 },
   { id: "bold", label: "Kalın", icon: Bold },
   { id: "italic", label: "İtalik", icon: Italic },
+  { id: "underline", label: "Altı Çizili", icon: UnderlineIcon },
   { id: "ul", label: "Liste", icon: List },
   { id: "ol", label: "Numaralı", icon: ListOrdered },
   { id: "quote", label: "Alıntı", icon: Quote },
@@ -58,7 +68,7 @@ const TOOLBAR_ACTIONS: Array<{
   { id: "clear", label: "Temizle", icon: X },
 ];
 
-function resolveToolbarActive(editor: ReturnType<typeof useEditor>, action: ToolbarAction) {
+function isActionActive(editor: Editor | null, action: ToolbarAction) {
   if (!editor) {
     return false;
   }
@@ -72,6 +82,8 @@ function resolveToolbarActive(editor: ReturnType<typeof useEditor>, action: Tool
       return editor.isActive("bold");
     case "italic":
       return editor.isActive("italic");
+    case "underline":
+      return editor.isActive("underline");
     case "ul":
       return editor.isActive("bulletList");
     case "ol":
@@ -80,6 +92,41 @@ function resolveToolbarActive(editor: ReturnType<typeof useEditor>, action: Tool
       return editor.isActive("blockquote");
     case "link":
       return editor.isActive("link");
+    default:
+      return false;
+  }
+}
+
+function canRunAction(editor: Editor | null, action: ToolbarAction) {
+  if (!editor) {
+    return false;
+  }
+
+  switch (action) {
+    case "undo":
+      return editor.can().chain().focus().undo().run();
+    case "redo":
+      return editor.can().chain().focus().redo().run();
+    case "h2":
+      return editor.can().chain().focus().toggleHeading({ level: 2 }).run();
+    case "h3":
+      return editor.can().chain().focus().toggleHeading({ level: 3 }).run();
+    case "bold":
+      return editor.can().chain().focus().toggleBold().run();
+    case "italic":
+      return editor.can().chain().focus().toggleItalic().run();
+    case "underline":
+      return editor.can().chain().focus().toggleUnderline().run();
+    case "ul":
+      return editor.can().chain().focus().toggleBulletList().run();
+    case "ol":
+      return editor.can().chain().focus().toggleOrderedList().run();
+    case "quote":
+      return editor.can().chain().focus().toggleBlockquote().run();
+    case "link":
+      return true;
+    case "clear":
+      return true;
     default:
       return false;
   }
@@ -106,6 +153,7 @@ export function RichTextEditor({
           levels: [2, 3],
         },
       }),
+      Underline,
       Link.configure({
         autolink: true,
         openOnClick: false,
@@ -149,6 +197,16 @@ export function RichTextEditor({
 
   const runToolbarAction = (action: ToolbarAction) => {
     if (!editor) {
+      return;
+    }
+
+    if (action === "undo") {
+      editor.chain().focus().undo().run();
+      return;
+    }
+
+    if (action === "redo") {
+      editor.chain().focus().redo().run();
       return;
     }
 
@@ -207,6 +265,11 @@ export function RichTextEditor({
 
     if (action === "italic") {
       editor.chain().focus().toggleItalic().run();
+      return;
+    }
+
+    if (action === "underline") {
+      editor.chain().focus().toggleUnderline().run();
     }
   };
 
@@ -214,12 +277,14 @@ export function RichTextEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         {TOOLBAR_ACTIONS.map((action) => {
-          const isActive = resolveToolbarActive(editor, action.id);
+          const isActive = isActionActive(editor, action.id);
+          const isDisabled = !canRunAction(editor, action.id);
 
           return (
             <button
               key={action.id}
               type="button"
+              disabled={isDisabled}
               onMouseDown={(event) => {
                 event.preventDefault();
                 runToolbarAction(action.id);
@@ -229,6 +294,7 @@ export function RichTextEditor({
                 isActive
                   ? "border-gray-900 bg-gray-900 text-white"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-900 hover:text-gray-900",
+                isDisabled && "cursor-not-allowed opacity-45 hover:border-gray-200 hover:text-gray-600",
               )}
             >
               <action.icon className="h-3.5 w-3.5" />
