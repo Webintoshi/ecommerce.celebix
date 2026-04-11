@@ -87,6 +87,12 @@ type ProductsPageClientProps = {
   initialError?: string;
 };
 
+type ProductLoadOptions = {
+  allProducts?: boolean;
+  searchQuery?: string;
+  categoryFilter?: string;
+};
+
 export default function ProductsPageClient({
   initialProducts = [],
   initialCategories = [],
@@ -109,6 +115,7 @@ export default function ProductsPageClient({
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [sortBy, setSortBy] = useState<"manual" | "name" | "price" | "stock">("manual");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [reorderMode, setReorderMode] = useState(false);
   const [pagination, setPagination] = useState<AdminPaginationMeta>(initialPagination);
   const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
   const [bulkStockValue, setBulkStockValue] = useState("");
@@ -118,6 +125,15 @@ export default function ProductsPageClient({
   const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
   const hasLoadedInitialDataRef = useRef(false);
   const hasMountedFiltersRef = useRef(false);
+  const pagedPageRef = useRef(initialPagination.page);
+  const catalogStateRef = useRef({
+    searchQuery: "",
+    categoryFilter: "all",
+    sortBy: "manual" as "manual" | "name" | "price" | "stock",
+    sortOrder: "asc" as "asc" | "desc",
+    viewMode: "table" as "grid" | "table",
+    page: initialPagination.page,
+  });
   const categoryTree = buildProductCategoryTree(categories);
   const categoryLabelMap = buildCategoryLabelMap(categories);
   const categoryFilters = [
@@ -145,20 +161,30 @@ export default function ProductsPageClient({
   const getCategoryColor = (slug: string) =>
     categoryFilters.find((category) => category.value === slug)?.color || "bg-gray-100 text-gray-700";
 
-  const loadProducts = useCallback(async (page: number = pagination.page) => {
+  const loadProducts = useCallback(async (
+    page: number = pagination.page,
+    options?: ProductLoadOptions,
+  ) => {
     setLoading(true);
     try {
       setErrorMessage("");
-      const trimmedSearchQuery = searchQuery.trim();
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pagination.limit.toString(),
-      });
+      const trimmedSearchQuery = (options?.searchQuery ?? searchQuery).trim();
+      const effectiveCategoryFilter = options?.categoryFilter ?? categoryFilter;
+      const shouldLoadAllProducts = options?.allProducts ?? reorderMode;
+      const params = new URLSearchParams();
+
+      if (shouldLoadAllProducts) {
+        params.set("all", "true");
+      } else {
+        params.set("page", page.toString());
+        params.set("limit", pagination.limit.toString());
+      }
+
       if (trimmedSearchQuery) {
         params.set("search", trimmedSearchQuery);
       }
-      if (categoryFilter !== "all") {
-        params.set("category", categoryFilter);
+      if (effectiveCategoryFilter !== "all") {
+        params.set("category", effectiveCategoryFilter);
       }
 
       const data = await fetchAdminJson<{
@@ -170,13 +196,23 @@ export default function ProductsPageClient({
 
       if (data.success && data.products) {
         setProducts(data.products.map(transformProduct));
-        if (data.pagination) {
+        if (shouldLoadAllProducts) {
+          const totalProducts = data.pagination?.total ?? data.products.length;
+          setPagination({
+            page: 1,
+            limit: totalProducts > 0 ? totalProducts : pagination.limit,
+            total: totalProducts,
+            totalPages: totalProducts > 0 ? 1 : 0,
+          });
+        } else if (data.pagination) {
           setPagination(data.pagination);
+          pagedPageRef.current = data.pagination.page;
         } else {
           setPagination((current) => ({
             ...current,
             page,
           }));
+          pagedPageRef.current = page;
         }
       } else {
         setErrorMessage(data.error || "Ürün verileri alınamadı.");
@@ -187,7 +223,7 @@ export default function ProductsPageClient({
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, pagination.limit, pagination.page, searchQuery]);
+  }, [categoryFilter, pagination.limit, pagination.page, reorderMode, searchQuery]);
 
   const loadCategories = async () => {
     try {
@@ -219,13 +255,63 @@ export default function ProductsPageClient({
       return;
     }
 
+    if (reorderMode) {
+      return;
+    }
+
     setSelectedProducts([]);
     const timeout = window.setTimeout(() => {
       void loadProducts(1);
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [categoryFilter, searchQuery]);
+  }, [categoryFilter, loadProducts, reorderMode, searchQuery]);
+
+  const handleEnterReorderMode = async () => {
+    if (reorderingProductId) {
+      return;
+    }
+
+    catalogStateRef.current = {
+      searchQuery,
+      categoryFilter,
+      sortBy,
+      sortOrder,
+      viewMode,
+      page: pagedPageRef.current,
+    };
+
+    setSelectedProducts([]);
+    setSearchQuery("");
+    setCategoryFilter("all");
+    setSortBy("manual");
+    setSortOrder("asc");
+    setViewMode("table");
+    setReorderMode(true);
+    await loadProducts(1, {
+      allProducts: true,
+      searchQuery: "",
+      categoryFilter: "all",
+    });
+  };
+
+  const handleExitReorderMode = async () => {
+    const previousCatalogState = catalogStateRef.current;
+
+    setSelectedProducts([]);
+    setReorderMode(false);
+    setSearchQuery(previousCatalogState.searchQuery);
+    setCategoryFilter(previousCatalogState.categoryFilter);
+    setSortBy(previousCatalogState.sortBy);
+    setSortOrder(previousCatalogState.sortOrder);
+    setViewMode(previousCatalogState.viewMode);
+
+    await loadProducts(previousCatalogState.page, {
+      allProducts: false,
+      searchQuery: previousCatalogState.searchQuery,
+      categoryFilter: previousCatalogState.categoryFilter,
+    });
+  };
 
   const handleDelete = async (id: string) => {
     if (confirm("Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
@@ -357,7 +443,7 @@ export default function ProductsPageClient({
     });
   };
 
-  const canUseManualReorder = sortBy === "manual" && reorderingProductId === null;
+  const canUseManualReorder = reorderMode && sortBy === "manual" && reorderingProductId === null;
 
   const buildReorderedProducts = (sourceId: string, targetId: string) => {
     if (sourceId === targetId) {
@@ -415,7 +501,7 @@ export default function ProductsPageClient({
   };
 
   const handleManualReorder = async (productId: string, direction: "up" | "down") => {
-    if (sortBy !== "manual" || reorderingProductId) {
+    if (sortBy !== "manual" || reorderingProductId || !reorderMode) {
       return;
     }
 
@@ -507,6 +593,21 @@ export default function ProductsPageClient({
         </div>
         <div className="flex items-center gap-3">
           <button
+            type="button"
+            onClick={() => void (reorderMode ? handleExitReorderMode() : handleEnterReorderMode())}
+            disabled={loading || reorderingProductId !== null}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all",
+              reorderMode
+                ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                : "bg-blue-600 text-white hover:bg-blue-700",
+              (loading || reorderingProductId !== null) ? "cursor-not-allowed opacity-60" : "",
+            )}
+          >
+            <GripVertical className="h-4 w-4" />
+            {reorderMode ? "Sıralamayı Bitir" : "Ürün Sırala"}
+          </button>
+          <button
             onClick={() => loadProducts()}
             className="p-2.5 bg-white border border-gray-100 text-gray-400 hover:text-gray-900 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
             title="Yenile"
@@ -574,7 +675,13 @@ export default function ProductsPageClient({
                 placeholder="Ürün adı, SKU veya barkod ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-200 outline-none transition-all text-sm font-medium"
+                disabled={reorderMode}
+                className={cn(
+                  "w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl outline-none transition-all text-sm font-medium",
+                  reorderMode
+                    ? "cursor-not-allowed opacity-60"
+                    : "focus:bg-white focus:border-blue-200",
+                )}
               />
             </div>
 
@@ -585,7 +692,13 @@ export default function ProductsPageClient({
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full appearance-none pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-200 outline-none transition-all text-sm font-bold cursor-pointer"
+                  disabled={reorderMode}
+                  className={cn(
+                    "w-full appearance-none pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-2xl outline-none transition-all text-sm font-bold",
+                    reorderMode
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer focus:bg-white focus:border-blue-200",
+                  )}
                 >
                   {categoryFilters.map((cat) => (
                     <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -609,7 +722,13 @@ export default function ProductsPageClient({
                     setSortBy(newSort);
                     setSortOrder(newOrder);
                   }}
-                  className="w-full appearance-none pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-200 outline-none transition-all text-sm font-bold cursor-pointer"
+                  disabled={reorderMode}
+                  className={cn(
+                    "w-full appearance-none pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-2xl outline-none transition-all text-sm font-bold",
+                    reorderMode
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer focus:bg-white focus:border-blue-200",
+                  )}
                 >
                   <option value="manual-asc">Manuel Sira</option>
                   <option value="name-asc">İsim A-Z</option>
@@ -628,8 +747,10 @@ export default function ProductsPageClient({
               <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-transparent">
                 <button
                   onClick={() => setViewMode("table")}
+                  disabled={reorderMode}
                   className={cn(
                     "p-2 rounded-xl transition-all",
+                    reorderMode ? "cursor-not-allowed opacity-40" : "",
                     viewMode === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   )}
                 >
@@ -637,8 +758,10 @@ export default function ProductsPageClient({
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
+                  disabled={reorderMode}
                   className={cn(
                     "p-2 rounded-xl transition-all",
+                    reorderMode ? "cursor-not-allowed opacity-40" : "",
                     viewMode === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   )}
                 >
@@ -834,7 +957,7 @@ export default function ProductsPageClient({
                         <button
                           type="button"
                           onClick={() => handleManualReorder(product.id, "up")}
-                          disabled={reorderingProductId !== null || sortedProducts[0]?.id === product.id}
+                          disabled={!reorderMode || reorderingProductId !== null || sortedProducts[0]?.id === product.id}
                           className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                           title="Yukari tasi"
                         >
@@ -843,7 +966,7 @@ export default function ProductsPageClient({
                         <button
                           type="button"
                           onClick={() => handleManualReorder(product.id, "down")}
-                          disabled={reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
+                          disabled={!reorderMode || reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
                           className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                           title="Asagi tasi"
                         >
@@ -1033,7 +1156,7 @@ export default function ProductsPageClient({
                           <button
                             type="button"
                             onClick={() => handleManualReorder(product.id, "up")}
-                            disabled={sortBy !== "manual" || reorderingProductId !== null || sortedProducts[0]?.id === product.id}
+                            disabled={!reorderMode || sortBy !== "manual" || reorderingProductId !== null || sortedProducts[0]?.id === product.id}
                             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Yukari tasi"
                           >
@@ -1042,7 +1165,7 @@ export default function ProductsPageClient({
                           <button
                             type="button"
                             onClick={() => handleManualReorder(product.id, "down")}
-                            disabled={sortBy !== "manual" || reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
+                            disabled={!reorderMode || sortBy !== "manual" || reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
                             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Asagi tasi"
                           >
@@ -1175,7 +1298,7 @@ export default function ProductsPageClient({
       )}
 
       {/* Pagination Controls */}
-      {!loading && pagination.totalPages > 1 && sortedProducts.length > 0 && (
+      {!loading && !reorderMode && pagination.totalPages > 1 && sortedProducts.length > 0 && (
         <div className="mt-8 flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
           <div className="text-sm text-gray-600">
             Toplam <span className="font-bold text-gray-900">{pagination.total}</span> ürün

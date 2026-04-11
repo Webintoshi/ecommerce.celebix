@@ -366,6 +366,7 @@ export async function GET(request: NextRequest) {
         const category = searchParams.get("category");
         const slug = searchParams.get("slug");
         const search = searchParams.get("search");
+        const fetchAll = searchParams.get("all") === "true";
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "20");
         const { createServerClient } = await import("@/lib/supabase");
@@ -451,12 +452,16 @@ export async function GET(request: NextRequest) {
                     created_at?: string | null;
                     name?: string | null;
                 }>, productListingOrder);
-                const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
+                const listedProducts = fetchAll
+                    ? orderedProducts
+                    : paginateOrderedProducts(orderedProducts, page, limit);
+                const effectiveLimit = fetchAll ? Math.max(orderedProducts.length, 1) : limit;
+                const effectivePage = fetchAll ? 1 : page;
 
                 return NextResponse.json({
                     success: true,
-                    products: normalizeProductsPayload(attachListingPositions(paginatedProducts, productListingOrder)),
-                    pagination: buildListingPagination(page, limit, orderedProducts.length),
+                    products: normalizeProductsPayload(attachListingPositions(listedProducts, productListingOrder)),
+                    pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
                 });
             }
 
@@ -467,12 +472,16 @@ export async function GET(request: NextRequest) {
                 created_at?: string | null;
                 name?: string | null;
             }>, productListingOrder);
-            const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
+            const listedProducts = fetchAll
+                ? orderedProducts
+                : paginateOrderedProducts(orderedProducts, page, limit);
+            const effectiveLimit = fetchAll ? Math.max(orderedProducts.length, 1) : limit;
+            const effectivePage = fetchAll ? 1 : page;
 
             return NextResponse.json({
                 success: true,
-                products: normalizeProductsPayload(attachListingPositions(paginatedProducts, productListingOrder)),
-                pagination: buildListingPagination(page, limit, orderedProducts.length),
+                products: normalizeProductsPayload(attachListingPositions(listedProducts, productListingOrder)),
+                pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
             });
         }
 
