@@ -29,6 +29,7 @@ type PreviewConfig = {
   textToneClass: string;
   defaultText?: string | null;
   sizePreset: "watch" | "leather";
+  maxCharacters: number;
 };
 
 const MONOTYPE_SOURCE =
@@ -128,10 +129,11 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri ürün kişiselleştirme ön izlemesi",
   textPositionClass:
-    "left-1/2 top-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center",
+    "bottom-[12%] right-[8%] w-[56%] text-right sm:bottom-[14%] sm:right-[10%]",
   textToneClass: "text-[#1f140f]",
   defaultText: "Ön izleme",
   sizePreset: "leather",
+  maxCharacters: 15,
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
@@ -143,6 +145,7 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   textToneClass: "text-[#1a0f0a]",
   defaultText: "Yazı",
   sizePreset: "watch",
+  maxCharacters: 6,
 };
 
 function normalizeCategoryValue(value?: string | null) {
@@ -280,9 +283,13 @@ export function PersonalizationPreview({
         <input
           id="personalization-preview-text"
           value={previewText}
-          onChange={(event) => setPreviewText(event.target.value.slice(0, 6))}
+          onChange={(event) =>
+            setPreviewText(
+              event.target.value.slice(0, previewConfig.maxCharacters)
+            )
+          }
           placeholder="Yazınızı Ekleyin"
-          maxLength={6}
+          maxLength={previewConfig.maxCharacters}
           className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6b9fce]"
         />
 
