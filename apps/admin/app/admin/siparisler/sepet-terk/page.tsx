@@ -10,6 +10,8 @@ import {
   AbandonedCartFilters,
   AbandonedCartSort,
 } from "@/lib/abandoned-carts";
+import { extractAdminStoredAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
+import { buildStorefrontUrl } from "@/lib/store-runtime";
 import {
   ShoppingCart,
   User,
@@ -31,6 +33,68 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+
+function resolveAbandonedCartImageDirectSource(source?: string | null) {
+  const rawSource = typeof source === "string" ? source.trim() : "";
+
+  if (!rawSource) {
+    return "";
+  }
+
+  const extractedSource = extractAdminStoredAssetUrl(rawSource);
+  const normalizedSource =
+    extractedSource.startsWith("/") && !extractedSource.startsWith("/api/assets?")
+      ? buildStorefrontUrl(extractedSource)
+      : extractedSource;
+
+  return resolveAdminDirectAssetUrl(normalizedSource) || normalizedSource;
+}
+
+function AbandonedCartItemImage({
+  src,
+  alt,
+  iconClassName,
+}: {
+  src?: string | null;
+  alt: string;
+  iconClassName: string;
+}) {
+  const initialSource = typeof src === "string" ? src.trim() : "";
+  const directSource = resolveAbandonedCartImageDirectSource(initialSource);
+  const [currentSource, setCurrentSource] = useState(initialSource);
+  const [didFallback, setDidFallback] = useState(false);
+  const [didFail, setDidFail] = useState(false);
+
+  useEffect(() => {
+    setCurrentSource(initialSource);
+    setDidFallback(false);
+    setDidFail(false);
+  }, [initialSource]);
+
+  const handleError = () => {
+    if (!didFallback && directSource && directSource !== currentSource) {
+      setCurrentSource(directSource);
+      setDidFallback(true);
+      return;
+    }
+
+    setDidFail(true);
+  };
+
+  if (!currentSource || didFail) {
+    return <Package className={iconClassName} />;
+  }
+
+  return (
+    <img
+      src={currentSource}
+      alt={alt}
+      className="w-full h-full object-cover"
+      loading="lazy"
+      onError={handleError}
+    />
+  );
+}
 
 export default function AbandonedCartsPage() {
   const [carts, setCarts] = useState<any[]>([]);
@@ -362,10 +426,10 @@ export default function AbandonedCartsPage() {
                       <div key={item.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200">
                         <div className="w-12 h-12 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
                           {item.productImage ? (
-                            <img
+                            <AbandonedCartItemImage
                               src={item.productImage}
                               alt={item.productName}
-                              className="w-full h-full object-cover"
+                              iconClassName="w-full h-full text-gray-400 p-2"
                             />
                           ) : (
                             <Package className="w-full h-full text-gray-400 p-2" />
@@ -478,10 +542,10 @@ export default function AbandonedCartsPage() {
                       >
                         <div className="w-20 h-20 bg-white rounded-lg flex-shrink-0 overflow-hidden border border-gray-200">
                           {item.productImage ? (
-                            <img
+                            <AbandonedCartItemImage
                               src={item.productImage}
                               alt={item.productName}
-                              className="w-full h-full object-cover"
+                              iconClassName="w-full h-full text-gray-400 p-4"
                             />
                           ) : (
                             <Package className="w-full h-full text-gray-400 p-4" />

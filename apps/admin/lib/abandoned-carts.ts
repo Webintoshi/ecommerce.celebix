@@ -5,6 +5,8 @@ import {
   AbandonedCartSort,
 } from "@/types/abandoned-cart";
 import { supabase } from "@/lib/supabase";
+import { extractAdminStoredAssetUrl, resolveAdminAssetUrl } from "@/lib/asset-url";
+import { buildStorefrontUrl } from "@/lib/store-runtime";
 
 export type {
   AbandonedCart,
@@ -16,6 +18,22 @@ export type {
 let cachedCarts: AbandonedCart[] = [];
 let lastFetch: number = 0;
 const CACHE_DURATION = 60000; // 1 minute cache
+
+function normalizeAbandonedCartItemImage(source: unknown): string {
+  const rawSource = typeof source === "string" ? source.trim() : "";
+
+  if (!rawSource) {
+    return "";
+  }
+
+  const extractedSource = extractAdminStoredAssetUrl(rawSource);
+  const normalizedSource =
+    extractedSource.startsWith("/") && !extractedSource.startsWith("/api/assets?")
+      ? buildStorefrontUrl(extractedSource)
+      : extractedSource;
+
+  return resolveAdminAssetUrl(normalizedSource) || normalizedSource;
+}
 
 async function fetchFromAPI(
   filters?: AbandonedCartFilters,
@@ -50,7 +68,7 @@ async function fetchFromAPI(
           productId: item.productId || item.product_id,
           productName: item.productName || item.name || "",
           productSlug: item.productSlug || item.product_slug || "",
-          productImage: item.productImage || item.image || "",
+          productImage: normalizeAbandonedCartItemImage(item.productImage || item.image || ""),
           variantId: item.variantId || item.variant_id,
           variantName: item.variantName || item.variant_name || "",
           stock: typeof item.stock === "number" ? item.stock : 0,
