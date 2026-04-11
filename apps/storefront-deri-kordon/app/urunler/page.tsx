@@ -7,9 +7,11 @@ import {
 } from "@/lib/variant-attribute-hydration";
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { translateProductRecord } from "@/lib/translation";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 
 export const dynamic = "force-dynamic";
 
@@ -130,7 +132,7 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
   const supabase = createServerClient();
 
   try {
-    const [{ data: products, error }, attributeRegistry] = await Promise.all([
+    const [{ data: products, error }, attributeRegistry, productListingOrder] = await Promise.all([
       runProductsQuery((includeIsActiveFilter) => {
         let query = supabase.from("products").select(`
             *,
@@ -144,6 +146,7 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
         return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
       }),
       getVariantAttributeRegistry(),
+      getProductListingOrderPositions(),
     ]);
 
     if (error) {
@@ -151,8 +154,13 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
       return [];
     }
 
+    const orderedProducts = sortProductsByListingOrder(
+      (((products as DBProduct[]) || [])),
+      productListingOrder,
+    );
+
     const translatedProducts = await Promise.all(
-      (((products as DBProduct[]) || []).map((product) =>
+      (orderedProducts.map((product) =>
         translateProductRecord(product, locale),
       )),
     );

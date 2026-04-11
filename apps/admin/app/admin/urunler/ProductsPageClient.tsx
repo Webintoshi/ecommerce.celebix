@@ -27,6 +27,8 @@ import {
   Star,
   ChevronDown,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -51,6 +53,7 @@ function transformProduct(dbProduct: Record<string, unknown>): AdminProductListI
     id: dbProduct.id as string,
     name: dbProduct.name as string,
     slug: dbProduct.slug as string,
+    sortOrder: Number(dbProduct.sort_order) || 0,
     description: (dbProduct.description as string) || "",
     shortDescription: (dbProduct.short_description as string) || "",
     images: (dbProduct.images as string[]) || [],
@@ -97,12 +100,13 @@ export default function ProductsPageClient({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialError);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "price" | "stock" | "newest">("name");
+  const [sortBy, setSortBy] = useState<"manual" | "name" | "price" | "stock">("manual");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [pagination, setPagination] = useState<AdminPaginationMeta>(initialPagination);
   const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
   const [bulkStockValue, setBulkStockValue] = useState("");
   const [bulkStockSubmitting, setBulkStockSubmitting] = useState(false);
+  const [reorderingProductId, setReorderingProductId] = useState<string | null>(null);
   const hasLoadedInitialDataRef = useRef(false);
   const hasMountedFiltersRef = useRef(false);
   const categoryTree = buildProductCategoryTree(categories);
@@ -323,6 +327,10 @@ export default function ProductsPageClient({
   };
 
   const getSortedProducts = () => {
+    if (sortBy === "manual") {
+      return filteredProducts;
+    }
+
     return [...filteredProducts].sort((a, b) => {
       let comparison = 0;
       const aPrimaryVariant = getPrimaryVariant(a);
@@ -338,6 +346,62 @@ export default function ProductsPageClient({
 
       return sortOrder === "asc" ? comparison : -comparison;
     });
+  };
+
+  const handleManualReorder = async (productId: string, direction: "up" | "down") => {
+    if (sortBy !== "manual" || reorderingProductId) {
+      return;
+    }
+
+    const currentIndex = sortedProducts.findIndex((product) => product.id === productId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedProducts.length) {
+      return;
+    }
+
+    const reorderedProducts = [...sortedProducts];
+    [reorderedProducts[currentIndex], reorderedProducts[targetIndex]] = [
+      reorderedProducts[targetIndex],
+      reorderedProducts[currentIndex],
+    ];
+
+    setReorderingProductId(productId);
+    setProducts(reorderedProducts);
+    setNotice(null);
+
+    try {
+      await fetchAdminJson("/api/admin/products/reorder", {
+        timeoutMs: 15000,
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderedIds: reorderedProducts.map((product) => product.id),
+          }),
+        },
+      });
+
+      await loadProducts(pagination.page);
+      setNotice({
+        tone: "success",
+        text: "Ürün sıralaması güncellendi. Storefront aynı sırayı kullanacak.",
+      });
+    } catch (error) {
+      console.error("Failed to reorder products:", error);
+      await loadProducts(pagination.page);
+      setNotice({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Ürün sıralaması güncellenemedi.",
+      });
+    } finally {
+      setReorderingProductId(null);
+    }
   };
 
   const filteredProducts = products;
@@ -464,7 +528,7 @@ export default function ProductsPageClient({
                   value={`${sortBy}-${sortOrder}`}
                   onChange={(e) => {
                     const [newSort, newOrder] = e.target.value.split("-") as [
-                      "name" | "price" | "stock" | "newest",
+                      "manual" | "name" | "price" | "stock",
                       "asc" | "desc",
                     ];
                     setSortBy(newSort);
@@ -472,6 +536,7 @@ export default function ProductsPageClient({
                   }}
                   className="w-full appearance-none pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-200 outline-none transition-all text-sm font-bold cursor-pointer"
                 >
+                  <option value="manual-asc">Manuel Sira</option>
                   <option value="name-asc">İsim A-Z</option>
                   <option value="name-desc">İsim Z-A</option>
                   <option value="price-asc">Fiyat Artan</option>
@@ -544,6 +609,12 @@ export default function ProductsPageClient({
           )}
         </div>
       </div>
+
+      {sortBy === "manual" ? (
+        <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
+          Manuel sira aktif. Yukari ve asagi hareketleri storefront urunlerinin sergilenme sirasi olarak kullanilir.
+        </div>
+      ) : null}
 
       {/* Products Grid View */}
       {viewMode === "grid" && (
@@ -657,6 +728,33 @@ export default function ProductsPageClient({
 
                 {/* Actions */}
                 <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
+                  {sortBy === "manual" ? (
+                    <div className="col-span-3 mb-2 flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2">
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                        Sira {product.sortOrder || "Oto"}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleManualReorder(product.id, "up")}
+                          disabled={reorderingProductId !== null || sortedProducts[0]?.id === product.id}
+                          className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Yukari tasi"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleManualReorder(product.id, "down")}
+                          disabled={reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
+                          className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Asagi tasi"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   <Link
                     href={buildStorefrontProductUrl(product.slug)}
                     target="_blank"
@@ -718,6 +816,9 @@ export default function ProductsPageClient({
                   </th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Stok
+                  </th>
+                  <th className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Sira
                   </th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Durum
@@ -796,6 +897,33 @@ export default function ProductsPageClient({
                           <AlertTriangle className="w-4 h-4" />
                         )}
                         {getPrimaryVariant(product).stock}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="min-w-[3rem] text-sm font-bold text-gray-700">
+                          {product.sortOrder || "Oto"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleManualReorder(product.id, "up")}
+                            disabled={sortBy !== "manual" || reorderingProductId !== null || sortedProducts[0]?.id === product.id}
+                            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                            title="Yukari tasi"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleManualReorder(product.id, "down")}
+                            disabled={sortBy !== "manual" || reorderingProductId !== null || sortedProducts[sortedProducts.length - 1]?.id === product.id}
+                            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                            title="Asagi tasi"
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-4">

@@ -9,10 +9,12 @@ import {
     syncProductTagSuggestions,
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 import { buildGeneratedSku } from "@/lib/sku";
 import { inferLegacySubcategorySlug, withCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 
 export const runtime = "nodejs";
 
@@ -250,6 +252,68 @@ function dedupeStringList(values: Array<string | null | undefined>) {
     return [...new Set(values.filter((value): value is string => typeof value === "string" && value.trim().length > 0))];
 }
 
+function buildListingPagination(page: number, limit: number, total: number) {
+    return {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+    };
+}
+
+function paginateOrderedProducts<T>(products: T[], page: number, limit: number) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, limit);
+    const offset = (safePage - 1) * safeLimit;
+    return products.slice(offset, offset + safeLimit);
+}
+
+function attachListingPositions<T extends Record<string, unknown> & { id: string }>(
+    products: T[],
+    positions: Record<string, number>,
+): Array<T & { sort_order: number }> {
+    return products.map((product, index) => ({
+        ...product,
+        sort_order:
+            typeof positions[product.id] === "number"
+                ? positions[product.id]
+                : (index + 1) * 10,
+    }));
+}
+
+async function fetchProductsForListing(
+    supabase: any,
+    options: {
+        category?: string | null;
+        matchedProductIds?: string[] | null;
+        featured?: boolean;
+        bestseller?: boolean;
+    },
+) {
+    let query = supabase
+        .from("products")
+        .select("*, variants:product_variants(*)")
+        .order("created_at", { ascending: false });
+
+    if (options.category) {
+        query = query.eq("category", options.category);
+    }
+
+    if (options.matchedProductIds) {
+        query = query.in("id", options.matchedProductIds);
+    }
+
+    if (options.featured) {
+        query = query.eq("is_featured", true);
+    }
+
+    if (options.bestseller) {
+        query = query.eq("is_bestseller", true);
+    }
+
+    return query;
+}
+
 async function findMatchingProductIdsForSearch(supabase: any, rawSearch: string) {
     const trimmedSearch = rawSearch.trim();
 
@@ -304,14 +368,14 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get("search");
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "20");
-        const offset = (page - 1) * limit;
+        const { createServerClient } = await import("@/lib/supabase");
+        const supabase = createServerClient();
+        const productListingOrder = await getProductListingOrderPositions();
 
         let products;
 
         if (id) {
             // Fetch single product by ID from Supabase
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
@@ -321,8 +385,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: true, product: normalizeProductsPayload(data) });
         } else if (slug) {
             // Fetch single product by slug from Supabase
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*)")
@@ -338,29 +400,27 @@ export async function GET(request: NextRequest) {
             }
             return NextResponse.json({ success: true, product: normalizeProductsPayload(data[0]) });
         } else if (featured === "true") {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_featured", true)
-                .limit(10);
+            const { data, error } = await fetchProductsForListing(supabase, {
+                featured: true,
+            });
             if (error) throw error;
-            products = data || [];
+            products = attachListingPositions(sortProductsByListingOrder((data || []) as Array<Record<string, unknown> & {
+                id: string;
+                created_at?: string | null;
+                name?: string | null;
+            }>, productListingOrder).slice(0, 10), productListingOrder);
         } else if (bestseller === "true") {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .eq("is_bestseller", true)
-                .limit(10);
+            const { data, error } = await fetchProductsForListing(supabase, {
+                bestseller: true,
+            });
             if (error) throw error;
-            products = data || [];
+            products = attachListingPositions(sortProductsByListingOrder((data || []) as Array<Record<string, unknown> & {
+                id: string;
+                created_at?: string | null;
+                name?: string | null;
+            }>, productListingOrder).slice(0, 10), productListingOrder);
         } else {
             // Fetch all products from Supabase with pagination
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
             const trimmedSearch = search?.trim() || "";
 
             if (category || trimmedSearch) {
@@ -381,69 +441,38 @@ export async function GET(request: NextRequest) {
                     });
                 }
 
-                let countQuery = supabase
-                    .from("products")
-                    .select("*", { count: "exact", head: true });
-
-                let dataQuery = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*)");
-
-                if (category) {
-                    countQuery = countQuery.eq("category", category);
-                    dataQuery = dataQuery.eq("category", category);
-                }
-
-                if (matchedProductIds) {
-                    countQuery = countQuery.in("id", matchedProductIds);
-                    dataQuery = dataQuery.in("id", matchedProductIds);
-                }
-
-                const [{ count, error: countError }, { data, error }] = await Promise.all([
-                    countQuery,
-                    dataQuery
-                        .range(offset, offset + limit - 1)
-                        .order("created_at", { ascending: false }),
-                ]);
-
-                if (countError) throw countError;
+                const { data, error } = await fetchProductsForListing(supabase, {
+                    category,
+                    matchedProductIds,
+                });
                 if (error) throw error;
+                const orderedProducts = sortProductsByListingOrder((data || []) as Array<Record<string, unknown> & {
+                    id: string;
+                    created_at?: string | null;
+                    name?: string | null;
+                }>, productListingOrder);
+                const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
 
                 return NextResponse.json({
                     success: true,
-                    products: normalizeProductsPayload(data || []),
-                    pagination: {
-                        page,
-                        limit,
-                        total: count || 0,
-                        totalPages: Math.ceil((count || 0) / limit),
-                    },
+                    products: normalizeProductsPayload(attachListingPositions(paginatedProducts, productListingOrder)),
+                    pagination: buildListingPagination(page, limit, orderedProducts.length),
                 });
             }
 
-            // Get total count
-            const { count } = await supabase
-                .from("products")
-                .select("*", { count: "exact", head: true });
-
-            // Get paginated data
-            const { data, error } = await supabase
-                .from("products")
-                .select("*, variants:product_variants(*)")
-                .range(offset, offset + limit - 1)
-                .order("created_at", { ascending: false });
-
+            const { data, error } = await fetchProductsForListing(supabase, {});
             if (error) throw error;
+            const orderedProducts = sortProductsByListingOrder((data || []) as Array<Record<string, unknown> & {
+                id: string;
+                created_at?: string | null;
+                name?: string | null;
+            }>, productListingOrder);
+            const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
 
             return NextResponse.json({
                 success: true,
-                products: normalizeProductsPayload(data || []),
-                pagination: {
-                    page,
-                    limit,
-                    total: count || 0,
-                    totalPages: Math.ceil((count || 0) / limit)
-                }
+                products: normalizeProductsPayload(attachListingPositions(paginatedProducts, productListingOrder)),
+                pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
         }
 

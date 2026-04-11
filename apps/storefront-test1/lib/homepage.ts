@@ -1,9 +1,11 @@
 import { createServerClient } from "@/lib/supabase";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import type { StorefrontLocale } from "@/lib/i18n";
 import { translateCategoryRecord, translateProductRecord, translateText } from "@/lib/translation";
 
@@ -390,11 +392,11 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   const [
     heroBannersData,
     categoriesData,
-    productsData,
     promoBannersData,
     allProductsData,
     attributeRegistry,
     testimonialsData,
+    productListingOrder,
   ] = await Promise.all([
     supabase
       .from("settings")
@@ -402,7 +404,6 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       .eq("key", "hero_banners")
       .maybeSingle(),
     fetchHomepageCategories(supabase),
-    fetchHomepageProducts(supabase),
     supabase
       .from("settings")
       .select("value")
@@ -411,6 +412,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     fetchAllProductsForShowcase(supabase),
     getVariantAttributeRegistry(),
     fetchHomepageTestimonials(supabase),
+    getProductListingOrderPositions(),
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
@@ -462,12 +464,17 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     }),
   );
 
+  const orderedShowcaseProducts = sortProductsByListingOrder(
+    (allProductsData || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>,
+    productListingOrder,
+  );
+
   const translatedHeroBanners = await translateHeroBanners(heroBanners, locale);
   const translatedProducts = await Promise.all(
-    (productsData || []).map((product) => translateProductRecord(product, locale)),
+    orderedShowcaseProducts.slice(0, 8).map((product) => translateProductRecord(product, locale)),
   );
   const translatedShowcaseProducts = await Promise.all(
-    (allProductsData || []).map((product) => translateProductRecord(product, locale)),
+    orderedShowcaseProducts.map((product) => translateProductRecord(product, locale)),
   );
 
   return {

@@ -82,6 +82,7 @@ export type AdminProductListItem = {
   id: string;
   name: string;
   slug: string;
+  sortOrder: number;
   description: string;
   shortDescription: string;
   images: string[];

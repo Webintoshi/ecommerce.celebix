@@ -7,7 +7,9 @@ import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { Product } from "@/types/product";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +115,7 @@ async function getProducts(): Promise<Product[]> {
   const supabase = createServerClient();
 
   try {
-    const [{ data: products, error }, attributeRegistry] = await Promise.all([
+    const [{ data: products, error }, attributeRegistry, productListingOrder] = await Promise.all([
       supabase
         .from("products")
         .select(`
@@ -124,6 +126,7 @@ async function getProducts(): Promise<Product[]> {
         .or("status.eq.published,status.is.null")
         .order("created_at", { ascending: false }),
       getVariantAttributeRegistry(),
+      getProductListingOrderPositions(),
     ]);
 
     if (error) {
@@ -131,9 +134,14 @@ async function getProducts(): Promise<Product[]> {
       return [];
     }
 
-    return (products as DBProduct[] | null | undefined)?.map((product) =>
+    const orderedProducts = sortProductsByListingOrder(
+      ((products as DBProduct[] | null | undefined) || []),
+      productListingOrder,
+    );
+
+    return orderedProducts.map((product) =>
       transformProduct(product, attributeRegistry),
-    ) || [];
+    );
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return [];

@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import {
     getVariantAttributeRegistry,
@@ -13,6 +14,7 @@ import {
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { DEFAULT_LOCALE, isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
 import { translateProductRecord } from "@/lib/translation";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -61,6 +63,60 @@ function hydrateListingProduct(
     return hydrateListingProducts([product], attributeRegistry)[0];
 }
 
+function buildListingPagination(page: number, limit: number, total: number) {
+    return {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+    };
+}
+
+function paginateOrderedProducts<T>(products: T[], page: number, limit: number) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, limit);
+    const offset = (safePage - 1) * safeLimit;
+    return products.slice(offset, offset + safeLimit);
+}
+
+async function fetchProductsForListing(
+    supabase: any,
+    options: {
+        category?: string | null;
+        featured?: boolean;
+        bestseller?: boolean;
+        search?: string | null;
+    },
+) {
+    return runProductsQuery((includeIsActiveFilter) => {
+        let query = supabase
+            .from("products")
+            .select("*, variants:product_variants(*, raw_attributes:attributes)");
+
+        if (includeIsActiveFilter) {
+            query = query.eq("is_active", true);
+        }
+
+        if (options.category) {
+            query = query.eq("category", options.category);
+        }
+
+        if (options.featured) {
+            query = query.eq("is_featured", true);
+        }
+
+        if (options.bestseller) {
+            query = query.eq("is_bestseller", true);
+        }
+
+        if (options.search) {
+            query = query.or(`name.ilike.%${options.search}%,description.ilike.%${options.search}%`);
+        }
+
+        return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
+    });
+}
+
 function resolveRequestedLocale(request: NextRequest): StorefrontLocale {
     const requestedLocale = request.nextUrl.searchParams.get("locale");
     return isSupportedLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
@@ -102,14 +158,14 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get("search");
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "20");
-        const offset = (page - 1) * limit;
+        const { createServerClient } = await import("@/lib/supabase");
+        const supabase = createServerClient();
+        const productListingOrder = await getProductListingOrderPositions();
 
         let products;
 
         if (id) {
             // Fetch single product by ID from Supabase
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
             const { data, error } = await supabase
                 .from("products")
                 .select("*, variants:product_variants(*, raw_attributes:attributes)")
@@ -123,8 +179,6 @@ export async function GET(request: NextRequest) {
             });
         } else if (slug) {
             // Fetch single product by slug from Supabase
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
             const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
                 let query = supabase
                     .from("products")
@@ -153,164 +207,58 @@ export async function GET(request: NextRequest) {
                 product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise),
             });
         } else if (featured === "true") {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query
-                    .or("status.eq.published,status.is.null")
-                    .eq("is_featured", true)
-                    .limit(10);
-            });
+            const { data, error } = await fetchProductsForListing(supabase, { featured: true });
             if (error) throw error;
-            products = data || [];
+            products = sortProductsByListingOrder(
+                ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                productListingOrder,
+            ).slice(0, 10);
         } else if (bestseller === "true") {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query
-                    .or("status.eq.published,status.is.null")
-                    .eq("is_bestseller", true)
-                    .limit(10);
-            });
+            const { data, error } = await fetchProductsForListing(supabase, { bestseller: true });
             if (error) throw error;
-            products = data || [];
+            products = sortProductsByListingOrder(
+                ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                productListingOrder,
+            ).slice(0, 10);
         } else if (category) {
-            // Fetch products by category from Supabase with pagination
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-
-            // Get total count
-            const { count, error: countError } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*", { count: "exact", head: true })
-                    .eq("category", category);
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query.or("status.eq.published,status.is.null");
-            });
-
-            if (countError) throw countError;
-
-            // Get paginated data
-            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*, raw_attributes:attributes)")
-                    .eq("category", category);
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query
-                    .or("status.eq.published,status.is.null")
-                    .range(offset, offset + limit - 1)
-                    .order("created_at", { ascending: false });
-            });
-
+            const { data, error } = await fetchProductsForListing(supabase, { category });
             if (error) throw error;
+            const orderedProducts = sortProductsByListingOrder(
+                ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                productListingOrder,
+            );
+            const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
             return NextResponse.json({
                 success: true,
                 products: hydrateListingProducts(
-                    await translateListingProducts((data || []) as Record<string, unknown>[], locale),
+                    await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
                     await attributeRegistryPromise,
                 ),
-                pagination: {
-                    page,
-                    limit,
-                    total: count || 0,
-                    totalPages: Math.ceil((count || 0) / limit)
-                }
+                pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
         } else if (search) {
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query
-                    .or("status.eq.published,status.is.null")
-                    .or(`name.ilike.%${search}%,description.ilike.%${search}%`)
-                    .limit(20);
-            });
+            const { data, error } = await fetchProductsForListing(supabase, { search });
             if (error) throw error;
-            products = data || [];
+            products = sortProductsByListingOrder(
+                ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                productListingOrder,
+            ).slice(0, 20);
         } else {
-            // Fetch all products from Supabase with pagination
-            const { createServerClient } = await import("@/lib/supabase");
-            const supabase = createServerClient();
-
-            // Get total count
-            const { count, error: countError } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*", { count: "exact", head: true });
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query.or("status.eq.published,status.is.null");
-            });
-
-            if (countError) throw countError;
-
-            // Get paginated data
-            const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
-                let query = supabase
-                    .from("products")
-                    .select("*, variants:product_variants(*, raw_attributes:attributes)");
-
-                if (includeIsActiveFilter) {
-                    query = query.eq("is_active", true);
-                }
-
-                return query
-                    .or("status.eq.published,status.is.null")
-                    .range(offset, offset + limit - 1)
-                    .order("created_at", { ascending: false });
-            });
-
+            const { data, error } = await fetchProductsForListing(supabase, {});
             if (error) throw error;
+            const orderedProducts = sortProductsByListingOrder(
+                ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                productListingOrder,
+            );
+            const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
 
             return NextResponse.json({
                 success: true,
                 products: hydrateListingProducts(
-                    await translateListingProducts((data || []) as Record<string, unknown>[], locale),
+                    await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
                     await attributeRegistryPromise,
                 ),
-                pagination: {
-                    page,
-                    limit,
-                    total: count || 0,
-                    totalPages: Math.ceil((count || 0) / limit)
-                }
+                pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
         }
 

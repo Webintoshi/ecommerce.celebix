@@ -18,14 +18,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
-  const sortedProducts = React.useMemo(() => {
-    // Sort by featured first, then by newest
-    return [...initialProducts].sort((a, b) => {
-      if (a.featured && !b.featured) return -1;
-      if (!a.featured && b.featured) return 1;
-      return (b.new ? 1 : 0) - (a.new ? 1 : 0);
-    });
-  }, [initialProducts]);
+  const sortedProducts = React.useMemo(() => initialProducts, [initialProducts]);
 
   React.useEffect(() => {
     if (!loadMoreRef.current) return;

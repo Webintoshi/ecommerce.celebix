@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getRequestLocale } from "@/lib/request-locale";
 import {
@@ -21,7 +22,11 @@ import {
 import { translateCategoryRecord, translateProductRecord, translateTexts } from "@/lib/translation";
 import type { Category, CategoryFAQ } from "@/types/category";
 import type { Product, ProductVariant } from "@/types/product";
-import { inferLegacySubcategorySlug, readCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
+import {
+  inferLegacySubcategorySlug,
+  readCelebixCategoryHierarchyMetadata,
+  sortProductsByListingOrder,
+} from "@celebix/platform-config";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -213,7 +218,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
   const categorySet = new Set(categorySlugs);
 
   try {
-    const [{ data, error }, attributeRegistry] = await Promise.all([
+    const [{ data, error }, attributeRegistry, productListingOrder] = await Promise.all([
       runProductsQuery((includeIsActiveFilter) => {
         let query = supabase
           .from("products")
@@ -226,6 +231,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
         return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
       }),
       getVariantAttributeRegistry(),
+      getProductListingOrderPositions(),
     ]);
 
     if (error || !data) {
@@ -233,13 +239,15 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
       return [];
     }
 
-    return (data as DBProduct[])
+    const matchingProducts = (data as DBProduct[])
       .filter((product) => {
         const resolvedHierarchy = resolveProductCategorySlugs(product);
         const categorySlug = resolvedHierarchy.category;
         const subcategorySlug = resolvedHierarchy.subcategory;
         return categorySet.has(categorySlug) || categorySet.has(subcategorySlug);
-      })
+      });
+
+    return sortProductsByListingOrder(matchingProducts, productListingOrder)
       .map((product) => transformProduct(product, attributeRegistry))
       .filter((product) => product.variants.length > 0);
   } catch (error) {

@@ -8,12 +8,15 @@ import type {
   AdminProductListItem,
   AdminProductVariant,
 } from "@/lib/admin-data-types";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import type { CategoryInfo } from "@/types/product";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 
 type ProductRow = {
   id: string;
   name: string;
   slug: string;
+  created_at?: string | null;
   description: string | null;
   short_description: string | null;
   images: string[] | null;
@@ -64,6 +67,7 @@ function mapProduct(row: ProductRow): AdminProductListItem {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    sortOrder: 0,
     description: row.description || "",
     shortDescription: row.short_description || "",
     images: (row.images || [])
@@ -108,16 +112,16 @@ export async function getAdminProductsBootstrap(
   const offset = (safePage - 1) * safeLimit;
   const supabase = createServerClient();
 
-  const [productsCountResponse, productsResponse, categoriesResponse] = await Promise.all([
+  const [productsCountResponse, productsResponse, categoriesResponse, productListingOrder] = await Promise.all([
     supabase.from("products").select("*", { count: "exact", head: true }),
     supabase
       .from("products")
       .select(
-        "id,name,slug,description,short_description,images,category,subcategory,tags,is_featured,is_new,variants:product_variants(id,name,price,original_price,stock,sku)"
+        "id,name,slug,created_at,description,short_description,images,category,subcategory,tags,is_featured,is_new,variants:product_variants(id,name,price,original_price,stock,sku)"
       )
-      .range(offset, offset + safeLimit - 1)
       .order("created_at", { ascending: false }),
     fetchCategoriesServer(),
+    getProductListingOrderPositions(),
   ]);
 
   if (productsCountResponse.error) {
@@ -129,9 +133,20 @@ export async function getAdminProductsBootstrap(
   }
 
   const total = Number(productsCountResponse.count || 0);
+  const orderedProducts = sortProductsByListingOrder(
+    (productsResponse.data || []) as Array<ProductRow & { created_at?: string | null }>,
+    productListingOrder,
+  );
+  const paginatedProducts = orderedProducts.slice(offset, offset + safeLimit).map((row, index) => ({
+    ...mapProduct(row),
+    sortOrder:
+      typeof productListingOrder[row.id] === "number"
+        ? productListingOrder[row.id]
+        : (offset + index + 1) * 10,
+  }));
 
   return {
-    products: ((productsResponse.data || []) as ProductRow[]).map(mapProduct),
+    products: paginatedProducts,
     categories: ((categoriesResponse || []) as CategoryRow[]).map(mapCategory),
     pagination: {
       page: safePage,

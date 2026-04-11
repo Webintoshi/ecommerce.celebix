@@ -15,6 +15,11 @@ import {
     type StoreTranslationSettings,
 } from "@celebix/platform-config/src/translation";
 import {
+    normalizeProductListingOrderSettings,
+    PRODUCT_LISTING_ORDER_SETTING_KEY,
+    type ProductListingOrderSettings,
+} from "@celebix/platform-config/src/product-listing-order";
+import {
     ShippingIntegrationSettings,
 } from "@/types/shipping-integration";
 import {
@@ -108,6 +113,7 @@ export const SETTING_KEYS = {
     MARQUEE_SETTINGS: "marquee_settings",
     AI_PROVIDER: "ai_provider",
     TRANSLATION_SETTINGS: "translation_settings",
+    PRODUCT_LISTING_ORDER: PRODUCT_LISTING_ORDER_SETTING_KEY,
 } as const;
 
 // =====================================================
@@ -141,6 +147,7 @@ export interface StoreInfo {
 
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
+export type { ProductListingOrderSettings };
 
 /**
  * Get payment methods
@@ -250,6 +257,23 @@ export async function setTranslationSettings(settings: TranslationSettings) {
         SETTING_KEYS.TRANSLATION_SETTINGS,
         normalizeStoreTranslationSettings(settings) as unknown as Record<string, unknown>,
     );
+}
+
+export async function getProductListingOrder(): Promise<ProductListingOrderSettings> {
+    const data = await getSetting(SETTING_KEYS.PRODUCT_LISTING_ORDER);
+    return normalizeProductListingOrderSettings(data);
+}
+
+export async function getProductListingOrderPositions(): Promise<Record<string, number>> {
+    const settings = await getProductListingOrder();
+    return settings.positions;
+}
+
+export async function setProductListingOrderPositions(positions: Record<string, number>) {
+    return setSetting(SETTING_KEYS.PRODUCT_LISTING_ORDER, {
+        positions,
+        updatedAt: new Date().toISOString(),
+    });
 }
 
 // =====================================================

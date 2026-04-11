@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
+import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
@@ -17,6 +18,7 @@ import type { Product, ProductVariant } from "@/types/product";
 import {
   inferLegacySubcategorySlug,
   readCelebixCategoryHierarchyMetadata,
+  sortProductsByListingOrder,
 } from "@celebix/platform-config";
 import CollectionProductsClient from "./CollectionProductsClient";
 
@@ -210,7 +212,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
   const categorySet = new Set(categorySlugs);
 
   try {
-    const [{ data, error }, attributeRegistry] = await Promise.all([
+    const [{ data, error }, attributeRegistry, productListingOrder] = await Promise.all([
       runProductsQuery((includeIsActiveFilter) => {
         let query = supabase
           .from("products")
@@ -223,6 +225,7 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
         return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
       }),
       getVariantAttributeRegistry(),
+      getProductListingOrderPositions(),
     ]);
 
     if (error || !data) {
@@ -230,11 +233,13 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
       return [];
     }
 
-    return (data as DBProduct[])
+    const matchingProducts = (data as DBProduct[])
       .filter((product) => {
         const resolvedHierarchy = resolveProductCategorySlugs(product);
         return categorySet.has(resolvedHierarchy.category) || categorySet.has(resolvedHierarchy.subcategory);
-      })
+      });
+
+    return sortProductsByListingOrder(matchingProducts, productListingOrder)
       .map((product) => transformProduct(product, attributeRegistry))
       .filter((product) => product.variants.length > 0);
   } catch (error) {
