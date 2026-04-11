@@ -2,30 +2,30 @@
 
 :root {
   --background: #FFF5F5;
-  --foreground: #7B1113;
+  --foreground: #FE6100;
 
   /* Brand Palette */
-  --primary: #7B1113;
+  --primary: #FE6100;
   --primary-foreground: #FFFFFF;
 
   --secondary: #F1DADB;
-  --secondary-foreground: #7B1113;
+  --secondary-foreground: #FE6100;
 
   --muted: #6b4b4c;
   --muted-foreground: #6b4b4c;
 
   /* shadcn/ui required variables */
   --card: #FFFFFF;
-  --card-foreground: #7B1113;
+  --card-foreground: #FE6100;
   --popover: #FFFFFF;
   --popover-foreground: #7B11113;
   --accent: #F1DADB;
-  --accent-foreground: #7B1113;
+  --accent-foreground: #FE6100;
   --destructive: #FF3B30;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
   --input: #E5E7EB;
-  --ring: #7B1113;
+  --ring: #FE6100;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
@@ -117,31 +117,31 @@ body {
 
 /* Brand color overrides */
 .bg-primary {
-  background-color: #7B1113 !important;
+  background-color: #FE6100 !important;
 }
 
 .text-primary {
-  color: #7B1113 !important;
+  color: #FE6100 !important;
 }
 
 .border-primary {
-  border-color: #7B1113 !important;
+  border-color: #FE6100 !important;
 }
 
 .ring-primary {
-  --tw-ring-color: #7B1113 !important;
+  --tw-ring-color: #FE6100 !important;
 }
 
 .bg-primary\/10 {
-  background-color: rgba(123, 17, 19, 0.1) !important;
+  background-color: rgba(254, 97, 0, 0.1) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(123, 17, 19, 0.1) !important;
+  border-color: rgba(254, 97, 0, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(123, 17, 19, 0.2) !important;
+  border-color: rgba(254, 97, 0, 0.2) !important;
 }
 
 .text-primary-foreground {
@@ -150,11 +150,11 @@ body {
 
 .bg-primary-foreground {
   background-color: #FFFFFF !important;
-  color: #7B1113 !important;
+  color: #FE6100 !important;
 }
 
 .text-secondary-foreground {
-  color: #7B1113 !important;
+  color: #FE6100 !important;
 }
 
 .bg-secondary {
