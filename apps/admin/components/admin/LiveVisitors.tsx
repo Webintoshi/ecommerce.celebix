@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Users,
-  Monitor,
-  Smartphone,
-  Tablet,
-  Globe,
-  Activity,
-} from "lucide-react";
+import { Activity, Globe, Monitor, Smartphone, Tablet, Wifi } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
 import { cn } from "@/lib/utils";
@@ -24,7 +17,7 @@ function AnimatedNumber({ value }: { value: number }) {
     let step = 0;
 
     const timer = window.setInterval(() => {
-      step++;
+      step += 1;
       current = Math.min(Math.round(increment * step), value);
       setDisplayValue(current);
       if (step >= steps) {
@@ -36,6 +29,18 @@ function AnimatedNumber({ value }: { value: number }) {
   }, [value]);
 
   return <span>{displayValue}</span>;
+}
+
+function formatLastUpdated(date: Date) {
+  return date.toLocaleTimeString("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatTopPageLabel(url: string) {
+  if (!url || url === "/") return "Ana Sayfa";
+  return url.length > 24 ? `${url.slice(0, 24)}...` : url;
 }
 
 export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) {
@@ -50,88 +55,164 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
     (data.devices?.desktop || 0) +
     (data.devices?.tablet || 0);
 
+  const pageViewCount = (data.topPages || []).reduce((total, page) => total + page.count, 0);
+
   const deviceStats = [
-    { icon: Smartphone, label: "Mobil", value: data.devices?.mobile || 0 },
-    { icon: Monitor, label: "Desktop", value: data.devices?.desktop || 0 },
-    { icon: Tablet, label: "Tablet", value: data.devices?.tablet || 0 },
+    {
+      icon: Smartphone,
+      label: "Mobil",
+      value: data.devices?.mobile || 0,
+      tone: "from-[#fff2e8] to-white border-[#FE6100]/15 text-[#FE6100]",
+      bar: "bg-[#FE6100]",
+    },
+    {
+      icon: Monitor,
+      label: "Masaüstü",
+      value: data.devices?.desktop || 0,
+      tone: "from-slate-50 to-white border-slate-200 text-slate-700",
+      bar: "bg-slate-600",
+    },
+    {
+      icon: Tablet,
+      label: "Tablet",
+      value: data.devices?.tablet || 0,
+      tone: "from-emerald-50 to-white border-emerald-200/60 text-emerald-700",
+      bar: "bg-emerald-500",
+    },
   ];
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-100/80 px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <Globe className="h-5 w-5 text-gray-400" />
-          <h3 className="font-semibold text-gray-900">Canlı Ziyaretçiler</h3>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs font-medium text-gray-500">Canlı</span>
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+    >
+      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+              Canlı Trafik
+            </p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">
+              Anlık Ziyaretçiler
+            </h3>
+          </div>
+          <div
+            aria-live="polite"
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-200/50 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+            {formatLastUpdated(lastUpdate)}
+          </div>
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="flex items-end gap-2">
-          <span className="text-4xl font-semibold text-gray-900 tracking-tight">
-            <AnimatedNumber value={data.liveVisitors || 0} />
-          </span>
-          <span className="mb-1.5 text-sm font-medium text-gray-500">kişi</span>
-        </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {deviceStats.map((stat) => (
-            <div key={stat.label} className="rounded-xl bg-gray-50/80 p-3 text-center border border-gray-100">
-              <stat.icon className="mx-auto h-4 w-4 text-gray-400" />
-              <div className="mt-2 text-lg font-semibold text-gray-900 tracking-tight">{stat.value}</div>
-              <div className="text-xs font-medium text-gray-500">{stat.label}</div>
+      <div className="space-y-6 p-6">
+        <div className="rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-[#fff2e8] via-[#fff9f5] to-white p-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-[#FE6100]/70">Çevrim içi kullanıcı</p>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="text-5xl font-semibold tracking-[-0.06em] text-[#FE6100]">
+                  <AnimatedNumber value={data.liveVisitors || 0} />
+                </span>
+                <span className="pb-1 text-sm text-[#FE6100]/60">aktif</span>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {totalDevices > 0 && (
-          <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-gray-100">
-            {deviceStats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ width: 0 }}
-                animate={{ width: `${(stat.value / totalDevices) * 100}%` }}
-                transition={{ duration: 0.4, delay: 0.1 + i * 0.05 }}
-                className={cn(
-                  "h-full",
-                  i === 0 ? "bg-gray-400" : i === 1 ? "bg-gray-600" : "bg-gray-300"
-                )}
-              />
-            ))}
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white/85 px-3 py-1.5 text-xs font-medium text-[#FE6100] shadow-sm">
+              <Wifi className="h-3.5 w-3.5" />
+              Canlı veri açık
+            </div>
           </div>
-        )}
-
-        <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
-          <span>Son güncelleme: {lastUpdate.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
         </div>
 
-        {data.topPages && data.topPages.length > 0 && (
-          <div className="mt-5 border-t border-gray-100/80 pt-4">
-            <h4 className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Popüler Sayfalar</h4>
-            <div className="space-y-1">
+        <div className="grid grid-cols-3 gap-3">
+          {deviceStats.map((device) => {
+            const ratio = totalDevices > 0 ? (device.value / totalDevices) * 100 : 0;
+            const Icon = device.icon;
+
+            return (
+              <div
+                key={device.label}
+                className={cn("rounded-[22px] border bg-gradient-to-br p-4", device.tone)}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-lg font-semibold tracking-[-0.03em] text-gray-950">
+                  {device.value}
+                </p>
+                <p className="text-xs font-medium opacity-70">{device.label}</p>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10">
+                  <div className={cn("h-full rounded-full", device.bar)} style={{ width: `${ratio}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-[22px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+              <Activity className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-sm font-medium text-gray-600">Toplam görüntüleme</p>
+            <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
+              {pageViewCount.toLocaleString("tr-TR")}
+            </p>
+          </div>
+
+          <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
+              <Globe className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-sm font-medium text-gray-600">Aktif sayfa</p>
+            <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
+              {(data.topPages?.length || 0).toLocaleString("tr-TR")}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-b from-[#fff8f3] to-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-[#FE6100]">Öne Çıkan Sayfalar</p>
+            <p className="text-xs font-medium text-[#FE6100]/50">Top 3</p>
+          </div>
+
+          {data.topPages && data.topPages.length > 0 ? (
+            <div className="space-y-2">
               <AnimatePresence>
                 {data.topPages.slice(0, 3).map((page, index) => (
                   <motion.div
                     key={page.url}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: index * 0.03 }}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.04 }}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[#FE6100]/8 bg-white px-3 py-3 shadow-sm"
                   >
-                    <span className="truncate text-gray-600 font-medium">
-                      {page.url === "/" ? "Ana Sayfa" : page.url}
-                    </span>
-                    <span className="text-gray-900 font-semibold">{page.count}</span>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#fff2e8] to-white text-xs font-semibold text-[#FE6100]">
+                        {index + 1}
+                      </div>
+                      <span title={page.url} className="truncate text-sm font-medium text-gray-700">
+                        {formatTopPageLabel(page.url)}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold text-[#FE6100]">{page.count}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[#FE6100]/20 bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
+              Canlı sayfa verisi şu anda görüntülenemiyor.
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

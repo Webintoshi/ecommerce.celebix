@@ -3,17 +3,17 @@
 import { useMemo, useState } from "react";
 import type { ElementType } from "react";
 import {
-  ShoppingCart,
-  Eye,
-  CreditCard,
   CheckCircle,
-  Search,
-  MousePointer,
-  Zap,
-  TrendingUp,
-  Heart,
-  Share2,
+  CreditCard,
+  Eye,
   Filter,
+  Heart,
+  MousePointer,
+  Search,
+  Share2,
+  ShoppingCart,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LiveAnalyticsEvent, LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
@@ -30,56 +30,56 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   add_to_cart: {
     icon: ShoppingCart,
     label: "Sepete eklendi",
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
+    color: "text-[#FE6100]",
+    bgColor: "bg-[#fff1e7]",
   },
   remove_from_cart: {
     icon: ShoppingCart,
     label: "Sepetten çıkarıldı",
-    color: "text-red-600",
-    bgColor: "bg-red-100",
+    color: "text-rose-600",
+    bgColor: "bg-rose-100",
   },
   view_product: {
     icon: Eye,
-    label: "Görüntülendi",
-    color: "text-gray-600",
-    bgColor: "bg-gray-100",
+    label: "Ürün görüntülendi",
+    color: "text-slate-600",
+    bgColor: "bg-slate-100",
   },
   checkout_start: {
     icon: CreditCard,
     label: "Ödeme başladı",
-    color: "text-purple-600",
-    bgColor: "bg-purple-100",
+    color: "text-amber-700",
+    bgColor: "bg-amber-100",
   },
   purchase: {
     icon: CheckCircle,
     label: "Satın alma",
-    color: "text-green-600",
-    bgColor: "bg-green-100",
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-100",
   },
   search: {
     icon: Search,
-    label: "Arama",
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
+    label: "Arama yapıldı",
+    color: "text-sky-600",
+    bgColor: "bg-sky-100",
   },
   click: {
     icon: MousePointer,
     label: "Tıklama",
-    color: "text-gray-500",
-    bgColor: "bg-gray-100",
+    color: "text-slate-600",
+    bgColor: "bg-slate-100",
   },
   wishlist_add: {
     icon: Heart,
-    label: "Favori",
+    label: "Favorilere eklendi",
     color: "text-pink-600",
     bgColor: "bg-pink-100",
   },
   share: {
     icon: Share2,
-    label: "Paylaşım",
-    color: "text-cyan-600",
-    bgColor: "bg-cyan-100",
+    label: "Paylaşıldı",
+    color: "text-violet-600",
+    bgColor: "bg-violet-100",
   },
 };
 
@@ -88,16 +88,35 @@ function formatTimeAgo(dateString: string): string {
   const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diff < 60) return "şimdi";
-  if (diff < 3600) return `${Math.floor(diff / 60)}dk`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}sa`;
-  return `${Math.floor(diff / 86400)}g`;
+  if (diff < 60) return "Şimdi";
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa`;
+  return `${Math.floor(diff / 86400)} g`;
 }
 
 function formatPageUrl(url: string): string {
   if (url === "/" || url === "") return "Ana Sayfa";
-  if (url.length > 20) return url.slice(0, 20) + "...";
+  if (url.startsWith("/urun/")) return "Ürün Sayfası";
+  if (url.length > 22) return `${url.slice(0, 22)}...`;
   return url;
+}
+
+function getEventValue(event: LiveAnalyticsEvent): string {
+  const data = event.data || {};
+
+  if (typeof data.productName === "string" && data.productName.length > 0) {
+    return data.productName.length > 24 ? `${data.productName.slice(0, 24)}...` : data.productName;
+  }
+
+  if (typeof data.query === "string" && data.query.length > 0) {
+    return `“${data.query}”`;
+  }
+
+  if (typeof data.amount === "number") {
+    return `₺${data.amount.toLocaleString("tr-TR")}`;
+  }
+
+  return "";
 }
 
 export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) {
@@ -111,32 +130,48 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
   const eventTypes = useMemo(() => [...new Set(events.map((event) => event.type))], [events]);
 
   return (
-    <div className="rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] border border-gray-200/60 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-100/80 px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <Zap className="h-5 w-5 text-gray-400" />
-          <h3 className="font-semibold text-gray-900">Aktivite</h3>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs font-medium text-gray-500">Canlı</span>
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+    >
+      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+              Canlı Aktivite
+            </p>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">
+              Son Hareketler
+            </h3>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/50 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+            Akış açık
+          </div>
         </div>
       </div>
 
-      {eventTypes.length > 0 && (
-        <div className="border-b border-gray-100/80 px-5 py-3">
-          <div className="flex items-center gap-2 overflow-x-auto">
+      {eventTypes.length > 0 ? (
+        <div className="border-b border-[#FE6100]/8 px-5 py-4">
+          <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
             <button
+              type="button"
               onClick={() => setFilter(null)}
               className={cn(
-                "flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                "inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                 filter === null
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100] to-[#E85A00] text-white shadow-[0_10px_20px_rgba(254,97,0,0.18)]"
+                  : "border-[#FE6100]/10 bg-white text-gray-600 hover:border-[#FE6100]/20 hover:text-[#FE6100]"
               )}
             >
+              <Filter className="h-3.5 w-3.5" />
               Tümü
             </button>
+
             {eventTypes.slice(0, 5).map((type) => {
               const config = EVENT_CONFIGS[type];
               if (!config) return null;
@@ -145,12 +180,13 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
               return (
                 <button
                   key={type}
+                  type="button"
                   onClick={() => setFilter(filter === type ? null : type)}
                   className={cn(
-                    "flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                    "inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                     filter === type
-                      ? "bg-gray-900 text-white shadow-sm"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100] to-[#E85A00] text-white shadow-[0_10px_20px_rgba(254,97,0,0.18)]"
+                      : "border-[#FE6100]/10 bg-white text-gray-600 hover:border-[#FE6100]/20 hover:text-[#FE6100]"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -160,49 +196,55 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
-      <div className="max-h-[320px] overflow-y-auto">
+      <div className="max-h-[360px] overflow-y-auto">
         {filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <TrendingUp className="h-10 w-10 text-gray-300" />
-            <p className="mt-3 text-sm font-medium text-gray-500">Henüz aktivite yok</p>
+          <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+            <TrendingUp className="h-10 w-10 text-[#FE6100]/30" />
+            <p className="mt-4 text-sm font-medium text-gray-600">Henüz gösterilecek canlı hareket bulunmuyor.</p>
+            <p className="mt-1 text-xs text-gray-500">Yeni kullanıcı aksiyonları burada listelenecek.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100/80">
+          <div className="space-y-3 p-5">
             <AnimatePresence mode="popLayout">
               {filteredEvents.slice(0, 6).map((event, index) => {
                 const config = EVENT_CONFIGS[event.type] || {
                   icon: Eye,
                   label: event.type,
-                  color: "text-gray-500",
-                  bgColor: "bg-gray-100",
+                  color: "text-slate-600",
+                  bgColor: "bg-slate-100",
                 };
                 const Icon = config.icon;
+                const eventValue = getEventValue(event);
 
                 return (
                   <motion.div
                     key={`${event.createdAt}-${index}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-gray-50/80 transition-colors"
+                    className="flex items-start gap-3 rounded-[22px] border border-white/70 bg-white/75 px-4 py-4 shadow-sm transition-all duration-200 hover:border-[#FE6100]/10 hover:bg-white"
                   >
-                    <div
-                      className={cn(
-                        "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl",
-                        config.bgColor
-                      )}
-                    >
-                      <Icon className={cn("h-4 w-4", config.color)} />
+                    <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl", config.bgColor)}>
+                      <Icon className={cn("h-[18px] w-[18px]", config.color)} />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">{config.label}</p>
-                      <p className="text-xs text-gray-500 font-medium">{formatPageUrl(event.pageUrl)}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-950">{config.label}</p>
+                        {eventValue ? (
+                          <span className="truncate text-sm font-medium text-gray-500">{eventValue}</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">{formatPageUrl(event.pageUrl)}</p>
                     </div>
 
-                    <span className="text-xs font-medium text-gray-400">{formatTimeAgo(event.createdAt)}</span>
+                    <span className="flex-shrink-0 text-xs font-medium text-gray-400">
+                      {formatTimeAgo(event.createdAt)}
+                    </span>
                   </motion.div>
                 );
               })}
@@ -211,17 +253,16 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
         )}
       </div>
 
-      {events.length > 0 && (
-        <div className="flex items-center justify-between border-t border-gray-100/80 bg-gray-50/50 px-5 py-3 text-xs font-medium text-gray-500">
-          <span>
-            Son <span className="font-semibold text-gray-700">{Math.min(events.length, 6)}</span> etkinlik
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5" />
-            Güncel
-          </span>
+      {events.length > 0 ? (
+        <div className="border-t border-[#FE6100]/8 bg-[#fff8f3] px-5 py-3 text-xs font-medium text-gray-500">
+          <div className="flex items-center justify-between">
+            <span>
+              Son <span className="font-semibold text-gray-700">{Math.min(events.length, 6)}</span> hareket gösteriliyor
+            </span>
+            <span className="text-[#FE6100]">Otomatik güncelleniyor</span>
+          </div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </motion.div>
   );
 }
