@@ -324,3 +324,113 @@ export async function syncCatalogVariantAttributeSnapshots(supabase: any): Promi
     }
   }
 }
+
+type RemoveCatalogAttributeInput = {
+  attributeId?: string | null;
+  attributeName?: string | null;
+  attributeSlug?: string | null;
+};
+
+type RemoveCatalogValueInput = {
+  valueId?: string | null;
+  attributeId?: string | null;
+  attributeName?: string | null;
+  value?: string | null;
+};
+
+function matchesCatalogAttributeRemoval(entry: JsonObject, input: RemoveCatalogAttributeInput): boolean {
+  const attributeId =
+    toOptionalString(entry.attributeId) ||
+    toOptionalString(entry.attribute_id) ||
+    (entry.attribute && typeof entry.attribute === "object" ? toOptionalString((entry.attribute as JsonObject).id) : null);
+  const attributeName =
+    toOptionalString(entry.attributeName) ||
+    toOptionalString(entry.name) ||
+    toOptionalString(entry.linked_to) ||
+    (entry.attribute && typeof entry.attribute === "object" ? toOptionalString((entry.attribute as JsonObject).name) : null);
+
+  if (input.attributeId && attributeId === input.attributeId) return true;
+  if (input.attributeName && attributeName && normalizeToken(attributeName) === normalizeToken(input.attributeName)) return true;
+  if (input.attributeSlug && attributeName && normalizeToken(attributeName) === normalizeToken(input.attributeSlug)) return true;
+  return false;
+}
+
+function matchesCatalogValueRemoval(entry: JsonObject, input: RemoveCatalogValueInput): boolean {
+  const valueId =
+    toOptionalString(entry.valueId) ||
+    toOptionalString(entry.attribute_value_id) ||
+    toOptionalString(entry.id);
+  const attributeId =
+    toOptionalString(entry.attributeId) ||
+    toOptionalString(entry.attribute_id) ||
+    (entry.attribute && typeof entry.attribute === "object" ? toOptionalString((entry.attribute as JsonObject).id) : null);
+  const attributeName =
+    toOptionalString(entry.attributeName) ||
+    toOptionalString(entry.name) ||
+    toOptionalString(entry.linked_to) ||
+    (entry.attribute && typeof entry.attribute === "object" ? toOptionalString((entry.attribute as JsonObject).name) : null);
+  const value = toOptionalString(entry.value);
+
+  if (input.valueId && valueId === input.valueId) return true;
+  if (input.attributeId && input.value && attributeId === input.attributeId && value && normalizeToken(value) === normalizeToken(input.value)) {
+    return true;
+  }
+  if (input.attributeName && input.value && attributeName && value) {
+    return (
+      normalizeToken(attributeName) === normalizeToken(input.attributeName) &&
+      normalizeToken(value) === normalizeToken(input.value)
+    );
+  }
+  return false;
+}
+
+async function rewriteCatalogSnapshots(
+  supabase: any,
+  predicate: (entry: JsonObject) => boolean,
+): Promise<void> {
+  const { data, error } = await supabase.from("product_variants").select("id,attributes");
+
+  if (error) {
+    const missingColumn = getMissingColumn(error, "product_variants");
+    if (missingColumn === "attributes") {
+      return;
+    }
+    throw error;
+  }
+
+  for (const variant of data || []) {
+    const currentAttributes = Array.isArray(variant.attributes) ? variant.attributes : [];
+    if (currentAttributes.length === 0) continue;
+
+    const nextAttributes = currentAttributes.filter((attribute) => {
+      const entry = attribute && typeof attribute === "object" ? (attribute as JsonObject) : null;
+      if (!entry) return true;
+      return !predicate(entry);
+    });
+
+    if (nextAttributes.length === currentAttributes.length) continue;
+
+    const { error: updateError } = await supabase
+      .from("product_variants")
+      .update({ attributes: nextAttributes })
+      .eq("id", variant.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+  }
+}
+
+export async function removeCatalogVariantAttributeSnapshots(
+  supabase: any,
+  input: RemoveCatalogAttributeInput,
+): Promise<void> {
+  await rewriteCatalogSnapshots(supabase, (entry) => matchesCatalogAttributeRemoval(entry, input));
+}
+
+export async function removeCatalogVariantAttributeValueSnapshots(
+  supabase: any,
+  input: RemoveCatalogValueInput,
+): Promise<void> {
+  await rewriteCatalogSnapshots(supabase, (entry) => matchesCatalogValueRemoval(entry, input));
+}

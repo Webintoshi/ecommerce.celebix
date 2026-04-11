@@ -8,7 +8,10 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttributeValue,
 } from "@/lib/db/variant-attributes";
-import { syncCatalogVariantAttributeSnapshots } from "@/lib/variant-attribute-catalog-sync";
+import {
+  removeCatalogVariantAttributeValueSnapshots,
+  syncCatalogVariantAttributeSnapshots,
+} from "@/lib/variant-attribute-catalog-sync";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -247,6 +250,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const storedAttributes = await getStoredVariantAttributes();
+    const storedValue = storedAttributes
+      .flatMap((attribute) => attribute.values.map((value) => ({
+        value,
+        attributeId: attribute.id,
+        attributeName: attribute.name,
+      })))
+      .find((entry) => entry.value.id === id) ?? null;
     const { error } = await supabase.from("variant_attribute_values").update({ is_active: false }).eq("id", id);
 
     if (error) {
@@ -254,6 +265,16 @@ export async function DELETE(request: NextRequest) {
         const deleted = await deleteStoredVariantAttributeValue(id);
         if (!deleted) {
           return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+        }
+        try {
+          await removeCatalogVariantAttributeValueSnapshots(supabase, {
+            valueId: id,
+            attributeId: storedValue?.attributeId ?? null,
+            attributeName: storedValue?.attributeName ?? null,
+            value: storedValue?.value.value ?? null,
+          });
+        } catch (cleanupError) {
+          logCatalogVariantSyncError(cleanupError, "delete:cleanup-fallback");
         }
         try {
           await syncCatalogVariantAttributeSnapshots(supabase);
@@ -270,6 +291,18 @@ export async function DELETE(request: NextRequest) {
       } else {
         throw error;
       }
+    }
+
+    await deleteStoredVariantAttributeValue(id);
+    try {
+      await removeCatalogVariantAttributeValueSnapshots(supabase, {
+        valueId: id,
+        attributeId: storedValue?.attributeId ?? null,
+        attributeName: storedValue?.attributeName ?? null,
+        value: storedValue?.value.value ?? null,
+      });
+    } catch (cleanupError) {
+      logCatalogVariantSyncError(cleanupError, "delete:cleanup");
     }
 
     try {

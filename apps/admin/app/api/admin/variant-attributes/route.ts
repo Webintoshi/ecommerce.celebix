@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/variant-attributes";
 import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
 import {
+  removeCatalogVariantAttributeSnapshots,
   syncCatalogVariantAttributeSnapshots,
   syncStoredVariantAttributeRegistrySnapshot,
 } from "@/lib/variant-attribute-catalog-sync";
@@ -726,14 +727,23 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = createServerClient();
     const storedAttribute = await getStoredVariantAttributeById(id);
+    const attributeIdentity = storedAttribute
+      ? { id: storedAttribute.id, name: storedAttribute.name, slug: storedAttribute.slug }
+      : { id, name: null, slug: null };
     const { error } = await supabase.from("variant_attributes").update({ is_active: false }).eq("id", id);
 
     if (error) {
       if (isVariantAttributeTableMissing(error)) {
-        if (!storedAttribute) {
-          return NextResponse.json({ success: true, message: "Nitelik zaten silinmis" });
-        }
         await deleteStoredVariantAttribute(id);
+        try {
+          await removeCatalogVariantAttributeSnapshots(supabase, {
+            attributeId: attributeIdentity.id,
+            attributeName: attributeIdentity.name,
+            attributeSlug: attributeIdentity.slug,
+          });
+        } catch (cleanupError) {
+          logCatalogVariantSyncError(cleanupError, "delete:cleanup-fallback");
+        }
         try {
           await syncCatalogVariantAttributeSnapshots(supabase);
         } catch (syncError) {
@@ -749,10 +759,16 @@ export async function DELETE(request: NextRequest) {
         const { error: deleteError } = await supabase.from("variant_attributes").delete().eq("id", id);
         if (deleteError) {
           if (isVariantAttributeTableMissing(deleteError)) {
-            if (!storedAttribute) {
-              return NextResponse.json({ success: true, message: "Nitelik zaten silinmis" });
-            }
             await deleteStoredVariantAttribute(id);
+            try {
+              await removeCatalogVariantAttributeSnapshots(supabase, {
+                attributeId: attributeIdentity.id,
+                attributeName: attributeIdentity.name,
+                attributeSlug: attributeIdentity.slug,
+              });
+            } catch (cleanupError) {
+              logCatalogVariantSyncError(cleanupError, "delete:cleanup-fallback-hard-delete");
+            }
             try {
               await syncCatalogVariantAttributeSnapshots(supabase);
             } catch (syncError) {
@@ -765,6 +781,17 @@ export async function DELETE(request: NextRequest) {
       } else {
         throw error;
       }
+    }
+
+    await deleteStoredVariantAttribute(id);
+    try {
+      await removeCatalogVariantAttributeSnapshots(supabase, {
+        attributeId: attributeIdentity.id,
+        attributeName: attributeIdentity.name,
+        attributeSlug: attributeIdentity.slug,
+      });
+    } catch (cleanupError) {
+      logCatalogVariantSyncError(cleanupError, "delete:cleanup");
     }
 
     try {
