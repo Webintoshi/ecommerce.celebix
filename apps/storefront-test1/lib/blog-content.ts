@@ -2,7 +2,7 @@ import { BLOG_CATEGORIES, calculateSEOScore } from "@/lib/blog";
 import type { BlogPost as BlogRow } from "@/lib/supabase";
 import type { BlogCategory, BlogPost } from "@/types/blog";
 
-const DEFAULT_CATEGORY: BlogCategory = "haberler";
+const DEFAULT_CATEGORY: BlogCategory = "updates";
 const STOPWORDS = new Set([
   "ve",
   "ile",
@@ -120,7 +120,8 @@ export function mapBlogRow(row: BlogRow): BlogPost {
     topicType: "standalone",
     pillarId: null,
     targetKeywords: tags,
-    primaryKeyword: tags[0] || BLOG_CATEGORIES.find((item) => item.id === category)?.name || "blog",
+    primaryKeyword:
+      tags[0] || BLOG_CATEGORIES.find((item) => item.id === category)?.name || "blog",
     wordCount,
     seoScore: calculateSEOScore({
       title: row.title,

@@ -1,33 +1,33 @@
-import { BlogCategoryInfo, BlogPost } from "@/types/blog";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import type { BlogCategoryInfo, BlogPost } from "@/types/blog";
 
 export const BLOG_CATEGORIES: BlogCategoryInfo[] = [
   {
     id: "design",
-    name: "Tasarin Notlari",
+    name: "Tasarim Notlari",
     slug: "tasarim-notlari",
-    description: "Marka, urun ve deneyim tarafinda ilham veren notlar.",
-    icon: "✦",
+    description: "Urun tasarimi, materyal dili ve secim kriterleri.",
+    icon: "◇",
   },
   {
     id: "workshop",
     name: "Atolye",
     slug: "atolye",
-    description: "Uretim kalitesi, malzeme ve iscilik odakli icerikler.",
-    icon: "□",
+    description: "Uretim kalitesi, iscilik ve detay odakli icerikler.",
+    icon: "▣",
   },
   {
     id: "guides",
     name: "Rehberler",
     slug: "rehberler",
-    description: "Musterilerin karar surecini kolaylastiran detayli rehberler.",
+    description: "Satin alma kararini kolaylastiran editor rehberleri.",
     icon: "→",
   },
   {
     id: "stories",
     name: "Hikayeler",
     slug: "hikayeler",
-    description: "Marka dili, koleksiyon cikislari ve editor notlari.",
+    description: "Marka hikayeleri, koleksiyon cikislari ve editor notlari.",
     icon: "∞",
   },
   {
@@ -41,48 +41,48 @@ export const BLOG_CATEGORIES: BlogCategoryInfo[] = [
 
 export const SUGGESTED_PILLARS = [
   {
-    id: "marka-rehberi",
-    title: "Marka ve Koleksiyon Rehberi",
-    description: "Yeni bir magaza icin blog omurgasini kuracak pillar icerik fikirleri.",
-    targetKeywords: ["marka rehberi", "koleksiyon rehberi", "urun secim rehberi"],
+    id: "urun-secim-rehberi",
+    title: "Urun Secim Rehberi",
+    description: "Musteriye karar aninda guven verecek ana editorial omurga.",
+    targetKeywords: ["urun secim rehberi", "satin alma rehberi", "koleksiyon rehberi"],
     suggestedClusters: [
-      "Yeni sezonda hangi urun grubu one cikiyor?",
       "Dogru urun secimi icin 5 kritik ipucu",
-      "Malzeme ve iscilik kalite farki nasil anlatilir?",
-      "Musteriye guven veren PDP icerigi nasil yazilir?",
-      "Koleksiyon hikayesi ile satis nasil desteklenir?",
+      "Materyal ve iscilik farki nasil anlatilir",
+      "Hediye odakli urun secimi nasil kolaylastirilir",
+      "Koleksiyon yapisi storefrontta nasil sunulmali",
+      "Premium urun anlatimi icin PDP dili nasil kurulur",
     ],
   },
   {
-    id: "alisveris-deneyimi",
-    title: "Alisveris Deneyimi Rehberi",
-    description: "Storefront ve musteri deneyimini destekleyen evergreen icerikler.",
-    targetKeywords: ["online alisveris deneyimi", "urun rehberi", "musteri deneyimi"],
+    id: "marka-ve-deneyim",
+    title: "Marka ve Deneyim Rehberi",
+    description: "Storefront guvenini ve editorial dili besleyecek icerik omurgasi.",
+    targetKeywords: ["marka hikayesi", "alisveris deneyimi", "musteri guveni"],
     suggestedClusters: [
       "Magaza politikalarini guven veren dille anlatma",
-      "Sik sorulan sorular sayfasi nasil kurgulanir?",
-      "Kargo ve iade icerikleri neden donusum etkiler?",
-      "Hediye odakli urun sunumu nasil yapilir?",
-      "Yorumlar ve sosyal kanit nasil guclendirilir?",
+      "Kargo ve iade metinleri neden donusumu etkiler",
+      "Blog ile koleksiyon hikayesi nasil desteklenir",
+      "Yorumlar ve sosyal kanit nasil guclenir",
+      "Yeni ziyaretciyi markaya isindiran landing mantigi",
     ],
   },
 ];
 
 export const CONTENT_GUIDELINES = {
   pillar: {
-    minWords: 1800,
-    idealWords: 2400,
-    description: "Ana konu etrafinda guclu bir referans icerigi.",
+    minWords: 1600,
+    idealWords: 2200,
+    description: "Ana konuyu guclu sekilde sahiplenen referans icerik.",
   },
   cluster: {
     minWords: 900,
-    idealWords: 1400,
-    description: "Belirli bir alt ihtiyaci cevaplayan destekleyici yazi.",
+    idealWords: 1300,
+    description: "Belirli bir ihtiyaci cevaplayan destekleyici yazi.",
   },
   standalone: {
     minWords: 600,
     idealWords: 900,
-    description: "Tek basina deger ureten blog yazisi.",
+    description: "Tek basina deger ureten editorial blog yazisi.",
   },
 };
 
@@ -115,9 +115,9 @@ export function getPostBySlug(slug: string): BlogPost | undefined {
 }
 
 export function getPostsByCategory(category: string): BlogPost[] {
-  return BLOG_POSTS
-    .filter((post) => post.category === category)
-    .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+  return BLOG_POSTS.filter((post) => post.category === category).sort(
+    (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime(),
+  );
 }
 
 export function getRelatedPosts(post: BlogPost, limit = 3): BlogPost[] {
@@ -127,11 +127,12 @@ export function getRelatedPosts(post: BlogPost, limit = 3): BlogPost[] {
 }
 
 export function searchPosts(query: string): BlogPost[] {
-  const q = query.toLowerCase();
-  return BLOG_POSTS.filter((post) =>
-    post.title.toLowerCase().includes(q) ||
-    post.excerpt.toLowerCase().includes(q) ||
-    post.tags.some((tag) => tag.toLowerCase().includes(q)),
+  const needle = query.toLowerCase();
+  return BLOG_POSTS.filter(
+    (post) =>
+      post.title.toLowerCase().includes(needle) ||
+      post.excerpt.toLowerCase().includes(needle) ||
+      post.tags.some((tag) => tag.toLowerCase().includes(needle)),
   );
 }
 

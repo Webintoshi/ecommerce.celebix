@@ -17,27 +17,21 @@ export interface BlogPost {
   tags: string[];
   publishedAt: Date;
   updatedAt: Date;
-  readTime: number; // dakika
+  readTime: number;
   featured: boolean;
   views: number;
   status: ContentStatus;
-  // SEO Hub - Topical Authority alanları
   topicType: TopicType;
-  pillarId: string | null;        // Eğer cluster ise hangi pillar'a bağlı
-  targetKeywords: string[];       // Hedef anahtar kelimeler
-  primaryKeyword: string;         // Ana hedef kelime
-  wordCount: number;              // Kelime sayısı
-  seoScore: number;               // SEO puanı (0-100)
-  internalLinks: string[];        // Bağlantı verdiği diğer yazıların ID'leri
-  relatedProducts: string[];      // İlgili ürün ID'leri (ezme ürünleri)
+  pillarId: string | null;
+  targetKeywords: string[];
+  primaryKeyword: string;
+  wordCount: number;
+  seoScore: number;
+  internalLinks: string[];
+  relatedProducts: string[];
 }
 
-export type BlogCategory =
-  | "saglik"
-  | "tarifler"
-  | "beslenme"
-  | "yasam"
-  | "haberler";
+export type BlogCategory = "design" | "workshop" | "guides" | "stories" | "updates";
 
 export interface BlogCategoryInfo {
   id: BlogCategory;

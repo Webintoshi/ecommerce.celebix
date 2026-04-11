@@ -1,150 +1,107 @@
-import { BlogPost, BlogCategoryInfo, TopicType, ContentStatus } from "@/types/blog";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import type { BlogCategoryInfo, BlogPost } from "@/types/blog";
 
 export const BLOG_CATEGORIES: BlogCategoryInfo[] = [
   {
-    id: "saglik",
-    name: "Sağlık",
-    slug: "saglik",
-    description: "Sağlıklı yaşam ve beslenme ipuçları",
-    icon: "❤️",
+    id: "design",
+    name: "Tasarim Notlari",
+    slug: "tasarim-notlari",
+    description: "Urun tasarimi, materyal dili ve secim kriterleri.",
+    icon: "◇",
   },
   {
-    id: "tarifler",
-    name: "Tarifler",
-    slug: "tarifler",
-    description: "Lezzetli ve sağlıklı tarifler",
-    icon: "🍽️",
+    id: "workshop",
+    name: "Atolye",
+    slug: "atolye",
+    description: "Uretim kalitesi, iscilik ve detay odakli icerikler.",
+    icon: "▣",
   },
   {
-    id: "beslenme",
-    name: "Beslenme",
-    slug: "beslenme",
-    description: "Beslenme bilgileri ve öneriler",
-    icon: "🥗",
+    id: "guides",
+    name: "Rehberler",
+    slug: "rehberler",
+    description: "Satin alma kararini kolaylastiran editor rehberleri.",
+    icon: "→",
   },
   {
-    id: "yasam",
-    name: "Yaşam",
-    slug: "yasam",
-    description: "Yaşam tarzı ve wellness",
-    icon: "🌟",
+    id: "stories",
+    name: "Hikayeler",
+    slug: "hikayeler",
+    description: "Marka hikayeleri, koleksiyon cikislari ve editor notlari.",
+    icon: "∞",
   },
   {
-    id: "haberler",
-    name: "Haberler",
-    slug: "haberler",
-    description: "Ornek Magaza'dan haberler",
-    icon: "📰",
+    id: "updates",
+    name: "Guncellemeler",
+    slug: "guncellemeler",
+    description: `${STOREFRONT_RUNTIME.name} tarafindaki yeni gelismeler.`,
+    icon: "•",
   },
 ];
 
-// Önerilen Pillar Konuları (Ornek Magaza için)
 export const SUGGESTED_PILLARS = [
   {
-    id: "fistik-ezmesi",
-    title: "Fıstık Ezmesi Rehberi",
-    description: "Fıstık ezmesinin faydaları, kullanımı ve tarifleri",
-    targetKeywords: ["fıstık ezmesi", "doğal fıstık ezmesi", "organik fıstık ezmesi"],
+    id: "urun-secim-rehberi",
+    title: "Urun Secim Rehberi",
+    description: "Musteriye karar aninda guven verecek ana editorial omurga.",
+    targetKeywords: ["urun secim rehberi", "satin alma rehberi", "koleksiyon rehberi"],
     suggestedClusters: [
-      "Fıstık Ezmesi Kaç Kalori? Besin Değerleri",
-      "Organik vs Normal Fıstık Ezmesi Farkı",
-      "Fıstık Ezmesi ile Yapılan Tatlılar",
-      "Evde Fıstık Ezmesi Nasıl Yapılır?",
-      "Fıstık Ezmesi Zayıflatır mı?",
+      "Dogru urun secimi icin 5 kritik ipucu",
+      "Materyal ve iscilik farki nasil anlatilir",
+      "Hediye odakli urun secimi nasil kolaylastirilir",
+      "Koleksiyon yapisi storefrontta nasil sunulmali",
+      "Premium urun anlatimi icin PDP dili nasil kurulur",
     ],
   },
   {
-    id: "kahvaltilik-soslar",
-    title: "Kahvaltılık Soslar ve Ezmeler",
-    description: "Kahvaltınızı zenginleştirecek doğal soslar",
-    targetKeywords: ["kahvaltılık sos", "kahvaltılık ezme", "doğal kahvaltı sosları"],
+    id: "marka-ve-deneyim",
+    title: "Marka ve Deneyim Rehberi",
+    description: "Storefront guvenini ve editorial dili besleyecek icerik omurgasi.",
+    targetKeywords: ["marka hikayesi", "alisveris deneyimi", "musteri guveni"],
     suggestedClusters: [
-      "Kahvaltıya Uygun 10 Doğal Sos",
-      "Acuka Nasıl Yapılır? Ev Tarifi",
-      "Ceviz Ezmesi Tarifi ve Faydaları",
-      "Kahvaltılık Ezme Çeşitleri",
-      "Glutensiz Kahvaltılık Soslar",
-    ],
-  },
-  {
-    id: "vegan-beslenme",
-    title: "Vegan Beslenme ve Ezmeler",
-    description: "Vegan beslenmede ezme kullanımı",
-    targetKeywords: ["vegan ezme", "bitkisel protein", "vegan beslenme"],
-    suggestedClusters: [
-      "Vegan Fıstık Ezmesi Nedir?",
-      "Bitkisel Protein Kaynakları",
-      "Vegan Kahvaltı Önerileri",
-      "Vegan Tatlı Tarifleri",
-      "Vegan Beslenme Rehberi",
-    ],
-  },
-  {
-    id: "saglikli-atistirmaliklar",
-    title: "Sağlıklı Atıştırmalıklar",
-    description: "Sağlıklı beslenme ve atıştırmalık önerileri",
-    targetKeywords: ["sağlıklı atıştırmalık", "doğal atıştırmalık", "fit atıştırmalık"],
-    suggestedClusters: [
-      "Sağlıklı Atıştırmalık Önerileri",
-      "Fit Beslenme ve Ezmeler",
-      "Proteinli Atıştırmalıklar",
-      "Okul İçin Sağlıklı Atıştırmalıklar",
-      "Diyet Atıştırmalık Tarifleri",
-    ],
-  },
-  {
-    id: "dogal-besinler",
-    title: "Doğal ve Katkısız Besinler",
-    description: "Katkısız, doğal besinler ve sağlıklı yaşam",
-    targetKeywords: ["doğal besinler", "katkısız ürünler", "organik gıda"],
-    suggestedClusters: [
-      "Katkısız Gıda Nedir? Nasıl Anlaşılır?",
-      "Organik Ürünlerin Faydaları",
-      "Doğal Beslenme Rehberi",
-      "Şekersiz Ürünler ve Alternatifler",
-      "Doğal Tatlandırıcılar",
+      "Magaza politikalarini guven veren dille anlatma",
+      "Kargo ve iade metinleri neden donusumu etkiler",
+      "Blog ile koleksiyon hikayesi nasil desteklenir",
+      "Yorumlar ve sosyal kanit nasil guclenir",
+      "Yeni ziyaretciyi markaya isindiran landing mantigi",
     ],
   },
 ];
 
-// İdeal kelime sayıları
 export const CONTENT_GUIDELINES = {
   pillar: {
-    minWords: 2000,
-    idealWords: 2500,
-    description: "Kapsamlı rehber - ana konu hakkında genel bilgi",
+    minWords: 1600,
+    idealWords: 2200,
+    description: "Ana konuyu guclu sekilde sahiplenen referans icerik.",
   },
   cluster: {
-    minWords: 1000,
-    idealWords: 1500,
-    description: "Detaylı içerik - spesifik alt konu",
+    minWords: 900,
+    idealWords: 1300,
+    description: "Belirli bir ihtiyaci cevaplayan destekleyici yazi.",
   },
   standalone: {
     minWords: 600,
-    idealWords: 1000,
-    description: "Bağımsız blog yazısı",
+    idealWords: 900,
+    description: "Tek basina deger ureten editorial blog yazisi.",
   },
 };
 
-// SEO Checklist
 export const SEO_CHECKLIST = [
-  { id: "title", label: "SEO Başlığı (60 karakter)", weight: 15 },
-  { id: "meta", label: "Meta Açıklama (160 karakter)", weight: 10 },
-  { id: "heading", label: "H1 Başlık", weight: 10 },
-  { id: "subheadings", label: "H2/H3 Alt Başlıklar", weight: 10 },
-  { id: "keyword", label: "Anahtar Kelime Kullanımı", weight: 15 },
-  { id: "internal", label: "İç Link (diğer yazılara)", weight: 10 },
-  { id: "product", label: "Ürün Linki (ezme ürünleri)", weight: 10 },
-  { id: "image", label: "Görsel ve Alt Metni", weight: 10 },
-  { id: "wordcount", label: "Hedef Kelime Sayısı", weight: 10 },
+  { id: "title", label: "SEO Basligi", weight: 15 },
+  { id: "meta", label: "Meta Aciklama", weight: 10 },
+  { id: "heading", label: "H1 Baslik", weight: 10 },
+  { id: "subheadings", label: "H2/H3 Alt Basliklar", weight: 10 },
+  { id: "keyword", label: "Anahtar Kelime Kullanimi", weight: 15 },
+  { id: "internal", label: "Ic Link", weight: 10 },
+  { id: "product", label: "Urun Linki", weight: 10 },
+  { id: "image", label: "Gorsel ve Alt Metin", weight: 10 },
+  { id: "wordcount", label: "Kelime Sayisi", weight: 10 },
 ];
 
 export const BLOG_POSTS: BlogPost[] = [];
 
 export function getBlogPosts(): BlogPost[] {
-  return BLOG_POSTS.sort(
-    (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime()
-  );
+  return BLOG_POSTS.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 }
 
 export function getFeaturedPosts(limit = 3): BlogPost[] {
@@ -159,63 +116,52 @@ export function getPostBySlug(slug: string): BlogPost | undefined {
 
 export function getPostsByCategory(category: string): BlogPost[] {
   return BLOG_POSTS.filter((post) => post.category === category).sort(
-    (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime()
+    (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime(),
   );
 }
 
 export function getRelatedPosts(post: BlogPost, limit = 3): BlogPost[] {
-  return BLOG_POSTS.filter(
-    (p) => p.category === post.category && p.id !== post.id
-  )
+  return BLOG_POSTS.filter((candidate) => candidate.category === post.category && candidate.id !== post.id)
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
     .slice(0, limit);
 }
 
 export function searchPosts(query: string): BlogPost[] {
-  const q = query.toLowerCase();
+  const needle = query.toLowerCase();
   return BLOG_POSTS.filter(
     (post) =>
-      post.title.toLowerCase().includes(q) ||
-      post.excerpt.toLowerCase().includes(q) ||
-      post.tags.some((tag) => tag.toLowerCase().includes(q))
+      post.title.toLowerCase().includes(needle) ||
+      post.excerpt.toLowerCase().includes(needle) ||
+      post.tags.some((tag) => tag.toLowerCase().includes(needle)),
   );
 }
 
-// Yeni: Pillar bazlı fonksiyonlar
 export function getPillars(): BlogPost[] {
   return BLOG_POSTS.filter((post) => post.topicType === "pillar");
 }
 
 export function getClustersByPillar(pillarId: string): BlogPost[] {
-  return BLOG_POSTS.filter(
-    (post) => post.topicType === "cluster" && post.pillarId === pillarId
-  );
+  return BLOG_POSTS.filter((post) => post.topicType === "cluster" && post.pillarId === pillarId);
 }
 
 export function calculateSEOScore(post: Partial<BlogPost>): number {
   let score = 0;
   const guidelines = CONTENT_GUIDELINES[post.topicType || "standalone"];
-  
-  // Kelime sayısı kontrolü
+
   if (post.wordCount && post.wordCount >= guidelines.minWords) {
     score += 10;
     if (post.wordCount >= guidelines.idealWords) score += 5;
   }
-  
-  // Anahtar kelime kontrolü
-  if (post.primaryKeyword && post.primaryKeyword.length > 0) score += 15;
+
+  if (post.primaryKeyword?.length) score += 15;
   if (post.targetKeywords && post.targetKeywords.length >= 3) score += 10;
-  
-  // İç link kontrolü
   if (post.internalLinks && post.internalLinks.length > 0) score += 10;
   if (post.relatedProducts && post.relatedProducts.length > 0) score += 10;
-  
-  // Temel alanlar
   if (post.title && post.title.length >= 30) score += 15;
   if (post.excerpt && post.excerpt.length >= 100) score += 10;
   if (post.coverImage) score += 10;
   if (post.tags && post.tags.length >= 3) score += 5;
-  
+
   return Math.min(score, 100);
 }
 
@@ -225,12 +171,12 @@ export function getContentProgress(): {
   standalone: { total: number };
 } {
   const pillars = getPillars();
-  const allClusters = BLOG_POSTS.filter((p) => p.topicType === "cluster");
-  const standalone = BLOG_POSTS.filter((p) => p.topicType === "standalone");
-  
+  const clusters = BLOG_POSTS.filter((post) => post.topicType === "cluster");
+  const standalone = BLOG_POSTS.filter((post) => post.topicType === "standalone");
+
   return {
     pillar: { total: pillars.length, target: SUGGESTED_PILLARS.length },
-    cluster: { total: allClusters.length, target: pillars.length * 5 }, // Her pillar için 5 cluster hedefi
+    cluster: { total: clusters.length, target: pillars.length * 5 },
     standalone: { total: standalone.length },
   };
 }
