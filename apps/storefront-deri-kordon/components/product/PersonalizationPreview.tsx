@@ -17,6 +17,7 @@ type PersonalizationPreviewProps = {
 type FontOption = {
   id: string;
   label: string;
+  src: string;
   family: string;
   style: CSSProperties;
 };
@@ -33,8 +34,9 @@ const FONT_OPTIONS: FontOption[] = [
   {
     id: "monotype",
     label: "1. Monotype",
+    src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Monotype-Corsiva-Regular.ttf",
     family:
-      '"Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
+      '"Derycraft Monotype", "Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
     style: {
       fontStyle: "italic",
       fontWeight: 500,
@@ -44,8 +46,9 @@ const FONT_OPTIONS: FontOption[] = [
   {
     id: "book-antiqua",
     label: "2. Book Antiqua",
+    src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/bookantiqua.ttf",
     family:
-      '"Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
+      '"Derycraft Book Antiqua", "Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
     style: {
       fontWeight: 500,
       letterSpacing: "0.01em",
@@ -54,7 +57,8 @@ const FONT_OPTIONS: FontOption[] = [
   {
     id: "stoic",
     label: "3. Stoic",
-    family: '"Baskerville", "Times New Roman", Georgia, serif',
+    src: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Stoic-Regular.ttf",
+    family: '"Derycraft Stoic", "Baskerville", "Times New Roman", Georgia, serif',
     style: {
       fontWeight: 700,
       letterSpacing: "0.03em",
@@ -62,22 +66,48 @@ const FONT_OPTIONS: FontOption[] = [
   },
 ];
 
+const PERSONALIZATION_FONT_FACE_CSS = `
+@font-face {
+  font-family: "Derycraft Monotype";
+  src: url("https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Monotype-Corsiva-Regular.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Derycraft Book Antiqua";
+  src: url("https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/bookantiqua.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Derycraft Stoic";
+  src: url("https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/%C3%B6nizleme-fontlar%C4%B1/Stoic-Regular.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+`;
+
 const PREVIEW_COPY = [
   {
     lead: "Dikkat:",
-    text: "Bu önizleme temsilidir.",
+    text: "Bu onizleme temsilidir.",
   },
   {
     lead: null,
-    text: "Ürünleriniz üzerinde seçtiğiniz kişiselleştirme alanına isim veya özel bir yazı yapabiliriz. Yazı, belirtilen kazıma alanına okunaklı simetrik ve estetik bir şekilde işlenecektir.",
+    text: "Urunleriniz uzerinde sectiginiz kisilestirme alanina isim veya ozel bir yazi yapabiliriz. Yazi, belirtilen kazi̇ma alanina okunakli simetrik ve estetik bir sekilde islenecektir.",
   },
   {
     lead: null,
-    text: "Yazı, belirtilen kazıma alanına tercihlerinizi (büyük/küçük harf/noktalama/boşluk) tam olarak belirttiğiniz gibi işlenecektir. Lütfen yazınızı dikkatlice kontrol ediniz.",
+    text: "Yazi, belirtilen kazi̇ma alanina tercihlerinizi (buyuk/kucuk harf/noktalama/bosluk) tam olarak belirttiginiz gibi islenecektir. Lutfen yazinizi dikkatlice kontrol ediniz.",
   },
   {
     lead: "Not:",
-    text: "Özelleştirilmiş siparişlerde iade veya değişim yapılması mümkün değildir.",
+    text: "Ozellestirilmis siparislerde iade veya degisim yapilmasi mumkun degildir.",
   },
 ];
 
@@ -85,10 +115,9 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri urun kisilestirme onizleme",
-  textPositionClass:
-    "right-[10%] bottom-[15%] w-[52%] text-right",
+  textPositionClass: "right-[10%] bottom-[15%] w-[52%] text-right",
   textToneClass: "text-[#1f140f]",
-  defaultText: "Ön izleme",
+  defaultText: "On izleme",
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
@@ -96,9 +125,9 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
   textPositionClass:
-    "left-[calc(50%+6px)] top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] text-center",
+    "left-[calc(50%+6px)] bottom-[20px] -translate-x-1/2 w-[70%] text-center",
   textToneClass: "text-[#1a0f0a]",
-  defaultText: "Yazı",
+  defaultText: "Yazi",
 };
 
 function normalizeCategoryValue(value?: string | null) {
@@ -193,16 +222,21 @@ export function PersonalizationPreview({
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
-  const displayText = typedText || previewConfig.defaultText || "Ön izleme";
+  const displayText = typedText || previewConfig.defaultText || "On izleme";
   const previewFontSize = getPreviewFontSize(displayText);
 
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
-      <div className="mb-3 flex items-center justify-center gap-3 relative">
-        <h3 style={{ fontSize: "24px", lineHeight: "31px" }} className="font-semibold tracking-[0.02em] text-neutral-950">
-          Kişiselleştirme Önizlemesi
+      <style jsx global>{PERSONALIZATION_FONT_FACE_CSS}</style>
+
+      <div className="relative mb-3 flex items-center justify-center gap-3">
+        <h3
+          style={{ fontSize: "24px", lineHeight: "31px" }}
+          className="font-semibold tracking-[0.02em] text-neutral-950"
+        >
+          Kisilestirme Onizlemesi
         </h3>
-        <Search className="h-3.5 w-3.5 text-[#8A6B37] absolute right-0" />
+        <Search className="absolute right-0 h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px]">
@@ -225,10 +259,15 @@ export function PersonalizationPreview({
           id="personalization-preview-font"
           value={selectedFontId}
           onChange={(event) => setSelectedFontId(event.target.value)}
+          style={{ fontFamily: selectedFont.family, ...selectedFont.style }}
           className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors focus:border-[#6b9fce]"
         >
           {FONT_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>
+            <option
+              key={option.id}
+              value={option.id}
+              style={{ fontFamily: option.family, ...option.style }}
+            >
               {option.label}
             </option>
           ))}
@@ -257,7 +296,8 @@ export function PersonalizationPreview({
               textOverflow: "ellipsis",
               display: "block",
               lineHeight: 1.02,
-              textShadow: "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
+              textShadow:
+                "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
             }}
           >
             {displayText}
