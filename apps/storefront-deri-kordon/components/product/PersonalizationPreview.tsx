@@ -96,9 +96,9 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
   textPositionClass:
-    "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] text-center",
+    "left-[calc(50%+6px)] top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] text-center",
   textToneClass: "text-[#1a0f0a]",
-  defaultText: "YAZI",
+  defaultText: "Yazı",
 };
 
 function normalizeCategoryValue(value?: string | null) {
