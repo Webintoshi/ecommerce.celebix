@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   FileText,
   ChevronRight,
-  Plus,
   BarChart3,
   PenTool,
   Clock,
@@ -48,11 +47,25 @@ export default function CmsDashboard() {
   }, []);
 
   const stats = [
-    { label: "Blog Yazıları", count: blogPosts.length, icon: PenTool, color: "text-purple-600", bg: "bg-purple-100" },
-    { label: "Statik Sayfalar", count: cmsPages.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
+    {
+      label: "Blog Yazıları",
+      count: blogPosts.length,
+      icon: PenTool,
+      color: "text-purple-600",
+      bg: "bg-purple-100",
+    },
+    {
+      label: "İçerik Sayfaları",
+      count: cmsPages.length,
+      icon: FileText,
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+    },
     {
       label: "Taslaklar",
-      count: blogPosts.filter((post) => post.status === "draft").length + cmsPages.filter((page) => page.status === "draft").length,
+      count:
+        blogPosts.filter((post) => post.status === "draft").length +
+        cmsPages.filter((page) => page.status === "draft").length,
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-100",
@@ -79,13 +92,18 @@ export default function CmsDashboard() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">İçerik Yönetimi</h1>
-          <p className="mt-1 text-sm text-gray-500">Blog yazılarını ve sayfalarınızı buradan yönetin.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Blog yazilarini ve sabit icerik sayfalarini buradan yonetin.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div
+            key={stat.label}
+            className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+          >
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg} ${stat.color}`}>
               <stat.icon className="h-6 w-6" />
             </div>
@@ -105,8 +123,10 @@ export default function CmsDashboard() {
                 <PenTool className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Blog Yönetimi</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Haberler, duyurular ve SEO içerikleri.</p>
+                <h2 className="text-xl font-bold text-gray-900">Blog Yonetimi</h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Haberler, duyurular ve SEO odaklı editorial içerikler.
+                </p>
               </div>
             </div>
 
@@ -121,21 +141,13 @@ export default function CmsDashboard() {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Link
-                href="/admin/cms/blog"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
-              >
-                Görüntüle
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/admin/cms/blog/yeni"
-                className="rounded-xl bg-purple-100 px-4 py-3 text-purple-700 transition-all hover:bg-purple-200"
-              >
-                <Plus className="h-5 w-5" />
-              </Link>
-            </div>
+            <Link
+              href="/admin/cms/blog"
+              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
+            >
+              Görüntüle
+              <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
 
@@ -146,14 +158,16 @@ export default function CmsDashboard() {
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Sayfa Yönetimi</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Hakkımızda, iletişim ve kurumsal sayfalar.</p>
+                <h2 className="text-xl font-bold text-gray-900">Sabit Sayfalar</h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Hakkımızda, İletişim ve SSS sayfalarının içeriğini yönetin.
+                </p>
               </div>
             </div>
 
             <div className="mb-6 space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <span className="text-sm font-medium text-gray-600">Toplam Sayfa</span>
+                <span className="text-sm font-medium text-gray-600">Yönetilen Sayfa</span>
                 <span className="font-bold text-gray-900">{cmsPages.length}</span>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
@@ -164,21 +178,13 @@ export default function CmsDashboard() {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Link
-                href="/admin/cms/sayfalar"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
-              >
-                Görüntüle
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/admin/cms/sayfalar/yeni"
-                className="rounded-xl bg-blue-100 px-4 py-3 text-blue-700 transition-all hover:bg-blue-200"
-              >
-                <Plus className="h-5 w-5" />
-              </Link>
-            </div>
+            <Link
+              href="/admin/cms/sayfalar"
+              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
+            >
+              Görüntüle
+              <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>
@@ -188,18 +194,19 @@ export default function CmsDashboard() {
           <div className="max-w-xl">
             <h3 className="mb-2 flex items-center gap-2 text-xl font-bold">
               <BarChart3 className="h-5 w-5 text-purple-400" />
-              İçerik Strateji İpucu
+              İçerik Yönetim Notu
             </h3>
             <p className="text-sm leading-relaxed text-gray-300">
-              Pillar-Cluster yapısını kullanarak blog yazılarınızı organize edin. Her pillar için 3-5 detaylı cluster
-              yazısı oluşturun ve birbirine link verin. Bu SEO otoritenizi artırır.
+              Sabit sayfalar artik kontrollu bir kontratla yonetiliyor. Her magazada ayni
+              uc sayfa bulunur; musteri sadece icerigi yazar ve storefront bu icerigi
+              yayinda oldukca gosterir.
             </p>
           </div>
           <Link
-            href="/admin/cms/blog"
+            href="/admin/cms/sayfalar"
             className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-gray-900 shadow-lg transition-all hover:bg-gray-100"
           >
-            Stratejiyi Gör
+            Sayfalari Yonet
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>

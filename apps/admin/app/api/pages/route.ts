@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { PageApiResponse, PageCmsData, PageGEO, PageInput, StaticPageStatus } from "@/types/page";
 import { isValidPage } from "@/types/page";
+import { isManagedContentPageSlug } from "@celebix/platform-config/src/content-pages";
+import { isPolicyPageSlug } from "@celebix/platform-config/src/policy-pages";
+import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
 
 // ============================================================================
 // ERROR HANDLING
@@ -59,7 +62,11 @@ function sanitizeString(input: unknown, maxLength: number): string {
 
 function sanitizeContent(input: unknown, maxLength: number): string {
   if (typeof input !== "string") return "";
-  return input.trim().slice(0, maxLength);
+  return normalizeProductDescriptionHtml(input.trim().slice(0, maxLength));
+}
+
+function isAllowedManagedPageSlug(value: unknown): value is string {
+  return typeof value === "string" && (isManagedContentPageSlug(value) || isPolicyPageSlug(value));
 }
 
 function isValidPageStatus(status: unknown): status is StaticPageStatus {
@@ -397,6 +404,10 @@ export async function POST(request: NextRequest) {
 
     if (data.slug !== undefined && !validateSlug(String(data.slug))) {
       throw new APIError("Valid slug is required", 400, "MISSING_SLUG");
+    }
+
+    if (!isAllowedManagedPageSlug(data.slug)) {
+      throw new APIError("Only fixed managed pages can be created", 400, "INVALID_MANAGED_PAGE");
     }
 
     const supabase = await getSupabaseClient();

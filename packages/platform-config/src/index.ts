@@ -16,6 +16,7 @@ export * from "./product-listing-order";
 export * from "./product-pricing";
 export * from "./policy-pages";
 export * from "./floating-contact";
+export * from "./content-pages";
 
 export interface StoreRegistryEntry {
   slug: string;

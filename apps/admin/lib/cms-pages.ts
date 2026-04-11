@@ -1,5 +1,10 @@
 import type { CmsPage } from "@/types/cms";
 import type { PageApiResponse, StaticPage, StaticPageStatus } from "@/types/page";
+import {
+  MANAGED_CONTENT_PAGE_DEFINITIONS,
+  isManagedContentPageSlug,
+  type ManagedContentPageDefinition,
+} from "@celebix/platform-config/src/content-pages";
 import { isPolicyPageSlug } from "@celebix/platform-config/src/policy-pages";
 
 function resolveCmsStatus(page: StaticPage): StaticPageStatus {
@@ -50,7 +55,7 @@ export async function fetchCmsPages(
     return pages;
   }
 
-  return pages.filter((page) => !isPolicyPageSlug(page.slug));
+  return pages.filter((page) => isManagedContentPageSlug(page.slug) && !isPolicyPageSlug(page.slug));
 }
 
 export async function fetchCmsPage(id: string): Promise<CmsPage | null> {
@@ -88,4 +93,15 @@ export async function fetchCmsPageBySlug(slug: string): Promise<CmsPage | null> 
   }
 
   return mapStaticPageToCmsPage(payload.page);
+}
+
+export type ManagedCmsPageState = ManagedContentPageDefinition & {
+  page: CmsPage | null;
+};
+
+export function resolveManagedCmsPages(pages: CmsPage[]): ManagedCmsPageState[] {
+  return MANAGED_CONTENT_PAGE_DEFINITIONS.map((definition) => ({
+    ...definition,
+    page: pages.find((page) => page.slug === definition.slug) ?? null,
+  }));
 }

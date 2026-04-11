@@ -16,10 +16,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { STORE_RUNTIME } from "@/lib/store-runtime";
-import type { CmsPage } from "@/types/cms";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import type { CmsPage } from "@/types/cms";
 
 interface PageFormProps {
   initialData?: CmsPage;
@@ -143,7 +144,7 @@ export function PageForm({
               {formTitle || (initialData ? "Sayfayi Duzenle" : "Yeni Sayfa Ekle")}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              {formDescription || "Kurumsal veya ozel landing page tanimlarini buradan yonetin."}
+              {formDescription || "Bu sabit sayfanin icerigini, SEO metinlerini ve yayin durumunu yonetin."}
             </p>
           </div>
         </div>
@@ -184,8 +185,14 @@ export function PageForm({
                 {formData.title || "Basliksiz Sayfa"}
               </h1>
               <p className="mb-6 text-sm text-gray-500">{pageBaseUrl}{formData.slug}</p>
-              <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
-                {formData.content || "Henuz icerik girilmedi."}
+              <div
+                className="prose prose-neutral max-w-none text-gray-700 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
+                dangerouslySetInnerHTML={{
+                  __html: formData.content || "<p>Henuz icerik girilmedi.</p>",
+                }}
+              />
+              <div className="mt-6 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+                Bu onizleme storefront tasariminin birebir kopyasi degil; kaydedilecek icerigin akis ve hiyerarsisini gormek icindir.
               </div>
             </div>
           ) : (
@@ -216,7 +223,7 @@ export function PageForm({
                           slug: initialData || lockSlug ? prev.slug : generateSlug(nextTitle),
                         }));
                       }}
-                      placeholder="Orn: Kargo ve Teslimat"
+                      placeholder="Orn: Hakkimizda"
                       disabled={lockTitle}
                       className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
@@ -233,6 +240,7 @@ export function PageForm({
                           if (lockSlug) {
                             return;
                           }
+
                           setFormData((prev) => ({ ...prev, slug: event.target.value }));
                         }}
                         disabled={lockSlug}
@@ -243,15 +251,14 @@ export function PageForm({
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">İçerik</label>
-                    <textarea
-                      rows={15}
+                    <RichTextEditor
                       value={formData.content}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, content: event.target.value }))}
-                      placeholder="Bu sayfanin govde metnini buraya girin..."
-                      className="w-full resize-none rounded-lg border border-gray-200 px-4 py-2 font-mono text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      onChange={(value) => setFormData((prev) => ({ ...prev, content: value }))}
+                      placeholder="Bu sayfanin govde icerigini baslik, liste ve paragraflarla birlikte buraya girin..."
+                      minHeightClassName="min-h-[320px]"
                     />
                     <p className="mt-2 text-xs text-gray-500">
-                      Bu icerik sayfa kaydiyla birlikte saklanir. Ozel slug rotalari icin storefront fallback akisi bunu kullanabilir.
+                      Yalnizca bu sayfanin yayinda gorunmesini istediginiz icerigi yazin. Storefront bu HTML icerigi dogrudan kullanir.
                     </p>
                   </div>
                 </div>

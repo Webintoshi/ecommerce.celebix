@@ -3,71 +3,29 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { getPublishedManagedContentPage } from "@/lib/content-pages";
 
 export const dynamic = "force-dynamic";
-
-const FAQ_ITEMS = [
-  {
-    question: "Magaza bilgileri nereden yonetiliyor?",
-    answer:
-      "Marka adi, iletisim, adres, duyuru, banner ve benzeri bilgiler admin panelindeki genel ayarlardan yonetilir ve storefronta otomatik yansir.",
-    category: "Yonetim",
-  },
-  {
-    question: "Urun ve kategori sayfalari nasil doluyor?",
-    answer:
-      "Yayindaki urunler, kategoriler ve koleksiyon iliskileri veritabanindan cekilir. Homepage vitrinleri de aktif urun ve kategori verisine gore guncellenir.",
-    category: "Katalog",
-  },
-  {
-    question: "Yorumlar ana sayfada nasil gorunur?",
-    answer:
-      "Onaylanan urun yorumlari premium testimonial alanina otomatik tasinir. Yorum yoksa starter theme, gecici placeholder icerik gosterir.",
-    category: "Yorumlar",
-  },
-  {
-    question: "Teslimat ve iade metinleri sonradan degistirilebilir mi?",
-    answer:
-      "Evet. Kurumsal ve destek sayfalari marka bilgileriyle calisir; gerekli metinler panelden guncellenebilir veya store-specific olarak genisletilebilir.",
-    category: "Operasyon",
-  },
-  {
-    question: "Bu storefront yeni magazalar icin tekrar kullanilabilir mi?",
-    answer:
-      "Evet. Premium starter theme mantigi ayni omurgayi korur; marka renkleri, tipografi, icerik ve koleksiyon kurgusu sonradan ozellestirilir.",
-    category: "Theme",
-  },
-  {
-    question: "Destek ekibine nasil ulasirim?",
-    answer:
-      "Iletisim sayfasindaki telefon ve e-posta alanlari genel ayarlardan gelir. Oradaki bilgiler bu sayfada da referans olarak kullanilir.",
-    category: "Destek",
-  },
-] as const;
 
 export async function generateMetadata() {
   const locale = await getRequestLocale();
   const profile = await getStorefrontProfile();
+  const managedPage = await getPublishedManagedContentPage("sss");
 
   return buildStorePageMetadata({
     locale,
     pathname: "/sss",
-    title: `Sikca Sorulan Sorular | ${profile.name}`,
+    title: managedPage?.seoTitle || `SSS | ${profile.name}`,
     description:
-      `${profile.name} icin siparis, icerik, vitrin ve destek akislarini anlatan yardim merkezi.`,
+      managedPage?.seoDescription ||
+      `${profile.name} siparis, kargo, iade ve magaza akislari hakkinda sik sorulan sorular.`,
   });
 }
 
 export default async function FAQPage() {
   const locale = await getRequestLocale();
   const profile = await getStorefrontProfile();
-  const grouped = FAQ_ITEMS.reduce<Record<string, typeof FAQ_ITEMS>>((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, typeof FAQ_ITEMS>);
+  const managedPage = await getPublishedManagedContentPage("sss");
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
@@ -77,45 +35,42 @@ export default async function FAQPage() {
             Yardim Merkezi
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Sik sorulan konulari tek merkezde toplayin
+            Sikca sorulan sorular
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {profile.name} icin siparis, katalog, vitrin ve destek akislarina dair en cok sorulan
-            sorular bu sayfada yer alir.
+            {managedPage?.plainText ||
+              `${profile.name} icin siparis, teslimat, iade ve destek akislari hakkindaki icerikleri admin panelinden yonetebilirsiniz.`}
           </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
-        <div className="grid gap-6 lg:grid-cols-2">
-          {Object.entries(grouped).map(([category, items]) => (
-            <article
-              key={category}
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                {category}
+      <section className="mx-auto max-w-5xl px-6 py-12 lg:py-16">
+        <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
+          {managedPage?.contentHtml ? (
+            <div
+              className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
+              dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+            />
+          ) : (
+            <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
+              <p>
+                Bu sayfa admin panelindeki <strong>SSS</strong> iceriginden beslenir. Musteriye gostermek istediginiz
+                soru-cevap, operasyon notlari veya yardim akisini burada zengin metin olarak yonetebilirsiniz.
               </p>
-              <div className="mt-5 space-y-5">
-                {items.map((item) => (
-                  <div key={item.question} className="border-t border-black/6 pt-5 first:border-t-0 first:pt-0">
-                    <h2 className="text-xl font-semibold text-[#18110B]">{item.question}</h2>
-                    <p className="mt-3 text-sm leading-7 text-[#5F5147]">{item.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+              <p>
+                Icerik eklenene kadar bu alan temel bir bilgilendirme olarak kalir.
+              </p>
+            </div>
+          )}
+        </article>
 
         <div className="mt-8 rounded-[32px] bg-[#11192D] px-6 py-8 text-white sm:px-8">
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-            Hala yardim gerekiyor mu?
+            Daha fazla yardim
           </p>
-          <h2 className="mt-3 text-3xl font-semibold">Destek noktasina gecin</h2>
+          <h2 className="mt-3 text-3xl font-semibold">Hala sorunuz varsa bize ulasin</h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/78">
-            Genel ayarlardaki iletisim bilgileriyle ekibinize ulasmak icin iletisim sayfasina
-            yonlenin veya dogrudan e-posta gonderin.
+            Iletisim kartlari genel ayarlardan gelir ve burada store genel destek akisini tamamlar.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
