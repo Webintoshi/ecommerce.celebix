@@ -86,8 +86,8 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri urun kisilestirme onizleme",
   textPositionClass:
-    "left-[17%] top-[38%] w-[60%] -translate-y-1/2 text-left",
-  textToneClass: "text-[#2f211a]/90",
+    "right-[10%] bottom-[15%] w-[52%] text-right",
+  textToneClass: "text-[#1f140f]",
   defaultText: "Kazima Onizlemesi",
 };
 
@@ -96,8 +96,8 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayisi kisilestirme onizleme",
   textPositionClass:
-    "left-[16%] top-[37%] w-[60%] -translate-y-1/2 text-left",
-  textToneClass: "text-[#261a14]/90",
+    "right-[9%] bottom-[18%] w-[54%] text-right",
+  textToneClass: "text-[#1d120d]",
   defaultText: "Kazima Onizlemesi",
 };
 
@@ -199,7 +199,7 @@ export function PersonalizationPreview({
   return (
     <section className="w-full max-w-[420px] border-t border-neutral-200 pt-5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-[10px] font-medium uppercase tracking-[0.42em] text-neutral-800 sm:text-[11px]">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.36em] text-neutral-950 sm:text-[12px]">
           Kişiselleştirme Ön İzleme
         </h3>
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
@@ -256,7 +256,8 @@ export function PersonalizationPreview({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textShadow: "0 1px 0 rgba(255,255,255,0.14)",
+              lineHeight: 1.02,
+              textShadow: "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
             }}
           >
             {displayText}
