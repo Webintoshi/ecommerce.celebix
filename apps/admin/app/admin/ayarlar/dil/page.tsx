@@ -1,0 +1,41 @@
+"use client";
+
+import Link from "next/link";
+import { ChevronLeft, Globe2 } from "lucide-react";
+import { TranslationSettingsPanel } from "@/components/admin/TranslationSettingsPanel";
+
+export default function LanguageSettingsPage() {
+  return (
+    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/admin/ayarlar"
+            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-900"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Ayarlara Don
+          </Link>
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-1">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-neutral-900 text-white">
+                <Globe2 className="h-5 w-5" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                Dil Ayarları
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-gray-500">
+                Canli ceviri, hedef diller ve ceviri kapsami ayarlarini bu
+                sayfadan yonetin. Degisiklikler tum storefront locale
+                deneyimini etkiler.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <TranslationSettingsPanel />
+      </div>
+    </div>
+  );
+}

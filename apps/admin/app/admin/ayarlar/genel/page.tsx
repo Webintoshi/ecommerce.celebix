@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TypographyFontPicker } from "@/components/admin/TypographyFontPicker";
-import { TranslationSettingsPanel } from "@/components/admin/TranslationSettingsPanel";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
   buildStoreTypographyStylesheetUrl,
@@ -1161,9 +1160,6 @@ export default function GeneralSettingsPage() {
                   />
                 </div>
               </Card>
-            </div>
-            <div className="xl:col-span-2">
-              <TranslationSettingsPanel />
             </div>
           </div>
 
