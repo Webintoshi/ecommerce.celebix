@@ -1,6 +1,12 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import { Search } from "lucide-react";
 import {
@@ -202,39 +208,43 @@ function resolvePreviewConfig(
   return null;
 }
 
-function getPreviewFontSize(
+function getInitialPreviewFontSize(
   displayText: string,
   preset: PreviewConfig["sizePreset"]
 ) {
   if (preset === "watch") {
     if (displayText.length >= 16) {
-      return "clamp(26px, 6vw, 42px)";
+      return 42;
     }
 
     if (displayText.length >= 10) {
-      return "clamp(30px, 6.8vw, 48px)";
+      return 48;
     }
 
     if (displayText.length >= 6) {
-      return "clamp(34px, 7.4vw, 54px)";
+      return 54;
     }
 
-    return "clamp(38px, 8vw, 60px)";
+    return 60;
   }
 
   if (displayText.length >= 16) {
-    return "clamp(24px, 5.4vw, 36px)";
+    return 28;
   }
 
   if (displayText.length >= 10) {
-    return "clamp(28px, 6vw, 42px)";
+    return 34;
   }
 
   if (displayText.length >= 6) {
-    return "clamp(32px, 6.8vw, 48px)";
+    return 40;
   }
 
-  return "clamp(36px, 7.4vw, 52px)";
+  return 44;
+}
+
+function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
+  return preset === "watch" ? 26 : 18;
 }
 
 export function PersonalizationPreview({
@@ -260,7 +270,62 @@ export function PersonalizationPreview({
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
   const displayText = typedText || previewConfig.defaultText || "Ön izleme";
-  const previewFontSize = getPreviewFontSize(displayText, previewConfig.sizePreset);
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const initialPreviewFontSize = useMemo(
+    () => getInitialPreviewFontSize(displayText, previewConfig.sizePreset),
+    [displayText, previewConfig.sizePreset]
+  );
+  const [resolvedPreviewFontSize, setResolvedPreviewFontSize] = useState(
+    initialPreviewFontSize
+  );
+
+  useLayoutEffect(() => {
+    const textElement = textRef.current;
+
+    if (!textElement) {
+      setResolvedPreviewFontSize(initialPreviewFontSize);
+      return;
+    }
+
+    const minimumFontSize = getMinimumPreviewFontSize(previewConfig.sizePreset);
+
+    const fitText = () => {
+      let nextFontSize = initialPreviewFontSize;
+      textElement.style.fontSize = `${nextFontSize}px`;
+
+      while (
+        nextFontSize > minimumFontSize &&
+        (textElement.scrollWidth > textElement.clientWidth ||
+          textElement.scrollHeight > textElement.clientHeight)
+      ) {
+        nextFontSize -= 1;
+        textElement.style.fontSize = `${nextFontSize}px`;
+      }
+
+      setResolvedPreviewFontSize(nextFontSize);
+    };
+
+    const rafId = window.requestAnimationFrame(fitText);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => fitText());
+
+    resizeObserver?.observe(textElement);
+    if (textElement.parentElement) {
+      resizeObserver?.observe(textElement.parentElement);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      resizeObserver?.disconnect();
+    };
+  }, [
+    displayText,
+    initialPreviewFontSize,
+    previewConfig.sizePreset,
+    selectedFontId,
+  ]);
 
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
@@ -321,15 +386,16 @@ export function PersonalizationPreview({
             unoptimized={usesProxiedPreview}
           />
           <div
+            ref={textRef}
             className={`pointer-events-none absolute ${previewConfig.textPositionClass} leading-none ${previewConfig.textToneClass}`}
             style={{
               fontFamily: selectedFont.family,
-              fontSize: previewFontSize,
+              fontSize: `${resolvedPreviewFontSize}px`,
               ...selectedFont.style,
               fontWeight: typedText ? 700 : 600,
               whiteSpace: "nowrap",
               overflow: "hidden",
-              textOverflow: "ellipsis",
+              textOverflow: "clip",
               display: "block",
               lineHeight: 1.02,
               textShadow:
