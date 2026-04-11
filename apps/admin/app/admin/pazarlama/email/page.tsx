@@ -1,364 +1,708 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getCustomers } from "@/lib/customers";
-import { STORE_RUNTIME } from "@/lib/store-runtime";
-import { Customer } from "@/types/customer";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  Mail,
-  Send,
-  Users,
-  Filter,
-  Download,
-  RefreshCw,
-  Eye,
+  CheckCircle2,
   Copy,
+  Eye,
+  Filter,
+  Mail,
+  RefreshCw,
+  Save,
+  Send,
+  Sparkles,
+  Users,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { buildEmailTemplateVariables, renderEmailTemplate } from "@/lib/email-marketing";
+import type { EmailMarketingRecipient, EmailMarketingSettings, EmailMarketingTemplateId } from "@/types/email-marketing";
+import type { EmailConfig } from "@/types/notification";
 
-const EMAIL_TEMPLATES = [
-  {
-    id: 1,
-    name: "Hoşgeldin",
-    subject: `${STORE_RUNTIME.name}'a Hoş Geldiniz!`,
-    content: `Merhaba {firstName},\n\n${STORE_RUNTIME.name} ailesine hoş geldiniz! Yeni ürünlerimizi ve kampanyalarımızı keşfedebilirsiniz.\n\nSiparişiniz için teşekkürler.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
-  },
-  {
-    id: 2,
-    name: "Özel Teklif",
-    subject: "Sadece Sizin İçin Özel Teklif!",
-    content: `Merhaba {firstName},\n\nSizin için bu hafta özel bir teklif hazırladık. Kampanya kodunu kullanarak alışverişinizi tamamlayabilirsiniz.\n\nKodu: SPECIAL15\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
-  },
-  {
-    id: 3,
-    name: "Yeni Ürün",
-    subject: "Yeni Ürünlerimiz Geldi!",
-    content: `Merhaba {firstName},\n\nYeni ürünlerimiz yayında. Güncel koleksiyonumuzu incelemek için mağazamızı ziyaret edin.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
-  },
-  {
-    id: 4,
-    name: "Sipariş Hatırlatma",
-    subject: "Sonraki Siparişiniz İçin Hazırlanın",
-    content: `Merhaba {firstName},\n\nFavori ürünleriniz tekrar sipariş için hazır olabilir. Stokları kontrol edip yeni siparişinizi verebilirsiniz.\n\nSaygılarımızla,\n${STORE_RUNTIME.name} Ekibi`,
-  },
-];
+type LoadPayload = {
+  emailSettings: EmailConfig;
+  marketingSettings: EmailMarketingSettings;
+};
+
+type RecipientResponse = {
+  recipients: EmailMarketingRecipient[];
+};
+
+type FilterKey = "all" | "optin" | "vip" | "new";
 
 export default function EmailMarketingPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-  const [filter, setFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [messageTemplate, setMessageTemplate] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
-  const [previewMode, setPreviewMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingTemplates, setSavingTemplates] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("optin");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<EmailMarketingTemplateId>("welcome");
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [emailSettings, setEmailSettings] = useState<EmailConfig | null>(null);
+  const [marketingSettings, setMarketingSettings] = useState<EmailMarketingSettings | null>(null);
+  const [recipients, setRecipients] = useState<EmailMarketingRecipient[]>([]);
+  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    setCustomers(getCustomers());
+    void loadPage();
   }, []);
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch =
-      customer.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+  async function loadPage() {
+    setLoading(true);
+    setStatusMessage(null);
 
-    const matchesFilter = filter === "all" ||
-      (filter === "email" && customer.email) ||
-      (filter === "new" && customer.tags?.includes("Yeni")) ||
-      (filter === "vip" && customer.tags?.includes("VIP"));
+    try {
+      const [settingsResponse, recipientsResponse] = await Promise.all([
+        fetch("/api/admin/marketing/email/settings", { cache: "no-store" }),
+        fetch("/api/admin/marketing/email/recipients", { cache: "no-store" }),
+      ]);
 
-    return matchesSearch && matchesFilter;
-  });
+      const settingsPayload = (await settingsResponse.json()) as LoadPayload & { success?: boolean; error?: string };
+      const recipientsPayload = (await recipientsResponse.json()) as RecipientResponse & { success?: boolean; error?: string };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedCustomers(filteredCustomers.map(c => c.id));
-    } else {
-      setSelectedCustomers([]);
+      if (!settingsResponse.ok || settingsPayload.success === false) {
+        throw new Error(settingsPayload.error || "E-posta ayarlari yuklenemedi.");
+      }
+
+      if (!recipientsResponse.ok || recipientsPayload.success === false) {
+        throw new Error(recipientsPayload.error || "Müşteri listesi yüklenemedi.");
+      }
+
+      setEmailSettings(settingsPayload.emailSettings);
+      setMarketingSettings(settingsPayload.marketingSettings);
+      setRecipients(recipientsPayload.recipients || []);
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Sayfa yuklenemedi.",
+      });
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const handleSelectCustomer = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedCustomers(prev => [...prev, id]);
-    } else {
-      setSelectedCustomers(prev => prev.filter(cId => cId !== id));
+  const activeTemplate = useMemo(() => {
+    if (!marketingSettings) {
+      return null;
     }
-  };
 
-  const handleSendEmail = async () => {
-    if (selectedCustomers.length === 0 || !emailSubject || !messageTemplate) return;
+    return marketingSettings.templates.find((template) => template.id === selectedTemplateId) || null;
+  }, [marketingSettings, selectedTemplateId]);
+
+  const filteredRecipients = useMemo(() => {
+    const now = Date.now();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+    return recipients.filter((recipient) => {
+      const query = searchQuery.trim().toLocaleLowerCase("tr");
+      const matchesQuery =
+        !query ||
+        recipient.email.toLocaleLowerCase("tr").includes(query) ||
+        recipient.firstName.toLocaleLowerCase("tr").includes(query) ||
+        recipient.lastName.toLocaleLowerCase("tr").includes(query);
+
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "optin" && recipient.acceptsEmailMarketing) ||
+        (filter === "vip" && recipient.tags.some((tag) => tag.toLocaleLowerCase("tr").includes("vip"))) ||
+        (filter === "new" && now - new Date(recipient.createdAt).getTime() <= thirtyDays);
+
+      return matchesQuery && matchesFilter;
+    });
+  }, [filter, recipients, searchQuery]);
+
+  const previewRecipient = useMemo(() => {
+    return recipients.find((recipient) => recipient.id === selectedRecipients[0]) || recipients[0] || undefined;
+  }, [recipients, selectedRecipients]);
+
+  const previewContent = useMemo(() => {
+    if (!activeTemplate) {
+      return null;
+    }
+
+    return renderEmailTemplate(activeTemplate, previewRecipient);
+  }, [activeTemplate, previewRecipient]);
+
+  const selectedCount = selectedRecipients.length;
+
+  function updateActiveTemplate(updater: (current: NonNullable<typeof activeTemplate>) => NonNullable<typeof activeTemplate>) {
+    if (!activeTemplate || !marketingSettings) {
+      return;
+    }
+
+    setMarketingSettings({
+      templates: marketingSettings.templates.map((template) =>
+        template.id === activeTemplate.id
+          ? {
+              ...updater(activeTemplate),
+              updatedAt: new Date().toISOString(),
+            }
+          : template,
+      ),
+    });
+  }
+
+  function toggleRecipient(id: string, checked: boolean) {
+    setSelectedRecipients((current) =>
+      checked ? Array.from(new Set([...current, id])) : current.filter((item) => item !== id),
+    );
+  }
+
+  function toggleAllVisible(checked: boolean) {
+    setSelectedRecipients((current) => {
+      const visibleIds = filteredRecipients.map((recipient) => recipient.id);
+      if (!checked) {
+        return current.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...visibleIds]));
+    });
+  }
+
+  async function handleSaveSettings() {
+    if (!emailSettings) {
+      return;
+    }
+
+    setSavingSettings(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/marketing/email/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ emailSettings }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Resend ayarlari kaydedilemedi.");
+      }
+
+      setEmailSettings(payload.emailSettings);
+      setStatusMessage({ type: "success", text: "E-posta gonderici ayarlari kaydedildi." });
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Ayarlar kaydedilemedi.",
+      });
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleSaveTemplates() {
+    if (!marketingSettings) {
+      return;
+    }
+
+    setSavingTemplates(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/marketing/email/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ marketingSettings }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Template ayarlari kaydedilemedi.");
+      }
+
+      setMarketingSettings(payload.marketingSettings);
+      setStatusMessage({ type: "success", text: "E-posta template'leri kaydedildi." });
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Template'ler kaydedilemedi.",
+      });
+    } finally {
+      setSavingTemplates(false);
+    }
+  }
+
+  async function handleTestEmail() {
+    if (!emailSettings) {
+      return;
+    }
+
+    setTesting(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/marketing/email/test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          config: emailSettings,
+          testEmail: emailSettings.senderEmail,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Test e-postasi gonderilemedi.");
+      }
+
+      setStatusMessage({ type: "success", text: payload.message || "Test e-postasi gonderildi." });
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Test e-postasi basarisiz.",
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function handleSendCampaign() {
+    if (!activeTemplate || selectedRecipients.length === 0) {
+      return;
+    }
 
     setSending(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setSending(false);
-    setSelectedCustomers([]);
-    setEmailSubject("");
-    setMessageTemplate("");
-  };
+    setStatusMessage(null);
 
-  const getPreviewContent = () => {
-    let content = messageTemplate;
-    if (selectedCustomers.length === 1) {
-      const customer = customers.find(c => c.id === selectedCustomers[0]);
-      if (customer) {
-        content = content
-          .replace(/{firstName}/g, customer.firstName)
-          .replace(/{lastName}/g, customer.lastName)
-          .replace(/{email}/g, customer.email);
+    try {
+      const response = await fetch("/api/admin/marketing/email/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerIds: selectedRecipients,
+          subject: activeTemplate.subject,
+          bodyHtml: activeTemplate.bodyHtml,
+        }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Kampanya gonderimi basarisiz.");
       }
+
+      setStatusMessage({
+        type: "success",
+        text: `${payload.delivered || 0} aliciya kampanya gonderildi.`,
+      });
+      setSelectedRecipients([]);
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Kampanya gonderilemedi.",
+      });
+    } finally {
+      setSending(false);
     }
-    return content;
-  };
+  }
+
+  if (loading || !emailSettings || !marketingSettings || !activeTemplate) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">E-posta merkezi yukleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="container mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin/pazarlama"
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
-            >
-              <X className="w-4 h-4" />
-              Geri
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">E-posta Pazarlama</h1>
-              <p className="text-gray-500">Müşterilerinize toplu e-posta gönderin</p>
-            </div>
+    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-8 space-y-8">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
+            <Sparkles className="w-3.5 h-3.5" />
+            Resend E-posta Merkezi
           </div>
-          <button
-            onClick={() => setCustomers(getCustomers())}
-            className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 transition-all shadow-lg"
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">E-posta Kampanyalari</h1>
+          <p className="text-sm text-gray-500 max-w-2xl">
+            Magaza bazli Resend ayarlarini kaydedin, standart template'leri duzenleyin ve musterilerinize ayni ekrandan gonderim yapin.
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <Link
+            href="/admin/pazarlama"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all"
           >
-            <RefreshCw className="w-5 h-5 text-gray-600" />
+            <X className="w-4 h-4" />
+            Geri
+          </Link>
+          <button
+            type="button"
+            onClick={() => void loadPage()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all"
+          >
+            <RefreshCw className="w-4 h-4" />
             Yenile
           </button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Customer List */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* Toolbar */}
-            <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
-                  <div className="flex-1 w-full relative">
-                    <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Müşteri ara..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <select
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      className="appearance-none pl-12 pr-10 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all min-w-[200px] cursor-pointer"
-                    >
-                      <option value="all">Tümü</option>
-                      <option value="email">E-posta Sahibi</option>
-                      <option value="new">Yeni Müşteriler</option>
-                      <option value="vip">VIP Müşteriler</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+      {statusMessage && (
+        <div className={`rounded-2xl px-4 py-3 text-sm border ${
+          statusMessage.type === "success"
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+            : "bg-rose-50 text-rose-700 border-rose-200"
+        }`}>
+          {statusMessage.text}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-6">
+        <section className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Resend Baglantisi</h2>
+              <p className="text-sm text-gray-500">Musteriniz Resend hesabini acip anahtarini buraya girecek.</p>
             </div>
-
-            {/* Customer Table */}
-            <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="max-h-[500px] overflow-y-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-blue-50 to-white border-b-2 border-gray-200 sticky top-0">
-                    <tr>
-                      <th className="px-4 py-4 text-left">
-                        <input
-                          type="checkbox"
-                          checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                          onChange={(e) => handleSelectAll(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
-                        />
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase">
-                        Müşteri
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold text-gray-600 uppercase">
-                        E-posta
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredCustomers.map((customer) => (
-                      <tr
-                        key={customer.id}
-                        className={`hover:bg-gray-50 transition-colors ${
-                          selectedCustomers.includes(customer.id) ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedCustomers.includes(customer.id)}
-                            onChange={(e) => handleSelectCustomer(customer.id, e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="font-bold text-gray-900 text-base">
-                            {customer.firstName} {customer.lastName}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-600">
-                          {customer.email}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {filteredCustomers.length === 0 && (
-                <div className="p-16 text-center">
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Users className="w-10 h-10 text-gray-400" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Müşteri Bulunamadı</h3>
-                  <p className="text-gray-500">
-                    Arama kriterlerinize uygun müşteri bulunamadı.
-                  </p>
-                </div>
-              )}
-            </div>
+            <a
+              href="https://resend.com/signup"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+            >
+              Hesap Ac
+            </a>
           </div>
 
-          {/* Email Form */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl shadow-lg border border-gray-200 p-6 space-y-6">
+          <div className="space-y-4">
+            <LabeledInput
+              label="API Anahtari"
+              type="password"
+              value={emailSettings.apiKey || ""}
+              onChange={(value) => setEmailSettings({ ...emailSettings, provider: "resend", apiKey: value })}
+              placeholder="re_..."
+            />
+            <LabeledInput
+              label="Gonderen Adi"
+              value={emailSettings.senderName}
+              onChange={(value) => setEmailSettings({ ...emailSettings, senderName: value })}
+              placeholder={STORE_RUNTIME.name}
+            />
+            <LabeledInput
+              label="Gonderen E-posta"
+              type="email"
+              value={emailSettings.senderEmail}
+              onChange={(value) => setEmailSettings({ ...emailSettings, senderEmail: value })}
+              placeholder={STORE_RUNTIME.senderEmail}
+            />
+            <LabeledInput
+              label="Reply-To"
+              type="email"
+              value={emailSettings.replyTo || ""}
+              onChange={(value) => setEmailSettings({ ...emailSettings, replyTo: value })}
+              placeholder={STORE_RUNTIME.supportEmail}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSaveSettings()}
+              disabled={savingSettings}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
+            >
+              {savingSettings ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Ayarları Kaydet
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleTestEmail()}
+              disabled={testing}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100 transition-all disabled:opacity-50"
+            >
+              {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              Test Gonder
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              Standart Template'ler
+            </div>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>Hos Geldiniz</li>
+              <li>Ozel Teklif</li>
+              <li>Yeni Ürün</li>
+              <li>Sipariş Hatırlatma</li>
+            </ul>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 space-y-6">
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="lg:w-72 space-y-3">
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Konu
-                </label>
-                <input
-                  type="text"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="E-posta konusu..."
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
-                />
+                <h2 className="text-lg font-bold text-gray-900">Template'ler</h2>
+                <p className="text-sm text-gray-500">Standart kampanya e-postalarini store bazli duzenleyin.</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Şablonlar
-                </label>
-                <div className="space-y-3">
-                  {EMAIL_TEMPLATES.map((template) => (
-                    <div
-                      key={template.id}
-                      onClick={() => {
-                        setEmailSubject(template.subject);
-                        setMessageTemplate(template.content);
-                      }}
-                      className={`p-4 border-2 rounded-2xl cursor-pointer transition-all ${
-                        messageTemplate === template.content
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="font-semibold text-gray-900 mb-1">{template.name}</div>
-                      <div className="text-sm text-gray-600 truncate">{template.subject}</div>
+              <div className="space-y-2">
+                {marketingSettings.templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => setSelectedTemplateId(template.id)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition-all ${
+                      selectedTemplateId === template.id
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="font-semibold">{template.name}</div>
+                    <div className={`text-xs mt-1 ${
+                      selectedTemplateId === template.id ? "text-gray-300" : "text-gray-500"
+                    }`}>
+                      {template.description}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Mesaj
-                </label>
-                <textarea
-                  value={messageTemplate}
-                  onChange={(e) => setMessageTemplate(e.target.value)}
-                  placeholder="Mesajınızı buraya yazın... {firstName}, {lastName}, {email} değişkenlerini kullanabilirsiniz"
-                  rows={8}
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all resize-none text-sm"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPreviewMode(!previewMode)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-semibold"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Önizle
                   </button>
-                  <button
-                    onClick={() => {
-                      const content = getPreviewContent();
-                      navigator.clipboard.writeText(content);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-semibold"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Kopyala
-                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">{activeTemplate.name}</h3>
+                  <p className="text-sm text-gray-500">{activeTemplate.description}</p>
                 </div>
                 <button
-                  onClick={handleSendEmail}
-                  disabled={selectedCustomers.length === 0 || sending}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl font-semibold hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => void handleSaveTemplates()}
+                  disabled={savingTemplates}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
                 >
-                  {sending ? (
-                    <>
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                      Gönderiliyor...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      {selectedCustomers.length} E-posta Gönder
-                    </>
-                  )}
+                  {savingTemplates ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Template'leri Kaydet
                 </button>
+              </div>
+
+              <LabeledInput
+                label="Konu"
+                value={activeTemplate.subject}
+                onChange={(value) =>
+                  updateActiveTemplate((current) => ({
+                    ...current,
+                    subject: value,
+                  }))}
+                placeholder="E-posta konusu"
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">İçerik</label>
+                <RichTextEditor
+                  value={activeTemplate.bodyHtml}
+                  onChange={(value) =>
+                    updateActiveTemplate((current) => ({
+                      ...current,
+                      bodyHtml: value,
+                    }))}
+                  placeholder="E-posta icerigini yazin..."
+                  minHeightClassName="min-h-[260px]"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                Kullanabileceginiz degiskenler: <span className="font-semibold">{`{firstName}`}</span>, <span className="font-semibold">{`{lastName}`}</span>, <span className="font-semibold">{`{email}`}</span>, <span className="font-semibold">{`{storeName}`}</span>, <span className="font-semibold">{`{storeUrl}`}</span>, <span className="font-semibold">{`{productsUrl}`}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+            <div className="space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Alicilar</h3>
+                  <p className="text-sm text-gray-500">{selectedCount} secili / {filteredRecipients.length} gorunur musteri</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative">
+                    <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Müşteri ara"
+                      className="pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <select
+                    value={filter}
+                    onChange={(event) => setFilter(event.target.value as FilterKey)}
+                    className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    <option value="optin">Pazarlama onayi olanlar</option>
+                    <option value="all">Tum alicilar</option>
+                    <option value="vip">VIP etiketli</option>
+                    <option value="new">Son 30 gun</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="max-h-[420px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            checked={filteredRecipients.length > 0 && filteredRecipients.every((recipient) => selectedRecipients.includes(recipient.id))}
+                            onChange={(event) => toggleAllVisible(event.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Müşteri</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600">E-posta</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRecipients.map((recipient) => (
+                        <tr key={recipient.id} className="border-b border-gray-100 last:border-0">
+                          <td className="px-4 py-3 align-top">
+                            <input
+                              type="checkbox"
+                              checked={selectedRecipients.includes(recipient.id)}
+                              onChange={(event) => toggleRecipient(recipient.id, event.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-900">
+                              {[recipient.firstName, recipient.lastName].filter(Boolean).join(" ") || "Adsiz musteri"}
+                            </div>
+                            {recipient.tags.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">{recipient.tags.join(", ")}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{recipient.email}</td>
+                          <td className="px-4 py-3">
+                            {recipient.acceptsEmailMarketing ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold">
+                                Opt-in
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
+                                Manuele acik
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
-            {/* Preview */}
-            {previewMode && (
-              <div className="bg-white rounded-3xl shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Önizleme</h3>
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Onizleme</h3>
+                    <p className="text-sm text-gray-500">
+                      {previewRecipient
+                        ? `${previewRecipient.firstName || previewRecipient.email} icin`
+                        : "Secili alici yok"}
+                    </p>
+                  </div>
                   <button
-                    onClick={() => setPreviewMode(false)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                    type="button"
+                    onClick={() => {
+                      if (!previewContent?.html) {
+                        return;
+                      }
+
+                      void navigator.clipboard.writeText(previewContent.html);
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-all"
                   >
-                    <X className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
+                    HTML
                   </button>
                 </div>
-                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                  <div className="text-sm text-gray-600 mb-2">
-                    <span className="font-semibold">Konu:</span> {emailSubject}
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-widest text-gray-400">Konu</div>
+                    <div className="text-sm font-semibold text-gray-900 mt-1">{previewContent?.subject || activeTemplate.subject}</div>
                   </div>
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
-                    {getPreviewContent()}
-                  </pre>
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">İçerik</div>
+                    <div
+                      className="prose prose-sm max-w-none prose-a:text-blue-600"
+                      dangerouslySetInnerHTML={{ __html: previewContent?.html || activeTemplate.bodyHtml }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSendCampaign()}
+                  disabled={sending || selectedRecipients.length === 0 || !emailSettings.apiKey}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
+                >
+                  {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Kampanyayi Gonder
+                </button>
+
+                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+                  <div className="font-semibold text-gray-900 mb-1">Gonderim ozet</div>
+                  <div>{selectedRecipients.length} alici secili</div>
+                  <div>{buildEmailTemplateVariables(previewRecipient).storeName} gonderen kimligi kullanilacak</div>
+                  {!emailSettings.apiKey && (
+                    <div className="mt-2 text-rose-600 font-medium">Resend API anahtari girilmeden gonderim baslamaz.</div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        </section>
       </div>
+    </div>
+  );
+}
+
+function LabeledInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
     getAllSettings,
     getAnnouncementBarSettings,
     getMarqueeSettings,
+    getNotificationSettings,
     getPaymentMethods,
     getSeoSettings,
     getSetting,
@@ -21,6 +22,7 @@ import {
     setAIProviderSettings,
     setAnnouncementBarSettings,
     setMarqueeSettings,
+    setNotificationSettings,
     setPaymentMethods,
     setSeoSettings,
     setSetting,
@@ -146,6 +148,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "notification") {
+            const notificationSettings = await getNotificationSettings();
+            return NextResponse.json({
+                success: true,
+                notificationSettings,
+            });
+        }
+
         if (key) {
             const value = await getSetting(key);
             return NextResponse.json({ success: true, setting: { key, value } });
@@ -258,6 +268,11 @@ export async function POST(request: NextRequest) {
         if (type === "translation" && translationSettings !== undefined) {
             await setTranslationSettings(translationSettings);
             return NextResponse.json({ success: true, message: "Translation settings updated" });
+        }
+
+        if (type === "notification" && body.notificationSettings !== undefined) {
+            await setNotificationSettings(body.notificationSettings);
+            return NextResponse.json({ success: true, message: "Notification settings updated" });
         }
 
         if (key && value !== undefined) {

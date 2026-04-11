@@ -1,4 +1,8 @@
 import { createServerClient } from "@/lib/supabase";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { createDefaultEmailMarketingSettings, normalizeEmailMarketingSettings } from "@/lib/email-marketing";
+import type { EmailMarketingSettings } from "@/types/email-marketing";
+import type { NotificationSettings } from "@/types/notification";
 import type { StoreTypographySettings } from "@celebix/platform-config/src/typography";
 import {
     DEFAULT_STORE_SEO_SETTINGS,
@@ -113,12 +117,38 @@ export const SETTING_KEYS = {
     SEO_SETTINGS: "seo_settings",
     EMAIL_SETTINGS: "email_settings",
     NOTIFICATION_SETTINGS: "notification_settings",
+    EMAIL_MARKETING_SETTINGS: "email_marketing_settings",
     ANNOUNCEMENT_BAR: "announcement_bar",
     MARQUEE_SETTINGS: "marquee_settings",
     AI_PROVIDER: "ai_provider",
     TRANSLATION_SETTINGS: "translation_settings",
     PRODUCT_LISTING_ORDER: PRODUCT_LISTING_ORDER_SETTING_KEY,
 } as const;
+
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+    email: {
+        provider: "resend",
+        senderName: STORE_RUNTIME.name,
+        senderEmail: STORE_RUNTIME.senderEmail,
+        replyTo: STORE_RUNTIME.supportEmail,
+        apiKey: "",
+    },
+    sms: {
+        provider: "netgsm",
+        apiKey: "",
+        apiSecret: "",
+        senderTitle: STORE_RUNTIME.smsSenderTitle,
+    },
+    push: {
+        provider: "firebase",
+        apiKey: "",
+        authDomain: "",
+        projectId: "",
+        storageBucket: "",
+        messagingSenderId: "",
+        appId: "",
+    },
+};
 
 // =====================================================
 // TYPED SETTING HELPERS
@@ -153,6 +183,50 @@ export interface StoreInfo {
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
 export type { ProductListingOrderSettings };
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+    const data = await getSetting(SETTING_KEYS.NOTIFICATION_SETTINGS);
+
+    if (!data) {
+        return DEFAULT_NOTIFICATION_SETTINGS;
+    }
+
+    const record = data as Partial<NotificationSettings>;
+
+    return {
+        email: {
+            ...DEFAULT_NOTIFICATION_SETTINGS.email,
+            ...(record.email || {}),
+        },
+        sms: {
+            ...DEFAULT_NOTIFICATION_SETTINGS.sms,
+            ...(record.sms || {}),
+        },
+        push: {
+            ...DEFAULT_NOTIFICATION_SETTINGS.push,
+            ...(record.push || {}),
+        },
+    };
+}
+
+export async function setNotificationSettings(settings: NotificationSettings) {
+    return setSetting(
+        SETTING_KEYS.NOTIFICATION_SETTINGS,
+        settings as unknown as Record<string, unknown>,
+    );
+}
+
+export async function getEmailMarketingSettings(): Promise<EmailMarketingSettings> {
+    const data = await getSetting(SETTING_KEYS.EMAIL_MARKETING_SETTINGS);
+    return normalizeEmailMarketingSettings(data as Partial<EmailMarketingSettings> | null);
+}
+
+export async function setEmailMarketingSettings(settings: EmailMarketingSettings) {
+    return setSetting(
+        SETTING_KEYS.EMAIL_MARKETING_SETTINGS,
+        normalizeEmailMarketingSettings(settings) as unknown as Record<string, unknown>,
+    );
+}
 
 /**
  * Get payment methods

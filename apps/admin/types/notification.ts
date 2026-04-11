@@ -7,6 +7,7 @@ export interface EmailConfig {
     password?: string;
     senderName: string;
     senderEmail: string;
+    replyTo?: string;
     apiKey?: string; // For API-based providers
 }
 
