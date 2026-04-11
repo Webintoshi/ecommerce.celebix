@@ -1,82 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
-
-const PRODUCT_GROUPS = [
-  {
-    id: "bestsellers",
-    title: "Cok Satanlar",
-    subtitle: "Secili Koleksiyon",
-    link: "/urunler",
-    fallbackCategories: ["cuzdan-kartlik"],
-    fallbackQueries: ["cuzdan", "kartlik"],
-    targetNames: [
-      "Ic cepli klasik deri cuzdan",
-      "Citcitli deri kartlik",
-      "Telefon bolmeli uzun cuzdan",
-      "Dikey deri kartlik",
-    ],
-  },
-  {
-    id: "apple-watch",
-    title: "Apple Watch Kayislari",
-    subtitle: "One Cikanlar",
-    link: "/apple-watch-saat-kayislari",
-    fallbackCategories: ["apple-watch-saat-kayislari"],
-    fallbackQueries: ["Bund Cift Katli Apple Watch Deri Kayis"],
-    targetNames: [
-      "Bund Cift Katli Apple Watch Deri Kayis - Aci Kahve",
-      "Bund Cift Katli Apple Watch Deri Kayis - Antrasit",
-      "Bund Cift Katli Apple Watch Deri Kayis - Asfalt",
-      "Bund Cift Katli Apple Watch Deri Kayis - Camel",
-    ],
-  },
-  {
-    id: "accessories",
-    title: "Aksesuarlar",
-    subtitle: "Tamamlayicilar",
-    link: "/aksesuar",
-    fallbackCategories: ["aksesuar"],
-    fallbackQueries: ["Deri", "Aksesuar"],
-    targetNames: [
-      "Deri Gozluk Kilifi",
-      "Deri Rulo Kalemlik",
-      "Deri Airpods Kilifi",
-      "Deri Anahtar Kesesi Midi",
-    ],
-  },
-  {
-    id: "watch-straps",
-    title: "Deri Saat Kayislari",
-    subtitle: "Klasik Secim",
-    link: "/saat-kayislari",
-    fallbackCategories: ["saat-kayislari"],
-    fallbackQueries: ["Cift Katli Deri Saat Kayisi"],
-    targetNames: [
-      "Cift Katli Deri Saat Kayisi - Yesil",
-      "Cift Katli Deri Saat Kayisi - Taba",
-      "Cift Katli Deri Saat Kayisi - Siyah",
-      "Cift Katli Deri Saat Kayisi - Saffiano Kahve",
-    ],
-  },
-] as const;
+import type { HomepageCategory } from "@/lib/homepage";
+import { ROUTES } from "@/lib/constants";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 type ShowcaseProduct = Product & {
-  translationSourceName?: string;
   category?: string | null;
   subcategory?: string | null;
-  shopify_metadata?: {
-    celebix_category_hierarchy?: {
-      categorySlug?: string | null;
-      subcategorySlug?: string | null;
-    };
-  } | null;
 };
 
 interface ProductShowcaseSectionsProps {
+  categories?: HomepageCategory[];
   allProducts: ShowcaseProduct[];
   groupCopy?: Array<{
     title: string;
@@ -85,235 +24,102 @@ interface ProductShowcaseSectionsProps {
   viewAllLabel?: string;
 }
 
-const TEXT_NORMALIZATION_MAP: Record<string, string> = {
-  "\u00c7": "c",
-  "\u00e7": "c",
-  "\u011e": "g",
-  "\u011f": "g",
-  "\u0130": "i",
-  "\u0131": "i",
-  "\u00d6": "o",
-  "\u00f6": "o",
-  "\u015e": "s",
-  "\u015f": "s",
-  "\u00dc": "u",
-  "\u00fc": "u",
-};
-
-function normalizeText(value: string) {
-  return Array.from(value)
-    .map((char) => TEXT_NORMALIZATION_MAP[char] ?? char)
-    .join("")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("en-US")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+function normalizeKey(value?: string | null) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function getComparableProductName(product: ShowcaseProduct) {
-  return product.translationSourceName || product.name;
+function humanizeCategory(value?: string | null) {
+  return String(value || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
-function matchesTargetShape(normalizedName: string, normalizedTarget: string) {
-  const requiredPhrases = ["apple watch", "bund", "saat kayisi"].filter((phrase) =>
-    normalizedTarget.includes(phrase),
-  );
-  const forbiddenPhrases = ["apple watch", "bund"].filter((phrase) => !normalizedTarget.includes(phrase));
-
-  return (
-    requiredPhrases.every((phrase) => normalizedName.includes(phrase)) &&
-    forbiddenPhrases.every((phrase) => !normalizedName.includes(phrase))
-  );
-}
-
-function findProductByName(products: ShowcaseProduct[], targetName: string): ShowcaseProduct | null {
-  const normalizedTarget = normalizeText(targetName);
-  const targetTokens = normalizedTarget.split(" ").filter((token) => token.length > 1);
-  const distinctiveToken = targetTokens[targetTokens.length - 1] ?? "";
-  const requiresDistinctiveToken = targetTokens.length >= 5 && distinctiveToken.length >= 3;
-
-  const exactMatch = products.find(
-    (product) => normalizeText(getComparableProductName(product)) === normalizedTarget,
-  );
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const containsMatch = products.find((product) => {
-    const normalizedName = normalizeText(getComparableProductName(product));
-    return (
-      matchesTargetShape(normalizedName, normalizedTarget) &&
-      (normalizedName.includes(normalizedTarget) || normalizedTarget.includes(normalizedName))
-    );
-  });
-
-  if (containsMatch) {
-    return containsMatch;
-  }
-
-  const weightedMatch = products
-    .map((product) => {
-      const normalizedName = normalizeText(getComparableProductName(product));
-      const score = targetTokens.reduce((sum, token) => {
-        return sum + (normalizedName.includes(token) ? 1 : 0);
-      }, 0);
-      const lengthDelta = Math.abs(normalizedName.length - normalizedTarget.length);
-
-      return { product, score, normalizedName, lengthDelta };
-    })
-    .filter((entry) => entry.score >= Math.min(3, targetTokens.length))
-    .filter((entry) => !requiresDistinctiveToken || entry.normalizedName.includes(distinctiveToken))
-    .filter((entry) => matchesTargetShape(entry.normalizedName, normalizedTarget))
-    .sort((left, right) => right.score - left.score || left.lengthDelta - right.lengthDelta)[0];
-
-  return weightedMatch?.product ?? null;
-}
-
-function getProductCategoryCandidates(product: ShowcaseProduct) {
-  return [
-    product.category,
-    product.subcategory,
-    product.shopify_metadata?.celebix_category_hierarchy?.categorySlug,
-    product.shopify_metadata?.celebix_category_hierarchy?.subcategorySlug,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => normalizeText(value));
-}
-
-function getFallbackProductsForGroup(
-  products: ShowcaseProduct[],
-  usedProductIds: Set<string>,
-  fallbackCategories: readonly string[],
-  fallbackQueries: readonly string[],
-) {
-  const normalizedCategories = fallbackCategories.map((category) => normalizeText(category));
-  const normalizedQueries = fallbackQueries.map((query) => normalizeText(query));
-
-  return products
-    .filter((product) => !usedProductIds.has(product.id))
-    .map((product) => {
-      const comparableName = normalizeText(getComparableProductName(product));
-      const categoryCandidates = getProductCategoryCandidates(product);
-
-      const categoryScore = normalizedCategories.some((category) => categoryCandidates.includes(category)) ? 3 : 0;
-      const queryScore = normalizedQueries.reduce((score, query) => {
-        return score + (comparableName.includes(query) ? 5 : 0);
-      }, 0);
-
-      return {
-        product,
-        score: categoryScore + queryScore,
-      };
-    })
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score)
-    .map((entry) => entry.product);
-}
-
-function getProductsForGroup(
-  products: ShowcaseProduct[],
-  targetNames: readonly string[],
-  fallbackCategories: readonly string[] = [],
-  fallbackQueries: readonly string[] = [],
-) {
+function buildProductGroups(categories: HomepageCategory[], products: ShowcaseProduct[]) {
   const usedProductIds = new Set<string>();
-  const matchedProducts = targetNames
-    .map((targetName) => {
-      const match = findProductByName(
-        products.filter((product) => !usedProductIds.has(product.id)),
-        targetName,
+
+  return categories.slice(0, 4).map((category, index) => {
+    const categoryKey = normalizeKey(category.slug);
+    const categoryProducts = products.filter((product) => {
+      const productCategory = normalizeKey(product.category);
+      const productSubcategory = normalizeKey(product.subcategory);
+
+      return (
+        !usedProductIds.has(product.id) &&
+        (productCategory === categoryKey || productSubcategory === categoryKey)
       );
+    });
 
-      if (match) {
-        usedProductIds.add(match.id);
-      }
+    const selectedProducts = categoryProducts.slice(0, 4);
+    selectedProducts.forEach((product) => usedProductIds.add(product.id));
 
-      return match;
-    })
-    .filter((product): product is ShowcaseProduct => Boolean(product));
-
-  if (matchedProducts.length >= 4) {
-    return matchedProducts;
-  }
-
-  const fallbackProducts = getFallbackProductsForGroup(
-    products,
-    usedProductIds,
-    fallbackCategories,
-    fallbackQueries,
-  );
-
-  for (const fallbackProduct of fallbackProducts) {
-    if (matchedProducts.length >= 4) {
-      break;
-    }
-
-    if (!usedProductIds.has(fallbackProduct.id)) {
-      usedProductIds.add(fallbackProduct.id);
-      matchedProducts.push(fallbackProduct);
-    }
-  }
-
-  return matchedProducts;
+    return {
+      id: category.id,
+      title: category.name,
+      subtitle:
+        index === 0
+          ? "Secili Koleksiyon"
+          : index === 1
+            ? "One Cikanlar"
+            : index === 2
+              ? "Editorden"
+              : "Kesfet",
+      link: `/${category.slug}`,
+      products: selectedProducts,
+    };
+  });
 }
 
-function ProductGroupSection({
-  group,
-  products,
-  viewAllLabel,
-}: {
-  group: (typeof PRODUCT_GROUPS)[number] & {
-    fallbackCategories?: readonly string[];
-    fallbackQueries?: readonly string[];
-  };
-  products: ShowcaseProduct[];
-  viewAllLabel: string;
-}) {
-  const matchedProducts = getProductsForGroup(
-    products,
-    group.targetNames,
-    group.fallbackCategories ?? [],
-    group.fallbackQueries ?? [],
-  );
-
-  if (matchedProducts.length === 0) {
-    return null;
-  }
+function EmptyShowcaseState() {
+  const cards = [
+    {
+      title: "Urunleri Yayina Al",
+      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
+    },
+    {
+      title: "Manuel Sirayi Kullan",
+      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
+    },
+    {
+      title: "Kategori Kurgusunu Tamamla",
+      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
+    },
+  ];
 
   return (
     <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
       <div className="container-premium">
-        <div className="mb-12 flex items-end justify-between">
-          <div>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-              {group.subtitle}
-            </span>
-            <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">{group.title}</h2>
-          </div>
-          <Link
-            href={group.link}
-            className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
-          >
-            {viewAllLabel}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
+            <Sparkles className="h-3.5 w-3.5" />
+            Vitrin Hazir
+          </span>
+          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
+            Urunler geldikce bu alan Derycraft kalitesinde otomatik dolar
+          </h2>
+          <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
+            Extra tema eforu gerekmeden, admin panelindeki urun ve kategori girdileri vitrininizin
+            section duzenini doldurur.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
-          {matchedProducts.slice(0, 4).map((product) => (
-            <ProductCard key={product.id} product={product} />
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          {cards.map((card) => (
+            <div
+              key={card.title}
+              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                Otomatik
+              </p>
+              <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
+            </div>
           ))}
-        </div>
-
-        <div className="mt-10 flex justify-center sm:hidden">
-          <Link
-            href={group.link}
-            className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
-          >
-            {viewAllLabel}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
       </div>
     </section>
@@ -321,29 +127,76 @@ function ProductGroupSection({
 }
 
 export function ProductShowcaseSections({
+  categories = [],
   allProducts,
   groupCopy,
   viewAllLabel = "Tumunu Gor",
 }: ProductShowcaseSectionsProps) {
-  if (!allProducts || allProducts.length === 0) {
-    return null;
+  const { locale } = useStorefrontRoute();
+
+  if (!Array.isArray(allProducts) || allProducts.length === 0) {
+    return <EmptyShowcaseState />;
   }
 
-  const effectiveGroups = PRODUCT_GROUPS.map((group, index) => ({
+  const baseGroups = buildProductGroups(categories, allProducts);
+  const groups =
+    baseGroups.length > 0
+      ? baseGroups
+      : [
+          {
+            id: "latest",
+            title: "Yeni Gelenler",
+            subtitle: "Canli Secki",
+            link: ROUTES.products,
+            products: allProducts.slice(0, 4),
+          },
+          {
+            id: "featured",
+            title: "One Cikanlar",
+            subtitle: "Editor Secimi",
+            link: ROUTES.products,
+            products: allProducts.slice(4, 8),
+          },
+        ].filter((group) => group.products.length > 0);
+
+  const effectiveGroups = groups.map((group, index) => ({
     ...group,
-    title: groupCopy?.[index]?.title || group.title,
+    title: groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
     subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
   }));
 
   return (
     <>
       {effectiveGroups.map((group) => (
-        <ProductGroupSection
-          key={group.id}
-          group={group}
-          products={allProducts}
-          viewAllLabel={viewAllLabel}
-        />
+        <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
+          <div className="container-premium">
+            <div className="mb-12 flex items-end justify-between gap-6">
+              <div>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                  {group.subtitle}
+                </span>
+                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">{group.title}</h2>
+              </div>
+
+              <Link
+                href={buildLocalizedPath(
+                  group.link.startsWith("/") ? group.link : ROUTES.products,
+                  locale,
+                )}
+                className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
+              >
+                {viewAllLabel}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+              {group.products.slice(0, 4).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
       ))}
     </>
   );

@@ -29,6 +29,7 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
+  GripVertical,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -49,11 +50,17 @@ function getCategoryBadgeStyle(index: number) {
 // Transform database product to frontend format
 function transformProduct(dbProduct: Record<string, unknown>): AdminProductListItem {
   const variants = (dbProduct.variants as Record<string, unknown>[]) || [];
+  const normalizedSortOrder =
+    Number(
+      (dbProduct.sort_order as number | string | undefined) ??
+        (dbProduct.sortOrder as number | string | undefined) ??
+        0,
+    ) || 0;
   return {
     id: dbProduct.id as string,
     name: dbProduct.name as string,
     slug: dbProduct.slug as string,
-    sortOrder: Number(dbProduct.sort_order) || 0,
+    sortOrder: normalizedSortOrder,
     description: (dbProduct.description as string) || "",
     shortDescription: (dbProduct.short_description as string) || "",
     images: (dbProduct.images as string[]) || [],
@@ -107,6 +114,8 @@ export default function ProductsPageClient({
   const [bulkStockValue, setBulkStockValue] = useState("");
   const [bulkStockSubmitting, setBulkStockSubmitting] = useState(false);
   const [reorderingProductId, setReorderingProductId] = useState<string | null>(null);
+  const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
+  const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
   const hasLoadedInitialDataRef = useRef(false);
   const hasMountedFiltersRef = useRef(false);
   const categoryTree = buildProductCategoryTree(categories);
@@ -348,28 +357,27 @@ export default function ProductsPageClient({
     });
   };
 
-  const handleManualReorder = async (productId: string, direction: "up" | "down") => {
-    if (sortBy !== "manual" || reorderingProductId) {
-      return;
+  const canUseManualReorder = sortBy === "manual" && reorderingProductId === null;
+
+  const buildReorderedProducts = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) {
+      return sortedProducts;
     }
 
-    const currentIndex = sortedProducts.findIndex((product) => product.id === productId);
-    if (currentIndex < 0) {
-      return;
+    const nextProducts = [...sortedProducts];
+    const sourceIndex = nextProducts.findIndex((product) => product.id === sourceId);
+    const targetIndex = nextProducts.findIndex((product) => product.id === targetId);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return sortedProducts;
     }
 
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= sortedProducts.length) {
-      return;
-    }
+    const [movedProduct] = nextProducts.splice(sourceIndex, 1);
+    nextProducts.splice(targetIndex, 0, movedProduct);
+    return nextProducts;
+  };
 
-    const reorderedProducts = [...sortedProducts];
-    [reorderedProducts[currentIndex], reorderedProducts[targetIndex]] = [
-      reorderedProducts[targetIndex],
-      reorderedProducts[currentIndex],
-    ];
-
-    setReorderingProductId(productId);
+  const persistManualOrder = async (reorderedProducts: AdminProductListItem[]) => {
     setProducts(reorderedProducts);
     setNotice(null);
 
@@ -401,7 +409,74 @@ export default function ProductsPageClient({
       });
     } finally {
       setReorderingProductId(null);
+      setDraggedProductId(null);
+      setDragOverProductId(null);
     }
+  };
+
+  const handleManualReorder = async (productId: string, direction: "up" | "down") => {
+    if (sortBy !== "manual" || reorderingProductId) {
+      return;
+    }
+
+    const currentIndex = sortedProducts.findIndex((product) => product.id === productId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedProducts.length) {
+      return;
+    }
+
+    const reorderedProducts = [...sortedProducts];
+    [reorderedProducts[currentIndex], reorderedProducts[targetIndex]] = [
+      reorderedProducts[targetIndex],
+      reorderedProducts[currentIndex],
+    ];
+
+    setReorderingProductId(productId);
+    await persistManualOrder(reorderedProducts);
+  };
+
+  const handleDragStart = (event: React.DragEvent<HTMLElement>, productId: string) => {
+    if (!canUseManualReorder) {
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", productId);
+    setDraggedProductId(productId);
+    setDragOverProductId(productId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedProductId(null);
+    setDragOverProductId(null);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLElement>, productId: string) => {
+    if (!draggedProductId || draggedProductId === productId || !canUseManualReorder) {
+      return;
+    }
+
+    event.preventDefault();
+    if (dragOverProductId !== productId) {
+      setDragOverProductId(productId);
+    }
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLElement>, productId: string) => {
+    event.preventDefault();
+
+    if (!draggedProductId || draggedProductId === productId || !canUseManualReorder) {
+      handleDragEnd();
+      return;
+    }
+
+    setReorderingProductId(draggedProductId);
+    const reorderedProducts = buildReorderedProducts(draggedProductId, productId);
+    await persistManualOrder(reorderedProducts);
   };
 
   const filteredProducts = products;
@@ -612,7 +687,7 @@ export default function ProductsPageClient({
 
       {sortBy === "manual" ? (
         <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-          Manuel sira aktif. Yukari ve asagi hareketleri storefront urunlerinin sergilenme sirasi olarak kullanilir.
+          Manuel sıra aktif. Sol taraftaki tutamacı sürükleyip bırakarak ürünleri yeniden diz; storefront aynı sırayı kullanır.
         </div>
       ) : null}
 
@@ -622,7 +697,14 @@ export default function ProductsPageClient({
           {sortedProducts.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-3xl shadow-lg border border-gray-200 hover:shadow-2xl hover:border-primary/30 transition-all group"
+              onDragOver={(event) => handleDragOver(event, product.id)}
+              onDrop={(event) => void handleDrop(event, product.id)}
+              className={cn(
+                "bg-white rounded-3xl shadow-lg border border-gray-200 hover:shadow-2xl hover:border-primary/30 transition-all group",
+                dragOverProductId === product.id && draggedProductId !== product.id
+                  ? "ring-2 ring-blue-400 ring-offset-2"
+                  : "",
+              )}
             >
               {/* Checkbox */}
               <div className="absolute top-4 left-4 z-10">
@@ -730,9 +812,24 @@ export default function ProductsPageClient({
                 <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
                   {sortBy === "manual" ? (
                     <div className="col-span-3 mb-2 flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2">
-                      <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
-                        Sira {product.sortOrder || "Oto"}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <div
+                          draggable={canUseManualReorder}
+                          onDragStart={(event) => handleDragStart(event, product.id)}
+                          onDragEnd={handleDragEnd}
+                          className={cn(
+                            "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500",
+                            canUseManualReorder ? "cursor-grab hover:text-gray-900" : "cursor-not-allowed opacity-40",
+                            draggedProductId === product.id ? "cursor-grabbing text-blue-600" : "",
+                          )}
+                          title="Sürükleyip bırak"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                          Sıra {product.sortOrder || "Oto"}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -794,6 +891,9 @@ export default function ProductsPageClient({
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-50 to-white border-b-2 border-gray-200">
                 <tr>
+                  <th className="px-3 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Sürükle
+                  </th>
                   <th className="px-4 py-4 text-left">
                     <input
                       type="checkbox"
@@ -830,7 +930,32 @@ export default function ProductsPageClient({
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {sortedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={product.id}
+                    onDragOver={(event) => handleDragOver(event, product.id)}
+                    onDrop={(event) => void handleDrop(event, product.id)}
+                    className={cn(
+                      "hover:bg-gray-50 transition-colors",
+                      dragOverProductId === product.id && draggedProductId !== product.id
+                        ? "bg-blue-50"
+                        : "",
+                    )}
+                  >
+                    <td className="px-3 py-4">
+                      <div
+                        draggable={canUseManualReorder}
+                        onDragStart={(event) => handleDragStart(event, product.id)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500",
+                          canUseManualReorder ? "cursor-grab hover:text-gray-900" : "cursor-not-allowed opacity-40",
+                          draggedProductId === product.id ? "cursor-grabbing text-blue-600" : "",
+                        )}
+                        title="Sürükleyip bırak"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+                    </td>
                     <td className="px-4 py-4">
                       <input
                         type="checkbox"
