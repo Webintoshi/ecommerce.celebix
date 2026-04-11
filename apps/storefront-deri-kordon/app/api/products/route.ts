@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import {
     getVariantAttributeRegistry,
@@ -15,6 +16,7 @@ import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { DEFAULT_LOCALE, isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
 import { translateProductRecord } from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
+import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -40,27 +42,49 @@ function logMarketplaceQueueError(error: unknown, context: string) {
 function hydrateListingProducts(
     products: Record<string, unknown>[],
     attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+    rulesMap: Record<string, ProductDiscountRule[]> = {},
 ) {
-    return products.map((product) => ({
-        ...product,
-        variants: Array.isArray(product.variants)
+    return products.map((product) => {
+        const productId = typeof product.id === "string" ? product.id : "";
+        const rules = productId ? rulesMap[productId] || [] : [];
+        const hydratedVariants = Array.isArray(product.variants)
             ? hydrateProductVariantSnapshots(
                 product.variants as Array<Record<string, unknown>>,
                 attributeRegistry,
             )
-            : [],
-    }));
+            : [];
+
+        return {
+            ...product,
+            variants: hydratedVariants.map((variant) => {
+                const pricing = resolveVariantDisplayPricing(
+                    {
+                        price: Number(variant.price || 0),
+                        originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+                    },
+                    rules,
+                );
+
+                return {
+                    ...variant,
+                    price: pricing.price,
+                    original_price: pricing.originalPrice ?? null,
+                };
+            }),
+        };
+    });
 }
 
 function hydrateListingProduct(
     product: Record<string, unknown> | null,
     attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+    rulesMap: Record<string, ProductDiscountRule[]> = {},
 ) {
     if (!product) {
         return product;
     }
 
-    return hydrateListingProducts([product], attributeRegistry)[0];
+    return hydrateListingProducts([product], attributeRegistry, rulesMap)[0];
 }
 
 function buildListingPagination(page: number, limit: number, total: number) {
@@ -173,9 +197,10 @@ export async function GET(request: NextRequest) {
                 .single();
             if (error) throw error;
             const translatedProduct = await translateListingProduct(data, locale);
+            const rulesMap = await getProductDiscountRulesMap(supabase, [id]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise),
+                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
             });
         } else if (slug) {
             // Fetch single product by slug from Supabase
@@ -202,9 +227,10 @@ export async function GET(request: NextRequest) {
                 }, { status: 404 });
             }
             const translatedProduct = await translateListingProduct(data[0], locale);
+            const rulesMap = await getProductDiscountRulesMap(supabase, [String(data[0].id)]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise),
+                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
             });
         } else if (featured === "true") {
             const { data, error } = await fetchProductsForListing(supabase, { featured: true });
@@ -233,6 +259,10 @@ export async function GET(request: NextRequest) {
                 products: hydrateListingProducts(
                     await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
                     await attributeRegistryPromise,
+                    await getProductDiscountRulesMap(
+                        supabase,
+                        paginatedProducts.map((product) => String(product.id)),
+                    ),
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -257,6 +287,10 @@ export async function GET(request: NextRequest) {
                 products: hydrateListingProducts(
                     await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
                     await attributeRegistryPromise,
+                    await getProductDiscountRulesMap(
+                        supabase,
+                        paginatedProducts.map((product) => String(product.id)),
+                    ),
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -267,6 +301,10 @@ export async function GET(request: NextRequest) {
             products: hydrateListingProducts(
                 await translateListingProducts((products || []) as Record<string, unknown>[], locale),
                 await attributeRegistryPromise,
+                await getProductDiscountRulesMap(
+                    supabase,
+                    Array.isArray(products) ? products.map((product) => String(product.id)) : [],
+                ),
             ),
         });
     } catch (error) {

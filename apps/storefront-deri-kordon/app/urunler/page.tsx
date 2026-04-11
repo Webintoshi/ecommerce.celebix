@@ -8,10 +8,12 @@ import {
 import { Product } from "@/types/product";
 import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { translateProductRecord } from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
+import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +90,7 @@ interface DBVariant {
 function transformProduct(
   dbProduct: DBProduct,
   attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+  rules: ProductDiscountRule[] = [],
 ): Product {
   const hydratedVariants = hydrateProductVariantSnapshots(dbProduct.variants || [], attributeRegistry);
 
@@ -102,19 +105,29 @@ function transformProduct(
     images: dbProduct.images || [],
     tags: dbProduct.tags || [],
     variants:
-      hydratedVariants.map((v) => ({
-        id: v.id,
-        name: v.name,
-        weight: v.weight ? parseInt(v.weight) : 250,
-        price: Number(v.price),
-        originalPrice: v.original_price ? Number(v.original_price) : undefined,
-        stock: v.stock,
-        sku: v.sku || "",
-        groupName: v.group_name || undefined,
-        images: Array.isArray(v.images) ? v.images : [],
-        attributes: v.attributes,
-        raw_attributes: v.raw_attributes,
-      })) || [],
+      hydratedVariants.map((v) => {
+        const pricing = resolveVariantDisplayPricing(
+          {
+            price: Number(v.price),
+            originalPrice: v.original_price ? Number(v.original_price) : undefined,
+          },
+          rules,
+        );
+
+        return {
+          id: v.id,
+          name: v.name,
+          weight: v.weight ? parseInt(v.weight) : 250,
+          price: pricing.price,
+          originalPrice: pricing.originalPrice,
+          stock: v.stock,
+          sku: v.sku || "",
+          groupName: v.group_name || undefined,
+          images: Array.isArray(v.images) ? v.images : [],
+          attributes: v.attributes,
+          raw_attributes: v.raw_attributes,
+        };
+      }) || [],
     vegan: dbProduct.vegan,
     glutenFree: dbProduct.gluten_free,
     sugarFree: dbProduct.sugar_free,
@@ -158,6 +171,10 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
       (((products as DBProduct[]) || [])),
       productListingOrder,
     );
+    const discountRulesMap = await getProductDiscountRulesMap(
+      supabase,
+      orderedProducts.map((product) => product.id),
+    );
 
     const translatedProducts = await Promise.all(
       (orderedProducts.map((product) =>
@@ -166,7 +183,11 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
     );
 
     return translatedProducts.map((product) =>
-      transformProduct(product as DBProduct, attributeRegistry),
+      transformProduct(
+        product as DBProduct,
+        attributeRegistry,
+        discountRulesMap[(product as DBProduct).id] || [],
+      ),
     );
   } catch (error) {
     console.error("Failed to fetch products:", error);

@@ -5,6 +5,7 @@ import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getRequestLocale } from "@/lib/request-locale";
 import {
@@ -27,6 +28,7 @@ import {
   readCelebixCategoryHierarchyMetadata,
   sortProductsByListingOrder,
 } from "@celebix/platform-config";
+import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -140,13 +142,24 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
   }
 }
 
-function transformVariant(variant: DBVariant): ProductVariant {
+function transformVariant(
+  variant: DBVariant,
+  rules: ProductDiscountRule[] = [],
+): ProductVariant {
+  const pricing = resolveVariantDisplayPricing(
+    {
+      price: Number(variant.price || 0),
+      originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+    },
+    rules,
+  );
+
   return {
     id: variant.id,
     name: variant.name,
     weight: variant.weight ?? "0",
-    price: Number(variant.price || 0),
-    originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+    price: pricing.price,
+    originalPrice: pricing.originalPrice,
     stock: Number(variant.stock || 0),
     sku: variant.sku || "",
     barcode: variant.barcode || undefined,
@@ -177,6 +190,7 @@ function resolveProductCategorySlugs(product: DBProduct) {
 function transformProduct(
   product: DBProduct,
   attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+  rules: ProductDiscountRule[] = [],
 ): Product {
   const resolvedHierarchy = resolveProductCategorySlugs(product);
   const hydratedVariants = hydrateProductVariantSnapshots(product.variants || [], attributeRegistry);
@@ -189,7 +203,7 @@ function transformProduct(
     shortDescription: product.short_description || "",
     category: ((resolvedHierarchy.category || "genel") as unknown) as Product["category"],
     subcategory: ((resolvedHierarchy.subcategory || "genel") as unknown) as Product["subcategory"],
-    variants: hydratedVariants.map(transformVariant),
+    variants: hydratedVariants.map((variant) => transformVariant(variant, rules)),
     images:
       product.images && product.images.length > 0
         ? product.images
@@ -247,8 +261,14 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
         return categorySet.has(categorySlug) || categorySet.has(subcategorySlug);
       });
 
-    return sortProductsByListingOrder(matchingProducts, productListingOrder)
-      .map((product) => transformProduct(product, attributeRegistry))
+    const orderedProducts = sortProductsByListingOrder(matchingProducts, productListingOrder);
+    const discountRulesMap = await getProductDiscountRulesMap(
+      supabase,
+      orderedProducts.map((product) => product.id),
+    );
+
+    return orderedProducts
+      .map((product) => transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []))
       .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Unexpected error fetching products:", error);

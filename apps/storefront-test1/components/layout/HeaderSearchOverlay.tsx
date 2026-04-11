@@ -15,6 +15,8 @@ type SearchProductResult = {
   images?: string[] | null;
   variants?: Array<{
     price?: number | null;
+    originalPrice?: number | null;
+    original_price?: number | null;
   }> | null;
 };
 
@@ -298,7 +300,20 @@ export function HeaderSearchOverlay({
                 </div>
 
                 {results.slice(0, MAX_RESULTS).map((product) => {
-                  const priceLabel = formatPrice(product.variants?.[0]?.price);
+                  const firstVariant = product.variants?.[0];
+                  const priceLabel = formatPrice(firstVariant?.price);
+                  const originalPrice =
+                    typeof firstVariant?.originalPrice === "number"
+                      ? firstVariant.originalPrice
+                      : typeof firstVariant?.original_price === "number"
+                        ? firstVariant.original_price
+                        : null;
+                  const originalPriceLabel =
+                    typeof originalPrice === "number" &&
+                    typeof firstVariant?.price === "number" &&
+                    originalPrice > firstVariant.price
+                      ? formatPrice(originalPrice)
+                      : null;
 
                   return (
                     <Link
@@ -324,9 +339,16 @@ export function HeaderSearchOverlay({
                           {product.name}
                         </p>
                         {priceLabel ? (
-                          <p className="mt-2 text-sm font-medium text-neutral-600">
-                            {priceLabel}
-                          </p>
+                          <div className="mt-2 flex items-center gap-2">
+                            {originalPriceLabel ? (
+                              <p className="text-xs text-neutral-400 line-through">
+                                {originalPriceLabel}
+                              </p>
+                            ) : null}
+                            <p className="text-sm font-medium text-neutral-600">
+                              {priceLabel}
+                            </p>
+                          </div>
                         ) : null}
                       </div>
                     </Link>

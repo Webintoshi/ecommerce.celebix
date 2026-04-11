@@ -3,6 +3,7 @@ import "server-only";
 import { createServerClient } from "@/lib/supabase";
 import { fetchCategoriesServer } from "@/lib/categories";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import type {
   AdminPaginationMeta,
   AdminProductListItem,
@@ -11,6 +12,7 @@ import type {
 import { getProductListingOrderPositions } from "@/lib/db/settings";
 import type { CategoryInfo } from "@/types/product";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
+import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
 type ProductRow = {
   id: string;
@@ -51,18 +53,26 @@ type CategoryRow = {
   seo_description?: string | null;
 };
 
-function mapVariant(row: VariantRow): AdminProductVariant {
+function mapVariant(row: VariantRow, rules: ProductDiscountRule[] = []): AdminProductVariant {
+  const pricing = resolveVariantDisplayPricing(
+    {
+      price: Number(row.price || 0),
+      originalPrice: row.original_price ? Number(row.original_price) : undefined,
+    },
+    rules,
+  );
+
   return {
     id: row.id,
     name: row.name || "Varsayilan",
-    price: Number(row.price || 0),
-    originalPrice: row.original_price ? Number(row.original_price) : undefined,
+    price: pricing.price,
+    originalPrice: pricing.originalPrice,
     stock: Number(row.stock || 0),
     sku: row.sku || "",
   };
 }
 
-function mapProduct(row: ProductRow): AdminProductListItem {
+function mapProduct(row: ProductRow, rules: ProductDiscountRule[] = []): AdminProductListItem {
   return {
     id: row.id,
     name: row.name,
@@ -76,7 +86,7 @@ function mapProduct(row: ProductRow): AdminProductListItem {
     category: row.category || "",
     subcategory: row.subcategory || "",
     tags: row.tags || [],
-    variants: (row.variants || []).map(mapVariant),
+    variants: (row.variants || []).map((variant) => mapVariant(variant, rules)),
     featured: Boolean(row.is_featured),
     isNew: Boolean(row.is_new),
   };
@@ -132,13 +142,18 @@ export async function getAdminProductsBootstrap(
     throw productsResponse.error;
   }
 
+  const discountRulesMap = await getProductDiscountRulesMap(
+    supabase,
+    (productsResponse.data || []).map((product) => product.id),
+  );
+
   const total = Number(productsCountResponse.count || 0);
   const orderedProducts = sortProductsByListingOrder(
     (productsResponse.data || []) as Array<ProductRow & { created_at?: string | null }>,
     productListingOrder,
   );
   const paginatedProducts = orderedProducts.slice(offset, offset + safeLimit).map((row, index) => ({
-    ...mapProduct(row),
+    ...mapProduct(row, discountRulesMap[row.id] || []),
     sortOrder:
       typeof productListingOrder[row.id] === "number"
         ? productListingOrder[row.id]

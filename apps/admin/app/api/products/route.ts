@@ -4,6 +4,7 @@ import { deleteProduct } from "@/lib/db/products";
 import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
     diffProductTags,
     syncProductTagSuggestions,
@@ -15,6 +16,7 @@ import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribut
 import { buildGeneratedSku } from "@/lib/sku";
 import { inferLegacySubcategorySlug, withCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
+import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
 export const runtime = "nodejs";
 
@@ -210,40 +212,62 @@ function normalizeVariantAttributes(value: unknown): unknown[] {
     });
 }
 
-function normalizeVariantRecord(value: unknown) {
+function normalizeVariantRecord(value: unknown, rules: ProductDiscountRule[] = []) {
     if (!value || typeof value !== "object") {
         return value;
     }
 
     const record = value as Record<string, unknown>;
+    const pricing = resolveVariantDisplayPricing(
+        {
+            price: Number(record.price || 0),
+            originalPrice: record.original_price ? Number(record.original_price) : undefined,
+        },
+        rules,
+    );
     return {
         ...record,
+        price: pricing.price,
+        original_price: pricing.originalPrice ?? null,
         images: normalizeImageArray(record.images),
         attributes: normalizeVariantAttributes(record.attributes),
     };
 }
 
-function normalizeProductRecord(value: unknown) {
+function normalizeProductRecord(
+    value: unknown,
+    rulesMap: Record<string, ProductDiscountRule[]> = {},
+) {
     if (!value || typeof value !== "object") {
         return value;
     }
 
     const record = value as Record<string, unknown>;
+    const productRules =
+        typeof record.id === "string"
+            ? rulesMap[record.id] || []
+            : [];
     return {
         ...record,
         images: normalizeImageArray(record.images),
         images_v2: normalizeImagesV2(record.images_v2),
         og_image: normalizeAssetUrl(record.og_image),
-        variants: Array.isArray(record.variants) ? record.variants.map(normalizeVariantRecord) : record.variants,
+        discount_rules: productRules,
+        variants: Array.isArray(record.variants)
+            ? record.variants.map((variant) => normalizeVariantRecord(variant, productRules))
+            : record.variants,
     };
 }
 
-function normalizeProductsPayload(value: unknown) {
+function normalizeProductsPayload(
+    value: unknown,
+    rulesMap: Record<string, ProductDiscountRule[]> = {},
+) {
     if (Array.isArray(value)) {
-        return value.map(normalizeProductRecord);
+        return value.map((item) => normalizeProductRecord(item, rulesMap));
     }
 
-    return normalizeProductRecord(value);
+    return normalizeProductRecord(value, rulesMap);
 }
 
 const SEARCH_RESULT_SCAN_LIMIT = 2000;
@@ -383,7 +407,13 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            return NextResponse.json({ success: true, product: normalizeProductsPayload(data) });
+            return NextResponse.json({
+                success: true,
+                product: normalizeProductsPayload(
+                    data,
+                    await getProductDiscountRulesMap(supabase, [id]),
+                ),
+            });
         } else if (slug) {
             // Fetch single product by slug from Supabase
             const { data, error } = await supabase
@@ -399,7 +429,13 @@ export async function GET(request: NextRequest) {
                     error: error?.message || "Product not found"
                 }, { status: 404 });
             }
-            return NextResponse.json({ success: true, product: normalizeProductsPayload(data[0]) });
+            return NextResponse.json({
+                success: true,
+                product: normalizeProductsPayload(
+                    data[0],
+                    await getProductDiscountRulesMap(supabase, [String(data[0].id)]),
+                ),
+            });
         } else if (featured === "true") {
             const { data, error } = await fetchProductsForListing(supabase, {
                 featured: true,
@@ -460,7 +496,13 @@ export async function GET(request: NextRequest) {
 
                 return NextResponse.json({
                     success: true,
-                    products: normalizeProductsPayload(attachListingPositions(listedProducts, productListingOrder)),
+                    products: normalizeProductsPayload(
+                        attachListingPositions(listedProducts, productListingOrder),
+                        await getProductDiscountRulesMap(
+                            supabase,
+                            listedProducts.map((product) => String(product.id)),
+                        ),
+                    ),
                     pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
                 });
             }
@@ -480,12 +522,27 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: normalizeProductsPayload(attachListingPositions(listedProducts, productListingOrder)),
+                products: normalizeProductsPayload(
+                    attachListingPositions(listedProducts, productListingOrder),
+                    await getProductDiscountRulesMap(
+                        supabase,
+                        listedProducts.map((product) => String(product.id)),
+                    ),
+                ),
                 pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
             });
         }
 
-        return NextResponse.json({ success: true, products: normalizeProductsPayload(products) });
+        return NextResponse.json({
+            success: true,
+            products: normalizeProductsPayload(
+                products,
+                await getProductDiscountRulesMap(
+                    supabase,
+                    Array.isArray(products) ? products.map((product) => String(product.id)) : [],
+                ),
+            ),
+        });
     } catch (error) {
         console.error("Error fetching products:", error);
         return NextResponse.json(

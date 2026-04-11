@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
 import { getProductBySlug } from "@/lib/products";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
@@ -10,6 +11,7 @@ import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -136,6 +138,8 @@ export default async function ProductDetailPage({
         supabase,
         dbProduct.id,
       );
+      const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
+      const productDiscountRules = discountRulesMap[dbProduct.id] || [];
 
       if (variantsError) {
         console.error("Variants fetch error:", variantsError);
@@ -168,6 +172,13 @@ export default async function ProductDetailPage({
 
       const transformedVariants =
         variants?.map((variant: any) => {
+          const pricing = resolveVariantDisplayPricing(
+            {
+              price: Number(variant.price || 0),
+              originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+            },
+            productDiscountRules,
+          );
           let attrs = Array.isArray(variant.linked_attributes)
             ? variant.linked_attributes.map((attribute: any) => ({
                 ...attribute.attribute_value,
@@ -199,7 +210,8 @@ export default async function ProductDetailPage({
 
           return {
             ...variant,
-            originalPrice: variant.original_price,
+            price: pricing.price,
+            originalPrice: pricing.originalPrice,
             attributes: attrs,
           };
         }) || [];

@@ -13,6 +13,7 @@ export * from "./translation";
 export * from "./next-build";
 export * from "./seo";
 export * from "./product-listing-order";
+export * from "./product-pricing";
 
 export interface StoreRegistryEntry {
   slug: string;

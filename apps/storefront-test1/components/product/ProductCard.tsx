@@ -98,7 +98,12 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
-  const displayPrice = product.variants?.[0]?.price;
+  const displayVariant = product.variants?.[0];
+  const displayPrice = displayVariant?.price;
+  const originalPrice =
+    displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
+      ? displayVariant.originalPrice
+      : undefined;
   const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
 
   if (viewMode === "list") {
@@ -126,7 +131,14 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             </h3>
             <ProductCardRating product={product} />
             {typeof displayPrice === "number" ? (
-              <p className="mt-1 text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                {originalPrice ? (
+                  <span className="text-xs text-neutral-400 line-through">
+                    {formatPrice(originalPrice)}
+                  </span>
+                ) : null}
+                <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
+              </div>
             ) : null}
             <ProductCardSwatches product={product} />
           </div>
@@ -161,7 +173,14 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       <ProductCardRating product={product} />
 
       {typeof displayPrice === "number" ? (
-        <p className="mt-1 text-center text-sm font-medium text-neutral-900">{formatPrice(displayPrice)}</p>
+        <div className="mt-1 flex items-baseline justify-center gap-2">
+          {originalPrice ? (
+            <span className="text-xs text-neutral-400 line-through">
+              {formatPrice(originalPrice)}
+            </span>
+          ) : null}
+          <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
+        </div>
       ) : null}
 
       <ProductCardSwatches product={product} />

@@ -16,6 +16,8 @@ type SearchProductResult = {
   images?: string[] | null;
   variants?: Array<{
     price?: number | null;
+    originalPrice?: number | null;
+    original_price?: number | null;
   }> | null;
 };
 
@@ -194,7 +196,20 @@ export function HeaderSearchOverlay({
           ) : (
             <div className="py-2">
               {results.slice(0, MAX_RESULTS).map((product) => {
-                const price = formatPrice(product.variants?.[0]?.price);
+                const firstVariant = product.variants?.[0];
+                const price = formatPrice(firstVariant?.price);
+                const originalPrice =
+                  typeof firstVariant?.originalPrice === "number"
+                    ? firstVariant.originalPrice
+                    : typeof firstVariant?.original_price === "number"
+                      ? firstVariant.original_price
+                      : null;
+                const originalPriceLabel =
+                  typeof originalPrice === "number" &&
+                  typeof firstVariant?.price === "number" &&
+                  originalPrice > firstVariant.price
+                    ? formatPrice(originalPrice)
+                    : null;
                 return (
                   <Link
                     key={product.id}
@@ -213,9 +228,16 @@ export function HeaderSearchOverlay({
                       <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-neutral-700">
                         {product.name}
                       </p>
-                      {price && (
-                        <p className="text-xs text-neutral-500">{price}</p>
-                      )}
+                      {price ? (
+                        <div className="mt-1 flex items-center gap-2">
+                          {originalPriceLabel ? (
+                            <p className="text-[11px] text-neutral-400 line-through">
+                              {originalPriceLabel}
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-neutral-500">{price}</p>
+                        </div>
+                      ) : null}
                     </div>
                   </Link>
                 );

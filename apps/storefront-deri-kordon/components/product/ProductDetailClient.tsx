@@ -369,14 +369,14 @@ export function ProductDetailClient({
 
               {/* Price */}
               <div className="flex items-center gap-3">
-                <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
-                  {formatPrice(displayPrice)}
-                </span>
                 {displayOriginalPrice !== undefined && (
-                  <span className="text-lg text-neutral-400 line-through">
+                  <span className="text-sm lg:text-base text-neutral-400 line-through">
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
+                <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
+                  {formatPrice(displayPrice)}
+                </span>
               </div>
 
               {/* Badges */}

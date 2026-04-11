@@ -12,11 +12,13 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { translateProductRecord } from "@/lib/translation";
+import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
   getVariantAttributeRegistry,
   hydrateVariantAttributes,
   inferVariantAttributesFromName,
 } from "@/lib/variant-attribute-hydration";
+import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -232,6 +234,8 @@ export default async function ProductDetailPage({
       const dbProduct = dbProducts[0];
       // Ayri olarak varyantlari cek (nitelikleriyle birlikte)
       const { data: variants, error: variantsError } = await fetchProductVariants(supabase, dbProduct.id);
+      const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
+      const productDiscountRules = discountRulesMap[dbProduct.id] || [];
       
       if (variantsError) {
         console.error('Variants fetch error:', variantsError);
@@ -245,6 +249,13 @@ export default async function ProductDetailPage({
       
       // Transform variants with attributes
       let transformedVariants = variants?.map((v: any) => {
+        const pricing = resolveVariantDisplayPricing(
+          {
+            price: Number(v.price || 0),
+            originalPrice: v.original_price ? Number(v.original_price) : undefined,
+          },
+          productDiscountRules,
+        );
         const linkedAttributes = Array.isArray(v.linked_attributes)
           ? v.linked_attributes.map((a: any) => ({
               ...a.attribute_value,
@@ -264,7 +275,8 @@ export default async function ProductDetailPage({
 
         return {
           ...v,
-          originalPrice: v.original_price,
+          price: pricing.price,
+          originalPrice: pricing.originalPrice,
           images: Array.isArray(v.images) ? v.images : [],
           attributes: attrs,
         };
