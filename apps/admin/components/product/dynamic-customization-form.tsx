@@ -67,6 +67,34 @@ export function DynamicCustomizationForm({
   const [addingToCart, setAddingToCart] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
+  const buildDefaultValues = useCallback((steps: CustomizationStep[]) => {
+    const defaultValues: Record<string, unknown> = {};
+
+    for (const step of steps) {
+      if (step.default_value !== undefined) {
+        defaultValues[step.key] = step.default_value;
+        continue;
+      }
+
+      const options = Array.isArray(step.options)
+        ? [...step.options].sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+        : [];
+      const defaultOptions = options.filter((option) => option.is_default && !option.is_disabled);
+
+      if (step.type === "multi_select") {
+        defaultValues[step.key] = defaultOptions.map((option) => option.value);
+      } else if (["select", "radio_group", "image_select"].includes(step.type)) {
+        if (defaultOptions[0]?.value !== undefined) {
+          defaultValues[step.key] = defaultOptions[0].value;
+        }
+      } else if (step.type === "checkbox") {
+        defaultValues[step.key] = false;
+      }
+    }
+
+    return defaultValues;
+  }, []);
+
   // Load schema
   useEffect(() => {
     async function loadSchema() {
@@ -105,17 +133,7 @@ export function DynamicCustomizationForm({
         setSchema({ ...schemaData, steps: stepsWithOptions });
 
         // Set default values
-        const defaultValues: Record<string, unknown> = {};
-        for (const step of stepsWithOptions) {
-          if (step.default_value !== undefined) {
-            defaultValues[step.key] = step.default_value;
-          } else if (step.type === "checkbox") {
-            defaultValues[step.key] = false;
-          } else if (step.type === "multi_select") {
-            defaultValues[step.key] = [];
-          }
-        }
-        setValues(defaultValues);
+        setValues(buildDefaultValues(stepsWithOptions));
       } catch (error) {
         console.error("Error loading schema:", error);
         toast.error("Kişiselleştirme şeması yüklenirken bir hata oluştu");
@@ -125,7 +143,7 @@ export function DynamicCustomizationForm({
     }
 
     loadSchema();
-  }, [schemaId]);
+  }, [buildDefaultValues, schemaId]);
 
   // Calculate price when values change
   useEffect(() => {

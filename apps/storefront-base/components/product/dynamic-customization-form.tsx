@@ -111,10 +111,22 @@ function buildDefaultValues(steps: CustomizationStep[]) {
   for (const step of steps) {
     if (step.default_value !== undefined) {
       defaultValues[step.key] = step.default_value;
+      continue;
+    }
+
+    const options = Array.isArray(step.options)
+      ? [...step.options].sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+      : [];
+    const defaultOptions = options.filter((option) => option.is_default && !option.is_disabled);
+
+    if (step.type === "multi_select") {
+      defaultValues[step.key] = defaultOptions.map((option) => option.value);
+    } else if (["select", "radio_group", "image_select"].includes(step.type)) {
+      if (defaultOptions[0]?.value !== undefined) {
+        defaultValues[step.key] = defaultOptions[0].value;
+      }
     } else if (step.type === "checkbox") {
       defaultValues[step.key] = false;
-    } else if (step.type === "multi_select") {
-      defaultValues[step.key] = [];
     }
   }
 
