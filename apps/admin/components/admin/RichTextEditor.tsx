@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bold,
@@ -14,6 +13,10 @@ import {
   Quote,
   X,
 } from "lucide-react";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import StarterKit from "@tiptap/starter-kit";
+import { EditorContent, useEditor } from "@tiptap/react";
 import { cn } from "@/lib/utils";
 import {
   extractPlainTextFromProductDescription,
@@ -55,12 +58,31 @@ const TOOLBAR_ACTIONS: Array<{
   { id: "clear", label: "Temizle", icon: X },
 ];
 
-function isSelectionInsideEditor(selection: Selection | null, editor: HTMLDivElement | null) {
-  if (!selection || !editor || selection.rangeCount === 0) {
+function resolveToolbarActive(editor: ReturnType<typeof useEditor>, action: ToolbarAction) {
+  if (!editor) {
     return false;
   }
 
-  return editor.contains(selection.anchorNode);
+  switch (action) {
+    case "h2":
+      return editor.isActive("heading", { level: 2 });
+    case "h3":
+      return editor.isActive("heading", { level: 3 });
+    case "bold":
+      return editor.isActive("bold");
+    case "italic":
+      return editor.isActive("italic");
+    case "ul":
+      return editor.isActive("bulletList");
+    case "ol":
+      return editor.isActive("orderedList");
+    case "quote":
+      return editor.isActive("blockquote");
+    case "link":
+      return editor.isActive("link");
+    default:
+      return false;
+  }
 }
 
 export function RichTextEditor({
@@ -70,218 +92,160 @@ export function RichTextEditor({
   error,
   minHeightClassName = "min-h-[220px]",
 }: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const savedSelectionRef = useRef<Range | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
   const normalizedValue = useMemo(() => normalizeProductDescriptionHtml(value), [value]);
   const plainTextValue = useMemo(
     () => extractPlainTextFromProductDescription(normalizedValue),
     [normalizedValue],
   );
 
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [2, 3],
+        },
+      }),
+      Link.configure({
+        autolink: true,
+        openOnClick: false,
+        protocols: ["http", "https", "mailto", "tel"],
+      }),
+      Placeholder.configure({
+        placeholder,
+      }),
+    ],
+    content: normalizedValue || "<p></p>",
+    editorProps: {
+      attributes: {
+        class: cn(
+          "prose prose-neutral max-w-none px-5 py-4 text-sm text-gray-900 outline-none",
+          "focus:outline-none [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:float-left",
+          "[&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:text-gray-400",
+          "[&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+          "[&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300",
+          "[&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mb-3 [&_h2]:mt-4 [&_h2]:text-xl",
+          "[&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold",
+          "[&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-5",
+          minHeightClassName,
+        ),
+      },
+    },
+    onUpdate: ({ editor: nextEditor }) => {
+      onChange(normalizeProductDescriptionHtml(nextEditor.getHTML()));
+    },
+  });
+
   useEffect(() => {
-    const editor = editorRef.current;
-
     if (!editor) {
       return;
     }
 
-    if (editor.innerHTML !== normalizedValue) {
-      editor.innerHTML = normalizedValue;
+    const currentNormalized = normalizeProductDescriptionHtml(editor.getHTML());
+    if (currentNormalized !== normalizedValue) {
+      editor.commands.setContent(normalizedValue || "<p></p>", false);
     }
-  }, [normalizedValue]);
+  }, [editor, normalizedValue]);
 
-  const syncEditorState = useCallback(() => {
-    const editor = editorRef.current;
-
+  const runToolbarAction = (action: ToolbarAction) => {
     if (!editor) {
       return;
     }
 
-    const nextValue = normalizeProductDescriptionHtml(editor.innerHTML);
-    if (editor.innerHTML !== nextValue) {
-      editor.innerHTML = nextValue;
-    }
+    if (action === "link") {
+      const previousHref = editor.getAttributes("link").href as string | undefined;
+      const href = window.prompt("Bağlantıyı girin", previousHref || "https://");
 
-    onChange(nextValue);
-  }, [onChange]);
+      if (href === null) {
+        return;
+      }
 
-  const focusEditor = useCallback(() => {
-    editorRef.current?.focus();
-  }, []);
+      const nextHref = href.trim();
+      if (!nextHref) {
+        editor.chain().focus().extendMarkRange("link").unsetLink().run();
+        return;
+      }
 
-  const saveSelection = useCallback(() => {
-    const selection = window.getSelection();
-    if (!isSelectionInsideEditor(selection, editorRef.current) || selection.rangeCount === 0) {
+      editor.chain().focus().extendMarkRange("link").setLink({ href: nextHref }).run();
       return;
     }
 
-    savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
-  }, []);
-
-  const restoreSelection = useCallback(() => {
-    const selection = window.getSelection();
-    const savedRange = savedSelectionRef.current;
-
-    if (!selection || !savedRange) {
-      return false;
+    if (action === "clear") {
+      editor.chain().focus().clearNodes().unsetAllMarks().run();
+      return;
     }
 
-    selection.removeAllRanges();
-    selection.addRange(savedRange);
-    return true;
-  }, []);
+    if (action === "h2") {
+      editor.chain().focus().toggleHeading({ level: 2 }).run();
+      return;
+    }
 
-  const runToolbarAction = useCallback(
-    (action: ToolbarAction) => {
-      focusEditor();
-      restoreSelection();
+    if (action === "h3") {
+      editor.chain().focus().toggleHeading({ level: 3 }).run();
+      return;
+    }
 
-      const selection = window.getSelection();
-      if (!isSelectionInsideEditor(selection, editorRef.current)) {
-        return;
-      }
+    if (action === "ul") {
+      editor.chain().focus().toggleBulletList().run();
+      return;
+    }
 
-      if (action === "link") {
-        const href = window.prompt("Bağlantıyı girin", "https://");
-        if (!href) {
-          return;
-        }
+    if (action === "ol") {
+      editor.chain().focus().toggleOrderedList().run();
+      return;
+    }
 
-        document.execCommand("createLink", false, href);
-        syncEditorState();
-        saveSelection();
-        return;
-      }
+    if (action === "quote") {
+      editor.chain().focus().toggleBlockquote().run();
+      return;
+    }
 
-      if (action === "clear") {
-        document.execCommand("removeFormat");
-        syncEditorState();
-        saveSelection();
-        return;
-      }
+    if (action === "bold") {
+      editor.chain().focus().toggleBold().run();
+      return;
+    }
 
-      if (action === "h2" || action === "h3" || action === "quote") {
-        const blockMap: Record<"h2" | "h3" | "quote", string> = {
-          h2: "H2",
-          h3: "H3",
-          quote: "BLOCKQUOTE",
-        };
-
-        document.execCommand("formatBlock", false, blockMap[action]);
-        syncEditorState();
-        saveSelection();
-        return;
-      }
-
-      if (action === "ul") {
-        document.execCommand("insertUnorderedList");
-        syncEditorState();
-        saveSelection();
-        return;
-      }
-
-      if (action === "ol") {
-        document.execCommand("insertOrderedList");
-        syncEditorState();
-        saveSelection();
-        return;
-      }
-
-      if (action === "bold") {
-        document.execCommand("bold");
-        syncEditorState();
-        saveSelection();
-        return;
-      }
-
-      if (action === "italic") {
-        document.execCommand("italic");
-        syncEditorState();
-        saveSelection();
-      }
-    },
-    [focusEditor, restoreSelection, saveSelection, syncEditorState],
-  );
-
-  const handlePaste = useCallback(
-    (event: React.ClipboardEvent<HTMLDivElement>) => {
-      event.preventDefault();
-
-      const html = event.clipboardData.getData("text/html");
-      const text = event.clipboardData.getData("text/plain");
-      const nextValue = normalizeProductDescriptionHtml(html || text);
-
-      document.execCommand("insertHTML", false, nextValue);
-      syncEditorState();
-      saveSelection();
-    },
-    [saveSelection, syncEditorState],
-  );
-
-  const handleToolbarMouseDown = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>, action: ToolbarAction) => {
-      event.preventDefault();
-      runToolbarAction(action);
-    },
-    [runToolbarAction],
-  );
+    if (action === "italic") {
+      editor.chain().focus().toggleItalic().run();
+    }
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {TOOLBAR_ACTIONS.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            onMouseDown={(event) => handleToolbarMouseDown(event, action.id)}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
-          >
-            <action.icon className="h-3.5 w-3.5" />
-            {action.label}
-          </button>
-        ))}
+        {TOOLBAR_ACTIONS.map((action) => {
+          const isActive = resolveToolbarActive(editor, action.id);
+
+          return (
+            <button
+              key={action.id}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                runToolbarAction(action.id);
+              }}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                isActive
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-900 hover:text-gray-900",
+              )}
+            >
+              <action.icon className="h-3.5 w-3.5" />
+              {action.label}
+            </button>
+          );
+        })}
       </div>
 
       <div
         className={cn(
           "relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all",
           error ? "border-rose-300 bg-rose-50/20" : "border-gray-200",
-          isFocused && !error ? "border-blue-500 ring-4 ring-blue-50" : "",
+          editor?.isFocused && !error ? "border-blue-500 ring-4 ring-blue-50" : "",
         )}
       >
-        {!plainTextValue && !isFocused ? (
-          <div className="pointer-events-none absolute left-5 right-5 top-4 text-sm text-gray-400">
-            {placeholder}
-          </div>
-        ) : null}
-
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onFocus={() => {
-            setIsFocused(true);
-            restoreSelection();
-          }}
-          onBlur={() => {
-            setIsFocused(false);
-            saveSelection();
-            syncEditorState();
-          }}
-          onInput={() => {
-            syncEditorState();
-            saveSelection();
-          }}
-          onMouseUp={saveSelection}
-          onKeyUp={saveSelection}
-          onPaste={handlePaste}
-          className={cn(
-            "prose prose-neutral max-w-none px-5 py-4 text-sm text-gray-900 outline-none",
-            minHeightClassName,
-            "[&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mb-3 [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-5",
-          )}
-        />
+        <EditorContent editor={editor} />
       </div>
 
       <div className="flex items-center justify-between text-xs text-gray-500">
