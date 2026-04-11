@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ElementType } from "react";
 import {
   ShoppingCart,
   Eye,
@@ -19,7 +20,7 @@ import type { LiveAnalyticsEvent, LiveAnalyticsSnapshot } from "@/lib/admin-data
 import { cn } from "@/lib/utils";
 
 interface EventConfig {
-  icon: React.ElementType;
+  icon: ElementType;
   label: string;
   color: string;
   bgColor: string;
@@ -29,8 +30,8 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   add_to_cart: {
     icon: ShoppingCart,
     label: "Sepete eklendi",
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
+    color: "text-[#FE6100]",
+    bgColor: "bg-[#FE6100]/10",
   },
   remove_from_cart: {
     icon: ShoppingCart,
@@ -41,20 +42,20 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   view_product: {
     icon: Eye,
     label: "Ürün görüntülendi",
-    color: "text-gray-600",
-    bgColor: "bg-gray-100",
+    color: "text-[#2B2B2B]",
+    bgColor: "bg-[#2B2B2B]/6",
   },
   checkout_start: {
     icon: CreditCard,
     label: "Ödeme başladı",
-    color: "text-violet-600",
-    bgColor: "bg-violet-50",
+    color: "text-[#FE6100]",
+    bgColor: "bg-[#FE6100]/10",
   },
   checkout_step: {
     icon: CreditCard,
     label: "Ödeme adımı",
-    color: "text-violet-500",
-    bgColor: "bg-violet-50",
+    color: "text-[#2B2B2B]",
+    bgColor: "bg-[#F2F1F8]",
   },
   purchase: {
     icon: CheckCircle,
@@ -65,14 +66,14 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   search: {
     icon: Search,
     label: "Arama yapıldı",
-    color: "text-amber-600",
+    color: "text-[#C74C00]",
     bgColor: "bg-amber-50",
   },
   click: {
     icon: MousePointer,
-    label: "Tiklama",
-    color: "text-gray-500",
-    bgColor: "bg-gray-50",
+    label: "Tıklama",
+    color: "text-[#2B2B2B]/70",
+    bgColor: "bg-[#2B2B2B]/6",
   },
   wishlist_add: {
     icon: Heart,
@@ -82,9 +83,9 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   },
   share: {
     icon: Share2,
-    label: "Paylasildi",
-    color: "text-cyan-600",
-    bgColor: "bg-cyan-50",
+    label: "Paylaşıldı",
+    color: "text-[#2B2B2B]",
+    bgColor: "bg-[#F2F1F8]",
   },
 };
 
@@ -136,33 +137,30 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
   const eventTypes = useMemo(() => [...new Set(events.map((event) => event.type))], [events]);
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60">
-      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 text-white">
-            <Zap className="h-4 w-4" />
+    <div className="overflow-hidden rounded-[26px] border border-[#2B2B2B]/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] shadow-[0_18px_50px_rgba(43,43,43,0.06)] backdrop-blur">
+      <div className="flex items-center justify-between border-b border-[#2B2B2B]/7 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#FE6100]/10 text-[#FE6100]">
+            <Zap className="h-[18px] w-[18px]" />
           </div>
-          <h3 className="font-semibold text-gray-900">Anlık Aktivite</h3>
+          <h3 className="font-semibold text-[#2B2B2B]">Anlık Aktivite</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-          </span>
-          <span className="text-xs font-medium text-amber-600">Canlı</span>
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#FE6100]/8 px-3 py-1 text-xs font-medium text-[#C74C00]">
+          <span className="h-2 w-2 rounded-full bg-[#FE6100]" />
+          Canlı
         </div>
       </div>
 
       {eventTypes.length > 0 ? (
-        <div className="border-b border-gray-100 px-4 py-3">
+        <div className="border-b border-[#2B2B2B]/7 px-4 py-3">
           <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setFilter(null)}
               className={cn(
-                "flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                "flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
                 filter === null
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "border-[#2B2B2B] bg-[#2B2B2B] text-white"
+                  : "border-[#2B2B2B]/8 bg-white/72 text-[#2B2B2B]/62 hover:border-[#FE6100]/16 hover:text-[#FE6100]"
               )}
             >
               Tümü
@@ -177,10 +175,10 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                   key={type}
                   onClick={() => setFilter(filter === type ? null : type)}
                   className={cn(
-                    "flex flex-shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                    "flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
                     filter === type
-                      ? cn(config.bgColor.replace("bg-", "bg-opacity-100 bg-"), config.color)
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "border-[#FE6100]/18 bg-[#FE6100]/10 text-[#C74C00]"
+                      : "border-[#2B2B2B]/8 bg-white/72 text-[#2B2B2B]/62 hover:border-[#FE6100]/16 hover:text-[#FE6100]"
                   )}
                 >
                   <Icon className="h-3 w-3" />
@@ -195,21 +193,21 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       <div className="max-h-[320px] overflow-y-auto">
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-              <TrendingUp className="h-8 w-8 text-gray-400" />
+            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#F2F1F8] text-[#2B2B2B]/34">
+              <TrendingUp className="h-8 w-8" />
             </div>
-            <p className="text-gray-500">Henüz aktivite yok</p>
-            <p className="mt-1 text-xs text-gray-400">Kısa süre içinde burada görünecek</p>
+            <p className="text-[#2B2B2B]/58">Henüz aktivite yok</p>
+            <p className="mt-1 text-xs text-[#2B2B2B]/36">Kısa süre içinde burada görünecek</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-[#2B2B2B]/6">
             <AnimatePresence mode="popLayout">
               {filteredEvents.map((event, index) => {
                 const config = EVENT_CONFIGS[event.type] || {
                   icon: Eye,
                   label: event.type,
-                  color: "text-gray-500",
-                  bgColor: "bg-gray-100",
+                  color: "text-[#2B2B2B]/72",
+                  bgColor: "bg-[#2B2B2B]/6",
                 };
                 const Icon = config.icon;
                 const eventValue = getEventValue(event);
@@ -222,11 +220,11 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     transition={{ duration: 0.3, delay: index * 0.03 }}
-                    className="group flex items-start gap-3 p-4 transition-colors hover:bg-gray-50"
+                    className="group flex items-start gap-3 px-4 py-4 transition-colors hover:bg-white/58"
                   >
                     <div
                       className={cn(
-                        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110",
+                        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl",
                         config.bgColor
                       )}
                     >
@@ -235,17 +233,17 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{config.label}</span>
+                        <span className="font-medium text-[#2B2B2B]">{config.label}</span>
                         {eventValue ? (
-                          <span className="truncate text-sm text-gray-600">{eventValue}</span>
+                          <span className="truncate text-sm text-[#2B2B2B]/58">{eventValue}</span>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-gray-400">
+                      <p className="mt-0.5 truncate text-xs text-[#2B2B2B]/40">
                         {formatPageUrl(event.pageUrl)}
                       </p>
                     </div>
 
-                    <span className="flex-shrink-0 text-xs font-medium text-gray-400">
+                    <span className="flex-shrink-0 text-xs font-medium text-[#2B2B2B]/38">
                       {formatTimeAgo(event.createdAt)}
                     </span>
                   </motion.div>
@@ -257,13 +255,13 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       </div>
 
       {events.length > 0 ? (
-        <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+        <div className="border-t border-[#2B2B2B]/7 bg-[#F2F1F8]/55 px-4 py-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">
-              Son <span className="font-medium text-gray-700">{events.length}</span> etkinlik
+            <span className="text-[#2B2B2B]/52">
+              Son <span className="font-medium text-[#2B2B2B]">{events.length}</span> etkinlik
             </span>
-            <div className="flex items-center gap-1.5 text-gray-500">
-              <Filter className="h-3 w-3" />
+            <div className="flex items-center gap-1.5 text-[#2B2B2B]/52">
+              <Filter className="h-3 w-3 text-[#FE6100]" />
               <span>Otomatik güncelleniyor</span>
             </div>
           </div>

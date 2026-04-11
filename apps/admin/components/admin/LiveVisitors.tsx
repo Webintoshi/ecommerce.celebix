@@ -56,108 +56,97 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
       icon: Smartphone,
       label: "Mobil",
       value: data.devices?.mobile || 0,
-      color: "text-violet-500",
-      bgColor: "bg-violet-50",
+      tone: "bg-[#FE6100]/10 text-[#FE6100]",
+      bar: "bg-[#FE6100]",
     },
     {
       icon: Monitor,
       label: "Desktop",
       value: data.devices?.desktop || 0,
-      color: "text-blue-500",
-      bgColor: "bg-blue-50",
+      tone: "bg-[#2B2B2B]/8 text-[#2B2B2B]",
+      bar: "bg-[#2B2B2B]",
     },
     {
       icon: Tablet,
       label: "Tablet",
       value: data.devices?.tablet || 0,
-      color: "text-amber-500",
-      bgColor: "bg-amber-50",
+      tone: "bg-emerald-50 text-emerald-700",
+      bar: "bg-emerald-500",
     },
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60">
-      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
-            <Globe className="h-4 w-4" />
+    <div className="overflow-hidden rounded-[26px] border border-[#2B2B2B]/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] shadow-[0_18px_50px_rgba(43,43,43,0.06)] backdrop-blur">
+      <div className="flex items-center justify-between border-b border-[#2B2B2B]/7 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#FE6100]/10 text-[#FE6100]">
+            <Globe className="h-[18px] w-[18px]" />
           </div>
-          <h3 className="font-semibold text-gray-900">Anlık Ziyaretçiler</h3>
+          <h3 className="font-semibold text-[#2B2B2B]">Anlık Ziyaretçiler</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </span>
-          <span className="text-xs font-medium text-emerald-600">Canlı</span>
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#FE6100]/8 px-3 py-1 text-xs font-medium text-[#C74C00]">
+          <span className="h-2 w-2 rounded-full bg-[#FE6100]" />
+          Canlı
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold tracking-tight text-gray-900">
-                <AnimatedNumber value={data.liveVisitors || 0} />
-              </span>
-              <span className="text-lg font-medium text-gray-500">kişi</span>
+      <div className="space-y-6 p-6">
+        <div className="rounded-[24px] border border-[#2B2B2B]/6 bg-[linear-gradient(135deg,rgba(242,241,248,0.9),rgba(255,255,255,0.75))] p-5">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-semibold tracking-[-0.06em] text-[#2B2B2B]">
+                  <AnimatedNumber value={data.liveVisitors || 0} />
+                </span>
+                <span className="text-lg font-medium text-[#2B2B2B]/54">kişi</span>
+              </div>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-[#2B2B2B]/42">
+                <Bot className="h-3 w-3" />
+                Bot'lar filtrelendi
+              </p>
             </div>
-            <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-              <Bot className="h-3 w-3" />
-              Bot'lar filtrelendi
-            </p>
-          </div>
 
-          <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5">
-            <Activity className="h-3.5 w-3.5 text-emerald-600" />
-            <span className="text-xs font-medium text-emerald-700">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-[#2B2B2B]/62 ring-1 ring-[#2B2B2B]/8">
+              <Activity className="h-3.5 w-3.5 text-[#FE6100]" />
               {lastUpdate.toLocaleTimeString("tr-TR", {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-            </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {deviceStats.map((stat) => (
+              <div key={stat.label} className="rounded-[20px] bg-white/72 p-3 ring-1 ring-[#2B2B2B]/6">
+                <div className="flex flex-col items-center gap-2">
+                  <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", stat.tone)}>
+                    <stat.icon className="h-5 w-5" />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-[#2B2B2B]">{stat.value}</div>
+                    <div className="text-xs font-medium text-[#2B2B2B]/54">{stat.label}</div>
+                  </div>
+                </div>
+
+                {totalDevices > 0 ? (
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#2B2B2B]/8">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(stat.value / totalDevices) * 100}%` }}
+                      transition={{ duration: 0.45, delay: 0.15 }}
+                      className={cn("h-full rounded-full", stat.bar)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {deviceStats.map((stat) => (
-            <div
-              key={stat.label}
-              className="group relative overflow-hidden rounded-xl bg-gray-50 p-3 transition-all duration-200 hover:bg-gray-100"
-            >
-              <div className="flex flex-col items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110",
-                    stat.bgColor
-                  )}
-                >
-                  <stat.icon className={cn("h-5 w-5", stat.color)} />
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">{stat.value}</div>
-                  <div className="text-xs font-medium text-gray-500">{stat.label}</div>
-                </div>
-              </div>
-
-              {totalDevices > 0 ? (
-                <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-200">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(stat.value / totalDevices) * 100}%` }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className={cn("h-full rounded-full", stat.color.replace("text-", "bg-"))}
-                  />
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-
         {data.topPages && data.topPages.length > 0 ? (
-          <div className="mt-6 border-t border-gray-100 pt-4">
-            <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              <Activity className="h-3.5 w-3.5" />
+          <div className="border-t border-[#2B2B2B]/7 pt-4">
+            <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#2B2B2B]/48">
+              <Activity className="h-3.5 w-3.5 text-[#FE6100]" />
               Aktif Sayfalar
             </h4>
             <div className="space-y-2">
@@ -169,21 +158,21 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-gray-50"
+                    className="flex items-center justify-between rounded-[18px] bg-white/65 px-3 py-2.5 ring-1 ring-[#2B2B2B]/6"
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium text-gray-600">
+                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-[#F2F1F8] text-xs font-medium text-[#2B2B2B]/62">
                         {index + 1}
                       </div>
-                      <span className="truncate text-sm font-medium text-gray-700">
+                      <span className="truncate text-sm font-medium text-[#2B2B2B]/78">
                         {page.url === "/" ? "Ana Sayfa" : page.url}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
-                        <Users className="h-2.5 w-2.5 text-emerald-600" />
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FE6100]/10">
+                        <Users className="h-2.5 w-2.5 text-[#FE6100]" />
                       </div>
-                      <span className="text-sm font-semibold text-gray-900">{page.count}</span>
+                      <span className="text-sm font-semibold text-[#2B2B2B]">{page.count}</span>
                     </div>
                   </motion.div>
                 ))}
