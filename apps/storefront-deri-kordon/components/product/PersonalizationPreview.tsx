@@ -157,18 +157,18 @@ function resolvePreviewConfig(
 
 function getPreviewFontSize(displayText: string) {
   if (displayText.length >= 16) {
-    return "clamp(22px, 5vw, 34px)";
+    return "clamp(18px, 4vw, 28px)";
   }
 
   if (displayText.length >= 10) {
-    return "clamp(26px, 5.8vw, 40px)";
+    return "clamp(20px, 4.4vw, 30px)";
   }
 
   if (displayText.length >= 6) {
-    return "clamp(30px, 6.8vw, 46px)";
+    return "clamp(22px, 4.8vw, 32px)";
   }
 
-  return "clamp(34px, 7.6vw, 52px)";
+  return "clamp(24px, 5.2vw, 34px)";
 }
 
 export function PersonalizationPreview({
@@ -197,9 +197,9 @@ export function PersonalizationPreview({
   const previewFontSize = getPreviewFontSize(displayText);
 
   return (
-    <section className="w-full max-w-[360px] border-t border-neutral-200 pt-4">
+    <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.36em] text-neutral-950 sm:text-[12px]">
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.32em] text-neutral-950 sm:text-[11px]">
           Kişiselleştirme Ön İzleme
         </h3>
         <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
