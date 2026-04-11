@@ -28,6 +28,7 @@ type PreviewConfig = {
   textPositionClass: string;
   textToneClass: string;
   defaultText?: string | null;
+  sizePreset: "watch" | "leather";
 };
 
 const MONOTYPE_SOURCE =
@@ -126,9 +127,11 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri ürün kişiselleştirme ön izlemesi",
-  textPositionClass: "right-[10%] bottom-[15%] w-[52%] text-right",
+  textPositionClass:
+    "left-1/2 top-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center",
   textToneClass: "text-[#1f140f]",
   defaultText: "Ön izleme",
+  sizePreset: "leather",
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
@@ -136,9 +139,10 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayışı kişiselleştirme ön izlemesi",
   textPositionClass:
-    "left-[calc(50%+6px)] bottom-[20px] -translate-x-1/2 w-[70%] text-center",
+    "left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center",
   textToneClass: "text-[#1a0f0a]",
   defaultText: "Yazı",
+  sizePreset: "watch",
 };
 
 function normalizeCategoryValue(value?: string | null) {
@@ -195,20 +199,39 @@ function resolvePreviewConfig(
   return null;
 }
 
-function getPreviewFontSize(displayText: string) {
+function getPreviewFontSize(
+  displayText: string,
+  preset: PreviewConfig["sizePreset"]
+) {
+  if (preset === "watch") {
+    if (displayText.length >= 16) {
+      return "clamp(26px, 6vw, 42px)";
+    }
+
+    if (displayText.length >= 10) {
+      return "clamp(30px, 6.8vw, 48px)";
+    }
+
+    if (displayText.length >= 6) {
+      return "clamp(34px, 7.4vw, 54px)";
+    }
+
+    return "clamp(38px, 8vw, 60px)";
+  }
+
   if (displayText.length >= 16) {
-    return "clamp(20px, 4.4vw, 30px)";
+    return "clamp(24px, 5.4vw, 36px)";
   }
 
   if (displayText.length >= 10) {
-    return "clamp(22px, 4.8vw, 32px)";
+    return "clamp(28px, 6vw, 42px)";
   }
 
   if (displayText.length >= 6) {
-    return "clamp(24px, 5.2vw, 36px)";
+    return "clamp(32px, 6.8vw, 48px)";
   }
 
-  return "clamp(26px, 5.8vw, 40px)";
+  return "clamp(36px, 7.4vw, 52px)";
 }
 
 export function PersonalizationPreview({
@@ -234,7 +257,7 @@ export function PersonalizationPreview({
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
   const displayText = typedText || previewConfig.defaultText || "Ön izleme";
-  const previewFontSize = getPreviewFontSize(displayText);
+  const previewFontSize = getPreviewFontSize(displayText, previewConfig.sizePreset);
 
   return (
     <section className="mx-auto w-full max-w-[360px] border-t border-neutral-200 pt-4">
