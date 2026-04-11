@@ -88,7 +88,7 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   textPositionClass:
     "right-[10%] bottom-[15%] w-[52%] text-right",
   textToneClass: "text-[#1f140f]",
-  defaultText: "Kazima Onizlemesi",
+  defaultText: "Ön izleme",
 };
 
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
@@ -98,7 +98,7 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   textPositionClass:
     "right-[9%] bottom-[18%] w-[54%] text-right",
   textToneClass: "text-[#1d120d]",
-  defaultText: "Kazima Onizlemesi",
+  defaultText: "Ön izleme",
 };
 
 function normalizeCategoryValue(value?: string | null) {
@@ -157,18 +157,18 @@ function resolvePreviewConfig(
 
 function getPreviewFontSize(displayText: string) {
   if (displayText.length >= 16) {
-    return "clamp(18px, 4.2vw, 28px)";
+    return "clamp(22px, 5vw, 34px)";
   }
 
   if (displayText.length >= 10) {
-    return "clamp(21px, 4.8vw, 32px)";
+    return "clamp(26px, 5.8vw, 40px)";
   }
 
   if (displayText.length >= 6) {
-    return "clamp(24px, 5.6vw, 36px)";
+    return "clamp(30px, 6.8vw, 46px)";
   }
 
-  return "clamp(28px, 6.4vw, 40px)";
+  return "clamp(34px, 7.6vw, 52px)";
 }
 
 export function PersonalizationPreview({
@@ -193,7 +193,7 @@ export function PersonalizationPreview({
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
-  const displayText = typedText || previewConfig.defaultText || "Kazima Onizlemesi";
+  const displayText = typedText || previewConfig.defaultText || "Ön izleme";
   const previewFontSize = getPreviewFontSize(displayText);
 
   return (
