@@ -259,15 +259,10 @@ export function PersonalizationPreview({
           id="personalization-preview-font"
           value={selectedFontId}
           onChange={(event) => setSelectedFontId(event.target.value)}
-          style={{ fontFamily: selectedFont.family, ...selectedFont.style }}
           className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors focus:border-[#6b9fce]"
         >
           {FONT_OPTIONS.map((option) => (
-            <option
-              key={option.id}
-              value={option.id}
-              style={{ fontFamily: option.family, ...option.style }}
-            >
+            <option key={option.id} value={option.id}>
               {option.label}
             </option>
           ))}
