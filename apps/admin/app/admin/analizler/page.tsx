@@ -60,9 +60,9 @@ interface LiveAnalyticsData {
 
 const PERIODS: Array<{ label: string; value: TimeRange }> = [
   { label: "Bugün", value: "today" },
-  { label: "Bu Hafta", value: "week" },
-  { label: "Bu Ay", value: "month" },
-  { label: "Yıl", value: "year" },
+  { label: "Bu hafta", value: "week" },
+  { label: "Bu ay", value: "month" },
+  { label: "Bu yıl", value: "year" },
 ];
 
 const ANIMATION_EASE = [0.22, 1, 0.36, 1] as const;
@@ -206,12 +206,12 @@ export default function AnalyticsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#f0e8e0]">
+    <div role="main" aria-busy={loading} className="min-h-screen font-sans bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#f0e8e0]">
       {/* Warm ambient background shapes */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-[#7b1113]/10 via-[#a52a2a]/5 to-transparent rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-[#FE6100]/10 via-[#FF8B3D]/5 to-transparent rounded-full blur-3xl" />
         <div className="absolute top-1/3 -left-20 w-72 h-72 bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-tl from-rose-100/20 via-[#7b1113]/5 to-transparent rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/5 to-transparent rounded-full blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
@@ -221,14 +221,14 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#7b1113]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(123,17,19,0.12)]"
+            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
           >
-            <div className="border-b border-[#7b1113]/8 px-6 py-5 md:px-8 md:py-6">
+            <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="space-y-4">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#7b1113]/20 bg-gradient-to-r from-[#7b1113]/10 to-[#a52a2a]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7b1113]">
+                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
                     <Sparkles className="h-3.5 w-3.5" />
-                    Analytics Suite
+                    Analiz Merkezi
                   </div>
 
                   <div className="max-w-3xl space-y-3">
@@ -238,18 +238,18 @@ export default function AnalyticsPage() {
                           Analizler
                         </h1>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 md:text-[15px]">
-                          Mağazanızın gelir, dönüşüm ve canlı trafik sinyallerini sade ama premium
-                          bir yüzeyde izleyin.
+                          Gelir, dönüşüm ve canlı trafik performansınızı tek bakışta; net, güvenilir
+                          ve kullanıcı odaklı bir görünümle takip edin.
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 px-3 py-1.5 text-amber-800">
+                      <div aria-live="polite" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 px-3 py-1.5 text-amber-800">
                         <CalendarRange className="h-3.5 w-3.5" />
                         Son güncelleme {formatLastUpdated(lastUpdatedAt)}
                       </div>
-                      <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 px-3 py-1.5 text-emerald-700">
+                      <div aria-live="polite" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 px-3 py-1.5 text-emerald-700">
                         <span className="relative flex h-2.5 w-2.5">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
                           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -261,18 +261,20 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 xl:items-end">
-                  <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-[#7b1113]/10 bg-gradient-to-r from-[#faf5f0] to-[#f5ebe3] p-1.5 shadow-inner">
+                  <div role="group" aria-label="Rapor dönemi seçici" className="flex flex-wrap items-center gap-2 rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-r from-[#faf5f0] to-[#f5ebe3] p-1.5 shadow-inner">
                     {PERIODS.map((period) => {
                       const active = selectedPeriod === period.value;
                       return (
-                        <button
+                        <button type="button"
                           key={period.value}
                           onClick={() => setSelectedPeriod(period.value)}
+                          aria-pressed={active}
+                          aria-label={`Rapor dönemini ${period.label} olarak değiştir`}
                           className={cn(
                             "rounded-2xl px-4 py-2 text-sm font-medium transition-all duration-200",
                             active
-                              ? "bg-gradient-to-r from-[#7b1113] to-[#8b2224] text-white shadow-[0_10px_30px_rgba(123,17,19,0.25)]"
-                              : "text-gray-600 hover:bg-white hover:text-[#7b1113]"
+                              ? "bg-gradient-to-r from-[#FE6100] to-[#E85A00] text-white shadow-[0_10px_30px_rgba(254,97,0,0.25)]"
+                              : "text-gray-600 hover:bg-white hover:text-[#FE6100]"
                           )}
                         >
                           {period.label}
@@ -282,21 +284,23 @@ export default function AnalyticsPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
+                    <button type="button"
                       onClick={() => handleExport("csv")}
+                      aria-label="Raporu CSV olarak indir"
                       disabled={loading || !data}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-[#7b1113]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#7b1113] shadow-sm transition-all hover:bg-[#faf5f0] hover:border-[#7b1113]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#FE6100] shadow-sm transition-all hover:bg-[#faf5f0] hover:border-[#FE6100]/25 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-4 w-4" />
-                      CSV indir
+                      CSV olarak indir
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => handleExport("json")}
+                      aria-label="Raporu JSON olarak indir"
                       disabled={loading || !data}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#7b1113] to-[#8b2224] px-4 py-2.5 text-sm font-medium text-white shadow-[0_16px_30px_rgba(123,17,19,0.25)] transition-all hover:from-[#8b2224] hover:to-[#9b3335] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E85A00] px-4 py-2.5 text-sm font-medium text-white shadow-[0_16px_30px_rgba(254,97,0,0.25)] transition-all hover:from-[#E85A00] hover:to-[#D94F00] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-4 w-4" />
-                      JSON indir
+                      JSON olarak indir
                     </button>
                   </div>
                 </div>
@@ -304,7 +308,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Header metrics with warm backgrounds */}
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#7b1113]/10 via-[#a52a2a]/5 to-[#7b1113]/10 md:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3 xl:grid-cols-4">
               <HeaderMetric
                 label="Canlı ziyaretçi"
                 value={liveVisitors.toLocaleString("tr-TR")}
@@ -312,15 +316,15 @@ export default function AnalyticsPage() {
                 tone="emerald"
               />
               <HeaderMetric
-                label="Ort. sipariş"
+                label="Ortalama sipariş"
                 value={formatCurrency(stats.avgOrderValue || 0)}
-                hint="Seçili dönem"
+                hint="Seçili dönem ortalaması"
                 tone="amber"
               />
               <HeaderMetric
                 label="Sayfa görüntüleme"
                 value={pageViewCount.toLocaleString("tr-TR")}
-                hint="Canlı popüler sayfalar"
+                hint="Canlı veride öne çıkan sayfalar"
                 tone="rose"
               />
               <HeaderMetric
@@ -338,7 +342,7 @@ export default function AnalyticsPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: ANIMATION_EASE }}
-              className="rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-5 py-4 text-sm font-medium text-rose-700 shadow-sm"
+              aria-live="assertive" className="rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-5 py-4 text-sm font-medium text-rose-700 shadow-sm"
             >
               {error}
             </motion.div>
@@ -348,7 +352,7 @@ export default function AnalyticsPage() {
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               index={0}
-              title="Toplam Gelir"
+              title="Toplam gelir"
               value={formatCurrency(stats.revenue || 0)}
               change={stats.revenueChange}
               icon={DollarSign}
@@ -366,7 +370,7 @@ export default function AnalyticsPage() {
             />
             <KpiCard
               index={2}
-              title="Toplam Müşteri"
+              title="Toplam müşteri"
               value={(stats.customers || 0).toLocaleString("tr-TR")}
               change={stats.customersChange}
               icon={Users}
@@ -375,7 +379,7 @@ export default function AnalyticsPage() {
             />
             <KpiCard
               index={3}
-              title="Dönüşüm Oranı"
+              title="Dönüşüm oranı"
               value={`%${stats.conversionRate || 0}`}
               change={stats.conversionChange}
               icon={TrendingUp}
@@ -441,7 +445,7 @@ function HeaderMetric({
 
   const valueColors = {
     slate: "text-gray-950",
-    burgundy: "text-[#7b1113]",
+    burgundy: "text-[#FE6100]",
     amber: "text-amber-700",
     emerald: "text-emerald-700",
     rose: "text-rose-700",
@@ -478,10 +482,10 @@ function KpiCard({
 
   const accentStyles = {
     burgundy: {
-      gradient: "from-[#7b1113]/20 via-[#a52a2a]/10 to-[#faf0f0]/50",
-      iconBg: "bg-gradient-to-br from-[#7b1113] to-[#8b2224] text-white",
+      gradient: "from-[#FE6100]/20 via-[#FF8B3D]/10 to-[#faf0f0]/50",
+      iconBg: "bg-gradient-to-br from-[#FE6100] to-[#E85A00] text-white",
       iconColor: "",
-      border: "border-[#7b1113]/15",
+      border: "border-[#FE6100]/15",
     },
     amber: {
       gradient: "from-amber-400/20 via-orange-300/10 to-amber-50/50",
@@ -574,13 +578,13 @@ function RevenueCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.18, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#7b1113]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(123,17,19,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
     >
-      <div className="border-b border-[#7b1113]/8 px-6 py-6 md:px-8">
+      <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-3">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-[#faf0f0] to-[#fdf5f3] border border-[#7b1113]/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7b1113]">
-              Gelir trendi
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-[#faf0f0] to-[#fdf5f3] border border-[#FE6100]/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FE6100]">
+              Gelir görünümü
             </div>
             <div>
               <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950 md:text-[30px]">
@@ -589,26 +593,26 @@ function RevenueCard({
               <p className="mt-2 text-sm leading-6 text-gray-600 md:text-[15px]">
                 {selectedPeriod === "today"
                   ? "Bugün içindeki sipariş ve gelir hareketlerini izleyin."
-                  : "Seçili zaman aralığında gelir performansınızın nasıl şekillendiğini görün."}
+                  : "Seçili zaman aralığında gelir performansınızın nasıl geliştiğini tek bakışta görün."}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <InsightPill label="Toplam gelir" value={formatCurrency(stats.revenue || 0)} tone="burgundy" />
-            <InsightPill label="Ort. sipariş" value={formatCurrency(stats.avgOrderValue || 0)} tone="amber" />
+            <InsightPill label="Ortalama sipariş" value={formatCurrency(stats.avgOrderValue || 0)} tone="amber" />
             <InsightPill label="Sipariş" value={(stats.orders || 0).toLocaleString("tr-TR")} tone="emerald" />
           </div>
         </div>
       </div>
 
       <div className="px-4 pb-4 pt-6 md:px-6 md:pb-6">
-        <div className="h-[360px] rounded-[26px] border border-[#7b1113]/10 bg-gradient-to-b from-[#faf0f0]/60 via-white/40 to-white p-4 md:p-6">
+        <div role="img" aria-label={selectedPeriod === "today" ? "Bugünkü gelir grafiği" : "Seçili dönemdeki gelir grafiği"} className="h-[360px] rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-b from-[#faf0f0]/60 via-white/40 to-white p-4 md:p-6">
           {loading ? (
             <ChartSkeleton />
           ) : trendData.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center rounded-[22px] border border-dashed border-[#7b1113]/20 bg-gradient-to-b from-[#faf5f0]/70 to-white px-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#faf0f0] to-white text-[#7b1113]">
+            <div className="flex h-full flex-col items-center justify-center rounded-[22px] border border-dashed border-[#FE6100]/20 bg-gradient-to-b from-[#faf5f0]/70 to-white px-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#faf0f0] to-white text-[#FE6100]">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <p className="mt-4 text-base font-medium text-gray-900">Veri bulunmuyor</p>
@@ -621,9 +625,9 @@ function RevenueCard({
               <AreaChart data={trendData} margin={{ left: 8, right: 8, top: 12, bottom: 4 }}>
                 <defs>
                   <linearGradient id="analyticsRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#7B1113" stopOpacity={0.35} />
-                    <stop offset="30%" stopColor="#7B1113" stopOpacity={0.15} />
-                    <stop offset="100%" stopColor="#7B1113" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#FE6100" stopOpacity={0.35} />
+                    <stop offset="30%" stopColor="#FE6100" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#FE6100" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="#ebe0d8" strokeDasharray="3 6" />
@@ -642,12 +646,12 @@ function RevenueCard({
                   width={62}
                 />
                 <Tooltip
-                  cursor={{ stroke: "#7B1113", strokeOpacity: 0.2, strokeWidth: 1 }}
+                  cursor={{ stroke: "#FE6100", strokeOpacity: 0.2, strokeWidth: 1 }}
                   contentStyle={{
-                    background: "linear-gradient(135deg, rgba(123,17,19,0.98), rgba(139,34,36,0.98))",
+                    background: "linear-gradient(135deg, rgba(254,97,0,0.98), rgba(232,90,0,0.98))",
                     border: "1px solid rgba(255,255,255,0.15)",
                     borderRadius: "18px",
-                    boxShadow: "0 20px 60px rgba(123,17,19,0.35)",
+                    boxShadow: "0 20px 60px rgba(254,97,0,0.35)",
                   }}
                   labelStyle={{ color: "rgba(255,255,255,0.8)", marginBottom: 8 }}
                   itemStyle={{ color: "#ffffff" }}
@@ -662,11 +666,11 @@ function RevenueCard({
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#7B1113"
+                  stroke="#FE6100"
                   strokeWidth={3}
                   fill="url(#analyticsRevenueFill)"
                   dot={false}
-                  activeDot={{ r: 5, fill: "#7B1113", stroke: "#fff", strokeWidth: 3 }}
+                  activeDot={{ r: 5, fill: "#FE6100", stroke: "#fff", strokeWidth: 3 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -680,7 +684,7 @@ function RevenueCard({
 function InsightPill({ label, value, tone = "slate" }: { label: string; value: string; tone?: "slate" | "burgundy" | "amber" | "emerald" }) {
   const toneStyles = {
     slate: "from-gray-100 to-gray-50 border-gray-200 text-gray-700",
-    burgundy: "from-[#faf0f0] to-[#fdf5f3] border-[#7b1113]/15 text-[#7b1113]",
+    burgundy: "from-[#faf0f0] to-[#fdf5f3] border-[#FE6100]/15 text-[#FE6100]",
     amber: "from-amber-50 to-orange-50/70 border-amber-200/50 text-amber-700",
     emerald: "from-emerald-50 to-teal-50/70 border-emerald-200/50 text-emerald-700",
   };
@@ -713,8 +717,8 @@ function LiveSnapshotCard({
       label: "Mobil",
       value: liveData?.devices.mobile || 0,
       icon: Eye,
-      tone: "from-[#faf0f0] to-[#fdf5f3] border-[#7b1113]/15 text-[#7b1113]",
-      barColor: "bg-[#7b1113]",
+      tone: "from-[#faf0f0] to-[#fdf5f3] border-[#FE6100]/15 text-[#FE6100]",
+      barColor: "bg-[#FE6100]",
     },
     {
       label: "Desktop",
@@ -737,12 +741,12 @@ function LiveSnapshotCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.24, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#7b1113]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(123,17,19,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
     >
-      <div className="border-b border-[#7b1113]/8 px-6 py-5">
+      <div className="border-b border-[#FE6100]/8 px-6 py-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7b1113]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
               Canlı trafik
             </p>
             <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-gray-950">
@@ -758,15 +762,15 @@ function LiveSnapshotCard({
 
       <div className="space-y-6 p-6">
         {/* Live visitors big number */}
-        <div className="rounded-[28px] border border-[#7b1113]/10 bg-gradient-to-br from-[#faf0f0] via-[#fdf5f3] to-white p-5">
+        <div className="rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-[#faf0f0] via-[#fdf5f3] to-white p-5">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-[#7b1113]/70">Online kişi</p>
+              <p className="text-sm font-medium text-[#FE6100]/70">Çevrim içi kullanıcı</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-5xl font-semibold tracking-[-0.06em] text-[#7b1113]">
+                <span className="text-5xl font-semibold tracking-[-0.06em] text-[#FE6100]">
                   {liveVisitors}
                 </span>
-                <span className="pb-1 text-sm text-[#7b1113]/60">aktif</span>
+                <span className="pb-1 text-sm text-[#FE6100]/60">aktif</span>
               </div>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-emerald-200/50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm">
@@ -774,7 +778,7 @@ function LiveSnapshotCard({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
               </span>
-              Bot filtresi açık
+              Bot filtresi etkin
             </div>
           </div>
         </div>
@@ -809,10 +813,10 @@ function LiveSnapshotCard({
         </div>
 
         {/* Top pages */}
-        <div className="rounded-[24px] border border-[#7b1113]/10 bg-gradient-to-b from-[#faf5f0]/70 to-white p-4">
+        <div className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-b from-[#faf5f0]/70 to-white p-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#7b1113]">Anlık popüler sayfalar</p>
-            <p className="text-xs font-medium text-[#7b1113]/50">Top 3</p>
+            <p className="text-sm font-semibold text-[#FE6100]">Anlık popüler sayfalar</p>
+            <p className="text-xs font-medium text-[#FE6100]/50">Top 3</p>
           </div>
 
           {liveData && topPagesAvailable(liveData) ? (
@@ -820,23 +824,23 @@ function LiveSnapshotCard({
               {liveData.topPages.slice(0, 3).map((page, index) => (
                 <div
                   key={page.url}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 shadow-sm border border-[#7b1113]/8"
+                  className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 shadow-sm border border-[#FE6100]/8"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#faf0f0] to-white text-[#7b1113] text-xs font-semibold">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#faf0f0] to-white text-[#FE6100] text-xs font-semibold">
                       {index + 1}
                     </div>
-                    <span className="truncate text-sm font-medium text-gray-700">
+                    <span title={page.url} className="truncate text-sm font-medium text-gray-700">
                       {formatTopPageLabel(page.url)}
                     </span>
                   </div>
-                  <span className="text-sm font-semibold text-[#7b1113]">{page.count}</span>
+                  <span className="text-sm font-semibold text-[#FE6100]">{page.count}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#7b1113]/20 bg-white/70 px-4 py-5 text-sm text-gray-500 text-center">
-              Detaylı sayfa dağılımı şu an kullanılabilir değil.
+            <div className="rounded-2xl border border-dashed border-[#FE6100]/20 bg-white/70 px-4 py-5 text-sm text-gray-500 text-center">
+              Detaylı sayfa dağılımı şu anda kullanılamıyor.
             </div>
           )}
         </div>
@@ -871,10 +875,10 @@ function CartRecoveryCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.3, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#7b1113]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(123,17,19,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
     >
-      <div className="border-b border-[#7b1113]/8 px-6 py-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7b1113]">
+      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
           Sepet performansı
         </p>
         <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-gray-950">
@@ -890,36 +894,36 @@ function CartRecoveryCard({
             tone="rose"
           />
           <CartValueCard
-            title="Kurtarılan"
+            title="Kurtarılan gelir"
             value={loading ? "..." : formatCurrency(recoveredRevenue)}
             tone="emerald"
           />
         </div>
 
-        <div className="rounded-[24px] border border-[#7b1113]/10 bg-gradient-to-b from-[#faf5f0]/70 to-white p-5">
+        <div className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-b from-[#faf5f0]/70 to-white p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-[#7b1113]/70">Kurtarma oranı</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#7b1113]">
+              <p className="text-sm font-medium text-[#FE6100]/70">Kurtarma oranı</p>
+              <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#FE6100]">
                 %{abandonedCartStats.recoveryRate.toFixed(1)}
               </p>
             </div>
-            <div className="rounded-full bg-white border border-[#7b1113]/10 px-3 py-1.5 text-xs font-semibold text-[#7b1113] shadow-sm">
+            <div className="rounded-full bg-white border border-[#FE6100]/10 px-3 py-1.5 text-xs font-semibold text-[#FE6100] shadow-sm">
               {abandonedCartStats.recoveredCount}/{abandonedCartStats.totalCount} sepet
             </div>
           </div>
 
-          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#7b1113]/10">
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#FE6100]/10">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#7b1113] to-[#c44536]"
+              className="h-full rounded-full bg-gradient-to-r from-[#FE6100] to-[#FF9152]"
               style={{ width: `${Math.min(abandonedCartStats.recoveryRate, 100)}%` }}
             />
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-[#7b1113]/10 bg-white p-5 shadow-sm">
+        <div className="rounded-[24px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#7b1113]">24 saat aksiyon akışı</p>
+            <p className="text-sm font-semibold text-[#FE6100]">24 saatlik aksiyon akışı</p>
             <span
               className={cn(
                 "rounded-full px-3 py-1.5 text-xs font-semibold",
@@ -1001,7 +1005,7 @@ function ProgressRow({
     <div>
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="font-medium text-gray-600">{label}</span>
-        <span className="font-semibold text-[#7b1113]">{value.toLocaleString("tr-TR")}</span>
+        <span className="font-semibold text-[#FE6100]">{value.toLocaleString("tr-TR")}</span>
       </div>
       <div className="h-2.5 overflow-hidden rounded-full bg-gray-200">
         <div
@@ -1028,14 +1032,14 @@ function MiniStat({
     slate: "from-gray-50 to-white border-gray-200",
     amber: "from-amber-50 to-orange-50/70 border-amber-200/50",
     emerald: "from-emerald-50 to-teal-50/70 border-emerald-200/50",
-    burgundy: "from-[#faf0f0] to-[#fdf5f3] border-[#7b1113]/15",
+    burgundy: "from-[#faf0f0] to-[#fdf5f3] border-[#FE6100]/15",
   };
 
   const iconColors = {
     slate: "text-gray-600",
     amber: "text-amber-600",
     emerald: "text-emerald-600",
-    burgundy: "text-[#7b1113]",
+    burgundy: "text-[#FE6100]",
   };
 
   return (
@@ -1053,15 +1057,15 @@ function ChartSkeleton() {
   return (
     <div className="flex h-full animate-pulse flex-col justify-between rounded-[22px] bg-gradient-to-b from-[#faf0f0]/70 to-white p-4 md:p-6">
       <div className="grid grid-cols-3 gap-3">
-        <div className="h-4 rounded-full bg-[#7b1113]/20" />
-        <div className="h-4 rounded-full bg-[#7b1113]/10" />
-        <div className="h-4 rounded-full bg-[#7b1113]/10" />
+        <div className="h-4 rounded-full bg-[#FE6100]/20" />
+        <div className="h-4 rounded-full bg-[#FE6100]/10" />
+        <div className="h-4 rounded-full bg-[#FE6100]/10" />
       </div>
       <div className="mt-6 flex h-full items-end gap-3">
         {Array.from({ length: 9 }).map((_, index) => (
           <div
             key={index}
-            className="flex-1 rounded-t-[18px] bg-gradient-to-t from-[#7b1113]/30 to-[#7b1113]/10"
+            className="flex-1 rounded-t-[18px] bg-gradient-to-t from-[#FE6100]/30 to-[#FE6100]/10"
             style={{ height: `${35 + ((index * 9) % 45)}%` }}
           />
         ))}

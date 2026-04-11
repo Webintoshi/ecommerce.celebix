@@ -18,13 +18,13 @@ export default function AdminError({
     <div className="flex min-h-[50vh] items-center justify-center">
       <div className="w-full max-w-xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-rose-600">
-          Admin Hatasi
+          Admin Hatası
         </p>
         <h1 className="mt-3 text-2xl font-bold text-gray-900">
-          Bu ekran beklenmedik sekilde durdu
+          Bu ekran beklenmedik şekilde durdu
         </h1>
         <p className="mt-3 text-sm text-gray-500">
-          Sayfayi sifirlayip tekrar deneyin. Sorun surerse ana admin ekranina donup ilgili bolumu yeniden acin.
+          Sayfayı sıfırlayıp tekrar deneyin. Sorun sürerse ana admin ekranına dönüp ilgili bölümü yeniden açın.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

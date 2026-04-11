@@ -13,7 +13,7 @@ export default async function AdminLayout({
     auth = await withServerTimeout(
       getAdminAuthContext(),
       5000,
-      "Admin profil yuklemesi zaman asimina ugradi."
+      "Admin profil yüklemesi zaman aşımına uğradı."
     );
   } catch (error) {
     console.error("Admin layout auth bootstrap error:", error);

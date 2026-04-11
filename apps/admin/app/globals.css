@@ -2,25 +2,25 @@
 
 :root {
   --background: #FFF5F5;
-  --foreground: #FE6100;
+  --foreground: #2B2B2B;
 
   /* Brand Palette */
   --primary: #FE6100;
   --primary-foreground: #FFFFFF;
 
   --secondary: #F1DADB;
-  --secondary-foreground: #FE6100;
+  --secondary-foreground: #2B2B2B;
 
   --muted: #6b4b4c;
   --muted-foreground: #6b4b4c;
 
   /* shadcn/ui required variables */
   --card: #FFFFFF;
-  --card-foreground: #FE6100;
+  --card-foreground: #2B2B2B;
   --popover: #FFFFFF;
-  --popover-foreground: #7B11113;
+  --popover-foreground: #2B2B2B;
   --accent: #F1DADB;
-  --accent-foreground: #FE6100;
+  --accent-foreground: #2B2B2B;
   --destructive: #FF3B30;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
@@ -93,7 +93,7 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --font-sans: var(--font-lora), "Lora", serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-inter), monospace;
 }
 
@@ -111,7 +111,7 @@
 body {
   background: #FAFAFA;
   color: var(--foreground);
-  font-family: var(--font-lora), "Lora", serif;
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
 }
 
@@ -150,11 +150,11 @@ body {
 
 .bg-primary-foreground {
   background-color: #FFFFFF !important;
-  color: #FE6100 !important;
+  color: #2B2B2B !important;
 }
 
 .text-secondary-foreground {
-  color: #FE6100 !important;
+  color: #2B2B2B !important;
 }
 
 .bg-secondary {

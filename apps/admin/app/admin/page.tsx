@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { getAdminDashboardBootstrapData } from "@/lib/admin-dashboard";
 import type { DashboardBootstrapData } from "@/lib/admin-data-types";
 import { withServerTimeout } from "@/lib/server-timeout";
+
+export const metadata: Metadata = {
+  title: "Ana Panel",
+  description: "Yönetim panelinin ana ekranında sipariş, ürün, müşteri ve canlı operasyon verilerini tek bakışta izleyin.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 function getEmptyDashboardData(): DashboardBootstrapData {
   return {
@@ -40,7 +50,7 @@ export default async function AdminDashboardPage() {
     const initialData = await withServerTimeout(
       getAdminDashboardBootstrapData(),
       7000,
-      "Dashboard ilk acilista zaman asimina ugradi."
+      "Dashboard ilk açılışta zaman aşımına uğradı."
     );
     return <AdminDashboardClient initialData={initialData} />;
   } catch (error) {
@@ -48,7 +58,7 @@ export default async function AdminDashboardPage() {
     return (
       <AdminDashboardClient
         initialData={getEmptyDashboardData()}
-        initialError="Panel verileri simdilik sinirli geldi. Arka planda tekrar deneyebilirsiniz."
+        initialError="Panel verileri şimdilik sınırlı geldi. Arka planda yeniden deneyebilirsiniz."
       />
     );
   }
