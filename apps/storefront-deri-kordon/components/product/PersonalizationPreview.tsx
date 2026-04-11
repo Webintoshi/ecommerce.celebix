@@ -157,18 +157,18 @@ function resolvePreviewConfig(
 
 function getPreviewFontSize(displayText: string) {
   if (displayText.length >= 16) {
-    return "clamp(18px, 4vw, 28px)";
-  }
-
-  if (displayText.length >= 10) {
     return "clamp(20px, 4.4vw, 30px)";
   }
 
-  if (displayText.length >= 6) {
+  if (displayText.length >= 10) {
     return "clamp(22px, 4.8vw, 32px)";
   }
 
-  return "clamp(24px, 5.2vw, 34px)";
+  if (displayText.length >= 6) {
+    return "clamp(24px, 5.2vw, 36px)";
+  }
+
+  return "clamp(26px, 5.8vw, 40px)";
 }
 
 export function PersonalizationPreview({
