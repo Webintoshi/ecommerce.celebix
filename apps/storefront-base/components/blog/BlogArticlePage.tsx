@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, FolderOpen } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
-import { renderMarkdownToHtml } from "@/lib/markdown";
+import { renderBlogContentToHtml } from "@/lib/blog-rich-text";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
@@ -102,7 +102,7 @@ export function BlogArticlePage({
           <div className="min-w-0">
             <div
               className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:tracking-[-0.03em] prose-headings:text-[#140D08] prose-p:text-[#43372E] prose-p:leading-8 prose-a:text-[#8A6847] prose-a:no-underline hover:prose-a:text-[#140D08] prose-strong:text-[#140D08] prose-li:text-[#43372E] prose-blockquote:border-l-[#8A6847] prose-blockquote:text-[#5F5147]"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(post.content || "") }}
+              dangerouslySetInnerHTML={{ __html: renderBlogContentToHtml(post.content || "") }}
             />
 
             {post.tags.length > 0 ? (

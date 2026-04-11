@@ -1,4 +1,5 @@
 import { BLOG_CATEGORIES, calculateSEOScore } from "@/lib/blog";
+import { extractBlogPlainText } from "@/lib/blog-rich-text";
 import type { BlogPost as BlogRow } from "@/lib/supabase";
 import type { BlogCategory, BlogPost } from "@/types/blog";
 
@@ -47,7 +48,7 @@ function tokenize(value: string | null | undefined): string[] {
 }
 
 function deriveWordCount(content: string): number {
-  return content.trim().split(/\s+/).filter(Boolean).length;
+  return extractBlogPlainText(content).trim().split(/\s+/).filter(Boolean).length;
 }
 
 function deriveCategory(row: BlogRow): BlogCategory {
@@ -70,7 +71,7 @@ function deriveExcerpt(row: BlogRow, content: string): string {
   const excerpt = row.excerpt?.trim();
   if (excerpt) return excerpt;
 
-  const normalizedContent = content.replace(/\s+/g, " ").trim();
+  const normalizedContent = extractBlogPlainText(content).replace(/\s+/g, " ").trim();
   if (normalizedContent.length <= 180) return normalizedContent;
 
   return `${normalizedContent.slice(0, 177).trimEnd()}...`;

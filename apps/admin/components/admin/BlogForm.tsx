@@ -6,18 +6,9 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BarChart3,
-  Bold,
-  Code2,
   Eye,
-  Heading,
   Image as ImageIcon,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
   Loader2,
-  Minus,
-  Quote,
   Save,
   Upload,
   X,
@@ -29,28 +20,23 @@ import {
   SUGGESTED_PILLARS,
   calculateSEOScore,
 } from "@/lib/blog";
+import {
+  countBlogImages,
+  countBlogLinks,
+  extractBlogOutline,
+  extractBlogPlainText,
+  prepareBlogEditorContent,
+  renderBlogContentToHtml,
+} from "@/lib/blog-rich-text";
 import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
-import { renderMarkdownToHtml } from "@/lib/markdown";
 import { slugify } from "@/lib/utils";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import type { BlogPost, BlogCategory } from "@/types/blog";
 import type { BlogStrategyCategory, BlogStrategyPillar } from "@/types/blog-strategy";
 
 interface BlogFormProps {
   initialData?: BlogPost;
 }
-
-type ToolbarAction =
-  | "h2"
-  | "h3"
-  | "bold"
-  | "italic"
-  | "ul"
-  | "ol"
-  | "quote"
-  | "link"
-  | "image"
-  | "code"
-  | "divider";
 
 type EditorMode = "write" | "split" | "preview";
 
@@ -84,25 +70,27 @@ const QUICK_SNIPPETS = [
   {
     label: "Giriş bölümü",
     value:
-      "## Giriş\n\nBu yazida konuyu kisa bir girisle aciklayin ve okuyucunun neden devam etmesi gerektigini netlestirin.\n",
+      "<h2>Giriş</h2><p>Bu bölümde konuyu kısa bir girişle açıklayın ve okuyucunun neden devam etmesi gerektiğini netleştirin.</p>",
   },
   {
     label: "Madde listesi",
-    value: "## One cikan maddeler\n\n- Madde 1\n- Madde 2\n- Madde 3\n",
+    value:
+      "<h2>One cikan maddeler</h2><ul><li>Madde 1</li><li>Madde 2</li><li>Madde 3</li></ul>",
   },
   {
     label: "SSS blogu",
-    value: "## Sik sorulan sorular\n\n### Soru 1\n\nCevap...\n\n### Soru 2\n\nCevap...\n",
+    value:
+      "<h2>Sik sorulan sorular</h2><h3>Soru 1</h3><p>Cevap...</p><h3>Soru 2</h3><p>Cevap...</p>",
   },
   {
     label: "Karsilastirma",
     value:
-      "## Karsilastirma\n\n### Avantajlar\n\n- Avantaj 1\n- Avantaj 2\n\n### Dikkat edilmesi gerekenler\n\n- Not 1\n- Not 2\n",
+      "<h2>Karsilastirma</h2><h3>Avantajlar</h3><ul><li>Avantaj 1</li><li>Avantaj 2</li></ul><h3>Dikkat edilmesi gerekenler</h3><ul><li>Not 1</li><li>Not 2</li></ul>",
   },
   {
     label: "CTA bolumu",
     value:
-      "---\n\n## Sonuc\n\nYaziyi kisa bir sonuc ile kapatin ve gerekiyorsa okuyucuyu ilgili kategoriye ya da urune yonlendirin.\n",
+      "<hr /><h2>Sonuc</h2><p>Yaziyi kisa bir sonuc ile kapatin ve gerekiyorsa okuyucuyu ilgili kategoriye ya da urune yonlendirin.</p>",
   },
 ];
 
@@ -116,21 +104,19 @@ function createAltFromFileName(fileName: string) {
   return cleaned || "blog gorseli";
 }
 
-function extractOutline(content: string) {
-  return content
-    .split("\n")
-    .map((line) => line.match(/^(#{1,6})\s+(.*)$/))
-    .filter(Boolean)
-    .map((match) => ({
-      level: match![1].length,
-      text: match![2].trim(),
-    }))
-    .filter((item) => item.text.length > 0);
+function normalizeInitialData(initialData?: BlogPost): BlogPost {
+  if (!initialData) {
+    return DEFAULT_FORM_DATA;
+  }
+
+  return {
+    ...initialData,
+    content: prepareBlogEditorContent(initialData.content),
+  };
 }
 
 export function BlogForm({ initialData }: BlogFormProps) {
   const router = useRouter();
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -155,33 +141,49 @@ export function BlogForm({ initialData }: BlogFormProps) {
       existingClusterCount: 0,
     })),
   );
-  const [formData, setFormData] = useState<BlogPost>(initialData || DEFAULT_FORM_DATA);
+  const [formData, setFormData] = useState<BlogPost>(() => normalizeInitialData(initialData));
 
   useEffect(() => {
-    if (initialData) setFormData(initialData);
+    if (initialData) {
+      setFormData(normalizeInitialData(initialData));
+    }
   }, [initialData]);
 
   useEffect(() => {
     let active = true;
+
     async function loadStrategy() {
       try {
         const snapshot = await fetchBlogStrategySnapshot();
-        if (!active) return;
-        if (snapshot.categories.length > 0) setCategories(snapshot.categories);
-        if (snapshot.suggestedPillars.length > 0) setPillars(snapshot.suggestedPillars);
+
+        if (!active) {
+          return;
+        }
+
+        if (snapshot.categories.length > 0) {
+          setCategories(snapshot.categories);
+        }
+
+        if (snapshot.suggestedPillars.length > 0) {
+          setPillars(snapshot.suggestedPillars);
+        }
       } catch (error) {
         console.error("Blog strategy load error:", error);
       }
     }
+
     void loadStrategy();
+
     return () => {
       active = false;
     };
   }, []);
 
   useEffect(() => {
-    const wordCount = formData.content.trim().split(/\s+/).filter(Boolean).length;
+    const plainText = extractBlogPlainText(formData.content);
+    const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
     const readTime = Math.max(1, Math.ceil(wordCount / 200));
+
     setFormData((prev) =>
       prev.wordCount === wordCount && prev.readTime === readTime
         ? prev
@@ -204,84 +206,27 @@ export function BlogForm({ initialData }: BlogFormProps) {
   ]);
 
   const guide = CONTENT_GUIDELINES[formData.topicType || "standalone"];
-  const previewHtml = useMemo(() => renderMarkdownToHtml(formData.content), [formData.content]);
+  const previewHtml = useMemo(() => renderBlogContentToHtml(formData.content), [formData.content]);
+  const outline = useMemo(() => extractBlogOutline(formData.content), [formData.content]);
   const editorMetrics = useMemo(() => {
-    const charCount = formData.content.length;
-    const headingCount = (formData.content.match(/^#{1,6}\s+/gm) || []).length;
-    const imageCount = (formData.content.match(/!\[[^\]]*\]\([^)]+\)/g) || []).length;
-    const linkCount = (formData.content.match(/\[[^\]]+\]\([^)]+\)/g) || []).length;
-    return { charCount, headingCount, imageCount, linkCount };
-  }, [formData.content]);
-  const outline = useMemo(() => extractOutline(formData.content), [formData.content]);
+    const plainText = extractBlogPlainText(formData.content);
+
+    return {
+      charCount: plainText.length,
+      headingCount: outline.length,
+      imageCount: countBlogImages(formData.content),
+      linkCount: countBlogLinks(formData.content),
+    };
+  }, [formData.content, outline.length]);
 
   function patch(next: Partial<BlogPost>) {
     setFormData((prev) => ({ ...prev, ...next }));
   }
 
-  function setSelectionContent(content: string, start?: number, end?: number) {
-    patch({ content });
-    window.requestAnimationFrame(() => {
-      if (!textareaRef.current || start === undefined || end === undefined) return;
-      textareaRef.current.focus();
-      textareaRef.current.setSelectionRange(start, end);
+  function appendEditorHtml(value: string) {
+    patch({
+      content: `${formData.content || ""}${formData.content ? "\n" : ""}${value}`.trim(),
     });
-  }
-
-  function insertAtCursor(value: string) {
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      patch({ content: `${formData.content}${value}` });
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const next = formData.content.slice(0, start) + value + formData.content.slice(end);
-    const caret = start + value.length;
-    setSelectionContent(next, caret, caret);
-  }
-
-  function insertMarkdown(action: ToolbarAction) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = formData.content.slice(start, end);
-
-    const wrap = (before: string, after = "", fallback = "metin") => {
-      const value = selected || fallback;
-      const next =
-        formData.content.slice(0, start) + before + value + after + formData.content.slice(end);
-      setSelectionContent(next, start + before.length, start + before.length + value.length);
-    };
-
-    const prefixLines = (formatter: (line: string, index: number) => string) => {
-      const block = (selected || "Liste maddesi").split("\n").map(formatter).join("\n");
-      const next = formData.content.slice(0, start) + block + formData.content.slice(end);
-      setSelectionContent(next, start, start + block.length);
-    };
-
-    if (action === "h2") wrap("## ", "");
-    if (action === "h3") wrap("### ", "");
-    if (action === "bold") wrap("**", "**");
-    if (action === "italic") wrap("*", "*");
-    if (action === "ul") prefixLines((line) => `- ${line.replace(/^[-*]\s+/, "")}`);
-    if (action === "ol") prefixLines((line, index) => `${index + 1}. ${line.replace(/^\d+\.\s+/, "")}`);
-    if (action === "quote") prefixLines((line) => `> ${line.replace(/^>\s?/, "")}`);
-    if (action === "link") wrap("[", "](https://example.com)", "baglanti metni");
-    if (action === "image") {
-      inlineImageInputRef.current?.click();
-      return;
-    }
-    if (action === "code") {
-      if (selected.includes("\n")) wrap("```txt\n", "\n```");
-      else wrap("`", "`");
-    }
-    if (action === "divider") {
-      const divider = "\n---\n";
-      const next = formData.content.slice(0, start) + divider + formData.content.slice(end);
-      setSelectionContent(next, start + divider.length, start + divider.length);
-    }
   }
 
   async function uploadAsset(file: File, folder = "blog") {
@@ -297,7 +242,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
     const payload = await response.json();
 
     if (!response.ok || !payload.success || !payload.url) {
-      throw new Error(payload.error || "Görsel yuklenemedi.");
+      throw new Error(payload.error || "Görsel yüklenemedi.");
     }
 
     return String(payload.url);
@@ -334,19 +279,19 @@ export function BlogForm({ initialData }: BlogFormProps) {
         })),
       );
 
-      const markdownBlock = uploadedUrls
-        .map((item) => `![${item.alt}](${item.url})`)
-        .join("\n\n");
+      const htmlBlock = uploadedUrls
+        .map((item) => `<p><img src="${item.url}" alt="${item.alt}" /></p>`)
+        .join("");
 
-      insertAtCursor(`\n${markdownBlock}\n`);
+      appendEditorHtml(htmlBlock);
       toast.success(
         uploadedUrls.length === 1
           ? "İçerik görseli eklendi."
-          : `${uploadedUrls.length} gorsel icerige eklendi.`,
+          : `${uploadedUrls.length} görsel içeriğe eklendi.`,
       );
     } catch (error) {
       console.error("Blog inline image upload error:", error);
-      toast.error(error instanceof Error ? error.message : "İçerik görselleri yuklenemedi.");
+      toast.error(error instanceof Error ? error.message : "İçerik görselleri yüklenemedi.");
     } finally {
       setInlineUploading(false);
       event.target.value = "";
@@ -356,6 +301,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
+
     try {
       const response = await fetch(
         initialData ? `/api/admin/blog-posts/${initialData.id}` : "/api/admin/blog-posts",
@@ -369,7 +315,10 @@ export function BlogForm({ initialData }: BlogFormProps) {
         },
       );
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || "Blog yazisi kaydedilemedi.");
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Blog yazisi kaydedilemedi.");
+      }
+
       toast.success(initialData ? "Yazi guncellendi." : "Yazi olusturuldu.");
       router.push("/admin/cms/blog");
       router.refresh();
@@ -401,7 +350,10 @@ export function BlogForm({ initialData }: BlogFormProps) {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/admin/cms/blog" className="rounded-lg border border-transparent p-2 hover:border-gray-200 hover:bg-white">
+          <Link
+            href="/admin/cms/blog"
+            className="rounded-lg border border-transparent p-2 hover:border-gray-200 hover:bg-white"
+          >
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
           <div>
@@ -409,7 +361,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
               {initialData ? "Yaziyi Duzenle" : "Yeni Yazi Ekle"}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Dogrudan gorsel yukleme, canli onizleme ve gelismis yazi workspace&apos;i ile calisin.
+              Kapak gorseli, rich text icerik ve canli onizleme ile blog yazilarini yonetin.
             </p>
           </div>
         </div>
@@ -520,13 +472,22 @@ export function BlogForm({ initialData }: BlogFormProps) {
                   <button
                     key={type}
                     type="button"
-                    onClick={() => patch({ topicType: type, pillarId: type === "cluster" ? formData.pillarId : null })}
+                    onClick={() =>
+                      patch({
+                        topicType: type,
+                        pillarId: type === "cluster" ? formData.pillarId : null,
+                      })
+                    }
                     className={`rounded-xl border px-4 py-3 text-left text-sm ${
-                      formData.topicType === type ? "border-gray-900 bg-gray-50 text-gray-900" : "border-gray-200 text-gray-600"
+                      formData.topicType === type
+                        ? "border-gray-900 bg-gray-50 text-gray-900"
+                        : "border-gray-200 text-gray-600"
                     }`}
                   >
                     <div className="font-medium capitalize">{type}</div>
-                    <div className="mt-1 text-xs text-gray-400">{CONTENT_GUIDELINES[type].minWords}+ kelime</div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      {CONTENT_GUIDELINES[type].minWords}+ kelime
+                    </div>
                   </button>
                 ))}
               </div>
@@ -561,8 +522,15 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 </div>
                 <div className="w-28 rounded-full bg-gray-100 p-1">
                   <div
-                    className={`h-2 rounded-full ${formData.wordCount >= guide.minWords ? "bg-emerald-500" : "bg-amber-500"}`}
-                    style={{ width: `${Math.max(Math.min((formData.wordCount / guide.minWords) * 100, 100), 8)}%` }}
+                    className={`h-2 rounded-full ${
+                      formData.wordCount >= guide.minWords ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                    style={{
+                      width: `${Math.max(
+                        Math.min((formData.wordCount / guide.minWords) * 100, 100),
+                        8,
+                      )}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -575,46 +543,36 @@ export function BlogForm({ initialData }: BlogFormProps) {
             </div>
 
             {editorMode === "preview" ? (
-              <div className="prose prose-gray max-w-none p-6" dangerouslySetInnerHTML={{ __html: previewHtml || "<p>Henuz icerik yok.</p>" }} />
+              <div
+                className="prose prose-gray max-w-none p-6"
+                dangerouslySetInnerHTML={{ __html: previewHtml || "<p>Henuz icerik yok.</p>" }}
+              />
             ) : (
               <div className="space-y-4 p-6">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    ["h2", Heading, "H2"],
-                    ["h3", Heading, "H3"],
-                    ["bold", Bold, "Kalin"],
-                    ["italic", Italic, "Italik"],
-                    ["ul", List, "Liste"],
-                    ["ol", ListOrdered, "Numara"],
-                    ["quote", Quote, "Alinti"],
-                    ["link", Link2, "Baglanti"],
-                    ["image", ImageIcon, "Görsel"],
-                    ["code", Code2, "Kod"],
-                    ["divider", Minus, "Cizgi"],
-                  ].map(([action, Icon, label]) => (
-                    <button
-                      key={action}
-                      type="button"
-                      onClick={() => insertMarkdown(action as ToolbarAction)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
                 <div className="flex flex-wrap gap-2">
                   {QUICK_SNIPPETS.map((snippet) => (
                     <button
                       key={snippet.label}
                       type="button"
-                      onClick={() => insertAtCursor(`\n${snippet.value}\n`)}
+                      onClick={() => appendEditorHtml(snippet.value)}
                       className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
                     >
                       {snippet.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => inlineImageInputRef.current?.click()}
+                    disabled={inlineUploading}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-900 hover:text-gray-900 disabled:opacity-60"
+                  >
+                    {inlineUploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ImageIcon className="h-3.5 w-3.5" />
+                    )}
+                    İçerik görseli
+                  </button>
                 </div>
 
                 <div
@@ -631,17 +589,16 @@ export function BlogForm({ initialData }: BlogFormProps) {
                         {formData.wordCount} kelime / {editorMetrics.charCount} karakter
                       </div>
                     </div>
-                    <textarea
-                      ref={textareaRef}
-                      rows={24}
+                    <RichTextEditor
                       value={formData.content}
-                      onChange={(event) => patch({ content: event.target.value })}
-                      placeholder={`## Baslik\n\nYaziniza guclu bir girisle baslayin.\n\n- Madde\n- Madde\n\n[Baglanti](https://example.com)\n`}
-                      className="min-h-[620px] w-full rounded-2xl border border-gray-200 px-4 py-4 font-mono text-sm leading-7 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      onChange={(value) => patch({ content: value })}
+                      placeholder="Blog yazinizi baslik, paragraf, liste, alinti ve baglanti yapisiyla buraya girin..."
+                      minHeightClassName="min-h-[620px]"
                     />
                     <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-600">
                       Kapak gorseli ve icerik gorselleri link yapistirmadan dogrudan yuklenir.
-                      Editor icindeki gorsel butonu secilen dosyalari icerige otomatik ekler.
+                      Rich text editor artik secim koruma, yapistirma ve bicimlendirme tarafinda
+                      ortak Tiptap standardini kullanir.
                     </div>
                   </div>
 
@@ -652,7 +609,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                           <div className="text-sm font-semibold text-gray-900">Canli onizleme</div>
                           <div className="inline-flex items-center gap-1 text-xs text-gray-500">
                             <Eye className="h-3.5 w-3.5" />
-                            renderMarkdownToHtml
+                            rich text render
                           </div>
                         </div>
                         <div className="prose prose-gray max-w-none p-5">
@@ -664,14 +621,14 @@ export function BlogForm({ initialData }: BlogFormProps) {
                         </div>
                       </div>
                       <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                        <div className="mb-3 text-sm font-semibold text-gray-900">İçerik yapisi</div>
+                        <div className="mb-3 text-sm font-semibold text-gray-900">İçerik yapısı</div>
                         {outline.length > 0 ? (
                           <div className="space-y-2">
                             {outline.map((item, index) => (
                               <div
                                 key={`${item.text}-${index}`}
                                 className="text-sm text-gray-600"
-                                style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
+                                style={{ paddingLeft: `${Math.max(item.level - 2, 0) * 12}px` }}
                               >
                                 <span className="font-medium text-gray-900">H{item.level}</span>{" "}
                                 {item.text}
@@ -680,7 +637,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                           </div>
                         ) : (
                           <p className="text-sm text-gray-500">
-                            H2/H3 ekledikce burada bolum yapisi gorunur.
+                            H2 ve H3 ekledikce burada bolum yapisi gorunur.
                           </p>
                         )}
                       </div>
@@ -733,8 +690,8 @@ export function BlogForm({ initialData }: BlogFormProps) {
                   formData.seoScore >= 80
                     ? "bg-emerald-100 text-emerald-700"
                     : formData.seoScore >= 60
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-gray-100 text-gray-600"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-100 text-gray-600"
                 }`}
               >
                 {formData.seoScore}
@@ -791,7 +748,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      Gorseli degistir
+                      Görseli değiştir
                     </button>
                   </div>
                 ) : (
@@ -819,19 +776,9 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 )}
               </div>
             </div>
-            <label className="mt-4 hidden text-sm font-medium text-gray-700">
-              Kapak görseli
-              <input
-                type="text"
-                value={formData.coverImage}
-                onChange={(event) => patch({ coverImage: event.target.value })}
-                placeholder="https://..."
-                className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
-            </label>
             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-blue-900">
-              Kapak ve icerik gorselleri artik dogrudan dosya yukleme ile calisir. Markdown
-              toolbar, canli onizleme ve hizli snippet bloklari yazim akisini hizlandirir.
+              Kapak ve icerik gorselleri dogrudan dosya yukleme ile calisir. Blog yazisi artik
+              markdown textarea yerine rich text editor kullaniyor.
             </div>
           </div>
         </div>

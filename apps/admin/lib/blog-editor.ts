@@ -1,4 +1,5 @@
 import { calculateSEOScore } from "@/lib/blog";
+import { extractBlogPlainText } from "@/lib/blog-rich-text";
 import { slugify } from "@/lib/utils";
 import type { BlogPost, ContentStatus } from "@/types/blog";
 
@@ -24,7 +25,7 @@ function normalizeStatus(status: string | null | undefined): ContentStatus {
 }
 
 function deriveWordCount(content: string): number {
-  return content
+  return extractBlogPlainText(content)
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
@@ -46,7 +47,7 @@ function deriveTargetKeywords(title: string, excerpt: string): string[] {
 }
 
 function deriveExcerpt(content: string): string {
-  const firstParagraph = content
+  const firstParagraph = extractBlogPlainText(content)
     .split(/\n{2,}/)
     .map((part) => part.trim())
     .find(Boolean);

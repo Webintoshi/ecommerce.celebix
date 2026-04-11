@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock3, CalendarDays, ShoppingBag, Home, Sparkles } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
-import { renderMarkdownToHtml } from "@/lib/markdown";
+import { renderBlogContentToHtml } from "@/lib/blog-rich-text";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
@@ -92,7 +92,7 @@ export function BlogArticlePage({
               <article className="max-w-3xl py-16">
         <div
           className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-headings:text-neutral-900 prose-p:text-neutral-600 prose-p:leading-relaxed prose-a:text-neutral-900 prose-a:no-underline hover:prose-a:underline prose-strong:text-neutral-900 prose-li:text-neutral-600 prose-blockquote:border-l-neutral-200 prose-blockquote:text-neutral-500 prose-code:text-neutral-900 prose-code:bg-neutral-100"
-          dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(post.content || "") }}
+          dangerouslySetInnerHTML={{ __html: renderBlogContentToHtml(post.content || "") }}
         />
 
         {/* Author */}
