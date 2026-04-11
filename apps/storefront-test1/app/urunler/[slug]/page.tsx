@@ -11,6 +11,7 @@ import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
@@ -95,7 +96,7 @@ export async function generateMetadata({
     description:
       product.seo_description ||
       product.shortDescription ||
-      product.description?.slice(0, 160) ||
+      extractPlainTextFromProductDescription(product.description, product.name).slice(0, 160) ||
       "",
     keywords: product.tags,
     image: product.images && product.images.length > 0 ? product.images[0] : null,
@@ -267,7 +268,7 @@ export default async function ProductDetailPage({
         description:
           product.seo_description ||
           product.shortDescription ||
-          product.description?.slice(0, 160) ||
+          extractPlainTextFromProductDescription(product.description, product.name).slice(0, 160) ||
           "",
         image: product.images && product.images.length > 0 ? product.images[0] : null,
         url: productUrl,

@@ -19,6 +19,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import Link from "next/link";
 import { Product, ProductVariant, NutritionalInfo, ProductCategory, ProductSubcategory } from "@/types/product";
 import { fetchCategories } from "@/lib/categories";
@@ -28,6 +29,7 @@ import {
   SUPPORTED_IMAGE_ACCEPT,
   SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
 } from "@celebix/platform-config/src/image-formats";
+import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
 interface CategoryOption {
   value: string;
@@ -407,7 +409,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
       newErrors.slug = 'Slug gereklidir';
     }
 
-    if (!formData.description.trim()) {
+    if (!extractPlainTextFromProductDescription(formData.description).trim()) {
       newErrors.description = 'Açıklama gereklidir';
     }
 
@@ -640,16 +642,14 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">
                     Ürün Açıklaması <span className="text-rose-500">*</span>
                   </label>
-                  <textarea
+                  <RichTextEditor
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Ürün hakkında detaylı bilgi, içindekiler ve kullanım önerileri..."
-                    rows={6}
-                    className={cn(
-                      "w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium resize-none shadow-sm",
-                      errors.description && "border-rose-200 bg-rose-50/30"
-                    )}
-                    required
+                    onChange={(description) =>
+                      setFormData((prev) => ({ ...prev, description }))
+                    }
+                    placeholder="Ürün hakkında detaylı bilgi, başlıklar, listeler ve kullanım önerilerini girin..."
+                    error={errors.description}
+                    minHeightClassName="min-h-[240px]"
                   />
                   {errors.description && (
                     <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest ml-1">{errors.description}</p>

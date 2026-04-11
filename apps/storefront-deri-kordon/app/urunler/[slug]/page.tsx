@@ -11,6 +11,7 @@ import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/l
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
+import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductRecord } from "@/lib/translation";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
@@ -151,7 +152,10 @@ export async function generateMetadata({
     description:
       translatedProduct.seoDescription ||
       translatedProduct.shortDescription ||
-      translatedProduct.description?.slice(0, 160) ||
+      extractPlainTextFromProductDescription(
+        translatedProduct.description,
+        translatedProduct.name,
+      ).slice(0, 160) ||
       "",
     keywords: translatedProduct.tags,
     image: translatedProduct.images && translatedProduct.images.length > 0 ? translatedProduct.images[0] : null,
@@ -350,7 +354,11 @@ export default async function ProductDetailPage({
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    description: product.seo_description || product.shortDescription || product.description?.slice(0, 160) || "",
+    description:
+      product.seo_description ||
+      product.shortDescription ||
+      extractPlainTextFromProductDescription(product.description, product.name).slice(0, 160) ||
+      "",
     image: product.images && product.images.length > 0 ? product.images[0] : null,
     url: productUrl,
     brand: {

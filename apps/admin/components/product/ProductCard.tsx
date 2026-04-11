@@ -13,6 +13,7 @@ import { useQuickView } from "@/components/product/QuickViewProvider";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
 interface ProductCardProps {
   product: Product;
@@ -27,6 +28,9 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
   const isWishlisted = isInWishlist(product.id);
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const productSummary =
+    product.shortDescription ||
+    extractPlainTextFromProductDescription(product.description, product.name);
 
   // Varyant yoksa bile ürünü göster
   if (!product.variants || product.variants.length === 0) {
@@ -212,7 +216,7 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                 </h3>
                 <RatingStars rating={product.rating} count={product.reviewCount || 0} />
                 <p className="text-sm text-gray-500 line-clamp-2 mt-2 hidden sm:block">
-                  {product.shortDescription || product.description}
+                  {productSummary}
                 </p>
               </div>
 

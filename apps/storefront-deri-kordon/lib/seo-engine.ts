@@ -1,3 +1,5 @@
+import { extractPlainTextFromProductDescription } from "@/lib/product-description";
+
 export interface KeywordRule {
     id: string;
     keyword: string;
@@ -153,7 +155,9 @@ export function generateMetaTags(product: Product): { title: string; description
     // Generate Description
     // Pattern: {ShortDesc} {Weight} seçenekleriyle. Katkısız, doğal lezzet. Hızlı kargo ile hemen sipariş verin.
 
-    let description = product.shortDescription || product.description.substring(0, 150);
+    let description =
+        product.shortDescription ||
+        extractPlainTextFromProductDescription(product.description, product.name).slice(0, 150);
     if (!description.endsWith(".")) description += ".";
 
     // Add call to action and value props

@@ -1,6 +1,7 @@
 import type { Product } from "@/types/product";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { getAllProducts } from "./products";
+import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
 export interface KeywordRule {
     id: string;
@@ -149,7 +150,9 @@ export function generateMetaTags(product: Product): { title: string; description
     // Generate Description
     // Pattern: {ShortDesc} {Weight} seçenekleriyle. Katkısız, doğal lezzet. Hızlı kargo ile hemen sipariş verin.
 
-    let description = product.shortDescription || product.description.substring(0, 150);
+    let description =
+        product.shortDescription ||
+        extractPlainTextFromProductDescription(product.description, product.name).slice(0, 150);
     if (!description.endsWith(".")) description += ".";
 
     // Add call to action and value props

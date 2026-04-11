@@ -8,6 +8,7 @@ import { buildProductCategoryTree, getChildCategoriesByParentSlug } from "@/lib/
 import { fetchCategories } from "@/lib/categories";
 import { PRODUCT_TAG_LIMITS, normalizeProductTag } from "@/lib/product-tags";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import type { AdminProductWizardState } from "@/types/admin-product-wizard";
 
 interface StepBasicInfoProps {
@@ -289,15 +290,12 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             <label className="text-sm font-semibold text-gray-700">
               Ürün Açıklaması <span className="text-rose-500">*</span>
             </label>
-            <textarea
+            <RichTextEditor
               value={data.description}
-              onChange={(event) => onChange({ description: event.target.value })}
-              placeholder="Ürün hakkında detaylı bilgi, kullanım alanları ve teknik özellikler."
-              rows={5}
-              className={cn(
-                "w-full px-3 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none text-sm",
-                errors.description ? "border-rose-300 bg-rose-50/30" : "border-gray-200"
-              )}
+              onChange={(description) => onChange({ description })}
+              placeholder="Ürün hakkında detaylı bilgi, başlıklar, listeler ve teknik özellikler."
+              error={errors.description}
+              minHeightClassName="min-h-[220px]"
             />
             {errors.description ? (
               <p className="text-xs text-rose-500 font-medium">{errors.description}</p>

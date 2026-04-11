@@ -1,5 +1,6 @@
 import { Product } from "@/types/product";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 
 export interface KeywordRule {
   id: string;
@@ -74,7 +75,9 @@ export function generateMetaTags(product: Product): { title: string; description
 
   title += ` | ${brand}`;
 
-  let description = product.shortDescription || product.description.substring(0, 150);
+  let description =
+    product.shortDescription ||
+    extractPlainTextFromProductDescription(product.description, product.name).slice(0, 150);
   if (!description.endsWith(".")) description += ".";
 
   description += " Kaliteli sunum, guven veren detaylar ve hizli siparis akisi.";

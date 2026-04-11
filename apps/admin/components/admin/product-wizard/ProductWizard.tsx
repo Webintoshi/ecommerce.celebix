@@ -10,6 +10,7 @@ import {
   type AdminProductWizardState,
 } from "@/types/admin-product-wizard";
 import { buildGeneratedSku } from "@/lib/sku";
+import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
 // Adım Component'leri
 import { StepBasicInfo } from "./steps/StepBasicInfo";
@@ -161,7 +162,9 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       case 1:
         if (!formData.name.trim()) newErrors.name = "Ürün adı gereklidir";
         if (!formData.slug.trim()) newErrors.slug = "URL slug gereklidir";
-        if (!formData.description.trim()) newErrors.description = "Açıklama gereklidir";
+        if (!extractPlainTextFromProductDescription(formData.description).trim()) {
+          newErrors.description = "Açıklama gereklidir";
+        }
         if (!formData.shortDescription.trim()) newErrors.shortDescription = "Kısa açıklama gereklidir";
         if (!formData.category) newErrors.category = "Kategori seçilmelidir";
         break;

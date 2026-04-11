@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 
 interface QuickViewContextType {
   quickViewProduct: Product | null;
@@ -55,6 +56,8 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
 
   const images = product.images?.length > 0 ? product.images : [];
   const isOutOfStock = selectedVariant?.stock === 0;
+  const quickDescription = product.shortDescription
+    || extractPlainTextFromProductDescription(product.description, product.name);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -250,7 +253,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
             
             {/* Description */}
             <p className="text-gray-600 text-sm md:text-base mb-6 line-clamp-3">
-              {product.shortDescription || product.description}
+              {quickDescription}
             </p>
 
             {/* Variants */}

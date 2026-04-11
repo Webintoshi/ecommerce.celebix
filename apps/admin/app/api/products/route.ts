@@ -16,6 +16,10 @@ import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribut
 import { buildGeneratedSku } from "@/lib/sku";
 import { inferLegacySubcategorySlug, withCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
+import {
+    extractPlainTextFromProductDescription,
+    normalizeProductDescriptionHtml,
+} from "@celebix/platform-config/src/product-description-rich-text";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
 export const runtime = "nodejs";
@@ -232,6 +236,15 @@ function normalizeVariantRecord(value: unknown, rules: ProductDiscountRule[] = [
         images: normalizeImageArray(record.images),
         attributes: normalizeVariantAttributes(record.attributes),
     };
+}
+
+function normalizeStoredProductDescription(value: unknown): string | null {
+    const normalized = normalizeProductDescriptionHtml(typeof value === "string" ? value : "");
+    return normalized || null;
+}
+
+function hasVisibleProductDescription(value: unknown): boolean {
+    return extractPlainTextFromProductDescription(typeof value === "string" ? value : "").trim().length > 0;
 }
 
 function normalizeProductRecord(
@@ -567,16 +580,18 @@ export async function POST(request: NextRequest) {
 
         // Validation: Zorunlu alanlar
         const validationErrors: string[] = [];
+        const normalizedDescription = normalizeStoredProductDescription(productData.description);
+        const normalizedShortDescription = toNullableString(productData.short_description);
         if (!productData.name || productData.name.trim() === '') {
             validationErrors.push("Ürün adı gereklidir");
         }
         if (!productData.slug || productData.slug.trim() === '') {
             validationErrors.push("URL slug gereklidir");
         }
-        if (!productData.description || productData.description.trim() === '') {
+        if (!hasVisibleProductDescription(normalizedDescription)) {
             validationErrors.push("Ürün açıklaması gereklidir");
         }
-        if (!productData.short_description || productData.short_description.trim() === '') {
+        if (!normalizedShortDescription) {
             validationErrors.push("Kısa açıklama gereklidir");
         }
         if (!productData.category) {
@@ -684,8 +699,8 @@ export async function POST(request: NextRequest) {
         let productInsertPayload: Record<string, unknown> = {
                 name: productData.name,
                 slug: productData.slug,
-                description: productData.description || null,
-                short_description: productData.short_description || null,
+                description: normalizedDescription,
+                short_description: normalizedShortDescription,
                 images: normalizedImages,
                 images_v2: normalizedImagesV2,
                 category: productData.category || null,
@@ -904,6 +919,14 @@ export async function PUT(request: NextRequest) {
         const { id, variants, discount_rules, deleted_images, ...updates } = body;
         let preparedVariants: any[] | undefined = Array.isArray(variants) ? variants : undefined;
         let normalizedUpdatedTags: string[] | undefined;
+        const normalizedDescription =
+            updates.description !== undefined
+                ? normalizeStoredProductDescription(updates.description)
+                : undefined;
+        const normalizedShortDescription =
+            updates.short_description !== undefined
+                ? toNullableString(updates.short_description)
+                : undefined;
 
         console.log("PUT /api/products - ID:", id);
         console.log("PUT /api/products - Updates:", updates);
@@ -1058,8 +1081,8 @@ export async function PUT(request: NextRequest) {
         // Sadece undefined olmayan alanları ekle
         if (updates.name !== undefined) updateData.name = updates.name;
         if (updates.slug !== undefined) updateData.slug = updates.slug;
-        if (updates.description !== undefined) updateData.description = updates.description;
-        if (updates.short_description !== undefined) updateData.short_description = updates.short_description;
+        if (updates.description !== undefined) updateData.description = normalizedDescription;
+        if (updates.short_description !== undefined) updateData.short_description = normalizedShortDescription;
         
         // Görseller SADECE explicitly gönderildiyse güncelle
         if (finalImages !== undefined) updateData.images = finalImages;
