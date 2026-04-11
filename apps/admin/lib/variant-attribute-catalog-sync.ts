@@ -4,6 +4,7 @@ import {
   isVariantAttributeValueTableMissing,
   saveStoredVariantAttributes,
 } from "@/lib/db/variant-attributes";
+import { isIgnoredLegacyVariantAttributeName } from "@/lib/variant-attribute-legacy";
 
 type JsonObject = Record<string, unknown>;
 
@@ -19,6 +20,7 @@ type RegistryValue = {
 type RegistryAttribute = {
   id: string;
   name: string;
+  is_active?: boolean;
   values: RegistryValue[];
 };
 
@@ -63,24 +65,29 @@ function getMissingColumn(error: unknown, tableName: string): string | null {
 }
 
 async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttribute[]> {
-  const { data: attributes, error: attributesError } = await supabase.from("variant_attributes").select("id,name");
+  const { data: attributes, error: attributesError } = await supabase
+    .from("variant_attributes")
+    .select("id,name,is_active");
   if (attributesError) {
     if (isVariantAttributeTableMissing(attributesError) || isVariantAttributeValueTableMissing(attributesError)) {
       const storedAttributes = await getStoredVariantAttributes();
-      return storedAttributes.map((attribute) => ({
-        id: attribute.id,
-        name: attribute.name,
-        values: attribute.values
-          .filter((value) => value.is_active !== false)
-          .map((value) => ({
-            id: value.id,
-            attribute_id: value.attribute_id,
-            value: value.value,
-            display_order: value.display_order ?? null,
-            color_code: value.color_code ?? null,
-            image_url: value.image_url ?? null,
-          })),
-      }));
+      return storedAttributes
+        .filter((attribute) => !isIgnoredLegacyVariantAttributeName(attribute.name))
+        .map((attribute) => ({
+          id: attribute.id,
+          name: attribute.name,
+          is_active: attribute.is_active !== false,
+          values: attribute.values
+            .filter((value) => value.is_active !== false)
+            .map((value) => ({
+              id: value.id,
+              attribute_id: value.attribute_id,
+              value: value.value,
+              display_order: value.display_order ?? null,
+              color_code: value.color_code ?? null,
+              image_url: value.image_url ?? null,
+            })),
+        }));
     }
     throw attributesError;
   }
@@ -94,19 +101,22 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
   if (valuesError) {
     if (isVariantAttributeValueTableMissing(valuesError) || isVariantAttributeTableMissing(valuesError)) {
       const storedAttributes = await getStoredVariantAttributes();
-      return storedAttributes.map((attribute) => ({
-        id: attribute.id,
-        name: attribute.name,
-        values: attribute.values
-          .filter((value) => value.is_active !== false)
-          .map((value) => ({
-            id: value.id,
-            attribute_id: value.attribute_id,
-            value: value.value,
-            color_code: value.color_code ?? null,
-            image_url: value.image_url ?? null,
-          })),
-      }));
+      return storedAttributes
+        .filter((attribute) => !isIgnoredLegacyVariantAttributeName(attribute.name))
+        .map((attribute) => ({
+          id: attribute.id,
+          name: attribute.name,
+          is_active: attribute.is_active !== false,
+          values: attribute.values
+            .filter((value) => value.is_active !== false)
+            .map((value) => ({
+              id: value.id,
+              attribute_id: value.attribute_id,
+              value: value.value,
+              color_code: value.color_code ?? null,
+              image_url: value.image_url ?? null,
+            })),
+        }));
     }
     throw valuesError;
   }
@@ -129,18 +139,23 @@ async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttr
     valueMap.set(row.attribute_id, list);
   }
 
-  return (attributes || []).map((attribute: { id: string; name: string }) => ({
-    id: attribute.id,
-    name: attribute.name,
-    values: valueMap.get(attribute.id) ?? [],
-  }));
+  return (attributes || [])
+    .filter((attribute: { name: string; is_active?: boolean | null }) => (
+      attribute.is_active !== false && !isIgnoredLegacyVariantAttributeName(attribute.name)
+    ))
+    .map((attribute: { id: string; name: string; is_active?: boolean | null }) => ({
+      id: attribute.id,
+      name: attribute.name,
+      is_active: attribute.is_active !== false,
+      values: valueMap.get(attribute.id) ?? [],
+    }));
 }
 
 function toStoredVariantAttributes(registry: RegistryAttribute[]) {
   return registry.map((attribute) => ({
     id: attribute.id,
     name: attribute.name,
-    is_active: true,
+    is_active: attribute.is_active !== false,
     values: attribute.values.map((value, index) => ({
       id: value.id,
       attribute_id: value.attribute_id,

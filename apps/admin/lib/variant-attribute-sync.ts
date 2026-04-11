@@ -41,22 +41,6 @@ type VariantAttributeValueRecord = {
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
-const IGNORED_LEGACY_GROUP_NAMES = new Set([
-  "adet",
-  "kg",
-  "g",
-  "gr",
-  "gram",
-  "lt",
-  "l",
-  "ml",
-  "paket",
-  "kutu",
-  "default title",
-  "varsayilan baslik",
-  "standart",
-  "standard",
-]);
 
 function toOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -176,7 +160,7 @@ function normalizeLegacyVariantAttributeEntry(variant: unknown): VariantAttribut
     !rawAttributeName ||
     !rawValue ||
     isDefaultVariantValue(rawValue) ||
-    IGNORED_LEGACY_GROUP_NAMES.has(normalize(rawAttributeName))
+    isIgnoredLegacyVariantAttributeName(rawAttributeName)
   ) {
     return null;
   }

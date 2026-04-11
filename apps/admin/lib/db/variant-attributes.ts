@@ -1,5 +1,6 @@
 import { getSetting, setSetting } from "@/lib/db/settings";
 import type { VariantAttribute, VariantAttributeValue } from "@/types/variant-attributes";
+import { isIgnoredLegacyVariantAttributeName } from "@/lib/variant-attribute-legacy";
 
 const VARIANT_ATTRIBUTES_SETTING_KEY = "variant_attributes_registry";
 
@@ -85,10 +86,17 @@ export function isVariantAttributeValueTableMissing(error: unknown): boolean {
 export async function getStoredVariantAttributes(): Promise<VariantAttributeRecord[]> {
   const registry = (await getSetting(VARIANT_ATTRIBUTES_SETTING_KEY)) as VariantAttributeRegistry | null;
   const attributes = Array.isArray(registry?.attributes) ? registry.attributes : [];
-  return attributes
+  const normalizedAttributes = attributes
     .map((attribute) => normalizeAttribute(attribute))
     .filter((attribute) => attribute.is_active !== false)
+    .filter((attribute) => !isIgnoredLegacyVariantAttributeName(attribute.name))
     .sort((left, right) => left.name.localeCompare(right.name, "tr"));
+
+  if (normalizedAttributes.length !== attributes.length) {
+    await saveStoredVariantAttributes(normalizedAttributes);
+  }
+
+  return normalizedAttributes;
 }
 
 export async function saveStoredVariantAttributes(attributes: VariantAttributeRecord[]) {

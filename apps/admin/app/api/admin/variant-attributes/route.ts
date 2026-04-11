@@ -16,6 +16,7 @@ import {
   syncStoredVariantAttributeRegistrySnapshot,
 } from "@/lib/variant-attribute-catalog-sync";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { isIgnoredLegacyVariantAttributeName } from "@/lib/variant-attribute-legacy";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -109,6 +110,83 @@ function normalizeAttribute(attribute: Record<string, unknown>) {
     is_active: attribute.is_active !== false,
     values,
   };
+}
+
+async function purgeIgnoredVariantAttributes(supabase: ReturnType<typeof createServerClient>) {
+  const storedAttributes = await getStoredVariantAttributes();
+  const ignoredStoredAttributes = storedAttributes.filter((attribute) =>
+    isIgnoredLegacyVariantAttributeName(attribute.name),
+  );
+
+  for (const attribute of ignoredStoredAttributes) {
+    await deleteStoredVariantAttribute(attribute.id);
+    try {
+      await removeCatalogVariantAttributeSnapshots(supabase, {
+        attributeId: attribute.id,
+        attributeName: attribute.name,
+        attributeSlug: attribute.slug,
+      });
+    } catch (cleanupError) {
+      logCatalogVariantSyncError(cleanupError, "purge:stored");
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("variant_attributes")
+    .select("id,name,slug,is_active");
+
+  if (error) {
+    if (isVariantAttributeTableMissing(error) || isVariantAttributeValueTableMissing(error)) {
+      return;
+    }
+    throw error;
+  }
+
+  const ignoredDatabaseAttributes = (data || []).filter((attribute: Record<string, unknown>) => (
+    attribute.is_active !== false &&
+    isIgnoredLegacyVariantAttributeName(typeof attribute.name === "string" ? attribute.name : null)
+  ));
+
+  for (const attribute of ignoredDatabaseAttributes) {
+    const attributeId = String(attribute.id || "");
+    if (!attributeId) continue;
+
+    const { error: softDeleteError } = await supabase
+      .from("variant_attributes")
+      .update({ is_active: false })
+      .eq("id", attributeId);
+
+    if (softDeleteError && getMissingColumn(softDeleteError, "variant_attributes") === "is_active") {
+      const { error: deleteValuesError } = await supabase
+        .from("variant_attribute_values")
+        .delete()
+        .eq("attribute_id", attributeId);
+      if (deleteValuesError && !isVariantAttributeValueTableMissing(deleteValuesError)) {
+        throw deleteValuesError;
+      }
+
+      const { error: hardDeleteError } = await supabase
+        .from("variant_attributes")
+        .delete()
+        .eq("id", attributeId);
+      if (hardDeleteError && !isVariantAttributeTableMissing(hardDeleteError)) {
+        throw hardDeleteError;
+      }
+    } else if (softDeleteError) {
+      throw softDeleteError;
+    }
+
+    await deleteStoredVariantAttribute(attributeId);
+    try {
+      await removeCatalogVariantAttributeSnapshots(supabase, {
+        attributeId,
+        attributeName: typeof attribute.name === "string" ? attribute.name : null,
+        attributeSlug: typeof attribute.slug === "string" ? attribute.slug : null,
+      });
+    } catch (cleanupError) {
+      logCatalogVariantSyncError(cleanupError, "purge:database");
+    }
+  }
 }
 
 function isVariantAttributeRelationshipMissing(error: unknown): boolean {
@@ -247,9 +325,14 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id");
     const supabase = createServerClient();
 
+    await purgeIgnoredVariantAttributes(supabase);
+
     if (id) {
       try {
         const attribute = await fetchAttributeWithValues(id);
+        if (attribute && isIgnoredLegacyVariantAttributeName(typeof attribute.name === "string" ? attribute.name : null)) {
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+        }
         if (!attribute) {
           return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
         }
@@ -300,7 +383,7 @@ export async function GET(request: NextRequest) {
               } catch (backfillError) {
                 console.error("Error backfilling variant attributes from catalog:", backfillError);
               }
-              return (await getStoredVariantAttributes()).map((attribute) =>
+          return (await getStoredVariantAttributes()).map((attribute) =>
                 normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
               );
             }
@@ -361,6 +444,7 @@ export async function GET(request: NextRequest) {
 
       return (data || [])
         .map((attribute) => normalizeAttribute((attribute ?? {}) as Record<string, unknown>))
+        .filter((attribute) => !isIgnoredLegacyVariantAttributeName(typeof attribute.name === "string" ? attribute.name : null))
         .filter((attribute) => attribute.is_active !== false);
     };
 
