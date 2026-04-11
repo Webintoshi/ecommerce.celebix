@@ -110,6 +110,31 @@ export function resolveStorefrontDirectAssetUrl(source?: string | null) {
   }
 }
 
+export function extractStorefrontUpstreamAssetUrl(source?: string | null, requestUrl?: string) {
+  const trimmedSource = typeof source === "string" ? source.trim() : "";
+
+  if (!trimmedSource) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = trimmedSource.startsWith("/")
+      ? new URL(trimmedSource, requestUrl ?? "https://celebix.local")
+      : new URL(trimmedSource);
+
+    if (parsedUrl.pathname === ASSET_PROXY_PATH) {
+      const originalSource = parsedUrl.searchParams.get("src");
+      if (originalSource) {
+        return originalSource.trim();
+      }
+    }
+  } catch {
+    return trimmedSource;
+  }
+
+  return trimmedSource;
+}
+
 export function isProxiedStorefrontAssetUrl(source?: string | null) {
   return typeof source === "string" && source.startsWith(`${ASSET_PROXY_PATH}?`);
 }

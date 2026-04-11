@@ -29,7 +29,7 @@ import {
     setStoreInfo,
     setTranslationSettings,
 } from "@/lib/db/settings";
-import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { extractAdminStoredAssetUrl, resolveAdminAssetUrl } from "@/lib/asset-url";
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
 
@@ -216,12 +216,19 @@ export async function POST(request: NextRequest) {
         }
 
         if (type === "store" && storeInfo !== undefined) {
-            await setStoreInfo(storeInfo);
+            await setStoreInfo({
+                ...storeInfo,
+                logoUrl: extractAdminStoredAssetUrl(storeInfo.logoUrl),
+                faviconUrl: extractAdminStoredAssetUrl(storeInfo.faviconUrl),
+            });
             return NextResponse.json({ success: true, message: "Store info updated" });
         }
 
         if (type === "seo" && seoSettings !== undefined) {
-            await setSeoSettings(seoSettings);
+            await setSeoSettings({
+                ...seoSettings,
+                ogImageUrl: extractAdminStoredAssetUrl(seoSettings.ogImageUrl),
+            });
             return NextResponse.json({ success: true, message: "SEO settings updated" });
         }
 

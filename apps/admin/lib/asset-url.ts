@@ -110,3 +110,28 @@ export function resolveAdminDirectAssetUrl(source?: string | null) {
     return "";
   }
 }
+
+export function extractAdminStoredAssetUrl(source?: string | null) {
+  const trimmedSource = typeof source === "string" ? source.trim() : "";
+
+  if (!trimmedSource) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = trimmedSource.startsWith("/")
+      ? new URL(trimmedSource, "https://celebix.local")
+      : new URL(trimmedSource);
+
+    if (parsedUrl.pathname === ASSET_PROXY_PATH) {
+      const originalSource = parsedUrl.searchParams.get("src");
+      if (originalSource) {
+        return originalSource.trim();
+      }
+    }
+  } catch {
+    return trimmedSource;
+  }
+
+  return trimmedSource;
+}

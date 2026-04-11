@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getStoreInfo } from "@/lib/db/settings";
-import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { extractStorefrontUpstreamAssetUrl } from "@/lib/asset-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ function resolveFaviconFetchTarget(request: NextRequest, source: string) {
 export async function GET(request: NextRequest) {
   try {
     const storeInfo = await getStoreInfo();
-    const resolvedSource = resolveStorefrontAssetUrl(storeInfo?.faviconUrl);
+    const resolvedSource = extractStorefrontUpstreamAssetUrl(storeInfo?.faviconUrl, request.url);
     const target = resolvedSource ? resolveFaviconFetchTarget(request, resolvedSource) : null;
 
     if (target) {
