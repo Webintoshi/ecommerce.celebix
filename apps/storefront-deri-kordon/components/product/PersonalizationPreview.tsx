@@ -274,6 +274,44 @@ export function PersonalizationPreview({
   const [resolvedPreviewScale, setResolvedPreviewScale] = useState(1);
 
   useLayoutEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    FONT_OPTIONS.forEach((fontOption) => {
+      if (document.fonts.check(`30px "${fontOption.faceName}"`)) {
+        return;
+      }
+
+      const fontFace = new FontFace(
+        fontOption.faceName,
+        `url("${fontOption.src}") format("truetype")`,
+        {
+          style:
+            typeof fontOption.style.fontStyle === "string"
+              ? fontOption.style.fontStyle
+              : "normal",
+          weight:
+            typeof fontOption.style.fontWeight === "number"
+              ? String(fontOption.style.fontWeight)
+              : typeof fontOption.style.fontWeight === "string"
+                ? fontOption.style.fontWeight
+                : "400",
+        }
+      );
+
+      void fontFace
+        .load()
+        .then((loadedFont) => {
+          document.fonts.add(loadedFont);
+        })
+        .catch((error) => {
+          console.error("Preview font preload failed:", error);
+        });
+    });
+  }, []);
+
+  useLayoutEffect(() => {
     let cancelled = false;
 
     const ensureFontReady = async () => {
@@ -382,6 +420,7 @@ export function PersonalizationPreview({
   }, [
     displayText,
     initialPreviewFontSize,
+    isSelectedFontReady,
     previewConfig.sizePreset,
     selectedFontId,
   ]);
