@@ -67,6 +67,84 @@ const shippingIntegrationSettingsSchema = z.object({
     })),
 });
 
+function normalizeHeroBannersForAdmin(value: unknown) {
+    if (!value || typeof value !== "object") {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    const slides = Array.isArray(record.slides) ? record.slides : [];
+
+    return {
+        ...record,
+        slides: slides.map((slide) => {
+            if (!slide || typeof slide !== "object") {
+                return slide;
+            }
+
+            const slideRecord = slide as Record<string, unknown>;
+            const video =
+                slideRecord.video && typeof slideRecord.video === "object"
+                    ? (slideRecord.video as Record<string, unknown>)
+                    : null;
+
+            return {
+                ...slideRecord,
+                desktop: resolveAdminAssetUrl(typeof slideRecord.desktop === "string" ? slideRecord.desktop : null) || "",
+                mobile: resolveAdminAssetUrl(typeof slideRecord.mobile === "string" ? slideRecord.mobile : null) || "",
+                tablet: resolveAdminAssetUrl(typeof slideRecord.tablet === "string" ? slideRecord.tablet : null) || "",
+                video: video
+                    ? {
+                        ...video,
+                        desktop: resolveAdminAssetUrl(typeof video.desktop === "string" ? video.desktop : null) || "",
+                        mobile: resolveAdminAssetUrl(typeof video.mobile === "string" ? video.mobile : null) || "",
+                        poster: resolveAdminAssetUrl(typeof video.poster === "string" ? video.poster : null) || "",
+                    }
+                    : slideRecord.video,
+            };
+        }),
+    };
+}
+
+function extractHeroBannersForStorage(value: unknown) {
+    if (!value || typeof value !== "object") {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    const slides = Array.isArray(record.slides) ? record.slides : [];
+
+    return {
+        ...record,
+        slides: slides.map((slide) => {
+            if (!slide || typeof slide !== "object") {
+                return slide;
+            }
+
+            const slideRecord = slide as Record<string, unknown>;
+            const video =
+                slideRecord.video && typeof slideRecord.video === "object"
+                    ? (slideRecord.video as Record<string, unknown>)
+                    : null;
+
+            return {
+                ...slideRecord,
+                desktop: extractAdminStoredAssetUrl(typeof slideRecord.desktop === "string" ? slideRecord.desktop : null),
+                mobile: extractAdminStoredAssetUrl(typeof slideRecord.mobile === "string" ? slideRecord.mobile : null),
+                tablet: extractAdminStoredAssetUrl(typeof slideRecord.tablet === "string" ? slideRecord.tablet : null),
+                video: video
+                    ? {
+                        ...video,
+                        desktop: extractAdminStoredAssetUrl(typeof video.desktop === "string" ? video.desktop : null),
+                        mobile: extractAdminStoredAssetUrl(typeof video.mobile === "string" ? video.mobile : null),
+                        poster: extractAdminStoredAssetUrl(typeof video.poster === "string" ? video.poster : null),
+                    }
+                    : slideRecord.video,
+            };
+        }),
+    };
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -158,7 +236,13 @@ export async function GET(request: NextRequest) {
 
         if (key) {
             const value = await getSetting(key);
-            return NextResponse.json({ success: true, setting: { key, value } });
+            return NextResponse.json({
+                success: true,
+                setting: {
+                    key,
+                    value: key === "hero_banners" ? normalizeHeroBannersForAdmin(value) : value,
+                },
+            });
         }
 
         const settings = await getAllSettings();
@@ -276,7 +360,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (key && value !== undefined) {
-            const setting = await setSetting(key, value);
+            const normalizedValue = key === "hero_banners" ? extractHeroBannersForStorage(value) : value;
+            const setting = await setSetting(key, normalizedValue);
             return NextResponse.json({ success: true, setting });
         }
 
