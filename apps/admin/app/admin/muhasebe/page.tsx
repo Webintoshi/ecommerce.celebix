@@ -18,7 +18,6 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  X,
 } from "lucide-react";
 import type { AccountingOverviewData } from "@/types/accounting";
 import {
@@ -29,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -39,7 +39,7 @@ function formatCurrency(value: number) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "Henüz senkron yapılmadı";
+  if (!value) return "Henuz senkron yapilmadi";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Bilinmiyor";
   return date.toLocaleString("tr-TR");
@@ -71,6 +71,9 @@ const EMPTY_OVERVIEW: AccountingOverviewData = {
   },
 };
 
+const INPUT_CLASS =
+  "w-full rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+
 export default function MuhasebePage() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AccountingOverviewData>(EMPTY_OVERVIEW);
@@ -86,11 +89,11 @@ export default function MuhasebePage() {
       const response = await fetch("/api/admin/accounting/overview", { cache: "no-store" });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Muhasebe verileri alınamadı.");
+        throw new Error(result?.error || "Muhasebe verileri alinamadi.");
       }
       setOverview(result.overview as AccountingOverviewData);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Muhasebe verileri yüklenemedi.");
+      setError(fetchError instanceof Error ? fetchError.message : "Muhasebe verileri yuklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -122,12 +125,12 @@ export default function MuhasebePage() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Fatura oluşturma başarısız.");
+        throw new Error(result?.error || "Fatura olusturma basarisiz.");
       }
       closeInvoiceDialog();
       await fetchOverview();
     } catch (actionError) {
-      alert(actionError instanceof Error ? actionError.message : "İşlem başarısız.");
+      alert(actionError instanceof Error ? actionError.message : "Islem basarisiz.");
     } finally {
       setBusyAction(null);
     }
@@ -139,11 +142,11 @@ export default function MuhasebePage() {
       const response = await fetch("/api/admin/accounting/sync/run", { method: "POST" });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Senkronizasyon başlatılamadı.");
+        throw new Error(result?.error || "Senkronizasyon baslatilamadi.");
       }
       await fetchOverview();
     } catch (actionError) {
-      window.alert(actionError instanceof Error ? actionError.message : "Senkronizasyon hatası.");
+      window.alert(actionError instanceof Error ? actionError.message : "Senkronizasyon hatasi.");
     } finally {
       setBusyAction(null);
     }
@@ -159,12 +162,12 @@ export default function MuhasebePage() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Tahsilat uzlaştırma başarısız.");
+        throw new Error(result?.error || "Tahsilat uzlastirma basarisiz.");
       }
-      window.alert(`Tahsilat uzlaştırma tamamlandı. Sağlayıcı sayısı: ${result.result.totalProviders}`);
+      window.alert(`Tahsilat uzlastirma tamamlandi. Saglayici sayisi: ${result.result.totalProviders}`);
       await fetchOverview();
     } catch (actionError) {
-      window.alert(actionError instanceof Error ? actionError.message : "Uzlaştırma başarısız.");
+      window.alert(actionError instanceof Error ? actionError.message : "Uzlastirma basarisiz.");
     } finally {
       setBusyAction(null);
     }
@@ -174,308 +177,224 @@ export default function MuhasebePage() {
   const hasPending = overview.syncStatus.pendingQueue > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Muhasebe</h1>
-          <p className="text-sm text-gray-500 mt-1">Fatura, tahsilat ve KDV takibini tek ekrandan yönetin.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchOverview}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Yenile
-          </button>
-          <Link
-            href="/admin/muhasebe/fatura-entegrasyonu"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-          >
-            <ReceiptText className="w-4 h-4" />
-            Entegrasyonlar
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+              Muhasebe
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={fetchOverview}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16 disabled:opacity-60"
+              >
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                Yenile
+              </button>
+              <Link
+                href="/admin/muhasebe/fatura-entegrasyonu"
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+              >
+                <ReceiptText className="h-4 w-4" />
+                Entegrasyonlar
+              </Link>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+        </section>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          {error}
+        {error && (
+          <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+          <StatCard title="Bugun" subtitle={`${overview.today.invoiceCount} fatura adayi`} value={formatCurrency(overview.today.invoicedAmount)} icon={Wallet} loading={loading} color="orange" />
+          <StatCard title="Entegrasyonlar" subtitle="Aktif baglanti" value={`${overview.syncStatus.activeConnections}`} icon={BadgeCheck} loading={loading} color="green" />
+          <StatCard title="Acik Tahsilatlar" subtitle={`${overview.openReceivables.orderCount} siparis`} value={formatCurrency(overview.openReceivables.amount)} icon={BanknoteArrowDown} loading={loading} color="amber" />
+          <StatCard title="KDV Ozeti" subtitle={`%${overview.vatSummary.rate} oran`} value={formatCurrency(overview.vatSummary.taxAmount)} icon={TrendingUp} loading={loading} color="stone" />
+          <StatCard title="Son Senkron" subtitle={`${overview.syncStatus.pendingQueue} bekleyen, ${overview.syncStatus.failedQueue} hatali`} value={formatDate(overview.syncStatus.lastSyncAt)} icon={Clock} loading={loading} color={hasErrors ? "red" : hasPending ? "amber" : "stone"} isDate />
         </div>
-      )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <StatCard
-          title="Bugün"
-          subtitle={`${overview.today.invoiceCount} fatura adayı`}
-          value={formatCurrency(overview.today.invoicedAmount)}
-          icon={Wallet}
-          loading={loading}
-          color="blue"
-        />
-        <StatCard
-          title="Entegrasyonlar"
-          subtitle="Aktif bağlantı"
-          value={`${overview.syncStatus.activeConnections}`}
-          icon={BadgeCheck}
-          loading={loading}
-          color="green"
-        />
-        <StatCard
-          title="Açık Tahsilatlar"
-          subtitle={`${overview.openReceivables.orderCount} sipariş`}
-          value={formatCurrency(overview.openReceivables.amount)}
-          icon={BanknoteArrowDown}
-          loading={loading}
-          color="amber"
-        />
-        <StatCard
-          title="KDV Özeti"
-          subtitle={`%${overview.vatSummary.rate} oran`}
-          value={formatCurrency(overview.vatSummary.taxAmount)}
-          icon={TrendingUp}
-          loading={loading}
-          color="purple"
-        />
-        <StatCard
-          title="Son Senkron"
-          subtitle={`${overview.syncStatus.pendingQueue} bekleyen, ${overview.syncStatus.failedQueue} hatalı`}
-          value={formatDate(overview.syncStatus.lastSyncAt)}
-          icon={Clock}
-          loading={loading}
-          color={hasErrors ? "red" : hasPending ? "amber" : "gray"}
-          isDate
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Quick Actions */}
-        <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <FilePlus2 className="w-5 h-5 text-primary" />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <section className="xl:col-span-2 rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+                <FilePlus2 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">Hızlı İşlemler</h2>
-                <p className="text-sm text-gray-500">Sık kullanılan muhasebe işlemleri</p>
+                <h2 className="font-semibold text-[#2f241d]">Hizli Islemler</h2>
+                <p className="text-sm text-[#7d6959]">Gunluk muhasebe akisina hizli gecisler</p>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <QuickActionButton
-              title="Fatura Kes"
-              description="Sipariş ID girerek faturayı hemen kuyrukla"
-              icon={ReceiptText}
-              onClick={openInvoiceDialog}
-              color="blue"
-            />
-            <QuickActionButton
-              title="Gider Ekle"
-              description="Gider girişini entegrasyon ekranından yönet"
-              icon={Wallet}
-              href="/admin/muhasebe/fatura-entegrasyonu"
-              color="green"
-            />
-            <QuickActionButton
-              title="Tahsilat Kaydet"
-              description="Sağlayıcılardan tahsilatları çek ve eşleştir"
-              icon={BanknoteArrowDown}
-              loading={busyAction === "reconcile"}
-              onClick={reconcilePayments}
-              color="amber"
-            />
-            <QuickActionButton
-              title="Müşteri Cari Aç"
-              description="Müşteri hesabını açıp geçmiş siparişleri incele"
-              icon={Users}
-              href="/admin/musteriler"
-              color="purple"
-            />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <QuickActionButton title="Fatura Kes" description="Siparis ID girerek faturayi hemen kuyrukla." icon={ReceiptText} onClick={openInvoiceDialog} color="orange" />
+              <QuickActionButton title="Gider Ekle" description="Gider girisini entegrasyon ekranindan yonet." icon={Wallet} href="/admin/muhasebe/fatura-entegrasyonu" color="green" />
+              <QuickActionButton title="Tahsilat Kaydet" description="Saglayicilardan tahsilatlari cek ve eslestir." icon={BanknoteArrowDown} loading={busyAction === "reconcile"} onClick={reconcilePayments} color="amber" />
+              <QuickActionButton title="Musteri Cari Ac" description="Musteri hesabini acip gecmis siparisleri incele." icon={Users} href="/admin/musteriler" color="stone" />
+            </div>
+          </section>
 
-        {/* Sync Status Card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-              <RefreshCw className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">Senkron Durumu</h2>
-              <p className="text-sm text-gray-500">Son güncelleme ve kuyruk</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <span className="text-sm text-gray-600">Aktif Bağlantı</span>
-              <span className="font-semibold text-gray-900">{overview.syncStatus.activeConnections}</span>
-            </div>
-            <div className={`flex items-center justify-between p-4 rounded-xl ${hasPending ? "bg-amber-50" : "bg-gray-50"}`}>
-              <span className={`text-sm ${hasPending ? "text-amber-700" : "text-gray-600"}`}>Bekleyen</span>
-              <span className={`font-semibold ${hasPending ? "text-amber-800" : "text-gray-900"}`}>{overview.syncStatus.pendingQueue}</span>
-            </div>
-            <div className={`flex items-center justify-between p-4 rounded-xl ${hasErrors ? "bg-red-50" : "bg-gray-50"}`}>
-              <span className={`text-sm ${hasErrors ? "text-red-700" : "text-gray-600"}`}>Hatalı</span>
-              <span className={`font-semibold ${hasErrors ? "text-red-800" : "text-gray-900"}`}>{overview.syncStatus.failedQueue}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={runSync}
-            disabled={busyAction === "sync"}
-            className="mt-6 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-          >
-            {busyAction === "sync" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Senkronu Çalıştır
-          </button>
-        </div>
-      </div>
-
-      {/* Invoice Dialog */}
-      <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                <ReceiptText className="w-5 h-5 text-blue-600" />
+          <section className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b] shadow-sm">
+                <RefreshCw className="h-5 w-5" />
               </div>
-              <DialogTitle className="text-xl font-bold text-gray-900">Fatura Kes</DialogTitle>
+              <div>
+                <h2 className="font-semibold text-[#2f241d]">Senkron Durumu</h2>
+                <p className="text-sm text-[#7d6959]">Baglanti ve kuyruk gorunumu</p>
+              </div>
             </div>
-            <DialogDescription className="text-gray-500">
-              Fatura kesmek istediğiniz siparişin ID numarasını girin.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sipariş ID
-            </label>
-            <input
-              type="text"
-              value={invoiceOrderId}
-              onChange={(e) => setInvoiceOrderId(e.target.value)}
-              placeholder="örn: 12345"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && invoiceOrderId.trim()) {
-                  createInvoiceQuickly();
-                }
-              }}
-            />
-          </div>
-          <DialogFooter className="gap-2">
+
+            <div className="space-y-3">
+              <SyncRow label="Aktif Baglanti" value={overview.syncStatus.activeConnections} />
+              <SyncRow label="Bekleyen" value={overview.syncStatus.pendingQueue} tone={hasPending ? "amber" : "default"} />
+              <SyncRow label="Hatali" value={overview.syncStatus.failedQueue} tone={hasErrors ? "red" : "default"} />
+            </div>
+
             <button
-              onClick={closeInvoiceDialog}
-              className="px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              onClick={runSync}
+              disabled={busyAction === "sync"}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:opacity-60"
             >
-              İptal
+              {busyAction === "sync" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Senkronu Calistir
             </button>
-            <button
-              onClick={createInvoiceQuickly}
-              disabled={busyAction === "create_invoice" || !invoiceOrderId.trim()}
-              className="px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {busyAction === "create_invoice" ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  İşleniyor...
-                </>
-              ) : (
-                <>
-                  <ReceiptText className="w-4 h-4" />
-                  Fatura Oluştur
-                </>
-              )}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Open Receivables Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Package className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">Açık Tahsilat Listesi</h2>
-              <p className="text-sm text-gray-500">Ödemesi tamamlanmamış siparişler</p>
-            </div>
-          </div>
-          <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
-            {overview.openReceivables.orderCount} sipariş
-          </span>
+          </section>
         </div>
 
-        <div className="overflow-x-auto">
-          {overview.openReceivables.orders.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+        <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
+          <DialogContent className="sm:max-w-md rounded-[28px] border border-[#eadccd] bg-[#fffdfa] shadow-[0_24px_70px_rgba(99,67,37,0.16)]">
+            <DialogHeader>
+              <div className="mb-2 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+                  <ReceiptText className="h-5 w-5" />
+                </div>
+                <DialogTitle className="text-xl font-bold text-[#2f241d]">Fatura Kes</DialogTitle>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">Tüm tahsilatlar tamamlanmış</h3>
-              <p className="text-sm text-gray-500">Açık tahsilat bulunmuyor.</p>
+              <DialogDescription className="text-[#7d6959]">
+                Fatura kesmek istediginiz siparisin ID numarasini girin.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">Siparis ID</label>
+              <input
+                type="text"
+                value={invoiceOrderId}
+                onChange={(e) => setInvoiceOrderId(e.target.value)}
+                placeholder="Orn: 12345"
+                className={INPUT_CLASS}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && invoiceOrderId.trim()) {
+                    createInvoiceQuickly();
+                  }
+                }}
+              />
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sipariş</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ödeme Durumu</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tutar</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {overview.openReceivables.orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <Link
-                        className="font-medium text-primary hover:underline flex items-center gap-1"
-                        href={`/admin/siparisler/${order.id}`}
-                      >
-                        #{order.orderNumber}
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                        <AlertCircle className="w-3 h-3" />
-                        {order.paymentStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">{formatCurrency(order.total)}</td>
-                    <td className="px-6 py-4 text-gray-500">{new Date(order.createdAt).toLocaleDateString("tr-TR")}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Link
-                        href={`/admin/siparisler/${order.id}`}
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline font-medium"
-                      >
-                        Detay
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    </td>
+            <DialogFooter className="gap-2">
+              <button
+                onClick={closeInvoiceDialog}
+                className="rounded-2xl border border-[#eadccd] bg-white px-5 py-2.5 text-sm font-medium text-[#6e5b4e] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+              >
+                Iptal
+              </button>
+              <button
+                onClick={createInvoiceQuickly}
+                disabled={busyAction === "create_invoice" || !invoiceOrderId.trim()}
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busyAction === "create_invoice" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Isleniyor...
+                  </>
+                ) : (
+                  <>
+                    <ReceiptText className="h-4 w-4" />
+                    Fatura Olustur
+                  </>
+                )}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.10)]">
+          <div className="flex items-center justify-between gap-4 border-b border-[#f1e5d9] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b] shadow-sm">
+                <Package className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-[#2f241d]">Acik Tahsilat Listesi</h2>
+                <p className="text-sm text-[#7d6959]">Odemesi tamamlanmamis siparisler</p>
+              </div>
+            </div>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+              {overview.openReceivables.orderCount} siparis
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            {overview.openReceivables.orders.length === 0 ? (
+              <div className="px-6 py-14 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+                  <CheckCircle2 className="h-7 w-7" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-[#2f241d]">Tum tahsilatlar tamamlanmis</h3>
+                <p className="mt-1 text-sm text-[#7d6959]">Acik tahsilat bulunmuyor.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-[#fff8f3]/85">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Siparis</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Odeme Durumu</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tutar</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tarih</th>
+                    <th className="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Islem</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody className="divide-y divide-[#f2e7dc]">
+                  {overview.openReceivables.orders.map((order) => (
+                    <tr key={order.id} className="transition-colors hover:bg-[#fffaf5]">
+                      <td className="px-6 py-4">
+                        <Link className="inline-flex items-center gap-1 font-medium text-[#C54E00] hover:text-[#a94500]" href={`/admin/siparisler/${order.id}`}>
+                          #{order.orderNumber}
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                          <AlertCircle className="h-3 w-3" />
+                          {order.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-[#2f241d]">{formatCurrency(order.total)}</td>
+                      <td className="px-6 py-4 text-[#6e5b4e]">{new Date(order.createdAt).toLocaleDateString("tr-TR")}</td>
+                      <td className="px-6 py-4 text-right">
+                        <Link href={`/admin/siparisler/${order.id}`} className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
+                          Detay
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
 }
 
-// Stat Card Component
 function StatCard({
   title,
   subtitle,
@@ -483,7 +402,7 @@ function StatCard({
   icon: Icon,
   loading,
   isDate = false,
-  color = "gray",
+  color = "stone",
 }: {
   title: string;
   subtitle: string;
@@ -491,38 +410,38 @@ function StatCard({
   icon: ElementType;
   loading?: boolean;
   isDate?: boolean;
-  color?: "blue" | "green" | "amber" | "purple" | "red" | "gray";
+  color?: "orange" | "green" | "amber" | "stone" | "red";
 }) {
   const colorStyles = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    amber: "bg-amber-50 text-amber-600",
-    purple: "bg-purple-50 text-purple-600",
-    red: "bg-red-50 text-red-600",
-    gray: "bg-gray-100 text-gray-600",
+    orange: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
+    amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
+    stone: "border-[#eadccd] bg-gradient-to-br from-[#f8f2ec] to-white text-[#7b6656]",
+    red: "border-rose-200 bg-gradient-to-br from-rose-50 to-white text-rose-600",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+    <div className="rounded-[28px] border border-[#eadccd] bg-white/92 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(254,97,0,0.10)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
           {loading ? (
-            <div className="h-7 w-24 rounded-lg bg-gray-100 animate-pulse" />
+            <div className="h-7 w-28 animate-pulse rounded-xl bg-[#f2e7dc]" />
           ) : (
-            <p className={`font-bold text-gray-900 truncate ${isDate ? "text-sm" : "text-xl"}`}>{value}</p>
+            <p className={cn("font-bold tracking-[-0.03em] text-[#2f241d]", isDate ? "text-sm leading-6" : "text-2xl")}>
+              {value}
+            </p>
           )}
-          <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+          <p className="mt-2 text-xs text-[#8c7564]">{subtitle}</p>
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorStyles[color]}`}>
-          <Icon className="w-5 h-5" />
+        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border shadow-sm", colorStyles[color])}>
+          <Icon className="h-5 w-5" />
         </div>
       </div>
     </div>
   );
 }
 
-// Quick Action Button Component
 function QuickActionButton({
   title,
   description,
@@ -530,7 +449,7 @@ function QuickActionButton({
   loading,
   onClick,
   href,
-  color = "gray",
+  color = "stone",
 }: {
   title: string;
   description: string;
@@ -538,34 +457,31 @@ function QuickActionButton({
   loading?: boolean;
   onClick?: () => void;
   href?: string;
-  color?: "blue" | "green" | "amber" | "purple" | "red" | "gray";
+  color?: "orange" | "green" | "amber" | "stone";
 }) {
   const colorStyles = {
-    blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-    green: "bg-green-50 text-green-600 group-hover:bg-green-100",
-    amber: "bg-amber-50 text-amber-600 group-hover:bg-amber-100",
-    purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-    red: "bg-red-50 text-red-600 group-hover:bg-red-100",
-    gray: "bg-gray-100 text-gray-600 group-hover:bg-gray-200",
+    orange: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
+    amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
+    stone: "border-[#eadccd] bg-gradient-to-br from-[#f8f2ec] to-white text-[#7b6656]",
   };
 
-  const className = `group block rounded-xl border border-gray-200 p-4 hover:border-primary/30 hover:shadow-md transition-all ${href ? "" : "text-left w-full"}`;
+  const className =
+    "group block rounded-[24px] border border-[#eadccd] bg-white/95 p-5 text-left shadow-[0_16px_35px_rgba(99,67,37,0.06)] transition-all hover:-translate-y-1 hover:border-[#FE6100]/18 hover:bg-white hover:shadow-[0_24px_50px_rgba(254,97,0,0.10)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16";
 
   const content = (
-    <>
-      <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${colorStyles[color]}`}>
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900">{title}</span>
-            {href && <ArrowRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
-          </div>
-          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{description}</p>
-        </div>
+    <div className="flex items-start gap-4">
+      <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border shadow-sm", colorStyles[color])}>
+        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
       </div>
-    </>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-[#2f241d]">{title}</span>
+          {href && <ArrowRight className="h-4 w-4 text-[#a08e82] transition group-hover:text-[#C54E00]" />}
+        </div>
+        <p className="mt-2 text-sm leading-6 text-[#7d6959]">{description}</p>
+      </div>
+    </div>
   );
 
   if (href) {
@@ -580,5 +496,21 @@ function QuickActionButton({
     <button onClick={onClick} disabled={loading} className={className}>
       {content}
     </button>
+  );
+}
+
+function SyncRow({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "amber" | "red" }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between rounded-[20px] p-4",
+        tone === "amber" && "bg-amber-50",
+        tone === "red" && "bg-rose-50",
+        tone === "default" && "bg-[#fdf8f3]"
+      )}
+    >
+      <span className={cn("text-sm", tone === "amber" ? "text-amber-700" : tone === "red" ? "text-rose-700" : "text-[#6e5b4e]")}>{label}</span>
+      <span className={cn("font-semibold", tone === "amber" ? "text-amber-800" : tone === "red" ? "text-rose-800" : "text-[#2f241d]")}>{value}</span>
+    </div>
   );
 }

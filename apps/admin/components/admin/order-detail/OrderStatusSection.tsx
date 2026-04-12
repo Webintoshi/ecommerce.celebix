@@ -63,7 +63,7 @@ export function OrderStatusSection({
       id: "email",
       label: "E-posta",
       icon: Mail,
-      color: "bg-blue-50 text-blue-600 hover:bg-blue-100",
+      color: "border border-[#d9e7f6] bg-white text-[#6f5a49] hover:border-[#b9d7f4] hover:bg-[#f7fbff] hover:text-[#235d8b]",
       onClick: () => handleAction("email", () => {
         window.open(`mailto:${customerEmail}?subject=Sipariş ${orderNumber} Hakkında`, "_blank");
       }),
@@ -73,7 +73,7 @@ export function OrderStatusSection({
       id: "sms",
       label: "SMS",
       icon: MessageSquare,
-      color: "bg-emerald-50 text-emerald-600 hover:bg-emerald-100",
+      color: "border border-[#dbe9df] bg-white text-[#6f5a49] hover:border-[#bfd9c6] hover:bg-[#f7fcf8] hover:text-[#2f7a4e]",
       onClick: () => handleAction("sms", () => {
         alert("SMS gönderme modalı yakında eklenecek!");
       }),
@@ -82,7 +82,7 @@ export function OrderStatusSection({
       id: "note",
       label: "Not",
       icon: FileText,
-      color: "bg-amber-50 text-amber-600 hover:bg-amber-100",
+      color: "border border-[#f0dfc9] bg-white text-[#6f5a49] hover:border-[#ebc999] hover:bg-[#fff9f2] hover:text-[#b55a12]",
       onClick: () => handleAction("note", () => {
         document.dispatchEvent(new CustomEvent("open-note-modal"));
       }),
@@ -91,7 +91,7 @@ export function OrderStatusSection({
       id: "refund",
       label: "İade",
       icon: RefreshCw,
-      color: "bg-red-50 text-red-600 hover:bg-red-100",
+      color: "border border-[#f2d6d6] bg-white text-[#6f5a49] hover:border-[#eab6b6] hover:bg-[#fff6f6] hover:text-[#b14949]",
       onClick: () => handleAction("refund", () => {
         const confirmed = confirm("Bu sipariş için iade başlatmak istediğinizden emin misiniz?");
         if (confirmed) {
@@ -103,7 +103,7 @@ export function OrderStatusSection({
       id: "print",
       label: "Yazdır",
       icon: Printer,
-      color: "bg-gray-50 text-gray-600 hover:bg-gray-100",
+      color: "border border-[#eadccd] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#fffaf5] hover:text-[#8a4b22]",
       onClick: () => handleAction("print", () => {
         window.open(`/admin/siparisler/${orderId}/yazdir`, "_blank");
       }),
@@ -112,7 +112,7 @@ export function OrderStatusSection({
       id: "invoice",
       label: "Fatura",
       icon: Download,
-      color: "bg-gray-50 text-gray-600 hover:bg-gray-100",
+      color: "border border-[#eadccd] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#fffaf5] hover:text-[#8a4b22]",
       onClick: () => handleAction("invoice", () => {
         alert("Fatura PDF indiriliyor...");
       }),
@@ -122,13 +122,13 @@ export function OrderStatusSection({
   // Eğer iptal veya iade durumundaysa, özel mesaj göster
   if (currentStatus === "cancelled" || currentStatus === "refunded") {
     return (
-      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
-        <div className="p-5">
+      <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+        <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white p-5 md:p-6">
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
               currentStatus === "cancelled"
-                ? "bg-red-50 text-red-600"
-                : "bg-orange-50 text-orange-600"
+                ? "border-rose-100 bg-rose-50 text-rose-600"
+                : "border-orange-100 bg-orange-50 text-orange-600"
             }`}>
               {currentStatus === "cancelled" ? (
                 <Clock className="w-6 h-6" />
@@ -137,10 +137,13 @@ export function OrderStatusSection({
               )}
             </div>
             <div className="flex-1">
-              <p className="font-bold text-gray-900 text-lg">
+              <div className="mb-1 inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+                Sipariş Akışı
+              </div>
+              <p className="text-lg font-semibold tracking-[-0.02em] text-stone-950">
                 {currentStatus === "cancelled" ? "Sipariş İptal Edildi" : "Sipariş İade Edildi"}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-stone-500">
                 {currentStatus === "cancelled"
                   ? "Bu sipariş müşteri veya admin tarafından iptal edildi."
                   : "Bu sipariş iade edildi."}
@@ -156,8 +159,8 @@ export function OrderStatusSection({
         </div>
 
         {/* Quick Actions Row */}
-        <div className="px-5 pb-5">
-          <div className="flex flex-wrap gap-2">
+        <div className="px-5 pb-5 pt-4 md:px-6 md:pb-6">
+          <div className="flex flex-wrap gap-2.5">
             {quickActions.map((action) => {
               const Icon = action.icon;
               const isLoading = isActionLoading === action.id;
@@ -168,10 +171,10 @@ export function OrderStatusSection({
                   onClick={() => handleAction(action.id, action.onClick)}
                   disabled={action.disabled || isLoading}
                   className={`
-                    flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold
-                    transition-all duration-200
+                    inline-flex min-h-11 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium
+                    shadow-sm transition-all duration-200
                     ${action.color}
-                    ${action.disabled || isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                    ${action.disabled || isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                   `}
                   title={action.label}
                 >
@@ -191,14 +194,33 @@ export function OrderStatusSection({
   }
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Timeline Row */}
-      <div className="p-5 pb-4">
+      <div className="border-b border-[#f1e6dc] bg-gradient-to-br from-[#fffaf5] via-white to-[#fdf6ef] p-5 pb-4 md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <div className="inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+              Sipariş Akışı
+            </div>
+            <p className="mt-3 text-sm font-semibold text-stone-900">
+              {ORDER_STATUS_CONFIG[currentStatus]?.label || "Bilinmiyor"}
+            </p>
+            <p className="text-xs text-stone-500">
+              {ORDER_STATUS_CONFIG[currentStatus]?.description || ""}
+            </p>
+          </div>
+
+          <OrderStatusChanger
+            currentStatus={currentStatus}
+            onStatusChange={onStatusChange}
+          />
+        </div>
+
         <div className="relative">
           {/* Progress Line */}
-          <div className="absolute top-4 left-0 right-0 h-1.5 bg-gray-100 rounded-full">
+          <div className="absolute left-0 right-0 top-4 h-1.5 rounded-full bg-[#efe1d3]">
             <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-[#FE6100] via-[#f18b2b] to-[#d56d16] transition-all duration-500"
               style={{
                 width: `${Math.max(0, (currentIndex / (ORDER_TIMELINE_STEPS.length - 1)) * 100)}%`,
               }}
@@ -213,15 +235,15 @@ export function OrderStatusSection({
               const StepIcon = stepIcons[step.status as keyof typeof stepIcons];
 
               return (
-                <div key={step.status} className="flex flex-col items-center">
+                <div key={step.status} className="flex min-w-0 flex-col items-center px-1 text-center">
                   {/* Step Circle */}
                   <div
-                    className={`relative z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-300 ${
                       isCompleted
-                        ? "bg-emerald-500 text-white shadow-md"
+                        ? "border-[#FE6100] bg-[#FE6100] text-white shadow-[0_10px_22px_rgba(254,97,0,0.25)]"
                         : isCurrent
-                          ? "bg-primary text-white shadow-lg ring-4 ring-red-50 scale-110"
-                          : "bg-gray-100 text-gray-400"
+                          ? "scale-110 border-[#FE6100]/30 bg-white text-[#FE6100] shadow-[0_12px_26px_rgba(254,97,0,0.15)] ring-4 ring-[#fff3e8]"
+                          : "border-[#e6d9cd] bg-[#f8f1ea] text-[#b8a08c]"
                     }`}
                   >
                     {isCompleted ? (
@@ -233,10 +255,10 @@ export function OrderStatusSection({
 
                   {/* Step Label */}
                   <span
-                    className={`text-[10px] font-bold mt-1.5 ${
+                    className={`mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                       isCompleted || isCurrent
-                        ? "text-gray-900"
-                        : "text-gray-400"
+                        ? "text-stone-800"
+                        : "text-stone-400"
                     }`}
                   >
                     {step.label}
@@ -249,34 +271,35 @@ export function OrderStatusSection({
       </div>
 
       {/* Status & Actions Row */}
-      <div className="px-5 pb-5 pt-2 border-t border-gray-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="px-5 pb-5 pt-4 md:px-6 md:pb-6">
+        <div className="rounded-[24px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Current Status */}
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              currentIndex >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-gray-50 text-gray-400"
+            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+              currentIndex >= 0 ? "border-[#ffd8b4] bg-[#fff1e4] text-[#FE6100]" : "border-[#e6d9cd] bg-white text-stone-400"
             }`}>
               <CheckCircle className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-gray-900">
+              <p className="font-semibold text-stone-900">
                 {ORDER_STATUS_CONFIG[currentStatus]?.label || "Bilinmiyor"}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-stone-500">
                 {ORDER_STATUS_CONFIG[currentStatus]?.description || ""}
               </p>
             </div>
           </div>
 
-          {/* Status Changer - More Prominent */}
-          <OrderStatusChanger
-            currentStatus={currentStatus}
-            onStatusChange={onStatusChange}
-          />
-        </div>
+            <div className="hidden sm:block">
+              <span className="rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-[#8a5b3c] shadow-sm">
+                Hızlı işlemler aşağıda yer alır
+              </span>
+            </div>
+          </div>
 
-        {/* Quick Actions */}
-        <div className="flex flex-wrap gap-2 mt-4">
+          {/* Quick Actions */}
+          <div className="mt-4 flex flex-wrap gap-2.5">
           {quickActions.map((action) => {
             const Icon = action.icon;
             const isLoading = isActionLoading === action.id;
@@ -287,10 +310,10 @@ export function OrderStatusSection({
                 onClick={() => handleAction(action.id, action.onClick)}
                 disabled={action.disabled || isLoading}
                 className={`
-                  flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold
-                  transition-all duration-200
+                  inline-flex min-h-11 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium
+                  shadow-sm transition-all duration-200
                   ${action.color}
-                  ${action.disabled || isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                  ${action.disabled || isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                 `}
                 title={action.label}
               >
@@ -299,10 +322,11 @@ export function OrderStatusSection({
                 ) : (
                   <Icon className="w-4 h-4" />
                 )}
-                <span className="hidden sm:inline">{action.label}</span>
+                <span>{action.label}</span>
               </button>
             );
           })}
+          </div>
         </div>
       </div>
     </div>

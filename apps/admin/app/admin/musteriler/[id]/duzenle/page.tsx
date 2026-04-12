@@ -9,5 +9,5 @@ interface EditCustomerPageProps {
 
 export default function EditCustomerPage({ params }: EditCustomerPageProps) {
   const resolvedParams = use(params);
-  return <CustomerForm customerId={resolvedParams.id} />;
+  return <CustomerForm customerId={resolvedParams.id} title="Müşteriyi Düzenle" />;
 }

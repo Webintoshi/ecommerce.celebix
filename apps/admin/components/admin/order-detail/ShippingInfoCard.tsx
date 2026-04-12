@@ -76,17 +76,17 @@ export function ShippingInfoCard({
   const estDate = formatDate(estimatedDelivery);
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
-      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-gray-500" />
+      <div className="flex items-center justify-between border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-950">
+          <Truck className="w-4 h-4 text-[#8a5b3c]" />
           Kargo & Teslimat
         </h3>
         {onTrackingUpdate && !isEditing && (
           <button
             onClick={() => setIsEditing(true)}
-            className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-primary"
+            className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-white hover:text-[#C54E00]"
             title="Düzenle"
           >
             <Edit2 className="w-3.5 h-3.5" />
@@ -94,43 +94,43 @@ export function ShippingInfoCard({
         )}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-5">
         {/* Shipping Address - Compact */}
         {shippingAddress && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-              <MapPin className="w-4 h-4 text-gray-500" />
+          <div className="flex gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#f3dfc9] bg-[#fff3e6]">
+              <MapPin className="w-4 h-4 text-[#C54E00]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-1">Teslimat Adresi</p>
-              <p className="font-bold text-gray-900 text-sm">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Teslimat Adresi</p>
+              <p className="text-sm font-semibold text-stone-900">
                 {shippingAddress.firstName} {shippingAddress.lastName}
               </p>
-              <p className="text-gray-600 text-sm truncate">{shippingAddress.address}</p>
-              <p className="text-gray-900 font-medium text-sm">
+              <p className="break-words text-sm text-stone-600">{shippingAddress.address}</p>
+              <p className="text-sm font-medium text-stone-900">
                 {shippingAddress.city} / {shippingAddress.country}
               </p>
               {shippingAddress.phone && (
-                <p className="text-xs text-gray-500 mt-0.5">{shippingAddress.phone}</p>
+                <p className="mt-1 text-xs text-stone-500">{shippingAddress.phone}</p>
               )}
             </div>
           </div>
         )}
 
         {/* Tracking Info - Compact */}
-        <div className="flex gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-            <Package className="w-4 h-4 text-blue-500" />
+        <div className="flex gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#f3dfc9] bg-white">
+            <Package className="w-4 h-4 text-[#C54E00]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Kargo Takip</p>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Kargo Takip</p>
             
             {isEditing ? (
               <div className="space-y-2">
                 <select
                   value={carrierInput}
                   onChange={(e) => setCarrierInput(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2.5 text-sm text-stone-700 focus:border-[#FE6100] focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
                 >
                   <option value="">Kargo Firması</option>
                   {SHIPPING_CARRIERS.map((c) => (
@@ -142,13 +142,13 @@ export function ShippingInfoCard({
                   value={trackingInput}
                   onChange={(e) => setTrackingInput(e.target.value)}
                   placeholder="Takip No"
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2.5 text-sm text-stone-700 focus:border-[#FE6100] focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleSave}
                     disabled={isUpdating}
-                    className="flex-1 px-3 py-1.5 bg-primary text-white rounded-lg font-bold text-xs hover:bg-red-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-1"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] px-3 py-2.5 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:opacity-50"
                   >
                     <Check className="w-3 h-3" />
                     Kaydet
@@ -159,7 +159,7 @@ export function ShippingInfoCard({
                       setTrackingInput(trackingNumber);
                       setCarrierInput(carrier);
                     }}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-200 transition-colors"
+                    className="rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2.5 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#fffaf5]"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -168,18 +168,18 @@ export function ShippingInfoCard({
             ) : trackingNumber ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-sm">
+                  <span className="text-sm font-semibold text-stone-900">
                     {SHIPPING_CARRIERS.find(c => c.id === carrier)?.name || carrier}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <code className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{trackingNumber}</code>
+                  <code className="rounded-xl border border-[#eadccd] bg-white px-2.5 py-1 font-mono text-sm text-stone-700">{trackingNumber}</code>
                   {trackingUrl && (
                     <a
                       href={trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1 hover:bg-blue-50 rounded text-blue-600 transition-colors"
+                      className="rounded-xl p-1.5 text-[#C54E00] transition-colors hover:bg-white"
                       title="Kargo Takip"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -188,12 +188,12 @@ export function ShippingInfoCard({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-gray-400">
+              <div className="flex items-center gap-2 text-stone-400">
                 <span className="text-sm">Takip numarası girilmemiş</span>
                 {onTrackingUpdate && (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="text-xs text-primary font-bold hover:underline"
+                    className="text-xs font-semibold text-[#C54E00] hover:text-[#a84300]"
                   >
                     Ekle
                   </button>
@@ -205,13 +205,13 @@ export function ShippingInfoCard({
 
         {/* Estimated Delivery - Compact */}
         {estDate && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-              <Calendar className="w-4 h-4 text-emerald-500" />
+          <div className="flex gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#f3dfc9] bg-white">
+              <Calendar className="w-4 h-4 text-[#C54E00]" />
             </div>
             <div className="flex-1">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-0.5">Tahmini Teslimat</p>
-              <p className="font-bold text-gray-900 text-sm">{estDate}</p>
+              <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Tahmini Teslimat</p>
+              <p className="text-sm font-semibold text-stone-900">{estDate}</p>
             </div>
           </div>
         )}

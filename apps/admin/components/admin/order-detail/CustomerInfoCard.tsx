@@ -38,11 +38,11 @@ export function CustomerInfoCard({
   const customerName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "Bilinmiyor";
 
   return (
-    <div className={`bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/30">
-        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-          <User className="w-4 h-4 text-gray-400" />
+      <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-6 py-5">
+        <h3 className="flex items-center gap-2 text-base font-semibold tracking-[-0.02em] text-stone-950">
+          <User className="h-4 w-4 text-[#8a5b3c]" />
           Müşteri Bilgileri
         </h3>
       </div>
@@ -51,11 +51,11 @@ export function CustomerInfoCard({
         {/* Customer Name */}
         <div>
           <div className="flex items-center justify-between">
-            <p className="font-bold text-gray-900 text-base">{customerName}</p>
+            <p className="text-base font-semibold text-stone-950">{customerName}</p>
             {customer.id && (
               <Link
                 href={`/admin/musteriler/${customer.id}`}
-                className="text-xs text-primary hover:text-red-700 font-medium flex items-center gap-1"
+                className="flex items-center gap-1 rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-medium text-[#8a4b22] transition-all hover:border-[#FE6100]/20 hover:text-[#C54E00]"
               >
                 Profili Gör
                 <ExternalLink className="w-3 h-3" />
@@ -66,65 +66,69 @@ export function CustomerInfoCard({
 
         {/* Email */}
         {customer.email && (
-          <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-gray-400" />
-            <p className="text-gray-700 text-sm flex-1 truncate">{customer.email}</p>
+          <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
+            <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-[#b18563]" />
+            <p className="flex-1 truncate text-sm text-stone-700">{customer.email}</p>
             <button
               onClick={() => copyToClipboard(customer.email!, "E-posta")}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-xl p-1.5 transition-colors hover:bg-white"
               title="Kopyala"
             >
-              <Copy className="w-3.5 h-3.5 text-gray-400" />
+              <Copy className="w-3.5 h-3.5 text-stone-400" />
             </button>
             <a
               href={`mailto:${customer.email}`}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-xl p-1.5 transition-colors hover:bg-white"
               title="E-posta Gönder"
             >
-              <Mail className="w-3.5 h-3.5 text-gray-400" />
+              <Mail className="w-3.5 h-3.5 text-stone-400" />
             </a>
+            </div>
           </div>
         )}
 
         {/* Phone */}
         {customer.phone && (
-          <div className="flex items-center gap-2">
-            <Phone className="w-4 h-4 text-gray-400" />
-            <p className="text-gray-700 text-sm">{customer.phone}</p>
+          <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
+            <div className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-[#b18563]" />
+            <p className="text-sm text-stone-700">{customer.phone}</p>
             <button
               onClick={() => copyToClipboard(customer.phone!, "Telefon")}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-xl p-1.5 transition-colors hover:bg-white"
               title="Kopyala"
             >
-              <Copy className="w-3.5 h-3.5 text-gray-400" />
+              <Copy className="w-3.5 h-3.5 text-stone-400" />
             </button>
             <a
               href={`tel:${customer.phone}`}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-xl p-1.5 transition-colors hover:bg-white"
               title="Ara"
             >
-              <Phone className="w-3.5 h-3.5 text-gray-400" />
+              <Phone className="w-3.5 h-3.5 text-stone-400" />
             </a>
+            </div>
           </div>
         )}
 
         {/* Stats */}
         {(customer.totalOrders !== undefined || customer.totalSpent !== undefined) && (
-          <div className="pt-4 border-t border-gray-100">
+          <div className="border-t border-[#f1e6dc] pt-4">
             <div className="grid grid-cols-2 gap-3">
               {customer.totalOrders !== undefined && (
-                <div className="bg-gray-50 rounded-xl p-3">
+                <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <ShoppingCart className="w-3.5 h-3.5 text-gray-400" />
-                    <p className="text-xs font-bold text-gray-400">Sipariş</p>
+                    <ShoppingCart className="w-3.5 h-3.5 text-[#b18563]" />
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Sipariş</p>
                   </div>
-                  <p className="text-lg font-black text-gray-900">{customer.totalOrders}</p>
+                  <p className="text-lg font-semibold text-stone-950">{customer.totalOrders}</p>
                 </div>
               )}
               {customer.totalSpent !== undefined && (
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs font-bold text-gray-400 mb-0.5">Harcama</p>
-                  <p className="text-lg font-black text-primary">
+                <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+                  <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Harcama</p>
+                  <p className="text-lg font-semibold text-[#C54E00]">
                     {new Intl.NumberFormat("tr-TR", {
                       style: "currency",
                       currency: "TRY",
@@ -140,15 +144,15 @@ export function CustomerInfoCard({
 
         {/* Recent Orders */}
         {customerOrders && customerOrders.length > 0 && (
-          <div className="pt-6 border-t border-gray-100">
+          <div className="border-t border-[#f1e6dc] pt-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Diğer Siparişler
               </p>
               {customer.id && (
                 <Link
                   href={`/admin/musteriler/${customer.id}?tab=orders`}
-                  className="text-xs font-bold text-primary hover:text-red-700"
+                  className="text-xs font-semibold text-[#C54E00] hover:text-[#a84300]"
                 >
                   Tümünü Gör
                 </Link>
@@ -160,13 +164,13 @@ export function CustomerInfoCard({
                 <Link
                   key={order.id}
                   href={`/admin/siparisler/${order.id}`}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group"
+                  className="group flex items-center justify-between rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#fffaf5]"
                 >
                   <div>
-                    <p className="font-bold text-gray-900 text-sm group-hover:text-primary transition-colors">
+                    <p className="text-sm font-semibold text-stone-900 transition-colors group-hover:text-[#C54E00]">
                       #{order.orderNumber}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-stone-500">
                       {(() => {
                         try {
                           const date = typeof order.createdAt === 'string'
@@ -185,14 +189,14 @@ export function CustomerInfoCard({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900 text-sm">
+                    <p className="text-sm font-semibold text-stone-900">
                       {new Intl.NumberFormat("tr-TR", {
                         style: "currency",
                         currency: "TRY",
                         minimumFractionDigits: 2,
                       }).format(order.total)}
                     </p>
-                    <p className="text-xs text-gray-500 capitalize">{order.status}</p>
+                    <p className="text-xs capitalize text-stone-500">{order.status}</p>
                   </div>
                 </Link>
               ))}

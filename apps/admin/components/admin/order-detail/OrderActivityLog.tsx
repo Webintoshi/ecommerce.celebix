@@ -114,26 +114,26 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
   };
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/30">
+      <div className="flex items-center justify-between border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-gray-500" />
+          <History className="w-4 h-4 text-[#8a5b3c]" />
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-900">Sipariş Geçmişi</h3>
-            <span className="text-xs text-gray-400">({activities.length})</span>
+            <h3 className="text-sm font-semibold text-stone-950">Sipariş Geçmişi</h3>
+            <span className="text-xs text-stone-400">({activities.length})</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Filter */}
           {uniqueActions.length > 1 && (
-            <div className="flex items-center gap-1">
-              <Filter className="w-3 h-3 text-gray-400" />
+            <div className="flex items-center gap-1 rounded-full border border-[#eadccd] bg-white px-2 py-1 shadow-sm">
+              <Filter className="w-3 h-3 text-stone-400" />
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value as FilterType)}
-                className="bg-transparent text-xs font-bold text-gray-600 border-0 focus:ring-0 cursor-pointer py-0"
+                className="cursor-pointer border-0 bg-transparent py-0 text-xs font-semibold text-stone-600 focus:ring-0"
               >
                 <option value="all">Tümü</option>
                 {uniqueActions.map(action => (
@@ -143,9 +143,9 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
               {filter !== "all" && (
                 <button
                   onClick={() => setFilter("all")}
-                  className="p-0.5 hover:bg-gray-200 rounded"
+                  className="rounded p-0.5 hover:bg-[#f5ede6]"
                 >
-                  <X className="w-3 h-3 text-gray-400" />
+                  <X className="w-3 h-3 text-stone-400" />
                 </button>
               )}
             </div>
@@ -153,19 +153,19 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
           
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
+            className="rounded-xl p-1.5 transition-colors hover:bg-white"
           >
-            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+            <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
           </button>
         </div>
       </div>
 
       {isExpanded && (
-        <div className="p-4">
+        <div className="p-5">
           {/* Activity List - Compact */}
-          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="custom-scrollbar max-h-[320px] space-y-2 overflow-y-auto pr-1">
             {filteredActivities.length === 0 ? (
-              <div className="text-center py-4 text-gray-400">
+              <div className="py-6 text-center text-stone-400">
                 <p className="text-xs">Kayıt bulunmuyor.</p>
               </div>
             ) : (
@@ -174,31 +174,31 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
                 const description = formatActivityDescription(activity);
 
                 return (
-                  <div key={activity.id} className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-gray-50 transition-colors">
+                  <div key={activity.id} className="flex items-start gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#fffaf5]">
                     {/* Icon */}
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${actionConfig.bg} ${actionConfig.color}`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white text-xs shadow-sm ${actionConfig.bg} ${actionConfig.color}`}>
                       {actionConfig.icon}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-bold text-gray-900 text-sm">
+                        <p className="text-sm font-semibold text-stone-900">
                           {ACTION_LABELS[activity.action]}
                         </p>
-                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                        <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-stone-400">
                           {formatTime(activity.createdAt)}
                         </span>
                       </div>
                       
                       {description && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        <p className="mt-1 break-words text-xs text-stone-500">
                           {description}
                         </p>
                       )}
                       
                       {activity.adminName && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">
+                        <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-stone-400">
                           {activity.adminName}
                         </p>
                       )}

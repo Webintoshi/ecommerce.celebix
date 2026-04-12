@@ -257,6 +257,9 @@ export function OrderDetailClient({
         manual_action_required: "Manuel Müdahale Gerekli",
     };
 
+    const headerStatClass =
+        "rounded-[22px] border border-[#eadccd] bg-white/80 px-4 py-3 shadow-sm backdrop-blur";
+
     const triggerInvoiceCreation = async () => {
         setIsAccountingActionLoading(true);
         try {
@@ -281,7 +284,15 @@ export function OrderDetailClient({
     };
 
     return (
-        <div className="space-y-5 animate-in fade-in duration-500">
+        <main className="min-h-screen bg-gradient-to-br from-[#faf7f2] via-[#f5eee7] to-[#ece0d3] text-stone-900">
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute -top-24 right-[-5rem] h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
+                <div className="absolute left-[-4rem] top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
+                <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+            </div>
+
+            <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+                <div className="space-y-6 animate-in fade-in duration-500">
             {/* Print Header - Only visible when printing */}
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-black">
                 <h1 className="text-2xl font-bold">{STORE_RUNTIME.name}</h1>
@@ -289,50 +300,79 @@ export function OrderDetailClient({
                 <p className="text-sm text-gray-600">{formattedDate}</p>
             </div>
 
-            {/* Top Navigation & Status */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
-                <div className="flex items-center gap-3">
-                    <Link
-                        href="/admin/siparisler"
-                        className="p-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl shadow-sm transition-all"
-                    >
-                        <ArrowLeft className="w-4 h-4 text-gray-500" />
-                    </Link>
-                    <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                            <h1 className="text-xl font-black text-gray-900 tracking-tight">
-                                #{order.order_number}
-                            </h1>
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusConfig.color}`}>
-                                {statusConfig.label}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                            <span>{formattedDate}</span>
-                        </div>
-                    </div>
-                </div>
+                    {/* Top Navigation & Status */}
+                    <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[0_24px_80px_rgba(254,97,0,0.12)] no-print">
+                        <div className="flex flex-col gap-5 border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                                <Link
+                                    href="/admin/siparisler"
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Link>
 
-                <div className="flex items-center gap-2">
-                    <Link
-                        href={`/admin/siparisler/${order.id}/yazdir`}
-                        target="_blank"
-                        className="h-9 px-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center gap-1.5"
-                    >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Yazdır</span>
-                    </Link>
-                    <button
-                        onClick={() => {
-                            alert("Fatura indiriliyor...");
-                        }}
-                        className="h-9 px-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-red-800 transition-all flex items-center gap-1.5"
-                    >
-                        <Download className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Fatura</span>
-                    </button>
-                </div>
-            </div>
+                                <div className="space-y-3">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                                            Sipariş Detayı
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusConfig.color}`}>
+                                            {statusConfig.label}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h1 className="text-2xl font-semibold tracking-[-0.03em] text-stone-950 md:text-[2rem]">
+                                            #{order.order_number}
+                                        </h1>
+                                        <p className="mt-1 text-sm text-stone-500 md:text-base">{formattedDate}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                                <Link
+                                    href={`/admin/siparisler/${order.id}/yazdir`}
+                                    target="_blank"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Yazdır
+                                </Link>
+                                <button
+                                    onClick={() => {
+                                        alert("Fatura indiriliyor...");
+                                    }}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(254,97,0,0.24)] transition-all hover:from-[#f56a12] hover:to-[#c94d00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Fatura
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3">
+                            <div className={headerStatClass}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Ödeme</p>
+                                <p className="mt-2 text-base font-semibold text-stone-900">{paymentMethodName}</p>
+                            </div>
+                            <div className={headerStatClass}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Sipariş Toplamı</p>
+                                <p className="mt-2 text-base font-semibold text-stone-900">₺{order.total.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className={headerStatClass}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Son Güncelleme</p>
+                                <p className="mt-2 text-base font-semibold text-stone-900">
+                                    {order.updated_at
+                                        ? new Date(order.updated_at).toLocaleDateString("tr-TR", {
+                                              day: "2-digit",
+                                              month: "long",
+                                              year: "numeric",
+                                          })
+                                        : "-"}
+                                </p>
+                            </div>
+                        </div>
+                    </section>
 
             {/* Timeline & Quick Actions - Combined */}
             <OrderStatusSection
@@ -345,30 +385,33 @@ export function OrderDetailClient({
             />
 
             {/* Accounting Snapshot */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="rounded-[28px] border border-[#eadccd] bg-white/85 p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-900">Muhasebe Durumu</h3>
-                        <p className="text-xs text-gray-500">Fatura entegrasyonu ve senkron bilgisi</p>
+                                <div className="inline-flex items-center rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+                                    Muhasebe Durumu
+                                </div>
+                                <p className="mt-3 text-sm font-semibold text-stone-900">Fatura entegrasyonu ve senkron bilgisi</p>
+                                <p className="text-xs text-stone-500">İşlem akışı korunarak görsel yüzey yenilendi.</p>
                     </div>
                     <button
                         onClick={triggerInvoiceCreation}
                         disabled={isAccountingActionLoading}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-60"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#4b3529] to-[#2f241d] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(75,53,41,0.2)] transition-all hover:from-[#5b4032] hover:to-[#3b2a21] disabled:opacity-60"
                     >
                         {isAccountingActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Fatura Kes
                     </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Ödeme Yöntemi</p>
-                        <p className="font-semibold text-gray-900">{paymentMethodName}</p>
+                        <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
+                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Ödeme Yöntemi</p>
+                        <p className="mt-2 font-semibold text-stone-900">{paymentMethodName}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Senkron Durumu</p>
-                        <p className="font-semibold text-gray-900 flex items-center gap-2">
+                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Senkron Durumu</p>
+                        <p className="mt-2 flex items-center gap-2 font-semibold text-stone-900">
                             {accountingSnapshot?.syncStatus === "synced" ? (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                             ) : (
@@ -377,33 +420,33 @@ export function OrderDetailClient({
                             {accountingStatusLabel[accountingSnapshot?.syncStatus || "idle"]}
                         </p>
                     </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Sağlayıcı</p>
-                        <p className="font-semibold text-gray-900">{accountingSnapshot?.provider || "-"}</p>
+                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Sağlayıcı</p>
+                        <p className="mt-2 font-semibold text-stone-900">{accountingSnapshot?.provider || "-"}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Fatura Numarası</p>
-                        <p className="font-semibold text-gray-900">{accountingSnapshot?.invoiceNo || "-"}</p>
+                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Fatura Numarası</p>
+                        <p className="mt-2 font-semibold text-stone-900">{accountingSnapshot?.invoiceNo || "-"}</p>
                     </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-500">Fatura Linki</p>
+                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3 md:col-span-2 xl:col-span-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Fatura Linki</p>
                         {accountingSnapshot?.invoiceUrl ? (
                             <a
                                 href={accountingSnapshot.invoiceUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="font-semibold text-blue-600 hover:underline break-all"
+                                        className="mt-2 block break-all text-sm font-semibold text-[#C54E00] hover:text-[#a84300]"
                             >
                                 Görüntüle
                             </a>
                         ) : (
-                            <p className="font-semibold text-gray-900">-</p>
+                                    <p className="mt-2 font-semibold text-stone-900">-</p>
                         )}
                     </div>
                 </div>
 
                 {accountingSnapshot?.lastError && (
-                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
                         {accountingSnapshot.lastError}
                     </div>
                 )}
@@ -419,7 +462,7 @@ export function OrderDetailClient({
             />
 
             {/* Middle Section: Customer & Shipping - More Compact */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:gap-5">
                 {/* Customer Info - Takes 2 columns on large screens */}
                 {customer && (
                     <div className="lg:col-span-2">
@@ -457,7 +500,7 @@ export function OrderDetailClient({
             </div>
 
             {/* Bottom Section: Activity Log & Notes - Side by Side with better use of space */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:gap-5">
                 {/* Activity Log */}
                 <OrderActivityLog activities={formattedLogs} />
 
@@ -465,7 +508,7 @@ export function OrderDetailClient({
                 <InternalNotes
                     notes={notes.map((n) => ({
                         id: n.id,
-                        text: n.newValue?.text || "",
+                        text: typeof n.newValue === "object" && n.newValue !== null && "text" in n.newValue ? String((n.newValue as { text?: string }).text || "") : "",
                         adminName: n.adminName,
                         createdAt: new Date(n.createdAt),
                     }))}
@@ -482,6 +525,8 @@ export function OrderDetailClient({
                 <p>{STORE_RUNTIME.name} | {STORE_RUNTIME.storefrontUrl.replace(/^https?:\/\//, "")}</p>
                 <p>Bu belge bilgisayar ortamında otomatik olarak üretilmiştir.</p>
             </div>
-        </div>
+                </div>
+            </div>
+        </main>
     );
 }

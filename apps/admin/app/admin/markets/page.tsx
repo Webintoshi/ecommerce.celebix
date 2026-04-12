@@ -79,6 +79,36 @@ const PROVIDER_LOGOS: Partial<Record<MarketplaceProvider, ComponentType<{ size?:
   google_merchant: GoogleMerchantLogo,
 };
 
+const WARM_INPUT =
+  "w-full rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+
+function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasError: boolean }) {
+  if (isConnected) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+        <CheckCircle2 className="h-3 w-3" />
+        Bagli
+      </span>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+        <AlertCircle className="h-3 w-3" />
+        Hata
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6dbd1] bg-[#f6efe9] px-3 py-1.5 text-xs font-semibold text-[#7d6554]">
+      <Unplug className="h-3 w-3" />
+      Bagli Degil
+    </span>
+  );
+}
+
 function ProviderLogo({
   provider,
   size,
@@ -288,8 +318,8 @@ export default function MarketsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[#f6efe7] p-6 md:p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-[#FE6100]" />
       </div>
     );
   }
@@ -297,23 +327,24 @@ export default function MarketsPage() {
   // LIST VIEW
   if (view === "list") {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pazaryeri Entegrasyonları</h1>
-            <p className="text-sm text-gray-500 mt-1">Trendyol, Hepsiburada, N11 ve diğer pazaryerlerini yönetin.</p>
-          </div>
+      <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+              Pazaryeri Entegrasyonlari
+            </div>
           <button
             onClick={fetchIntegrations}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
           >
             <RefreshCw className="w-4 h-4" />
             Yenile
           </button>
-        </div>
+          </div>
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+        </section>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Bağlantı" value={totals.totalConnections} icon={Store} color="blue" />
           <StatCard title="Aktif" value={totals.activeConnections} icon={CheckCircle2} color="green" />
@@ -322,13 +353,12 @@ export default function MarketsPage() {
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="w-4 h-4" />
             {error}
           </div>
         )}
 
-        {/* Provider Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {sortedIntegrations.map((integration) => {
             const providerId = integration.provider.id;
@@ -341,8 +371,12 @@ export default function MarketsPage() {
                 key={providerId}
                 onClick={() => openDetail(providerId)}
                 className={cn(
-                  "text-left bg-white rounded-2xl border p-5 transition-all hover:shadow-md",
-                  isConnected ? "border-green-200" : hasError ? "border-red-200" : "border-gray-200"
+                  "rounded-[28px] border bg-white/92 p-5 text-left shadow-[0_18px_40px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16",
+                  isConnected
+                    ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
+                    : hasError
+                      ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
+                      : "border-[#eadccd] hover:border-[#FE6100]/20 hover:shadow-[0_24px_55px_rgba(254,97,0,0.12)]"
                 )}
               >
                 <div className="flex items-start gap-4">
@@ -354,45 +388,30 @@ export default function MarketsPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900">{integration.provider.name}</h3>
-                      {isConnected && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                      <h3 className="font-semibold tracking-[-0.02em] text-[#2f241d]">{integration.provider.name}</h3>
+                      {isConnected && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                     </div>
-                    <p className="text-sm text-gray-500 line-clamp-2">{integration.provider.description}</p>
+                    <p className="line-clamp-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      {isConnected ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Bağlı
-                        </span>
-                      ) : hasError ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                          <AlertCircle className="w-3 h-3" />
-                          Hata
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          <Unplug className="w-3 h-3" />
-                          Bağlı Değil
-                        </span>
-                      )}
+                      <ConnectionBadge isConnected={isConnected} hasError={hasError} />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="mt-4 border-t border-[#f1e5d9] pt-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <p className="text-xs text-gray-400">Bekleyen</p>
-                      <p className="font-semibold text-gray-900">{integration.queueStats.queued}</p>
+                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Bekleyen</p>
+                      <p className="mt-1 font-semibold text-[#2f241d]">{integration.queueStats.queued}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Listing</p>
-                      <p className="font-semibold text-gray-900">{integration.listingStats.total}</p>
+                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Listing</p>
+                      <p className="mt-1 font-semibold text-[#2f241d]">{integration.listingStats.total}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Hatalı</p>
-                      <p className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-red-600" : "text-gray-900")}>
+                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Hatali</p>
+                      <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[#2f241d]")}>
                         {integration.queueStats.failed}
                       </p>
                     </div>
@@ -401,6 +420,7 @@ export default function MarketsPage() {
               </button>
             );
           })}
+        </div>
         </div>
       </div>
     );
@@ -432,19 +452,17 @@ export default function MarketsPage() {
         : null;
 
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+      <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Back Button */}
           <button
             onClick={() => setView("list")}
-            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-2.5 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
           >
             <ChevronLeft className="w-4 h-4" />
-            Tüm Pazaryerlerine Dön
+            Tum Pazaryerlerine Don
           </button>
 
-          {/* Header Card */}
-          <div className={cn("bg-white rounded-2xl border p-6", isConnected ? "border-green-200" : hasError ? "border-red-200" : "border-gray-200")}>
+          <div className={cn("overflow-hidden rounded-[30px] border bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.08)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[#eadccd]")}>
             <div className="flex items-center gap-4">
               <ProviderLogo
                 provider={integration.provider}
@@ -454,32 +472,17 @@ export default function MarketsPage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-gray-900">{integration.provider.name}</h1>
-                  {isConnected ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Bağlı
-                    </span>
-                  ) : hasError ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                      <AlertCircle className="w-3 h-3" />
-                      Hata
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                      <Unplug className="w-3 h-3" />
-                      Bağlı Değil
-                    </span>
-                  )}
+                  <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#2f241d]">{integration.provider.name}</h1>
+                  <ConnectionBadge isConnected={isConnected} hasError={hasError} />
                 </div>
-                <p className="text-gray-500 mt-1">{integration.provider.description}</p>
+                <p className="mt-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
                 <div className="flex items-center gap-4 mt-2">
-                  <a href={integration.provider.websiteUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                  <a href={integration.provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
                     Panel <ExternalLink className="w-3 h-3" />
                   </a>
                   {integration.provider.docsUrl && (
-                    <a href={integration.provider.docsUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                      API Dökümanı <ExternalLink className="w-3 h-3" />
+                    <a href={integration.provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
+                      API Dokumani <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
@@ -488,41 +491,41 @@ export default function MarketsPage() {
           </div>
 
           {providerId === "google_merchant" && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
               <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
                 <div className="space-y-2">
-                  <h2 className="font-semibold text-gray-900">Merchant Feed URL</h2>
-                  <p className="text-sm text-gray-500">
+                  <h2 className="font-semibold text-[#2f241d]">Merchant Feed URL</h2>
+                  <p className="text-sm leading-6 text-[#7d6959]">
                     Google Merchant Center icinde Scheduled Fetch kaynagi olarak bu adresi kullan.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {googleFeedItemCount !== null && (
-                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 font-medium text-green-700">
-                      {googleFeedItemCount} hazir urun
-                    </span>
-                  )}
+                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                        {googleFeedItemCount} hazir urun
+                      </span>
+                    )}
                   {googleFeedIssueCount !== null && (
-                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700">
+                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
                       {googleFeedIssueCount} issue
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="mt-4 rounded-[22px] border border-[#eadccd] bg-[#fdf8f3] px-4 py-3">
                 <div className="flex items-center gap-3">
                   <input
                     readOnly
                     value={googleFeedUrl || "Baglanti kaydedildiginde feed URL burada gorunecek."}
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
+                    className="w-full bg-transparent text-sm text-[#6e5b4e] outline-none"
                   />
                   {googleFeedUrl ? (
                     <a
                       href={googleFeedUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-[#eadccd] bg-white px-3 py-2 text-xs font-semibold text-[#6e5b4e] shadow-sm transition hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
                     >
                       Ac
                       <ExternalLink className="h-3 w-3" />
@@ -531,14 +534,14 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-gray-600 md:grid-cols-3">
-                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="mt-4 grid gap-3 text-sm text-[#6e5b4e] md:grid-cols-3">
+                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
                   1. Merchant Center &gt; Products &gt; Data sources
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
                   2. Scheduled Fetch sec ve URL olarak bu feed adresini gir
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
                   3. Sonra bu ekrandan Senkronize Et ile issue durumlarini kontrol et
                 </div>
               </div>
@@ -548,70 +551,72 @@ export default function MarketsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Form */}
             <div className="lg:col-span-2 space-y-6">
-              {/* API Credentials */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-primary" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]">
+                    <Settings className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-gray-900">API Bilgileri</h2>
-                    <p className="text-sm text-gray-500">Pazaryeri panelinden alınan kimlik bilgileri</p>
+                    <h2 className="font-semibold text-[#2f241d]">API Bilgileri</h2>
+                    <p className="text-sm text-[#7d6959]">Pazaryeri panelinden alinan kimlik bilgileri</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {integration.provider.credentialFields.map((field) => (
-                    <div key={field.key} className={field.type === "textarea" ? "md:col-span-2" : ""}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </label>
-                      {field.type === "textarea" ? (
-                        <textarea
-                          value={form.credentials[field.key] || ""}
-                          onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
-                          placeholder={field.placeholder || field.label}
-                          rows={3}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        />
-                      ) : (
-                        <input
-                          type={field.type === "password" ? "password" : "text"}
-                          value={form.credentials[field.key] || ""}
-                          onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
-                          placeholder={field.placeholder || field.label}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                        />
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">{field.description}</p>
-                    </div>
-                  ))}
+                  {integration.provider.credentialFields.map((field) => {
+                    const isTextarea = (field.type as string | undefined) === "textarea";
+
+                    return (
+                      <div key={field.key} className={isTextarea ? "md:col-span-2" : ""}>
+                        <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        {isTextarea ? (
+                          <textarea
+                            value={form.credentials[field.key] || ""}
+                            onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            rows={3}
+                            className={WARM_INPUT}
+                          />
+                        ) : (
+                          <input
+                            type={field.type === "password" ? "password" : "text"}
+                            value={form.credentials[field.key] || ""}
+                            onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            className={WARM_INPUT}
+                          />
+                        )}
+                        <p className="mt-1 text-xs text-[#9a8474]">{field.description}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Field Mappings */}
               {integration.provider.mappingFields.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <Package className="w-5 h-5 text-blue-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b]">
+                      <Package className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="font-semibold text-gray-900">Alan Eşleme</h2>
-                      <p className="text-sm text-gray-500">Ürün alanlarını pazaryeri alanlarıyla eşleştirin</p>
+                      <h2 className="font-semibold text-[#2f241d]">Alan Esleme</h2>
+                      <p className="text-sm text-[#7d6959]">Urun alanlarini pazaryeri alanlariyla eslestirin</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {integration.provider.mappingFields.map((field) => (
                       <div key={field.key}>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
+                        <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">{field.label}</label>
                         <input
                           value={form.fieldMappings[field.key] || ""}
                           onChange={(e) => updateMapping(providerId, field.key, e.target.value)}
                           placeholder={field.placeholder || "Opsiyonel"}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                          className={WARM_INPUT}
                         />
                       </div>
                     ))}
@@ -619,50 +624,49 @@ export default function MarketsPage() {
                 </div>
               )}
 
-              {/* Listings Table */}
               {listings.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="overflow-hidden rounded-[30px] border border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+                  <div className="flex items-center justify-between border-b border-[#f1e5d9] px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <ShoppingBag className="w-5 h-5 text-gray-400" />
-                      <h3 className="font-semibold text-gray-900">Listing Eşleşmeleri</h3>
+                      <ShoppingBag className="w-5 h-5 text-[#c96a2b]" />
+                      <h3 className="font-semibold text-[#2f241d]">Listing Eslesmeleri</h3>
                     </div>
                     <button
                       onClick={() => loadListings(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:listings`}
-                      className="text-sm text-primary hover:underline disabled:opacity-50"
+                      className="text-sm font-medium text-[#C54E00] transition hover:text-[#a94500] disabled:opacity-50"
                     >
-                      {busyKey === `${selectedProvider}:listings` ? "Yükleniyor..." : "Yenile"}
+                      {busyKey === `${selectedProvider}:listings` ? "Yukleniyor..." : "Yenile"}
                     </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-[#fff8f3]/85">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Ürün</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Urun</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">SKU</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Fiyat / Stok</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Durum</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Fiyat / Stok</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Durum</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-[#f2e7dc]">
                         {listings.slice(0, 10).map((listing) => (
-                          <tr key={listing.variantId} className="hover:bg-gray-50">
+                          <tr key={listing.variantId} className="transition-colors hover:bg-[#fffaf5]">
                             <td className="px-4 py-3">
-                              <div className="font-medium text-gray-900">{listing.productName}</div>
-                              <div className="text-xs text-gray-500">{listing.variantName}</div>
+                              <div className="font-medium text-[#2f241d]">{listing.productName}</div>
+                              <div className="text-xs text-[#8c7564]">{listing.variantName}</div>
                             </td>
                             <td className="px-4 py-3 font-mono text-xs">{listing.sku || "-"}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 text-[#6e5b4e]">
                               {listing.price.toLocaleString("tr-TR")} ₺ / {listing.stock}
                             </td>
                             <td className="px-4 py-3">
                               <span
                                 className={cn(
-                                  "inline-flex px-2 py-1 rounded-full text-xs font-medium",
-                                  listing.status === "active" && "bg-green-100 text-green-700",
-                                  listing.status === "error" && "bg-red-100 text-red-700",
-                                  listing.status === "pending" && "bg-amber-100 text-amber-700"
+                                  "inline-flex rounded-full px-3 py-1.5 text-xs font-semibold",
+                                  listing.status === "active" && "border border-emerald-200 bg-emerald-50 text-emerald-700",
+                                  listing.status === "error" && "border border-rose-200 bg-rose-50 text-rose-700",
+                                  listing.status === "pending" && "border border-amber-200 bg-amber-50 text-amber-700"
                                 )}
                               >
                                 {listing.status}
@@ -679,9 +683,8 @@ export default function MarketsPage() {
 
             {/* Right: Actions & Logs */}
             <div className="space-y-6">
-              {/* Quick Actions */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">İşlemler</h3>
+              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+                <h3 className="mb-4 font-semibold text-[#2f241d]">Islemler</h3>
                 <div className="space-y-3">
                   <ActionButton
                     icon={Save}
@@ -706,14 +709,14 @@ export default function MarketsPage() {
                   />
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-gray-100 space-y-3">
+                <div className="mt-6 space-y-3 border-t border-[#f1e5d9] pt-6">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Webhook</span>
-                    <span className="font-medium">{integration.provider.supportsWebhook ? "Destekli" : "Polling"}</span>
+                    <span className="text-[#8c7564]">Webhook</span>
+                    <span className="font-medium text-[#2f241d]">{integration.provider.supportsWebhook ? "Destekli" : "Polling"}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Son Senkron</span>
-                    <span className="font-medium">
+                    <span className="text-[#8c7564]">Son Senkron</span>
+                    <span className="font-medium text-[#2f241d]">
                       {integration.connection?.lastSyncAt
                         ? new Date(integration.connection.lastSyncAt).toLocaleDateString("tr-TR")
                         : "-"}
@@ -722,58 +725,56 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Kuyruk Durumu</h3>
+              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+                <h3 className="mb-4 font-semibold text-[#2f241d]">Kuyruk Durumu</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <span className="text-sm text-gray-600">Bekleyen</span>
-                    <span className="font-semibold text-gray-900">{integration.queueStats.queued}</span>
+                  <div className="flex items-center justify-between rounded-[20px] bg-[#fdf8f3] p-3">
+                    <span className="text-sm text-[#6e5b4e]">Bekleyen</span>
+                    <span className="font-semibold text-[#2f241d]">{integration.queueStats.queued}</span>
                   </div>
-                  <div className={cn("flex items-center justify-between p-3 rounded-xl", integration.queueStats.failed > 0 ? "bg-red-50" : "bg-gray-50")}>
-                    <span className={cn("text-sm", integration.queueStats.failed > 0 ? "text-red-600" : "text-gray-600")}>Hatalı</span>
-                    <span className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-red-700" : "text-gray-900")}>
+                  <div className={cn("flex items-center justify-between rounded-[20px] p-3", integration.queueStats.failed > 0 ? "bg-rose-50" : "bg-[#fdf8f3]")}>
+                    <span className={cn("text-sm", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[#6e5b4e]")}>Hatali</span>
+                    <span className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-rose-700" : "text-[#2f241d]")}>
                       {integration.queueStats.failed}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <span className="text-sm text-gray-600">Listing</span>
-                    <span className="font-semibold text-gray-900">{integration.listingStats.total}</span>
+                  <div className="flex items-center justify-between rounded-[20px] bg-[#fdf8f3] p-3">
+                    <span className="text-sm text-[#6e5b4e]">Listing</span>
+                    <span className="font-semibold text-[#2f241d]">{integration.listingStats.total}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Logs */}
               {logs.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Son Loglar</h3>
+                    <h3 className="font-semibold text-[#2f241d]">Son Loglar</h3>
                     <button
                       onClick={() => loadLogs(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:logs`}
-                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                      className="text-xs font-medium text-[#C54E00] transition hover:text-[#a94500] disabled:opacity-50"
                     >
                       Yenile
                     </button>
                   </div>
                   <div className="space-y-2 max-h-64 overflow-auto">
                     {logs.slice(0, 5).map((log) => (
-                      <div key={log.id} className="p-3 bg-gray-50 rounded-xl text-xs">
+                      <div key={log.id} className="rounded-[20px] bg-[#fdf8f3] p-3 text-xs">
                         <div className="flex items-center justify-between">
                           <span
                             className={cn(
                               "font-medium",
-                              log.status === "success" ? "text-green-700" : log.status === "error" ? "text-red-700" : "text-gray-700"
+                              log.status === "success" ? "text-emerald-700" : log.status === "error" ? "text-rose-700" : "text-[#6e5b4e]"
                             )}
                           >
                             {log.status}
                           </span>
-                          <span className="text-gray-400">{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
+                          <span className="text-[#a08e82]">{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
                         </div>
-                        <p className="text-gray-500 mt-1">
+                        <p className="mt-1 text-[#8c7564]">
                           {log.direction} / {log.entityType}
                         </p>
-                        {log.errorMessage && <p className="text-red-600 mt-1">{log.errorMessage}</p>}
+                        {log.errorMessage && <p className="mt-1 text-rose-600">{log.errorMessage}</p>}
                       </div>
                     ))}
                   </div>
@@ -791,20 +792,20 @@ export default function MarketsPage() {
 
 function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: ElementType; color: "blue" | "green" | "amber" | "purple" }) {
   const colors = {
-    blue: "bg-blue-100 text-blue-600",
-    green: "bg-green-100 text-green-600",
-    amber: "bg-amber-100 text-amber-600",
-    purple: "bg-purple-100 text-purple-600",
+    blue: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
+    amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
+    purple: "border-[#efcfb1] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b]",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+    <div className="rounded-[28px] border border-[#eadccd] bg-white/92 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
+          <p className="text-2xl font-bold tracking-[-0.03em] text-[#2f241d]">{value}</p>
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-[18px] border shadow-sm ${colors[color]}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -830,10 +831,10 @@ function ActionButton({
       onClick={onClick}
       disabled={loading}
       className={cn(
-        "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-50",
+        "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4",
         variant === "primary"
-          ? "bg-primary text-white hover:bg-primary/90"
-          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:ring-[#FE6100]/18"
+          : "border border-[#eadccd] bg-white text-[#6e5b4e] shadow-sm hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:ring-[#FE6100]/16"
       )}
     >
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}

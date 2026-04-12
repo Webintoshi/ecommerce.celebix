@@ -69,22 +69,27 @@ export function OrderItemsList({
   const hasFreeShipping = shippingCost === 0;
 
   return (
-    <div className={`bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div className={`overflow-hidden rounded-[30px] border border-[#eadccd] bg-white/90 shadow-[0_20px_55px_rgba(148,101,63,0.1)] backdrop-blur ${className}`}>
       {/* Header */}
-      <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
+      <div className="flex flex-col gap-4 border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8 md:py-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <ShoppingBag className="w-5 h-5 text-primary" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f3dfc9] bg-[#fff1e4]">
+            <ShoppingBag className="h-5 w-5 text-[#C54E00]" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900">Sipariş İçeriği</h3>
+          <div>
+            <div className="inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+              Sepet Özeti
+            </div>
+            <h3 className="mt-2 text-lg font-semibold tracking-[-0.02em] text-stone-950">Sipariş İçeriği</h3>
+          </div>
         </div>
-        <span className="text-sm font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+        <span className="inline-flex w-fit items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-sm font-semibold text-[#8a5b3c] shadow-sm">
           {items.length} Ürün
         </span>
       </div>
 
       {/* Items */}
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-[#f3e7dc]">
         {items.map((item, index) => {
           // Get product image
           const productImage = item.product?.images?.[0];
@@ -93,10 +98,10 @@ export function OrderItemsList({
           return (
             <div
               key={item.id}
-              className="p-6 flex items-center gap-6 hover:bg-gray-50/50 transition-colors"
+              className="flex flex-col gap-4 p-4 transition-colors hover:bg-[#fffaf5] sm:flex-row sm:items-center sm:gap-5 md:p-6"
             >
               {/* Product Image */}
-              <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-gray-50 border border-gray-100">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4]">
                 {productImage ? (
                   <Image
                     src={productImage}
@@ -115,51 +120,51 @@ export function OrderItemsList({
               </div>
 
               {/* Product Info */}
-              <div className="flex-1 min-w-0">
-                {item.product?.slug ? (
-                  <Link
-                    href={buildStorefrontProductUrl(item.product.slug)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-bold text-gray-900 hover:text-primary transition-colors"
-                  >
-                    {item.product_name}
-                  </Link>
-                ) : (
-                  <p className="font-bold text-gray-900">{item.product_name}</p>
-                )}
-                {item.variant_name && (
-                  <p className="text-sm text-gray-500 mt-0.5">{item.variant_name}</p>
-                )}
-                {item.customizations?.[0]?.selections?.length ? (
-                  <div className="mt-2 space-y-1 text-xs text-gray-600">
-                    {item.customizations[0].selections.map((selection, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="font-medium">{selection.step_label}:</span>
-                        <span>{selection.display_value}</span>
-                      </div>
-                    ))}
-                    {(item.customizations[0].price_breakdown?.total_adjustment || 0) > 0 && (
-                      <div className="text-emerald-600 font-semibold">
-                        Ekstra: +{formatPrice(item.customizations[0].price_breakdown?.total_adjustment || 0)}
-                      </div>
-                    )}
+               <div className="min-w-0 flex-1">
+                 {item.product?.slug ? (
+                   <Link
+                      href={buildStorefrontProductUrl(item.product.slug)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-base font-semibold text-stone-900 transition-colors hover:text-[#C54E00]"
+                    >
+                      {item.product_name}
+                    </Link>
+                  ) : (
+                    <p className="text-base font-semibold text-stone-900">{item.product_name}</p>
+                  )}
+                 {item.variant_name && (
+                   <p className="mt-0.5 text-sm text-stone-500">{item.variant_name}</p>
+                 )}
+                 {item.customizations?.[0]?.selections?.length ? (
+                   <div className="mt-3 rounded-[20px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 text-xs text-stone-600">
+                     {item.customizations[0].selections.map((selection, idx) => (
+                       <div key={idx} className="flex items-center gap-2 py-0.5">
+                         <span className="font-medium">{selection.step_label}:</span>
+                         <span>{selection.display_value}</span>
+                       </div>
+                     ))}
+                     {(item.customizations[0].price_breakdown?.total_adjustment || 0) > 0 && (
+                       <div className="font-semibold text-[#C54E00]">
+                         Ekstra: +{formatPrice(item.customizations[0].price_breakdown?.total_adjustment || 0)}
+                       </div>
+                     )}
                   </div>
                 ) : null}
               </div>
 
               {/* Quantity */}
-              <div className="text-center shrink-0">
-                <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-1.5">
-                  <Package className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-bold text-gray-700">x{item.quantity}</span>
+              <div className="shrink-0 text-center sm:self-start">
+                <div className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-3 py-2 shadow-sm">
+                  <Package className="w-4 h-4 text-[#b18563]" />
+                  <span className="text-sm font-semibold text-stone-700">x{item.quantity}</span>
                 </div>
               </div>
 
               {/* Price */}
-              <div className="text-right shrink-0 w-24">
-                <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
-                <p className="font-black text-gray-900 text-lg">{formatPrice(item.total)}</p>
+              <div className="w-full shrink-0 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 text-left sm:w-28 sm:self-start sm:text-right">
+                <p className="text-sm text-stone-500">{formatPrice(item.price)}</p>
+                <p className="text-lg font-semibold text-stone-950">{formatPrice(item.total)}</p>
               </div>
             </div>
           );
@@ -167,36 +172,36 @@ export function OrderItemsList({
       </div>
 
       {/* Summary */}
-      <div className="p-8 bg-gradient-to-b from-gray-50/50 to-transparent border-t border-gray-100">
+      <div className="border-t border-[#f1e6dc] bg-gradient-to-b from-[#fffaf5] to-transparent p-5 md:p-8">
         <div className="space-y-3">
-          <div className="flex justify-between text-gray-600 font-medium">
+          <div className="flex justify-between font-medium text-stone-600">
             <span>Ara Toplam</span>
-            <span className="text-gray-900">{formatPrice(subtotal)}</span>
+            <span className="text-stone-900">{formatPrice(subtotal)}</span>
           </div>
 
-          <div className="flex justify-between text-gray-600 font-medium">
+          <div className="flex justify-between font-medium text-stone-600">
             <span>Kargo</span>
-            <span className={hasFreeShipping ? "text-emerald-600 font-bold" : "text-gray-900"}>
+            <span className={hasFreeShipping ? "font-semibold text-emerald-600" : "text-stone-900"}>
               {hasFreeShipping ? "Ücretsiz" : formatPrice(shippingCost)}
             </span>
           </div>
 
           {hasDiscount && (
-            <div className="flex justify-between text-emerald-600 font-medium">
+            <div className="flex justify-between font-medium text-emerald-600">
               <span>İndirim</span>
               <span>-{formatPrice(discount)}</span>
             </div>
           )}
 
-          <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-200">
-            <span className="text-gray-900 font-black text-lg">Genel Toplam</span>
-            <span className="text-primary font-black text-2xl">{formatPrice(total)}</span>
+          <div className="mt-2 flex items-center justify-between border-t border-[#eadccd] pt-4">
+            <span className="text-lg font-semibold text-stone-950">Genel Toplam</span>
+            <span className="text-2xl font-semibold text-[#C54E00]">{formatPrice(total)}</span>
           </div>
         </div>
 
         {hasFreeShipping && (
-          <div className="mt-4 p-3 bg-emerald-50 rounded-xl flex items-center gap-2">
-            <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+          <div className="mt-4 flex items-center gap-2 rounded-[22px] border border-emerald-100 bg-emerald-50 p-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
               <Package className="w-3 h-3 text-emerald-600" />
             </div>
             <p className="text-sm font-medium text-emerald-700">

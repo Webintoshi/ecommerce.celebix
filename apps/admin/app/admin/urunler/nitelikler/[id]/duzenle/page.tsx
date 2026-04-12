@@ -290,56 +290,83 @@ export default function EditVariantAttributePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+        <div className="flex items-center gap-3 rounded-full border border-[#ecdccd] bg-white/90 px-5 py-3 text-sm font-medium text-[#8b6d58] shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-[#FE6100]" />
+          Nitelik yukleniyor
+        </div>
       </div>
     );
   }
 
   const activeValues = values.filter((v) => !v.isDeleted);
+  const inputBaseClassName =
+    "w-full rounded-2xl border bg-white/90 px-4 py-3 text-sm text-stone-900 shadow-[0_10px_25px_rgba(120,78,44,0.08)] outline-none transition-all placeholder:text-stone-400 focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+  const selectedCardClassName =
+    "border-[#FE6100]/30 bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[0_18px_35px_rgba(254,97,0,0.12)]";
+  const idleCardClassName =
+    "border-[#eadccd] bg-white/85 text-stone-700 hover:border-[#FE6100]/20 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin/urunler/nitelikler"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Nitelik Düzenle</h1>
-                <p className="text-sm text-gray-500">"{attribute?.name}" niteliğini düzenliyorsunuz</p>
-              </div>
-            </div>
-            <button
-              onClick={handleDeleteAttribute}
-              className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Sil</span>
-            </button>
-          </div>
-        </div>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      {/* Content */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
-        <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-6">
-          {/* Nitelik Bilgileri */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-              <h2 className="font-semibold text-gray-900">Nitelik Bilgileri</h2>
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6">
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3 md:gap-4">
+                  <Link
+                    href="/admin/urunler/nitelikler"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Link>
+                  <div className="space-y-3">
+                    <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                      Nitelik duzenle
+                    </div>
+                    <h1 className="sr-only">Nitelik Düzenle</h1>
+                    <p className="max-w-2xl text-sm leading-6 text-[#786658]">
+                      {attribute?.name} icin gorunum tipini, degerlerini ve sira duzenini ayni akista yonetin.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 text-xs font-medium text-[#7d6a5d] shadow-sm">
+                    Aktif deger: {activeValues.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAttribute}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Sil</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            <div className="p-4 sm:p-6 space-y-6">
+          </section>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="space-y-6">
+              <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+                <div className="mb-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Temel ayarlar</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Nitelik bilgileri</h2>
+                </div>
+
+                <div className="space-y-6">
               {/* Nitelik Adı */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#5f4636]">
                   Nitelik Adı <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -348,8 +375,8 @@ export default function EditVariantAttributePage() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Örn: Renk, Beden, Gramaj"
                   className={cn(
-                    "w-full px-4 py-3 bg-white border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all",
-                    errors.name ? "border-red-300" : "border-gray-200"
+                    inputBaseClassName,
+                    errors.name ? "border-red-300 focus:border-red-400 focus:ring-red-100" : "border-[#e7d8ca]"
                   )}
                 />
                 {errors.name && (
@@ -359,7 +386,7 @@ export default function EditVariantAttributePage() {
 
               {/* Görünüm Tipi Seçimi */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="mb-3 block text-sm font-medium text-[#5f4636]">
                   Değer Görünümü
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -367,18 +394,16 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("text")}
                     className={cn(
-                      "flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left",
-                      displayType === "text"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 hover:border-gray-300"
+                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      displayType === "text" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7ede4] text-lg font-bold text-[#8b5e3c]">
                       Aa
                     </div>
                     <div>
                       <p className="font-medium">Sadece Metin</p>
-                      <p className="text-xs text-gray-500">Yazı olarak göster</p>
+                      <p className="text-xs text-stone-500">Yazi olarak goster</p>
                     </div>
                   </button>
 
@@ -386,18 +411,16 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("color")}
                     className={cn(
-                      "flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left",
-                      displayType === "color"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 hover:border-gray-300"
+                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      displayType === "color" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-400 to-blue-400 flex items-center justify-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-amber-500 shadow-sm">
                       <Palette className="w-5 h-5 text-white" />
                     </div>
                     <div>
                       <p className="font-medium">Renk Kodu</p>
-                      <p className="text-xs text-gray-500">Renk seçici ile</p>
+                      <p className="text-xs text-stone-500">Renk secici ile</p>
                     </div>
                   </button>
 
@@ -405,35 +428,38 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("image")}
                     className={cn(
-                      "flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left",
-                      displayType === "image"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 hover:border-gray-300"
+                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      displayType === "image" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <ImageIcon className="w-5 h-5 text-gray-600" />
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7ede4]">
+                      <ImageIcon className="w-5 h-5 text-[#8b5e3c]" />
                     </div>
                     <div>
                       <p className="font-medium">Görsel</p>
-                      <p className="text-xs text-gray-500">Resim yükle</p>
+                      <p className="text-xs text-stone-500">Resim yukle</p>
                     </div>
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Değerler */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Değerler</h2>
-              <span className="text-sm text-gray-500">{activeValues.length} değer</span>
+                </div>
+              </section>
             </div>
 
-            <div className="p-4 sm:p-6">
+            <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Liste</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Degerler</h2>
+                </div>
+                <span className="w-fit rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 text-xs font-medium text-[#7d6a5d] shadow-sm">
+                  {activeValues.length} aktif satir
+                </span>
+              </div>
+
+              <div className="rounded-[26px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-3 shadow-inner sm:p-4">
               {errors.values && (
-                <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                <div className="mb-4 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {errors.values}
                 </div>
@@ -446,36 +472,36 @@ export default function EditVariantAttributePage() {
                   return (
                     <div 
                       key={value.id} 
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors"
+                      className="group flex flex-col gap-3 rounded-[24px] border border-[#ecdccd] bg-white/90 p-3 shadow-sm transition-all hover:border-[#FE6100]/18 hover:bg-white sm:flex-row sm:items-center"
                     >
-                      <span className="text-sm text-gray-400 w-6 text-center flex-shrink-0">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#f8eee5] text-sm font-semibold text-[#8d796a]">
                         {index + 1}
                       </span>
 
                       {/* Görsel */}
                       {displayType === "image" && (
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                           {value.image_url ? (
                             <div className="relative">
                               <img
                                 src={value.image_url}
                                 alt={value.value}
-                                className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                                className="h-14 w-14 rounded-2xl border border-[#eadccd] object-cover"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeImage(value.id)}
-                                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-sm"
+                                className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100"
                               >
                                 <X className="w-3 h-3" />
                               </button>
                             </div>
                           ) : (
-                            <label className="w-12 h-12 bg-white border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-[#d9b99f] bg-[#fffaf6] transition-colors hover:border-[#FE6100]/40 hover:bg-[#fff3ea] focus-within:ring-4 focus-within:ring-[#FE6100]/15">
                               {uploadingValueId === value.id ? (
-                                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                                <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
                               ) : (
-                                <Upload className="w-5 h-5 text-gray-400" />
+                                <Upload className="h-5 w-5 text-stone-400" />
                               )}
                               <input
                                 type="file"
@@ -494,12 +520,12 @@ export default function EditVariantAttributePage() {
 
                       {/* Renk Kodu */}
                       {displayType === "color" && (
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                           <input
                             type="color"
                             value={value.color_code || "#000000"}
                             onChange={(e) => updateValue(value.id, "color_code", e.target.value)}
-                            className="w-10 h-10 rounded-lg cursor-pointer border border-gray-200 p-1 bg-white"
+                            className="h-11 w-11 cursor-pointer rounded-2xl border border-[#e7d8ca] bg-white p-1 shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
                           />
                         </div>
                       )}
@@ -510,14 +536,14 @@ export default function EditVariantAttributePage() {
                         value={value.value}
                         onChange={(e) => updateValue(value.id, "value", e.target.value)}
                         placeholder={`Değer ${index + 1}`}
-                        className="flex-1 min-w-0 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        className={cn(inputBaseClassName, "min-w-0 flex-1")}
                       />
 
                       {/* Sil Butonu */}
                       <button
                         type="button"
                         onClick={() => removeValue(value.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        className="inline-flex h-11 w-11 items-center justify-center self-end rounded-2xl text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100 sm:self-auto sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -529,26 +555,26 @@ export default function EditVariantAttributePage() {
               <button
                 type="button"
                 onClick={addValue}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#d9b99f] bg-white/70 px-4 py-3 text-sm font-semibold text-[#8b6d58] transition hover:border-[#FE6100]/35 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
               >
                 <Plus className="w-4 h-4" />
                 Değer Ekle
               </button>
-            </div>
+              </div>
+            </section>
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <Link
               href="/admin/urunler/nitelikler"
-              className="px-6 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+              className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-6 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
             >
               İptal
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:pointer-events-none disabled:opacity-60"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -560,6 +586,6 @@ export default function EditVariantAttributePage() {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

@@ -111,21 +111,21 @@ export function InternalNotes({
   };
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col ${className}`}>
+    <div className={`flex flex-col overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/30">
+      <div className="flex items-center justify-between border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-gray-500" />
+          <FileText className="w-4 h-4 text-[#8a5b3c]" />
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-900">İç Notlar</h3>
-            <span className="text-xs text-gray-400">({notes.length})</span>
+            <h3 className="text-sm font-semibold text-stone-950">İç Notlar</h3>
+            <span className="text-xs text-stone-400">({notes.length})</span>
           </div>
         </div>
 
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="p-1.5 bg-primary text-white rounded-lg hover:bg-red-800 transition-colors"
+            className="rounded-xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] p-2 text-white shadow-sm transition-all hover:from-[#f56a12] hover:to-[#c94d00]"
             title="Yeni Not"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -133,24 +133,24 @@ export function InternalNotes({
         )}
       </div>
 
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="flex flex-1 flex-col p-5">
         {/* Customer Note (if exists) */}
         {customerNote && (
-          <div className="mb-3 p-2.5 bg-amber-50 rounded-xl border border-amber-100">
-            <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">Müşteri Notu</p>
+          <div className="mb-4 rounded-[22px] border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">Müşteri Notu</p>
             <p className="text-amber-900 text-sm">{customerNote}</p>
           </div>
         )}
 
         {/* Add Note Form */}
         {isAdding && (
-          <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="mb-4 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
             <textarea
               value={newNoteText}
               onChange={(e) => setNewNoteText(e.target.value)}
               placeholder="Yeni not yazın..."
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full resize-none rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2.5 text-sm text-stone-700 focus:border-[#FE6100] focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
               autoFocus
             />
             <div className="flex items-center justify-end gap-2 mt-2">
@@ -159,14 +159,14 @@ export function InternalNotes({
                   setIsAdding(false);
                   setNewNoteText("");
                 }}
-                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-50 transition-colors"
+                className="rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#fffaf5]"
               >
                 İptal
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!newNoteText.trim() || isSubmitting}
-                className="px-3 py-1.5 bg-primary text-white rounded-lg font-bold text-xs hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] px-3 py-2 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? "..." : "Ekle"}
               </button>
@@ -175,11 +175,11 @@ export function InternalNotes({
         )}
 
         {/* Notes List - Compact */}
-        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar flex-1">
+        <div className="custom-scrollbar flex-1 space-y-2 overflow-y-auto pr-1">
           {notes.length === 0 ? (
-            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
-              <FileText className="w-6 h-6 text-gray-300 mx-auto mb-1.5" />
-              <p className="text-xs text-gray-400">Henüz not eklenmemiş</p>
+            <div className="rounded-[22px] border-2 border-dashed border-[#eadccd] py-8 text-center">
+              <FileText className="mx-auto mb-1.5 h-6 w-6 text-stone-300" />
+              <p className="text-xs text-stone-400">Henüz not eklenmemiş</p>
             </div>
           ) : (
             notes.map((note) => {
@@ -190,8 +190,8 @@ export function InternalNotes({
                   key={note.id}
                   className={`p-2.5 rounded-xl border transition-all ${
                     isEditing
-                      ? "bg-blue-50 border-blue-200"
-                      : "bg-gray-50 border-gray-100 hover:border-gray-200"
+                      ? "border-[#f0caa8] bg-[#fff4ea]"
+                      : "border-[#f0e3d6] bg-[#fcf8f4] hover:border-[#e4cfbd]"
                   }`}
                 >
                   {isEditing ? (
@@ -201,37 +201,37 @@ export function InternalNotes({
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         rows={2}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-blue-200 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      />
-                      <div className="flex items-center justify-end gap-2 mt-2">
-                        <button
-                          onClick={cancelEdit}
-                          className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold text-xs hover:bg-gray-50 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                          className="w-full resize-none rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2 text-sm focus:border-[#FE6100] focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
+                        />
+                        <div className="flex items-center justify-end gap-2 mt-2">
+                          <button
+                            onClick={cancelEdit}
+                            className="rounded-xl border border-[#e1d2c3] bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#fffaf5]"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         <button
                           onClick={handleUpdate}
                           disabled={!editText.trim() || isSubmitting}
-                          className="px-2.5 py-1 bg-blue-600 text-white rounded-lg font-bold text-xs hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
+                            className="rounded-xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] px-2.5 py-1.5 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:opacity-50"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
                       </div>
                     </div>
                   ) : (
                     // View Mode
                     <div className="flex gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-red-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FE6100] to-[#d95a00] text-white shadow-sm">
                         <User className="w-3 h-3" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 break-words">
+                            <p className="break-words text-sm font-medium text-stone-900">
                               {note.text}
                             </p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
+                            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-stone-400">
                               {note.adminName || "Admin"} · {formatTime(note.createdAt)}
                             </p>
                           </div>
@@ -240,19 +240,19 @@ export function InternalNotes({
                               {onUpdateNote && (
                                 <button
                                   onClick={() => startEdit(note)}
-                                  className="p-1 hover:bg-white rounded transition-colors"
+                                  className="rounded-lg p-1 transition-colors hover:bg-white"
                                   title="Düzenle"
                                 >
-                                  <Pencil className="w-3 h-3 text-gray-400" />
+                                  <Pencil className="w-3 h-3 text-stone-400" />
                                 </button>
                               )}
                               {onDeleteNote && (
                                 <button
                                   onClick={() => handleDelete(note.id)}
-                                  className="p-1 hover:bg-white rounded transition-colors"
+                                  className="rounded-lg p-1 transition-colors hover:bg-white"
                                   title="Sil"
                                 >
-                                  <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                                  <Trash2 className="w-3 h-3 text-stone-400 hover:text-red-500" />
                                 </button>
                               )}
                             </div>

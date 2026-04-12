@@ -1,9 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Plus, Trash2, Phone, Mail, User, MapPin, Loader2 } from "lucide-react";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  Loader2,
+  Mail,
+  MapPin,
+  Phone,
+  Plus,
+  Save,
+  ShieldCheck,
+  Tags,
+  Trash2,
+  User,
+} from "lucide-react";
 
 interface AddressInput {
   title: string;
@@ -36,14 +48,42 @@ interface CustomerFormData {
 
 interface CustomerFormProps {
   customerId?: string;
+  title?: string;
 }
 
-export default function CustomerForm({ customerId }: CustomerFormProps) {
+const panelClass =
+  "rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]";
+
+const inputClass =
+  "w-full rounded-2xl border border-[#e8d8ca] bg-white/90 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
+
+const statusOptions: Array<{
+  value: CustomerFormData["status"];
+  label: string;
+  tone: string;
+}> = [
+  {
+    value: "active",
+    label: "Aktif",
+    tone: "border-emerald-200/80 bg-emerald-50/80 text-emerald-800",
+  },
+  {
+    value: "inactive",
+    label: "Pasif",
+    tone: "border-stone-200 bg-stone-50 text-stone-700",
+  },
+  {
+    value: "blocked",
+    label: "Engellendi",
+    tone: "border-rose-200/80 bg-rose-50/80 text-rose-700",
+  },
+];
+
+export default function CustomerForm({ customerId, title }: CustomerFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
-
   const [formData, setFormData] = useState<CustomerFormData>({
     email: "",
     firstName: "",
@@ -59,10 +99,9 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     taxExempt: false,
   });
 
-  // Load customer data if editing
   useEffect(() => {
     if (customerId) {
-      loadCustomer();
+      void loadCustomer();
     }
   }, [customerId]);
 
@@ -71,7 +110,7 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     try {
       const res = await fetch(`/api/customers?id=${customerId}`);
       const data = await res.json();
-      
+
       if (data.success && data.customer) {
         const c = data.customer;
         setFormData({
@@ -108,13 +147,12 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
 
     try {
       if (customerId) {
-        // Update existing customer
         await fetch("/api/customers", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -124,7 +162,6 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
           }),
         });
       } else {
-        // Create new customer
         await fetch("/api/customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -186,6 +223,13 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     }
   };
 
+  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleAddTag();
+    }
+  };
+
   const handleRemoveTag = (tag: string) => {
     setFormData({
       ...formData,
@@ -193,304 +237,538 @@ export default function CustomerForm({ customerId }: CustomerFormProps) {
     });
   };
 
+  const pageTitle = title || (customerId ? "Müşteriyi Düzenle" : "Yeni Müşteri");
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+        <div className="mx-auto flex min-h-[420px] max-w-[1600px] items-center justify-center px-4 py-10 md:px-6 lg:px-8">
+          <div className="inline-flex items-center gap-3 rounded-full border border-[#FE6100]/15 bg-white/90 px-5 py-3 text-sm font-medium text-[#8a4b22] shadow-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
+            Müşteri bilgileri hazırlanıyor
+          </div>
+        </div>
+      </main>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/musteriler" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {customerId ? "Müşteri Düzenle" : "Yeni Müşteri Ekle"}
-          </h1>
-        </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Kaydet
-        </button>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-24 right-[-5rem] h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
+        <div className="absolute bottom-[-8rem] left-[-4rem] h-[20rem] w-[20rem] rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Kişisel Bilgiler
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ad</label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Soyad</label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="05XXXXXXXXX"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
-                Adresler
-              </h3>
-              <button
-                type="button"
-                onClick={handleAddAddress}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Adres Ekle
-              </button>
-            </div>
-
-            {formData.addresses.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">Henüz adres eklenmedi.</p>
-            )}
-
-            {formData.addresses.map((address, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900">Adres {index + 1}</h4>
-                  {formData.addresses.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAddress(index)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Adres Başlığı</label>
-                  <input
-                    type="text"
-                    value={address.title}
-                    onChange={(e) => handleAddressChange(index, "title", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="Ev, İş vb."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ad</label>
-                    <input
-                      type="text"
-                      value={address.firstName}
-                      onChange={(e) => handleAddressChange(index, "firstName", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Soyad</label>
-                    <input
-                      type="text"
-                      value={address.lastName}
-                      onChange={(e) => handleAddressChange(index, "lastName", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
-                  <input
-                    type="text"
-                    value={address.addressLine}
-                    onChange={(e) => handleAddressChange(index, "addressLine", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Şehir</label>
-                    <input
-                      type="text"
-                      value={address.city}
-                      onChange={(e) => handleAddressChange(index, "city", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">İlçe</label>
-                    <input
-                      type="text"
-                      value={address.district}
-                      onChange={(e) => handleAddressChange(index, "district", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Posta Kodu</label>
-                    <input
-                      type="text"
-                      value={address.postalCode}
-                      onChange={(e) => handleAddressChange(index, "postalCode", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-                    <input
-                      type="tel"
-                      value={address.phone}
-                      onChange={(e) => handleAddressChange(index, "phone", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Durum</h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="active"
-                  checked={formData.status === "active"}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-4 h-4 text-primary"
-                />
-                <span className="text-sm text-gray-700">Aktif</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="inactive"
-                  checked={formData.status === "inactive"}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-4 h-4 text-primary"
-                />
-                <span className="text-sm text-gray-700">Pasif</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="blocked"
-                  checked={formData.status === "blocked"}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-4 h-4 text-primary"
-                />
-                <span className="text-sm text-gray-700">Engellendi</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Etiketler</h3>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
-                placeholder="Etiket ekle..."
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              <button
-                type="button"
-                onClick={handleAddTag}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.tags?.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-sm rounded"
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="flex flex-col gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3 md:gap-4">
+                <Link
+                  href="/admin/musteriler"
+                  aria-label="Müşterilere dön"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                 >
-                  {tag}
-                  <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:text-red-600 transition-colors">
-                    ×
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  {pageTitle}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Kaydet
+              </button>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
+            <div className="space-y-6">
+              <section className={panelClass}>
+                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Kişisel Bilgiler</h2>
+                      <p className="text-sm text-gray-500">Temel iletişim ve kimlik alanlarını düzenleyin.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 p-5 md:p-6">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label htmlFor="customer-first-name" className="mb-2 block text-sm font-medium text-gray-700">
+                        Ad
+                      </label>
+                      <input
+                        id="customer-first-name"
+                        type="text"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        className={inputClass}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="customer-last-name" className="mb-2 block text-sm font-medium text-gray-700">
+                        Soyad
+                      </label>
+                      <input
+                        id="customer-last-name"
+                        type="text"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                        className={inputClass}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="customer-email" className="mb-2 block text-sm font-medium text-gray-700">
+                      E-posta
+                    </label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <input
+                        id="customer-email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className={`${inputClass} pl-11`}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="customer-phone" className="mb-2 block text-sm font-medium text-gray-700">
+                      Telefon
+                    </label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <input
+                        id="customer-phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className={`${inputClass} pl-11`}
+                        placeholder="05XXXXXXXXX"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className={panelClass}>
+                <div className="flex flex-col gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Adresler</h2>
+                      <p className="text-sm text-gray-500">Teslimat ve fatura adreslerini mobil uyumlu kartlarla yönetin.</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddAddress}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adres Ekle
                   </button>
-                </span>
-              ))}
+                </div>
+
+                <div className="space-y-4 p-5 md:p-6">
+                  {formData.addresses.length === 0 ? (
+                    <div className="rounded-[24px] border border-dashed border-[#e8d7c7] bg-white/70 px-5 py-8 text-center text-sm text-[#8b7768]">
+                      Henüz adres eklenmedi.
+                    </div>
+                  ) : null}
+
+                  {formData.addresses.map((address, index) => (
+                    <section
+                      key={index}
+                      className="rounded-[24px] border border-[#ecdccd] bg-white/80 p-4 shadow-sm sm:p-5"
+                      aria-label={`Adres ${index + 1}`}
+                    >
+                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/12 bg-[#fff8f3] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                          Adres {index + 1}
+                        </div>
+                        {formData.addresses.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAddress(index)}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Kaldır
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="md:col-span-2">
+                          <label htmlFor={`address-title-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Adres Başlığı
+                          </label>
+                          <input
+                            id={`address-title-${index}`}
+                            type="text"
+                            value={address.title}
+                            onChange={(e) => handleAddressChange(index, "title", e.target.value)}
+                            className={inputClass}
+                            placeholder="Ev, Ofis, Depo"
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor={`address-first-name-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Ad
+                          </label>
+                          <input
+                            id={`address-first-name-${index}`}
+                            type="text"
+                            value={address.firstName}
+                            onChange={(e) => handleAddressChange(index, "firstName", e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`address-last-name-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Soyad
+                          </label>
+                          <input
+                            id={`address-last-name-${index}`}
+                            type="text"
+                            value={address.lastName}
+                            onChange={(e) => handleAddressChange(index, "lastName", e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label htmlFor={`address-company-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Firma
+                          </label>
+                          <input
+                            id={`address-company-${index}`}
+                            type="text"
+                            value={address.company}
+                            onChange={(e) => handleAddressChange(index, "company", e.target.value)}
+                            className={inputClass}
+                            placeholder="Opsiyonel"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label htmlFor={`address-line-1-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Adres
+                          </label>
+                          <input
+                            id={`address-line-1-${index}`}
+                            type="text"
+                            value={address.addressLine}
+                            onChange={(e) => handleAddressChange(index, "addressLine", e.target.value)}
+                            className={inputClass}
+                            required
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label htmlFor={`address-line-2-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Adres Satırı 2
+                          </label>
+                          <input
+                            id={`address-line-2-${index}`}
+                            type="text"
+                            value={address.addressLine2}
+                            onChange={(e) => handleAddressChange(index, "addressLine2", e.target.value)}
+                            className={inputClass}
+                            placeholder="Apartman, kat, daire"
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor={`address-city-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Şehir
+                          </label>
+                          <input
+                            id={`address-city-${index}`}
+                            type="text"
+                            value={address.city}
+                            onChange={(e) => handleAddressChange(index, "city", e.target.value)}
+                            className={inputClass}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`address-district-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            İlçe
+                          </label>
+                          <input
+                            id={`address-district-${index}`}
+                            type="text"
+                            value={address.district}
+                            onChange={(e) => handleAddressChange(index, "district", e.target.value)}
+                            className={inputClass}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor={`address-postal-code-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Posta Kodu
+                          </label>
+                          <input
+                            id={`address-postal-code-${index}`}
+                            type="text"
+                            value={address.postalCode}
+                            onChange={(e) => handleAddressChange(index, "postalCode", e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`address-phone-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Telefon
+                          </label>
+                          <input
+                            id={`address-phone-${index}`}
+                            type="tel"
+                            value={address.phone}
+                            onChange={(e) => handleAddressChange(index, "phone", e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label htmlFor={`address-country-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                            Ülke
+                          </label>
+                          <input
+                            id={`address-country-${index}`}
+                            type="text"
+                            value={address.country}
+                            onChange={(e) => handleAddressChange(index, "country", e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="space-y-6">
+              <section className={panelClass}>
+                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Durum ve Ayarlar</h2>
+                      <p className="text-sm text-gray-500">Müşterinin yönetim görünümünü ve tercihlerini belirleyin.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 p-5 md:p-6">
+                  <div className="space-y-3" role="radiogroup" aria-label="Müşteri durumu">
+                    {statusOptions.map((option) => {
+                      const checked = formData.status === option.value;
+
+                      return (
+                        <label
+                          key={option.value}
+                          className={`flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border px-4 py-3 transition-all ${
+                            checked
+                              ? "border-[#FE6100]/30 bg-[#fff8f3] shadow-sm"
+                              : "border-[#ecdccd] bg-white/80 hover:border-[#FE6100]/15 hover:bg-white"
+                          }`}
+                        >
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">{option.label}</div>
+                          </div>
+                          <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${option.tone}`}>
+                            {option.label}
+                          </div>
+                          <input
+                            type="radio"
+                            name="status"
+                            value={option.value}
+                            checked={checked}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerFormData["status"] })}
+                            className="h-4 w-4 border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div>
+                    <label htmlFor="external-customer-id" className="mb-2 block text-sm font-medium text-gray-700">
+                      Harici Müşteri ID
+                    </label>
+                    <input
+                      id="external-customer-id"
+                      type="text"
+                      value={formData.externalCustomerId}
+                      onChange={(e) => setFormData({ ...formData, externalCustomerId: e.target.value })}
+                      className={inputClass}
+                      placeholder="CRM veya ERP referansı"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <ToggleCard
+                      checked={formData.acceptsEmailMarketing}
+                      label="E-posta pazarlaması"
+                      onChange={(checked) => setFormData({ ...formData, acceptsEmailMarketing: checked })}
+                    />
+                    <ToggleCard
+                      checked={formData.acceptsSmsMarketing}
+                      label="SMS pazarlaması"
+                      onChange={(checked) => setFormData({ ...formData, acceptsSmsMarketing: checked })}
+                    />
+                    <ToggleCard
+                      checked={formData.taxExempt}
+                      label="Vergiden muaf"
+                      onChange={(checked) => setFormData({ ...formData, taxExempt: checked })}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className={panelClass}>
+                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                      <Tags className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Etiketler ve Notlar</h2>
+                      <p className="text-sm text-gray-500">Ek segmentler ve ekip notları için düzenli alanlar.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 p-5 md:p-6">
+                  <div>
+                    <label htmlFor="customer-tag-input" className="mb-2 block text-sm font-medium text-gray-700">
+                      Etiket ekle
+                    </label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        id="customer-tag-input"
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                        placeholder="VIP, Toptan, İstanbul"
+                        className={inputClass}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Ekle
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags?.length ? (
+                      formData.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-[#fff8f3] px-3 py-1.5 text-sm font-medium text-[#8a4b22]"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            aria-label={`${tag} etiketini kaldır`}
+                            onClick={() => handleRemoveTag(tag)}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#a7643c] transition hover:bg-[#ffe8d8] hover:text-rose-600"
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <div className="rounded-[20px] border border-dashed border-[#e8d7c7] bg-white/70 px-4 py-4 text-sm text-[#8b7768]">
+                        Henüz etiket eklenmedi.
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="customer-notes" className="mb-2 block text-sm font-medium text-gray-700">
+                      Notlar
+                    </label>
+                    <textarea
+                      id="customer-notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={6}
+                      className={`${inputClass} resize-y`}
+                      placeholder="Müşteri hakkında ekip içi notlar"
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Notlar</h3>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              placeholder="Müşteri hakkında notlar..."
-            />
-          </div>
-        </div>
+        </form>
       </div>
-    </form>
+    </main>
+  );
+}
+
+function ToggleCard({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border border-[#ecdccd] bg-white/80 px-4 py-3 transition-all hover:border-[#FE6100]/15 hover:bg-white">
+      <span className="text-sm font-medium text-gray-800">{label}</span>
+      <div className="flex items-center gap-3">
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+            checked
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-stone-200 bg-stone-50 text-stone-600"
+          }`}
+        >
+          {checked ? "Açık" : "Kapalı"}
+        </span>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+        />
+      </div>
+    </label>
   );
 }

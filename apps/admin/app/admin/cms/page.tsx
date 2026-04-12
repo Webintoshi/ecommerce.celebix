@@ -15,6 +15,14 @@ import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import { fetchCmsPages } from "@/lib/cms-pages";
 import type { CmsPage } from "@/types/cms";
 import type { BlogPost } from "@/types/blog";
+import { cn } from "@/lib/utils";
+
+const statTone = [
+  "from-[#fff2e8] to-white text-[#FE6100] border-[#FE6100]/12",
+  "from-[#fff5ec] to-white text-[#cc6a2a] border-[#efcfb1]",
+  "from-[#fff7ef] to-white text-[#b97a2e] border-[#edd7ba]",
+  "from-[#f6f0e8] to-white text-[#7d5a41] border-[#e3d8cb]",
+];
 
 export default function CmsDashboard() {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -25,10 +33,7 @@ export default function CmsDashboard() {
 
     async function loadDashboard() {
       try {
-        const [pages, blogSnapshot] = await Promise.all([
-          fetchCmsPages(),
-          fetchBlogStrategySnapshot(),
-        ]);
+        const [pages, blogSnapshot] = await Promise.all([fetchCmsPages(), fetchBlogStrategySnapshot()]);
 
         if (mounted) {
           setCmsPages(pages);
@@ -48,18 +53,14 @@ export default function CmsDashboard() {
 
   const stats = [
     {
-      label: "Blog Yazıları",
+      label: "Blog Yazilari",
       count: blogPosts.length,
       icon: PenTool,
-      color: "text-purple-600",
-      bg: "bg-purple-100",
     },
     {
-      label: "İçerik Sayfaları",
+      label: "Icerik Sayfalari",
       count: cmsPages.length,
       icon: FileText,
-      color: "text-blue-600",
-      bg: "bg-blue-100",
     },
     {
       label: "Taslaklar",
@@ -67,151 +68,159 @@ export default function CmsDashboard() {
         blogPosts.filter((post) => post.status === "draft").length +
         cmsPages.filter((page) => page.status === "draft").length,
       icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-amber-100",
     },
     {
-      label: "Yayında",
+      label: "Yayinda",
       count:
         blogPosts.filter((post) => post.status === "published").length +
         cmsPages.filter((page) => page.status === "published").length,
       icon: Eye,
-      color: "text-emerald-600",
-      bg: "bg-emerald-100",
     },
   ];
 
   return (
-    <div className="min-h-screen space-y-8 bg-gray-50/50 p-6 md:p-8">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/admin"
-          className="rounded-lg border border-transparent p-2 transition-colors hover:border-gray-200 hover:bg-white"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">İçerik Yönetimi</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Blog yazilarini ve sabit icerik sayfalarini buradan yonetin.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-          >
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.bg} ${stat.color}`}>
-              <stat.icon className="h-6 w-6" />
+    <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+              Icerik Yonetimi
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{stat.label}</p>
-              <p className="mt-0.5 text-2xl font-bold leading-tight text-gray-900">{stat.count}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
-          <div className="p-6">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-200 transition-transform group-hover:scale-105">
-                <PenTool className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Blog Yonetimi</h2>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  Haberler, duyurular ve SEO odaklı editorial içerikler.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-6 space-y-3">
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <span className="text-sm font-medium text-gray-600">Toplam Yazı</span>
-                <span className="font-bold text-gray-900">{blogPosts.length}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <span className="text-sm font-medium text-gray-600">İçerik Stratejisi</span>
-                <span className="font-bold text-purple-600">Pillar-Cluster</span>
-              </div>
-            </div>
-
             <Link
-              href="/admin/cms/blog"
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
+              href="/admin"
+              className="inline-flex items-center gap-2 rounded-2xl border border-[#eadacd] bg-white px-4 py-2.5 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
             >
-              Görüntüle
-              <ChevronRight className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
+              Geri
             </Link>
           </div>
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+        </section>
+
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stats.map((stat, index) => (
+            <div
+              key={stat.label}
+              className="rounded-[28px] border border-[#eadccd] bg-white/90 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a7c67]">{stat.label}</p>
+                  <p className="mt-2 text-3xl font-bold tracking-[-0.03em] text-[#2f241d]">{stat.count}</p>
+                </div>
+                <div
+                  className={cn(
+                    "flex h-12 w-12 items-center justify-center rounded-[18px] border bg-gradient-to-br shadow-sm",
+                    statTone[index]
+                  )}
+                >
+                  <stat.icon className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
-          <div className="p-6">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200 transition-transform group-hover:scale-105">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Sabit Sayfalar</h2>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  Hakkımızda, İletişim ve SSS sayfalarının içeriğini yönetin.
-                </p>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <DashboardCard
+            href="/admin/cms/blog"
+            title="Blog Yonetimi"
+            description="Haberler, duyurular ve SEO odakli editoryal icerikleri yonetin."
+            icon={PenTool}
+            tone="from-[#fff2e8] to-white text-[#FE6100] border-[#FE6100]/12"
+            rows={[
+              { label: "Toplam Yazi", value: `${blogPosts.length}` },
+              { label: "Icerik Stratejisi", value: "Pillar-Cluster", accent: true },
+            ]}
+          />
 
-            <div className="mb-6 space-y-3">
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <span className="text-sm font-medium text-gray-600">Yönetilen Sayfa</span>
-                <span className="font-bold text-gray-900">{cmsPages.length}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <span className="text-sm font-medium text-gray-600">Yayındaki Sayfa</span>
-                <span className="font-bold text-emerald-600">
-                  {cmsPages.filter((page) => page.status === "published").length}
-                </span>
-              </div>
-            </div>
+          <DashboardCard
+            href="/admin/cms/sayfalar"
+            title="Sabit Sayfalar"
+            description="Hakkimizda, Iletisim ve SSS gibi sayfalarin icerigini duzenleyin."
+            icon={FileText}
+            tone="from-[#fff7ef] to-white text-[#c86a29] border-[#f0cfb2]"
+            rows={[
+              { label: "Yonetilen Sayfa", value: `${cmsPages.length}` },
+              {
+                label: "Yayindaki Sayfa",
+                value: `${cmsPages.filter((page) => page.status === "published").length}`,
+                accent: true,
+              },
+            ]}
+          />
+        </div>
 
+        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-r from-[#2f241d] via-[#4f3829] to-[#694833] p-6 text-white shadow-[0_24px_70px_rgba(47,36,29,0.22)] md:p-8">
+          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Icerik Notu
+              </div>
+              <p className="text-sm leading-7 text-[#f6ddcb]">
+                Sabit sayfalar kontrollu bir kontratla yonetilir; her magazada ayni temel sayfalar bulunur ve storefront yalnizca yayindaki icerigi gosterir.
+              </p>
+            </div>
             <Link
               href="/admin/cms/sayfalar"
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-gray-800"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#3d2b1f] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25"
             >
-              Görüntüle
+              Sayfalari Yonet
               <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
-        </div>
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#FE6100]/20 blur-3xl" />
+        </section>
       </div>
+    </div>
+  );
+}
 
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 p-6 text-white">
-        <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
-          <div className="max-w-xl">
-            <h3 className="mb-2 flex items-center gap-2 text-xl font-bold">
-              <BarChart3 className="h-5 w-5 text-purple-400" />
-              İçerik Yönetim Notu
-            </h3>
-            <p className="text-sm leading-relaxed text-gray-300">
-              Sabit sayfalar artik kontrollu bir kontratla yonetiliyor. Her magazada ayni
-              uc sayfa bulunur; musteri sadece icerigi yazar ve storefront bu icerigi
-              yayinda oldukca gosterir.
-            </p>
+function DashboardCard({
+  href,
+  title,
+  description,
+  icon: Icon,
+  tone,
+  rows,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  icon: typeof PenTool;
+  tone: string;
+  rows: Array<{ label: string; value: string; accent?: boolean }>;
+}) {
+  return (
+    <div className="group overflow-hidden rounded-[30px] border border-[#eadccd] bg-white/92 shadow-[0_20px_45px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-1 hover:border-[#FE6100]/18 hover:shadow-[0_24px_55px_rgba(254,97,0,0.12)]">
+      <div className="p-6 md:p-7">
+        <div className="mb-6 flex items-center gap-4">
+          <div className={cn("flex h-14 w-14 items-center justify-center rounded-[20px] border bg-gradient-to-br shadow-sm", tone)}>
+            <Icon className="h-6 w-6" />
           </div>
-          <Link
-            href="/admin/cms/sayfalar"
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-gray-900 shadow-lg transition-all hover:bg-gray-100"
-          >
-            Sayfalari Yonet
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+          <div>
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#2f241d]">{title}</h2>
+            <p className="mt-1 text-sm leading-6 text-[#7d6959]">{description}</p>
+          </div>
         </div>
-        <div className="absolute right-0 top-0 -mr-32 -mt-32 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 -mb-32 -ml-32 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="mb-6 space-y-3">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-center justify-between rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
+              <span className="text-sm font-medium text-[#7b6656]">{row.label}</span>
+              <span className={cn("font-semibold text-[#2f241d]", row.accent && "text-[#C54E00]")}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          href={href}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+        >
+          Goruntule
+          <ChevronRight className="h-4 w-4" />
+        </Link>
       </div>
     </div>
   );

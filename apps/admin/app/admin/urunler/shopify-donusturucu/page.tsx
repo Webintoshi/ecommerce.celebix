@@ -247,39 +247,52 @@ export default function ShopifyConverterPage() {
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Shopify → Celebix Panel Donusturucu
-          </h1>
-          <p className="text-gray-600">
-            Shopify CSV dosyanizi Celebix Panel formatina donusturun (Gorseller dahil)
-          </p>
-        </div>
-        <Link
-          href="/admin/urunler"
-          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Geri Dön
-        </Link>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="space-y-6">
+        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+          <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-3">
+                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  Shopify donusturucu
+                </div>
+                <h1 className="sr-only">Shopify → Celebix Panel Donusturucu</h1>
+                <p className="max-w-2xl text-sm leading-6 text-[#786658]">
+                  Shopify ciktilarini panelin toplu yukleme yapisina sicak, daha rahat taranan bir is akisi icinde hazirlayin.
+                </p>
+              </div>
+              <Link
+                href="/admin/urunler"
+                className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+              >
+                Geri Dön
+              </Link>
+            </div>
+          </div>
+        </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* Instructions */}
-          <div className="bg-gradient-to-br from-primary/10 to-secondary/20 border border-primary/20 rounded-xl p-6">
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <div className="rounded-[26px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                <Info className="w-5 h-5 text-white" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FE6100] to-[#E45700] shadow-[0_18px_35px_rgba(254,97,0,0.18)]">
+                <Info className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">
+                <h3 className="mb-2 font-semibold text-[#2f241d]">
                   Nasıl Çalışır?
                 </h3>
-                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                <ol className="space-y-2 text-sm text-[#6f5a4b] list-decimal list-inside">
                   <li>Shopify Admin → Ürünler → "Dışa Aktar" butonuna tıklayın</li>
                   <li>"Tüm ürünler" ve "CSV for Excel" seçeneklerini seçin</li>
                   <li>İndirilen CSV dosyasını buraya yükleyin</li>
@@ -290,27 +303,28 @@ export default function ShopifyConverterPage() {
                 </ol>
               </div>
             </div>
-          </div>
+            </div>
+          </section>
 
           {/* Upload Area */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
               <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-sky-100">
                   <FileSpreadsheet className="w-8 h-8 text-blue-600" />
                 </div>
                 <ArrowRight className="w-8 h-8 text-gray-400" />
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                  <FileSpreadsheet className="w-8 h-8 text-primary" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+                  <FileSpreadsheet className="w-8 h-8 text-[#FE6100]" />
                 </div>
               </div>
 
               {!file ? (
                 <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="mb-2 text-xl font-semibold text-[#2f241d]">
                     Shopify CSV Dosyası Yükle
                   </h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="mb-6 text-[#786658]">
                     Shopify'dan dışa aktardığınız CSV dosyasını seçin
                   </p>
 
@@ -321,32 +335,32 @@ export default function ShopifyConverterPage() {
                       onChange={handleFileChange}
                       className="hidden"
                     />
-                    <span className="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer inline-block">
+                    <span className="inline-block cursor-pointer rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20">
                       Shopify CSV Seç
                     </span>
                   </label>
 
-                  <p className="text-xs text-gray-500 mt-4">
+                  <p className="mt-4 text-xs text-[#8b6d58]">
                     Sadece Shopify CSV formatı desteklenir
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="inline-flex items-center gap-3 px-6 py-4 bg-gray-50 rounded-lg mb-6">
+                  <div className="mb-6 inline-flex items-center gap-3 rounded-[24px] border border-[#ecdccd] bg-white/90 px-6 py-4 shadow-sm">
                     <FileSpreadsheet className="w-6 h-6 text-blue-600" />
                     <div className="text-left">
-                      <p className="font-medium text-gray-900">{file.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-[#2f241d]">{file.name}</p>
+                      <p className="text-sm text-[#8b6d58]">
                         {(file.size / 1024).toFixed(2)} KB
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex flex-col justify-center gap-3 sm:flex-row">
                     <button
                       onClick={handleConvert}
                       disabled={converting}
-                      className="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:pointer-events-none disabled:opacity-60"
                     >
                       {converting ? (
                         "Dönüştürülüyor..."
@@ -362,7 +376,7 @@ export default function ShopifyConverterPage() {
                         setFile(null);
                         setResult(null);
                       }}
-                      className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      className="rounded-2xl border border-[#FE6100]/15 bg-white px-6 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                     >
                       İptal
                     </button>
@@ -370,19 +384,19 @@ export default function ShopifyConverterPage() {
                 </>
               )}
             </div>
-          </div>
+          </section>
 
           {/* Results */}
           {result && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <CheckCircle className="w-6 h-6 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-[#2f241d]">
                   Dönüştürme Tamamlandı!
                 </h3>
               </div>
 
-              <div className="bg-green-50 rounded-lg p-4 mb-4">
+              <div className="mb-4 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                 <p className="text-green-900 font-medium">
                   {result.converted} varyant başarıyla dönüştürüldü
                 </p>
@@ -398,8 +412,8 @@ export default function ShopifyConverterPage() {
                     {result.warnings.map((warning, index) => (
                       <div
                         key={index}
-                        className={`flex items-start gap-2 p-3 rounded-lg ${
-                          warning.startsWith("✅") ? "bg-green-50" : "bg-yellow-50"
+                        className={`flex items-start gap-2 rounded-2xl border p-3 ${
+                          warning.startsWith("✅") ? "border-emerald-200/70 bg-emerald-50" : "border-amber-200/70 bg-amber-50"
                         }`}
                       >
                         <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
@@ -414,81 +428,81 @@ export default function ShopifyConverterPage() {
                 </div>
               )}
 
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-3">Sonraki Adımlar:</h4>
-                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <div className="mt-6 border-t border-[#efdfd1] pt-6">
+                <h4 className="mb-3 font-medium text-[#2f241d]">Sonraki Adımlar:</h4>
+                <ol className="space-y-2 text-sm text-[#786658] list-decimal list-inside">
                   <li>Indirilen <strong>celebix-panel-urunler.csv</strong> dosyasini Excel ile acin</li>
                   <li>Besin değerlerini (Kalori, Protein, vb.) manuel olarak doldurun</li>
                   <li>"Öne Çıkan" ve "Yeni" alanlarını ayarlayın</li>
                   <li>Dosyayı UTF-8 encoding ile kaydedin</li>
                   <li>
-                    <Link href="/admin/urunler/toplu-yukle" className="text-primary hover:underline font-medium">
+                    <Link href="/admin/urunler/toplu-yukle" className="font-medium text-[#C94E00] transition hover:text-[#a54100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15">
                       Toplu Yükleme
                     </Link>
                     {" "}sayfasından yükleyin
                   </li>
                 </ol>
               </div>
-            </div>
+            </section>
           )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Mapping Info */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
+            <h3 className="mb-4 font-semibold text-[#2f241d]">
               Otomatik Eşleştirmeler
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Ürün Bilgileri</p>
-                  <p className="text-gray-600">Ad, Slug, Açıklama</p>
+                  <p className="font-medium text-[#2f241d]">Ürün Bilgileri</p>
+                  <p className="text-[#786658]">Ad, Slug, Açıklama</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Görseller 🎨</p>
-                  <p className="text-gray-600">Shopify'dan otomatik çekiliyor!</p>
+                  <p className="font-medium text-[#2f241d]">Görseller</p>
+                  <p className="text-[#786658]">Shopify'dan otomatik çekiliyor!</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Varyantlar</p>
-                  <p className="text-gray-600">Tüm varyantlar gruplandırılır</p>
+                  <p className="font-medium text-[#2f241d]">Varyantlar</p>
+                  <p className="text-[#786658]">Tüm varyantlar gruplandırılır</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Fiyatlar</p>
-                  <p className="text-gray-600">Normal ve indirimli fiyatlar</p>
+                  <p className="font-medium text-[#2f241d]">Fiyatlar</p>
+                  <p className="text-[#786658]">Normal ve indirimli fiyatlar</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Kategoriler</p>
-                  <p className="text-gray-600">Ürün tipinden otomatik</p>
+                  <p className="font-medium text-[#2f241d]">Kategoriler</p>
+                  <p className="text-[#786658]">Ürün tipinden otomatik</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Özellikler</p>
-                  <p className="text-gray-600">Etiketlerden otomatik</p>
+                  <p className="font-medium text-[#2f241d]">Özellikler</p>
+                  <p className="text-[#786658]">Etiketlerden otomatik</p>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Manual Fields */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-            <h3 className="font-semibold text-yellow-900 mb-3">
+          <section className="rounded-[30px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
+            <h3 className="mb-3 font-semibold text-amber-900">
               ⚠️ Manuel Doldurulacaklar
             </h3>
             <ul className="text-sm text-yellow-800 space-y-2">
@@ -501,12 +515,12 @@ export default function ShopifyConverterPage() {
               <li>• Öne Çıkan (Evet/Hayır)</li>
               <li>• Yeni (Evet/Hayır)</li>
             </ul>
-          </div>
+          </section>
 
           {/* Quick Link */}
           <Link
             href="/admin/urunler/toplu-yukle"
-            className="block bg-primary text-white rounded-xl p-6 hover:bg-primary/90 transition-colors"
+            className="block rounded-[30px] bg-gradient-to-r from-[#FE6100] to-[#E45700] p-6 text-white shadow-[0_20px_45px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
           >
             <div className="flex items-center gap-3 mb-2">
               <Upload className="w-6 h-6" />
@@ -518,6 +532,8 @@ export default function ShopifyConverterPage() {
           </Link>
         </div>
       </div>
-    </div>
+      </div>
+      </div>
+    </main>
   );
 }

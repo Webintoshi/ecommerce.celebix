@@ -90,38 +90,51 @@ export default function AutoImportPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Shopify Ürün İçe Aktarma
-          </h1>
-          <p className="text-gray-600">
-            products_export_1.csv dosyasından tüm ürünleri içe aktar
-          </p>
-        </div>
-        <Link
-          href="/admin/urunler"
-          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Geri Dön
-        </Link>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-gradient-to-br from-primary/10 to-secondary/20 border border-primary/20 rounded-xl p-6 mb-8">
+      <div className="relative mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <div className="space-y-6">
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-3">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Otomatik yukleme
+                  </div>
+                  <h1 className="sr-only">Shopify Ürün İçe Aktarma</h1>
+                  <p className="max-w-2xl text-sm leading-6 text-[#786658]">
+                    `products_export_1.csv` kaynagini tek dokunusta tarayin, parse edin ve sonuclari panel akisi icinde gozden gecirin.
+                  </p>
+                </div>
+                <Link
+                  href="/admin/urunler"
+                  className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                >
+                  Geri Don
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <div className="rounded-[26px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-white" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FE6100] to-[#E45700] shadow-[0_18px_35px_rgba(254,97,0,0.18)]">
+              <AlertCircle className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 font-semibold text-[#2f241d]">
                 Bu sayfa ne yapar?
               </h3>
-              <p className="text-sm text-gray-700 mb-3">
-                <code className="px-2 py-1 bg-white rounded text-primary">/public/products_export_1.csv</code> dosyasindaki Shopify urunlerini otomatik olarak Celebix Panel formatina donusturur ve sisteme yukler.
+              <p className="mb-3 text-sm text-[#6f5a4b]">
+                <code className="rounded-full border border-[#ead9cb] bg-white px-2.5 py-1 text-[#8a4b22]">/public/products_export_1.csv</code> dosyasindaki Shopify urunlerini otomatik olarak Celebix Panel formatina donusturur ve sisteme yukler.
               </p>
-              <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+              <ul className="space-y-1 text-sm text-[#6f5a4b]">
                 <li>Shopify CSV formatını otomatik tanır</li>
                 <li>Her ürün için 5 adede kadar görsel alır (Shopify CDN'den)</li>
                 <li>Ürün açıklamalarını HTML'den temizler</li>
@@ -131,26 +144,27 @@ export default function AutoImportPage() {
               </ul>
             </div>
           </div>
-        </div>
+            </div>
+          </section>
 
         {!result && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Upload className="w-10 h-10 text-primary" />
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+                <Upload className="h-10 w-10 text-[#FE6100]" />
               </div>
 
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 text-xl font-semibold text-[#2f241d]">
                 Ürünleri İçe Aktar
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="mb-6 text-[#786658]">
                 Tek tıkla Shopify ürünlerini sisteme aktarın
               </p>
 
               <button
                 onClick={handleAutoImport}
                 disabled={importing}
-                className="px-8 py-4 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-3"
+                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-4 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:pointer-events-none disabled:opacity-60"
               >
                 {importing ? (
                   <>
@@ -165,23 +179,23 @@ export default function AutoImportPage() {
                 )}
               </button>
 
-              <p className="text-xs text-gray-500 mt-4">
+              <p className="mt-4 text-xs text-[#8b6d58]">
                 Kaynak: /public/products_export_1.csv
               </p>
             </div>
-          </div>
+          </section>
         )}
 
         {result && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-[#2f241d]">
               {result.success ? "İçe Aktarma Tamamlandı!" : "İçe Aktarma Başarısız"}
             </h3>
 
             {result.success ? (
               <>
                 <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-3 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                     <CheckCircle className="w-8 h-8 text-green-600" />
                     <div>
                       <p className="text-2xl font-bold text-green-900">
@@ -191,7 +205,7 @@ export default function AutoImportPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-3 rounded-[24px] border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm">
                     <CheckCircle className="w-8 h-8 text-blue-600" />
                     <div>
                       <p className="text-2xl font-bold text-blue-900">
@@ -201,39 +215,39 @@ export default function AutoImportPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
-                    <ImageIcon className="w-8 h-8 text-purple-600" />
+                  <div className="flex items-center gap-3 rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                    <ImageIcon className="w-8 h-8 text-amber-600" />
                     <div>
-                      <p className="text-2xl font-bold text-purple-900">
+                      <p className="text-2xl font-bold text-amber-900">
                         {result.imageCount}
                       </p>
-                      <p className="text-sm text-purple-700">Görsel</p>
+                      <p className="text-sm text-amber-700">Görsel</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-gray-200">
-                  <h4 className="font-medium text-gray-900 mb-3">Yüklenen Ürünler:</h4>
+                <div className="border-t border-[#efdfd1] pt-6">
+                  <h4 className="mb-3 font-medium text-[#2f241d]">Yüklenen Ürünler:</h4>
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {result.products.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={product.id} className="flex flex-col gap-4 rounded-[24px] border border-[#ecdccd] bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           {product.images[0] && (
                             <img 
                               src={product.images[0]} 
                               alt={product.name}
-                              className="w-12 h-12 object-cover rounded"
+                              className="h-12 w-12 rounded-2xl object-cover"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = '/images/placeholder.jpg';
                               }}
                             />
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{product.name}</p>
-                            <p className="text-sm text-gray-600">
+                            <p className="font-medium text-[#2f241d]">{product.name}</p>
+                            <p className="text-sm text-[#786658]">
                               {product.category} • {product.variants.length} varyant • {product.images.length} görsel
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-[#8b6d58]">
                               {product.variants[0]?.price}₺
                             </p>
                           </div>
@@ -242,7 +256,7 @@ export default function AutoImportPage() {
                           href={buildStorefrontProductUrl(product.slug)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-primary hover:underline text-sm"
+                          className="text-sm font-medium text-[#C94E00] transition hover:text-[#a54100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
                         >
                           Görüntüle
                         </Link>
@@ -256,7 +270,7 @@ export default function AutoImportPage() {
                 {result.errors.map((error, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-2 p-3 bg-red-50 rounded-lg"
+                    className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3"
                   >
                     <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-red-800">{error}</p>
@@ -265,23 +279,24 @@ export default function AutoImportPage() {
               </div>
             )}
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setResult(null)}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                className="flex-1 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
               >
                 Tekrar Dene
               </button>
               <Link
                 href="/admin/urunler"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors text-center"
+                className="flex-1 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-center text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
               >
                 Ürün Listesine Git
               </Link>
             </div>
-          </div>
+          </section>
         )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

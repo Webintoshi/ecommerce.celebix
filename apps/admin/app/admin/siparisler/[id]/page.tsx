@@ -40,13 +40,13 @@ type RecentCustomerOrder = {
 // Helper function to get status badge config
 function getStatusConfig(status: OrderStatus) {
     const configs: Record<OrderStatus, { label: string; color: string }> = {
-        pending: { label: "Beklemede", color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
-        confirmed: { label: "Onaylandı", color: "bg-blue-50 text-blue-700 border-blue-100" },
-        preparing: { label: "Hazırlanıyor", color: "bg-purple-50 text-purple-700 border-purple-100" },
-        shipped: { label: "Kargolandı", color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
-        delivered: { label: "Teslim Edildi", color: "bg-green-50 text-green-700 border-green-100" },
-        cancelled: { label: "İptal", color: "bg-red-50 text-red-700 border-red-100" },
-        refunded: { label: "İade", color: "bg-orange-50 text-orange-700 border-orange-100" },
+        pending: { label: "Beklemede", color: "border-amber-200 bg-amber-50 text-amber-700" },
+        confirmed: { label: "Onaylandı", color: "border-orange-200 bg-orange-50 text-orange-700" },
+        preparing: { label: "Hazırlanıyor", color: "border-stone-200 bg-stone-100 text-stone-700" },
+        shipped: { label: "Kargolandı", color: "border-sky-200 bg-sky-50 text-sky-700" },
+        delivered: { label: "Teslim Edildi", color: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+        cancelled: { label: "İptal", color: "border-rose-200 bg-rose-50 text-rose-700" },
+        refunded: { label: "İade", color: "border-orange-200 bg-orange-50 text-orange-700" },
     };
     return configs[status] || configs.pending;
 }

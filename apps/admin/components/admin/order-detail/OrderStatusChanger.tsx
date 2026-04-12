@@ -132,13 +132,13 @@ export function OrderStatusChanger({
         onClick={() => !disabled && !isUpdating && setIsOpen(!isOpen)}
         disabled={disabled || isUpdating}
         className={`
-          flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
-          transition-all duration-200 border
+          inline-flex min-h-11 items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold
+          transition-all duration-200
           ${disabled || isUpdating
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+            ? "cursor-not-allowed border-[#e7ddd4] bg-[#f4ede6] text-stone-400"
             : isOpen
-              ? "bg-primary text-white border-primary shadow-lg"
-              : "bg-white border-gray-300 text-gray-700 hover:border-primary hover:shadow-sm"
+              ? "border-[#FE6100] bg-gradient-to-r from-[#FE6100] to-[#df650d] text-white shadow-[0_14px_30px_rgba(254,97,0,0.2)]"
+              : "border-[#e1d2c3] bg-white text-[#6f5a49] shadow-sm hover:border-[#FE6100]/35 hover:bg-[#fff7f1]"
           }
         `}
       >
@@ -147,7 +147,7 @@ export function OrderStatusChanger({
           currentStatus === "cancelled" ? "bg-red-500" :
           currentStatus === "refunded" ? "bg-orange-500" :
           currentStatus === "delivered" ? "bg-green-500" :
-          "bg-blue-500"
+          "bg-[#FE6100]"
         }`} />
         <span>{currentConfig?.label || "Bilinmiyor"}</span>
         <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -158,17 +158,17 @@ export function OrderStatusChanger({
         createPortal(
           <div 
             ref={menuRef}
-            className="fixed w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] overflow-hidden"
+            className="fixed z-[9999] w-72 overflow-hidden rounded-[24px] border border-[#eadccd] bg-white/95 shadow-2xl backdrop-blur"
             style={{ 
               top: `${menuPosition.top}px`,
               right: `${menuPosition.right}px`,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              boxShadow: "0 28px 70px rgba(122, 78, 43, 0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+            <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fff7f1] to-white px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a5b3c]">
                 Sipariş Durumunu Değiştir
               </p>
             </div>
@@ -192,10 +192,10 @@ export function OrderStatusChanger({
                       w-full flex items-center gap-3 px-4 py-3 text-left
                       transition-colors
                       ${isSelected
-                        ? "bg-emerald-50 text-emerald-700"
+                        ? "bg-[#fff1e4] text-[#b95a13]"
                         : isNegative
-                          ? "text-red-600 hover:bg-red-50"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "text-red-600 hover:bg-rose-50"
+                          : "text-stone-700 hover:bg-[#fffaf5]"
                       }
                       ${isUpdating ? "opacity-50" : ""}
                     `}
@@ -204,12 +204,12 @@ export function OrderStatusChanger({
                     <div className={`
                       w-8 h-8 rounded-lg flex items-center justify-center shrink-0
                       ${isSelected
-                        ? "bg-emerald-100 text-emerald-600"
+                        ? "bg-[#ffd8b4] text-[#b95a13]"
                         : isNegative
                           ? "bg-red-100"
-                          : "bg-gray-100"
-                      }
-                    `}>
+                          : "bg-[#f7efe7]"
+                       }
+                     `}>
                       {isSelected ? (
                         <Check className="w-4 h-4" />
                       ) : (
@@ -218,19 +218,19 @@ export function OrderStatusChanger({
                           status === "refunded" ? "bg-orange-500" :
                           status === "delivered" ? "bg-green-500" :
                           status === "shipped" ? "bg-blue-500" :
-                          status === "preparing" ? "bg-purple-500" :
-                          status === "confirmed" ? "bg-blue-400" :
-                          "bg-gray-400"
-                        }`} />
-                      )}
-                    </div>
+                           status === "preparing" ? "bg-stone-500" :
+                           status === "confirmed" ? "bg-amber-500" :
+                           "bg-stone-400"
+                         }`} />
+                       )}
+                     </div>
 
-                    {/* Label & Description */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{config?.label}</p>
-                      <p className="text-xs text-gray-500 truncate">{config?.description}</p>
-                    </div>
-                  </button>
+                     {/* Label & Description */}
+                     <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{config?.label}</p>
+                        <p className="text-xs text-stone-500 truncate">{config?.description}</p>
+                     </div>
+                   </button>
                 );
               })}
             </div>
