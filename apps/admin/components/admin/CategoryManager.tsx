@@ -400,7 +400,7 @@ export default function CategoryManager() {
                     /{category.slug}
                   </span>
                   <span className="rounded-full border border-[#eadfd5] bg-[#faf6f1] px-3 py-1 text-xs font-medium">
-                    Sira {category.sort_order || 0}
+                    Sıra {category.sort_order || 0}
                   </span>
                 </div>
 
