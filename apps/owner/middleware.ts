@@ -8,6 +8,10 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import {
+  expireOwnerAuthCookies,
+  hasOwnerAuthCookies,
+} from "@/lib/owner-auth-cookies";
+import {
   getOwnerSupabaseAnonKey,
   getOwnerSupabaseServiceRoleKey,
   getOwnerSupabaseUrl,
@@ -123,17 +127,23 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const requestCookies = request.cookies.getAll();
 
   if (!user) {
     if (pathname === OWNER_LOGIN_PATH) {
+      if (hasOwnerAuthCookies(requestCookies)) {
+        return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
+      }
+
       return withSecurity(request, response);
     }
 
     if (pathname.startsWith("/api/")) {
-      return jsonResponse(request, { error: "Owner oturumu gerekli." }, 401);
+      const unauthorizedResponse = NextResponse.json({ error: "Owner oturumu gerekli." }, { status: 401 });
+      return withSecurity(request, expireOwnerAuthCookies(unauthorizedResponse, requestCookies));
     }
 
-    return buildLoginRedirect(request);
+    return expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies);
   }
 
   const serviceClient = createClient(getOwnerSupabaseUrl(), getOwnerSupabaseServiceRoleKey(), {
@@ -153,16 +163,20 @@ export async function middleware(request: NextRequest) {
     await supabase.auth.signOut();
 
     if (pathname === OWNER_LOGIN_PATH) {
-      return withSecurity(request, response);
+      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
     }
 
     if (pathname.startsWith("/api/")) {
-      return jsonResponse(request, { error: "Owner yetkisi bulunamadi." }, 403);
+      const forbiddenResponse = NextResponse.json({ error: "Owner yetkisi bulunamadi." }, { status: 403 });
+      return withSecurity(request, expireOwnerAuthCookies(forbiddenResponse, requestCookies));
     }
 
     const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("error", "unauthorized");
-    return withSecurity(request, NextResponse.redirect(loginUrl));
+    return withSecurity(
+      request,
+      expireOwnerAuthCookies(NextResponse.redirect(loginUrl), requestCookies),
+    );
   }
 
   if (pathname === OWNER_LOGIN_PATH) {

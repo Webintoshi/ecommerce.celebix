@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import { expireOwnerAuthCookies } from "@/lib/owner-auth-cookies";
 import { getOwnerSupabaseAnonKey, getOwnerSupabaseUrl } from "@/lib/owner-supabase-shared";
 import { verifyLegacyOwnerPassword } from "@/lib/legacy-owner-auth";
 
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
 
     const requestCookies = await cookies();
     const cookieMutations: PendingCookie[] = [];
+    const existingAuthCookies = requestCookies.getAll();
     let repaired = false;
 
     let publicClient = createOwnerRouteClient(requestCookies, cookieMutations);
@@ -153,6 +155,8 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
+
+    expireOwnerAuthCookies(response, existingAuthCookies);
 
     for (const cookie of cookieMutations) {
       response.cookies.set(cookie.name, cookie.value, cookie.options as never);
