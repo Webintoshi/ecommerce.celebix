@@ -410,7 +410,7 @@ export default function AbandonedCartsPage() {
                   <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-1.5 text-amber-800">
                       <Clock className="h-3.5 w-3.5" />
-                      30 saniyede bir otomatik yenilenir
+                      Veriler 30 saniyede bir otomatik yenilenir
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-gradient-to-r from-[#fff4ea] to-white px-3 py-1.5 text-[#FE6100]">
                       <Activity className="h-3.5 w-3.5" />
@@ -654,7 +654,7 @@ export default function AbandonedCartsPage() {
                     Sepet Listesi
                   </p>
                   <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Tüm kurtarma fırsatları
+                    Aktif kurtarma fırsatları
                   </h2>
                 </div>
                 <div className="text-sm text-gray-500">
