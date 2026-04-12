@@ -33,13 +33,13 @@ const INITIAL_STATE: FormState = {
   supportEmail: "",
   supportPhone: "",
   packageStartDate: getTodayDateValue(),
-  packageDurationMonths: "1"
+  packageDurationMonths: "1",
 };
 
 const THEME_OPTIONS = [
   { value: "atelier", label: "Atelier" },
   { value: "leather", label: "Leather" },
-  { value: "editorial", label: "Editorial" }
+  { value: "editorial", label: "Editorial" },
 ];
 
 function slugify(value: string): string {
@@ -57,10 +57,18 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+interface CreateStorePayload {
+  error?: string;
+  warnings?: string[];
+  store?: { slug: string };
+}
+
 export function CreateStoreForm() {
   const router = useRouter();
   const [form, setForm] = useState(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -72,7 +80,7 @@ export function CreateStoreForm() {
     setForm((current) => ({
       ...current,
       name: nextName,
-      slug: current.slug ? current.slug : slugify(nextName)
+      slug: current.slug ? current.slug : slugify(nextName),
     }));
   }
 
@@ -80,21 +88,35 @@ export function CreateStoreForm() {
     updateField("slug", slugify(event.target.value));
   }
 
+  function openCreatedStore() {
+    if (!createdSlug) return;
+    router.push(`/stores/${createdSlug}`);
+    router.refresh();
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setWarnings([]);
+    setCreatedSlug(null);
 
     startTransition(async () => {
       const response = await fetch("/api/stores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify(form),
       });
 
-      const payload = (await response.json()) as { error?: string; store?: { slug: string } };
+      const payload = (await response.json()) as CreateStorePayload;
 
       if (!response.ok || !payload.store) {
         setError(payload.error || "Mağaza oluşturulamadı.");
+        return;
+      }
+
+      if (payload.warnings && payload.warnings.length > 0) {
+        setWarnings(payload.warnings);
+        setCreatedSlug(payload.store.slug);
         return;
       }
 
@@ -105,7 +127,6 @@ export function CreateStoreForm() {
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
-      {/* Mağaza Adı */}
       <label className="field">
         <span>Mağaza Adı</span>
         <input
@@ -116,7 +137,6 @@ export function CreateStoreForm() {
         />
       </label>
 
-      {/* Slug */}
       <label className="field">
         <span>Slug</span>
         <input
@@ -127,26 +147,25 @@ export function CreateStoreForm() {
         />
       </label>
 
-      {/* Domain */}
       <label className="field">
         <span>Domain</span>
         <input
           value={form.domain}
-          onChange={(e) => updateField("domain", e.target.value)}
+          onChange={(event) => updateField("domain", event.target.value)}
           placeholder="derikordon.com"
           required
         />
         <small className="muted">
-          Bu alan storefront ve admin domaini icindir. Self-hosted Supabase stock-host ile ayrica uretilir.
+          Bu alan storefront ve admin domaini içindir. Self-hosted Supabase ayrı
+          stock-host ile üretilir.
         </small>
       </label>
 
-      {/* Tema */}
       <label className="field">
         <span>Tema</span>
         <select
           value={form.theme}
-          onChange={(e) => updateField("theme", e.target.value)}
+          onChange={(event) => updateField("theme", event.target.value)}
         >
           {THEME_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -156,63 +175,84 @@ export function CreateStoreForm() {
         </select>
       </label>
 
-      {/* Tagline */}
       <label className="field field-full">
         <span>Tagline</span>
         <input
           value={form.tagline}
-          onChange={(e) => updateField("tagline", e.target.value)}
-          placeholder="El yapimi deri kordon ve aksesuarlar"
+          onChange={(event) => updateField("tagline", event.target.value)}
+          placeholder="El yapımı deri kordon ve aksesuarlar"
         />
       </label>
 
-      {/* Destek E-postası */}
       <label className="field">
-        <span>Destek E-postasi</span>
+        <span>Destek E-postası</span>
         <input
           type="email"
           value={form.supportEmail}
-          onChange={(e) => updateField("supportEmail", e.target.value)}
+          onChange={(event) => updateField("supportEmail", event.target.value)}
           placeholder="destek@derikordon.com"
         />
       </label>
 
-      {/* Destek Telefonu */}
       <label className="field">
         <span>Destek Telefonu</span>
         <input
           value={form.supportPhone}
-          onChange={(e) => updateField("supportPhone", e.target.value)}
+          onChange={(event) => updateField("supportPhone", event.target.value)}
           placeholder="+90 532 000 00 00"
         />
       </label>
 
       <label className="field">
-        <span>Paket baslangic tarihi</span>
+        <span>Paket başlangıç tarihi</span>
         <input
           type="date"
           value={form.packageStartDate}
-          onChange={(e) => updateField("packageStartDate", e.target.value)}
+          onChange={(event) => updateField("packageStartDate", event.target.value)}
         />
       </label>
 
       <label className="field">
-        <span>Paket suresi (ay)</span>
+        <span>Paket süresi (ay)</span>
         <input
           type="number"
           min="1"
           step="1"
           value={form.packageDurationMonths}
-          onChange={(e) => updateField("packageDurationMonths", e.target.value)}
+          onChange={(event) => updateField("packageDurationMonths", event.target.value)}
           placeholder="1"
         />
-        <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
+        <small className="muted">Aylık paket için 1, yıllık paket için 12 gir.</small>
       </label>
 
-      {/* Error */}
-      {error && <p className="form-error field-full">{error}</p>}
+      {error ? <p className="form-error field-full">{error}</p> : null}
 
-      {/* Submit */}
+      {warnings.length > 0 && createdSlug ? (
+        <div className="card field-full section-tight" style={{ borderColor: "rgba(254,97,0,.22)" }}>
+          <div className="card-title">Kurulum kısmi tamamlandı</div>
+          <p className="section-copy">
+            Proje kaydı oluşturuldu fakat bazı otomasyon adımları eksik kaldı. Bu
+            yüzden R2, admin veya storefront tarafı tam açılmamış olabilir.
+          </p>
+          <div className="stack-list stack-top-sm">
+            {warnings.map((warning, index) => (
+              <div key={`${warning}-${index}`} className="inline-card">
+                <p>{warning}</p>
+              </div>
+            ))}
+          </div>
+          <div className="actions field-full actions-end stack-top-sm">
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={openCreatedStore}
+            >
+              Proje detayına git
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="actions field-full actions-end stack-top-sm">
         <button
           type="button"
@@ -227,7 +267,7 @@ export function CreateStoreForm() {
           className="button button-primary"
           disabled={isPending}
         >
-          {isPending ? "Olusturuluyor..." : "Mağaza Olustur"}
+          {isPending ? "Oluşturuluyor..." : "Mağaza Oluştur"}
         </button>
       </div>
     </form>
