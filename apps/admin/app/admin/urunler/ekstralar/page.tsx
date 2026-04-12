@@ -1,14 +1,17 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Layers3, Package, Plus, Settings2, Tags } from "lucide-react";
 import { CustomizationSchemasList } from "@/components/admin/customization/schemas-list";
-import { Button } from "@/components/ui/button";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { createServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
   title: `Ürün Kişiselleştirme | ${STORE_RUNTIME.name} Admin`,
-  description: "Ürünlere özel kişiselleştirme şemalarını yönetin",
+  description: "Ürünlere özel kişiselleştirme şemalarını, adımları ve atamaları tek ekranda yönetin.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -46,42 +49,95 @@ export default async function CustomizationSchemasPage() {
     (accumulator, schema) => accumulator + (schema.product_count || 0) + (schema.category_count || 0),
     0,
   );
+  const totalSteps = schemas.reduce((accumulator, schema) => accumulator + (schema.step_count || 0), 0);
+  const activeSchemas = schemas.filter((schema) => schema.is_active).length;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ürün Kişiselleştirme</h1>
-          <p className="mt-1 text-gray-600">
-            Ürünlere özel ekstra seçim şemaları oluşturun, ürüne veya kategoriye atayın.
-          </p>
-        </div>
-        <Link href="/admin/urunler/ekstralar/yeni">
-          <Button className="bg-amber-600 hover:bg-amber-700">
-            <Plus className="mr-2 h-4 w-4" />
-            Yeni Şema Oluştur
-          </Button>
-        </Link>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="text-3xl font-bold text-amber-600">{schemas.length}</div>
-          <div className="mt-1 text-sm text-gray-600">Toplam Şema</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="text-3xl font-bold text-green-600">
-            {schemas.filter((schema) => schema.is_active).length}
-          </div>
-          <div className="mt-1 text-sm text-gray-600">Aktif Şema</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="text-3xl font-bold text-blue-600">{totalAssignments}</div>
-          <div className="mt-1 text-sm text-gray-600">Toplam Atama</div>
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <div className="space-y-8">
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div className="space-y-0">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Ekstralar
+                  </div>
+                  <h1 className="sr-only">Ürün Kişiselleştirme</h1>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                  <Link
+                    href="/admin/urunler/ekstralar/yeni"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Yeni Şema Oluştur
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#f0ddd0] via-[#f7ebe2] to-[#f0ddd0] md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Toplam şema",
+                  value: schemas.length.toLocaleString("tr-TR"),
+                  hint: "Tanımlı ekstra akışları",
+                  icon: Layers3,
+                  tone: "text-[#FE6100]",
+                },
+                {
+                  label: "Aktif şema",
+                  value: activeSchemas.toLocaleString("tr-TR"),
+                  hint: "Kullanıma açık yapı",
+                  icon: Settings2,
+                  tone: "text-emerald-700",
+                },
+                {
+                  label: "Toplam atama",
+                  value: totalAssignments.toLocaleString("tr-TR"),
+                  hint: "Ürün ve kategori eşleşmeleri",
+                  icon: Tags,
+                  tone: "text-amber-700",
+                },
+                {
+                  label: "Toplam adım",
+                  value: totalSteps.toLocaleString("tr-TR"),
+                  hint: "Tüm şemalardaki adım sayısı",
+                  icon: Package,
+                  tone: "text-stone-700",
+                },
+              ].map((metric) => {
+                const Icon = metric.icon;
+
+                return (
+                  <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
+                        <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
+                        <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
+                      </div>
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white shadow-sm ${metric.tone}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <CustomizationSchemasList schemas={schemas} />
         </div>
       </div>
-
-      <CustomizationSchemasList schemas={schemas} />
-    </div>
+    </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,7 +14,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,8 +34,11 @@ import {
   Package,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
 } from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface SchemaWithCounts extends CustomizationSchema {
   step_count: number;
@@ -48,6 +50,8 @@ interface CustomizationSchemasListProps {
   schemas: SchemaWithCounts[];
 }
 
+const ANIMATION_EASE = [0.22, 1, 0.36, 1] as const;
+
 export function CustomizationSchemasList({ schemas }: CustomizationSchemasListProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,14 +59,21 @@ export function CustomizationSchemasList({ schemas }: CustomizationSchemasListPr
   const [isDeleting, setIsDeleting] = useState(false);
   const [localSchemas, setLocalSchemas] = useState<SchemaWithCounts[]>(schemas);
 
-  const filteredSchemas = localSchemas.filter((schema) => {
-    const query = searchQuery.toLocaleLowerCase("tr-TR");
-    return (
-      schema.name.toLocaleLowerCase("tr-TR").includes(query) ||
-      schema.slug.toLocaleLowerCase("tr-TR").includes(query) ||
-      schema.description?.toLocaleLowerCase("tr-TR").includes(query)
-    );
-  });
+  const filteredSchemas = useMemo(() => {
+    const query = searchQuery.toLocaleLowerCase("tr-TR").trim();
+
+    return localSchemas.filter((schema) => {
+      if (!query) {
+        return true;
+      }
+
+      return (
+        schema.name.toLocaleLowerCase("tr-TR").includes(query) ||
+        schema.slug.toLocaleLowerCase("tr-TR").includes(query) ||
+        schema.description?.toLocaleLowerCase("tr-TR").includes(query)
+      );
+    });
+  }, [localSchemas, searchQuery]);
 
   const handleToggleActive = async (schema: SchemaWithCounts) => {
     try {
@@ -135,140 +146,237 @@ export function CustomizationSchemasList({ schemas }: CustomizationSchemasListPr
     }
   };
 
+  const activeSchemas = localSchemas.filter((schema) => schema.is_active).length;
+  const filteredAssignments = filteredSchemas.reduce(
+    (accumulator, schema) => accumulator + (schema.product_count || 0) + (schema.category_count || 0),
+    0,
+  );
+
   if (localSchemas.length === 0) {
     return (
-      <Card className="border-2 border-dashed border-gray-300">
-        <CardContent className="flex flex-col items-center justify-center py-16">
-          <Layers className="mb-4 h-16 w-16 text-gray-400" />
-          <h3 className="mb-2 text-xl font-semibold text-gray-900">Henüz şema oluşturulmadı</h3>
-          <p className="mb-6 max-w-md text-center text-gray-600">
-            Ürünlere ekstra seçim alanları eklemek için ilk şemanızı oluşturun.
+      <section className="rounded-[30px] border border-[#eadccd] bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-10 text-center shadow-[0_24px_55px_rgba(98,64,33,0.08)]">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+          <Layers className="h-9 w-9 text-[#FE6100]" />
+        </div>
+        <div className="mx-auto mt-6 max-w-xl space-y-3">
+          <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[#241913]">Henüz şema oluşturulmadı</h3>
+          <p className="text-sm leading-7 text-[#7b685a]">
+            Ürünlere ekstra seçim alanları eklemek için ilk şemanızı oluşturun. Oluşturulan şemalar ürün ve kategori bazında atanabilir.
           </p>
-          <Link href="/admin/urunler/ekstralar/yeni">
-            <Button className="bg-amber-600 hover:bg-amber-700">
-              <Plus className="mr-2 h-4 w-4" />
-              İlk Şemayı Oluştur
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
+        </div>
+        <Link
+          href="/admin/urunler/ekstralar/yeni"
+          className="mt-6 inline-flex items-center gap-2 rounded-[20px] bg-gradient-to-r from-[#FE6100] to-[#e85a00] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+        >
+          <Plus className="h-4 w-4" />
+          İlk Şemayı Oluştur
+        </Link>
+      </section>
     );
   }
 
   return (
     <>
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Şema ara..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="pl-10"
-          />
+      <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Tarama ve düzenleme</p>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Şema listesi</h2>
+            <p className="text-sm leading-6 text-[#786658]">
+              Şemaları ad, bağlantı ve açıklama üzerinden filtreleyin; durumu yönetin, ön izleyin ve ilgili akışa geçin.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
+            <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
+              Aktif şema: {activeSchemas}
+            </span>
+            <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
+              Görünen atama: {filteredAssignments}
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSchemas.map((schema) => {
-          const assignmentCount = (schema.product_count || 0) + (schema.category_count || 0);
+        <div className="mt-5 rounded-[26px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-3 shadow-inner sm:p-4">
+          <div className="relative max-w-xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b08d73]" />
+            <Input
+              placeholder="Şema ara..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="w-full rounded-[20px] border border-[#ecdccd] bg-white pl-11 pr-4 py-3 text-sm text-[#2f241d] shadow-[0_12px_30px_rgba(99,67,37,0.06)] outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15"
+            />
+          </div>
+        </div>
+      </section>
 
-          return (
-            <Card
-              key={schema.id}
-              className={`group transition-shadow hover:shadow-md ${!schema.is_active ? "opacity-75" : ""}`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="truncate text-lg font-semibold">{schema.name}</CardTitle>
-                    <p className="mt-1 text-sm text-gray-500">/{schema.slug}</p>
+      {filteredSchemas.length === 0 ? (
+        <section className="rounded-[30px] border border-dashed border-[#ead8c8] bg-gradient-to-br from-white via-[#fffdfa] to-[#f8efe6] p-10 text-center shadow-[0_24px_55px_rgba(98,64,33,0.08)]">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#fff1e7] text-[#FE6100] shadow-sm">
+            <Search className="h-7 w-7" />
+          </div>
+          <h3 className="mt-5 text-lg font-semibold text-[#241913]">Aramanızla eşleşen şema bulunamadı</h3>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#7a6859]">
+            Farklı bir şema adı, açıklama veya bağlantı deneyin. Liste davranışı değişmeden yalnızca mevcut sonuçlar filtrelenir.
+          </p>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredSchemas.map((schema, index) => {
+            const assignmentCount = (schema.product_count || 0) + (schema.category_count || 0);
+
+            return (
+              <motion.article
+                key={schema.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.04, ease: ANIMATION_EASE }}
+                className={cn(
+                  "overflow-hidden rounded-[28px] border bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(72,36,8,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(72,36,8,0.12)]",
+                  schema.is_active ? "border-[#eadccd]" : "border-[#efe3d8] opacity-85"
+                )}
+              >
+                <div className="border-b border-[#f0e1d5] px-5 py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[#241913]">
+                          {schema.name}
+                        </h3>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                            schema.is_active
+                              ? "border-emerald-200 bg-emerald-100/90 text-emerald-700"
+                              : "border-stone-200 bg-stone-100/90 text-stone-600"
+                          )}
+                        >
+                          {schema.is_active ? "Aktif" : "Pasif"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-[#776557]">/{schema.slug}</p>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-10 w-10 rounded-2xl border border-[#ead9cb] bg-white p-0 text-[#6d5849] shadow-sm transition hover:border-[#FE6100]/30 hover:text-[#FE6100]"
+                          aria-label={`${schema.name} şeması için işlemleri aç`}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-2xl border-[#eadccd] bg-white shadow-[0_24px_55px_rgba(72,36,8,0.12)]">
+                        <Link href={`/admin/urunler/ekstralar/${schema.id}`}>
+                          <DropdownMenuItem className="cursor-pointer rounded-xl text-[#4f3d31] focus:bg-[#fff3e8] focus:text-[#C94E00]">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Düzenle
+                          </DropdownMenuItem>
+                        </Link>
+                        <Link href={`/admin/urunler/ekstralar/${schema.id}/onizleme`}>
+                          <DropdownMenuItem className="cursor-pointer rounded-xl text-[#4f3d31] focus:bg-[#fff3e8] focus:text-[#C94E00]">
+                            <Eye className="mr-2 h-4 w-4" />
+                            Ön izleme
+                          </DropdownMenuItem>
+                        </Link>
+                        <DropdownMenuItem onClick={() => handleDuplicate(schema)} className="cursor-pointer rounded-xl text-[#4f3d31] focus:bg-[#fff3e8] focus:text-[#C94E00]">
+                          <Copy className="mr-2 h-4 w-4" />
+                          Kopyala
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteSchema(schema)}
+                          className="cursor-pointer rounded-xl text-rose-600 focus:bg-rose-50 focus:text-rose-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Sil
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <p className="min-h-[48px] text-sm leading-6 text-[#6c5748]">
+                    {schema.description?.trim() || "Bu şema için henüz açıklama eklenmedi."}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-[22px] border border-stone-200 bg-white/85 p-4 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">Adım sayısı</p>
+                      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#241913]">{schema.step_count}</p>
+                    </div>
+                    <div className="rounded-[22px] border border-stone-200 bg-white/85 p-4 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">Toplam atama</p>
+                      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#241913]">{assignmentCount}</p>
+                    </div>
                   </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreVertical className="h-4 w-4" />
+                  <div className="rounded-[22px] border border-[#eadfd5] bg-[#fffaf6] p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-[#4f3d31]">Yayın durumu</p>
+                        <p className="mt-1 text-sm text-[#7a6859]">
+                          {schema.is_active ? "Şema şu anda kullanımda." : "Şema geçici olarak pasif durumda."}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={schema.is_active}
+                        onCheckedChange={() => handleToggleActive(schema)}
+                        aria-label={`${schema.name} şemasını ${schema.is_active ? "pasife al" : "aktifleştir"}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Link href={`/admin/urunler/ekstralar/${schema.id}`} className="flex-1">
+                      <Button className="h-11 w-full rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_16px_30px_rgba(254,97,0,0.22)] hover:from-[#f05c00] hover:to-[#d84f00]">
+                        Düzenle
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <Link href={`/admin/urunler/ekstralar/${schema.id}`}>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Düzenle
-                        </DropdownMenuItem>
-                      </Link>
-                      <Link href={`/admin/urunler/ekstralar/${schema.id}/onizleme`}>
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Önizleme
-                        </DropdownMenuItem>
-                      </Link>
-                      <DropdownMenuItem onClick={() => handleDuplicate(schema)}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Kopyala
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => setDeleteSchema(schema)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Sil
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                {schema.description ? (
-                  <p className="mb-4 line-clamp-2 text-sm text-gray-600">{schema.description}</p>
-                ) : null}
-
-                <div className="mb-4 flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Layers className="h-4 w-4" />
-                    <span>{schema.step_count} adım</span>
+                    </Link>
+                    <Link href={`/admin/urunler/ekstralar/${schema.id}/onizleme`} className="flex-1">
+                      <Button variant="outline" className="h-11 w-full rounded-2xl border-[#ead9cb] bg-white text-[#6d5849] shadow-sm hover:border-[#FE6100]/30 hover:text-[#FE6100]">
+                        Ön İzle
+                      </Button>
+                    </Link>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Package className="h-4 w-4" />
-                    <span>{assignmentCount} atama</span>
+
+                  <div className="rounded-[22px] border border-[#eadfd5] bg-white/85 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 text-sm font-medium text-[#6d5849]">
+                      <ShieldCheck className="h-4 w-4 text-[#FE6100]" />
+                      Kullanım notu
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[#7a6859]">
+                      Şemayı aktifleştirmek, ürün ve kategori eşleşmelerinde görünürlüğü doğrudan etkiler.
+                    </p>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={schema.is_active} onCheckedChange={() => handleToggleActive(schema)} />
-                    <span className="text-sm text-gray-600">{schema.is_active ? "Aktif" : "Pasif"}</span>
-                  </div>
-                  <Link href={`/admin/urunler/ekstralar/${schema.id}`}>
-                    <Button variant="outline" size="sm">
-                      Düzenle
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              </motion.article>
+            );
+          })}
+        </section>
+      )}
 
       <AlertDialog open={!!deleteSchema} onOpenChange={() => setDeleteSchema(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-[28px] border-[#efd9d3] bg-gradient-to-br from-white via-[#fffdfa] to-[#fbf1ef] shadow-[0_34px_90px_rgba(52,34,18,0.28)]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Şemayı silmek istediğinize emin misiniz?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deleteSchema?.name}</strong> şeması kalıcı olarak silinecektir.
-              Bu işlem geri alınamaz.
+            <AlertDialogTitle className="text-xl font-semibold tracking-[-0.03em] text-[#2f1e18]">
+              Şemayı silmek istediğinize emin misiniz?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-[#7e675d]">
+              <strong>{deleteSchema?.name}</strong> şeması kalıcı olarak silinecektir. Bu işlem geri alınamaz.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>İptal</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting} className="rounded-2xl border-[#ead9cb] text-[#654c3c] hover:border-[#FE6100]/25 hover:text-[#FE6100]">
+              İptal
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="rounded-2xl bg-gradient-to-r from-[#d55649] to-[#c44639] text-white shadow-[0_18px_30px_rgba(213,86,73,0.24)] hover:from-[#c94a3d] hover:to-[#b63d32]"
             >
               {isDeleting ? "Siliniyor..." : "Evet, Sil"}
             </AlertDialogAction>
