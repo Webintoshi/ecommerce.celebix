@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload, XCircle } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Upload,
+  XCircle,
+} from "lucide-react";
 import {
   buildTemplateCsv,
   getBulkImportProviders,
@@ -36,8 +44,12 @@ export default function BulkUploadPage() {
   const [progressText, setProgressText] = useState("");
   const [parseResult, setParseResult] = useState<BulkImportParseResult | null>(null);
   const [importResult, setImportResult] = useState<ImportRunResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedProviderMeta = providers.find((provider) => provider.id === selectedProvider);
+  const readyProductCount = parseResult?.products.length ?? 0;
+  const selectedFileLabel = file ? file.name : "Henüz dosya seçilmedi";
+  const currentStepLabel = STEPS.find((step) => step.id === currentStep)?.label ?? "Hazırlık";
 
   const handleDownloadTemplate = () => {
     const template = buildTemplateCsv(selectedProvider);
@@ -117,48 +129,124 @@ export default function BulkUploadPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Toplu Ürün Yükleme</h1>
-          <p className="mt-1 text-gray-600">
-            WooCommerce, Shopify ve diğer bilinen platformlardan ürünleri güvenli şekilde içe aktarın.
-          </p>
-        </div>
-        <Link href="/admin/urunler" className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50">
-          Ürünlere Dön
-        </Link>
-      </div>
+    <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#fff8f3] via-[#fffdf9] to-[#f7efe8] p-4 text-[#2f241d] sm:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_top_right,_rgba(254,97,0,0.14),_transparent_38%)]" />
+      <div className="pointer-events-none absolute -top-24 right-[-5rem] h-72 w-72 rounded-full bg-[#FE6100]/10 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-[-5rem] h-64 w-64 rounded-full bg-[#f5c8a8]/20 blur-3xl" />
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-4">
+      <div className="relative space-y-6">
+        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+          <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-4">
+                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  Toplu Ürün Yükleme
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-[#7b685b]">
+                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
+                    Aktif platform: {selectedProviderMeta?.label ?? "-"}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
+                    Adım: {currentStep}. {currentStepLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/admin/urunler"
+                  className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                >
+                  Ürünlere Dön
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                >
+                  <Download className="h-4 w-4" />
+                  Şablonu İndir
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-4">
+            {[
+              { label: "Seçili platform", value: selectedProviderMeta?.label ?? "-" },
+              { label: "Seçilen dosya", value: selectedFileLabel },
+              { label: "Hazır ürün", value: String(readyProductCount) },
+              { label: "Aktarım durumu", value: importResult ? "Tamamlandı" : importing ? "Sürüyor" : "Hazır" },
+            ].map((metric) => (
+              <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{metric.label}</p>
+                <p className="mt-2 line-clamp-2 text-base font-semibold text-[#2f241d] md:text-lg">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">Adım akışı</p>
+              <h2 className="mt-2 text-xl font-semibold text-[#2f241d]">4 aşamalı aktarım planı</h2>
+            </div>
+            <div className="rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 text-xs font-medium text-[#7b685b] shadow-sm">
+              Mevcut adım: {currentStep}/4
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
           {STEPS.map((step) => {
             const active = currentStep === step.id;
             const completed = currentStep > step.id;
             return (
               <div
                 key={step.id}
-                className={`rounded-lg border px-3 py-2 text-sm ${
+                className={`rounded-[24px] border px-4 py-4 text-sm shadow-sm transition ${
                   completed
-                    ? "border-green-200 bg-green-50 text-green-800"
+                    ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-900"
                     : active
-                      ? "border-blue-200 bg-blue-50 text-blue-800"
-                      : "border-gray-200 bg-gray-50 text-gray-500"
+                      ? "border-[#FE6100]/30 bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[0_18px_35px_rgba(254,97,0,0.12)]"
+                      : "border-[#eadccd] bg-white/85 text-[#8d796a]"
                 }`}
               >
-                <div className="font-semibold">{step.id}. {step.label}</div>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold ${
+                      completed
+                        ? "bg-emerald-100 text-emerald-700"
+                        : active
+                          ? "bg-[#FE6100] text-white"
+                          : "bg-[#f5ede6] text-[#8d796a]"
+                    }`}
+                  >
+                    {step.id}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-current/70">Aşama</p>
+                    <div className="mt-1 font-semibold">{step.label}</div>
+                  </div>
+                </div>
               </div>
             );
           })}
-        </div>
-      </div>
+          </div>
+        </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">1) Platform Seç</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[0_16px_30px_rgba(254,97,0,0.12)]">
+              <CheckCircle2 className="h-5 w-5 text-[#FE6100]" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">1. aşama</p>
+              <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Platform seçimi</h2>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {providers.map((provider) => {
             const selected = provider.id === selectedProvider;
             return (
@@ -169,210 +257,304 @@ export default function BulkUploadPage() {
                   setSelectedProvider(provider.id);
                   setCurrentStep(2);
                 }}
-                className={`rounded-xl border p-4 text-left transition ${
-                  selected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 ${
+                  selected
+                    ? "border-[#FE6100]/30 bg-gradient-to-br from-[#fff1e6] to-white shadow-[0_18px_35px_rgba(254,97,0,0.12)]"
+                    : "border-[#eadccd] bg-white/85 hover:border-[#FE6100]/18 hover:bg-white"
                 }`}
               >
-                <div className="font-semibold text-gray-900">{provider.label}</div>
-                <p className="mt-1 text-xs text-gray-600">{provider.description}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-[#2f241d]">{provider.label}</div>
+                    <p className="mt-2 text-sm leading-6 text-[#7b685b]">{provider.description}</p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                      selected ? "bg-[#FE6100] text-white" : "bg-[#f5ede6] text-[#8d796a]"
+                    }`}
+                  >
+                    {selected ? "Seçili" : "Hazır"}
+                  </span>
+                </div>
               </button>
             );
           })}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-gray-200 bg-white p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">2) Dosya Yükle ve Analiz Et</h2>
           </div>
-          <button
-            type="button"
-            onClick={handleDownloadTemplate}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50"
-          >
-            <Download className="h-4 w-4" />
-            {selectedProviderMeta?.label} Şablonunu İndir
-          </button>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-dashed border-gray-300 p-6">
-          <div className="flex flex-col items-center justify-center text-center">
-            <FileSpreadsheet className="mb-3 h-10 w-10 text-gray-500" />
-            <p className="font-medium text-gray-900">
-              {selectedProviderMeta?.label} için CSV dosyasını seçin
-            </p>
-            <p className="mt-1 text-sm text-gray-600">UTF-8 CSV önerilir. Ayraç olarak virgül, noktalı virgül veya tab desteklenir.</p>
-
-            <label className="mt-4 inline-flex cursor-pointer items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">
-              Dosya Seç
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={(event) => {
-                  const nextFile = event.target.files?.[0] ?? null;
-                  setFile(nextFile);
-                  setParseResult(null);
-                  setImportResult(null);
-                  if (nextFile) setCurrentStep(2);
-                }}
-              />
-            </label>
-
-            {file ? (
-              <div className="mt-4 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                <div className="font-medium">{file.name}</div>
-                <div>{(file.size / 1024).toFixed(2)} KB</div>
+        <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[0_16px_30px_rgba(254,97,0,0.12)]">
+                <Upload className="h-5 w-5 text-[#FE6100]" />
               </div>
-            ) : null}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">2. aşama</p>
+                <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Dosya yükleme ve analiz</h2>
+              </div>
+            </div>
 
             <button
               type="button"
-              onClick={handleAnalyzeFile}
-              disabled={!file || analyzing}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
             >
-              {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
+              <Download className="h-4 w-4" />
+              {selectedProviderMeta?.label} şablonunu indir
             </button>
           </div>
-        </div>
-      </section>
 
-      {parseResult ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">3) Önizleme ve Doğrulama</h2>
-          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
+            <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+                  <FileSpreadsheet className="h-10 w-10 text-[#FE6100]" />
+                </div>
+                <p className="mt-5 text-lg font-semibold text-[#2f241d]">
+                  {selectedProviderMeta?.label} için CSV dosyasını seçin
+                </p>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-[#7b685b]">
+                  UTF-8 CSV önerilir. Ayraç olarak virgül, noktalı virgül veya tab desteklenir.
+                </p>
 
-          <div className="grid gap-3 md:grid-cols-4">
-            <InfoCard title="Toplam Satır" value={String(parseResult.totalRows)} tone="default" />
-            <InfoCard title="Ürün Sayısı" value={String(parseResult.products.length)} tone="success" />
-            <InfoCard title="Atlanan Satır" value={String(parseResult.skippedRows)} tone="warning" />
-            <InfoCard title="Hata Sayısı" value={String(parseResult.errors.length)} tone={parseResult.errors.length ? "danger" : "success"} />
-          </div>
-
-          {parseResult.warnings.length > 0 ? (
-            <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-              <p className="mb-2 text-sm font-semibold text-yellow-800">Uyarılar</p>
-              <ul className="max-h-40 space-y-1 overflow-auto text-sm text-yellow-900">
-                {parseResult.warnings.slice(0, 30).map((warning, index) => (
-                  <li key={`${warning}-${index}`}>• {warning}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {parseResult.errors.length > 0 ? (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="mb-2 text-sm font-semibold text-red-800">Hatalar</p>
-              <ul className="max-h-40 space-y-1 overflow-auto text-sm text-red-900">
-                {parseResult.errors.slice(0, 30).map((error, index) => (
-                  <li key={`${error}-${index}`}>• {error}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
-          </div>
-
-          {parseResult.products.length > 0 ? (
-            <>
-              <div className="mt-5 overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Ürün</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Slug</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Kategori</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Varyant</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Kaynak Satır</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parseResult.products.slice(0, 20).map((product) => (
-                      <tr key={product.slug} className="border-t border-gray-100">
-                        <td className="px-3 py-2 font-medium text-gray-900">{product.name}</td>
-                        <td className="px-3 py-2 text-gray-700">{product.slug}</td>
-                        <td className="px-3 py-2 text-gray-700">{product.category}</td>
-                        <td className="px-3 py-2 text-gray-700">{product.variants.length}</td>
-                        <td className="px-3 py-2 text-gray-700">{product.sourceRows.join(", ")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleImport}
-                  disabled={importing}
-                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  {importing ? "İçe aktarım sürüyor..." : `${parseResult.products.length} Ürünü İçe Aktar`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentStep(2);
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0] ?? null;
+                    setFile(nextFile);
+                    setParseResult(null);
                     setImportResult(null);
+                    if (nextFile) setCurrentStep(2);
                   }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-5 inline-flex items-center rounded-2xl bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(47,36,29,0.18)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                 >
-                  Dosyayı Güncelle
+                  Dosya Seç
+                </button>
+
+                {file ? (
+                  <div className="mt-4 w-full max-w-md rounded-[22px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
+                    <div className="font-semibold text-[#2f241d]">{file.name}</div>
+                    <div className="mt-1 text-xs text-[#8d796a]">{(file.size / 1024).toFixed(2)} KB</div>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={handleAnalyzeFile}
+                  disabled={!file || analyzing}
+                  className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
                 </button>
               </div>
-            </>
-          ) : null}
-        </section>
-      ) : null}
+            </div>
 
-      {importing || importResult ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="mb-4 flex items-center gap-2">
-            {importResult && importResult.failed === 0 ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ) : importResult && importResult.failed > 0 ? (
-              <XCircle className="h-5 w-5 text-red-600" />
-            ) : (
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            )}
-            <h2 className="text-lg font-semibold text-gray-900">4) İçe Aktarım Sonucu</h2>
-          </div>
+            <div className="space-y-3">
+              {[
+                { title: "Seçili sağlayıcı", value: selectedProviderMeta?.label ?? "-" },
+                { title: "Beklenen format", value: "CSV / UTF-8" },
+                { title: "Desteklenen ayraçlar", value: "Virgül, noktalı virgül, tab" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-[24px] border border-[#eadccd] bg-white/85 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{item.title}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#2f241d]">{item.value}</p>
+                </div>
+              ))}
 
-          {progressText ? (
-            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">{progressText}</div>
-          ) : null}
-
-          {importResult ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-3">
-                <InfoCard title="Toplam Ürün" value={String(importResult.total)} tone="default" />
-                <InfoCard title="Başarılı" value={String(importResult.success)} tone="success" />
-                <InfoCard title="Başarısız" value={String(importResult.failed)} tone={importResult.failed > 0 ? "danger" : "success"} />
+              <div className="rounded-[24px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff3e9] to-white p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Hazırlık notu</p>
+                <p className="mt-2 text-sm leading-6 text-[#7b685b]">
+                  Şablon dosyasını kullanmanız sütun eşleşmesini hızlandırır ve önizleme aşamasında daha temiz sonuç verir.
+                </p>
               </div>
+            </div>
+          </div>
+        </section>
 
-              {importResult.errors.length > 0 ? (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-                  <p className="mb-2 text-sm font-semibold text-red-800">Aktarım Hataları</p>
+        {parseResult ? (
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[0_16px_30px_rgba(254,97,0,0.12)]">
+                <AlertCircle className="h-5 w-5 text-[#FE6100]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">3. aşama</p>
+                <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Önizleme ve doğrulama</h2>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-4">
+              <InfoCard title="Toplam Satır" value={String(parseResult.totalRows)} tone="default" />
+              <InfoCard title="Ürün Sayısı" value={String(parseResult.products.length)} tone="success" />
+              <InfoCard title="Atlanan Satır" value={String(parseResult.skippedRows)} tone="warning" />
+              <InfoCard title="Hata Sayısı" value={String(parseResult.errors.length)} tone={parseResult.errors.length ? "danger" : "success"} />
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              {parseResult.warnings.length > 0 ? (
+                <div className="rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                  <p className="mb-2 text-sm font-semibold text-amber-900">Uyarılar</p>
+                  <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-900">
+                    {parseResult.warnings.slice(0, 30).map((warning, index) => (
+                      <li key={`${warning}-${index}`}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                  <p className="text-sm font-semibold text-emerald-900">Uyarı bulunmuyor</p>
+                  <p className="mt-2 text-sm leading-6 text-emerald-800">Dosya yapısı kontrol edildi; önizleme aşaması devam etmeye hazır.</p>
+                </div>
+              )}
+
+              {parseResult.errors.length > 0 ? (
+                <div className="rounded-[24px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                  <p className="mb-2 text-sm font-semibold text-red-900">Hatalar</p>
                   <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
-                    {importResult.errors.slice(0, 50).map((error, index) => (
+                    {parseResult.errors.slice(0, 30).map((error, index) => (
                       <li key={`${error}-${index}`}>• {error}</li>
                     ))}
                   </ul>
                 </div>
+              ) : (
+                <div className="rounded-[24px] border border-[#eadccd] bg-white/85 p-4 shadow-sm">
+                  <p className="text-sm font-semibold text-[#2f241d]">Kritik hata bulunmuyor</p>
+                  <p className="mt-2 text-sm leading-6 text-[#7b685b]">İçe aktarıma geçmeden önce tabloyu kontrol edip ürün sayısını doğrulayabilirsiniz.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-[24px] border border-[#FE6100]/12 bg-gradient-to-r from-[#fff3e9] to-white p-4 text-sm leading-6 text-[#7b685b] shadow-sm">
+              Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
+            </div>
+
+            {parseResult.products.length > 0 ? (
+              <>
+                <div className="mt-5 rounded-[28px] border border-[#eadccd] bg-white/90 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#f0e4d8] px-5 py-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">Önizleme tablosu</p>
+                      <p className="mt-1 text-sm text-[#7b685b]">İlk 20 ürün gösterilir.</p>
+                    </div>
+                    <span className="rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-semibold text-[#FE6100]">
+                      {parseResult.products.length} ürün hazır
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-[#f9f3ed] text-[#6c584b]">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold">Ürün</th>
+                          <th className="px-4 py-3 text-left font-semibold">Slug</th>
+                          <th className="px-4 py-3 text-left font-semibold">Kategori</th>
+                          <th className="px-4 py-3 text-left font-semibold">Varyant</th>
+                          <th className="px-4 py-3 text-left font-semibold">Kaynak Satır</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parseResult.products.slice(0, 20).map((product) => (
+                          <tr key={product.slug} className="border-t border-[#f2e7dc] align-top">
+                            <td className="px-4 py-3 font-semibold text-[#2f241d]">{product.name}</td>
+                            <td className="px-4 py-3 text-[#6c584b]">{product.slug}</td>
+                            <td className="px-4 py-3 text-[#6c584b]">{product.category}</td>
+                            <td className="px-4 py-3 text-[#6c584b]">{product.variants.length}</td>
+                            <td className="px-4 py-3 text-[#6c584b]">{product.sourceRows.join(", ")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleImport}
+                    disabled={importing}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f9e5f] to-[#21824b] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(33,130,75,0.22)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:opacity-50"
+                  >
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {importing ? "İçe aktarım sürüyor..." : `${parseResult.products.length} ürünü içe aktar`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentStep(2);
+                      setImportResult(null);
+                    }}
+                    className="rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    Dosyayı Güncelle
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+
+        {importing || importResult ? (
+          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[0_16px_30px_rgba(254,97,0,0.12)]">
+                {importResult && importResult.failed === 0 ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                ) : importResult && importResult.failed > 0 ? (
+                  <XCircle className="h-5 w-5 text-red-600" />
+                ) : (
+                  <Loader2 className="h-5 w-5 animate-spin text-[#FE6100]" />
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">4. aşama</p>
+                <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">İçe aktarım sonucu</h2>
+              </div>
+            </div>
+
+            <div aria-live="polite" aria-atomic="true" role="status" className="min-h-0">
+              {progressText ? (
+                <div className="mb-4 rounded-[24px] border border-[#FE6100]/18 bg-gradient-to-r from-[#fff3e9] to-white px-4 py-4 text-sm font-medium text-[#8a4b22] shadow-sm">
+                  {progressText}
+                </div>
               ) : null}
-            </>
-          ) : null}
-        </section>
-      ) : null}
+            </div>
+
+            {importResult ? (
+              <>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <InfoCard title="Toplam Ürün" value={String(importResult.total)} tone="default" />
+                  <InfoCard title="Başarılı" value={String(importResult.success)} tone="success" />
+                  <InfoCard title="Başarısız" value={String(importResult.failed)} tone={importResult.failed > 0 ? "danger" : "success"} />
+                </div>
+
+                {importResult.errors.length > 0 ? (
+                  <div className="mt-4 rounded-[24px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                    <p className="mb-2 text-sm font-semibold text-red-900">Aktarım hataları</p>
+                    <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
+                      {importResult.errors.slice(0, 50).map((error, index) => (
+                        <li key={`${error}-${index}`}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                    <p className="text-sm font-semibold text-emerald-900">Aktarım başarıyla tamamlandı</p>
+                    <p className="mt-2 text-sm leading-6 text-emerald-800">Tüm ürünler hatasız işlendi ve sonuç kartları güncellendi.</p>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -388,17 +570,17 @@ function InfoCard({
 }) {
   const className =
     tone === "success"
-      ? "border-green-200 bg-green-50 text-green-900"
+      ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white text-emerald-950"
       : tone === "warning"
-        ? "border-yellow-200 bg-yellow-50 text-yellow-900"
+        ? "border-amber-200/70 bg-gradient-to-br from-amber-50 to-white text-amber-950"
         : tone === "danger"
-          ? "border-red-200 bg-red-50 text-red-900"
-          : "border-gray-200 bg-gray-50 text-gray-900";
+          ? "border-red-200/70 bg-gradient-to-br from-red-50 to-white text-red-950"
+          : "border-[#eadccd] bg-gradient-to-br from-white to-[#fbf6f0] text-[#2f241d]";
 
   return (
-    <div className={`rounded-lg border p-3 ${className}`}>
-      <p className="text-xs font-medium">{title}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <div className={`rounded-[24px] border p-4 shadow-sm ${className}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{title}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
     </div>
   );
 }
