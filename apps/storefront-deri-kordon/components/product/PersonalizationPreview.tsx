@@ -28,7 +28,10 @@ type FontOption = {
   faceName: string;
   fallbackFamily: string;
   style: CSSProperties;
-  targetVisualHeightPx: number;
+  targetVisualHeightPx: {
+    leather: number;
+    watch: number;
+  };
 };
 
 type PreviewConfig = {
@@ -44,6 +47,9 @@ type PreviewConfig = {
 const BASE_LEATHER_FONT_SIZE = 30;
 const MIN_LEATHER_FONT_SIZE = 30;
 const MAX_LEATHER_FONT_SIZE = 56;
+const BASE_WATCH_FONT_SIZE = 60;
+const MIN_WATCH_FONT_SIZE = 42;
+const MAX_WATCH_FONT_SIZE = 82;
 
 const FONT_OPTIONS: FontOption[] = [
   {
@@ -58,7 +64,10 @@ const FONT_OPTIONS: FontOption[] = [
       fontWeight: 500,
       letterSpacing: "-0.015em",
     },
-    targetVisualHeightPx: 39,
+    targetVisualHeightPx: {
+      leather: 39,
+      watch: 62,
+    },
   },
   {
     id: "book-antiqua",
@@ -71,7 +80,10 @@ const FONT_OPTIONS: FontOption[] = [
       fontWeight: 500,
       letterSpacing: "0.01em",
     },
-    targetVisualHeightPx: 37,
+    targetVisualHeightPx: {
+      leather: 37,
+      watch: 58,
+    },
   },
   {
     id: "stoic",
@@ -83,7 +95,10 @@ const FONT_OPTIONS: FontOption[] = [
       fontWeight: 700,
       letterSpacing: "0.03em",
     },
-    targetVisualHeightPx: 36,
+    targetVisualHeightPx: {
+      leather: 36,
+      watch: 55,
+    },
   },
 ];
 
@@ -149,7 +164,7 @@ const WATCH_STRAPS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
   imageAlt: "Saat kayışı kişiselleştirme ön izlemesi",
   textPositionClass:
-    "left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center",
+    "left-1/2 top-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center",
   textToneClass: "text-[#1a0f0a]",
   defaultText: "Yazı",
   sizePreset: "watch",
@@ -215,26 +230,18 @@ function getInitialPreviewFontSize(
   preset: PreviewConfig["sizePreset"]
 ) {
   if (preset === "watch") {
-    if (displayText.length >= 16) {
-      return 42;
-    }
-
-    if (displayText.length >= 10) {
-      return 48;
-    }
-
     if (displayText.length >= 6) {
-      return 54;
+      return 56;
     }
 
-    return 60;
+    if (displayText.length >= 4) {
+      return 62;
+    }
+
+    return 68;
   }
 
   return BASE_LEATHER_FONT_SIZE;
-}
-
-function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
-  return preset === "watch" ? 26 : MIN_LEATHER_FONT_SIZE;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -284,7 +291,7 @@ export function PersonalizationPreview({
     let active = true;
 
     document.fonts
-      .load(`30px "${selectedFont.faceName}"`, displayText)
+      .load(`${BASE_WATCH_FONT_SIZE}px "${selectedFont.faceName}"`, displayText)
       .catch((error) => {
         console.error("Preview font load failed:", error);
       })
@@ -308,39 +315,29 @@ export function PersonalizationPreview({
       return;
     }
 
-    if (previewConfig.sizePreset === "watch") {
-      let nextFontSize = initialPreviewFontSize;
-      const minimumFontSize = getMinimumPreviewFontSize(previewConfig.sizePreset);
-
-      previewTextElement.style.fontSize = `${nextFontSize}px`;
-
-      while (
-        nextFontSize > minimumFontSize &&
-        (previewTextElement.scrollWidth > previewTextElement.clientWidth ||
-          previewTextElement.scrollHeight > previewTextElement.clientHeight)
-      ) {
-        nextFontSize -= 1;
-        previewTextElement.style.fontSize = `${nextFontSize}px`;
-      }
-
-      setResolvedPreviewFontSize(nextFontSize);
-      return;
-    }
+    const isWatchPreview = previewConfig.sizePreset === "watch";
+    const baseFontSize = isWatchPreview
+      ? BASE_WATCH_FONT_SIZE
+      : BASE_LEATHER_FONT_SIZE;
+    const minimumFontSize = isWatchPreview
+      ? MIN_WATCH_FONT_SIZE
+      : MIN_LEATHER_FONT_SIZE;
+    const maximumFontSize = isWatchPreview
+      ? MAX_WATCH_FONT_SIZE
+      : MAX_LEATHER_FONT_SIZE;
+    const targetVisualHeightPx = isWatchPreview
+      ? selectedFont.targetVisualHeightPx.watch
+      : selectedFont.targetVisualHeightPx.leather;
 
     measurementElement.textContent = displayText;
-    measurementElement.style.fontSize = `${BASE_LEATHER_FONT_SIZE}px`;
+    measurementElement.style.fontSize = `${baseFontSize}px`;
 
     const measuredHeight =
-      measurementElement.getBoundingClientRect().height || BASE_LEATHER_FONT_SIZE;
+      measurementElement.getBoundingClientRect().height || baseFontSize;
     let nextFontSize =
-      (BASE_LEATHER_FONT_SIZE * selectedFont.targetVisualHeightPx) / measuredHeight;
+      (baseFontSize * targetVisualHeightPx) / measuredHeight;
 
-    nextFontSize = clamp(
-      nextFontSize,
-      MIN_LEATHER_FONT_SIZE,
-      MAX_LEATHER_FONT_SIZE
-    );
-
+    nextFontSize = clamp(nextFontSize, minimumFontSize, maximumFontSize);
     measurementElement.style.fontSize = `${nextFontSize}px`;
 
     const availableWidth =
@@ -351,8 +348,8 @@ export function PersonalizationPreview({
     if (measuredWidth > availableWidth && measuredWidth > 0) {
       nextFontSize = clamp(
         nextFontSize * (availableWidth / measuredWidth),
-        MIN_LEATHER_FONT_SIZE,
-        MAX_LEATHER_FONT_SIZE
+        minimumFontSize,
+        maximumFontSize
       );
     }
 
