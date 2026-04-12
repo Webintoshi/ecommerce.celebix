@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -18,7 +17,6 @@ interface CleanupTargetResult {
 }
 
 export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [confirmSlug, setConfirmSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +76,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
         }
 
         handleClose(true);
-        router.push("/stores");
-        router.refresh();
+        window.location.assign("/stores");
       } catch (error) {
         setError(error instanceof Error ? error.message : "Proje silme istegi tamamlanamadi.");
       }

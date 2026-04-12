@@ -107,6 +107,20 @@ const COOLIFY_API_PREFIX = "/api/v1";
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
 const SUPABASE_MANAGEMENT_API_URL = "https://api.supabase.com/v1";
 
+function shouldDeleteLocalArtifacts(): boolean {
+  const configured = process.env.OWNER_ENABLE_LOCAL_ARTIFACT_DELETE?.trim().toLocaleLowerCase("en-US");
+
+  if (configured === "true") {
+    return true;
+  }
+
+  if (configured === "false") {
+    return false;
+  }
+
+  return process.env.NODE_ENV !== "production";
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -663,26 +677,35 @@ export async function cleanupStoreResources(
     };
   }
 
-  const localArtifacts = removeStoreArtifacts(store.slug, {
-    storefrontAppDir: targets.storefront.appDir,
-  });
-  results.push({
-    type: "repo-local",
-    identifier: store.slug,
-    status:
-      localArtifacts.skippedPaths.length > 0
-        ? "failed"
-        : localArtifacts.removedPaths.length > 0 || localArtifacts.updatedPaths.length > 0
-          ? "deleted"
-          : "missing",
-    message:
-      localArtifacts.skippedPaths.length > 0
-        ? `Guvensiz path temizligi atlandi: ${localArtifacts.skippedPaths.join(", ")}`
-        : [
-            ...localArtifacts.updatedPaths.map((entry) => `guncellendi:${entry}`),
-            ...localArtifacts.removedPaths.map((entry) => `silindi:${entry}`),
-          ].join(" | ") || null,
-  });
+  if (shouldDeleteLocalArtifacts()) {
+    const localArtifacts = removeStoreArtifacts(store.slug, {
+      storefrontAppDir: targets.storefront.appDir,
+    });
+    results.push({
+      type: "repo-local",
+      identifier: store.slug,
+      status:
+        localArtifacts.skippedPaths.length > 0
+          ? "failed"
+          : localArtifacts.removedPaths.length > 0 || localArtifacts.updatedPaths.length > 0
+            ? "deleted"
+            : "missing",
+      message:
+        localArtifacts.skippedPaths.length > 0
+          ? `Guvensiz path temizligi atlandi: ${localArtifacts.skippedPaths.join(", ")}`
+          : [
+              ...localArtifacts.updatedPaths.map((entry) => `guncellendi:${entry}`),
+              ...localArtifacts.removedPaths.map((entry) => `silindi:${entry}`),
+            ].join(" | ") || null,
+    });
+  } else {
+    results.push({
+      type: "repo-local",
+      identifier: store.slug,
+      status: "skipped",
+      message: "Production runtime icinde local repo artifact temizligi kapali.",
+    });
+  }
 
   if (isGitHubRepoSyncConfigured()) {
     const remoteCleanup = await deleteStorefrontRepoForStore(store.slug, {

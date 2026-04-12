@@ -246,7 +246,13 @@ function readJsonFile<T>(filePath: string): T {
 }
 
 function writeJsonFile(filePath: string, value: unknown): void {
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const directory = path.dirname(filePath);
+  const tempFilePath = path.join(
+    directory,
+    `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
+  );
+  fs.writeFileSync(tempFilePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  fs.renameSync(tempFilePath, filePath);
 }
 
 function slugifyStoreName(value: string): string {
