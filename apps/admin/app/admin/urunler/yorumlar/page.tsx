@@ -1,5 +1,5 @@
-import { Metadata } from "next";
-import { MessageSquare } from "lucide-react";
+import type { Metadata } from "next";
+import { Activity, CheckCircle2, Clock3, MessageSquare, XCircle } from "lucide-react";
 import { ProductReviewsManager } from "@/components/admin/product-reviews/ProductReviewsManager";
 import { listAdminProductReviews } from "@/lib/product-reviews";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -7,7 +7,11 @@ import { createServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
   title: `Ürün Yorumları | ${STORE_RUNTIME.name} Admin`,
-  description: "Ürün yorumlarını onaylayın, reddedin ve yayına alın.",
+  description: "Ürün yorumlarını inceleyin, moderasyon kararlarını yönetin ve yayındaki içerikleri tek ekranda izleyin.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -25,20 +29,106 @@ export default async function ProductReviewsPage() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-          <MessageSquare className="h-6 w-6" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ürün Yorumları</h1>
-          <p className="mt-1 text-gray-600">
-            Müşteri yorumları önce onaya düşer. Onayladıklarınız tekil ürün sayfalarında yayınlanır.
-          </p>
-        </div>
+    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[28%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      <ProductReviewsManager initialReviews={reviews} initialCounts={counts} />
-    </div>
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <div className="space-y-8">
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-3xl space-y-4">
+                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Yorum Moderasyonu
+                  </div>
+
+                  <div>
+                    <h1 className="text-3xl font-semibold tracking-[-0.04em] text-stone-950 md:text-[40px]">
+                      Ürün Yorumları
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-[15px]">
+                      Müşteri yorumlarını tek moderasyon yüzeyinde inceleyin; bekleyen kayıtları hızla yönetin,
+                      yayındaki içerikleri kontrol edin ve sorunlu yorumları güvenli biçimde ayıklayın.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-1.5 text-amber-800">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {counts.pending.toLocaleString("tr-TR")} yorum moderasyon bekliyor
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-gradient-to-r from-[#fff4ea] to-white px-3 py-1.5 text-[#C94E00]">
+                      <Activity className="h-3.5 w-3.5" />
+                      {counts.all.toLocaleString("tr-TR")} toplam yorum kaydı
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {counts.approved.toLocaleString("tr-TR")} yorum yayında
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#f0ddd0] via-[#f7ebe2] to-[#f0ddd0] md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Toplam yorum",
+                  value: counts.all.toLocaleString("tr-TR"),
+                  hint: "Tüm moderasyon kayıtları",
+                  icon: MessageSquare,
+                  tone: "text-[#FE6100]",
+                },
+                {
+                  label: "Onay bekleyen",
+                  value: counts.pending.toLocaleString("tr-TR"),
+                  hint: "İnceleme bekleyen içerikler",
+                  icon: Clock3,
+                  tone: "text-amber-700",
+                },
+                {
+                  label: "Yayındaki yorum",
+                  value: counts.approved.toLocaleString("tr-TR"),
+                  hint: "Ürün sayfalarında görünür",
+                  icon: CheckCircle2,
+                  tone: "text-emerald-700",
+                },
+                {
+                  label: "Reddedilen",
+                  value: counts.rejected.toLocaleString("tr-TR"),
+                  hint: "Yayına alınmayan yorumlar",
+                  icon: XCircle,
+                  tone: "text-rose-700",
+                },
+              ].map((metric) => {
+                const Icon = metric.icon;
+
+                return (
+                  <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
+                        <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
+                        <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
+                      </div>
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white shadow-sm ${metric.tone}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <ProductReviewsManager initialReviews={reviews} initialCounts={counts} />
+        </div>
+      </div>
+    </main>
   );
 }
