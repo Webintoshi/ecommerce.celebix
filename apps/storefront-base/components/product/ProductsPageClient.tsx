@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Product } from "@/types/product";
+import { AnimatePresence, motion } from "framer-motion";
+import { Loader2, Package } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
-import { Package, Loader2 } from "lucide-react";
+import { Product } from "@/types/product";
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
@@ -22,6 +22,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
 
   React.useEffect(() => {
     if (!loadMoreRef.current) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (
@@ -32,14 +33,15 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
           setIsLoadingMore(true);
           setTimeout(() => {
             setDisplayCount((prev) =>
-              Math.min(prev + ITEMS_PER_LOAD, sortedProducts.length)
+              Math.min(prev + ITEMS_PER_LOAD, sortedProducts.length),
             );
             setIsLoadingMore(false);
           }, 300);
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "200px" },
     );
+
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [displayCount, sortedProducts.length, isLoadingMore]);
@@ -49,29 +51,29 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
-      {/* Product Grid */}
       <section className="container-premium py-8 sm:py-12">
         {visibleProducts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-20 bg-white border border-neutral-200 rounded-2xl"
+            className="rounded-[28px] border border-neutral-200 bg-white py-20 text-center shadow-[0_18px_48px_-36px_rgba(42,28,15,0.18)]"
           >
-            <div className="w-20 h-20 mx-auto mb-5 bg-neutral-100 rounded-full flex items-center justify-center">
-              <Package className="w-8 h-8 text-neutral-400" />
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100">
+              <Package className="h-8 w-8 text-neutral-400" />
             </div>
-            <h3 className="text-xl font-medium text-neutral-900 mb-2">
-              Ürün Bulunamadı
+            <h3 className="mb-2 text-xl font-medium text-neutral-900">
+              Ürün vitrini hazır
             </h3>
-            <p className="text-neutral-500">
-              Yakında yeni ürünler eklenecek.
+            <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
+              Adminde yayınlanan ilk ürünler geldiği anda bu alan premium ürün
+              kartlarıyla otomatik dolar.
             </p>
           </motion.div>
         ) : (
           <>
             <motion.div
               layout
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
+              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"
             >
               <AnimatePresence mode="popLayout">
                 {visibleProducts.map((product, index) => (
@@ -89,14 +91,13 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               </AnimatePresence>
             </motion.div>
 
-            {/* Infinite Scroll Trigger / Loader */}
             <div ref={loadMoreRef} className="mt-12 flex justify-center">
-              {hasMore && (
+              {hasMore ? (
                 <div className="flex items-center gap-2 text-neutral-500">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   <span className="text-sm">Daha fazla ürün yükleniyor...</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </>
         )}
@@ -105,24 +106,22 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
   );
 }
 
-export function ProductsPageClient({
-  initialProducts,
-}: ProductsPageClientProps) {
+export function ProductsPageClient({ initialProducts }: ProductsPageClientProps) {
   return (
     <React.Suspense
       fallback={
         <div className="min-h-screen bg-[#F8F8F8]">
           <section className="pt-20 pb-10 sm:pt-28 sm:pb-12">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-              <div className="h-4 w-32 bg-neutral-200 rounded mx-auto mb-6 animate-pulse" />
-              <div className="h-12 w-64 bg-neutral-200 rounded mx-auto mb-4 animate-pulse" />
-              <div className="h-6 w-96 bg-neutral-200 rounded mx-auto animate-pulse" />
+            <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+              <div className="mx-auto mb-6 h-4 w-32 animate-pulse rounded bg-neutral-200" />
+              <div className="mx-auto mb-4 h-12 w-64 animate-pulse rounded bg-neutral-200" />
+              <div className="mx-auto h-6 w-96 max-w-full animate-pulse rounded bg-neutral-200" />
             </div>
           </section>
           <div className="container-premium py-8 sm:py-12">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {[...Array(9)].map((_, i) => (
-                <ProductCardSkeleton key={i} />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+              {[...Array(9)].map((_, index) => (
+                <ProductCardSkeleton key={index} />
               ))}
             </div>
           </div>
