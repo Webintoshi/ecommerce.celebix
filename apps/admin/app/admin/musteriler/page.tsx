@@ -617,8 +617,24 @@ export default function CustomersPage({
       maximumFractionDigits: 0,
     }).format(price);
 
+  const hasActiveFilters = Boolean(searchQuery.trim()) || statusFilter !== "all";
+  const allVisibleSelected =
+    filteredCustomers.length > 0 && selectedCustomers.length === filteredCustomers.length;
+
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8">
+    <main
+      role="main"
+      aria-busy={loading}
+      className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]"
+    >
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-28 right-[-6rem] h-[24rem] w-[24rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
+        <div className="absolute left-[-5rem] top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
+        <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <div className="space-y-8">
       <input
         ref={fileInputRef}
         type="file"
@@ -627,50 +643,68 @@ export default function CustomersPage({
         onChange={handleImport}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Müşteriler</h1>
-          <p className="mt-1 text-sm text-gray-500">Müşteri tabanınızı yönetin, dışa aktarın ve CSV ile içe alın.</p>
-        </div>
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Müşteriler
+                  </div>
+                </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleDownloadTemplate}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Şablon İndir
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Upload className="h-4 w-4" />
-            {importing ? "İçe Aktarılıyor..." : "İçe Aktar"}
-          </button>
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-          >
-            <Download className="h-4 w-4" />
-            Dışa Aktar
-          </button>
-          <Link
-            href="/admin/musteriler/yeni"
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800"
-          >
-            <Plus className="h-4 w-4" />
-            Yeni Müşteri
-          </Link>
-        </div>
-      </div>
+                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Şablon İndir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {importing ? "İçe Aktarılıyor..." : "İçe Aktar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <Download className="h-4 w-4" />
+                    Dışa Aktar
+                  </button>
+                  <Link
+                    href="/admin/musteriler/yeni"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Yeni Müşteri
+                  </Link>
+                </div>
+              </div>
+            </div>
 
-      {errorMessage ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          {errorMessage}
-        </div>
-      ) : null}
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
+              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} hint="Kayıtlı müşteri havuzu" />
+              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} hint="İletişime açık ve aktif kayıtlar" />
+              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} hint="Son dönemde pasif kalan hesaplar" />
+              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} hint="Müşteri kaynaklı toplam gelir" />
+            </div>
+          </section>
+
+          {errorMessage ? (
+            <div
+              aria-live="assertive"
+              className="rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-5 py-4 text-sm font-medium text-rose-700 shadow-sm"
+            >
+              {errorMessage}
+            </div>
+          ) : null}
 
       {false && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -688,194 +722,387 @@ export default function CustomersPage({
         </div>
       </div>}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Toplam Müşteri" value={metrics.total} icon={UserCheck} />
-        <StatCard
-          title="Aktif Müşteriler"
-          value={metrics.active}
-          icon={UserCheck}
-          color="text-green-600"
-          bg="bg-green-50"
-        />
-        <StatCard
-          title="Engellenenler"
-          value={metrics.blocked}
-          icon={ShieldAlert}
-          color="text-red-600"
-          bg="bg-red-50"
-        />
-        <StatCard title="Toplam Harcama" value={formatPrice(metrics.totalRevenue)} icon={UserCheck} />
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col items-stretch justify-between gap-4 border-b border-gray-200 bg-gray-50/50 p-4 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="İsim, e-posta veya telefon ile ara..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-900"
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="Görünen kayıt"
+              value={filteredCustomers.length.toLocaleString("tr-TR")}
+              detail="Mevcut arama ve filtre sonucunda listelenen müşteri"
+              icon={Search}
+              tone="border-[#FE6100]/15 from-[#fff2e8] to-white text-[#FE6100]"
             />
-          </div>
+            <StatCard
+              title="Seçili müşteri"
+              value={selectedCustomers.length.toLocaleString("tr-TR")}
+              detail="Toplu işlem için işaretlenen kayıt"
+              icon={UserCheck}
+              tone="border-amber-200/70 from-amber-50 to-white text-amber-700"
+            />
+            <StatCard
+              title="Engellenen"
+              value={metrics.blocked.toLocaleString("tr-TR")}
+              detail="İşlem ve iletişim kısıtlı müşteri hesabı"
+              icon={ShieldAlert}
+              tone="border-rose-200/70 from-rose-50 to-white text-rose-700"
+            />
+            <StatCard
+              title="Ort. sipariş değeri"
+              value={metrics.total > 0 ? formatPrice(metrics.totalRevenue / Math.max(metrics.total, 1)) : formatPrice(0)}
+              detail="Toplam harcamanın müşteri bazında ortalaması"
+              icon={Calendar}
+              tone="border-stone-200 from-stone-50 to-white text-stone-700"
+            />
+          </section>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
-            >
-              <option value="all">Tüm Durumlar</option>
-              <option value="active">Aktif</option>
-              <option value="inactive">Pasif</option>
-              <option value="blocked">Engelli</option>
-            </select>
+          <section className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-6">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+                    Filtreler ve işlemler
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
+                    Müşteri listesini daraltın ve yönetin
+                  </h2>
+                </div>
+                <div
+                  aria-live="polite"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600"
+                >
+                  <UserCheck className="h-4 w-4 text-[#FE6100]" />
+                  {loading ? "Kayıtlar hazırlanıyor" : `${filteredCustomers.length.toLocaleString("tr-TR")} kayıt bulundu`}
+                </div>
+              </div>
 
-            {selectedCustomers.length > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
-              >
-                <Trash2 className="h-4 w-4" />
-                Seçilenleri Sil ({selectedCustomers.length})
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50">
-              <tr>
-                <th className="w-10 px-6 py-3">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_220px_auto]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
-                    type="checkbox"
-                    className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                    checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                    onChange={(event) => handleSelectAll(event.target.checked)}
+                    type="text"
+                    placeholder="İsim, e-posta veya telefon ile ara"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    aria-label="İsim, e-posta veya telefon ile müşteri ara"
+                    className="w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 py-3 pl-11 pr-4 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
                   />
-                </th>
-                <th className="px-6 py-3 font-medium text-gray-500">Müşteri</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Durum</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Toplam Harcama</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Son Sipariş</th>
-                <th className="px-6 py-3 text-right font-medium text-gray-500">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredCustomers.length > 0 ? (
-                filteredCustomers.map((customer) => {
-                  const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
+                </div>
 
-                  return (
-                    <tr key={customer.id} className="group transition-colors hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                          checked={selectedCustomers.includes(customer.id)}
-                          onChange={(event) => {
-                            if (event.target.checked) {
-                              setSelectedCustomers((current) => [...current, customer.id]);
-                              return;
-                            }
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  aria-label="Müşteri durumuna göre filtrele"
+                  className="cursor-pointer rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
+                >
+                  <option value="all">Tüm durumlar</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Pasif</option>
+                  <option value="blocked">Engelli</option>
+                </select>
 
-                            setSelectedCustomers((current) => current.filter((id) => id !== customer.id));
-                          }}
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold text-gray-600">
-                            {initials}
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {customer.firstName || "Adsız"} {customer.lastName}
+                <div className="flex flex-wrap items-center justify-start gap-3 xl:justify-end">
+                  {selectedCustomers.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleBulkDelete}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 shadow-sm transition-all hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Seçilenleri Sil ({selectedCustomers.length})
+                    </button>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-[#e8d7c7] bg-white/70 px-4 py-3 text-sm text-[#8b7768]">
+                      Toplu silme için kayıt seçin
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+                    Müşteri tablosu
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
+                    Müşteri listesi
+                  </h2>
+                </div>
+                <div aria-live="polite" className="text-sm text-gray-500">
+                  {loading
+                    ? "Müşteriler hazırlanıyor"
+                    : `${filteredCustomers.length.toLocaleString("tr-TR")} müşteri gösteriliyor`}
+                </div>
+              </div>
+            </div>
+
+            {filteredCustomers.length > 0 ? (
+              <>
+                <div className="border-b border-[#FE6100]/8 bg-[#fff8f3]/80 px-5 py-4 md:hidden">
+                  <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      aria-label="Tüm görünen müşterileri seç"
+                      className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                      checked={allVisibleSelected}
+                      onChange={(event) => handleSelectAll(event.target.checked)}
+                    />
+                    Tüm görünen müşterileri seç
+                  </label>
+                </div>
+
+                <div className="space-y-3 p-5 md:hidden">
+                  {filteredCustomers.map((customer) => {
+                    const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
+
+                    return (
+                      <article
+                        key={customer.id}
+                        className="rounded-[26px] border border-white/70 bg-white/85 p-5 shadow-sm transition-all hover:border-[#FE6100]/12 hover:bg-white hover:shadow-[0_18px_35px_rgba(254,97,0,0.08)]"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
+                              className="mt-2 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                              checked={selectedCustomers.includes(customer.id)}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  setSelectedCustomers((current) => [...current, customer.id]);
+                                  return;
+                                }
+
+                                setSelectedCustomers((current) => current.filter((id) => id !== customer.id));
+                              }}
+                            />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-sm font-semibold text-[#FE6100] shadow-sm">
+                              {initials}
                             </div>
-                            <div className="text-xs text-gray-500">{customer.email}</div>
+                            <div>
+                              <Link
+                                href={`/admin/musteriler/${customer.id}`}
+                                className="text-base font-semibold tracking-[-0.02em] text-gray-950 transition-colors hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                              >
+                                {customer.firstName || "Adsız"} {customer.lastName}
+                              </Link>
+                              <p className="mt-1 break-all text-sm text-gray-500">{customer.email}</p>
+                              <p className="mt-1 text-sm text-gray-500">{customer.phone || "Telefon bilgisi yok"}</p>
+                            </div>
                           </div>
+                          <StatusBadge status={customer.status} />
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={customer.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{formatPrice(customer.totalSpent)}</div>
-                        <div className="text-xs text-gray-500">{customer.totalOrders} sipariş</div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {customer.lastOrderDate ? (
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <MobileInfoCard label="Toplam harcama" value={formatPrice(customer.totalSpent)} />
+                          <MobileInfoCard label="Sipariş" value={`${customer.totalOrders} sipariş`} />
+                          <MobileInfoCard
+                            label="Son sipariş"
+                            value={
+                              customer.lastOrderDate
+                                ? format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })
+                                : "Henüz yok"
+                            }
+                          />
+                          <MobileInfoCard label="Durum" value={statusText(customer.status)} />
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-end gap-2">
                           <Link
                             href={`/admin/musteriler/${customer.id}`}
-                            className="rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-200 hover:bg-white hover:text-gray-900"
+                            aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-5 w-5" />
                           </Link>
                           <Link
                             href={`/admin/musteriler/${customer.id}/duzenle`}
-                            className="rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-200 hover:bg-white hover:text-gray-900"
+                            aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-5 w-5" />
                           </Link>
                           <button
+                            type="button"
                             onClick={() => handleDelete(customer.id, `${customer.firstName} ${customer.lastName}`.trim())}
-                            className="rounded-lg p-2 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                            aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini sil`}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-100 bg-white text-gray-500 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-5 w-5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                        <Search className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <p className="font-medium">{loading ? "Müşteriler yükleniyor..." : "Müşteri bulunamadı"}</p>
-                      <p className="text-sm">Arama kriterlerinizi değiştirin veya yeni müşteri ekleyin.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </article>
+                    );
+                  })}
+                </div>
 
-        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50/50 px-6 py-4 text-sm text-gray-500">
-          <div>Toplam {filteredCustomers.length} kayıt gösteriliyor</div>
-          <div className="flex gap-2">
-            <button
-              disabled
-              className="cursor-not-allowed rounded border border-gray-200 bg-white px-3 py-1 text-gray-400"
-            >
-              Önceki
-            </button>
-            <button
-              disabled
-              className="cursor-not-allowed rounded border border-gray-200 bg-white px-3 py-1 text-gray-400"
-            >
-              Sonraki
-            </button>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-[#FE6100]/8 bg-[#fff8f3]/80">
+                      <tr>
+                        <th className="w-14 px-6 py-4">
+                          <input
+                            type="checkbox"
+                            aria-label="Tüm görünen müşterileri seç"
+                            className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                            checked={allVisibleSelected}
+                            onChange={(event) => handleSelectAll(event.target.checked)}
+                          />
+                        </th>
+                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Müşteri</th>
+                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Durum</th>
+                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Toplam harcama</th>
+                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Son sipariş</th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCustomers.map((customer) => {
+                        const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
+
+                        return (
+                          <tr
+                            key={customer.id}
+                            className="group border-b border-[#f1e6dc] last:border-b-0 hover:bg-[#fffaf6]"
+                          >
+                            <td className="px-6 py-5 align-top">
+                              <input
+                                type="checkbox"
+                                aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
+                                className="mt-1 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                                checked={selectedCustomers.includes(customer.id)}
+                                onChange={(event) => {
+                                  if (event.target.checked) {
+                                    setSelectedCustomers((current) => [...current, customer.id]);
+                                    return;
+                                  }
+
+                                  setSelectedCustomers((current) => current.filter((id) => id !== customer.id));
+                                }}
+                              />
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              <div className="flex items-start gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-sm font-semibold text-[#FE6100] shadow-sm">
+                                  {initials}
+                                </div>
+                                <div>
+                                  <Link
+                                    href={`/admin/musteriler/${customer.id}`}
+                                    className="font-semibold text-gray-950 transition-colors hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                  >
+                                    {customer.firstName || "Adsız"} {customer.lastName}
+                                  </Link>
+                                  <div className="mt-1 text-sm text-gray-500">{customer.email}</div>
+                                  <div className="mt-1 text-xs text-gray-400">{customer.phone || "Telefon bilgisi yok"}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              <StatusBadge status={customer.status} />
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              <div className="font-semibold text-gray-950">{formatPrice(customer.totalSpent)}</div>
+                              <div className="mt-1 text-xs text-gray-500">{customer.totalOrders} sipariş</div>
+                            </td>
+                            <td className="px-6 py-5 align-top text-gray-500">
+                              {customer.lastOrderDate ? (
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
+                                  <Calendar className="h-3.5 w-3.5 text-[#FE6100]" />
+                                  {format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })}
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-400">Henüz sipariş yok</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-5 text-right align-top">
+                              <div className="flex items-center justify-end gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                                <Link
+                                  href={`/admin/musteriler/${customer.id}`}
+                                  aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                >
+                                  <Eye className="h-5 w-5" />
+                                </Link>
+                                <Link
+                                  href={`/admin/musteriler/${customer.id}/duzenle`}
+                                  aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                >
+                                  <Edit className="h-5 w-5" />
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(customer.id, `${customer.firstName} ${customer.lastName}`.trim())}
+                                  aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini sil`}
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-100 bg-white text-gray-500 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#fff3e9] to-white text-[#FE6100] shadow-sm">
+                  <Search className="h-9 w-9" />
+                </div>
+                <p className="mt-5 text-lg font-semibold text-gray-950" aria-live="polite">
+                  {loading ? "Müşteriler yükleniyor..." : hasActiveFilters ? "Sonuç bulunamadı" : "Henüz müşteri bulunmuyor"}
+                </p>
+                <p className="mt-2 text-sm text-gray-500">
+                  {loading
+                    ? "Liste hazırlanırken görünüm otomatik olarak güncellenecek."
+                    : hasActiveFilters
+                      ? "Arama veya filtre kriterlerini değiştirerek tekrar deneyin."
+                      : "Yeni müşteri eklediğinizde veya içe aktarma tamamlandığında bu alan otomatik güncellenecek."}
+                </p>
+              </div>
+            )}
+
+            <div className="border-t border-[#FE6100]/8 bg-[#fff8f3]/80 px-5 py-4 md:px-6">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <p aria-live="polite" className="text-sm text-gray-500">
+                  <span className="font-semibold text-gray-900">{filteredCustomers.length.toLocaleString("tr-TR")}</span> kayıt gösteriliyor
+                  {selectedCustomers.length > 0 ? ` • ${selectedCustomers.length} kayıt seçili` : ""}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Önceki sayfa kullanılamıyor"
+                    className="cursor-not-allowed rounded-2xl border border-[#e7d9cc] bg-white px-4 py-2 text-sm font-medium text-gray-400"
+                  >
+                    Önceki
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Sonraki sayfa kullanılamıyor"
+                    className="cursor-not-allowed rounded-2xl border border-[#e7d9cc] bg-white px-4 py-2 text-sm font-medium text-gray-400"
+                  >
+                    Sonraki
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="sr-only" aria-live="polite" aria-atomic="true">
+            {loading
+              ? "Müşteriler yükleniyor"
+              : `${filteredCustomers.length} müşteri listelendi. ${selectedCustomers.length} müşteri seçili.`}
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -883,35 +1110,63 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
-  color?: string;
-  bg?: string;
+  detail: string;
+  tone: string;
 }
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  color = "text-gray-900",
-  bg = "bg-gray-100",
-}: StatCardProps) {
+function HeroMetric({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="flex items-start justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{title}</p>
-        <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
-      </div>
-      <div className={`rounded-lg p-2 ${bg}`}>
-        <Icon className={`h-5 w-5 ${color}`} />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
+        <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
+        <p className="mt-1 text-sm text-gray-600">{hint}</p>
       </div>
     </div>
   );
 }
 
+function StatCard({ title, value, detail, icon: Icon, tone }: StatCardProps) {
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+      <div className="p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
+            <p className="mt-2 text-sm text-gray-500">{detail}</p>
+          </div>
+          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm ${tone}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileInfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[20px] border border-[#ecdccd] bg-[#fffaf6] px-3 py-3 text-left">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function statusText(status: Customer["status"]) {
+  return {
+    active: "Aktif",
+    inactive: "Pasif",
+    blocked: "Engelli",
+  }[status];
+}
+
 function StatusBadge({ status }: { status: Customer["status"] }) {
   const styles = {
-    active: "border-green-200 bg-green-100 text-green-700",
-    inactive: "border-gray-200 bg-gray-100 text-gray-700",
-    blocked: "border-red-200 bg-red-100 text-red-700",
+    active: "border-emerald-200 bg-emerald-100/90 text-emerald-700",
+    inactive: "border-stone-200 bg-stone-100 text-stone-700",
+    blocked: "border-rose-200 bg-rose-100/90 text-rose-700",
   };
 
   const labels = {
