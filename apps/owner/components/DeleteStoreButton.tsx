@@ -18,20 +18,22 @@ interface CleanupTargetResult {
 
 export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [confirmSlug, setConfirmSlug] = useState("");
+  const [confirmationValue, setConfirmationValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<CleanupTargetResult[]>([]);
+  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isConfirmed = useMemo(
-    () => confirmSlug.trim().toLocaleLowerCase("tr") === slug.toLocaleLowerCase("tr"),
-    [confirmSlug, slug],
+    () => confirmationValue.trim().toLocaleLowerCase("tr") === slug.toLocaleLowerCase("tr"),
+    [confirmationValue, slug],
   );
 
   function resetState() {
-    setConfirmSlug("");
+    setConfirmationValue("");
     setError(null);
     setDetails([]);
+    setCopied(false);
   }
 
   function handleClose(force = false) {
@@ -45,7 +47,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
 
   function handleDelete() {
     if (!isConfirmed) {
-      setError("Devam etmek icin proje slug bilgisini eksiksiz gir.");
+      setError("Devam etmek icin asagidaki slug bilgisini aynen gir veya tek tikla doldur.");
       return;
     }
 
@@ -60,7 +62,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            confirmSlug,
+            confirmSlug: confirmationValue,
           }),
         });
 
@@ -83,6 +85,15 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
     });
   }
 
+  async function handleCopySlug() {
+    try {
+      await navigator.clipboard.writeText(slug);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <>
       <Button variant="danger" onClick={() => setIsOpen(true)}>
@@ -100,17 +111,40 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
             <Button variant="ghost" onClick={() => handleClose()} disabled={isPending}>
               Vazgec
             </Button>
-            <Button variant="danger" onClick={handleDelete} disabled={!isConfirmed} isLoading={isPending}>
+            <Button variant="danger" onClick={handleDelete} isLoading={isPending}>
               Projeyi kalici sil
             </Button>
           </>
         }
       >
         <div className="field">
-          <span>Onay icin proje slug bilgisini yaz</span>
+          <span>Silme onayi icin bu slug bilgisini kullan</span>
+          <div className="inline-card stack-top-sm">
+            <div>
+              <strong>Slug</strong>
+              <p
+                style={{
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                  fontSize: "0.95rem",
+                  wordBreak: "break-all",
+                }}
+              >
+                {slug}
+              </p>
+            </div>
+            <div className="actions compact-actions">
+              <Button type="button" variant="ghost" onClick={() => setConfirmationValue(slug)} disabled={isPending}>
+                Slug'i doldur
+              </Button>
+              <Button type="button" variant="ghost" onClick={handleCopySlug} disabled={isPending}>
+                {copied ? "Kopyalandi" : "Kopyala"}
+              </Button>
+            </div>
+          </div>
+          <span className="stack-top-sm">Onay icin yukaridaki slug bilgisini aynen gir</span>
           <input
-            value={confirmSlug}
-            onChange={(event) => setConfirmSlug(event.target.value)}
+            value={confirmationValue}
+            onChange={(event) => setConfirmationValue(event.target.value)}
             placeholder={slug}
             autoComplete="off"
           />
