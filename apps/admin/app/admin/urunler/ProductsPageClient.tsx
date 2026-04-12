@@ -654,41 +654,9 @@ export default function ProductsPageClient({
           <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-3xl space-y-4">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                    <Package className="h-3.5 w-3.5" />
-                    Katalog Yönetimi
-                  </div>
-
-                  <div>
-                    <h1 className="text-3xl font-semibold tracking-[-0.04em] text-stone-950 md:text-[40px]">
-                      Ürünler
-                    </h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-[15px]">
-                      Ürün kataloğunu, stok sinyallerini ve vitrin görünürlüğünü tek ekranda daha net,
-                      sakin ve premium bir operasyon akışıyla yönetin.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-1.5 text-amber-800">
-                      <TrendingUp className="h-3.5 w-3.5" />
-                      {stats.total.toLocaleString("tr-TR")} ürünlük katalog
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-3 py-1.5 text-stone-700">
-                      <Filter className="h-3.5 w-3.5" />
-                      Kategori: {activeCategoryLabel}
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-3 py-1.5 text-stone-700">
-                      <ListIcon className="h-3.5 w-3.5" />
-                      Görünüm: {viewMode === "table" ? "Tablo" : "Kart"}
-                    </div>
-                    {reorderMode ? (
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/20 bg-[#FE6100]/10 px-3 py-1.5 text-[#C94E00]">
-                        <GripVertical className="h-3.5 w-3.5" />
-                        Manuel sıralama açık
-                      </div>
-                    ) : null}
+                <div className="space-y-0">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Ürünler
                   </div>
                 </div>
 

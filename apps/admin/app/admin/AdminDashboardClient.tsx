@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ElementType, ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -8,14 +8,12 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  Calendar,
   Clock,
   FileText,
   Package,
   Plus,
   RefreshCw,
   ShoppingCart,
-  Sparkles,
   TrendingUp,
   Users,
   Wifi,
@@ -89,22 +87,6 @@ const STAT_CONFIGS: StatConfig[] = [
     href: "/admin/urunler",
   },
 ];
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Günaydın";
-  if (hour < 18) return "İyi günler";
-  return "İyi akşamlar";
-}
-
-function formatDateTR(): string {
-  return new Date().toLocaleDateString("tr-TR", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function getOrderStatusColor(status: string): string {
   const colors: Record<string, string> = {
@@ -573,8 +555,6 @@ export default function AdminDashboardClient({
     };
   }, []);
 
-  const greeting = useMemo(() => getGreeting(), []);
-  const currentDate = useMemo(() => formatDateTR(), []);
   const liveDeviceTotal = liveData.devices.mobile + liveData.devices.desktop + liveData.devices.tablet;
   const topPageCount = liveData.topPages[0]?.count || 0;
   const totalAbandonedValue = Number(liveData.abandonedCarts.total || 0);
@@ -603,42 +583,9 @@ export default function AdminDashboardClient({
           >
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-3xl space-y-4">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Yönetim Merkezi
-                  </div>
-
-                  <div>
-                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-gray-950 md:text-[40px]">
-                          {greeting}, yönetim ekibi
-                        </h1>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 md:text-[15px]">
-                          Sipariş, stok ve canlı mağaza hareketlerini tek görünümde izleyin; kritik
-                          aksiyonları daha hızlı alın ve operasyon ritmini gün boyu koruyun.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-1.5 text-amber-800">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {currentDate}
-                      </div>
-                      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/50 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 text-emerald-700">
-                        <span className="relative flex h-2.5 w-2.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                        </span>
-                        Canlı izleme aktif
-                      </div>
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-gradient-to-r from-[#fff4ea] to-white px-3 py-1.5 text-[#FE6100]">
-                        <Wifi className="h-3.5 w-3.5" />
-                        {liveData.liveVisitors.toLocaleString("tr-TR")} aktif ziyaretçi
-                      </div>
-                    </div>
+                <div className="space-y-0">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Ana Sayfa
                   </div>
                 </div>
 

@@ -450,19 +450,13 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                  Ürün sihirbazı
-                </div>
-                <h1 className="text-2xl font-semibold tracking-[-0.03em] text-stone-900 md:text-[2rem]">
+                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
                   {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
-                </h1>
-                <p className="mt-1 text-sm text-stone-500">
-                  Premium katalog deneyimine uyumlu ürün kartı, içerik ve satış sunumu hazırlayın.
-                </p>
+                </div>
                 {lastSaved ? (
-                  <p className="mt-2 text-xs font-medium text-stone-500" aria-live="polite">
+                  <span className="sr-only" aria-live="polite">
                     Son kayıt: {lastSaved.toLocaleTimeString("tr-TR")}
-                  </p>
+                  </span>
                 ) : null}
               </div>
             </div>

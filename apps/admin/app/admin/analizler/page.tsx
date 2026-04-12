@@ -5,7 +5,6 @@ import type { ElementType } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  CalendarRange,
   CreditCard,
   Download,
   DollarSign,
@@ -13,7 +12,6 @@ import {
   Loader2,
   Monitor,
   ShoppingBag,
-  Sparkles,
   Tablet,
   TrendingUp,
   Users,
@@ -225,39 +223,16 @@ export default function AnalyticsPage() {
           >
             <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="space-y-4">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Analiz Merkezi
+                <div className="space-y-0">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Analizler
                   </div>
-
-                  <div className="max-w-3xl space-y-3">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-gray-950 md:text-[40px]">
-                          Analizler
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 md:text-[15px]">
-                          Gelir, dönüşüm ve canlı trafik performansınızı tek bakışta; net, güvenilir
-                          ve kullanıcı odaklı bir görünümle takip edin.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-                      <div aria-live="polite" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 px-3 py-1.5 text-amber-800">
-                        <CalendarRange className="h-3.5 w-3.5" />
-                        Son güncelleme {formatLastUpdated(lastUpdatedAt)}
-                      </div>
-                      <div aria-live="polite" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 px-3 py-1.5 text-emerald-700">
-                        <span className="relative flex h-2.5 w-2.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                        </span>
-                        Canlı akış {formatLastUpdated(lastLiveUpdatedAt)}
-                      </div>
-                    </div>
-                  </div>
+                  <span className="sr-only" aria-live="polite">
+                    Son güncelleme {formatLastUpdated(lastUpdatedAt)}
+                  </span>
+                  <span className="sr-only" aria-live="polite">
+                    Canlı akış {formatLastUpdated(lastLiveUpdatedAt)}
+                  </span>
                 </div>
 
                 <div className="flex flex-col gap-3 xl:items-end">

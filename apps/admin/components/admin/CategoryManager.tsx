@@ -22,8 +22,6 @@ import {
   Loader2,
   Save,
   FolderTree,
-  Layers3,
-  Filter,
   BadgeCheck,
 } from "lucide-react";
 import {
@@ -454,35 +452,9 @@ export default function CategoryManager() {
         <section className="overflow-hidden rounded-[32px] border border-[#f0ddd0] bg-gradient-to-br from-white via-[#fffdf9] to-[#f8f0e7] shadow-[0_28px_90px_rgba(100,62,27,0.12)]">
           <div className="border-b border-[#f2e3d6] px-6 py-6 md:px-8 md:py-7">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-              <div className="space-y-4">
-                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#ffb074]/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#c75400]">
-                  <FolderTree className="h-3.5 w-3.5" />
-                  Koleksiyon Yönetimi
-                </div>
-
-                <div className="max-w-3xl space-y-3">
-                  <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[#211610] md:text-[42px]">
-                    Koleksiyonlar
-                  </h1>
-                  <p className="max-w-2xl text-sm leading-7 text-[#715d4f] md:text-[15px]">
-                    Koleksiyon ağacını, görünürlüğü ve vitrindeki sıralamayı tek ekranda daha sakin,
-                    net ve hızlı taranabilir bir düzenle yönetin.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 text-xs font-medium text-[#7d6757]">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#eadccc] bg-white/80 px-3 py-1.5">
-                    <Layers3 className="h-3.5 w-3.5 text-[#FE6100]" />
-                    Ağaç görünümü korunur
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#eadccc] bg-white/80 px-3 py-1.5">
-                    <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
-                    Erişilebilir kontrol düzeni
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#eadccc] bg-white/80 px-3 py-1.5">
-                    <Filter className="h-3.5 w-3.5 text-[#b86b2f]" />
-                    Premium liste tarama deneyimi
-                  </span>
+              <div className="space-y-0">
+                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#ffb074]/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#c75400]">
+                  Koleksiyonlar
                 </div>
               </div>
 

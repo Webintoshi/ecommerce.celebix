@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Activity, CheckCircle2, Clock3, MessageSquare, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, MessageSquare, XCircle } from "lucide-react";
 import { ProductReviewsManager } from "@/components/admin/product-reviews/ProductReviewsManager";
 import { listAdminProductReviews } from "@/lib/product-reviews";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -41,35 +41,9 @@ export default async function ProductReviewsPage() {
           <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-3xl space-y-4">
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    Yorum Moderasyonu
-                  </div>
-
-                  <div>
-                    <h1 className="text-3xl font-semibold tracking-[-0.04em] text-stone-950 md:text-[40px]">
-                      Ürün Yorumları
-                    </h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-[15px]">
-                      Müşteri yorumlarını tek moderasyon yüzeyinde inceleyin; bekleyen kayıtları hızla yönetin,
-                      yayındaki içerikleri kontrol edin ve sorunlu yorumları güvenli biçimde ayıklayın.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-1.5 text-amber-800">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {counts.pending.toLocaleString("tr-TR")} yorum moderasyon bekliyor
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-gradient-to-r from-[#fff4ea] to-white px-3 py-1.5 text-[#C94E00]">
-                      <Activity className="h-3.5 w-3.5" />
-                      {counts.all.toLocaleString("tr-TR")} toplam yorum kaydı
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5 text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {counts.approved.toLocaleString("tr-TR")} yorum yayında
-                    </div>
+                <div className="space-y-0">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    Ürün Yorumları
                   </div>
                 </div>
               </div>
