@@ -4,6 +4,7 @@ import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
+import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
@@ -457,6 +458,20 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="card section-tight">
             <div className="card-title">Bu Projeye Affiliate Ata</div>
             <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
+          </div>
+
+          <div className="card section-tight surface-alert">
+            <div className="section-head">
+              <div>
+                <div className="card-title">Tehlikeli Islem</div>
+                <p className="section-copy">
+                  Bu proje silindiginde owner kaydi, deploymentlar, Supabase, R2 ve generated storefront izleri temizlenir.
+                </p>
+              </div>
+            </div>
+            <div className="actions">
+              <DeleteStoreButton slug={store.slug} name={store.name} />
+            </div>
           </div>
         </>
       ) : null}

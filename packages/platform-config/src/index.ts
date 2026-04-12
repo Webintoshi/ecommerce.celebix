@@ -200,6 +200,16 @@ export interface StorefrontRepoSyncUpdateInput {
   lastError?: string;
 }
 
+export interface RemoveStoreArtifactsInput {
+  storefrontAppDir?: string | null;
+}
+
+export interface RemoveStoreArtifactsResult {
+  updatedPaths: string[];
+  removedPaths: string[];
+  skippedPaths: string[];
+}
+
 function findRepoRoot(startDirectory = process.cwd()): string {
   const attempted = new Set<string>();
   const candidates = [
@@ -449,6 +459,11 @@ function getStoreConfigPath(slug: string): string {
   return path.join(getStoreDirectory(slug), "store.config.json");
 }
 
+function isSafeRepoChild(repoRoot: string, targetPath: string): boolean {
+  const relativePath = path.relative(repoRoot, targetPath);
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
+}
+
 export function getRepoRoot(): string {
   return findRepoRoot();
 }
@@ -465,6 +480,64 @@ export function getStoreConfig(slug: string): StoreConfig | null {
   }
 
   return normalizeStoreConfig(readJsonFile<StoreConfig>(configPath));
+}
+
+export function removeStoreArtifacts(
+  slug: string,
+  input: RemoveStoreArtifactsInput = {},
+): RemoveStoreArtifactsResult {
+  const repoRoot = getRepoRoot();
+  const registryPath = path.join(repoRoot, "stores", "registry.json");
+  const storeDirectory = getStoreDirectory(slug);
+  const removedPaths: string[] = [];
+  const updatedPaths: string[] = [];
+  const skippedPaths: string[] = [];
+
+  if (fs.existsSync(registryPath)) {
+    const registry = getStores();
+    const nextRegistry = registry.filter((entry) => entry.slug !== slug);
+
+    if (nextRegistry.length !== registry.length) {
+      writeJsonFile(registryPath, nextRegistry);
+      updatedPaths.push("stores/registry.json");
+    }
+  }
+
+  if (fs.existsSync(storeDirectory)) {
+    if (!isSafeRepoChild(repoRoot, storeDirectory)) {
+      skippedPaths.push(path.relative(repoRoot, storeDirectory).replace(/\\/g, "/"));
+    } else {
+      fs.rmSync(storeDirectory, { recursive: true, force: true });
+      removedPaths.push(path.relative(repoRoot, storeDirectory).replace(/\\/g, "/"));
+    }
+  }
+
+  const configuredAppDir = input.storefrontAppDir?.trim() || getStoreConfig(slug)?.storefront?.appDir?.trim() || "";
+
+  if (configuredAppDir) {
+    const normalizedAppDir = configuredAppDir.replace(/^[/\\]+/, "");
+    const absoluteAppDir = path.resolve(repoRoot, normalizedAppDir);
+    const expectedBasename = `storefront-${slug}`;
+    const relativeAppDir = path.relative(repoRoot, absoluteAppDir).replace(/\\/g, "/");
+
+    const safeAppDir =
+      isSafeRepoChild(repoRoot, absoluteAppDir) &&
+      relativeAppDir.startsWith("apps/") &&
+      path.basename(absoluteAppDir) === expectedBasename;
+
+    if (!safeAppDir) {
+      skippedPaths.push(relativeAppDir || normalizedAppDir);
+    } else if (fs.existsSync(absoluteAppDir)) {
+      fs.rmSync(absoluteAppDir, { recursive: true, force: true });
+      removedPaths.push(relativeAppDir);
+    }
+  }
+
+  return {
+    updatedPaths,
+    removedPaths,
+    skippedPaths,
+  };
 }
 
 export function requireStoreConfig(slug: string): StoreConfig {

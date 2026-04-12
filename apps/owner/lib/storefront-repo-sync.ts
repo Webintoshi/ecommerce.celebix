@@ -18,6 +18,16 @@ export interface StorefrontRepoSyncResult {
   committedPaths: string[];
 }
 
+export interface StorefrontRepoDeleteResult {
+  repository: string;
+  branch: string;
+  status: "deleted" | "missing" | "failed" | "skipped";
+  commitSha: string | null;
+  deletedAt: string | null;
+  message: string | null;
+  deletedPaths: string[];
+}
+
 interface GitHubRefResponse {
   object?: {
     sha?: string;
@@ -165,6 +175,15 @@ function collectFilesRecursively(directory: string): string[] {
   return files;
 }
 
+function normalizeRelativeAppDir(value: string | null | undefined, slug: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return `apps/storefront-${slug}`;
+  }
+
+  return trimmed.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
 function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
   const repoRoot = getRepoRoot();
   const store = requireStoreConfig(slug);
@@ -213,6 +232,176 @@ export function isGitHubRepoSyncConfigured(): boolean {
         process.env.COOLIFY_APPLICATION_REPOSITORY_URL?.trim() ||
         process.env.CELEBIX_GIT_REPOSITORY?.trim()),
   );
+}
+
+export async function deleteStorefrontRepoForStore(
+  slug: string,
+  options: { storefrontAppDir?: string | null } = {},
+): Promise<StorefrontRepoDeleteResult> {
+  const repository = getGitHubRepository();
+  const branch = getGitHubBranch();
+  const deletedAt = new Date().toISOString();
+
+  if (!isGitHubRepoSyncConfigured()) {
+    return {
+      repository,
+      branch,
+      status: "skipped",
+      commitSha: null,
+      deletedAt,
+      message: "GitHub repo write-back ayari tanimli olmadigi icin remote cleanup atlandi.",
+      deletedPaths: [],
+    };
+  }
+
+  try {
+    const repoRoot = getRepoRoot();
+    const relativeAppDir = normalizeRelativeAppDir(options.storefrontAppDir, slug);
+    const ref = await githubFetch<GitHubRefResponse>(
+      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
+    );
+    const headSha = ref.object?.sha;
+
+    if (!headSha) {
+      throw new Error("GitHub branch referansi okunamadi.");
+    }
+
+    const headCommit = await githubFetch<GitHubCommitResponse>(
+      `/repos/${repository}/git/commits/${headSha}`,
+    );
+    const baseTreeSha = headCommit.tree?.sha;
+
+    if (!baseTreeSha) {
+      throw new Error("GitHub base tree okunamadi.");
+    }
+
+    const tree = await githubFetch<GitHubTreeResponse>(
+      `/repos/${repository}/git/trees/${baseTreeSha}?recursive=1`,
+    );
+    const currentPaths = new Set(
+      (tree.tree ?? [])
+        .filter((entry) => entry.type === "blob" && typeof entry.path === "string")
+        .map((entry) => entry.path as string),
+    );
+    const deletedPaths = Array.from(currentPaths).filter(
+      (entryPath) =>
+        entryPath.startsWith(`stores/${slug}/`) ||
+        entryPath.startsWith(`${relativeAppDir}/`),
+    );
+
+    const registryPath = path.join(repoRoot, "stores", "registry.json");
+    const treeEntries: Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string | null;
+    }> = [];
+
+    if (fs.existsSync(registryPath)) {
+      const registryBlob = await githubFetch<GitHubBlobResponse>(`/repos/${repository}/git/blobs`, {
+        method: "POST",
+        body: JSON.stringify({
+          content: fs.readFileSync(registryPath).toString("base64"),
+          encoding: "base64",
+        }),
+      });
+
+      if (!registryBlob.sha) {
+        throw new Error("GitHub registry blob SHA donmedi.");
+      }
+
+      treeEntries.push({
+        path: "stores/registry.json",
+        mode: "100644",
+        type: "blob",
+        sha: registryBlob.sha,
+      });
+    }
+
+    for (const entryPath of deletedPaths) {
+      treeEntries.push({
+        path: entryPath,
+        mode: "100644",
+        type: "blob",
+        sha: null,
+      });
+    }
+
+    if (treeEntries.length === 0) {
+      return {
+        repository,
+        branch,
+        status: "missing",
+        commitSha: null,
+        deletedAt,
+        message: "Remote repoda silinecek store artifact bulunamadi.",
+        deletedPaths: [],
+      };
+    }
+
+    const nextTree = await githubFetch<GitHubTreeResponse>(`/repos/${repository}/git/trees`, {
+      method: "POST",
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries,
+      }),
+    });
+
+    if (!nextTree.sha) {
+      throw new Error("GitHub silme tree SHA donmedi.");
+    }
+
+    const commit = await githubFetch<GitHubCreateCommitResponse>(`/repos/${repository}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: `chore: remove store scaffold for ${slug}`,
+        tree: nextTree.sha,
+        parents: [headSha],
+        author: {
+          name: getCommitterName(),
+          email: getCommitterEmail(),
+          date: deletedAt,
+        },
+        committer: {
+          name: getCommitterName(),
+          email: getCommitterEmail(),
+          date: deletedAt,
+        },
+      }),
+    });
+
+    if (!commit.sha) {
+      throw new Error("GitHub silme commit SHA donmedi.");
+    }
+
+    await githubFetch(`/repos/${repository}/git/refs/heads/${encodeURIComponent(branch)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        sha: commit.sha,
+        force: false,
+      }),
+    });
+
+    return {
+      repository,
+      branch,
+      status: "deleted",
+      commitSha: commit.sha,
+      deletedAt,
+      message: `${deletedPaths.length} dosya remote repodan kaldirildi.`,
+      deletedPaths,
+    };
+  } catch (error) {
+    return {
+      repository,
+      branch,
+      status: "failed",
+      commitSha: null,
+      deletedAt,
+      message: error instanceof Error ? error.message : "Storefront repo cleanup basarisiz oldu.",
+      deletedPaths: [],
+    };
+  }
 }
 
 export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boolean> {
