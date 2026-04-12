@@ -236,7 +236,7 @@ function LoadingState() {
     <div className="space-y-3 p-5 md:p-6">
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="animate-pulse rounded-[26px] border border-[#FE6100]/8 bg-white/80 p-5">
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.45fr] xl:items-center">
+          <div className="grid gap-4 2xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.45fr] 2xl:items-center">
             <div className="space-y-3">
               <div className="h-4 w-40 rounded-full bg-gray-200" />
               <div className="h-3 w-56 rounded-full bg-gray-100" />
@@ -444,7 +444,7 @@ export default function AbandonedCartsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 2xl:grid-cols-4">
               <HeroMetric
                 label="Son 24 Saatte Terk"
                 value={safeStats.last24h.abandoned.toLocaleString("tr-TR")}
@@ -468,7 +468,7 @@ export default function AbandonedCartsPage() {
             </div>
           </motion.section>
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
             <MetricCard
               title="Toplam sepet"
               value={safeStats.total.toLocaleString("tr-TR")}
@@ -516,7 +516,7 @@ export default function AbandonedCartsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.3fr)_minmax(220px,0.3fr)_minmax(240px,0.34fr)]">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.3fr)_minmax(220px,0.3fr)_minmax(240px,0.34fr)]">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -746,7 +746,7 @@ export default function AbandonedCartsPage() {
                       </div>
 
                       <div className="p-5 md:p-6">
-                        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr_0.95fr]">
+                        <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1.2fr_0.8fr_0.95fr]">
                           <div className="space-y-4">
                             <div>
                               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
@@ -827,7 +827,7 @@ export default function AbandonedCartsPage() {
                                 {cart.items.length} ürün
                               </span>
                             </div>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-1">
                               {previewItems.map((item: AbandonedCartItem) => (
                                 <div key={item.id} className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white p-3 shadow-sm">
                                   <div className="h-14 w-14 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
@@ -909,7 +909,7 @@ export default function AbandonedCartsPage() {
             </div>
 
             <div className="space-y-8 p-6 md:p-7">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
                 <div className="rounded-[24px] border border-[#FE6100]/15 bg-gradient-to-br from-[#fff3e9] to-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Sepet toplamı</p>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">

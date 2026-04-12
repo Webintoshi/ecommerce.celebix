@@ -308,7 +308,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Header metrics with warm backgrounds */}
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               <HeaderMetric
                 label="Canlı ziyaretçi"
                 value={liveVisitors.toLocaleString("tr-TR")}
@@ -332,7 +332,7 @@ export default function AnalyticsPage() {
                 value={addToCartCount.toLocaleString("tr-TR")}
                 hint="Son 24 saat"
                 tone="burgundy"
-                className="md:col-span-3 xl:col-span-1"
+                className="md:col-span-2 xl:col-span-3 2xl:col-span-1"
               />
             </div>
           </motion.section>
@@ -349,7 +349,7 @@ export default function AnalyticsPage() {
           ) : null}
 
           {/* KPI Cards with color accents */}
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
             <KpiCard
               index={0}
               title="Toplam gelir"
@@ -389,7 +389,7 @@ export default function AnalyticsPage() {
           </section>
 
           {/* Main content grid */}
-          <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.95fr)]">
+          <section className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.95fr)]">
             <RevenueCard
               loading={loading}
               trendData={trendData}
@@ -397,7 +397,7 @@ export default function AnalyticsPage() {
               selectedPeriod={selectedPeriod}
             />
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 2xl:grid-cols-1">
               <LiveSnapshotCard
                 liveVisitors={liveVisitors}
                 liveData={liveData}
@@ -784,7 +784,7 @@ function LiveSnapshotCard({
         </div>
 
         {/* Device breakdown */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {devices.map((device) => {
             const Icon = device.icon;
             const ratio = liveDeviceTotal > 0 ? (device.value / liveDeviceTotal) * 100 : 0;
@@ -807,7 +807,7 @@ function LiveSnapshotCard({
         </div>
 
         {/* Mini stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <MiniStat title="Sayfa görüntüleme" value={pageViewCount.toLocaleString("tr-TR")} icon={Eye} tone="amber" />
           <MiniStat title="Sepete ekleme" value={addToCartCount.toLocaleString("tr-TR")} icon={CreditCard} tone="emerald" />
         </div>

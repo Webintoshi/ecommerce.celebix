@@ -70,7 +70,7 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
       </div>
 
       <div className="space-y-5 p-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-[24px] border border-rose-200/60 bg-gradient-to-br from-rose-50 via-pink-50/70 to-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
               Terk Edilen Sepet

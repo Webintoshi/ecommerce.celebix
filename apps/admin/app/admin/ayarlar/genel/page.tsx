@@ -628,10 +628,36 @@ export default function GeneralSettingsPage() {
         </div>
       </div>
 
+      <div className="border-b border-gray-100 bg-white/70 px-4 py-3 backdrop-blur-sm 2xl:hidden md:px-6">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {[
+            { id: "brand", label: "Marka" },
+            { id: "contact", label: "Iletisim" },
+            { id: "floating-contact", label: "Floating Iletisim" },
+            { id: "region", label: "Sosyal ve Bolge" },
+            { id: "announcement", label: "Duyuru" },
+            { id: "typography", label: "Yazi Tipleri" },
+          ].map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => scrollToSection(section.id)}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                activeSection === section.id
+                  ? "bg-neutral-900 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Two Column Layout */}
       <div className="flex">
         {/* Left Sidebar Navigation */}
-        <aside className="w-64 sticky top-[73px] h-[calc(100vh-73px)] border-r border-gray-100 bg-white/50 backdrop-blur-sm p-4 overflow-y-auto hidden lg:block">
+        <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-60 overflow-y-auto border-r border-gray-100 bg-white/50 p-4 backdrop-blur-sm 2xl:block">
           <nav className="space-y-1">
             <NavItem
               icon={Store}
@@ -673,13 +699,13 @@ export default function GeneralSettingsPage() {
         </aside>
 
         {/* Main Content - Two Column Grid */}
-        <main className="flex-1 p-6">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <main className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5 xl:px-7">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-5 2xl:grid-cols-2">
             {/* Brand Card - Spans 2 cols */}
-            <div className="xl:col-span-2">
+            <div className="2xl:col-span-2">
               <Card title="Marka Bilgileri" icon={Store} id="brand">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2 flex gap-4">
+                  <div className="flex flex-col gap-4 md:col-span-2 lg:flex-row">
                     {/* Logo Upload */}
                     <div className="flex-shrink-0">
                       <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
@@ -836,7 +862,7 @@ export default function GeneralSettingsPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_1fr]">
                   <Select
                     label="Konum"
                     name="floatingContactPosition"
@@ -984,7 +1010,7 @@ export default function GeneralSettingsPage() {
             </Card>
 
             {/* Announcement Card - Full Width */}
-            <div className="xl:col-span-2">
+            <div className="2xl:col-span-2">
               <Card title="Üst Bar Duyurusu" icon={Bell} id="announcement">
                 <div className="flex items-center gap-3 mb-4">
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -1004,7 +1030,7 @@ export default function GeneralSettingsPage() {
 
                 {announcementData.enabled && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                     <div className="md:col-span-2">
                       <TextArea
                         label="Duyuru Metni"
@@ -1095,10 +1121,10 @@ export default function GeneralSettingsPage() {
             </div>
 
             {/* Typography Card - Full Width */}
-            <div className="xl:col-span-2">
+            <div className="2xl:col-span-2">
               <Card title="Yazı Tipleri" icon={Type} id="typography">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="md:col-span-2 xl:col-span-2">
                     <TypographyFontPicker
                       label="Başlık Fontu"
                       value={typography.headingFont}
@@ -1106,7 +1132,7 @@ export default function GeneralSettingsPage() {
                       catalog={fontCatalog}
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-2 xl:col-span-2">
                     <TypographyFontPicker
                       label="Metin Fontu"
                       value={typography.bodyFont}

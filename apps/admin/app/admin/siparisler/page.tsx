@@ -216,7 +216,7 @@ function OrdersLoadingState() {
           key={index}
           className="animate-pulse rounded-[24px] border border-[#FE6100]/8 bg-white/80 p-5"
         >
-          <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] xl:items-center">
+          <div className="flex flex-col gap-4 2xl:grid 2xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] 2xl:items-center">
             <div className="space-y-3">
               <div className="h-4 w-32 rounded-full bg-gray-200" />
               <div className="h-3 w-48 rounded-full bg-gray-100" />
@@ -421,7 +421,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 2xl:grid-cols-4">
               <SummaryCard
                 label="Toplam Sipariş"
                 value={stats.total.toLocaleString("tr-TR")}
@@ -461,7 +461,7 @@ export default function OrdersPage() {
             </motion.div>
           ) : null}
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
             <StatsCard
               title="Toplam sipariş"
               value={stats.total.toLocaleString("tr-TR")}
@@ -508,7 +508,7 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(240px,0.35fr)]">
+              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(240px,0.35fr)]">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -604,7 +604,7 @@ export default function OrdersPage() {
               <OrdersLoadingState />
             ) : paginatedOrders.length > 0 ? (
               <>
-                <div className="hidden border-b border-[#FE6100]/8 bg-[#fff8f3]/80 px-6 py-3 xl:grid xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] xl:gap-4">
+                <div className="hidden border-b border-[#FE6100]/8 bg-[#fff8f3]/80 px-6 py-3 2xl:grid 2xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] 2xl:gap-4">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Sipariş / Müşteri</span>
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Durum</span>
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Teslimat / Ürün</span>
@@ -627,7 +627,7 @@ export default function OrdersPage() {
                         transition={{ duration: 0.25, ease: ANIMATION_EASE }}
                         className="rounded-[26px] border border-white/70 bg-white/80 p-5 shadow-sm transition-all duration-200 hover:border-[#FE6100]/12 hover:bg-white hover:shadow-[0_18px_35px_rgba(254,97,0,0.08)]"
                       >
-                        <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] xl:items-center xl:gap-4">
+                        <div className="flex flex-col gap-5 2xl:grid 2xl:grid-cols-[1.25fr_0.8fr_0.95fr_0.6fr_0.3fr] 2xl:items-center 2xl:gap-4">
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
                               <Link

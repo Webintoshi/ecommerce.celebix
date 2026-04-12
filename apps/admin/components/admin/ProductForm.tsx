@@ -520,9 +520,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <form onSubmit={handleSubmit} className="container mx-auto px-6 py-12 max-w-7xl">
+      <form onSubmit={handleSubmit} className="container mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10 2xl:px-8 2xl:py-12">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+        <div className="mb-10 flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
           <div className="space-y-2">
             <Link
               href="/admin/urunler"
@@ -539,7 +539,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/admin/urunler"
               className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
@@ -566,8 +566,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-          <div className="xl:col-span-8 space-y-10">
+        <div className="grid grid-cols-1 gap-8 2xl:grid-cols-12 2xl:gap-10">
+          <div className="space-y-8 2xl:col-span-8 2xl:space-y-10">
 
             {/* Basic Information Section */}
             <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
@@ -924,7 +924,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
           </div>
 
           {/* Sidebar Section */}
-          <div className="xl:col-span-4 space-y-10">
+          <div className="space-y-8 2xl:col-span-4 2xl:space-y-10">
             {/* Status & Properties */}
             <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
               <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">

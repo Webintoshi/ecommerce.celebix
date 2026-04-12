@@ -735,7 +735,7 @@ export default function ProductsPageClient({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 2xl:grid-cols-4">
               {[
                 {
                   label: "Görünen ürün",
@@ -788,7 +788,7 @@ export default function ProductsPageClient({
             ) : null}
           </div>
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             {[
               {
                 label: "Toplam ürün",
@@ -885,7 +885,7 @@ export default function ProductsPageClient({
                   </div>
                 </div>
 
-                <div className="grid w-full gap-3 md:grid-cols-2 xl:w-auto xl:min-w-[680px] xl:grid-cols-[minmax(240px,1.2fr)_180px_220px_auto]">
+                <div className="grid w-full gap-3 md:grid-cols-2 2xl:w-auto 2xl:min-w-[680px] 2xl:grid-cols-[minmax(240px,1.2fr)_180px_220px_auto]">
                   <label className="relative block">
                     <span className="sr-only">Ürün ara</span>
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
@@ -960,7 +960,7 @@ export default function ProductsPageClient({
                   <div
                     role="group"
                     aria-label="Ürün görünüm modu"
-                    className="inline-flex w-full items-center gap-1 rounded-[22px] border border-stone-200 bg-[#f7f1eb] p-1.5 shadow-inner xl:w-auto xl:justify-self-end"
+                    className="inline-flex w-full items-center gap-1 rounded-[22px] border border-stone-200 bg-[#f7f1eb] p-1.5 shadow-inner 2xl:w-auto 2xl:justify-self-end"
                   >
                     <button
                       type="button"
@@ -1079,7 +1079,7 @@ export default function ProductsPageClient({
                       key={index}
                       className="animate-pulse rounded-[26px] border border-[#FE6100]/8 bg-white/80 p-5"
                     >
-                      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.85fr_0.65fr_0.75fr_0.45fr] lg:items-center">
+                      <div className="grid gap-4 2xl:grid-cols-[1.3fr_0.85fr_0.65fr_0.75fr_0.45fr] 2xl:items-center">
                         <div className="flex items-center gap-4">
                           <div className="h-16 w-16 rounded-2xl bg-stone-100" />
                           <div className="space-y-3">
@@ -1149,7 +1149,7 @@ export default function ProductsPageClient({
               ) : null}
 
               {sortedProducts.length > 0 && viewMode === "grid" ? (
-                <div className={cn("grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4", loading ? "opacity-70" : "")}>
+                <div className={cn("grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 min-[1800px]:grid-cols-4", loading ? "opacity-70" : "")}>
                   {sortedProducts.map((product) => {
                     const primaryVariant = getPrimaryVariant(product);
                     const stockMeta = getStockMeta(primaryVariant.stock);

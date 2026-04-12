@@ -129,7 +129,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {deviceStats.map((device) => {
             const ratio = totalDevices > 0 ? (device.value / totalDevices) * 100 : 0;
             const Icon = device.icon;
@@ -154,7 +154,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-[22px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
               <Activity className="h-5 w-5" />

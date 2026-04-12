@@ -53,7 +53,9 @@ export default function AdminLayoutClient({
     >
       <AdminClientBoundary
         name="AdminSidebar"
-        fallback={<div className="hidden h-screen w-64 shrink-0 border-l border-gray-200 bg-[#ebebeb] md:block" />}
+        fallback={
+          <div className="hidden h-screen w-56 shrink-0 border-l border-gray-200 bg-[#ebebeb] xl:block 2xl:w-64" />
+        }
       >
         <AdminSidebar
           isOpen={isSidebarOpen}
@@ -62,8 +64,10 @@ export default function AdminLayoutClient({
         />
       </AdminClientBoundary>
 
-      <main className="flex-1 overflow-y-auto h-screen">
-        <div className="p-4 md:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
+      <main className="min-w-0 flex-1 overflow-y-auto h-screen">
+        <div className="px-4 py-4 pb-24 md:px-5 md:py-5 md:pb-8 xl:px-6 xl:py-6 2xl:px-8 2xl:py-8">
+          {children}
+        </div>
       </main>
 
       {isMobile ? (

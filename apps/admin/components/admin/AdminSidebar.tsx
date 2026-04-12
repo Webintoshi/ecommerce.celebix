@@ -250,10 +250,12 @@ export function AdminSidebar({
       <aside
         className={cn(
           "bg-[#ebebeb] border-l border-gray-200 flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
-          isMobile ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-80 right-0 left-auto` : "w-64",
+          isMobile
+            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-80 right-0 left-auto`
+            : "w-56 shrink-0 xl:w-60 2xl:w-64",
         )}
       >
-        <div className="p-4 flex items-center gap-3 border-b border-gray-200/50">
+        <div className="flex items-center gap-3 border-b border-gray-200/50 p-4 xl:px-4 2xl:px-5">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
             <Image
               src={ADMIN_BRAND_LOGO_SRC}
@@ -266,7 +268,9 @@ export function AdminSidebar({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="font-semibold text-gray-900 block leading-tight text-sm">{STORE_RUNTIME.name} Admin</span>
+            <span className="block break-words text-sm font-semibold leading-snug text-gray-900">
+              {STORE_RUNTIME.name} Admin
+            </span>
             <span className="text-xs text-gray-500 font-medium truncate block">
               {userName || userEmail || "Admin Kullanıcı"}
             </span>
@@ -301,10 +305,10 @@ export function AdminSidebar({
                     }
                   }}
                 >
-                  <Link href={item.href} onClick={handleLinkClick} className="flex items-center gap-3 flex-1">
-                    <item.icon className="w-5 h-5 opacity-70" />
-                    <span>{item.title}</span>
-                  </Link>
+                    <Link href={item.href} onClick={handleLinkClick} className="flex min-w-0 flex-1 items-center gap-3">
+                      <item.icon className="w-5 h-5 opacity-70" />
+                      <span className="min-w-0 truncate leading-snug">{item.title}</span>
+                    </Link>
 
                   <div className="flex items-center gap-2">
                     {item.badge ? (
@@ -321,7 +325,7 @@ export function AdminSidebar({
                 </div>
 
                 {hasSubmenu && isExpanded && (
-                  <div className="mt-1 ml-9 space-y-0.5">
+                  <div className="mt-1 ml-8 space-y-0.5">
                     {item.submenu?.map((sub) => {
                       const isSubActive = pathname === sub.href;
                       return (
@@ -330,7 +334,7 @@ export function AdminSidebar({
                           href={sub.href}
                           onClick={handleLinkClick}
                           className={cn(
-                            "block px-3 py-2 rounded-md text-sm transition-colors",
+                            "block rounded-md px-3 py-2 text-[13px] leading-5 transition-colors break-words",
                             isSubActive
                               ? "text-gray-900 font-medium bg-gray-200/50"
                               : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",

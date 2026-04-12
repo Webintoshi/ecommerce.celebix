@@ -291,7 +291,7 @@ function QuickActions() {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
       {actions.map((action, index) => (
         <motion.div
           key={action.label}
@@ -667,7 +667,7 @@ export default function AdminDashboardClient({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 2xl:grid-cols-4">
               <HeroMetric
                 label="Canlı Ziyaretçi"
                 value={liveData.liveVisitors.toLocaleString("tr-TR")}
@@ -711,7 +711,7 @@ export default function AdminDashboardClient({
             </motion.div>
           ) : null}
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             {STAT_CONFIGS.map((config, index) => (
               <StatCard key={config.key} config={config} value={stats[config.key]} index={index} />
             ))}
@@ -721,7 +721,7 @@ export default function AdminDashboardClient({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.35, ease: ANIMATION_CONFIG.ease }}
-            className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3"
           >
             <LiveVisitors data={liveData} />
             <AbandonedCartsWidget data={liveData} />
@@ -732,7 +732,7 @@ export default function AdminDashboardClient({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.45, ease: ANIMATION_CONFIG.ease }}
-            className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]"
+            className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]"
           >
             <div className="space-y-6">
               <RecentOrdersCard orders={recentOrders} />

@@ -321,7 +321,7 @@ export default function EmailMarketingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-8 space-y-8">
+    <div className="min-h-screen space-y-8 bg-[#F8F9FA] p-4 md:p-6 xl:p-7 2xl:p-8">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest">
@@ -363,7 +363,7 @@ export default function EmailMarketingPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-6">
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[420px_minmax(0,1fr)]">
         <section className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -524,7 +524,7 @@ export default function EmailMarketingPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+          <div className="grid grid-cols-1 gap-6 border-t border-gray-100 pt-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-4">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div>
