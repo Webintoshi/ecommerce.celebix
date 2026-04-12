@@ -13,7 +13,7 @@ const LOGO_PATHS: Record<string, string> = {
   hepsiburada: "/marketplace-logos/hepsiburada.png",
   n11: "/marketplace-logos/n11.png",
   amazon_tr: "/marketplace-logos/amazon-tr.png",
-  google_merchant: "/marketplace-logos/google-merchant.png",
+  google_merchant: "/marketplace-logos/google-merchant.svg",
 };
 
 // Placeholder component
