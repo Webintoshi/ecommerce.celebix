@@ -79,6 +79,173 @@ const DEMO_REVIEWS = [
   },
 ] as const;
 
+function buildFallbackSourceCategories() {
+  return [
+    {
+      id: "starter-cat-wallet",
+      name: "Cuzdan & Kartlik",
+      slug: "cuzdan-kartlik",
+      description: "Gunluk tasinabilir premium deri seckileri.",
+      image: "/placeholders/promo-banner-1.svg",
+      sort_order: 1,
+    },
+    {
+      id: "starter-cat-apple-watch",
+      name: "Apple Watch Kayislari",
+      slug: "apple-watch-saat-kayislari",
+      description: "Akilli saat uyumlu premium kayis koleksiyonu.",
+      image: "/placeholders/promo-banner-2.svg",
+      sort_order: 2,
+    },
+    {
+      id: "starter-cat-watch",
+      name: "Saat Kayislari",
+      slug: "saat-kayislari",
+      description: "Klasik saatler icin secilen premium seri.",
+      image: "/placeholders/promo-banner-3.svg",
+      sort_order: 3,
+    },
+    {
+      id: "starter-cat-bag",
+      name: "Canta & Organizer",
+      slug: "canta-organizer",
+      description: "Gundelik duzen icin premium organizer urunleri.",
+      image: "/placeholders/promo-banner-1.svg",
+      sort_order: 4,
+    },
+    {
+      id: "starter-cat-accessory",
+      name: "Aksesuar",
+      slug: "aksesuar",
+      description: "Marka vitrini icin tamamlayici urunler.",
+      image: "/placeholders/promo-banner-2.svg",
+      sort_order: 5,
+    },
+    {
+      id: "starter-cat-life",
+      name: "Gunluk Yasam",
+      slug: "gunluk-yasam",
+      description: "Gundelik kullanimda premium detaylar.",
+      image: "/placeholders/promo-banner-3.svg",
+      sort_order: 6,
+    },
+  ] satisfies JsonRecord[];
+}
+
+function buildFallbackSourceProducts(store: StoreConfig) {
+  return [
+    {
+      id: "starter-product-1",
+      name: `${store.name} Minimal Kartlik`,
+      slug: "minimal-kartlik",
+      short_description: "Gundelik kullanim icin ince profil kartlik.",
+      description: "Hazir starter magazada kullanilan premium demo kartlik urunudur.",
+      images: ["/placeholders/promo-banner-1.svg"],
+      images_v2: [{ url: "/placeholders/promo-banner-1.svg", alt: `${store.name} Minimal Kartlik`, is_primary: true, sort_order: 0 }],
+      category: "cuzdan-kartlik",
+      subcategory: "cuzdan-kartlik",
+      tags: ["kartlik", "minimal"],
+      is_featured: true,
+      is_bestseller: true,
+      is_active: true,
+      rating: 5,
+      review_count: 0,
+      status: "published",
+      published_at: new Date().toISOString(),
+      tax_rate: 10,
+      brand: store.name,
+      country_of_origin: "Turkiye",
+      variants: [
+        {
+          id: "starter-variant-1",
+          name: "Taba",
+          sku: "STARTER-1-TABA",
+          price: 1290,
+          stock: 12,
+          weight: "1",
+          unit: "adet",
+          images: ["/placeholders/promo-banner-1.svg"],
+          attributes: [
+            { attributeId: "color", attributeName: "Renk", valueId: "taba", value: "Taba", displayOrder: 0 },
+          ],
+        },
+      ],
+    },
+    {
+      id: "starter-product-2",
+      name: `${store.name} Apple Watch Kayisi`,
+      slug: "apple-watch-kayisi",
+      short_description: "Apple Watch uyumlu premium deri kayis.",
+      description: "Starter vitrinde otomatik gelen premium kayis ornegidir.",
+      images: ["/placeholders/promo-banner-2.svg"],
+      images_v2: [{ url: "/placeholders/promo-banner-2.svg", alt: `${store.name} Apple Watch Kayisi`, is_primary: true, sort_order: 0 }],
+      category: "apple-watch-saat-kayislari",
+      subcategory: "apple-watch-saat-kayislari",
+      tags: ["apple watch", "kayis"],
+      is_featured: true,
+      is_active: true,
+      rating: 5,
+      review_count: 0,
+      status: "published",
+      published_at: new Date().toISOString(),
+      tax_rate: 10,
+      brand: store.name,
+      country_of_origin: "Turkiye",
+      variants: [
+        {
+          id: "starter-variant-2",
+          name: "Siyah",
+          sku: "STARTER-2-SIYAH",
+          price: 1790,
+          stock: 8,
+          weight: "1",
+          unit: "adet",
+          images: ["/placeholders/promo-banner-2.svg"],
+          attributes: [
+            { attributeId: "color", attributeName: "Renk", valueId: "siyah", value: "Siyah", displayOrder: 0 },
+          ],
+        },
+      ],
+    },
+    {
+      id: "starter-product-3",
+      name: `${store.name} Organizer Canta`,
+      slug: "organizer-canta",
+      short_description: "Masaustu ve gunluk tasima icin organizer model.",
+      description: "Starter magazaya dolu gorunmesi icin eklenen premium organizer ornegidir.",
+      images: ["/placeholders/promo-banner-3.svg"],
+      images_v2: [{ url: "/placeholders/promo-banner-3.svg", alt: `${store.name} Organizer Canta`, is_primary: true, sort_order: 0 }],
+      category: "canta-organizer",
+      subcategory: "canta-organizer",
+      tags: ["organizer", "canta"],
+      is_featured: false,
+      is_active: true,
+      rating: 4.8,
+      review_count: 0,
+      status: "published",
+      published_at: new Date().toISOString(),
+      tax_rate: 10,
+      brand: store.name,
+      country_of_origin: "Turkiye",
+      variants: [
+        {
+          id: "starter-variant-3",
+          name: "Kahve",
+          sku: "STARTER-3-KAHVE",
+          price: 2390,
+          stock: 5,
+          weight: "1",
+          unit: "adet",
+          images: ["/placeholders/promo-banner-3.svg"],
+          attributes: [
+            { attributeId: "color", attributeName: "Renk", valueId: "kahve", value: "Kahve", displayOrder: 0 },
+          ],
+        },
+      ],
+    },
+  ] satisfies JsonRecord[];
+}
+
 function normalizeSourceUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
@@ -535,11 +702,21 @@ export async function seedStarterStorefrontContent(
   }
 
   const sourceBase = normalizeSourceUrl(options?.sourceStorefrontUrl || STARTER_SOURCE_URL);
-  const [homepagePayload, categoriesPayload, productsPayload] = await Promise.all([
-    fetchJson(`${sourceBase}/api/homepage`),
-    fetchJson(`${sourceBase}/api/categories`),
-    fetchJson(`${sourceBase}/api/products?limit=12`),
-  ]);
+  let homepagePayload: JsonRecord;
+  let categoriesPayload: JsonRecord;
+  let productsPayload: JsonRecord;
+
+  try {
+    [homepagePayload, categoriesPayload, productsPayload] = await Promise.all([
+      fetchJson(`${sourceBase}/api/homepage`),
+      fetchJson(`${sourceBase}/api/categories`),
+      fetchJson(`${sourceBase}/api/products?limit=12`),
+    ]);
+  } catch {
+    homepagePayload = {};
+    categoriesPayload = { categories: buildFallbackSourceCategories() };
+    productsPayload = { products: buildFallbackSourceProducts(store) };
+  }
 
   const sourceCategories = arrayOfRecords(categoriesPayload.categories)
     .filter((category) => {

@@ -18,7 +18,6 @@ import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 import {
-  type DeploymentWindowHandle,
   releaseGeneratedDeploymentWindow,
   reserveGeneratedDeploymentWindow,
 } from "@/lib/generated-deployment-guard";
@@ -26,7 +25,28 @@ import { isRedisLockError } from "@/lib/redis";
 
 function shouldAutoProvisionGeneratedApps(): boolean {
   const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") {
+    return false;
+  }
+
+  return true;
+}
+
+async function runGeneratedDeploymentStep<T>(
+  input: {
+    slug: string;
+    target: "admin" | "storefront";
+  },
+  action: () => Promise<T>,
+): Promise<T> {
+  const deploymentWindow = await reserveGeneratedDeploymentWindow(input);
+
+  try {
+    return await action();
+  } finally {
+    await releaseGeneratedDeploymentWindow(deploymentWindow);
+  }
 }
 
 export async function GET() {
@@ -140,27 +160,22 @@ export async function POST(request: Request) {
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
     }
+
     const shouldAutoProvisionApps = shouldAutoProvisionGeneratedApps();
 
     if (shouldAutoProvisionApps) {
-      let deploymentWindow: DeploymentWindowHandle | null = null;
-
       try {
-        deploymentWindow = await reserveGeneratedDeploymentWindow({
+        await runGeneratedDeploymentStep({
           slug: result.store.slug,
           target: "admin",
+        }, async () => {
+          await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
         });
-        await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
       } catch (error) {
-        if (deploymentWindow) {
-          await releaseGeneratedDeploymentWindow(deploymentWindow);
-        }
-
         warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
       }
-    } else {
-      warnings.push("Admin deployment otomasyonu varsayilan olarak kapali. Gerekirse store detayindan manuel tetikle.");
     }
+
     try {
       if (result.store.storefront?.status === "not_started") {
         const scaffoldResult = await scaffoldStorefrontApp(result.store.slug);
@@ -187,32 +202,25 @@ export async function POST(request: Request) {
       warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
     }
     if (shouldAutoProvisionApps) {
-      let deploymentWindow: DeploymentWindowHandle | null = null;
-
       try {
-        deploymentWindow = await reserveGeneratedDeploymentWindow({
+        await runGeneratedDeploymentStep({
           slug: result.store.slug,
           target: "storefront",
-        });
-        const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
-          waitForRuntime: false,
-        });
+        }, async () => {
+          const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
+            waitForRuntime: false,
+          });
 
-        if (storefrontDeployment.status !== "configured") {
-          warnings.push(
-            storefrontDeployment.message ||
-              "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
-          );
-        }
+          if (storefrontDeployment.status !== "configured") {
+            warnings.push(
+              storefrontDeployment.message ||
+                "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
+            );
+          }
+        });
       } catch (error) {
-        if (deploymentWindow) {
-          await releaseGeneratedDeploymentWindow(deploymentWindow);
-        }
-
         warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
       }
-    } else {
-      warnings.push("Storefront deployment otomasyonu varsayilan olarak kapali. Gerekirse store detayindan manuel tetikle.");
     }
     await syncOwnerStoresAndMetrics();
     await recordOwnerAuditLog({
