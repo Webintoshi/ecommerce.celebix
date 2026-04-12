@@ -380,7 +380,7 @@ export default function OrdersPage() {
                 <div className="max-w-3xl space-y-4">
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
                     <FileText className="h-3.5 w-3.5" />
-                    Sipariş Operasyonları
+                    Sipariş Yönetimi
                   </div>
 
                   <div>
@@ -415,7 +415,7 @@ export default function OrdersPage() {
                     className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#FE6100] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30"
                   >
                     <Download className="h-4 w-4" />
-                    Dışa Aktar
+                    Raporu Dışa Aktar
                   </button>
                 </div>
               </div>
