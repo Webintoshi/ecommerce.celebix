@@ -20,6 +20,7 @@ import {
   Search,
   Target,
   TrendingUp,
+  TriangleAlert,
 } from "lucide-react";
 import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import type { BlogPost, TopicType } from "@/types/blog";
@@ -57,9 +58,7 @@ export default function BlogListingPage() {
       } catch (loadError) {
         if (!active) return;
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Blog stratejisi yuklenemedi.",
+          loadError instanceof Error ? loadError.message : "Blog stratejisi yüklenemedi.",
         );
       } finally {
         if (active) {
@@ -96,236 +95,270 @@ export default function BlogListingPage() {
   }, [posts, searchTerm, selectedCategory]);
 
   return (
-    <div className="min-h-screen space-y-8 bg-gray-50/50 p-6 md:p-8">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/cms"
-            className="rounded-lg border border-transparent p-2 transition-colors hover:border-gray-200 hover:bg-white"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Blog Yazilari
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Blog iceriklerinizi yonetin ve magazaya ozel stratejiyi canli
-              verilerle olusturun.
-            </p>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf3_0%,#f8efe2_40%,#f3eadf_100%)] p-6 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="overflow-hidden rounded-[30px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_24px_70px_-34px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-3xl space-y-4">
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/admin/cms"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 transition-colors hover:border-amber-300 hover:text-stone-900"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">
+                  Blog yönetimi
+                </span>
+              </div>
+
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
+                  İçerik planını sıcak ve premium bir düzende yönetin
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
+                  Blog içeriklerinizi yönetin; mağazaya özel stratejiyi aynı ekranda daha okunaklı,
+                  daha net bir yönetim deneyimiyle takip edin.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <HeaderMetric label="Toplam yazı" value={posts.length} />
+              <HeaderMetric label="Pillar ekseni" value={progress.pillar.total} />
+              <Link
+                href="/admin/cms/blog/yeni"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-stone-800"
+              >
+                <Plus className="h-4 w-4" />
+                Yeni yazı ekle
+              </Link>
+            </div>
           </div>
-        </div>
-        <Link
-          href="/admin/cms/blog/yeni"
-          className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800"
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Yazi Ekle
-        </Link>
-      </div>
+        </section>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm sm:flex-row">
-        <div className="flex flex-shrink-0 items-center gap-1 rounded-lg bg-gray-100 p-1">
-          <button
-            onClick={() => setViewMode("list")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-              viewMode === "list"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <List className="h-4 w-4" />
-            Liste
-          </button>
-          <button
-            onClick={() => setViewMode("strategy")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-              viewMode === "strategy"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Target className="h-4 w-4" />
-            Strateji
-          </button>
-        </div>
-
-        <div className="flex-1" />
-
-        {viewMode === "list" && (
-          <>
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Yazilarda ara..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
+        <section className="rounded-[26px] border border-stone-200/80 bg-white/90 p-3 shadow-[0_20px_50px_-34px_rgba(120,78,33,0.45)]">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="flex flex-wrap items-center gap-2 rounded-full bg-stone-100 p-1.5">
+              <ViewModeButton
+                active={viewMode === "list"}
+                icon={<List className="h-4 w-4" />}
+                label="Liste"
+                onClick={() => setViewMode("list")}
+              />
+              <ViewModeButton
+                active={viewMode === "strategy"}
+                icon={<Target className="h-4 w-4" />}
+                label="Strateji"
+                onClick={() => setViewMode("strategy")}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={selectedCategory}
-                onChange={(event) => setSelectedCategory(event.target.value)}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gray-900"
-              >
-                <option value="all">Tum Kategoriler</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
+
+            {viewMode === "list" ? (
+              <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_260px_auto]">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="text"
+                    placeholder="Yazılarda ara..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="w-full rounded-full border border-stone-200 bg-stone-50/70 py-3 pl-11 pr-4 text-sm text-stone-700 outline-none transition focus:border-amber-300 focus:bg-white"
+                  />
+                </label>
+
+                <label className="flex items-center gap-3 rounded-full border border-stone-200 bg-stone-50/70 px-4 py-3 text-sm text-stone-600">
+                  <Filter className="h-4 w-4 text-stone-400" />
+                  <select
+                    value={selectedCategory}
+                    onChange={(event) => setSelectedCategory(event.target.value)}
+                    className="w-full bg-transparent text-sm text-stone-700 outline-none"
+                  >
+                    <option value="all">Tüm kategoriler</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex items-center justify-center rounded-full border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] px-4 py-3 text-sm font-medium text-stone-600">
+                  {filteredPosts.length} kayıt gösteriliyor
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-end rounded-full border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] px-4 py-3 text-sm font-medium text-stone-600">
+                {suggestedPillars.length} strateji ekseni hazırlandı
+              </div>
+            )}
+          </div>
+        </section>
+
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={error} />
+        ) : viewMode === "list" ? (
+          <ListView posts={filteredPosts} categories={categories} totalPosts={posts.length} />
+        ) : (
+          <StrategyView
+            suggestedPillars={suggestedPillars}
+            progress={progress}
+            storeContext={snapshot?.storeContext}
+            guidelines={snapshot?.contentGuidelines}
+          />
         )}
       </div>
-
-      {loading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} />
-      ) : viewMode === "list" ? (
-        <ListView posts={filteredPosts} categories={categories} />
-      ) : (
-        <StrategyView
-          suggestedPillars={suggestedPillars}
-          progress={progress}
-          storeContext={snapshot?.storeContext}
-          guidelines={snapshot?.contentGuidelines}
-        />
-      )}
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-      <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-gray-400" />
-      <h2 className="text-lg font-semibold text-gray-900">
-        Blog stratejisi yukleniyor
-      </h2>
-      <p className="mt-2 text-sm text-gray-500">
-        Kategoriler, urunler ve mevcut yazilar birlestiriliyor.
-      </p>
-    </div>
+    <section className="rounded-[26px] border border-stone-200/80 bg-white/90 p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+      <div className="flex flex-col items-center justify-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+          <Loader2 className="h-7 w-7 animate-spin" />
+        </div>
+        <h2 className="mt-5 text-xl font-semibold text-stone-900">Blog stratejisi yükleniyor</h2>
+        <p className="mt-2 max-w-lg text-sm leading-6 text-stone-600">
+          Kategoriler, ürünler ve mevcut yazılar bir araya getiriliyor; görünüm hazırlanıyor.
+        </p>
+      </div>
+    </section>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-red-200 bg-white p-12 text-center shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">
-        Blog stratejisi yuklenemedi
-      </h2>
-      <p className="mt-2 text-sm text-gray-500">{message}</p>
-    </div>
+    <section className="rounded-[26px] border border-rose-200 bg-rose-50/90 p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)]">
+      <div className="flex flex-col items-center justify-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600">
+          <TriangleAlert className="h-7 w-7" />
+        </div>
+        <h2 className="mt-5 text-xl font-semibold text-stone-900">Blog stratejisi yüklenemedi</h2>
+        <p className="mt-2 max-w-lg text-sm leading-6 text-stone-600">{message}</p>
+      </div>
+    </section>
   );
 }
 
 function ListView({
   posts,
   categories,
+  totalPosts,
 }: {
   posts: BlogPost[];
   categories: BlogStrategyCategory[];
+  totalPosts: number;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-[26px] border border-stone-200/80 bg-white/92 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+      <div className="flex flex-col gap-3 border-b border-stone-100 bg-[linear-gradient(180deg,#fffdf8_0%,#faf4ea_100%)] px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+            İçerik listesi
+          </div>
+          <h2 className="mt-3 text-lg font-semibold text-stone-900">Yazılar daha net okunur tabloda</h2>
+        </div>
+        <div className="text-sm text-stone-600">
+          Toplam {totalPosts} yazı içinden {posts.length} kayıt gösteriliyor.
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="min-w-full text-left">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Yazi
+            <tr className="border-b border-stone-100 bg-stone-50/70">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                Yazı
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 Tip
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 Kategori
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 SEO
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 Tarih
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-stone-100">
             {posts.map((post) => (
-              <tr key={post.id} className="transition-colors hover:bg-gray-50/50">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="hidden h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:block">
+              <tr key={post.id} className="transition-colors hover:bg-amber-50/30">
+                <td className="px-6 py-5">
+                  <div className="flex items-center gap-4">
+                    <div className="hidden h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 sm:block">
                       {post.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={post.coverImage}
-                          alt={post.title}
-                          className="h-full w-full object-cover"
-                        />
+                        <img src={post.coverImage} alt={post.title} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-gray-400">
+                        <div className="flex h-full w-full items-center justify-center text-stone-400">
                           <FileText className="h-5 w-5" />
                         </div>
                       )}
                     </div>
-                    <div>
+
+                    <div className="min-w-0">
+                      <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                        {post.wordCount} kelime
+                      </div>
                       <Link
                         href={`/admin/cms/blog/${post.id}`}
-                        className="font-medium leading-tight text-gray-900 transition-colors hover:text-gray-700"
+                        className="mt-3 block text-base font-semibold leading-6 text-stone-900 transition-colors hover:text-amber-800"
                       >
                         {post.title}
                       </Link>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {post.wordCount} kelime
+                      <p className="mt-2 line-clamp-2 max-w-xl text-sm leading-6 text-stone-600">
+                        {post.excerpt}
+                      </p>
+                      <div className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+                        Ana anahtar kelime: {post.primaryKeyword}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-5 align-top">
                   <TopicTypeBadge type={post.topicType} />
                 </td>
-                <td className="px-6 py-4">
-                  <div className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                    {categories.find((category) => category.id === post.category)?.name ||
-                      post.category}
-                  </div>
+                <td className="px-6 py-5 align-top">
+                  <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                    {categories.find((category) => category.id === post.category)?.name || post.category}
+                  </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-5 align-top">
                   <SeoScoreBadge score={post.seoScore} />
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3 w-3 opacity-50" />
+                <td className="px-6 py-5 align-top text-sm text-stone-600">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5">
+                    <Calendar className="h-3.5 w-3.5 opacity-60" />
                     {format(post.publishedAt, "d MMM yyyy", { locale: tr })}
                   </div>
                 </td>
               </tr>
             ))}
+
             {posts.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-16 text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-                    <FileText className="h-8 w-8 text-gray-400" />
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-stone-400">
+                    <FileText className="h-7 w-7" />
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                    Henuz yazi bulunmuyor
-                  </h3>
-                  <p className="mb-4 text-gray-500">
-                    Ilk blog yazinizi olusturarak baslayin.
+                  <h3 className="mt-5 text-lg font-semibold text-stone-900">Henüz yazı bulunmuyor</h3>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">
+                    İlk blog yazınızı oluşturarak içerik planını başlatın.
                   </p>
                   <Link
                     href="/admin/cms/blog/yeni"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-stone-800"
                   >
                     <Plus className="h-4 w-4" />
-                    Yeni Yazi Ekle
+                    Yeni yazı ekle
                   </Link>
                 </td>
               </tr>
@@ -333,7 +366,7 @@ function ListView({
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -360,127 +393,141 @@ function StrategyView({
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StrategyMetricCard
-          icon={<Target className="h-6 w-6 text-purple-600" />}
+          icon={<Target className="h-5 w-5 text-amber-700" />}
           label="Pillar"
           total={progress.pillar.total}
           target={progress.pillar.target}
-          accentClass="bg-purple-100"
-          progressColor="bg-purple-500"
+          accentClass="border-amber-200 bg-amber-50"
+          progressColor="bg-amber-500"
         />
         <StrategyMetricCard
-          icon={<LayoutGrid className="h-6 w-6 text-blue-600" />}
+          icon={<LayoutGrid className="h-5 w-5 text-orange-700" />}
           label="Cluster"
           total={progress.cluster.total}
           target={progress.cluster.target}
-          accentClass="bg-blue-100"
-          progressColor="bg-blue-500"
+          accentClass="border-orange-200 bg-orange-50"
+          progressColor="bg-orange-500"
         />
         <StrategyMetricCard
-          icon={<FileText className="h-6 w-6 text-emerald-600" />}
-          label="Bagimsiz Yazi"
+          icon={<FileText className="h-5 w-5 text-stone-700" />}
+          label="Bağımsız yazı"
           total={progress.standalone.total}
-          accentClass="bg-emerald-100"
-          progressColor="bg-emerald-500"
+          accentClass="border-stone-200 bg-stone-100"
+          progressColor="bg-stone-500"
         />
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <Lightbulb className="h-5 w-5 text-amber-500" />
-              Dinamik Pillar Stratejisi
+      <section className="rounded-[26px] border border-stone-200/80 bg-white/92 p-6 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)] md:p-7">
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <div className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800">
+              Strateji eksenleri
+            </div>
+            <h2 className="mt-3 flex items-center gap-2 text-xl font-semibold text-stone-900">
+              <Lightbulb className="h-5 w-5 text-amber-600" />
+              Dinamik pillar stratejisi
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-2 text-sm leading-6 text-stone-600">
               {storeContext
-                ? `${storeContext.totalCategories} kategori ve ${storeContext.totalProducts} urun taranarak magazaya ozel icerik ekseni cikarildi.`
-                : "Magaza kategorileri ve urunleri taranarak oneri uretildi."}
+                ? `${storeContext.totalCategories} kategori ve ${storeContext.totalProducts} ürün taranarak mağazaya özel içerik ekseni çıkarıldı.`
+                : "Mağaza kategorileri ve ürünleri taranarak öneri üretildi."}
             </p>
           </div>
+
           <Link
             href="/admin/cms/blog/yeni"
-            className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-800"
           >
             <Plus className="h-4 w-4" />
-            Yeni Yazi Ekle
+            Bu eksende yazı oluştur
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {suggestedPillars.map((pillar) => (
-            <div
+            <article
               key={pillar.id}
-              className={`rounded-xl border-2 p-5 transition-all ${
+              className={`rounded-[24px] border p-5 transition-all ${
                 pillar.existingPillarPostId
-                  ? "border-emerald-200 bg-emerald-50/30"
-                  : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                  ? "border-emerald-200 bg-emerald-50/40"
+                  : "border-stone-200 bg-[linear-gradient(180deg,#fffdf8_0%,#faf4ea_100%)] hover:border-amber-300"
               }`}
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{pillar.title}</h3>
-                  <p className="mt-1 text-sm text-gray-500">{pillar.description}</p>
+                  <span className="inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                    {pillar.productCount} ürün
+                  </span>
+                  <h3 className="mt-3 text-lg font-semibold text-stone-900">{pillar.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">{pillar.description}</p>
                 </div>
-                <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                  {pillar.productCount} urun
+
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+                    pillar.existingPillarPostId
+                      ? "border-emerald-200 bg-white text-emerald-700"
+                      : "border-stone-200 bg-white text-stone-600"
+                  }`}
+                >
+                  {pillar.existingPillarPostId ? "Pillar hazır" : "Pillar bekliyor"}
                 </span>
               </div>
 
-              <div className="mb-4 flex flex-wrap gap-1.5">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {pillar.targetKeywords.map((keyword) => (
                   <span
                     key={keyword}
-                    className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800"
                   >
                     {keyword}
                   </span>
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Onerilen Cluster Yazilari
+              <div className="mt-5 rounded-2xl border border-stone-200 bg-white/70 p-4">
+                <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                  Önerilen cluster yazıları
                 </div>
-                {pillar.suggestedClusters.map((clusterTitle) => {
-                  const reached =
-                    pillar.existingClusterCount > 0 &&
-                    pillar.suggestedClusters.indexOf(clusterTitle) <
-                      pillar.existingClusterCount;
+                <div className="space-y-2.5">
+                  {pillar.suggestedClusters.map((clusterTitle) => {
+                    const reached =
+                      pillar.existingClusterCount > 0 &&
+                      pillar.suggestedClusters.indexOf(clusterTitle) < pillar.existingClusterCount;
 
-                  return (
-                    <div
-                      key={clusterTitle}
-                      className={`flex items-center gap-2 text-sm ${
-                        reached ? "text-emerald-600" : "text-gray-600"
-                      }`}
-                    >
-                      {reached ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-gray-300" />
-                      )}
-                      <span className={reached ? "line-through opacity-60" : ""}>
-                        {clusterTitle}
-                      </span>
-                    </div>
-                  );
-                })}
+                    return (
+                      <div
+                        key={clusterTitle}
+                        className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm ${
+                          reached
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-stone-50 text-stone-600"
+                        }`}
+                      >
+                        {reached ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-stone-300" />
+                        )}
+                        <span className={reached ? "line-through opacity-70" : ""}>{clusterTitle}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Ilerleme</span>
-                  <span className="font-medium text-gray-900">
+              <div className="mt-5 border-t border-stone-200 pt-5">
+                <div className="mb-3 flex items-center justify-between text-sm">
+                  <span className="text-stone-600">İlerleme</span>
+                  <span className="font-semibold text-stone-900">
                     {pillar.existingClusterCount} / {pillar.suggestedClusters.length}
                   </span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-gray-200">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-200">
                   <div
-                    className="h-2 rounded-full bg-emerald-500 transition-all"
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
                     style={{
                       width: `${Math.min(
-                        (pillar.existingClusterCount /
-                          Math.max(pillar.suggestedClusters.length, 1)) *
+                        (pillar.existingClusterCount / Math.max(pillar.suggestedClusters.length, 1)) *
                           100,
                         100,
                       )}%`,
@@ -489,68 +536,90 @@ function StrategyView({
                 </div>
                 <Link
                   href="/admin/cms/blog/yeni"
-                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-gray-900 hover:text-gray-700"
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-stone-900 transition-colors hover:text-amber-800"
                 >
-                  Bu eksende yazi olustur
+                  Bu eksende yazı oluştur
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
-            </div>
+            </article>
           ))}
+
           {suggestedPillars.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-200 p-10 text-center text-sm text-gray-500 lg:col-span-2">
-              Strateji uretmek icin once kategori veya urun verisi bulunmali.
+            <div className="rounded-[24px] border border-dashed border-stone-300 bg-white/70 p-12 text-center text-sm leading-6 text-stone-600 xl:col-span-2">
+              Strateji üretmek için önce kategori veya ürün verisi bulunmalı.
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 p-6 text-white">
+      <section className="relative overflow-hidden rounded-[26px] border border-stone-200/50 bg-[linear-gradient(135deg,#2f261f_0%,#4a382b_55%,#6b4a31_100%)] p-6 text-white shadow-[0_20px_50px_-30px_rgba(60,33,14,0.6)] md:p-7">
         <div className="relative z-10">
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <TrendingUp className="h-5 w-5 text-purple-400" />
-            İçerik Kalitesi Rehberi
+          <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100">
+            İçerik kalitesi rehberi
+          </div>
+          <h3 className="mt-3 flex items-center gap-2 text-xl font-semibold">
+            <TrendingUp className="h-5 w-5 text-amber-300" />
+            İçerik kalite çerçevesi
           </h3>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div>
-              <div className="mb-1 text-2xl font-bold text-purple-400">
-                {safeGuidelines.pillar.minWords}+
-              </div>
-              <div className="text-sm text-gray-300">
-                Pillar icin minimum kelime
-              </div>
-              <div className="mt-1 text-xs text-gray-400">
-                Kapsamli ana konu rehberi
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 text-2xl font-bold text-blue-400">
-                {safeGuidelines.cluster.minWords}+
-              </div>
-              <div className="text-sm text-gray-300">
-                Cluster icin minimum kelime
-              </div>
-              <div className="mt-1 text-xs text-gray-400">
-                Belirli alt konuya odaklanan detayli yazi
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 text-2xl font-bold text-emerald-400">
-                {storeContext?.focusTerms.length || 0}
-              </div>
-              <div className="text-sm text-gray-300">
-                Otomatik bulunan odak terim
-              </div>
-              <div className="mt-1 text-xs text-gray-400">
-                Strateji bu magazanin urun ve kategori verilerinden uretiliyor
-              </div>
-            </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <GuideCard
+              value={`${safeGuidelines.pillar.minWords}+`}
+              label="Pillar için minimum kelime"
+              description="Kapsamlı ana konu rehberi"
+            />
+            <GuideCard
+              value={`${safeGuidelines.cluster.minWords}+`}
+              label="Cluster için minimum kelime"
+              description="Belirli alt konuya odaklanan detaylı yazı"
+            />
+            <GuideCard
+              value={`${storeContext?.focusTerms.length || 0}`}
+              label="Otomatik bulunan odak terim"
+              description="Ürün ve kategori verilerinden üretilir"
+            />
           </div>
         </div>
-        <div className="absolute -right-32 -top-32 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
-      </div>
+
+        <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-orange-300/10 blur-3xl" />
+      </section>
     </div>
+  );
+}
+
+function HeaderMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+      <div className="text-2xl font-semibold text-stone-900">{value}</div>
+      <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">{label}</div>
+    </div>
+  );
+}
+
+function ViewModeButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+        active
+          ? "bg-white text-stone-900 shadow-sm"
+          : "text-stone-500 hover:text-stone-700"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -572,45 +641,68 @@ function StrategyMetricCard({
   const ratio = target ? Math.min((total / Math.max(target, 1)) * 100, 100) : 100;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${accentClass}`}>
+    <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-5 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accentClass}`}>
           {icon}
         </div>
-        <span className="text-3xl font-bold text-gray-900">{total}</span>
+        <div className="text-right">
+          <div className="text-3xl font-semibold text-stone-900">{total}</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">{label}</div>
+        </div>
       </div>
-      <div className="text-sm font-medium text-gray-900">{label}</div>
-      {typeof target === "number" && (
+
+      {typeof target === "number" ? (
         <>
-          <div className="mt-1 text-xs text-gray-500">Hedef: {target}</div>
-          <div className="mt-3 h-2 w-full rounded-full bg-gray-100">
-            <div
-              className={`h-2 rounded-full transition-all ${progressColor}`}
-              style={{ width: `${ratio}%` }}
-            />
+          <div className="flex items-center justify-between text-sm text-stone-600">
+            <span>Hedef</span>
+            <span className="font-medium text-stone-900">{target}</span>
+          </div>
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-100">
+            <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${ratio}%` }} />
           </div>
         </>
+      ) : (
+        <div className="text-sm text-stone-600">Bağımsız içerik adedi görüntüleniyor.</div>
       )}
+    </div>
+  );
+}
+
+function GuideCard({
+  value,
+  label,
+  description,
+}: {
+  value: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+      <div className="text-3xl font-semibold text-amber-200">{value}</div>
+      <div className="mt-2 text-sm font-medium text-white">{label}</div>
+      <div className="mt-1 text-xs leading-5 text-stone-300">{description}</div>
     </div>
   );
 }
 
 function TopicTypeBadge({ type }: { type: TopicType }) {
   const styles = {
-    pillar: "border-purple-200 bg-purple-100 text-purple-700",
-    cluster: "border-blue-200 bg-blue-100 text-blue-700",
-    standalone: "border-gray-200 bg-gray-100 text-gray-600",
+    pillar: "border-amber-200 bg-amber-50 text-amber-800",
+    cluster: "border-orange-200 bg-orange-50 text-orange-800",
+    standalone: "border-stone-200 bg-stone-100 text-stone-700",
   };
 
   const labels = {
     pillar: "Pillar",
     cluster: "Cluster",
-    standalone: "Yazi",
+    standalone: "Yazı",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${styles[type]}`}
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${styles[type]}`}
     >
       {labels[type]}
     </span>
@@ -620,29 +712,32 @@ function TopicTypeBadge({ type }: { type: TopicType }) {
 function SeoScoreBadge({ score }: { score: number }) {
   if (score >= 80) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold">
           {score}
-        </div>
+        </span>
+        Güçlü
       </div>
     );
   }
 
   if (score >= 60) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-700">
+      <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold">
           {score}
-        </div>
+        </span>
+        Orta
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-500">
+    <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-stone-100 px-3 py-1.5 text-sm font-semibold text-stone-600">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold">
         {score || "-"}
-      </div>
+      </span>
+      Geliştirilmeli
     </div>
   );
 }

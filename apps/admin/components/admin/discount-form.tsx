@@ -189,43 +189,64 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
     await onSubmit(payload);
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm";
-  const selectClass = "w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm appearance-none cursor-pointer";
-  const textAreaClass = "w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm resize-none";
+  const inputClass = "w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
+  const selectClass = "w-full appearance-none cursor-pointer rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
+  const textAreaClass = "w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15 resize-none";
 
   return (
     <form onSubmit={submit} className="space-y-6">
       {/* Error Banner */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-3">
+        <div className="flex items-center gap-3 rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
           <AlertCircle className="w-5 h-5 shrink-0" />
           {error}
         </div>
       )}
 
       {/* Progress Steps */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-4 shadow-[0_18px_45px_rgba(99,67,37,0.08)] md:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Kurulum ilerlemesi</p>
+            <p className="mt-1 text-sm font-medium text-[#2f241d]">İndiriminizi dört adımda tamamlayın</p>
+          </div>
+          <div className="rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+            Adım {activeStep}/4
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[1, 2, 3, 4].map((step) => (
           <button
             key={step}
             type="button"
             onClick={() => setActiveStep(step)}
-            className={`flex-1 h-2 rounded-full transition-all ${
-              activeStep === step ? "bg-primary" : activeStep > step ? "bg-primary/40" : "bg-gray-200"
+            className={`rounded-[22px] border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16 ${
+              activeStep === step
+                ? "border-[#FE6100]/25 bg-gradient-to-r from-[#fff2e8] to-white text-[#C54E00] shadow-sm"
+                : activeStep > step
+                  ? "border-emerald-200 bg-emerald-50/80 text-emerald-700"
+                  : "border-[#eadccd] bg-white/80 text-[#8b7768] hover:border-[#FE6100]/18 hover:bg-[#fff8f2]"
             }`}
-          />
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]">0{step}</div>
+            <div className="mt-1 text-sm font-semibold">
+              {step === 1 ? "Temel bilgiler" : step === 2 ? "İndirim ayarları" : step === 3 ? "Kampanya kuralları" : "Notlar"}
+            </div>
+          </button>
         ))}
+        </div>
       </div>
 
       {/* Step 1: Basic Info */}
-      <section className={`bg-white border rounded-2xl p-6 transition-all ${activeStep === 1 ? "border-primary/30 shadow-lg shadow-primary/5" : "border-gray-200"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 1 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Tag className="w-6 h-6 text-primary" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+            <Tag className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900 text-lg">Temel Bilgiler</h2>
-            <p className="text-sm text-gray-500">İndirim adı, kodu ve açıklaması</p>
+            <h2 className="text-lg font-semibold text-[#2f241d]">Temel Bilgiler</h2>
+            <p className="text-sm text-[#7d6959]">İndirim adı, kodu ve açıklaması</p>
           </div>
           {activeStep > 1 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
         </div>
@@ -247,7 +268,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
                 placeholder="örn: YENIYIL2024"
                 className={`${inputClass} font-mono uppercase`}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">BÜYÜK HARF</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9a7c67]">Büyük harf</span>
             </div>
           </Field>
         </div>
@@ -266,7 +287,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(2)}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
           >
             Devam Et
           </button>
@@ -274,14 +295,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 2: Discount Settings */}
-      <section className={`bg-white border rounded-2xl p-6 transition-all ${activeStep === 2 ? "border-primary/30 shadow-lg shadow-primary/5" : "border-gray-200"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 2 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Settings2 className="w-6 h-6 text-blue-600" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f0cfb2] bg-gradient-to-br from-[#fff4ed] to-white text-[#c96a2b] shadow-sm">
+            <Settings2 className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900 text-lg">İndirim Ayarları</h2>
-            <p className="text-sm text-gray-500">Oran, tutar ve geçerlilik tarihleri</p>
+            <h2 className="text-lg font-semibold text-[#2f241d]">İndirim Ayarları</h2>
+            <p className="text-sm text-[#7d6959]">Oran, tutar ve geçerlilik tarihleri</p>
           </div>
           {activeStep > 2 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
         </div>
@@ -359,20 +380,20 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
         </div>
 
         {/* Toggle Switch */}
-        <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+        <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[#f1e5d9] bg-[#fdf8f3] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${form.isActive ? "bg-green-100" : "bg-gray-200"}`}>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-[16px] ${form.isActive ? "bg-emerald-100" : "bg-stone-200"}`}>
               <Check className={`w-5 h-5 ${form.isActive ? "text-green-600" : "text-gray-400"}`} />
             </div>
             <div>
-              <p className="font-medium text-gray-900">İndirimi Aktif Başlat</p>
-              <p className="text-sm text-gray-500">Oluşturulduğunda hemen yayına alınır</p>
+              <p className="font-medium text-[#2f241d]">İndirimi Aktif Başlat</p>
+              <p className="text-sm text-[#7d6959]">Oluşturulduğunda hemen yayına alınır</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setForm({ ...form, isActive: !form.isActive })}
-            className={`relative w-14 h-8 rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-gray-300"}`}
+            className={`relative h-8 w-14 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 ${form.isActive ? "bg-[#FE6100]" : "bg-stone-300"}`}
           >
             <span
               className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
@@ -386,14 +407,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(1)}
-            className="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
           >
             Geri
           </button>
           <button
             type="button"
             onClick={() => setActiveStep(3)}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
           >
             Devam Et
           </button>
@@ -401,14 +422,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 3: Campaign Rules */}
-      <section className={`bg-white border rounded-2xl p-6 transition-all ${activeStep === 3 ? "border-primary/30 shadow-lg shadow-primary/5" : "border-gray-200"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 3 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-            <Shield className="w-6 h-6 text-purple-600" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-700 shadow-sm">
+            <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900 text-lg">Kampanya Kuralları</h2>
-            <p className="text-sm text-gray-500">Kapsam, görünürlük ve kullanım limitleri</p>
+            <h2 className="text-lg font-semibold text-[#2f241d]">Kampanya Kuralları</h2>
+            <p className="text-sm text-[#7d6959]">Kapsam, görünürlük ve kullanım limitleri</p>
           </div>
           {activeStep > 3 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
         </div>
@@ -498,14 +519,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(2)}
-            className="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
           >
             Geri
           </button>
           <button
             type="button"
             onClick={() => setActiveStep(4)}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
           >
             Devam Et
           </button>
@@ -513,14 +534,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 4: Tags & Notes */}
-      <section className={`bg-white border rounded-2xl p-6 transition-all ${activeStep === 4 ? "border-primary/30 shadow-lg shadow-primary/5" : "border-gray-200"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 4 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-            <StickyNote className="w-6 h-6 text-amber-600" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f0cfb2] bg-gradient-to-br from-[#fff4ed] to-white text-[#c96a2b] shadow-sm">
+            <StickyNote className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900 text-lg">Etiketler ve Notlar</h2>
-            <p className="text-sm text-gray-500">Organizasyon ve iç notlar</p>
+            <h2 className="text-lg font-semibold text-[#2f241d]">Etiketler ve Notlar</h2>
+            <p className="text-sm text-[#7d6959]">Organizasyon ve iç notlar</p>
           </div>
         </div>
 
@@ -531,7 +552,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
             placeholder="kampanya, yılbaşı, özel (virgülle ayırın)"
             className={inputClass}
           />
-          <p className="text-xs text-gray-400 mt-1.5">Birden fazla etiket için virgül kullanın</p>
+          <p className="mt-1.5 text-xs text-[#9a7c67]">Birden fazla etiket için virgül kullanın</p>
         </Field>
 
         <Field label="İç Notlar" className="mt-5">
@@ -548,7 +569,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(3)}
-            className="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
           >
             Geri
           </button>
@@ -556,16 +577,16 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Submit Button */}
-      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6">
-        <div className="flex items-center gap-4">
+      <div className="rounded-[30px] border border-[#FE6100]/12 bg-gradient-to-r from-[#fff2e8] via-white to-[#fff6ee] p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="flex-1">
-            <p className="font-semibold text-gray-900">İndirimi Oluşturmaya Hazır</p>
-            <p className="text-sm text-gray-500">Tüm bilgileri kontrol ettikten sonra kaydedin</p>
+            <p className="font-semibold text-[#2f241d]">İndirimi Oluşturmaya Hazır</p>
+            <p className="text-sm text-[#7d6959]">Tüm bilgileri kontrol ettikten sonra kaydedin.</p>
           </div>
           <button
             type="submit"
             disabled={submitting}
-            className="px-8 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-primary/30"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.26)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
@@ -598,9 +619,9 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="ml-1 text-rose-500">*</span>}
       </label>
       {children}
     </div>
