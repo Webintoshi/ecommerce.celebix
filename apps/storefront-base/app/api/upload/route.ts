@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
-import sharp from "sharp";
 import {
     getImageFormatLabel,
     isSvgImageMimeType,
@@ -9,6 +8,11 @@ import {
 } from "@celebix/platform-config/src/image-formats";
 
 export const dynamic = 'force-dynamic';
+
+async function getSharp() {
+    const sharpModule = await import("sharp");
+    return sharpModule.default;
+}
 
 const MAX_DIMENSIONS = {
     products: { width: 2048, height: 2048 },
@@ -53,6 +57,7 @@ async function optimizeImage(
     targetFormat?: 'avif' | 'webp',
     quality: number = 80
 ): Promise<ProcessedImage> {
+    const sharp = await getSharp();
     const configKey = getFolderConfig(folder);
     const dimensions = MAX_DIMENSIONS[configKey as keyof typeof MAX_DIMENSIONS] || MAX_DIMENSIONS.default;
     
@@ -103,6 +108,7 @@ async function generateThumbnail(
     folder: string,
     format: 'avif' | 'webp'
 ): Promise<Buffer> {
+    const sharp = await getSharp();
     const configKey = getFolderConfig(folder);
     const sizes = THUMBNAIL_SIZES[configKey as keyof typeof THUMBNAIL_SIZES] || THUMBNAIL_SIZES.default;
     

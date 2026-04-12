@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
-import sharp from "sharp";
 
 export const dynamic = 'force-dynamic';
+
+async function getSharp() {
+    const sharpModule = await import("sharp");
+    return sharpModule.default;
+}
 
 const MAX_DIMENSIONS = {
     products: { width: 2048, height: 2048 },
@@ -25,6 +29,7 @@ async function optimizeImageFromUrl(
     targetFormat: 'avif' | 'webp' = 'avif',
     quality: number = 80
 ) {
+    const sharp = await getSharp();
     const configKey = getFolderConfig(folder);
     const dimensions = MAX_DIMENSIONS[configKey as keyof typeof MAX_DIMENSIONS] || MAX_DIMENSIONS.default;
 
