@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
-import { formatCurrency, formatDateTime, formatPercent } from "@/lib/formatters";
+import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { listDashboardStores } from "@/lib/control-plane";
 
@@ -36,6 +36,7 @@ export default async function StoresPage() {
                 <tr>
                   <th>Proje</th>
                   <th>Client</th>
+                  <th>Paket</th>
                   <th>Saglik</th>
                   <th>Admin</th>
                   <th>Ciro</th>
@@ -53,6 +54,19 @@ export default async function StoresPage() {
                     <td>
                       <strong>{store.management.clientCompanyName || store.name}</strong>
                       <div className="table-inline-meta">{store.management.internalOwner || "Atanmadi"}</div>
+                    </td>
+                    <td>
+                      <span
+                        className={`pill ${
+                          store.management.subscription.status === "active" ? "pill-success" : "pill-accent"
+                        }`}
+                      >
+                        {store.management.subscription.cadenceLabel}
+                      </span>
+                      <div className="table-inline-meta">
+                        {store.management.subscription.countdownLabel} / Bitis:{" "}
+                        {formatDate(store.management.subscription.endDate)}
+                      </div>
                     </td>
                     <td>
                       <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>

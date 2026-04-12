@@ -48,15 +48,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       launchTarget?: string;
       ownerNotes?: string;
       billingStatus?: "healthy" | "follow_up" | "hold";
+      packageStartDate?: string;
+      packageDurationMonths?: number | null;
     };
-
-    if (!body.status) {
-      return NextResponse.json({ error: "Proje durumu zorunludur." }, { status: 400 });
-    }
 
     await updateStoreManagementProfile(auth, slug, {
       ...body,
-      status: body.status
     });
 
     return NextResponse.json({ success: true });

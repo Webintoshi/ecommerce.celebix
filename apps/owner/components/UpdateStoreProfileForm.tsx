@@ -7,6 +7,7 @@ type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
 type StorePriority = "normal" | "high" | "critical";
 type BillingStatus = "healthy" | "follow_up" | "hold";
+type StoreSubscriptionStatus = "unconfigured" | "active" | "expiring" | "expired";
 
 interface UpdateStoreProfileFormProps {
   store: {
@@ -27,6 +28,12 @@ interface UpdateStoreProfileFormProps {
       launchTarget: string | null;
       ownerNotes: string | null;
       billingStatus: BillingStatus;
+      subscription: {
+        startDate: string | null;
+        durationMonths: number | null;
+        countdownLabel: string;
+        status: StoreSubscriptionStatus;
+      };
     };
   };
 }
@@ -48,6 +55,10 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
   const [launchTarget, setLaunchTarget] = useState(store.management.launchTarget ?? "");
   const [ownerNotes, setOwnerNotes] = useState(store.management.ownerNotes ?? "");
   const [billingStatus, setBillingStatus] = useState<BillingStatus>(store.management.billingStatus);
+  const [packageStartDate, setPackageStartDate] = useState(store.management.subscription.startDate ?? "");
+  const [packageDurationMonths, setPackageDurationMonths] = useState(
+    store.management.subscription.durationMonths?.toString() ?? ""
+  );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -78,7 +89,10 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
           nextAction,
           launchTarget,
           ownerNotes,
-          billingStatus
+          billingStatus,
+          packageStartDate,
+          packageDurationMonths:
+            packageDurationMonths.trim().length > 0 ? Number(packageDurationMonths) : null
         })
       });
 
@@ -177,6 +191,30 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
       <label className="field">
         <span>Hedef yayin tarihi</span>
         <input type="date" value={launchTarget} onChange={(event) => setLaunchTarget(event.target.value)} />
+      </label>
+
+      <label className="field">
+        <span>Paket baslangic tarihi</span>
+        <input
+          type="date"
+          value={packageStartDate}
+          onChange={(event) => setPackageStartDate(event.target.value)}
+        />
+      </label>
+
+      <label className="field">
+        <span>Paket suresi (ay)</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={packageDurationMonths}
+          onChange={(event) => setPackageDurationMonths(event.target.value)}
+          placeholder="1"
+        />
+        <small>
+          {store.management.subscription.countdownLabel} ({store.management.subscription.status})
+        </small>
       </label>
 
       <label className="field field-full">

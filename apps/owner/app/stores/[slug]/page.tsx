@@ -57,6 +57,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const provisionedAt = readDateValue(bootstrap.provisionedAt);
   const createdAt = formatDateTime(store.createdAt);
   const updatedAt = formatDateTime(store.updatedAt);
+  const subscription = store.management.subscription;
+  const subscriptionStatusClass =
+    subscription.status === "active" ? "pill-success" : "pill-accent";
+  const subscriptionProgress = subscription.progressPercent ?? 0;
 
   return (
     <>
@@ -127,6 +131,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
         <div className="card">
           <div className="card-title">Yasam Dongusu</div>
+          <div className="actions compact-actions wrap stack-top-sm">
+            <span className={`pill ${subscriptionStatusClass}`}>{subscription.cadenceLabel}</span>
+            <span className={`pill ${subscriptionStatusClass}`}>{subscription.countdownLabel}</span>
+          </div>
           <div className="meta-pairs">
             <span>Asama: <strong>{store.management.lifecycleStage}</strong></span>
             <span>Oncelik: <strong>{store.management.priority}</strong></span>
@@ -134,6 +142,33 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Storefront: <strong>{store.storefrontStatus}</strong></span>
             <span>Affiliate orani: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
             <span>Store admin: <strong>{store.storeAdminCount}</strong></span>
+            <span>Paket baslangici: <strong>{formatDate(subscription.startDate)}</strong></span>
+            <span>Paket bitisi: <strong>{formatDate(subscription.endDate)}</strong></span>
+            <span>Paket suresi: <strong>{subscription.durationMonths ? `${subscription.durationMonths} ay` : "-"}</strong></span>
+            <span>Kalan sure: <strong>{subscription.countdownLabel}</strong></span>
+          </div>
+          <div
+            aria-hidden="true"
+            className="stack-top-sm"
+            style={{
+              width: "100%",
+              height: "8px",
+              borderRadius: "999px",
+              background: "var(--surface-3)",
+              overflow: "hidden"
+            }}
+          >
+            <div
+              style={{
+                width: `${subscriptionProgress}%`,
+                height: "100%",
+                borderRadius: "999px",
+                background:
+                  subscription.status === "active"
+                    ? "linear-gradient(90deg, rgba(25,155,99,.85), rgba(25,155,99,.45))"
+                    : "linear-gradient(90deg, rgba(254,97,0,.9), rgba(254,97,0,.42))"
+              }}
+            />
           </div>
           <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanimlanmamis."}</p>
         </div>

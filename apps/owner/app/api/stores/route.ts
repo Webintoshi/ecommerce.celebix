@@ -6,6 +6,7 @@ import {
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
   updateOwnerStoreR2Authority,
+  updateStoreManagementProfile,
 } from "@/lib/control-plane";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
@@ -58,6 +59,8 @@ export async function POST(request: Request) {
       coolifyProjectName?: string;
       adminDeploymentName?: string;
       storefrontDeploymentName?: string;
+      packageStartDate?: string;
+      packageDurationMonths?: number | string | null;
     };
 
     const result = createStore({
@@ -78,6 +81,21 @@ export async function POST(request: Request) {
     const r2BootstrapStatus = await getR2BootstrapStatus();
 
     await syncOwnerStoresAndMetrics();
+    try {
+      await updateStoreManagementProfile(auth, result.store.slug, {
+        packageStartDate: body.packageStartDate,
+        packageDurationMonths:
+          typeof body.packageDurationMonths === "string"
+            ? body.packageDurationMonths.trim().length > 0
+              ? Number(body.packageDurationMonths)
+              : null
+            : body.packageDurationMonths ?? null,
+      });
+    } catch (error) {
+      warnings.push(
+        error instanceof Error ? error.message : "Paket suresi owner profiline islenemedi."
+      );
+    }
 
     if (bootstrapStatus.configured) {
       try {

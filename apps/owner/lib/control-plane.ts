@@ -23,8 +23,10 @@ type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
 type StorePriority = "normal" | "high" | "critical";
 type BillingStatus = "healthy" | "follow_up" | "hold";
+type StoreSubscriptionStatus = "unconfigured" | "active" | "expiring" | "expired";
 type HealthLabel = "kritik" | "kurulum" | "operasyonel" | "hazir";
 const STORE_SETUP_REVENUE = 19000;
+const STORE_SUBSCRIPTION_EXPIRING_THRESHOLD_DAYS = 14;
 
 interface OwnerStoreRow {
   id: string;
@@ -168,6 +170,21 @@ export interface StoreManagementProfile {
   launchTarget: string | null;
   ownerNotes: string | null;
   billingStatus: BillingStatus;
+  subscription: StoreSubscriptionSummary;
+}
+
+export interface StoreSubscriptionSummary {
+  isConfigured: boolean;
+  startDate: string | null;
+  durationMonths: number | null;
+  endDate: string | null;
+  totalDays: number | null;
+  elapsedDays: number | null;
+  daysRemaining: number | null;
+  progressPercent: number | null;
+  cadenceLabel: string;
+  countdownLabel: string;
+  status: StoreSubscriptionStatus;
 }
 
 export interface StoreHealthSummary {
@@ -397,7 +414,7 @@ export interface OperationsSummary {
 }
 
 export interface StoreManagementUpdateInput {
-  status: OwnerStoreStatus;
+  status?: OwnerStoreStatus;
   tagline?: string;
   supportEmail?: string;
   supportPhone?: string;
@@ -412,7 +429,23 @@ export interface StoreManagementUpdateInput {
   launchTarget?: string;
   ownerNotes?: string;
   billingStatus?: BillingStatus;
+  packageStartDate?: string;
+  packageDurationMonths?: number | null;
 }
+
+const DEFAULT_SUBSCRIPTION: StoreSubscriptionSummary = {
+  isConfigured: false,
+  startDate: null,
+  durationMonths: null,
+  endDate: null,
+  totalDays: null,
+  elapsedDays: null,
+  daysRemaining: null,
+  progressPercent: null,
+  cadenceLabel: "Paket tanimsiz",
+  countdownLabel: "Takip baslatilmadi",
+  status: "unconfigured"
+};
 
 const DEFAULT_MANAGEMENT: StoreManagementProfile = {
   clientCompanyName: null,
@@ -425,7 +458,8 @@ const DEFAULT_MANAGEMENT: StoreManagementProfile = {
   nextAction: null,
   launchTarget: null,
   ownerNotes: null,
-  billingStatus: "healthy"
+  billingStatus: "healthy",
+  subscription: DEFAULT_SUBSCRIPTION
 };
 
 async function getAuthoritativeStoreConfig(slug: string): Promise<StoreConfig | null> {
@@ -697,6 +731,122 @@ function readBillingStatus(value: unknown): BillingStatus {
   return value === "follow_up" || value === "hold" ? value : "healthy";
 }
 
+function readDateOnlyString(value: unknown): string | null {
+  const parsed = readOptionalString(value);
+
+  if (!parsed || !/^\d{4}-\d{2}-\d{2}$/.test(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function readPositiveMonthCount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  }
+
+  return null;
+}
+
+function parseUtcDateOnly(value: string): Date {
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function addUtcMonths(baseDate: Date, months: number): Date {
+  const tentative = new Date(
+    Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth() + months, 1)
+  );
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(tentative.getUTCFullYear(), tentative.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+
+  return new Date(
+    Date.UTC(
+      tentative.getUTCFullYear(),
+      tentative.getUTCMonth(),
+      Math.min(baseDate.getUTCDate(), lastDayOfTargetMonth)
+    )
+  );
+}
+
+function diffUtcDays(left: Date, right: Date): number {
+  return Math.round((left.getTime() - right.getTime()) / 86_400_000);
+}
+
+function getTodayUtcDate(): Date {
+  const now = new Date();
+
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function buildStoreSubscriptionSummary(
+  startDate: string | null,
+  durationMonths: number | null
+): StoreSubscriptionSummary {
+  if (!startDate || !durationMonths) {
+    return { ...DEFAULT_SUBSCRIPTION };
+  }
+
+  const subscriptionStartDate = parseUtcDateOnly(startDate);
+  const subscriptionEndDate = addUtcMonths(subscriptionStartDate, durationMonths);
+  const today = getTodayUtcDate();
+  const totalDays = Math.max(diffUtcDays(subscriptionEndDate, subscriptionStartDate), 0);
+  const elapsedDays = clampNumber(diffUtcDays(today, subscriptionStartDate), 0, totalDays);
+  const daysRemaining = diffUtcDays(subscriptionEndDate, today);
+  const progressPercent =
+    totalDays > 0 ? Math.round(clampNumber((elapsedDays / totalDays) * 100, 0, 100)) : 100;
+  const cadenceLabel =
+    durationMonths === 1 ? "Aylik" : durationMonths === 12 ? "Yillik" : `${durationMonths} aylik`;
+  const countdownLabel =
+    daysRemaining < 0
+      ? `${Math.abs(daysRemaining)} gun gecti`
+      : daysRemaining === 0
+        ? "Bugun bitiyor"
+        : `${daysRemaining} gun kaldi`;
+  const status: StoreSubscriptionStatus =
+    daysRemaining < 0
+      ? "expired"
+      : daysRemaining <= STORE_SUBSCRIPTION_EXPIRING_THRESHOLD_DAYS
+        ? "expiring"
+        : "active";
+
+  return {
+    isConfigured: true,
+    startDate,
+    durationMonths,
+    endDate: subscriptionEndDate.toISOString().slice(0, 10),
+    totalDays,
+    elapsedDays,
+    daysRemaining,
+    progressPercent,
+    cadenceLabel,
+    countdownLabel,
+    status
+  };
+}
+
+function resolveOptionalStringInput(value: unknown, currentValue: string | null): string | null {
+  if (value === undefined) {
+    return currentValue;
+  }
+
+  return readOptionalString(value);
+}
+
 function parseStoreManagementProfile(
   metadata: Record<string, unknown> | null,
   fallbackState?: {
@@ -709,12 +859,17 @@ function parseStoreManagementProfile(
   const client = asRecord(root.client);
   const lifecycle = asRecord(root.lifecycle);
   const finance = asRecord(root.finance);
+  const subscription = asRecord(finance.subscription);
   const lifecycleStage = readLifecycleStage(lifecycle.stage);
   const nextAction = readOptionalString(lifecycle.nextAction);
   const shouldPromoteToLive =
     lifecycleStage === "building" &&
     fallbackState?.storeStatus === "active" &&
     fallbackState?.storefrontStatus === "active";
+  const subscriptionSummary = buildStoreSubscriptionSummary(
+    readDateOnlyString(subscription.startDate),
+    readPositiveMonthCount(subscription.durationMonths)
+  );
 
   return {
     clientCompanyName: readOptionalString(client.companyName),
@@ -727,7 +882,8 @@ function parseStoreManagementProfile(
     nextAction: shouldPromoteToLive && !nextAction ? "Canli operasyon izleniyor." : nextAction,
     launchTarget: readOptionalString(lifecycle.launchTarget),
     ownerNotes: readOptionalString(owner.notes),
-    billingStatus: readBillingStatus(finance.billingStatus)
+    billingStatus: readBillingStatus(finance.billingStatus),
+    subscription: subscriptionSummary
   };
 }
 
@@ -740,31 +896,46 @@ function buildNextMetadata(
   const client = asRecord(root.client);
   const lifecycle = asRecord(root.lifecycle);
   const finance = asRecord(root.finance);
+  const subscription = asRecord(finance.subscription);
 
   return {
     ...root,
     owner: {
       ...owner,
-      notes: input.ownerNotes ?? null
+      notes: resolveOptionalStringInput(input.ownerNotes, readOptionalString(owner.notes))
     },
     client: {
       ...client,
-      companyName: input.clientCompanyName ?? null,
-      contactName: input.clientContactName ?? null,
-      contactEmail: input.clientContactEmail ?? null,
-      contactPhone: input.clientContactPhone ?? null
+      companyName: resolveOptionalStringInput(input.clientCompanyName, readOptionalString(client.companyName)),
+      contactName: resolveOptionalStringInput(input.clientContactName, readOptionalString(client.contactName)),
+      contactEmail: resolveOptionalStringInput(input.clientContactEmail, readOptionalString(client.contactEmail)),
+      contactPhone: resolveOptionalStringInput(input.clientContactPhone, readOptionalString(client.contactPhone))
     },
     lifecycle: {
       ...lifecycle,
-      internalOwner: input.internalOwner ?? null,
-      stage: input.lifecycleStage ?? DEFAULT_MANAGEMENT.lifecycleStage,
-      priority: input.priority ?? DEFAULT_MANAGEMENT.priority,
-      nextAction: input.nextAction ?? null,
-      launchTarget: input.launchTarget ?? null
+      internalOwner: resolveOptionalStringInput(input.internalOwner, readOptionalString(lifecycle.internalOwner)),
+      stage: input.lifecycleStage ?? readLifecycleStage(lifecycle.stage),
+      priority: input.priority ?? readPriority(lifecycle.priority),
+      nextAction: resolveOptionalStringInput(input.nextAction, readOptionalString(lifecycle.nextAction)),
+      launchTarget:
+        input.launchTarget !== undefined
+          ? readDateOnlyString(input.launchTarget)
+          : readDateOnlyString(lifecycle.launchTarget),
     },
     finance: {
       ...finance,
-      billingStatus: input.billingStatus ?? DEFAULT_MANAGEMENT.billingStatus
+      billingStatus: input.billingStatus ?? readBillingStatus(finance.billingStatus),
+      subscription: {
+        ...subscription,
+        startDate:
+          input.packageStartDate !== undefined
+            ? readDateOnlyString(input.packageStartDate)
+            : readDateOnlyString(subscription.startDate),
+        durationMonths:
+          input.packageDurationMonths !== undefined
+            ? readPositiveMonthCount(input.packageDurationMonths)
+            : readPositiveMonthCount(subscription.durationMonths)
+      }
     }
   };
 }
@@ -1806,7 +1977,12 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
   const spotlightStores = [...stores].sort((left, right) => right.totalRevenue - left.totalRevenue).slice(0, 4);
   const attentionStores = [...stores]
     .filter(
-      (store) =>
+      (store) => {
+        const packageNeedsAttention =
+          store.management.subscription.status === "expiring" ||
+          store.management.subscription.status === "expired";
+
+        return (
         store.status !== "active" ||
         store.storeAdminCount === 0 ||
         !store.health.supabaseReady ||
@@ -1814,20 +1990,37 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
         !store.health.secretAuthorityReady ||
         !store.health.adminDeploymentReady ||
         !store.health.adminRuntimeConsistent ||
-        store.pendingOrderCount > 0
+        store.pendingOrderCount > 0 ||
+        packageNeedsAttention
+        );
+      }
     )
     .sort((left, right) => {
+      const leftSubscriptionScore =
+        left.management.subscription.status === "expired"
+          ? 12
+          : left.management.subscription.status === "expiring"
+            ? 6
+            : 0;
+      const rightSubscriptionScore =
+        right.management.subscription.status === "expired"
+          ? 12
+          : right.management.subscription.status === "expiring"
+            ? 6
+            : 0;
       const leftScore =
         Number(left.health.label === "kritik") * 20 +
         Number(!left.health.secretAuthorityReady) * 8 +
         Number(!left.health.adminRuntimeConsistent) * 8 +
         Number(left.storeAdminCount === 0) * 5 +
+        leftSubscriptionScore +
         left.pendingOrderCount;
       const rightScore =
         Number(right.health.label === "kritik") * 20 +
         Number(!right.health.secretAuthorityReady) * 8 +
         Number(!right.health.adminRuntimeConsistent) * 8 +
         Number(right.storeAdminCount === 0) * 5 +
+        rightSubscriptionScore +
         right.pendingOrderCount;
       return rightScore - leftScore;
     })
@@ -2410,7 +2603,7 @@ export async function updateStoreManagementProfile(
   const serviceClient = createOwnerServiceClient();
   const { data: currentStoreData, error: currentStoreError } = await serviceClient
     .from("owner_stores")
-    .select("id, slug, metadata")
+    .select("id, slug, status, metadata, tagline, support_email, support_phone")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -2418,15 +2611,26 @@ export async function updateStoreManagementProfile(
     throw new Error("Guncellenecek proje bulunamadi.");
   }
 
-  const currentStore = currentStoreData as Pick<OwnerStoreRow, "id" | "slug" | "metadata">;
+  const currentStore = currentStoreData as Pick<
+    OwnerStoreRow,
+    "id" | "slug" | "status" | "metadata" | "tagline" | "support_email" | "support_phone"
+  >;
   const metadata = buildNextMetadata(currentStore.metadata ?? null, input);
+  const nextStatus = input.status ?? currentStore.status;
   const { error } = await serviceClient
     .from("owner_stores")
     .update({
-      status: input.status,
-      tagline: readOptionalString(input.tagline) ?? null,
-      support_email: readOptionalString(input.supportEmail) ?? null,
-      support_phone: readOptionalString(input.supportPhone) ?? null,
+      status: nextStatus,
+      tagline:
+        input.tagline !== undefined ? readOptionalString(input.tagline) : currentStore.tagline ?? null,
+      support_email:
+        input.supportEmail !== undefined
+          ? readOptionalString(input.supportEmail)
+          : currentStore.support_email ?? null,
+      support_phone:
+        input.supportPhone !== undefined
+          ? readOptionalString(input.supportPhone)
+          : currentStore.support_phone ?? null,
       metadata
     })
     .eq("slug", slug);
@@ -2441,10 +2645,12 @@ export async function updateStoreManagementProfile(
     targetType: "store",
     targetId: slug,
     details: {
-      status: input.status,
+      status: nextStatus,
       lifecycleStage: input.lifecycleStage ?? DEFAULT_MANAGEMENT.lifecycleStage,
       priority: input.priority ?? DEFAULT_MANAGEMENT.priority,
-      internalOwner: input.internalOwner ?? null
+      internalOwner: input.internalOwner ?? null,
+      packageStartDate: input.packageStartDate ?? null,
+      packageDurationMonths: input.packageDurationMonths ?? null
     }
   });
 }

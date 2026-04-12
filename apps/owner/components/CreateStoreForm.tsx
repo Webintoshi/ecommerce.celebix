@@ -11,6 +11,17 @@ interface FormState {
   tagline: string;
   supportEmail: string;
   supportPhone: string;
+  packageStartDate: string;
+  packageDurationMonths: string;
+}
+
+function getTodayDateValue(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 const INITIAL_STATE: FormState = {
@@ -20,7 +31,9 @@ const INITIAL_STATE: FormState = {
   theme: "atelier",
   tagline: "",
   supportEmail: "",
-  supportPhone: ""
+  supportPhone: "",
+  packageStartDate: getTodayDateValue(),
+  packageDurationMonths: "1"
 };
 
 const THEME_OPTIONS = [
@@ -172,6 +185,28 @@ export function CreateStoreForm() {
           onChange={(e) => updateField("supportPhone", e.target.value)}
           placeholder="+90 532 000 00 00"
         />
+      </label>
+
+      <label className="field">
+        <span>Paket baslangic tarihi</span>
+        <input
+          type="date"
+          value={form.packageStartDate}
+          onChange={(e) => updateField("packageStartDate", e.target.value)}
+        />
+      </label>
+
+      <label className="field">
+        <span>Paket suresi (ay)</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={form.packageDurationMonths}
+          onChange={(e) => updateField("packageDurationMonths", e.target.value)}
+          placeholder="1"
+        />
+        <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
       </label>
 
       {/* Error */}

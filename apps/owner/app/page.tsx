@@ -111,13 +111,20 @@ export default async function OwnerDashboardPage() {
                     {store.health.label}
                   </span>
                 </div>
-                <p>{store.management.nextAction || "Sonraki aksiyon bekleniyor..."}</p>
+                <p>
+                  {store.management.nextAction ||
+                    (store.management.subscription.status === "expiring" ||
+                    store.management.subscription.status === "expired"
+                      ? `Paket takibi gerekiyor: ${store.management.subscription.countdownLabel}`
+                      : "Sonraki aksiyon bekleniyor...")}
+                </p>
                 <div className="status-card-meta">
                   <span>Admin: {store.storeAdminCount}</span>
                   <span>Secrets: {store.health.secretAuthorityReady ? "Hazir" : "Drift"}</span>
                   <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazir" : "Sorun"}</span>
                   <span>Consistency: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "Temiz"}</span>
                   <span>Bekleyen: {store.pendingOrderCount}</span>
+                  <span>Paket: {store.management.subscription.countdownLabel}</span>
                 </div>
               </Link>
             ))}
