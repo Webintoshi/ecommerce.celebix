@@ -31,7 +31,7 @@ const SETTINGS_SECTIONS = [
     tone: "from-[#fff6ed] to-white text-[#d66a1f] border-[#f2c79d]",
   },
   {
-    title: "Odeme Yontemleri",
+        title: "Ödeme Yöntemleri",
     description: "Kredi karti, havale/EFT ve kapida odeme ayarlari.",
     icon: CreditCard,
     href: "/admin/ayarlar/odeme",
@@ -39,14 +39,14 @@ const SETTINGS_SECTIONS = [
   },
   {
     title: "Bildirimler",
-    description: "Musteri e-postalari, SMS sablonlari ve yonetici bildirimleri.",
+        description: "Müşteri e-postaları, SMS şablonları ve yönetici bildirimleri.",
     icon: Bell,
     href: "/admin/ayarlar/bildirimler",
     tone: "from-[#fdf1e7] to-white text-[#b86a32] border-[#edd2b7]",
   },
   {
-    title: "Yoneticiler ve Izinler",
-    description: "Yonetici hesaplari, roller ve erisim yetkileri.",
+        title: "Yöneticiler ve İzinler",
+        description: "Yönetici hesapları, roller ve erişim yetkileri.",
     icon: ShieldCheck,
     href: "/admin/yoneticiler",
     tone: "from-[#f7efe8] to-white text-[#7c5a47] border-[#e3d4c6]",

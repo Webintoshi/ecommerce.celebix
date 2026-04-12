@@ -165,7 +165,7 @@ export default function MarketingPage() {
         {error && <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Toplam Musteri" value={`${stats.totalCustomers}`} note={`Son 30 gun: ${stats.newCustomers30d}`} icon={Users} tone="border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]" />
+          <StatCard title="Toplam Müşteri" value={`${stats.totalCustomers}`} note={`Son 30 gün: ${stats.newCustomers30d}`} icon={Users} tone="border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]" />
           <StatCard title="Aylik Ciro" value={formatCurrency(stats.monthRevenue)} note={`${stats.revenueChange >= 0 ? "+" : ""}%${stats.revenueChange} gecen aya gore`} icon={TrendingUp} tone="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600" />
           <StatCard title="Toplam Ciro" value={formatCurrency(stats.totalRevenue)} note={`VIP musteri: ${stats.vipCustomers}`} icon={BarChart3} tone="border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600" />
           <StatCard title="Iletisim Kapsamasi" value={`${stats.emailReachable + stats.phoneReachable}`} note={`Eksik bilgi: ${stats.contactMissing}`} icon={Mail} tone="border-[#eadccd] bg-gradient-to-br from-[#f8f2ec] to-white text-[#7b6656]" />

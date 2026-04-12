@@ -233,10 +233,10 @@ export default function MuhasebePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <QuickActionButton title="Fatura Kes" description="Siparis ID girerek faturayi hemen kuyrukla." icon={ReceiptText} onClick={openInvoiceDialog} color="orange" />
+              <QuickActionButton title="Fatura Kes" description="Sipariş ID girerek faturayı hemen kuyrukla." icon={ReceiptText} onClick={openInvoiceDialog} color="orange" />
               <QuickActionButton title="Gider Ekle" description="Gider girisini entegrasyon ekranindan yonet." icon={Wallet} href="/admin/muhasebe/fatura-entegrasyonu" color="green" />
               <QuickActionButton title="Tahsilat Kaydet" description="Saglayicilardan tahsilatlari cek ve eslestir." icon={BanknoteArrowDown} loading={busyAction === "reconcile"} onClick={reconcilePayments} color="amber" />
-              <QuickActionButton title="Musteri Cari Ac" description="Musteri hesabini acip gecmis siparisleri incele." icon={Users} href="/admin/musteriler" color="stone" />
+              <QuickActionButton title="Müşteri Cari Aç" description="Müşteri hesabını açıp geçmiş siparişleri incele." icon={Users} href="/admin/musteriler" color="stone" />
             </div>
           </section>
 
@@ -282,7 +282,7 @@ export default function MuhasebePage() {
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
-              <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">Siparis ID</label>
+              <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">Sipariş ID</label>
               <input
                 type="text"
                 value={invoiceOrderId}
@@ -332,7 +332,7 @@ export default function MuhasebePage() {
               </div>
               <div>
                 <h2 className="font-semibold text-[#2f241d]">Acik Tahsilat Listesi</h2>
-                <p className="text-sm text-[#7d6959]">Odemesi tamamlanmamis siparisler</p>
+                <p className="text-sm text-[#7d6959]">Ödemesi tamamlanmamış siparişler</p>
               </div>
             </div>
             <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
@@ -353,8 +353,8 @@ export default function MuhasebePage() {
               <table className="w-full text-sm">
                 <thead className="bg-[#fff8f3]/85">
                   <tr>
-                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Siparis</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Odeme Durumu</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Sipariş</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Ödeme Durumu</th>
                     <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tutar</th>
                     <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tarih</th>
                     <th className="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Islem</th>

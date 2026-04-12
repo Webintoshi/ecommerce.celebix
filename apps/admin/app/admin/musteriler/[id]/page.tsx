@@ -556,8 +556,8 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                             </div>
                             <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2 xl:grid-cols-4">
                               <DetailMini label="Tarih" value={formatDateTime(order.created_at)} />
-                              <DetailMini label="Odeme" value={getPaymentMethodName(order.payment_method)} />
-                              <DetailMini label="Urun" value={`${order.items?.length || 0} adet`} />
+                              <DetailMini label="Ödeme" value={getPaymentMethodName(order.payment_method)} />
+                              <DetailMini label="Ürün" value={`${order.items?.length || 0} adet`} />
                               <DetailMini label="Toplam" value={formatPrice(order.total)} />
                             </div>
                           </div>

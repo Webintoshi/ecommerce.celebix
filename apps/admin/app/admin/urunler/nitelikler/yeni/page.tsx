@@ -249,7 +249,7 @@ export default function NewVariantAttributePage() {
 
                 <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
                   <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
-                    Gorunum: {displayType === "text" ? "Metin" : displayType === "color" ? "Renk" : "Gorsel"}
+                    Görünüm: {displayType === "text" ? "Metin" : displayType === "color" ? "Renk" : "Görsel"}
                   </span>
                   <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
                     Dolu deger: {values.filter((v) => v.value.trim()).length}

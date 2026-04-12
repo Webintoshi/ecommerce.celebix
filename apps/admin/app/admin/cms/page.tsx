@@ -58,7 +58,7 @@ export default function CmsDashboard() {
       icon: PenTool,
     },
     {
-      label: "Icerik Sayfalari",
+      label: "İçerik Sayfaları",
       count: cmsPages.length,
       icon: FileText,
     },
@@ -84,7 +84,7 @@ export default function CmsDashboard() {
         <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
-              Icerik Yonetimi
+              İçerik Yönetimi
             </div>
             <Link
               href="/admin"
@@ -130,7 +130,7 @@ export default function CmsDashboard() {
             tone="from-[#fff2e8] to-white text-[#FE6100] border-[#FE6100]/12"
             rows={[
               { label: "Toplam Yazi", value: `${blogPosts.length}` },
-              { label: "Icerik Stratejisi", value: "Pillar-Cluster", accent: true },
+              { label: "İçerik Stratejisi", value: "Pillar-Cluster", accent: true },
             ]}
           />
 
@@ -156,7 +156,7 @@ export default function CmsDashboard() {
             <div className="max-w-2xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
                 <BarChart3 className="h-3.5 w-3.5" />
-                Icerik Notu
+                İçerik Notu
               </div>
               <p className="text-sm leading-7 text-[#f6ddcb]">
                 Sabit sayfalar kontrollu bir kontratla yonetilir; her magazada ayni temel sayfalar bulunur ve storefront yalnizca yayindaki icerigi gosterir.
@@ -218,7 +218,7 @@ function DashboardCard({
           href={href}
           className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
         >
-          Goruntule
+          Görüntüle
           <ChevronRight className="h-4 w-4" />
         </Link>
       </div>

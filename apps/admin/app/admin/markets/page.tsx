@@ -604,7 +604,7 @@ export default function MarketsPage() {
                     </div>
                     <div>
                       <h2 className="font-semibold text-[#2f241d]">Alan Esleme</h2>
-                      <p className="text-sm text-[#7d6959]">Urun alanlarini pazaryeri alanlariyla eslestirin</p>
+                      <p className="text-sm text-[#7d6959]">Ürün alanlarını pazaryeri alanlarıyla eşleştirin</p>
                     </div>
                   </div>
 
@@ -636,14 +636,14 @@ export default function MarketsPage() {
                       disabled={busyKey === `${selectedProvider}:listings`}
                       className="text-sm font-medium text-[#C54E00] transition hover:text-[#a94500] disabled:opacity-50"
                     >
-                      {busyKey === `${selectedProvider}:listings` ? "Yukleniyor..." : "Yenile"}
+                      {busyKey === `${selectedProvider}:listings` ? "Yükleniyor..." : "Yenile"}
                     </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-[#fff8f3]/85">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Urun</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Ürün</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">SKU</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Fiyat / Stok</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Durum</th>
