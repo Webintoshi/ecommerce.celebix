@@ -1,0 +1,51 @@
+{
+  "name": "Lilyum Flora",
+  "slug": "lilyum-flora",
+  "status": "draft",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "domains": {
+    "storefront": "lilyumflora.net",
+    "admin": "admin.lilyumflora.net"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "branding": {
+    "tagline": "Ordu'nun en kaliteli cicekcisi",
+    "supportEmail": "destek@lilyumflora.net",
+    "supportPhone": "+90 532 000 00 00",
+    "defaultProductBrand": "Lilyum Flora"
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "storage": "separate-project-per-store"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-12T22:48:03.727Z",
+    "organizationSlug": "lilyum-flora",
+    "coolifyProjectName": "Lilyum Flora",
+    "supabaseProvider": "self_hosted_coolify",
+    "adminDeploymentName": "Lilyum Flora admin",
+    "supabaseProjectName": "lilyum-flora-db",
+    "envTemplatePath": "stores/lilyum-flora/admin.env.example",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
