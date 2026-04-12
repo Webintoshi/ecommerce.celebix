@@ -24,7 +24,8 @@ type FontOption = {
   id: string;
   label: string;
   src: string;
-  family: string;
+  faceName: string;
+  fallbackFamily: string;
   style: CSSProperties;
 };
 
@@ -54,8 +55,9 @@ const FONT_OPTIONS: FontOption[] = [
     id: "monotype",
     label: "1. Monotype",
     src: buildFontProxyUrl(MONOTYPE_SOURCE),
-    family:
-      '"Derycraft Monotype", "Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
+    faceName: "Derycraft Monotype",
+    fallbackFamily:
+      '"Monotype Corsiva", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive',
     style: {
       fontStyle: "italic",
       fontWeight: 500,
@@ -66,8 +68,9 @@ const FONT_OPTIONS: FontOption[] = [
     id: "book-antiqua",
     label: "2. Book Antiqua",
     src: buildFontProxyUrl(BOOK_ANTIQUA_SOURCE),
-    family:
-      '"Derycraft Book Antiqua", "Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
+    faceName: "Derycraft Book Antiqua",
+    fallbackFamily:
+      '"Book Antiqua", "Palatino Linotype", Palatino, "URW Palladio L", serif',
     style: {
       fontWeight: 500,
       letterSpacing: "0.01em",
@@ -77,7 +80,8 @@ const FONT_OPTIONS: FontOption[] = [
     id: "stoic",
     label: "3. Stoic",
     src: buildFontProxyUrl(STOIC_SOURCE),
-    family: '"Derycraft Stoic", "Baskerville", "Times New Roman", Georgia, serif',
+    faceName: "Derycraft Stoic",
+    fallbackFamily: '"Baskerville", "Times New Roman", Georgia, serif',
     style: {
       fontWeight: 700,
       letterSpacing: "0.03em",
@@ -249,6 +253,7 @@ export function PersonalizationPreview({
 
   const selectedFont =
     FONT_OPTIONS.find((option) => option.id === selectedFontId) || FONT_OPTIONS[0];
+  const [isSelectedFontReady, setIsSelectedFontReady] = useState(false);
 
   if (!previewConfig) {
     return null;
@@ -266,18 +271,83 @@ export function PersonalizationPreview({
   const [resolvedPreviewFontSize, setResolvedPreviewFontSize] = useState(
     initialPreviewFontSize
   );
+  const [resolvedPreviewScale, setResolvedPreviewScale] = useState(1);
+
+  useLayoutEffect(() => {
+    let cancelled = false;
+
+    const ensureFontReady = async () => {
+      if (typeof document === "undefined" || !selectedFont) {
+        return;
+      }
+
+      try {
+        if (!document.fonts.check(`30px "${selectedFont.faceName}"`)) {
+          const fontFace = new FontFace(
+            selectedFont.faceName,
+            `url("${selectedFont.src}") format("truetype")`,
+            {
+              style:
+                typeof selectedFont.style.fontStyle === "string"
+                  ? selectedFont.style.fontStyle
+                  : "normal",
+              weight:
+                typeof selectedFont.style.fontWeight === "number"
+                  ? String(selectedFont.style.fontWeight)
+                  : typeof selectedFont.style.fontWeight === "string"
+                    ? selectedFont.style.fontWeight
+                    : "400",
+            }
+          );
+
+          const loadedFont = await fontFace.load();
+          document.fonts.add(loadedFont);
+        }
+
+        await document.fonts.load(`30px "${selectedFont.faceName}"`, displayText);
+      } catch (error) {
+        console.error("Personalization preview font load failed:", error);
+      } finally {
+        if (!cancelled) {
+          setIsSelectedFontReady(true);
+        }
+      }
+    };
+
+    setIsSelectedFontReady(false);
+    ensureFontReady();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayText, selectedFont]);
 
   useLayoutEffect(() => {
     const textElement = textRef.current;
 
     if (!textElement) {
       setResolvedPreviewFontSize(initialPreviewFontSize);
+      setResolvedPreviewScale(1);
       return;
     }
 
     const minimumFontSize = getMinimumPreviewFontSize(previewConfig.sizePreset);
 
     const fitText = () => {
+      if (previewConfig.sizePreset === "leather") {
+        const parentWidth = textElement.clientWidth;
+        const naturalWidth = textElement.scrollWidth;
+        const nextScale =
+          parentWidth > 0 && naturalWidth > 0
+            ? Math.min(1, parentWidth / naturalWidth)
+            : 1;
+
+        textElement.style.fontSize = "30px";
+        setResolvedPreviewFontSize(30);
+        setResolvedPreviewScale(nextScale);
+        return;
+      }
+
       let nextFontSize = initialPreviewFontSize;
       textElement.style.fontSize = `${nextFontSize}px`;
 
@@ -291,6 +361,7 @@ export function PersonalizationPreview({
       }
 
       setResolvedPreviewFontSize(nextFontSize);
+      setResolvedPreviewScale(1);
     };
 
     const rafId = window.requestAnimationFrame(fitText);
@@ -377,7 +448,9 @@ export function PersonalizationPreview({
             ref={textRef}
             className={`pointer-events-none absolute ${previewConfig.textPositionClass} leading-none ${previewConfig.textToneClass}`}
             style={{
-              fontFamily: selectedFont.family,
+              fontFamily: isSelectedFontReady
+                ? `"${selectedFont.faceName}", ${selectedFont.fallbackFamily}`
+                : selectedFont.fallbackFamily,
               fontSize: `${resolvedPreviewFontSize}px`,
               ...selectedFont.style,
               fontWeight: typedText ? 700 : 600,
@@ -386,6 +459,14 @@ export function PersonalizationPreview({
               textOverflow: "clip",
               display: "block",
               lineHeight: 1.02,
+              transform:
+                previewConfig.sizePreset === "leather"
+                  ? `scale(${resolvedPreviewScale})`
+                  : undefined,
+              transformOrigin:
+                previewConfig.sizePreset === "leather"
+                  ? "bottom right"
+                  : undefined,
               textShadow:
                 "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
             }}
