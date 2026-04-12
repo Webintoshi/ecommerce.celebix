@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
-import { createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
+import { clearOwnerBrowserAuthArtifacts, createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
 
 type AuthMode = "login" | "register";
 
@@ -26,6 +26,7 @@ export function OwnerAuthForm() {
 
     startTransition(async () => {
       if (mode === "login") {
+        clearOwnerBrowserAuthArtifacts();
         const supabase = createOwnerBrowserClient();
         const response = await fetch("/api/auth/login", {
           method: "POST",

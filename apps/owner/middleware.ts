@@ -179,10 +179,6 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (pathname === OWNER_LOGIN_PATH) {
-    return withSecurity(request, NextResponse.redirect(new URL("/", request.url)));
-  }
-
   return withSecurity(request, response);
 }
 

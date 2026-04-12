@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
+import { clearOwnerBrowserAuthArtifacts, createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export function SignOutButton() {
         }
       }).catch(() => undefined);
       await supabase.auth.signOut({ scope: "local" });
+      clearOwnerBrowserAuthArtifacts();
       router.replace("/login");
       router.refresh();
     });

@@ -1,22 +1,17 @@
-import { redirect } from "next/navigation";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { OwnerAuthForm } from "@/components/OwnerAuthForm";
-import { getOwnerAuthContext } from "@/lib/owner-auth";
+import { OwnerAuthRecovery } from "@/components/OwnerAuthRecovery";
 
 interface LoginPageProps {
   searchParams: Promise<{ next?: string; error?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const auth = await getOwnerAuthContext();
   const params = await searchParams;
-
-  if (auth) {
-    redirect(sanitizeInternalRedirectPath(params.next, "/"));
-  }
 
   return (
     <main className="login-page">
+      <OwnerAuthRecovery />
       <section className="login-card" aria-label="Owner panel giris">
         <div className="login-brand">
           <div className="login-badge" aria-hidden>
@@ -32,6 +27,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
 
         <OwnerAuthForm />
+
+        {params.next ? (
+          <p className="login-message is-notice">
+            Devam edilecek adres: {sanitizeInternalRedirectPath(params.next, "/")}
+          </p>
+        ) : null}
 
         {params.error === "missing_confirmation_token" ? (
           <p className="login-message is-error">Onay linki eksik veya bozuk geldi.</p>
