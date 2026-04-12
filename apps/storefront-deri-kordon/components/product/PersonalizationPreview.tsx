@@ -228,11 +228,11 @@ function getInitialPreviewFontSize(
     return 60;
   }
 
-  return 28;
+  return 30;
 }
 
 function getMinimumPreviewFontSize(preset: PreviewConfig["sizePreset"]) {
-  return preset === "watch" ? 26 : 28;
+  return preset === "watch" ? 26 : 30;
 }
 
 export function PersonalizationPreview({
