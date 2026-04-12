@@ -253,8 +253,6 @@ export function PersonalizationPreview({
 
   const selectedFont =
     FONT_OPTIONS.find((option) => option.id === selectedFontId) || FONT_OPTIONS[0];
-  const [isSelectedFontReady, setIsSelectedFontReady] = useState(false);
-
   if (!previewConfig) {
     return null;
   }
@@ -305,58 +303,24 @@ export function PersonalizationPreview({
           document.fonts.add(loadedFont);
         })
         .catch((error) => {
-          console.error("Preview font preload failed:", error);
+        console.error("Preview font preload failed:", error);
         });
     });
   }, []);
 
   useLayoutEffect(() => {
-    let cancelled = false;
-
     const ensureFontReady = async () => {
       if (typeof document === "undefined" || !selectedFont) {
         return;
       }
 
       try {
-        if (!document.fonts.check(`30px "${selectedFont.faceName}"`)) {
-          const fontFace = new FontFace(
-            selectedFont.faceName,
-            `url("${selectedFont.src}") format("truetype")`,
-            {
-              style:
-                typeof selectedFont.style.fontStyle === "string"
-                  ? selectedFont.style.fontStyle
-                  : "normal",
-              weight:
-                typeof selectedFont.style.fontWeight === "number"
-                  ? String(selectedFont.style.fontWeight)
-                  : typeof selectedFont.style.fontWeight === "string"
-                    ? selectedFont.style.fontWeight
-                    : "400",
-            }
-          );
-
-          const loadedFont = await fontFace.load();
-          document.fonts.add(loadedFont);
-        }
-
         await document.fonts.load(`30px "${selectedFont.faceName}"`, displayText);
       } catch (error) {
         console.error("Personalization preview font load failed:", error);
-      } finally {
-        if (!cancelled) {
-          setIsSelectedFontReady(true);
-        }
       }
     };
-
-    setIsSelectedFontReady(false);
-    ensureFontReady();
-
-    return () => {
-      cancelled = true;
-    };
+    void ensureFontReady();
   }, [displayText, selectedFont]);
 
   useLayoutEffect(() => {
@@ -409,7 +373,6 @@ export function PersonalizationPreview({
   }, [
     displayText,
     initialPreviewFontSize,
-    isSelectedFontReady,
     previewConfig.sizePreset,
     selectedFontId,
   ]);
@@ -477,10 +440,10 @@ export function PersonalizationPreview({
           >
             <span
               ref={textRef}
+              data-preview-font-size={resolvedPreviewFontSize}
+              data-preview-font-family={selectedFont.faceName}
               style={{
-                fontFamily: isSelectedFontReady
-                  ? `"${selectedFont.faceName}", ${selectedFont.fallbackFamily}`
-                  : selectedFont.fallbackFamily,
+                fontFamily: `"${selectedFont.faceName}", ${selectedFont.fallbackFamily}`,
                 fontSize: `${resolvedPreviewFontSize}px`,
                 ...selectedFont.style,
                 fontWeight: typedText ? 700 : 600,
