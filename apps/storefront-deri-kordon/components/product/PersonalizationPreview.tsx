@@ -139,7 +139,7 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
   imageAlt: "Deri ürün kişiselleştirme ön izlemesi",
   textPositionClass:
-    "bottom-[11%] right-[6%] w-[72%] text-right sm:bottom-[13%] sm:right-[8%]",
+    "bottom-[11%] right-[6%] w-[82%] text-right sm:bottom-[13%] sm:right-[8%]",
   textToneClass: "text-[#1f140f]",
   defaultText: "Ön izleme",
   sizePreset: "leather",
@@ -271,7 +271,6 @@ export function PersonalizationPreview({
   const [resolvedPreviewFontSize, setResolvedPreviewFontSize] = useState(
     initialPreviewFontSize
   );
-  const [resolvedPreviewScale, setResolvedPreviewScale] = useState(1);
 
   useLayoutEffect(() => {
     if (typeof document === "undefined") {
@@ -365,7 +364,6 @@ export function PersonalizationPreview({
 
     if (!textElement) {
       setResolvedPreviewFontSize(initialPreviewFontSize);
-      setResolvedPreviewScale(1);
       return;
     }
 
@@ -373,16 +371,8 @@ export function PersonalizationPreview({
 
     const fitText = () => {
       if (previewConfig.sizePreset === "leather") {
-        const parentWidth = textElement.clientWidth;
-        const naturalWidth = textElement.scrollWidth;
-        const nextScale =
-          parentWidth > 0 && naturalWidth > 0
-            ? Math.min(1, parentWidth / naturalWidth)
-            : 1;
-
         textElement.style.fontSize = "30px";
         setResolvedPreviewFontSize(30);
-        setResolvedPreviewScale(nextScale);
         return;
       }
 
@@ -399,7 +389,6 @@ export function PersonalizationPreview({
       }
 
       setResolvedPreviewFontSize(nextFontSize);
-      setResolvedPreviewScale(1);
     };
 
     const rafId = window.requestAnimationFrame(fitText);
@@ -484,33 +473,29 @@ export function PersonalizationPreview({
             unoptimized={usesProxiedPreview}
           />
           <div
-            ref={textRef}
             className={`pointer-events-none absolute ${previewConfig.textPositionClass} leading-none ${previewConfig.textToneClass}`}
-            style={{
-              fontFamily: isSelectedFontReady
-                ? `"${selectedFont.faceName}", ${selectedFont.fallbackFamily}`
-                : selectedFont.fallbackFamily,
-              fontSize: `${resolvedPreviewFontSize}px`,
-              ...selectedFont.style,
-              fontWeight: typedText ? 700 : 600,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "clip",
-              display: "block",
-              lineHeight: 1.02,
-              transform:
-                previewConfig.sizePreset === "leather"
-                  ? `scale(${resolvedPreviewScale})`
-                  : undefined,
-              transformOrigin:
-                previewConfig.sizePreset === "leather"
-                  ? "bottom right"
-                  : undefined,
-              textShadow:
-                "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
-            }}
           >
-            {displayText}
+            <span
+              ref={textRef}
+              style={{
+                fontFamily: isSelectedFontReady
+                  ? `"${selectedFont.faceName}", ${selectedFont.fallbackFamily}`
+                  : selectedFont.fallbackFamily,
+                fontSize: `${resolvedPreviewFontSize}px`,
+                ...selectedFont.style,
+                fontWeight: typedText ? 700 : 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "clip",
+                display: "inline-block",
+                maxWidth: "100%",
+                lineHeight: 1.02,
+                textShadow:
+                  "0 1px 0 rgba(255,255,255,0.28), 0 2px 8px rgba(28,18,12,0.08)",
+              }}
+            >
+              {displayText}
+            </span>
           </div>
         </div>
       </div>
