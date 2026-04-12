@@ -16,17 +16,26 @@ export const metadata: Metadata = {
 const themeScript = `
   (function() {
     function getThemePreference() {
-      if (typeof localStorage !== 'undefined') {
-        var stored = localStorage.getItem('owner-theme');
-        if (stored === 'light' || stored === 'dark' || stored === 'system') {
-          return stored;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          var stored = localStorage.getItem('owner-theme');
+          if (stored === 'light' || stored === 'dark' || stored === 'system') {
+            return stored;
+          }
         }
+      } catch (_) {
+        return 'system';
       }
       return 'system';
     }
 
     var mode = getThemePreference();
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var prefersDark = false;
+
+    try {
+      prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (_) {}
+
     var resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
 
     document.documentElement.setAttribute('data-theme', resolved);
