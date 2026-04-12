@@ -19,9 +19,32 @@ interface ThemeProviderProps {
   disableTransitionOnChange?: boolean;
 }
 
+function readStoredTheme(): Theme | null {
+  try {
+    const storedTheme = window.localStorage.getItem("owner-theme");
+    return storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
+      ? storedTheme
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(theme: Theme) {
+  try {
+    window.localStorage.setItem("owner-theme", theme);
+  } catch {
+    // Ignore storage failures and continue with in-memory theme state.
+  }
+}
+
 function resolveTheme(themeMode: Theme): "light" | "dark" {
   if (themeMode === "system") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    try {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch {
+      return "light";
+    }
   }
 
   return themeMode;
@@ -57,8 +80,7 @@ export function ThemeProvider({
   useEffect(() => {
     setMounted(true);
 
-    const storedTheme = localStorage.getItem("owner-theme") as Theme | null;
-    const initialTheme = storedTheme || defaultTheme;
+    const initialTheme = readStoredTheme() || defaultTheme;
 
     setThemeState(initialTheme);
 
@@ -70,7 +92,13 @@ export function ThemeProvider({
   useEffect(() => {
     if (!enableSystem || theme !== "system") return;
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    let mediaQuery: MediaQueryList;
+
+    try {
+      mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    } catch {
+      return;
+    }
 
     const handleChange = (event: MediaQueryListEvent) => {
       const nextResolvedTheme = event.matches ? "dark" : "light";
@@ -84,7 +112,7 @@ export function ThemeProvider({
 
   function setTheme(nextTheme: Theme) {
     setThemeState(nextTheme);
-    localStorage.setItem("owner-theme", nextTheme);
+    writeStoredTheme(nextTheme);
 
     const nextResolvedTheme = resolveTheme(nextTheme);
     setResolvedTheme(nextResolvedTheme);
