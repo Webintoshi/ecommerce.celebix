@@ -17,6 +17,10 @@ type ShowcaseProduct = Product & {
 interface ProductShowcaseSectionsProps {
   categories?: HomepageCategory[];
   allProducts: ShowcaseProduct[];
+  groupCopy?: Array<{
+    title: string;
+    subtitle: string;
+  }>;
   viewAllLabel?: string;
 }
 
@@ -42,6 +46,7 @@ function buildProductGroups(categories: HomepageCategory[], products: ShowcasePr
     const categoryProducts = products.filter((product) => {
       const productCategory = normalizeKey(product.category);
       const productSubcategory = normalizeKey(product.subcategory);
+
       return (
         !usedProductIds.has(product.id) &&
         (productCategory === categoryKey || productSubcategory === categoryKey)
@@ -92,15 +97,15 @@ function EmptyShowcaseState() {
   const cards = [
     {
       title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dagitilir.",
+      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
     },
     {
-      title: "Kategori Sirasini Kur",
-      text: "Aktif kategoriler otomatik section basliklarina ve ana menüye tasinir.",
+      title: "Manuel Sirayi Kullan",
+      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
     },
     {
-      title: "Yorumlari Guclendir",
-      text: "Onayli musteri yorumlari geldikce vitrindeki guven katmani otomatik buyur.",
+      title: "Kategori Kurgusunu Tamamla",
+      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
     },
   ];
 
@@ -116,8 +121,8 @@ function EmptyShowcaseState() {
             Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Ayrica ek bir tasarim eforu gerektirmez. Adminden urun, kategori ve gorsel girdikce
-            starter tema dogrudan canli vitrininize donusur.
+            Ekstra frontend eforu gerektirmeden admin panelindeki urun ve kategori
+            girdileri, baslangic temasinin section duzenini otomatik doldurur.
           </p>
         </div>
 
@@ -143,6 +148,7 @@ function EmptyShowcaseState() {
 export function ProductShowcaseSections({
   categories = [],
   allProducts,
+  groupCopy,
   viewAllLabel = "Tumunu Gor",
 }: ProductShowcaseSectionsProps) {
   const { locale } = useStorefrontRoute();
@@ -172,9 +178,15 @@ export function ProductShowcaseSections({
           },
         ].filter((group) => group.products.length > 0);
 
+  const effectiveGroups = fallbackGroups.map((group, index) => ({
+    ...group,
+    title: groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
+    subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
+  }));
+
   return (
     <>
-      {fallbackGroups.map((group) => (
+      {effectiveGroups.map((group) => (
         <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
           <div className="container-premium">
             <div className="mb-12 flex items-end justify-between gap-6">
@@ -182,7 +194,9 @@ export function ProductShowcaseSections({
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
                   {group.subtitle}
                 </span>
-                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">{group.title}</h2>
+                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+                  {group.title}
+                </h2>
               </div>
 
               <Link

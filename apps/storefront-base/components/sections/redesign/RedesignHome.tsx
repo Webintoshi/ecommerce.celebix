@@ -12,6 +12,10 @@ interface RedesignHomeProps {
     categoriesEyebrow?: string;
     categoriesHeading?: string;
     viewAllLabel?: string;
+    productGroups?: Array<{
+      title: string;
+      subtitle: string;
+    }>;
     storesEyebrow?: string;
     storesHeading?: string;
     storesDescription?: string;
@@ -33,6 +37,7 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
       <ProductShowcaseSections
         categories={data.categories}
         allProducts={(data.allProducts as never[]) || []}
+        groupCopy={uiCopy?.productGroups}
         viewAllLabel={uiCopy?.viewAllLabel}
       />
       <StoreLocationsSection

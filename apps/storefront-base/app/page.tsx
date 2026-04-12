@@ -11,6 +11,12 @@ const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
   categoriesHeading: "Markanizin vitrini",
   viewAllLabel: "Tumunu Gor",
+  productGroups: [
+    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
+    { title: "One Cikanlar", subtitle: "Editor Secimi" },
+    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
+    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+  ],
   storesEyebrow: "Fiziksel Deneyim",
   storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
   storesDescription:
