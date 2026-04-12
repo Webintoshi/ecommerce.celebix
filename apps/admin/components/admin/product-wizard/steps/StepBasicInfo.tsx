@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, Package, Sparkles, X } from "lucide-react";
+import { ChevronDown, Package, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { buildProductCategoryTree, getChildCategoriesByParentSlug } from "@/lib/admin-product-categories";
@@ -193,23 +193,23 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6">
-      <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-        <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+    <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="flex items-center gap-3 border-b border-[#FE6100]/8 pb-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)] md:h-12 md:w-12 md:rounded-2xl">
           <Package className="w-5 h-5 md:w-6 md:h-6" />
         </div>
         <div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-900">Temel Bilgiler</h3>
-          <p className="text-xs md:text-sm text-gray-500">
+          <h3 className="text-lg font-semibold tracking-[-0.02em] text-stone-900 md:text-xl">Temel Bilgiler</h3>
+          <p className="text-xs text-stone-500 md:text-sm">
             Ürünün temel tanımlayıcı bilgileri
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="space-y-5">
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2">
-            <label className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+            <label className="flex items-center gap-1 text-sm font-semibold text-stone-700">
               Ürün Adı <span className="text-rose-500">*</span>
             </label>
             <input
@@ -218,8 +218,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
               onChange={(event) => handleNameChange(event.target.value)}
               placeholder="Örn: El Yapımı Seramik Kupa"
               className={cn(
-                "w-full px-3 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm",
-                errors.name ? "border-rose-300 bg-rose-50/30" : "border-gray-200"
+                "w-full rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                errors.name ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
               )}
             />
             {errors.name ? (
@@ -227,12 +227,12 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2">
-            <label className="text-sm font-semibold text-gray-700">
+          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+            <label className="text-sm font-semibold text-stone-700">
               URL Slug <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs md:text-sm">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-stone-400 md:text-sm">
                 /urunler/
               </span>
               <input
@@ -241,8 +241,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                 onChange={(event) => onChange({ slug: event.target.value })}
                 placeholder="el-yapimi-seramik-kupa"
                 className={cn(
-                  "w-full pl-16 pr-3 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-xs md:text-sm font-mono",
-                  errors.slug ? "border-rose-300 bg-rose-50/30" : "border-gray-200"
+                  "w-full rounded-2xl border bg-[#fffaf6] py-3 pl-20 pr-4 text-xs font-mono outline-none transition-all md:text-sm focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                  errors.slug ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
                 )}
               />
             </div>
@@ -251,15 +251,15 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2">
+          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-semibold text-stone-700">
                 Kısa Açıklama <span className="text-rose-500">*</span>
               </label>
               <span
                 className={cn(
                   "text-xs font-medium",
-                  data.shortDescription.length > 150 ? "text-amber-500" : "text-gray-400"
+                  data.shortDescription.length > 150 ? "text-amber-600" : "text-stone-400"
                 )}
               >
                 {data.shortDescription.length}/160
@@ -275,8 +275,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
               placeholder="Arama sonuçlarında görünecek kısa özet."
               rows={2}
               className={cn(
-                "w-full px-3 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none text-sm",
-                errors.shortDescription ? "border-rose-300 bg-rose-50/30" : "border-gray-200"
+                "w-full resize-none rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                errors.shortDescription ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
               )}
             />
             {errors.shortDescription ? (
@@ -286,8 +286,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2">
-            <label className="text-sm font-semibold text-gray-700">
+          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+            <label className="text-sm font-semibold text-stone-700">
               Ürün Açıklaması <span className="text-rose-500">*</span>
             </label>
             <RichTextEditor
@@ -304,10 +304,10 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
         </div>
 
         <div className="space-y-5">
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4 rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">
+                <label className="text-sm font-semibold text-stone-700">
                   Kategori <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -320,8 +320,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                       })
                     }
                     className={cn(
-                      "w-full appearance-none px-3 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer text-sm",
-                      errors.category ? "border-rose-300 bg-rose-50/30" : "border-gray-200"
+                      "w-full cursor-pointer appearance-none rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                      errors.category ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
                     )}
                   >
                     <option value="">
@@ -333,7 +333,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 </div>
                 {errors.category ? (
                   <p className="text-xs text-rose-500 font-medium">{errors.category}</p>
@@ -342,12 +342,12 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
 
               {subcategories.length > 0 ? (
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">Alt Kategori</label>
+                  <label className="text-sm font-semibold text-stone-700">Alt Kategori</label>
                   <div className="relative">
                     <select
                       value={data.subcategory}
                       onChange={(event) => onChange({ subcategory: event.target.value })}
-                      className="w-full appearance-none px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer text-sm"
+                      className="w-full cursor-pointer appearance-none rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                     >
                       <option value="">Alt kategori seçin</option>
                       {subcategories.map((subcategory) => (
@@ -356,47 +356,47 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                   </div>
                 </div>
               ) : null}
             </div>
 
             {data.category && subcategories.length === 0 ? (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-stone-500">
                 Seçili kategori için alt kategori tanımlı değil.
               </p>
             ) : null}
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Marka</label>
+                <label className="text-sm font-semibold text-stone-700">Marka</label>
                 <input
                   type="text"
                   value={data.brand}
                   onChange={(event) => onChange({ brand: event.target.value })}
                   placeholder="Marka veya üretici adı"
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm"
+                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Menşei</label>
+                <label className="text-sm font-semibold text-stone-700">Menşei</label>
                 <input
                   type="text"
                   value={data.countryOfOrigin}
                   onChange={(event) => onChange({ countryOfOrigin: event.target.value })}
                   placeholder="Menşei ülke veya bölge"
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm"
+                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-3">
-            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
+          <div className="space-y-3 rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
+            <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
+              <Tag className="h-4 w-4 text-[#FE6100]" />
               Etiketler
             </label>
 
@@ -411,10 +411,10 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                 }
               }}
               placeholder="Etiket eklemek için yazın ve Enter'a basın"
-              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
             />
 
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-stone-500" aria-live="polite">
               <span>
                 {data.tags.length}/{PRODUCT_TAG_LIMITS.maxCount} etiket
               </span>
@@ -423,7 +423,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
 
             {availableSuggestions.length > 0 || loadingSuggestions ? (
               <div className="space-y-2">
-                <p className="text-xs font-medium text-gray-500">
+                <p className="text-xs font-medium text-stone-500">
                   {loadingSuggestions ? "Öneriler yükleniyor..." : "Öneriler"}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -432,7 +432,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                       key={suggestion.value}
                       type="button"
                       onClick={() => addTag(suggestion.value)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                      className="rounded-full border border-[#FE6100]/12 bg-white px-3 py-1.5 text-xs font-medium text-[#C94E00] transition-all hover:border-[#FE6100]/20 hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
                     >
                       {suggestion.value}
                     </button>
@@ -442,19 +442,20 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
 
             {data.tags.length > 0 ? (
-              <div className="pt-2 border-t border-gray-100 space-y-2">
-                <p className="text-xs text-gray-500">Seçilen etiketler</p>
+              <div className="space-y-2 border-t border-[#FE6100]/8 pt-2">
+                <p className="text-xs text-stone-500">Seçilen etiketler</p>
                 <div className="flex flex-wrap gap-2">
                   {data.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium"
+                      className="inline-flex items-center gap-1 rounded-full border border-[#FE6100]/15 bg-[#fff4ec] px-3 py-1.5 text-xs font-medium text-[#C94E00]"
                     >
                       {tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="hover:text-blue-900"
+                        className="rounded-full text-[#C94E00] transition-colors hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
+                        aria-label={`${tag} etiketini kaldır`}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

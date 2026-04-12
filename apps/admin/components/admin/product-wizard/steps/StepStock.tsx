@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, MapPin, Maximize2, Barcode } from "lucide-react";
+import { Package, MapPin, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductVariant } from "@/types/product";
 
@@ -40,40 +40,42 @@ export function StepStock({
   };
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
-        <div className="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+    <div className="space-y-8 p-4 md:p-6 lg:p-8">
+      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
           <Package className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-gray-900">Stok Yönetimi</h3>
-          <p className="text-sm text-gray-500">Stok takip ve uyarı ayarları</p>
+          <h3 className="text-xl font-semibold tracking-[-0.02em] text-stone-900">Stok Yönetimi</h3>
+          <p className="text-sm text-stone-500">Stok takip ve uyarı ayarları</p>
         </div>
       </div>
 
       {/* Stock Tracking Toggle */}
-      <div className="bg-orange-50 rounded-2xl p-6">
-        <div className="flex items-center justify-between">
+      <div className="rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffaf6] to-[#faf4ed] p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-              <Package className="w-5 h-5 text-orange-500" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+              <Package className="w-5 h-5 text-[#FE6100]" />
             </div>
             <div>
-              <h4 className="font-bold text-gray-900">Stok Takibi</h4>
-              <p className="text-sm text-gray-500">Stok adetlerini otomatik takip et</p>
+              <h4 className="font-semibold text-stone-900">Stok Takibi</h4>
+              <p className="text-sm text-stone-500">Stok adetlerini otomatik takip et</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onTrackStockChange(!trackStock)}
+            aria-pressed={trackStock}
+            aria-label={trackStock ? "Stok takibini kapat" : "Stok takibini aç"}
             className={cn(
-              "w-14 h-8 rounded-full transition-all relative",
-              trackStock ? "bg-orange-500" : "bg-gray-300"
+              "relative h-8 w-14 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fbf4ed]",
+              trackStock ? "bg-[#FE6100]" : "bg-stone-300"
             )}
           >
             <div
               className={cn(
-                "absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm",
+                "absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-all",
                 trackStock && "translate-x-6"
               )}
             />
@@ -83,18 +85,18 @@ export function StepStock({
 
       {/* Low Stock Alert */}
       {trackStock && (
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-            <BarChartIcon className="w-4 h-4 text-amber-500" />
+        <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
+            <BarChartIcon className="w-4 h-4 text-[#FE6100]" />
             Düşük Stok Uyarı Eşiği
           </label>
           <input
             type="number"
             value={lowStockThreshold}
             onChange={(e) => onLowStockThresholdChange(parseInt(e.target.value) || 10)}
-            className="w-32 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+            className="w-32 rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-stone-500" aria-live="polite">
             Stok bu seviyenin altına düştüğünde uyarı alacaksınız.
           </p>
         </div>
@@ -102,27 +104,27 @@ export function StepStock({
 
       {/* Variant Stock Details */}
       <div className="space-y-4">
-        <h4 className="text-lg font-bold text-gray-900">Varyant Stok Bilgileri</h4>
+        <h4 className="text-lg font-semibold text-stone-900">Varyant Stok Bilgileri</h4>
         
         <div className="grid gap-4">
           {variants.map((variant, index) => (
-            <div key={variant.id} className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h5 className="font-bold text-gray-900">{variant.name}</h5>
-                <span className="text-sm text-gray-500">SKU: {variant.sku}</span>
+            <div key={variant.id} className="space-y-4 rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-4 shadow-sm md:p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h5 className="font-semibold text-stone-900">{variant.name}</h5>
+                <span className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-medium text-[#C94E00]">SKU: {variant.sku}</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Stock */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Stok Adedi</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Stok Adedi</label>
                   <input
                     type="number"
                     value={variant.stock}
                     onChange={(e) => updateVariantStock(index, parseInt(e.target.value) || 0)}
                     disabled={!trackStock}
                     className={cn(
-                      "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all",
+                      "w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
                       !trackStock && "opacity-50 cursor-not-allowed"
                     )}
                   />
@@ -130,7 +132,7 @@ export function StepStock({
 
                 {/* Warehouse Location */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
+                  <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                     <MapPin className="w-3 h-3" />
                     Depo Lokasyonu
                   </label>
@@ -139,13 +141,13 @@ export function StepStock({
                     value={variant.warehouseLocation || ""}
                     onChange={(e) => updateVariantWarehouse(index, e.target.value)}
                     placeholder="A-12-3"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                 </div>
 
                 {/* Max Purchase Limit */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
+                  <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                     <Maximize2 className="w-3 h-3" />
                     Max. Satın Alma
                   </label>
@@ -154,7 +156,7 @@ export function StepStock({
                     value={variant.maxPurchaseQuantity || ""}
                     onChange={(e) => updateVariantMaxPurchase(index, parseInt(e.target.value) || undefined)}
                     placeholder="Sınırsız"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                 </div>
               </div>

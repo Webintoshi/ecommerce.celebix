@@ -235,21 +235,21 @@ export function StepPricing({
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="space-y-8 p-4 md:p-6 lg:p-8">
       {/* Section Header */}
-      <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
-        <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
           <Tag className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-gray-900">Fiyatlandırma</h3>
-          <p className="text-sm text-gray-500">Varyantlar, KDV ve indirim kuralları</p>
+          <h3 className="text-xl font-semibold tracking-[-0.02em] text-stone-900">Fiyatlandırma</h3>
+          <p className="text-sm text-stone-500">Varyantlar, KDV ve indirim kuralları</p>
         </div>
       </div>
 
       {/* KDV Oranı */}
-      <div className="bg-gray-50 rounded-2xl p-6">
-        <label className="text-sm font-bold text-gray-700 mb-3 block">KDV Oranı</label>
+      <div className="rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-6 shadow-sm">
+        <label className="mb-3 block text-sm font-semibold text-stone-700">KDV Oranı</label>
         <div className="flex items-center gap-2 flex-wrap">
           {[0, 1, 8, 10, 20].map((rate) => (
             <button
@@ -257,17 +257,17 @@ export function StepPricing({
               type="button"
               onClick={() => onTaxRateChange(rate as TaxRate)}
               className={cn(
-                "px-6 py-3 rounded-xl text-sm font-bold transition-all",
+                "rounded-2xl px-5 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25",
                 taxRate === rate
-                  ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                  ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.2)]"
+                  : "border border-[#FE6100]/12 bg-white text-stone-600 hover:border-[#FE6100]/20 hover:bg-[#fff7f1]"
               )}
             >
               %{rate}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="mt-3 text-xs text-stone-500" aria-live="polite">
           {taxRate === 0 
             ? "KDV uygulanmayacak" 
             : `Fiyatlara KDV ${taxRate}% olarak eklenecek`}
@@ -277,11 +277,11 @@ export function StepPricing({
       {/* Variants */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-lg font-bold text-gray-900">Varyantlar</h4>
+          <h4 className="text-lg font-semibold text-stone-900">Varyantlar</h4>
           <button
             type="button"
             onClick={addVariant}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors"
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(254,97,0,0.2)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
           >
             <Plus className="w-4 h-4" />
             Varyant Ekle
@@ -290,7 +290,7 @@ export function StepPricing({
 
         {/* Variant Tabs */}
         {variants.length > 1 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto rounded-[24px] border border-[#FE6100]/10 bg-[#fffaf6] p-2 pb-2">
             {variants.map((variant, index) => {
               const attrs = (variant as any).attributes || [];
               const displayName = attrs.length > 0 
@@ -303,10 +303,10 @@ export function StepPricing({
                   type="button"
                   onClick={() => setActiveVariant(index)}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
+                    "whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25",
                     activeVariant === index
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_12px_24px_rgba(254,97,0,0.18)]"
+                      : "bg-white text-stone-600 hover:bg-[#fff2e8]"
                   )}
                 >
                   {displayName}
@@ -318,16 +318,17 @@ export function StepPricing({
 
         {/* Active Variant Form */}
         {activeVariant !== null && variants[activeVariant] && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+          <div className="space-y-6 rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_16px_40px_rgba(72,36,8,0.06)] md:p-6">
             <div className="flex items-center justify-between">
-              <h5 className="font-bold text-gray-900">
+              <h5 className="font-semibold text-stone-900">
                 Varyant Detayları
               </h5>
               {variants.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeVariant(activeVariant)}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                  className="rounded-xl p-2 text-rose-500 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                  aria-label="Aktif varyantı kaldır"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -335,11 +336,11 @@ export function StepPricing({
             </div>
 
             {/* Variant Attributes Section */}
-            <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+            <div className="space-y-4 rounded-[24px] border border-[#FE6100]/10 bg-[#fff9f4] p-4">
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Nitelikler</span>
-                <span className="text-xs text-gray-400">(İsteğe bağlı)</span>
+                <Package className="w-4 h-4 text-[#FE6100]" />
+                <span className="text-sm font-medium text-stone-700">Nitelikler</span>
+                <span className="text-xs text-stone-400">(İsteğe bağlı)</span>
               </div>
 
               {loadingAttributes ? (
@@ -357,7 +358,7 @@ export function StepPricing({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-stone-500">
                     Gramaj ve birim alanlari bu akistan kaldirildi. Gerekiyorsa varyant nitelikleri uzerinden tanimlayin.
                   </p>
                   {/* Selected Attributes Display */}
@@ -367,7 +368,7 @@ export function StepPricing({
                         (attr) => (
                           <div
                             key={attr.attributeId}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"
+                            className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#fff1e7] px-3 py-1.5 text-sm text-[#9f3d00]"
                           >
                             <span className="font-medium">{attr.attributeName}:</span>
                             <span className="flex items-center gap-1">
@@ -390,7 +391,8 @@ export function StepPricing({
                               onClick={() =>
                                 removeVariantAttribute(activeVariant, attr.attributeId)
                               }
-                              className="ml-1 text-emerald-600 hover:text-emerald-800"
+                              className="ml-1 text-[#C94E00] hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
+                              aria-label={`${attr.attributeName} niteliğini kaldır`}
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -409,7 +411,7 @@ export function StepPricing({
 
                       return (
                         <div key={attribute.id} className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">
+                          <label className="text-sm font-medium text-stone-700">
                             {attribute.name}
                           </label>
                           <div className="relative">
@@ -426,7 +428,7 @@ export function StepPricing({
                                   );
                                 }
                               }}
-                              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none"
+                              className="w-full appearance-none rounded-2xl border border-[#e8dbcf] bg-white px-4 py-3 pr-10 outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
                             >
                               <option value="">Seçin...</option>
                               {attribute.values?.map((value) => (
@@ -434,28 +436,28 @@ export function StepPricing({
                                   {value.value}
                                 </option>
                               ))}
-                              <option value="__new__" className="text-emerald-600">
+                              <option value="__new__" className="text-[#C94E00]">
                                 + Yeni {attribute.name} Ekle
                               </option>
                             </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                           </div>
 
                           {/* New Value Form */}
                           {showNewAttributeForm === attribute.id && (
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="mt-2 flex items-center gap-2">
                               <input
                                 type="text"
                                 value={newAttributeValue}
                                 onChange={(e) => setNewAttributeValue(e.target.value)}
                                 placeholder={`Yeni ${attribute.name}`}
-                                className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                                className="flex-1 rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
                                 autoFocus
                               />
                               <button
                                 type="button"
                                 onClick={() => addNewAttributeValue(attribute.id)}
-                                className="px-3 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600"
+                                className="rounded-xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-3 py-2 text-sm font-medium text-white transition-all hover:from-[#E45700] hover:to-[#D34D00]"
                               >
                                 Ekle
                               </button>
@@ -465,7 +467,7 @@ export function StepPricing({
                                   setShowNewAttributeForm(null);
                                   setNewAttributeValue("");
                                 }}
-                                className="px-3 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300"
+                                className="rounded-xl bg-stone-200 px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-300"
                               >
                                 İptal
                               </button>
@@ -482,7 +484,7 @@ export function StepPricing({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Variant Name */}
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-bold text-gray-700">
+                <label className="text-sm font-semibold text-stone-700">
                   Varyant Adı <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -491,8 +493,8 @@ export function StepPricing({
                   onChange={(e) => updateVariant(activeVariant, "name", e.target.value)}
                   placeholder="Örn: 2'li Avantaj Paketi"
                   className={cn(
-                    "w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all",
-                    errors[`variant_${activeVariant}_name`] ? "border-rose-300" : "border-gray-200"
+                    "w-full rounded-2xl border bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                    errors[`variant_${activeVariant}_name`] ? "border-rose-300" : "border-[#e8dbcf]"
                   )}
                 />
                 {errors[`variant_${activeVariant}_name`] && (
@@ -503,7 +505,7 @@ export function StepPricing({
               {/* Variant Image Selector */}
               {productImages.length > 0 && (
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
                     <ImageIcon className="w-4 h-4" />
                     Varyant Görseli
                   </label>
@@ -519,11 +521,12 @@ export function StepPricing({
                             updateVariant(activeVariant, "images", newImages);
                           }}
                           className={cn(
-                            "relative w-20 h-20 rounded-xl overflow-hidden border-2 transition-all",
+                            "relative h-20 w-20 overflow-hidden rounded-2xl border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25",
                             isSelected 
-                              ? "border-emerald-500 ring-2 ring-emerald-500/20" 
-                              : "border-gray-200 hover:border-gray-300"
+                              ? "border-[#FE6100] ring-2 ring-[#FE6100]/20" 
+                              : "border-[#eadfd4] hover:border-[#FE6100]/30"
                           )}
+                          aria-label={isSelected ? `Varyant görseli seçildi: ${idx + 1}` : `Varyant görseli olarak ${idx + 1}. görseli seç`}
                         >
                           <img
                             src={img.url}
@@ -531,8 +534,8 @@ export function StepPricing({
                             className="w-full h-full object-cover"
                           />
                           {isSelected && (
-                            <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                              <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <div className="absolute inset-0 flex items-center justify-center bg-[#FE6100]/20">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FE6100]">
                                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
@@ -547,13 +550,14 @@ export function StepPricing({
                       <button
                         type="button"
                         onClick={() => updateVariant(activeVariant, "images", [])}
-                        className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors"
+                        className="flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-dashed border-[#eadfd4] text-stone-400 transition-colors hover:border-rose-300 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                        aria-label="Varyant görselini kaldır"
                       >
                         <X className="w-6 h-6" />
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-stone-500">
                     Bu varyant için ürün galerisinden bir görsel seçin. Müşteri bu varyanta tıkladığında bu görsel gösterilecek.
                   </p>
                 </div>
@@ -561,19 +565,19 @@ export function StepPricing({
 
               {/* Price */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">
+                <label className="text-sm font-semibold text-stone-700">
                   Satış Fiyatı (₺) <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₺</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">₺</span>
                   <input
                     type="number"
                     step="0.01"
                     value={variants[activeVariant].price}
                     onChange={(e) => updateVariant(activeVariant, "price", parseFloat(e.target.value) || 0)}
                     className={cn(
-                      "w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all",
-                      errors[`variant_${activeVariant}_price`] ? "border-rose-300" : "border-gray-200"
+                      "w-full rounded-2xl border bg-[#fffaf6] py-3 pl-10 pr-4 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                      errors[`variant_${activeVariant}_price`] ? "border-rose-300" : "border-[#e8dbcf]"
                     )}
                   />
                 </div>
@@ -581,7 +585,7 @@ export function StepPricing({
                   <p className="text-xs text-rose-500">{errors[`variant_${activeVariant}_price`]}</p>
                 )}
                 {variants[activeVariant].price > 0 && (
-                  <p className="text-xs text-emerald-600">
+                  <p className="text-xs text-emerald-600" aria-live="polite">
                     KDV Dahil: ₺{calculateWithTax(variants[activeVariant].price, taxRate)}
                   </p>
                 )}
@@ -589,20 +593,20 @@ export function StepPricing({
 
               {/* Original Price */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Eski Fiyat / Compare At (Opsiyonel)</label>
+                <label className="text-sm font-semibold text-stone-700">Eski Fiyat / Compare At (Opsiyonel)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₺</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">₺</span>
                   <input
                     type="number"
                     step="0.01"
                     value={variants[activeVariant].originalPrice || ""}
                     onChange={(e) => updateVariant(activeVariant, "originalPrice", parseFloat(e.target.value) || undefined)}
                     placeholder="Normal fiyat"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] py-3 pl-10 pr-4 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                 </div>
                 {variants[activeVariant].originalPrice && variants[activeVariant].originalPrice > variants[activeVariant].price && (
-                  <p className="text-xs text-emerald-600 font-medium">
+                  <p className="text-xs font-medium text-emerald-600" aria-live="polite">
                     %{Math.round(((variants[activeVariant].originalPrice - variants[activeVariant].price) / variants[activeVariant].originalPrice) * 100)} indirim
                   </p>
                 )}
@@ -610,20 +614,20 @@ export function StepPricing({
 
               {/* Cost */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Maliyet (Opsiyonel)</label>
+                <label className="text-sm font-semibold text-stone-700">Maliyet (Opsiyonel)</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₺</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400">₺</span>
                   <input
                     type="number"
                     step="0.01"
                     value={variants[activeVariant].cost || ""}
                     onChange={(e) => updateVariant(activeVariant, "cost", parseFloat(e.target.value) || undefined)}
                     placeholder="Alış fiyatı"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] py-3 pl-10 pr-4 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                 </div>
                 {variants[activeVariant].cost && variants[activeVariant].cost > 0 && (
-                  <p className="text-xs text-emerald-600">
+                  <p className="text-xs text-emerald-600" aria-live="polite">
                     <Calculator className="w-3 h-3 inline mr-1" />
                     Kar: ₺{calculateMargin(variants[activeVariant].price, variants[activeVariant].cost).margin}
                     (%{calculateMargin(variants[activeVariant].price, variants[activeVariant].cost).marginPercent})
@@ -633,18 +637,18 @@ export function StepPricing({
 
               {/* SKU */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">SKU/Barkod</label>
+                <label className="text-sm font-semibold text-stone-700">SKU/Barkod</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={variants[activeVariant].sku}
                     onChange={(e) => updateVariant(activeVariant, "sku", e.target.value)}
-                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all font-mono text-sm"
+                    className="flex-1 rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 font-mono text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                   <button
                     type="button"
                     onClick={() => updateVariant(activeVariant, "sku", buildGeneratedSku())}
-                    className="px-3 py-2 bg-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-300 transition-colors"
+                    className="rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2 text-xs font-semibold text-[#C94E00] transition-all hover:border-[#FE6100]/20 hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
                   >
                     Oluştur
                   </button>
@@ -658,14 +662,14 @@ export function StepPricing({
       {/* Discount Rules */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Percent className="w-5 h-5 text-purple-500" />
+          <h4 className="flex items-center gap-2 text-lg font-semibold text-stone-900">
+            <Percent className="w-5 h-5 text-[#FE6100]" />
             İndirim Kuralları
           </h4>
           <button
             type="button"
             onClick={addDiscountRule}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl text-sm font-bold hover:bg-purple-600 transition-colors"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-semibold text-[#C94E00] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
           >
             <Plus className="w-4 h-4" />
             Kural Ekle
@@ -673,12 +677,12 @@ export function StepPricing({
         </div>
 
         {discountRules.length === 0 && (
-          <p className="text-sm text-gray-400">Henüz indirim kuralı eklenmemiş.</p>
+          <p className="text-sm text-stone-400">Henüz indirim kuralı eklenmemiş.</p>
         )}
 
         <div className="space-y-3">
           {discountRules.map((rule, index) => (
-            <div key={rule.id} className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
+            <div key={rule.id} className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white to-[#fff7f1] p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <input
                   type="text"
@@ -688,7 +692,7 @@ export function StepPricing({
                     newRules[index].name = e.target.value;
                     onDiscountRulesChange(newRules);
                   }}
-                  className="flex-1 px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                  className="flex-1 rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm font-semibold outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
                 />
                 <div className="flex items-center gap-2 ml-2">
                   <button
@@ -699,10 +703,10 @@ export function StepPricing({
                       onDiscountRulesChange(newRules);
                     }}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                      "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20",
                       rule.isActive
                         ? "bg-emerald-500 text-white"
-                        : "bg-gray-200 text-gray-600"
+                        : "bg-stone-200 text-stone-600"
                     )}
                   >
                     {rule.isActive ? "Aktif" : "Pasif"}
@@ -710,14 +714,15 @@ export function StepPricing({
                   <button
                     type="button"
                     onClick={() => removeDiscountRule(index)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    className="rounded-lg p-2 text-rose-500 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                    aria-label={`${rule.name} kuralını kaldır`}
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <select
                   value={rule.type}
                   onChange={(e) => {
@@ -733,7 +738,7 @@ export function StepPricing({
                     }
                     onDiscountRulesChange(newRules);
                   }}
-                  className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                  className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
                 >
                   <option value="buy_x_get_y">2+1 Kampanya</option>
                   <option value="bulk">Toplu Alım</option>
@@ -752,9 +757,9 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Al"
-                      className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm"
-                    />
-                    <input
+                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
+                     />
+                     <input
                       type="number"
                       value={rule.config.get}
                       onChange={(e) => {
@@ -763,10 +768,10 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Öde"
-                      className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm"
-                    />
-                  </>
-                )}
+                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
+                     />
+                   </>
+                 )}
 
                 {rule.type === "bulk" && (
                   <>
@@ -779,9 +784,9 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Min. adet"
-                      className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm"
-                    />
-                    <input
+                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
+                     />
+                     <input
                       type="number"
                       value={rule.config.discountPercent}
                       onChange={(e) => {
@@ -790,10 +795,10 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="İndirim %"
-                      className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm"
-                    />
-                  </>
-                )}
+                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
+                     />
+                   </>
+                 )}
 
                 {(rule.type === "percentage" || rule.type === "fixed") && (
                   <input
@@ -809,7 +814,7 @@ export function StepPricing({
                       onDiscountRulesChange(newRules);
                     }}
                     placeholder={rule.type === "percentage" ? "İndirim %" : "İndirim ₺"}
-                    className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm"
+                    className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:ring-2 focus:ring-[#FE6100]/20"
                   />
                 )}
               </div>

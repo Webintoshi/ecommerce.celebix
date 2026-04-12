@@ -45,25 +45,25 @@ export function StepPreview({
   const primaryVariant = data.variants[0];
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
-        <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+    <div className="space-y-8 p-4 md:p-6 lg:p-8">
+      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
           <CheckCircle className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-gray-900">Önizle & Yayınla</h3>
-          <p className="text-sm text-gray-500">Son kontrol ve yayınlama</p>
+          <h3 className="text-xl font-semibold tracking-[-0.02em] text-stone-900">Önizle ve Yayınla</h3>
+          <p className="text-sm text-stone-500">Son kontrol ve yayınlama</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <div className="bg-gray-50 rounded-2xl p-6">
+          <div className="rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-bold text-gray-700">Yayınlanma Durumu</span>
-              <span className="text-lg font-black text-emerald-600">%{Math.round(progress)}</span>
+              <span className="text-sm font-semibold text-stone-700">Yayınlanma Durumu</span>
+              <span className="text-lg font-black text-emerald-600" aria-live="polite">%{Math.round(progress)}</span>
             </div>
-            <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-[#efe4da]">
               <div
                 className={cn(
                   "h-full transition-all",
@@ -78,26 +78,26 @@ export function StepPreview({
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-bold text-gray-700">Kontrol Listesi</h4>
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#C94E00]">Kontrol Listesi</h4>
             {checklistItems.map((item) => {
               const isChecked = item.check();
               return (
                 <div
                   key={item.id}
                   className={cn(
-                    "flex items-center gap-3 p-4 rounded-xl border transition-all",
-                    isChecked ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-200"
+                    "flex items-center gap-3 rounded-[22px] border p-4 transition-all",
+                    isChecked ? "border-emerald-200 bg-emerald-50/80" : "border-[#eadfd4] bg-white"
                   )}
                 >
                   <div
                     className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center",
-                      isChecked ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-400"
+                      "flex h-7 w-7 items-center justify-center rounded-full",
+                      isChecked ? "bg-emerald-500 text-white" : "bg-[#f1e7dc] text-stone-400"
                     )}
                   >
                     {isChecked ? <CheckCircle className="w-4 h-4" /> : <span className="text-xs">○</span>}
                   </div>
-                  <span className={cn("text-sm font-medium", isChecked ? "text-emerald-700" : "text-gray-500")}>
+                  <span className={cn("text-sm font-medium", isChecked ? "text-emerald-700" : "text-stone-500")}>
                     {item.label}
                   </span>
                 </div>
@@ -105,12 +105,12 @@ export function StepPreview({
             })}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <button
               type="button"
               onClick={onSaveDraft}
               disabled={saving}
-              className="flex items-center justify-center gap-2 px-4 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-[24px] border border-[#FE6100]/12 bg-white px-4 py-4 font-semibold text-stone-700 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25 disabled:opacity-50"
             >
               <Save className="w-5 h-5" />
               Taslak Kaydet
@@ -127,10 +127,10 @@ export function StepPreview({
               }}
               disabled={saving}
               className={cn(
-                "flex items-center justify-center gap-2 px-4 py-4 rounded-2xl font-bold transition-all disabled:opacity-50",
+                "flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25 disabled:opacity-50",
                 progress >= 100
-                  ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] hover:from-[#E45700] hover:to-[#D34D00]"
+                  : "cursor-not-allowed bg-stone-300 text-stone-500"
               )}
             >
               <Globe className="w-5 h-5" />
@@ -140,10 +140,10 @@ export function StepPreview({
         </div>
 
         <div className="space-y-6">
-          <h4 className="text-sm font-bold text-gray-700">Ürün Önizlemesi</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#C94E00]">Ürün Önizlemesi</h4>
 
-          <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="aspect-[4/3] bg-gray-100 relative">
+          <div className="overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
+            <div className="relative aspect-[4/3] bg-[#f3e8dd]">
               {data.images[0] ? (
                 <img
                   src={data.images[0].url}
@@ -151,18 +151,18 @@ export function StepPreview({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                <div className="flex h-full w-full items-center justify-center text-stone-300">
                   <Eye className="w-16 h-16" />
                 </div>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="space-y-5 p-6">
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-gray-900 line-clamp-2">
+                <h3 className="line-clamp-2 text-xl font-semibold text-stone-900">
                   {data.name || "Ürün Adı"}
                 </h3>
-                <p className="text-sm text-gray-500 line-clamp-3">
+                <p className="line-clamp-3 text-sm text-stone-500">
                   {data.shortDescription || "Kısa açıklama burada görünecek."}
                 </p>
               </div>
@@ -172,7 +172,7 @@ export function StepPreview({
                   {data.tags.slice(0, 5).map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium"
+                      className="rounded-full border border-[#FE6100]/12 bg-[#fff4ec] px-3 py-1.5 text-xs font-medium text-[#C94E00]"
                     >
                       {tag}
                     </span>
@@ -181,36 +181,36 @@ export function StepPreview({
               )}
 
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-black text-primary">
+                <span className="text-3xl font-black text-[#FE6100]">
                   ₺{primaryVariant?.price || 0}
                 </span>
                 {primaryVariant?.originalPrice ? (
-                  <span className="text-lg text-gray-400 line-through">
+                  <span className="text-lg text-stone-400 line-through">
                     ₺{primaryVariant.originalPrice}
                   </span>
                 ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Kategori</p>
-                  <p className="mt-1 font-semibold text-gray-900">
+                <div className="rounded-[22px] border border-[#FE6100]/8 bg-white/85 p-4">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Kategori</p>
+                  <p className="mt-1 font-semibold text-stone-900">
                     {data.category ? formatLabel(data.category) : "Belirtilmedi"}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Alt Kategori</p>
-                  <p className="mt-1 font-semibold text-gray-900">
+                <div className="rounded-[22px] border border-[#FE6100]/8 bg-white/85 p-4">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Alt Kategori</p>
+                  <p className="mt-1 font-semibold text-stone-900">
                     {data.subcategory ? formatLabel(data.subcategory) : "Yok"}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Varyant Sayısı</p>
-                  <p className="mt-1 font-semibold text-gray-900">{data.variants.length}</p>
+                <div className="rounded-[22px] border border-[#FE6100]/8 bg-white/85 p-4">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Varyant Sayısı</p>
+                  <p className="mt-1 font-semibold text-stone-900">{data.variants.length}</p>
                 </div>
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-gray-400">Stok Takibi</p>
-                  <p className="mt-1 font-semibold text-gray-900">
+                <div className="rounded-[22px] border border-[#FE6100]/8 bg-white/85 p-4">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Stok Takibi</p>
+                  <p className="mt-1 font-semibold text-stone-900">
                     {data.trackStock ? "Aktif" : "Pasif"}
                   </p>
                 </div>
@@ -218,25 +218,25 @@ export function StepPreview({
 
               {data.variants.length > 0 && (
                 <div className="space-y-2 pt-2">
-                  <h5 className="text-sm font-bold text-gray-700">Varyantlar</h5>
+                  <h5 className="text-sm font-semibold text-stone-700">Varyantlar</h5>
                   <div className="space-y-2">
                     {data.variants.slice(0, 3).map((variant) => (
                       <div
                         key={variant.id}
-                        className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3"
+                        className="flex items-center justify-between rounded-[22px] border border-[#FE6100]/8 bg-white/85 px-4 py-3"
                       >
                         <div>
-                          <p className="font-medium text-gray-900">{variant.name}</p>
-                          <p className="text-xs text-gray-500">{variant.sku || "SKU yok"}</p>
+                          <p className="font-medium text-stone-900">{variant.name}</p>
+                          <p className="text-xs text-stone-500">{variant.sku || "SKU yok"}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-gray-900">₺{variant.price}</p>
-                          <p className="text-xs text-gray-500">Stok: {variant.stock}</p>
+                          <p className="font-semibold text-stone-900">₺{variant.price}</p>
+                          <p className="text-xs text-stone-500">Stok: {variant.stock}</p>
                         </div>
                       </div>
                     ))}
                     {data.variants.length > 3 && (
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-stone-500">
                         +{data.variants.length - 3} varyant daha
                       </p>
                     )}

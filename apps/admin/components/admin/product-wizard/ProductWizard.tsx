@@ -96,7 +96,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
           tags: p.tags || [],
           brand: p.brand || "",
           countryOfOrigin: p.country_of_origin || "",
-          images: (Array.isArray(p.images_v2) ? p.images_v2 : []).map((img) => {
+          images: (Array.isArray(p.images_v2) ? p.images_v2 : []).map((img: string | Record<string, unknown>) => {
             const image = typeof img === "string" ? { url: img } : (img as Record<string, unknown>);
             return {
               url: (image.url as string) || "",
@@ -436,36 +436,43 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f6efe8] text-stone-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-30 border-b border-[#FE6100]/10 bg-[#fcf6f0]/95 backdrop-blur-xl">
+        <div className="container mx-auto px-4 py-4 md:py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/urunler"
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
+                aria-label="Ürünler listesine dön"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
+                <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  Ürün sihirbazı
+                </div>
+                <h1 className="text-2xl font-semibold tracking-[-0.03em] text-stone-900 md:text-[2rem]">
                   {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
                 </h1>
-                {lastSaved && (
-                  <p className="text-xs text-gray-500">
+                <p className="mt-1 text-sm text-stone-500">
+                  Premium katalog deneyimine uyumlu ürün kartı, içerik ve satış sunumu hazırlayın.
+                </p>
+                {lastSaved ? (
+                  <p className="mt-2 text-xs font-medium text-stone-500" aria-live="polite">
                     Son kayıt: {lastSaved.toLocaleTimeString("tr-TR")}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 self-start lg:self-auto">
               {currentStep < totalSteps && (
                 <button
                   onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#C94E00] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -480,7 +487,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       </div>
 
       {/* Stepper */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="border-b border-[#FE6100]/10 bg-gradient-to-b from-[#fcf6f0] to-[#f8f1ea]">
         <div className="container mx-auto px-4 py-4">
           <WizardStepper
             steps={ADMIN_PRODUCT_WIZARD_STEPS}
@@ -491,41 +498,57 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 md:py-10">
         <div className="max-w-5xl mx-auto">
           {/* Step Title */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center font-bold">
-                {currentStep}
-              </span>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].title}
-                </h2>
-                <p className="text-gray-500">
-                  {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].description}
-                </p>
+          <div className="mb-8 overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+            <div className="relative px-6 py-6 md:px-8 md:py-7">
+              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FE6100]/10 blur-3xl" />
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-base font-bold text-white shadow-[0_16px_30px_rgba(254,97,0,0.25)]">
+                  {currentStep}
+                  </span>
+                  <div>
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#fff6ef] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C94E00]">
+                      Adım {currentStep}/{totalSteps}
+                    </div>
+                    <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-900 md:text-[2rem]">
+                      {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].title}
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-sm text-stone-500 md:text-base">
+                      {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].description}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-[24px] border border-[#FE6100]/10 bg-white/80 px-4 py-3 text-sm text-stone-600 shadow-sm">
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                    İlerleme
+                  </span>
+                  <span className="mt-1 block text-lg font-semibold text-stone-900">
+                    %{Math.round((currentStep / totalSteps) * 100)} tamamlandı
+                  </span>
+                </div>
               </div>
+              {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].isRequired && (
+                <p className="relative mt-4 text-xs font-medium text-rose-600">
+                  * Bu adımdaki tüm alanlar zorunludur
+                </p>
+              )}
             </div>
-            {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].isRequired && (
-              <p className="text-xs text-rose-500 font-medium ml-13">
-                * Bu adımdaki tüm alanlar zorunludur
-              </p>
-            )}
           </div>
 
           {/* Step Content */}
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm">
+          <div className="overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
             {renderStep()}
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
               Geri
@@ -534,17 +557,17 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             {currentStep < totalSteps ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(254,97,0,0.24)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
               >
                 İleri
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -556,7 +579,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 <button
                   onClick={() => handleSave(true)}
                   disabled={saving}
-                  className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(254,97,0,0.24)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
