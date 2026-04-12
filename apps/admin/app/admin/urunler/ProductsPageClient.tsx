@@ -179,6 +179,7 @@ export default function ProductsPageClient({
   const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
   const hasLoadedInitialDataRef = useRef(false);
   const hasMountedFiltersRef = useRef(false);
+  const defaultPageLimitRef = useRef(initialPagination.limit > 0 ? initialPagination.limit : 20);
   const pagedPageRef = useRef(initialPagination.page);
   const catalogStateRef = useRef({
     searchQuery: "",
@@ -216,7 +217,7 @@ export default function ProductsPageClient({
     "border-stone-200 bg-stone-100 text-stone-700";
 
   const loadProducts = useCallback(
-    async (page: number = pagination.page, options?: ProductLoadOptions) => {
+    async (page: number = pagedPageRef.current, options?: ProductLoadOptions) => {
       setLoading(true);
       try {
         setErrorMessage("");
@@ -229,7 +230,7 @@ export default function ProductsPageClient({
           params.set("all", "true");
         } else {
           params.set("page", page.toString());
-          params.set("limit", pagination.limit.toString());
+          params.set("limit", defaultPageLimitRef.current.toString());
         }
 
         if (trimmedSearchQuery) {
@@ -252,7 +253,7 @@ export default function ProductsPageClient({
             const totalProducts = data.pagination?.total ?? data.products.length;
             setPagination({
               page: 1,
-              limit: totalProducts > 0 ? totalProducts : pagination.limit,
+              limit: totalProducts > 0 ? totalProducts : defaultPageLimitRef.current,
               total: totalProducts,
               totalPages: totalProducts > 0 ? 1 : 0,
             });
@@ -263,6 +264,7 @@ export default function ProductsPageClient({
             setPagination((current) => ({
               ...current,
               page,
+              limit: defaultPageLimitRef.current,
             }));
             pagedPageRef.current = page;
           }
@@ -276,7 +278,7 @@ export default function ProductsPageClient({
         setLoading(false);
       }
     },
-    [categoryFilter, pagination.limit, pagination.page, reorderMode, searchQuery],
+    [categoryFilter, reorderMode, searchQuery],
   );
 
   const loadCategories = async () => {
