@@ -287,6 +287,10 @@ function ensureSlug(slug: string): string {
     throw new Error("Slug sadece kucuk harf, rakam ve tire icermelidir.");
   }
 
+  if (slug.length < 2) {
+    throw new Error("Slug en az 2 karakter olmali.");
+  }
+
   return slug;
 }
 

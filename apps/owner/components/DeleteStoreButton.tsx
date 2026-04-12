@@ -25,8 +25,11 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   const isConfirmed = useMemo(
-    () => confirmationValue.trim().toLocaleLowerCase("tr") === slug.toLocaleLowerCase("tr"),
-    [confirmationValue, slug],
+    () => {
+      const normalizedValue = confirmationValue.trim().toLocaleLowerCase("tr");
+      return normalizedValue === slug.toLocaleLowerCase("tr") || normalizedValue === name.trim().toLocaleLowerCase("tr");
+    },
+    [confirmationValue, slug, name],
   );
 
   function resetState() {
@@ -47,7 +50,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
 
   function handleDelete() {
     if (!isConfirmed) {
-      setError("Devam etmek icin asagidaki slug bilgisini aynen gir veya tek tikla doldur.");
+      setError("Devam etmek icin asagidaki slug ya da proje adini aynen gir veya tek tikla doldur.");
       return;
     }
 
@@ -118,7 +121,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
         }
       >
         <div className="field">
-          <span>Silme onayi icin bu slug bilgisini kullan</span>
+          <span>Silme onayi icin slug ya da proje adini kullan</span>
           <div className="inline-card stack-top-sm">
             <div>
               <strong>Slug</strong>
@@ -131,21 +134,33 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
               >
                 {slug}
               </p>
+              <strong>Proje Adi</strong>
+              <p
+                style={{
+                  fontSize: "0.95rem",
+                  wordBreak: "break-word",
+                }}
+              >
+                {name}
+              </p>
             </div>
             <div className="actions compact-actions">
               <Button type="button" variant="ghost" onClick={() => setConfirmationValue(slug)} disabled={isPending}>
                 Slug'i doldur
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setConfirmationValue(name)} disabled={isPending}>
+                Proje adini doldur
               </Button>
               <Button type="button" variant="ghost" onClick={handleCopySlug} disabled={isPending}>
                 {copied ? "Kopyalandi" : "Kopyala"}
               </Button>
             </div>
           </div>
-          <span className="stack-top-sm">Onay icin yukaridaki slug bilgisini aynen gir</span>
+          <span className="stack-top-sm">Onay icin yukaridaki slug ya da proje adini aynen gir</span>
           <input
             value={confirmationValue}
             onChange={(event) => setConfirmationValue(event.target.value)}
-            placeholder={slug}
+            placeholder={`${slug} veya ${name}`}
             autoComplete="off"
           />
           <small>

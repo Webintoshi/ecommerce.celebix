@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { getStoreDetail, updateStoreManagementProfile } from "@/lib/control-plane";
+import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { cleanupStoreResources } from "@/lib/store-cleanup";
 
 interface RouteContext {
@@ -79,11 +80,25 @@ export async function DELETE(request: Request, { params }: RouteContext) {
     const { slug } = await params;
     const body = (await request.json().catch(() => ({}))) as {
       confirmSlug?: string;
+      confirmValue?: string;
     };
+    const confirmValue = (body.confirmValue ?? body.confirmSlug ?? "").trim().toLocaleLowerCase("tr");
+    const serviceClient = createOwnerServiceClient();
+    const { data: storeRow, error: storeReadError } = await serviceClient
+      .from("owner_stores")
+      .select("name")
+      .eq("slug", slug)
+      .maybeSingle<{ name: string | null }>();
 
-    if ((body.confirmSlug ?? "").trim().toLocaleLowerCase("tr") !== slug.toLocaleLowerCase("tr")) {
+    if (storeReadError) {
+      throw new Error(storeReadError.message);
+    }
+
+    const normalizedStoreName = (storeRow?.name ?? "").trim().toLocaleLowerCase("tr");
+
+    if (!confirmValue || (confirmValue !== slug.toLocaleLowerCase("tr") && confirmValue !== normalizedStoreName)) {
       return NextResponse.json(
-        { error: "Silme onayi icin proje slug bilgisini dogru girmeniz gerekiyor." },
+        { error: "Silme onayi icin proje slug bilgisini veya proje adini dogru girmeniz gerekiyor." },
         { status: 400 },
       );
     }
