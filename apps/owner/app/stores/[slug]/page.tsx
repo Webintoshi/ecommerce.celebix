@@ -4,9 +4,11 @@ import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
+import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDeploymentAuthorityButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { RepairProjectButton } from "@/components/RepairProjectButton";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
@@ -26,6 +28,34 @@ function readDateValue(value: unknown): string | null {
   return parsed ? formatDateTime(parsed) : "-";
 }
 
+function buildDeploymentAuthorityNote(
+  target: {
+    status: "repaired" | "already_configured" | "missing";
+    branchChanged: boolean;
+    autoDeployChanged: boolean;
+    desiredBranch: string;
+  } | null,
+): string | null {
+  if (!target) {
+    return null;
+  }
+
+  if (target.status === "repaired") {
+    const fragments = [
+      target.branchChanged ? `branch ${target.desiredBranch}` : null,
+      target.autoDeployChanged ? "auto deploy" : null,
+    ].filter(Boolean);
+
+    return `Authority self-heal: ${fragments.join(" + ") || "ayarlar"} onarildi.`;
+  }
+
+  if (target.status === "missing") {
+    return "Coolify resource'u bulunamadi; deployment authority sonraki provisioning adiminda kurulacak.";
+  }
+
+  return null;
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
   const auth = await requireOwnerAuth();
   const { slug } = await params;
@@ -36,8 +66,19 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
     notFound();
   }
 
+  const deploymentAuthorityRepair = superAdmin
+    ? await repairStoreDeploymentAuthorityOnce(store.slug)
+    : null;
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
   const storefrontDeployment = await getStorefrontDeploymentBlueprint(store.slug).catch(() => null);
+  const storefrontDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
+    (target) => target.target === "storefront",
+  ) ?? null;
+  const adminDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
+    (target) => target.target === "admin",
+  ) ?? null;
+  const storefrontDeploymentAuthorityNote = buildDeploymentAuthorityNote(storefrontDeploymentAuthority);
+  const adminDeploymentAuthorityNote = buildDeploymentAuthorityNote(adminDeploymentAuthority);
   const bootstrap = (store.bootstrap ?? {}) as Record<string, unknown>;
   const supabaseProjectName = readStringValue(bootstrap.supabaseProjectName);
   const supabaseResourceId = readStringValue(bootstrap.supabaseResourceId);
@@ -404,6 +445,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <>
             <div className="actions compact-actions stack-top-sm">
               <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
+              {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} /> : null}
             </div>
             <div className="meta-pairs">
               <span>Deployment Name: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
@@ -422,9 +464,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Start: <strong>{storefrontDeployment.startCommand}</strong></span>
             </div>
             <p className="card-note">
-              {storefrontDeployment.runtimeMessage
-                ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
-                : "Storefront deployment standardi owner tarafinda hazir."}
+              {storefrontDeploymentAuthorityNote ||
+                (storefrontDeployment.runtimeMessage
+                  ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
+                  : "Storefront deployment standardi owner tarafinda hazir.")}
             </p>
           </>
         ) : (
@@ -451,9 +494,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Start: <strong>{adminDeployment.startCommand}</strong></span>
             </div>
             <p className="card-note">
-              {adminDeployment.runtimeMessage
-                ? `Deployment notu: ${adminDeployment.runtimeMessage}`
-                : "Bu store icin admin deployment standardi owner tarafinda hazir."}
+              {adminDeploymentAuthorityNote ||
+                (adminDeployment.runtimeMessage
+                  ? `Deployment notu: ${adminDeployment.runtimeMessage}`
+                  : "Bu store icin admin deployment standardi owner tarafinda hazir.")}
             </p>
           </>
         ) : (

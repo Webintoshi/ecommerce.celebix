@@ -1,4 +1,5 @@
 import { formatDateTime } from "@/lib/formatters";
+import { RepairAllStoreDeploymentAuthoritiesButton } from "@/components/RepairAllStoreDeploymentAuthoritiesButton";
 import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { getOperationsSummary } from "@/lib/control-plane";
@@ -18,15 +19,29 @@ export default async function OperationsPage() {
       </div>
 
       {superAdmin ? (
-        <div className="card surface-alert">
-          <div className="section-head">
-            <div>
-              <div className="card-title">Deployment Branch Authority</div>
-              <p className="section-copy">
-                Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
-              </p>
+        <div className="stack-list stack-top-sm">
+          <div className="card surface-alert">
+            <div className="section-head">
+              <div>
+                <div className="card-title">Deployment Branch Authority</div>
+                <p className="section-copy">
+                  Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
+                </p>
+              </div>
+              <RepairOwnerDeploymentBranchButton />
             </div>
-            <RepairOwnerDeploymentBranchButton />
+          </div>
+
+          <div className="card surface-alert">
+            <div className="section-head">
+              <div>
+                <div className="card-title">Store Deployment Authority</div>
+                <p className="section-copy">
+                  Mevcut store resource&apos;lari `deploy/storefront/&lt;slug&gt;` ve `deploy/owner` branch authority&apos;sine alinip auto deploy acik hale getirilir. Yeni store&apos;lar artik varsayilan olarak bu ayarla olusur.
+                </p>
+              </div>
+              <RepairAllStoreDeploymentAuthoritiesButton />
+            </div>
           </div>
         </div>
       ) : null}
