@@ -8,6 +8,7 @@ interface CoolifyApplication {
   fqdn?: string | null;
   domain?: string | null;
   git_branch?: string | null;
+  is_auto_deploy_enabled?: boolean | null;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
@@ -115,11 +116,18 @@ async function listApplications(): Promise<CoolifyApplication[]> {
   return normalizeArrayPayload<CoolifyApplication>(payload);
 }
 
-async function patchApplicationBranch(applicationUuid: string, branch: string): Promise<void> {
+async function patchApplicationDeploymentSettings(
+  applicationUuid: string,
+  options: {
+    branch: string;
+    autoDeployEnabled: boolean;
+  },
+): Promise<void> {
   await coolifyFetch(`/applications/${applicationUuid}`, {
     method: "PATCH",
     body: JSON.stringify({
-      git_branch: branch,
+      git_branch: options.branch,
+      is_auto_deploy_enabled: options.autoDeployEnabled,
     }),
   });
 }
@@ -132,9 +140,13 @@ async function startApplication(applicationUuid: string): Promise<void> {
 
 export interface OwnerDeploymentBranchRepairResult {
   changed: boolean;
+  branchChanged: boolean;
+  autoDeployChanged: boolean;
   currentBranch: string | null;
+  currentAutoDeployEnabled: boolean | null;
   deploymentTriggered: boolean;
   desiredBranch: string;
+  desiredAutoDeployEnabled: boolean;
   resourceId: string;
   runtimeUrl: string | null;
 }
@@ -157,10 +169,20 @@ export async function repairOwnerDeploymentBranch(options?: {
 
   const currentBranch =
     currentApplication?.git_branch?.trim() || process.env.COOLIFY_BRANCH?.trim() || null;
-  const shouldUpdate = currentBranch !== desiredBranch;
+  const currentAutoDeployEnabled =
+    typeof currentApplication?.is_auto_deploy_enabled === "boolean"
+      ? currentApplication.is_auto_deploy_enabled
+      : null;
+  const desiredAutoDeployEnabled = true;
+  const branchChanged = currentBranch !== desiredBranch;
+  const autoDeployChanged = currentAutoDeployEnabled !== desiredAutoDeployEnabled;
+  const shouldUpdate = branchChanged || autoDeployChanged;
 
   if (shouldUpdate) {
-    await patchApplicationBranch(resourceId, desiredBranch);
+    await patchApplicationDeploymentSettings(resourceId, {
+      branch: desiredBranch,
+      autoDeployEnabled: desiredAutoDeployEnabled,
+    });
   }
 
   const triggerDeploy = options?.triggerDeploy ?? true;
@@ -171,8 +193,12 @@ export async function repairOwnerDeploymentBranch(options?: {
 
   return {
     changed: shouldUpdate,
+    branchChanged,
+    autoDeployChanged,
     currentBranch,
+    currentAutoDeployEnabled,
     desiredBranch,
+    desiredAutoDeployEnabled,
     resourceId,
     runtimeUrl,
     deploymentTriggered: triggerDeploy,

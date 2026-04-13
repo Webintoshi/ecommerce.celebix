@@ -23,7 +23,7 @@ export default async function OperationsPage() {
             <div>
               <div className="card-title">Deployment Branch Authority</div>
               <p className="section-copy">
-                Owner resource yanlislikla `main` uzerinden deploy oluyorsa buradan tek tusla `deploy/owner` branch&apos;ine alinip yeniden deploy edilir.
+                Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
               </p>
             </div>
             <RepairOwnerDeploymentBranchButton />
