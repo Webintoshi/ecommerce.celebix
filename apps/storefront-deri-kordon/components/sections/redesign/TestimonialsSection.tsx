@@ -233,7 +233,7 @@ export function TestimonialsSection({
   blogPosts = [],
   blogViewAllHref = "/blog",
   blogHeading = "BLOG YAZILARI",
-  blogViewAllLabel = "Tumunu Gor",
+  blogViewAllLabel = "Tümünü Gör",
 }: {
   heading?: string;
   countLabel?: string;
@@ -448,7 +448,10 @@ export function TestimonialsSection({
                   <Link
                     key={post.id}
                     href={post.href}
-                    className={cn("group block", displayedBlogPosts.length === 1 && "md:col-start-2")}
+                    className={cn(
+                      "group block",
+                      displayedBlogPosts.length === 1 && "mx-auto w-full max-w-[26rem] md:col-start-2"
+                    )}
                   >
                     <article>
                       <div className="relative aspect-[16/9] overflow-hidden bg-neutral-200">
@@ -457,17 +460,18 @@ export function TestimonialsSection({
                             src={imageSource}
                             alt={post.title}
                             fill
+                            unoptimized
                             className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                             sizes="(max-width: 768px) 100vw, 33vw"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-neutral-200 text-sm text-neutral-600">
-                            Blog gorseli
+                            Blog görseli
                           </div>
                         )}
                       </div>
 
-                      <h4 className="mt-5 text-center text-3xl font-semibold tracking-tight text-neutral-900">
+                      <h4 className="mt-5 text-center text-[clamp(1.35rem,1.8vw,2rem)] font-semibold tracking-tight text-neutral-900">
                         {post.title}
                       </h4>
                     </article>
