@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
@@ -183,9 +183,12 @@ function DesktopTestimonialCard({ review }: { review: Testimonial }) {
   );
 }
 
-function MobileTestimonialCard({ review }: { review: Testimonial }) {
+function MobileTestimonialCard({ review, cardIndex }: { review: Testimonial; cardIndex: number }) {
   return (
-    <article className="relative min-w-[86%] max-w-[86%] snap-center overflow-hidden rounded-[28px] border border-[#ebe2d6] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-5 shadow-[0_22px_48px_-32px_rgba(55,38,16,0.34)]">
+    <article
+      data-mobile-testimonial-card={cardIndex}
+      className="relative min-w-[86%] max-w-[86%] snap-center overflow-hidden rounded-[28px] border border-[#ebe2d6] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-5 shadow-[0_22px_48px_-32px_rgba(55,38,16,0.34)]"
+    >
       <div className="pointer-events-none absolute right-4 top-2 text-[4rem] leading-none text-[#8A6B37]/10">
         &quot;
       </div>
@@ -225,6 +228,8 @@ export function TestimonialsSection({
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
 
   const totalSlides = Math.ceil(testimonials.length / 2);
 
@@ -239,6 +244,60 @@ export function TestimonialsSection({
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
   };
+
+  const updateMobileActiveIndex = useCallback(() => {
+    const container = mobileScrollerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-mobile-testimonial-card]")
+    );
+
+    if (cards.length === 0) {
+      return;
+    }
+
+    const containerCenterX = container.scrollLeft + container.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    cards.forEach((card, index) => {
+      const cardCenterX = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(cardCenterX - containerCenterX);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    setMobileActiveIndex((prev) => (prev === closestIndex ? prev : closestIndex));
+  }, []);
+
+  const scrollToMobileSlide = useCallback((index: number) => {
+    const container = mobileScrollerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const card = container.querySelector<HTMLElement>(`[data-mobile-testimonial-card="${index}"]`);
+    card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, []);
+
+  useEffect(() => {
+    updateMobileActiveIndex();
+
+    const handleResize = () => updateMobileActiveIndex();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [updateMobileActiveIndex]);
 
   useEffect(() => {
     if (isPaused) {
@@ -258,16 +317,32 @@ export function TestimonialsSection({
         </div>
 
         <div className="lg:hidden">
-          <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 pt-1">
-            {testimonials.map((review) => (
-              <MobileTestimonialCard key={review.id} review={review} />
+          <div
+            ref={mobileScrollerRef}
+            onScroll={updateMobileActiveIndex}
+            className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 pt-1"
+          >
+            {testimonials.map((review, index) => (
+              <MobileTestimonialCard key={review.id} review={review} cardIndex={index} />
             ))}
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-2" aria-hidden="true">
-            <span className="h-2.5 w-6 rounded-full bg-neutral-900" />
-            <span className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
-            <span className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {testimonials.map((review, index) => (
+              <button
+                key={review.id}
+                type="button"
+                onClick={() => scrollToMobileSlide(index)}
+                className={cn(
+                  "rounded-full transition-all duration-300",
+                  index === mobileActiveIndex
+                    ? "h-2.5 w-6 bg-neutral-900"
+                    : "h-2.5 w-2.5 bg-neutral-300"
+                )}
+                aria-label={`Yorum ${index + 1}`}
+                aria-current={index === mobileActiveIndex ? "true" : undefined}
+              />
+            ))}
           </div>
         </div>
 
