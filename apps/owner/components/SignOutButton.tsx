@@ -1,26 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { clearOwnerBrowserAuthArtifacts, createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
+import { clearOwnerBrowserAuthArtifacts } from "@/lib/owner-supabase-browser";
 
 export function SignOutButton() {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleClick() {
     startTransition(async () => {
-      const supabase = createOwnerBrowserClient();
       await fetch("/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         }
       }).catch(() => undefined);
-      await supabase.auth.signOut({ scope: "local" });
       clearOwnerBrowserAuthArtifacts();
-      router.replace("/login");
-      router.refresh();
+      window.location.replace("/login");
     });
   }
 

@@ -8,6 +8,7 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import {
+  applyOwnerSiteDataReset,
   expireOwnerAuthCookies,
   hasOwnerAuthCookies,
 } from "@/lib/owner-auth-cookies";
@@ -131,19 +132,21 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (pathname === OWNER_LOGIN_PATH) {
-      if (hasOwnerAuthCookies(requestCookies)) {
-        return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
-      }
-
-      return withSecurity(request, response);
+      const loginResponse = hasOwnerAuthCookies(requestCookies)
+        ? expireOwnerAuthCookies(response, requestCookies)
+        : response;
+      return withSecurity(request, applyOwnerSiteDataReset(loginResponse));
     }
 
     if (pathname.startsWith("/api/")) {
       const unauthorizedResponse = NextResponse.json({ error: "Owner oturumu gerekli." }, { status: 401 });
-      return withSecurity(request, expireOwnerAuthCookies(unauthorizedResponse, requestCookies));
+      return withSecurity(
+        request,
+        applyOwnerSiteDataReset(expireOwnerAuthCookies(unauthorizedResponse, requestCookies)),
+      );
     }
 
-    return expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies);
+    return applyOwnerSiteDataReset(expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies));
   }
 
   const serviceClient = createClient(getOwnerSupabaseUrl(), getOwnerSupabaseServiceRoleKey(), {
@@ -163,19 +166,25 @@ export async function middleware(request: NextRequest) {
     await supabase.auth.signOut();
 
     if (pathname === OWNER_LOGIN_PATH) {
-      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
+      return withSecurity(
+        request,
+        applyOwnerSiteDataReset(expireOwnerAuthCookies(response, requestCookies)),
+      );
     }
 
     if (pathname.startsWith("/api/")) {
       const forbiddenResponse = NextResponse.json({ error: "Owner yetkisi bulunamadi." }, { status: 403 });
-      return withSecurity(request, expireOwnerAuthCookies(forbiddenResponse, requestCookies));
+      return withSecurity(
+        request,
+        applyOwnerSiteDataReset(expireOwnerAuthCookies(forbiddenResponse, requestCookies)),
+      );
     }
 
     const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("error", "unauthorized");
     return withSecurity(
       request,
-      expireOwnerAuthCookies(NextResponse.redirect(loginUrl), requestCookies),
+      applyOwnerSiteDataReset(expireOwnerAuthCookies(NextResponse.redirect(loginUrl), requestCookies)),
     );
   }
 

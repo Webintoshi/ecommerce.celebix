@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { clearOwnerBrowserAuthArtifacts, createOwnerBrowserClient } from "@/lib/owner-supabase-browser";
@@ -8,7 +8,6 @@ import { clearOwnerBrowserAuthArtifacts, createOwnerBrowserClient } from "@/lib/
 type AuthMode = "login" | "register";
 
 export function OwnerAuthForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -27,7 +26,6 @@ export function OwnerAuthForm() {
     startTransition(async () => {
       if (mode === "login") {
         clearOwnerBrowserAuthArtifacts();
-        const supabase = createOwnerBrowserClient();
         const response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -50,18 +48,7 @@ export function OwnerAuthForm() {
           return;
         }
 
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        });
-
-        if (sessionError) {
-          setError(sessionError.message);
-          return;
-        }
-
-        router.replace(nextPath);
-        router.refresh();
+        window.location.replace(nextPath);
         return;
       }
 
@@ -82,8 +69,7 @@ export function OwnerAuthForm() {
       }
 
       if (data.session) {
-        router.replace(nextPath);
-        router.refresh();
+        window.location.replace(nextPath);
         return;
       }
 

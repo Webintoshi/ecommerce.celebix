@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { expireOwnerAuthCookies } from "@/lib/owner-auth-cookies";
+import { applyOwnerSiteDataReset, expireOwnerAuthCookies } from "@/lib/owner-auth-cookies";
 import { getOwnerSupabaseAnonKey, getOwnerSupabaseUrl } from "@/lib/owner-supabase-shared";
 
 type PendingCookie = {
@@ -50,7 +50,7 @@ export async function POST() {
       response.cookies.set(cookie.name, cookie.value, cookie.options as never);
     }
 
-    return response;
+    return applyOwnerSiteDataReset(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cikis yapilamadi.";
     return NextResponse.json({ error: message }, { status: 500 });

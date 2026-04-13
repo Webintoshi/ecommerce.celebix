@@ -31,3 +31,8 @@ export function expireOwnerAuthCookies(
 
   return response;
 }
+
+export function applyOwnerSiteDataReset(response: NextResponse): NextResponse {
+  response.headers.set("Clear-Site-Data", "\"cache\", \"cookies\", \"storage\"");
+  return response;
+}
