@@ -1,9 +1,11 @@
 import { formatDateTime } from "@/lib/formatters";
-import { requireOwnerAuth } from "@/lib/owner-auth";
+import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
+import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { getOperationsSummary } from "@/lib/control-plane";
 
 export default async function OperationsPage() {
   const auth = await requireOwnerAuth("/operations");
+  const superAdmin = isSuperAdmin(auth);
   const summary = await getOperationsSummary(auth);
 
   return (
@@ -14,6 +16,20 @@ export default async function OperationsPage() {
           <p>Supabase, R2, storefront, admin kapsama alani ve aktiviteleri tek panelden izle.</p>
         </div>
       </div>
+
+      {superAdmin ? (
+        <div className="card surface-alert">
+          <div className="section-head">
+            <div>
+              <div className="card-title">Deployment Branch Authority</div>
+              <p className="section-copy">
+                Owner resource yanlislikla `main` uzerinden deploy oluyorsa buradan tek tusla `deploy/owner` branch&apos;ine alinip yeniden deploy edilir.
+              </p>
+            </div>
+            <RepairOwnerDeploymentBranchButton />
+          </div>
+        </div>
+      ) : null}
 
       {/* Operation Metrics */}
       <div className="metric-row metric-row-6">
