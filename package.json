@@ -16,6 +16,11 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "create:store": "node ./scripts/create-store.mjs",
+    "validate:deploy-branches": "node ./scripts/validate-deployment-branches.mjs",
+    "setup:deployment-guardrails": "node ./scripts/install-deployment-guardrails.mjs",
+    "deploy:owner": "node ./scripts/publish-deploy-branch.mjs --target owner",
+    "deploy:storefront": "node ./scripts/publish-deploy-branch.mjs --target storefront",
+    "deploy:auto": "node ./scripts/publish-deploy-branch.mjs --auto",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
     "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"
   },

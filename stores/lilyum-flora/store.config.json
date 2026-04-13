@@ -42,6 +42,7 @@
     "supabaseProvider": "self_hosted_coolify",
     "adminDeploymentName": "Lilyum Flora admin",
     "adminDeploymentProvider": "coolify",
+    "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
     "adminDeploymentStatus": "pending-owner-env",
     "supabaseProjectName": "lilyum-flora-db",
@@ -53,6 +54,7 @@
     "repoSyncStatus": "pending",
     "deploymentProvider": "coolify",
     "deploymentName": "lilyum-flora-storefront",
+    "deploymentBranch": "deploy/storefront/lilyum-flora",
     "runtimeUrl": "https://lilyumflora.net",
     "deploymentStatus": "pending-owner-env"
   },

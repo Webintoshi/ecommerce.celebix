@@ -40,6 +40,7 @@
     "adminEnvLocalPath": "stores/deri-kordon/admin.env.local",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "deri-kordon-admin",
+    "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://panel.celebix.co",
     "adminDeploymentStatus": "configured",
     "adminDeploymentPreparedAt": "2026-04-08T00:00:00.000Z",
@@ -68,6 +69,7 @@
   "storefront": {
     "appDir": "apps/storefront-deri-kordon",
     "status": "active",
-    "lastScaffoldedAt": "2026-03-29T10:30:00.000Z"
+    "lastScaffoldedAt": "2026-03-29T10:30:00.000Z",
+    "deploymentBranch": "deploy/derycraft"
   }
 }

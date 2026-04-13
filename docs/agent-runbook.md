@@ -191,6 +191,14 @@ Dogru:
 - Storefront theme degisikligi yaparken once `apps/storefront-base` dusunulmelidir.
 - Derycraft'a ozel degisiklikler `apps/storefront-deri-kordon` icinde kalmalidir.
 - Yeni agent bir store acma veya deploy automation degisikligi yaptiysa mutlaka disposable bir `sslip.io` domain ile smoke test planlamalidir.
+- Bu repo'da deploy branch authority vardir:
+  - owner/admin/provisioning -> `deploy/owner`
+  - store storefront -> store config'teki explicit branch veya `deploy/storefront/<slug>`
+- Agentler ve `.kilo/worktrees/*` icin ortak `pre-push` hook kullanilir; yanlis deploy branch push'u bloklanir.
+- Deploy icin tercih edilen komutlar:
+  - `npm run deploy:owner`
+  - `npm run deploy:storefront -- --slug <slug>`
+  - `npm run deploy:auto`
 
 ## Derycraft Referansi
 
