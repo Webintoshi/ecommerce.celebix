@@ -4,7 +4,7 @@ const { spawn } = require("node:child_process");
 const { prepareNextStandalone } = require("../../../scripts/prepare-next-standalone.cjs");
 
 const appRoot = path.join(__dirname, "..");
-const port = process.env.PORT || "3100";
+const port = process.env.PORT || "3000";
 const env = {
   ...process.env,
   PORT: port,
