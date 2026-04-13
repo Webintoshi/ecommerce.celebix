@@ -264,11 +264,9 @@ export function TestimonialsSection({
             ))}
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-2" aria-hidden="true">
-            <span className="h-2.5 w-6 rounded-full bg-neutral-900" />
-            <span className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
-            <span className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
-          </div>
+          <p className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.24em] text-neutral-400">
+            Yorumlari kaydirarak inceleyin
+          </p>
         </div>
 
         <div
