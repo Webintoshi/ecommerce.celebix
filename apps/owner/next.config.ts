@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
   transpilePackages: ["@celebix/platform-config"],
+  async headers() {
+    return [
+      {
+        source: "/login",
+        headers: [{ key: "Clear-Site-Data", value: "\"cache\", \"cookies\", \"storage\"" }],
+      },
+      {
+        source: "/api/auth/logout",
+        headers: [{ key: "Clear-Site-Data", value: "\"cache\", \"cookies\", \"storage\"" }],
+      },
+    ];
+  },
   turbopack: {
     root: path.join(__dirname, "../..")
   },
