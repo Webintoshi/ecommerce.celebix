@@ -119,8 +119,10 @@ function getRepositoryUrl(): string {
   );
 }
 
-function getRepositoryBranch(): string {
+function getRepositoryBranch(store: StoreConfig): string {
   return (
+    store.storefront?.deploymentBranch?.trim() ||
+    process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH?.trim() ||
     process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
     process.env.CELEBIX_GIT_BRANCH?.trim() ||
     "main"
@@ -279,7 +281,7 @@ function buildStorefrontAppPayload(
     server_uuid: getCoolifyServerUuid(),
     destination_uuid: getCoolifyDestinationUuid(),
     git_repository: getRepositoryUrl(),
-    git_branch: getRepositoryBranch(),
+    git_branch: getRepositoryBranch(store),
     build_pack: "nixpacks",
     name: blueprint.appName,
     description: `Celebix storefront deployment for ${store.slug}`,

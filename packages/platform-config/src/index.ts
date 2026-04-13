@@ -65,6 +65,7 @@ export interface StorefrontConfig {
   lastRepoSyncError?: string;
   deploymentProvider?: "coolify";
   deploymentName?: string;
+  deploymentBranch?: string;
   runtimeUrl?: string;
   resourceId?: string;
   deploymentStatus?: StorefrontDeploymentStatus;
@@ -109,6 +110,7 @@ export interface StoreConfig {
     coolifyProjectName?: string;
     adminDeploymentProvider?: "coolify";
     adminDeploymentName?: string;
+    adminDeploymentBranch?: string;
     adminDeploymentRuntimeUrl?: string;
     adminDeploymentResourceId?: string;
     adminDeploymentStatus?: "pending-owner-env" | "prepared" | "configured" | "failed";
@@ -282,6 +284,20 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
 }
 
+function resolveDefaultRepositoryBranch(kind: "admin" | "storefront"): string {
+  const kindSpecific =
+    kind === "admin"
+      ? process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim()
+      : process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH?.trim();
+
+  return (
+    kindSpecific ||
+    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
+    process.env.CELEBIX_GIT_BRANCH?.trim() ||
+    "main"
+  );
+}
+
 function ensureSlug(slug: string): string {
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
     throw new Error("Slug sadece kucuk harf, rakam ve tire icermelidir.");
@@ -354,6 +370,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       coolifyProjectName,
       adminDeploymentProvider: "coolify",
       adminDeploymentName,
+      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin"),
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
@@ -365,6 +382,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       repoSyncStatus: "pending",
       deploymentProvider: "coolify",
       deploymentName: storefrontDeploymentName,
+      deploymentBranch: resolveDefaultRepositoryBranch("storefront"),
       runtimeUrl: `https://${input.domain}`,
       deploymentStatus: "pending-owner-env"
     },
@@ -462,6 +480,8 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     coolifyProjectName: config.bootstrap?.coolifyProjectName ?? config.name,
     adminDeploymentProvider: config.bootstrap?.adminDeploymentProvider ?? "coolify",
     adminDeploymentName: config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`,
+    adminDeploymentBranch:
+      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
     adminDeploymentRuntimeUrl:
       config.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
     adminDeploymentResourceId: config.bootstrap?.adminDeploymentResourceId,
@@ -493,6 +513,8 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     lastRepoSyncError: config.storefront?.lastRepoSyncError,
     deploymentProvider: config.storefront?.deploymentProvider ?? "coolify",
     deploymentName: config.storefront?.deploymentName ?? `${config.slug}-storefront`,
+    deploymentBranch:
+      config.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
     runtimeUrl: config.storefront?.runtimeUrl ?? `https://${config.domains.storefront}`,
     resourceId: config.storefront?.resourceId,
     deploymentStatus: config.storefront?.deploymentStatus ?? "pending-owner-env",
@@ -751,6 +773,8 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
+      adminDeploymentBranch:
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
@@ -779,6 +803,8 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
+      adminDeploymentBranch:
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: input.resourceId ?? current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: input.deploymentStatus,
@@ -875,6 +901,8 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
       lastRepoSyncError: current.storefront?.lastRepoSyncError,
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
+      deploymentBranch:
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
@@ -905,6 +933,8 @@ export function updateStoreStorefrontDeploymentConfig(
       lastRepoSyncError: current.storefront?.lastRepoSyncError,
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
+      deploymentBranch:
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
       runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: input.resourceId ?? current.storefront?.resourceId,
       deploymentStatus: input.deploymentStatus,
@@ -938,6 +968,8 @@ export function updateStoreStorefrontRepoSyncConfig(
       lastRepoSyncError: input.lastError,
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
+      deploymentBranch:
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",

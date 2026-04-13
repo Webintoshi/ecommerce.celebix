@@ -112,8 +112,10 @@ function getRepositoryUrl(): string {
   );
 }
 
-function getRepositoryBranch(): string {
+function getRepositoryBranch(store: StoreConfig): string {
   return (
+    store.bootstrap?.adminDeploymentBranch?.trim() ||
+    process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim() ||
     process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
     process.env.CELEBIX_GIT_BRANCH?.trim() ||
     "main"
@@ -257,7 +259,7 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
     server_uuid: getCoolifyServerUuid(),
     destination_uuid: getCoolifyDestinationUuid(),
     git_repository: getRepositoryUrl(),
-    git_branch: getRepositoryBranch(),
+    git_branch: getRepositoryBranch(store),
     build_pack: "nixpacks",
     name: blueprint.appName,
     description: `Celebix shared admin deployment for ${store.slug}`,

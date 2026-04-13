@@ -49,7 +49,8 @@
     "supabaseResourceId": "xunl5elgny3wzmq7xylb6ts6",
     "supabaseDashboardUrl": "https://supabasekong-derycraft.46.225.183.57.sslip.io/project/default",
     "provisionedAt": "2026-03-28T00:23:53.023Z",
-    "supabaseProvisioning": "configured"
+    "supabaseProvisioning": "configured",
+    "adminDeploymentBranch": "deploy/owner"
   },
   "features": [
     "catalog",
@@ -68,6 +69,7 @@
   "storefront": {
     "appDir": "apps/storefront-deri-kordon",
     "status": "active",
-    "lastScaffoldedAt": "2026-03-29T10:30:00.000Z"
+    "lastScaffoldedAt": "2026-03-29T10:30:00.000Z",
+    "deploymentBranch": "deploy/derycraft"
   }
 }
