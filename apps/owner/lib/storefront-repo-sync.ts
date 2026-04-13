@@ -184,9 +184,8 @@ function normalizeRelativeAppDir(value: string | null | undefined, slug: string)
   return trimmed.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
-function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
+function resolveAuthorityFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
   const repoRoot = getRepoRoot();
-  const store = requireStoreConfig(slug);
   const files: Array<{ absolutePath: string; relativePath: string }> = [];
 
   const registryPath = path.join(repoRoot, "stores", "registry.json");
@@ -203,6 +202,13 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
     }
   }
 
+  return files;
+}
+
+function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
+  const repoRoot = getRepoRoot();
+  const store = requireStoreConfig(slug);
+  const files = resolveAuthorityFiles(slug);
   const relativeAppDir = store.storefront?.appDir?.trim();
 
   if (!relativeAppDir) {
@@ -223,6 +229,139 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
   }
 
   return files;
+}
+
+async function syncGitHubFiles(input: {
+  slug: string;
+  files: Array<{ absolutePath: string; relativePath: string }>;
+  commitMessage: string;
+}): Promise<StorefrontRepoSyncResult> {
+  const repository = getGitHubRepository();
+  const branch = getGitHubBranch();
+  const syncedAt = new Date().toISOString();
+
+  try {
+    const ref = await githubFetch<GitHubRefResponse>(
+      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
+    );
+    const headSha = ref.object?.sha;
+
+    if (!headSha) {
+      throw new Error("GitHub branch referansi okunamadi.");
+    }
+
+    const headCommit = await githubFetch<GitHubCommitResponse>(
+      `/repos/${repository}/git/commits/${headSha}`,
+    );
+    const baseTreeSha = headCommit.tree?.sha;
+
+    if (!baseTreeSha) {
+      throw new Error("GitHub base tree okunamadi.");
+    }
+
+    const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string }> = [];
+
+    for (const file of input.files) {
+      const content = fs.readFileSync(file.absolutePath);
+      const blob = await githubFetch<GitHubBlobResponse>(`/repos/${repository}/git/blobs`, {
+        method: "POST",
+        body: JSON.stringify({
+          content: content.toString("base64"),
+          encoding: "base64",
+        }),
+      });
+
+      if (!blob.sha) {
+        throw new Error(`GitHub blob SHA donmedi: ${file.relativePath}`);
+      }
+
+      treeEntries.push({
+        path: file.relativePath,
+        mode: "100644",
+        type: "blob",
+        sha: blob.sha,
+      });
+    }
+
+    const tree = await githubFetch<GitHubTreeResponse>(`/repos/${repository}/git/trees`, {
+      method: "POST",
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries,
+      }),
+    });
+
+    if (!tree.sha) {
+      throw new Error("GitHub tree SHA donmedi.");
+    }
+
+    const commit = await githubFetch<GitHubCreateCommitResponse>(`/repos/${repository}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: input.commitMessage,
+        tree: tree.sha,
+        parents: [headSha],
+        author: {
+          name: getCommitterName(),
+          email: getCommitterEmail(),
+          date: syncedAt,
+        },
+        committer: {
+          name: getCommitterName(),
+          email: getCommitterEmail(),
+          date: syncedAt,
+        },
+      }),
+    });
+
+    if (!commit.sha) {
+      throw new Error("GitHub commit SHA donmedi.");
+    }
+
+    await githubFetch(`/repos/${repository}/git/refs/heads/${encodeURIComponent(branch)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        sha: commit.sha,
+        force: false,
+      }),
+    });
+
+    updateStoreStorefrontRepoSyncConfig(input.slug, {
+      syncStatus: "synced",
+      commitSha: commit.sha,
+      syncedAt,
+      lastError: undefined,
+    });
+
+    return {
+      repository,
+      branch,
+      status: "synced",
+      commitSha: commit.sha,
+      syncedAt,
+      message: `${input.files.length} dosya GitHub repositorysine senkronlandi.`,
+      committedPaths: input.files.map((file) => file.relativePath),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Storefront repo senkronu basarisiz oldu.";
+
+    updateStoreStorefrontRepoSyncConfig(input.slug, {
+      syncStatus: "failed",
+      syncedAt,
+      lastError: message,
+    });
+
+    return {
+      repository,
+      branch,
+      status: "failed",
+      commitSha: null,
+      syncedAt,
+      message,
+      committedPaths: [],
+    };
+  }
 }
 
 export function isGitHubRepoSyncConfigured(): boolean {
@@ -457,132 +596,18 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
   }
 }
 
+export async function syncStoreAuthorityRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
+  return syncGitHubFiles({
+    slug,
+    files: resolveAuthorityFiles(slug),
+    commitMessage: `chore: sync store authority for ${slug}`,
+  });
+}
+
 export async function syncStorefrontRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
-  const repository = getGitHubRepository();
-  const branch = getGitHubBranch();
-  const syncedAt = new Date().toISOString();
-
-  try {
-    const files = resolveRepoFiles(slug);
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
-
-    if (!headSha) {
-      throw new Error("GitHub branch referansi okunamadi.");
-    }
-
-    const headCommit = await githubFetch<GitHubCommitResponse>(
-      `/repos/${repository}/git/commits/${headSha}`,
-    );
-    const baseTreeSha = headCommit.tree?.sha;
-
-    if (!baseTreeSha) {
-      throw new Error("GitHub base tree okunamadi.");
-    }
-
-    const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string }> = [];
-
-    for (const file of files) {
-      const content = fs.readFileSync(file.absolutePath);
-      const blob = await githubFetch<GitHubBlobResponse>(`/repos/${repository}/git/blobs`, {
-        method: "POST",
-        body: JSON.stringify({
-          content: content.toString("base64"),
-          encoding: "base64",
-        }),
-      });
-
-      if (!blob.sha) {
-        throw new Error(`GitHub blob SHA donmedi: ${file.relativePath}`);
-      }
-
-      treeEntries.push({
-        path: file.relativePath,
-        mode: "100644",
-        type: "blob",
-        sha: blob.sha,
-      });
-    }
-
-    const tree = await githubFetch<GitHubTreeResponse>(`/repos/${repository}/git/trees`, {
-      method: "POST",
-      body: JSON.stringify({
-        base_tree: baseTreeSha,
-        tree: treeEntries,
-      }),
-    });
-
-    if (!tree.sha) {
-      throw new Error("GitHub tree SHA donmedi.");
-    }
-
-    const commit = await githubFetch<GitHubCreateCommitResponse>(`/repos/${repository}/git/commits`, {
-      method: "POST",
-      body: JSON.stringify({
-        message: `chore: sync storefront scaffold for ${slug}`,
-        tree: tree.sha,
-        parents: [headSha],
-        author: {
-          name: getCommitterName(),
-          email: getCommitterEmail(),
-          date: syncedAt,
-        },
-        committer: {
-          name: getCommitterName(),
-          email: getCommitterEmail(),
-          date: syncedAt,
-        },
-      }),
-    });
-
-    if (!commit.sha) {
-      throw new Error("GitHub commit SHA donmedi.");
-    }
-
-    await githubFetch(`/repos/${repository}/git/refs/heads/${encodeURIComponent(branch)}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        sha: commit.sha,
-        force: false,
-      }),
-    });
-
-    updateStoreStorefrontRepoSyncConfig(slug, {
-      syncStatus: "synced",
-      commitSha: commit.sha,
-      syncedAt,
-      lastError: undefined,
-    });
-
-    return {
-      repository,
-      branch,
-      status: "synced",
-      commitSha: commit.sha,
-      syncedAt,
-      message: `${files.length} dosya GitHub repositorysine senkronlandi.`,
-      committedPaths: files.map((file) => file.relativePath),
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Storefront repo senkronu basarisiz oldu.";
-
-    updateStoreStorefrontRepoSyncConfig(slug, {
-      syncStatus: "failed",
-      syncedAt,
-      lastError: message,
-    });
-
-    return {
-      repository,
-      branch,
-      status: "failed",
-      commitSha: null,
-      syncedAt,
-      message,
-      committedPaths: [],
-    };
-  }
+  return syncGitHubFiles({
+    slug,
+    files: resolveRepoFiles(slug),
+    commitMessage: `chore: sync storefront scaffold for ${slug}`,
+  });
 }

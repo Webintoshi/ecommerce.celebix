@@ -16,7 +16,7 @@ import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
-import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import { syncStoreAuthorityRepoForStore, syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 import {
   releaseGeneratedDeploymentWindow,
   reserveGeneratedDeploymentWindow,
@@ -101,6 +101,16 @@ export async function POST(request: Request) {
     const r2BootstrapStatus = await getR2BootstrapStatus();
 
     await syncOwnerStoresAndMetrics();
+    try {
+      const authoritySync = await syncStoreAuthorityRepoForStore(result.store.slug);
+
+      if (authoritySync.status !== "synced") {
+        warnings.push(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : "Store authority repo senkronu tamamlanamadi.");
+    }
+
     try {
       await updateStoreManagementProfile(auth, result.store.slug, {
         packageStartDate: body.packageStartDate,
