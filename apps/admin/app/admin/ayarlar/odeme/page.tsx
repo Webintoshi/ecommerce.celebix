@@ -20,7 +20,7 @@ import {
     TrendingUp,
     Zap,
 } from "lucide-react";
-import { getPaymentGatewayRuntimeStatus } from "@/lib/payment-providers";
+import { getPaymentGatewayRuntimeStatus, getPaymentProviderDefinition } from "@/lib/payment-providers";
 import {
     deletePaymentGateway,
     duplicatePaymentGateway,
@@ -263,6 +263,8 @@ export default function PaymentSettingsPage() {
                 {filteredGateways.map((gateway) => {
                     const GatewayIcon = getGatewayIcon(gateway.gateway);
                     const runtimeStatus = getPaymentGatewayRuntimeStatus(gateway);
+                    const providerDefinition = getPaymentProviderDefinition(gateway.gateway);
+                    const canTestConnection = providerDefinition.supportsConnectionTest;
 
                     return (
                         <div
@@ -343,7 +345,7 @@ export default function PaymentSettingsPage() {
                             <div className="grid grid-cols-2 gap-2 rounded-b-xl border-t border-gray-100 bg-gray-50/30 p-4">
                                 <button
                                     onClick={() => handleTestConnection(gateway.id)}
-                                    disabled={testingConnection === gateway.id}
+                                    disabled={testingConnection === gateway.id || !canTestConnection}
                                     className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-50"
                                 >
                                     {testingConnection === gateway.id ? (
@@ -351,7 +353,7 @@ export default function PaymentSettingsPage() {
                                     ) : (
                                         <Zap className="h-3.5 w-3.5" />
                                     )}
-                                    Test Et
+                                    {canTestConnection ? "Test Et" : "Hazirlaniyor"}
                                 </button>
 
                                 <Link

@@ -7,7 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAdminAuthContext } from "@/lib/admin-auth";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
-import { resolveIyzicoBaseUrl } from "@/lib/payment-providers";
+import {
+    IYZICO_FAMILY_GATEWAYS,
+    isGatewayInFamily,
+    PAYTR_FAMILY_GATEWAYS,
+    resolveIyzicoBaseUrl,
+} from "@/lib/payment-providers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
 function resolveIyzicoRunnerScript() {
@@ -232,12 +237,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (gateway.gateway === "stripe") {
-            const stripe = new Stripe(gateway.credentials.secretKey, { apiVersion: "2025-02-24.acacia" });
+            const stripe = new Stripe(gateway.credentials.secretKey, { apiVersion: "2026-02-25.clover" });
             await stripe.balance.retrieve();
             return NextResponse.json({ success: true, message: "Stripe API erişimi doğrulandı." });
         }
 
-        if (gateway.gateway === "iyzico") {
+        if (isGatewayInFamily(gateway.gateway, IYZICO_FAMILY_GATEWAYS)) {
             const apiKey = gateway.credentials.apiKey?.trim() || "";
             const secretKey = gateway.credentials.secretKey?.trim() || "";
             const uri = resolveIyzicoBaseUrl(gateway.configuration.baseUrl, gateway.environment);
@@ -278,7 +283,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: "iyzico checkout başlatma doğrulandı." });
         }
 
-        if (gateway.gateway === "paytr") {
+        if (isGatewayInFamily(gateway.gateway, PAYTR_FAMILY_GATEWAYS)) {
             const testRequest = createPaytrTestToken({
                 merchantId: gateway.credentials.merchantId,
                 merchantKey: gateway.credentials.merchantKey,

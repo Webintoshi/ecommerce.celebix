@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         });
 
         await createPaymentWebhookEvent({
-            provider: "paytr",
+            provider: gateway.gateway,
             gatewayId: gateway.id,
             paymentAttemptId: attempt.id,
             orderId: attempt.order_id,
