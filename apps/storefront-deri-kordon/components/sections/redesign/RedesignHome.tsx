@@ -8,6 +8,13 @@ import type { HomepageData } from "@/lib/homepage";
 interface RedesignHomeProps {
   data: HomepageData;
   storesHref: string;
+  blogPosts?: Array<{
+    id: string;
+    title: string;
+    image: string;
+    href: string;
+  }>;
+  blogViewAllHref?: string;
   uiCopy?: {
     categoriesEyebrow?: string;
     categoriesHeading?: string;
@@ -25,7 +32,7 @@ interface RedesignHomeProps {
   };
 }
 
-export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeProps) {
+export default function RedesignHome({ data, storesHref, blogPosts = [], blogViewAllHref, uiCopy }: RedesignHomeProps) {
   return (
     <main className="min-h-screen bg-[#F8F8F8F8]">
       <HeroSection slides={data.heroBanners || []} />
@@ -50,6 +57,8 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
         countLabel={uiCopy?.testimonialsCountLabel}
+        blogPosts={blogPosts}
+        blogViewAllHref={blogViewAllHref}
       />
     </main>
   );
