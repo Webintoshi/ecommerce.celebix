@@ -6,6 +6,8 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
+import { mapBlogRows } from "@/lib/blog-content";
+import { getPublishedPosts } from "@/lib/db/blog";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
@@ -94,11 +96,21 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, uiCopy, requestOrigin] = await Promise.all([
+  const [homepageData, uiCopy, requestOrigin, blogRows] = await Promise.all([
     getHomepageData(locale),
     getHomepageUiCopy(locale),
     getRequestOrigin(),
+    getPublishedPosts().catch(() => []),
   ]);
+  const blogPosts = mapBlogRows(blogRows)
+    .slice(0, 3)
+    .map((post) => ({
+      id: post.id,
+      title: post.title,
+      image: post.coverImage,
+      href: buildLocalizedPath(`/blog/${post.slug}`, locale),
+    }));
+  const blogViewAllHref = buildLocalizedPath("/blog", locale);
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale),
@@ -109,7 +121,13 @@ export default async function Home() {
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={uiCopy} storesHref={storesHref} />
+      <RedesignHome
+        data={homepageData}
+        uiCopy={uiCopy}
+        storesHref={storesHref}
+        blogPosts={blogPosts}
+        blogViewAllHref={blogViewAllHref}
+      />
 
       <script
         type="application/ld+json"

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
@@ -123,6 +124,13 @@ function getInitials(name: string) {
 
 type Testimonial = (typeof testimonials)[number];
 
+interface BlogPreview {
+  id: string;
+  title: string;
+  image: string;
+  href: string;
+}
+
 function RatingStars({
   rating,
   iconClassName = "h-3.5 w-3.5",
@@ -222,9 +230,17 @@ function MobileTestimonialCard({ review, cardIndex }: { review: Testimonial; car
 export function TestimonialsSection({
   heading = "Musteri Yorumlari",
   countLabel = "1581 degerlendirmeden",
+  blogPosts = [],
+  blogViewAllHref = "/blog",
+  blogHeading = "BLOG YAZILARI",
+  blogViewAllLabel = "Tumunu Gor",
 }: {
   heading?: string;
   countLabel?: string;
+  blogPosts?: BlogPreview[];
+  blogViewAllHref?: string;
+  blogHeading?: string;
+  blogViewAllLabel?: string;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -307,6 +323,8 @@ export function TestimonialsSection({
     const interval = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
     return () => clearInterval(interval);
   }, [isPaused, nextSlide]);
+
+  const displayedBlogPosts = blogPosts.length >= 3 ? blogPosts.slice(0, 3) : blogPosts.slice(0, 1);
 
   return (
     <section className="bg-neutral-50 py-16 lg:py-20">
@@ -406,6 +424,62 @@ export function TestimonialsSection({
             ))}
           </div>
         </div>
+
+        {displayedBlogPosts.length > 0 ? (
+          <div className="mt-16 lg:mt-20">
+            <div className="text-center">
+              <h3 className="text-3xl font-semibold uppercase tracking-tight text-neutral-900 lg:text-4xl">
+                {blogHeading}
+              </h3>
+              <Link
+                href={blogViewAllHref}
+                className="mt-3 inline-flex text-base font-medium text-neutral-700 underline-offset-4 transition-colors hover:text-neutral-900 hover:underline"
+              >
+                {blogViewAllLabel}
+              </Link>
+            </div>
+
+            <div
+              className={cn(
+                "mt-8 grid gap-6",
+                displayedBlogPosts.length === 3
+                  ? "grid-cols-1 md:grid-cols-3"
+                  : "mx-auto max-w-3xl grid-cols-1"
+              )}
+            >
+              {displayedBlogPosts.map((post) => {
+                const imageSource =
+                  resolveStorefrontAssetUrl(post.image) || resolveStorefrontDirectAssetUrl(post.image);
+
+                return (
+                  <Link key={post.id} href={post.href} className="group block">
+                    <article>
+                      <div className="relative aspect-[16/9] overflow-hidden bg-neutral-200">
+                        {imageSource ? (
+                          <Image
+                            src={imageSource}
+                            alt={post.title}
+                            fill
+                            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-neutral-200 text-sm text-neutral-600">
+                            Blog gorseli
+                          </div>
+                        )}
+                      </div>
+
+                      <h4 className="mt-5 text-center text-3xl font-semibold tracking-tight text-neutral-900">
+                        {post.title}
+                      </h4>
+                    </article>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <style jsx>{`
