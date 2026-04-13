@@ -14,10 +14,19 @@ import {
   getRepoRoot,
   getStoreConfig,
   getStores,
+  repairTrackedStoreConfigs,
   type StoreConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
+import {
+  listCleanupRuns,
+  listUnresolvedCleanupSlugs,
+  readProvisioningSummary,
+  type CleanupRunSummary,
+  type ProvisioningState,
+  type ProvisioningStepSummary,
+} from "@/lib/store-lifecycle";
 
 type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
@@ -228,6 +237,29 @@ export interface StoreConsistencySummary {
   checkedAt: string;
 }
 
+export interface StoreProvisioningSummary {
+  state: ProvisioningState;
+  lastError: string | null;
+  lastRunAt: string | null;
+  failedStepCount: number;
+  blockingStepCount: number;
+  pendingStepCount: number;
+  steps: ProvisioningStepSummary[];
+}
+
+export interface CleanupRunOverview {
+  id: string;
+  slug: string;
+  storeName: string;
+  status: CleanupRunSummary["status"];
+  authorityDeletedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  orphanedTargetCount: number;
+  targets: CleanupRunSummary["targets"];
+}
+
 export interface DashboardStoreSummary {
   id: string;
   slug: string;
@@ -254,6 +286,7 @@ export interface DashboardStoreSummary {
   management: StoreManagementProfile;
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
+  provisioning: StoreProvisioningSummary;
 }
 
 export interface AffiliateSummary {
@@ -328,6 +361,8 @@ export interface OwnerDashboardSummary {
   };
   spotlightStores: DashboardStoreSummary[];
   attentionStores: DashboardStoreSummary[];
+  orphanedCleanupRuns: number;
+  cleanupRuns: CleanupRunOverview[];
   recentActivity: AuditLogSummary[];
   stores: DashboardStoreSummary[];
 }
@@ -396,6 +431,7 @@ export interface OperationsStoreSummary {
   lastSyncedAt: string | null;
   supabaseProjectRef: string | null;
   r2BucketName: string | null;
+  provisioning: StoreProvisioningSummary;
 }
 
 export interface OperationsSummary {
@@ -408,8 +444,10 @@ export interface OperationsSummary {
     adminRuntimeIssues: number;
     consistencyBlockingStores: number;
     pendingStorefronts: number;
+    orphanedCleanupRuns: number;
   };
   rows: OperationsStoreSummary[];
+  cleanupRuns: CleanupRunOverview[];
   recentActivity: AuditLogSummary[];
 }
 
@@ -717,6 +755,65 @@ function readOptionalString(value: unknown): string | null {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function buildProvisioningSummary(metadata: Record<string, unknown> | null | undefined): StoreProvisioningSummary {
+  const rawProvisioning = readProvisioningSummary(metadata);
+  const hasLifecycleHistory =
+    Boolean(rawProvisioning.lastRunAt || rawProvisioning.lastError) ||
+    rawProvisioning.steps.some(
+      (step) => step.status !== "pending" || step.message || step.updatedAt,
+    );
+  const steps = hasLifecycleHistory ? rawProvisioning.steps : [];
+  const failedSteps = steps.filter((step) => step.status === "failed");
+  const blockingSteps = failedSteps.filter((step) => step.blocking);
+  const pendingSteps = steps.filter(
+    (step) => step.status === "pending" || step.status === "running",
+  );
+
+  return {
+    state: rawProvisioning.state,
+    lastError: rawProvisioning.lastError,
+    lastRunAt: rawProvisioning.lastRunAt,
+    failedStepCount: failedSteps.length,
+    blockingStepCount: blockingSteps.length,
+    pendingStepCount: pendingSteps.length,
+    steps,
+  };
+}
+
+function mapCleanupRunOverview(run: CleanupRunSummary): CleanupRunOverview {
+  return {
+    id: run.id,
+    slug: run.slug,
+    storeName: run.storeName,
+    status: run.status,
+    authorityDeletedAt: run.authorityDeletedAt,
+    resolvedAt: run.resolvedAt,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    orphanedTargetCount: run.targets.filter(
+      (target) => target.status === "failed" || target.status === "skipped",
+    ).length,
+    targets: run.targets,
+  };
+}
+
+let trackedStoreConfigNormalizationPromise: Promise<void> | null = null;
+
+async function ensureTrackedStoreConfigsNormalized(): Promise<void> {
+  if (!trackedStoreConfigNormalizationPromise) {
+    trackedStoreConfigNormalizationPromise = Promise.resolve()
+      .then(() => {
+        repairTrackedStoreConfigs();
+      })
+      .catch((error) => {
+        trackedStoreConfigNormalizationPromise = null;
+        throw error;
+      });
+  }
+
+  await trackedStoreConfigNormalizationPromise;
 }
 
 function readLifecycleStage(value: unknown): StoreLifecycleStage {
@@ -1520,6 +1617,7 @@ async function getAccessibleStoreData(context: OwnerAuthContext): Promise<Access
 }
 
 async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<DashboardStoreSummary[]> {
+  await ensureTrackedStoreConfigsNormalized();
   const accessible = await getAccessibleStoreData(context);
 
   return Promise.all(
@@ -1587,6 +1685,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
           }
         : metric;
       const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
+      const provisioning = buildProvisioningSummary(store.metadata);
 
       return {
         id: store.id,
@@ -1618,6 +1717,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
           storeStatus: store.status,
           storefrontStatus: store.storefront_status
         }),
+        provisioning,
         health: buildStoreHealth(
           store,
           metricsRow?.last_synced_at ?? null,
@@ -1632,11 +1732,14 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
 }
 
 export async function syncOwnerStoresAndMetrics(): Promise<void> {
+  await ensureTrackedStoreConfigsNormalized();
   const serviceClient = createOwnerServiceClient();
+  const unresolvedCleanupSlugs = await listUnresolvedCleanupSlugs();
   const storeConfigs = getStores()
     .map((store) => getStoreConfig(store.slug))
     .filter((store): store is StoreConfig => Boolean(store))
-    .filter((store) => !store.slug.startsWith("smoke-"));
+    .filter((store) => !store.slug.startsWith("smoke-"))
+    .filter((store) => !unresolvedCleanupSlugs.has(store.slug));
 
   if (storeConfigs.length === 0) {
     return;
@@ -1949,6 +2052,7 @@ export async function listRecentOwnerActivity(
 
 export async function getOwnerDashboard(context: OwnerAuthContext): Promise<OwnerDashboardSummary> {
   const stores = await listDashboardStores(context);
+  const cleanupRuns = (await listCleanupRuns({ unresolvedOnly: true, limit: 4 })).map(mapCleanupRunOverview);
   const totals = stores.reduce(
     (accumulator, store) => ({
       setupRevenue: accumulator.setupRevenue + STORE_SETUP_REVENUE,
@@ -1985,6 +2089,7 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
         return (
         store.status !== "active" ||
         store.storeAdminCount === 0 ||
+        store.provisioning.state !== "ready" ||
         !store.health.supabaseReady ||
         !store.health.r2Ready ||
         !store.health.secretAuthorityReady ||
@@ -2010,6 +2115,7 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
             : 0;
       const leftScore =
         Number(left.health.label === "kritik") * 20 +
+        Number(left.provisioning.state !== "ready") * 10 +
         Number(!left.health.secretAuthorityReady) * 8 +
         Number(!left.health.adminRuntimeConsistent) * 8 +
         Number(left.storeAdminCount === 0) * 5 +
@@ -2017,6 +2123,7 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
         left.pendingOrderCount;
       const rightScore =
         Number(right.health.label === "kritik") * 20 +
+        Number(right.provisioning.state !== "ready") * 10 +
         Number(!right.health.secretAuthorityReady) * 8 +
         Number(!right.health.adminRuntimeConsistent) * 8 +
         Number(right.storeAdminCount === 0) * 5 +
@@ -2030,6 +2137,8 @@ export async function getOwnerDashboard(context: OwnerAuthContext): Promise<Owne
     totals,
     spotlightStores,
     attentionStores,
+    orphanedCleanupRuns: cleanupRuns.length,
+    cleanupRuns,
     recentActivity: await listRecentOwnerActivity(context, 8),
     stores
   };
@@ -2109,6 +2218,7 @@ export async function getFinanceSummary(context: OwnerAuthContext): Promise<Fina
 
 export async function getOperationsSummary(context: OwnerAuthContext): Promise<OperationsSummary> {
   const stores = await listDashboardStores(context);
+  const cleanupRuns = (await listCleanupRuns({ unresolvedOnly: true, limit: 12 })).map(mapCleanupRunOverview);
 
   return {
     totals: {
@@ -2119,7 +2229,8 @@ export async function getOperationsSummary(context: OwnerAuthContext): Promise<O
       secretDrift: stores.filter((store) => !store.health.secretAuthorityReady).length,
       adminRuntimeIssues: stores.filter((store) => !store.health.adminRuntimeConsistent || !store.health.adminDeploymentReady).length,
       consistencyBlockingStores: stores.filter((store) => store.consistency.blocking).length,
-      pendingStorefronts: stores.filter((store) => store.storefrontStatus !== "active").length
+      pendingStorefronts: stores.filter((store) => store.storefrontStatus !== "active").length,
+      orphanedCleanupRuns: cleanupRuns.length,
     },
     rows: stores.map((store) => ({
       id: store.id,
@@ -2134,8 +2245,10 @@ export async function getOperationsSummary(context: OwnerAuthContext): Promise<O
       pendingOrderCount: store.pendingOrderCount,
       lastSyncedAt: store.lastSyncedAt,
       supabaseProjectRef: getStoreConfig(store.slug)?.supabase.projectRef ?? null,
-      r2BucketName: getStoreConfig(store.slug)?.r2?.bucketName ?? null
+      r2BucketName: getStoreConfig(store.slug)?.r2?.bucketName ?? null,
+      provisioning: store.provisioning,
     })),
+    cleanupRuns,
     recentActivity: await listRecentOwnerActivity(context, 10)
   };
 }

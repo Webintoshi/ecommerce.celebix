@@ -87,6 +87,36 @@ export default async function OwnerDashboardPage() {
         </div>
       </div>
 
+      {dashboard && dashboard.orphanedCleanupRuns > 0 && (
+        <div className="card surface-alert">
+          <div className="section-head">
+            <div>
+              <div className="card-title">Orphan Cleanup Takibi</div>
+              <p className="section-copy">
+                Authority silinmis ancak dis kaynak temizligi tamamlanmamis {dashboard.orphanedCleanupRuns} kayit var.
+              </p>
+            </div>
+            <Link href="/operations" className="button button-secondary">
+              Operasyona git
+            </Link>
+          </div>
+          <div className="stack-list stack-top-sm">
+            {dashboard.cleanupRuns.map((run) => (
+              <div key={run.id || run.slug} className="inline-card">
+                <div>
+                  <strong>{run.storeName}</strong>
+                  <p>{run.slug}</p>
+                </div>
+                <div className="activity-meta">
+                  <span>{run.orphanedTargetCount} orphan</span>
+                  <span>{formatDateTime(run.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {dashboardError && (
         <div className="card surface-alert">
           <p className="form-error">{dashboardError}</p>
@@ -119,6 +149,10 @@ export default async function OwnerDashboardPage() {
                       : "Sonraki aksiyon bekleniyor...")}
                 </p>
                 <div className="status-card-meta">
+                  <span>Provisioning: {store.provisioning.state}</span>
+                  <span>
+                    Lifecycle: {store.provisioning.failedStepCount} fail / {store.provisioning.pendingStepCount} pending
+                  </span>
                   <span>Admin: {store.storeAdminCount}</span>
                   <span>Secrets: {store.health.secretAuthorityReady ? "Hazir" : "Drift"}</span>
                   <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazir" : "Sorun"}</span>
@@ -169,7 +203,15 @@ export default async function OwnerDashboardPage() {
                         <div className="table-inline-meta">{store.storefrontDomain}</div>
                       </td>
                       <td>
-                        <span className="pill pill-accent">{store.health.label}</span>
+                        <div className="actions compact-actions wrap">
+                          <span className="pill pill-accent">{store.health.label}</span>
+                          <span className={`pill ${store.provisioning.state === "ready" ? "pill-success" : "pill-accent"}`}>
+                            {store.provisioning.state}
+                          </span>
+                          {store.provisioning.failedStepCount > 0 ? (
+                            <span className="pill pill-accent">{store.provisioning.failedStepCount} failed</span>
+                          ) : null}
+                        </div>
                       </td>
                       <td>{formatCurrency(store.totalRevenue)}</td>
                       <td>{store.orderCount}</td>

@@ -7,8 +7,9 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { getStoreConfig, removeStoreArtifacts } from "@celebix/platform-config";
+import { getStoreConfig, removeStoreArtifacts, repairStoreConfig } from "@celebix/platform-config";
 import { recordOwnerAuditLog } from "@/lib/control-plane";
+import { createCleanupRun, type CleanupTargetSummary } from "@/lib/store-lifecycle";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { deleteStorefrontRepoForStore, isGitHubRepoSyncConfigured } from "@/lib/storefront-repo-sync";
 
@@ -58,8 +59,7 @@ type CleanupTargetType =
   | "r2"
   | "repo-local"
   | "repo-github"
-  | "owner-record"
-  | "owner-audit";
+  | "owner-record";
 
 interface CleanupTargetResult {
   type: CleanupTargetType;
@@ -70,7 +70,10 @@ interface CleanupTargetResult {
 
 export interface StoreCleanupResult {
   slug: string;
-  deleted: boolean;
+  success: boolean;
+  authorityDeleted: boolean;
+  cleanupRunId: string | null;
+  orphanedTargets: CleanupTargetResult[];
   targets: CleanupTargetResult[];
 }
 
@@ -199,6 +202,40 @@ function buildSupabaseHeaders(): HeadersInit {
   return {
     Authorization: `Bearer ${getSupabaseAccessToken()}`,
     "Content-Type": "application/json",
+  };
+}
+
+function hasCoolifyAuthority(): boolean {
+  return Boolean(process.env.COOLIFY_API_URL?.trim() && process.env.COOLIFY_API_TOKEN?.trim());
+}
+
+function hasCloudflareAuthority(): boolean {
+  return Boolean(process.env.CLOUDFLARE_API_TOKEN?.trim() && process.env.CLOUDFLARE_ACCOUNT_ID?.trim());
+}
+
+function hasSupabaseManagementAuthority(): boolean {
+  return Boolean(process.env.SUPABASE_ACCESS_TOKEN?.trim());
+}
+
+function asCleanupTargetSummary(target: CleanupTargetResult): CleanupTargetSummary {
+  return {
+    type: target.type,
+    identifier: target.identifier,
+    status: target.status,
+    message: target.message ?? null,
+  };
+}
+
+function buildSkippedTarget(
+  type: CleanupTargetType,
+  identifier: string,
+  message: string,
+): CleanupTargetResult {
+  return {
+    type,
+    identifier,
+    status: "skipped",
+    message,
   };
 }
 
@@ -494,7 +531,7 @@ function buildCleanupTargets(store: OwnerStoreCleanupRow): StoreCleanupTargets {
   const metadata = asRecord(store.metadata);
   const bootstrap = asRecord(metadata.bootstrap);
   const storefront = asRecord(metadata.storefront);
-  const storeConfig = getStoreConfig(store.slug);
+  const storeConfig = getStoreConfig(store.slug) ? repairStoreConfig(store.slug) : null;
   const supabaseProvider =
     readString(storeConfig?.supabase.provider) ||
     readString(bootstrap.supabaseProvider) ||
@@ -537,14 +574,6 @@ function buildCleanupTargets(store: OwnerStoreCleanupRow): StoreCleanupTargets {
   };
 }
 
-function isBlockingFailure(result: CleanupTargetResult): boolean {
-  if (result.status !== "failed") {
-    return false;
-  }
-
-  return result.type !== "owner-audit";
-}
-
 async function deleteOwnerStoreRow(slug: string): Promise<CleanupTargetResult> {
   const serviceClient = createOwnerServiceClient();
   const { error } = await serviceClient.from("owner_stores").delete().eq("slug", slug);
@@ -560,30 +589,6 @@ async function deleteOwnerStoreRow(slug: string): Promise<CleanupTargetResult> {
 
   return {
     type: "owner-record",
-    identifier: slug,
-    status: "deleted",
-  };
-}
-
-async function deleteStoreAuditLogs(slug: string): Promise<CleanupTargetResult> {
-  const serviceClient = createOwnerServiceClient();
-  const { error } = await serviceClient
-    .from("owner_audit_logs")
-    .delete()
-    .eq("target_type", "store")
-    .eq("target_id", slug);
-
-  if (error) {
-    return {
-      type: "owner-audit",
-      identifier: slug,
-      status: "failed",
-      message: error.message,
-    };
-  }
-
-  return {
-    type: "owner-audit",
     identifier: slug,
     status: "deleted",
   };
@@ -616,8 +621,29 @@ export async function cleanupStoreResources(
   }
 
   const targets = buildCleanupTargets(store);
-  const [applications, services] = await Promise.all([listApplications(), listServices()]);
   const results: CleanupTargetResult[] = [];
+  const coolifyConfigured = hasCoolifyAuthority();
+  const cloudflareConfigured = hasCloudflareAuthority();
+  const supabaseConfigured = hasSupabaseManagementAuthority();
+  const needsCoolifyInventory = Boolean(
+    targets.admin.resourceId ||
+    targets.admin.runtimeUrl ||
+    targets.storefront.resourceId ||
+    targets.storefront.runtimeUrl ||
+    targets.supabase.provider === "self_hosted_coolify",
+  );
+  let applications: CoolifyApplication[] = [];
+  let services: CoolifyService[] = [];
+  let coolifyInventoryError: string | null = null;
+
+  if (coolifyConfigured && needsCoolifyInventory) {
+    try {
+      [applications, services] = await Promise.all([listApplications(), listServices()]);
+    } catch (error) {
+      coolifyInventoryError =
+        error instanceof Error ? error.message : "Coolify inventory okunamadi.";
+    }
+  }
 
   await recordOwnerAuditLog({
     actorId,
@@ -635,23 +661,79 @@ export async function cleanupStoreResources(
     },
   });
 
-  results.push(await deleteCoolifyApplication(applications, "admin", targets.admin));
-  results.push(await deleteCoolifyApplication(applications, "storefront", targets.storefront));
+  if (!targets.admin.resourceId && !targets.admin.runtimeUrl && !targets.admin.name) {
+    results.push({ type: "admin", identifier: `${store.slug}-admin`, status: "missing" });
+  } else if (!coolifyConfigured) {
+    results.push(buildSkippedTarget("admin", targets.admin.name || store.slug, "Coolify authority eksik."));
+  } else if (coolifyInventoryError) {
+    results.push({
+      type: "admin",
+      identifier: targets.admin.name || targets.admin.resourceId || store.slug,
+      status: "failed",
+      message: coolifyInventoryError,
+    });
+  } else {
+    results.push(await deleteCoolifyApplication(applications, "admin", targets.admin));
+  }
+
+  if (!targets.storefront.resourceId && !targets.storefront.runtimeUrl && !targets.storefront.name) {
+    results.push({ type: "storefront", identifier: `${store.slug}-storefront`, status: "missing" });
+  } else if (!coolifyConfigured) {
+    results.push(buildSkippedTarget("storefront", targets.storefront.name || store.slug, "Coolify authority eksik."));
+  } else if (coolifyInventoryError) {
+    results.push({
+      type: "storefront",
+      identifier: targets.storefront.name || targets.storefront.resourceId || store.slug,
+      status: "failed",
+      message: coolifyInventoryError,
+    });
+  } else {
+    results.push(await deleteCoolifyApplication(applications, "storefront", targets.storefront));
+  }
 
   if (targets.supabase.provider === "self_hosted_coolify") {
-    results.push(
-      await deleteCoolifyService(services, {
-        resourceId: targets.supabase.resourceId,
-        name: targets.supabase.name,
-      }),
-    );
+    if (!targets.supabase.resourceId && !targets.supabase.projectRef && !targets.supabase.name) {
+      results.push({ type: "supabase", identifier: `${store.slug}-db`, status: "missing" });
+    } else if (!coolifyConfigured) {
+      results.push(
+        buildSkippedTarget(
+          "supabase",
+          targets.supabase.projectRef || targets.supabase.name || `${store.slug}-db`,
+          "Coolify authority eksik.",
+        ),
+      );
+    } else if (coolifyInventoryError) {
+      results.push({
+        type: "supabase",
+        identifier: targets.supabase.projectRef || targets.supabase.name || `${store.slug}-db`,
+        status: "failed",
+        message: coolifyInventoryError,
+      });
+    } else {
+      results.push(
+        await deleteCoolifyService(services, {
+          resourceId: targets.supabase.resourceId,
+          name: targets.supabase.name,
+        }),
+      );
+    }
   } else if (targets.supabase.provider === "managed") {
-    results.push(await deleteManagedSupabaseProject(targets.supabase.projectRef ?? null));
+    if (!supabaseConfigured) {
+      results.push(
+        buildSkippedTarget(
+          "supabase",
+          targets.supabase.projectRef || targets.supabase.name || `${store.slug}-db`,
+          "Supabase management authority eksik.",
+        ),
+      );
+    } else {
+      results.push(await deleteManagedSupabaseProject(targets.supabase.projectRef ?? null));
+    }
   } else {
     results.push({
       type: "supabase",
       identifier: targets.supabase.projectRef || targets.supabase.name || "unknown-supabase",
-      status: targets.supabase.projectRef || targets.supabase.resourceId ? "failed" : "missing",
+      status: targets.supabase.projectRef || targets.supabase.resourceId ? "skipped" : "missing",
       message:
         targets.supabase.projectRef || targets.supabase.resourceId
           ? "Supabase provider tespit edilemedi."
@@ -659,22 +741,14 @@ export async function cleanupStoreResources(
     });
   }
 
-  results.push(await deleteR2Bucket(targets.r2.bucketName ?? null, targets.r2.managedDomain ?? null));
-
-  if (results.some(isBlockingFailure)) {
-    await recordOwnerAuditLog({
-      actorId,
-      action: "store_cleanup_failed",
-      targetType: "store",
-      targetId: store.slug,
-      details: { results },
-    });
-
-    return {
-      slug: store.slug,
-      deleted: false,
-      targets: results,
-    };
+  if (!targets.r2.bucketName) {
+    results.push({ type: "r2", identifier: store.slug, status: "missing" });
+  } else if (!cloudflareConfigured) {
+    results.push(
+      buildSkippedTarget("r2", targets.r2.bucketName, "Cloudflare R2 authority eksik."),
+    );
+  } else {
+    results.push(await deleteR2Bucket(targets.r2.bucketName ?? null, targets.r2.managedDomain ?? null));
   }
 
   if (shouldDeleteLocalArtifacts()) {
@@ -733,51 +807,63 @@ export async function cleanupStoreResources(
     });
   }
 
-  if (results.some(isBlockingFailure)) {
+  const ownerDeleteResult = await deleteOwnerStoreRow(store.slug);
+  results.push(ownerDeleteResult);
+
+  if (ownerDeleteResult.status !== "deleted") {
     await recordOwnerAuditLog({
       actorId,
       action: "store_cleanup_failed",
       targetType: "store",
       targetId: store.slug,
-      details: { results },
+      details: {
+        authorityDeleted: false,
+        results,
+      },
     });
 
     return {
       slug: store.slug,
-      deleted: false,
+      success: false,
+      authorityDeleted: false,
+      cleanupRunId: null,
+      orphanedTargets: results.filter((result) => result.status === "failed" || result.status === "skipped"),
       targets: results,
     };
   }
 
-  results.push(await deleteOwnerStoreRow(store.slug));
+  const authorityDeletedAt = new Date().toISOString();
+  const orphanedTargets = results.filter(
+    (result) => result.type !== "owner-record" && (result.status === "failed" || result.status === "skipped"),
+  );
+  const cleanupRun = await createCleanupRun({
+    slug: store.slug,
+    storeName: store.name,
+    authorityDeletedAt,
+    targets: results
+      .filter((result) => result.type !== "owner-record")
+      .map((result) => asCleanupTargetSummary(result)),
+  });
 
-  if (results.some(isBlockingFailure)) {
-    await recordOwnerAuditLog({
-      actorId,
-      action: "store_cleanup_failed",
-      targetType: "store",
-      targetId: store.slug,
-      details: { results },
-    });
-
-    return {
-      slug: store.slug,
-      deleted: false,
-      targets: results,
-    };
-  }
-
-  results.push(await deleteStoreAuditLogs(store.slug));
+  await recordOwnerAuditLog({
+    actorId,
+    action: orphanedTargets.length > 0 ? "store_cleanup_orphaned" : "store_cleanup_completed",
+    targetType: "store",
+    targetId: store.slug,
+    details: {
+      authorityDeleted: true,
+      cleanupRunId: cleanupRun.id,
+      orphanedTargets,
+      results,
+    },
+  });
 
   return {
     slug: store.slug,
-    deleted: results.every(
-      (result) =>
-        result.status === "deleted" ||
-        result.status === "missing" ||
-        result.status === "skipped" ||
-        (result.type === "owner-audit" && result.status === "failed"),
-    ),
+    success: true,
+    authorityDeleted: true,
+    cleanupRunId: cleanupRun.id || null,
+    orphanedTargets,
     targets: results,
   };
 }

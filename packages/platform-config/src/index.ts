@@ -428,36 +428,91 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
   ].join("\n");
 }
 
+function inferR2ProvisioningStatus(
+  config: Pick<StoreConfig, "r2">,
+): "pending-owner-env" | "configured" | "failed" {
+  if (config.r2?.provisioning === "configured" || config.r2?.provisioning === "failed") {
+    return config.r2.provisioning;
+  }
+
+  return config.r2?.bucketName || config.r2?.publicUrl ? "configured" : "pending-owner-env";
+}
+
+function inferStorefrontStatus(config: StoreConfig): StorefrontStatus {
+  if (config.storefront?.status) {
+    return config.storefront.status;
+  }
+
+  if (config.storefront?.deploymentStatus === "configured") {
+    return "active";
+  }
+
+  return config.storefront?.appDir ? "scaffolded" : "not_started";
+}
+
 function normalizeStoreConfig(config: StoreConfig): StoreConfig {
+  const supabaseProvider =
+    config.supabase.provider ??
+    config.bootstrap?.supabaseProvider ??
+    resolveDefaultSupabaseProvider();
+  const normalizedBootstrap = {
+    createdAt: config.bootstrap?.createdAt ?? new Date().toISOString(),
+    envTemplatePath: config.bootstrap?.envTemplatePath ?? `stores/${config.slug}/admin.env.example`,
+    adminEnvLocalPath: config.bootstrap?.adminEnvLocalPath,
+    coolifyProjectName: config.bootstrap?.coolifyProjectName ?? config.name,
+    adminDeploymentProvider: config.bootstrap?.adminDeploymentProvider ?? "coolify",
+    adminDeploymentName: config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`,
+    adminDeploymentRuntimeUrl:
+      config.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
+    adminDeploymentResourceId: config.bootstrap?.adminDeploymentResourceId,
+    adminDeploymentStatus: config.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
+    adminDeploymentPreparedAt: config.bootstrap?.adminDeploymentPreparedAt,
+    adminDeploymentDeployedAt: config.bootstrap?.adminDeploymentDeployedAt,
+    adminDeploymentLastError: config.bootstrap?.adminDeploymentLastError,
+    organizationSlug: config.bootstrap?.organizationSlug,
+    supabaseProvider,
+    supabaseProjectName: config.bootstrap?.supabaseProjectName,
+    supabaseResourceId: config.bootstrap?.supabaseResourceId,
+    supabaseDashboardUrl: config.bootstrap?.supabaseDashboardUrl ?? config.supabase.dashboardUrl,
+    provisionedAt: config.bootstrap?.provisionedAt,
+    lastProvisionError: config.bootstrap?.lastProvisionError,
+    supabaseProvisioning:
+      config.bootstrap?.supabaseProvisioning ??
+      (config.supabase.projectRef && config.supabase.projectRef !== "pending-owner-bootstrap"
+        ? "configured"
+        : "pending-owner-env"),
+  } satisfies NonNullable<StoreConfig["bootstrap"]>;
+  const normalizedStorefront = {
+    appDir: config.storefront?.appDir,
+    status: inferStorefrontStatus(config),
+    lastScaffoldedAt: config.storefront?.lastScaffoldedAt,
+    lastScaffoldError: config.storefront?.lastScaffoldError,
+    repoSyncStatus: config.storefront?.repoSyncStatus ?? "pending",
+    repoSyncedAt: config.storefront?.repoSyncedAt,
+    repoCommitSha: config.storefront?.repoCommitSha,
+    lastRepoSyncError: config.storefront?.lastRepoSyncError,
+    deploymentProvider: config.storefront?.deploymentProvider ?? "coolify",
+    deploymentName: config.storefront?.deploymentName ?? `${config.slug}-storefront`,
+    runtimeUrl: config.storefront?.runtimeUrl ?? `https://${config.domains.storefront}`,
+    resourceId: config.storefront?.resourceId,
+    deploymentStatus: config.storefront?.deploymentStatus ?? "pending-owner-env",
+    preparedAt: config.storefront?.preparedAt,
+    deployedAt: config.storefront?.deployedAt,
+    lastDeploymentError: config.storefront?.lastDeploymentError,
+  } satisfies NonNullable<StoreConfig["storefront"]>;
+
   return {
     ...config,
     supabase: {
       ...config.supabase,
-      provider: config.supabase.provider ?? "managed",
+      provider: supabaseProvider,
     },
-    bootstrap: config.bootstrap
-      ? {
-          ...config.bootstrap,
-          coolifyProjectName: config.bootstrap.coolifyProjectName ?? config.name,
-          adminDeploymentProvider: config.bootstrap.adminDeploymentProvider ?? "coolify",
-          adminDeploymentName: config.bootstrap.adminDeploymentName ?? `${config.slug}-admin`,
-          adminDeploymentRuntimeUrl: config.bootstrap.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
-          adminDeploymentResourceId: config.bootstrap.adminDeploymentResourceId,
-          adminDeploymentStatus: config.bootstrap.adminDeploymentStatus ?? "pending-owner-env",
-          supabaseProvider: config.bootstrap.supabaseProvider ?? config.supabase.provider ?? "managed",
-          adminDeploymentDeployedAt: config.bootstrap.adminDeploymentDeployedAt,
-        }
-      : config.bootstrap,
-    storefront: config.storefront
-      ? {
-          ...config.storefront,
-          repoSyncStatus: config.storefront.repoSyncStatus ?? "pending",
-          deploymentProvider: config.storefront.deploymentProvider ?? "coolify",
-          deploymentName: config.storefront.deploymentName ?? `${config.slug}-storefront`,
-          runtimeUrl: config.storefront.runtimeUrl ?? `https://${config.domains.storefront}`,
-          deploymentStatus: config.storefront.deploymentStatus ?? "pending-owner-env",
-        }
-      : config.storefront,
+    r2: {
+      ...config.r2,
+      provisioning: inferR2ProvisioningStatus(config),
+    },
+    bootstrap: normalizedBootstrap,
+    storefront: normalizedStorefront,
   };
 }
 
@@ -490,6 +545,46 @@ export function getStoreConfig(slug: string): StoreConfig | null {
   }
 
   return normalizeStoreConfig(readJsonFile<StoreConfig>(configPath));
+}
+
+export function repairStoreConfig(slug: string): StoreConfig {
+  const configPath = getStoreConfigPath(slug);
+
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`"${slug}" icin store config bulunamadi.`);
+  }
+
+  const repaired = normalizeStoreConfig(readJsonFile<StoreConfig>(configPath));
+  writeJsonFile(configPath, repaired);
+  return repaired;
+}
+
+export function repairTrackedStoreConfigs(slugs?: string[]): string[] {
+  const trackedSlugs = Array.from(
+    new Set((slugs?.length ? slugs : getStores().map((store) => store.slug)).filter(Boolean)),
+  );
+  const repairedSlugs: string[] = [];
+
+  for (const slug of trackedSlugs) {
+    const configPath = getStoreConfigPath(slug);
+
+    if (!fs.existsSync(configPath)) {
+      continue;
+    }
+
+    const current = readJsonFile<StoreConfig>(configPath);
+    const repaired = normalizeStoreConfig(current);
+    const currentSerialized = `${JSON.stringify(current, null, 2)}\n`;
+    const repairedSerialized = `${JSON.stringify(repaired, null, 2)}\n`;
+
+    if (currentSerialized !== repairedSerialized) {
+      writeJsonFile(configPath, repaired);
+    }
+
+    repairedSlugs.push(slug);
+  }
+
+  return repairedSlugs;
 }
 
 export function removeStoreArtifacts(

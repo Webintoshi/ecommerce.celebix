@@ -63,6 +63,12 @@ export default async function OperationsPage() {
           <div className="metric-box-label">Storefront Bekleyen</div>
           <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
         </div>
+        <div className="metric-box">
+          <div className="metric-box-label">Orphan Cleanup</div>
+          <div className={`metric-box-value ${summary.totals.orphanedCleanupRuns > 0 ? "status-text-warning" : ""}`}>
+            {summary.totals.orphanedCleanupRuns}
+          </div>
+        </div>
       </div>
 
       {/* Operations Table & Activity */}
@@ -75,6 +81,7 @@ export default async function OperationsPage() {
                   <th>Proje</th>
                   <th>Saglik</th>
                   <th>Supabase</th>
+                  <th>Provisioning</th>
                   <th>Secrets</th>
                   <th>Admin Runtime</th>
                   <th>Consistency</th>
@@ -98,6 +105,11 @@ export default async function OperationsPage() {
                     <td>
                       <span className={`status-text ${row.supabaseProjectRef ? "status-text-success" : "status-text-error"}`}>
                         {row.supabaseProjectRef || "Eksik"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-text ${row.provisioning.state === "ready" ? "status-text-success" : "status-text-warning"}`}>
+                        {row.provisioning.state}
                       </span>
                     </td>
                     <td>
@@ -154,6 +166,29 @@ export default async function OperationsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="card section-tight">
+        <div className="card-title">Orphan Cleanup Runs</div>
+        {summary.cleanupRuns.length === 0 ? (
+          <p className="muted">Unresolved cleanup kaydi yok.</p>
+        ) : (
+          <div className="stack-list stack-top-sm">
+            {summary.cleanupRuns.map((run) => (
+              <div key={run.id} className="inline-card">
+                <div>
+                  <strong>{run.storeName}</strong>
+                  <p>{run.slug}</p>
+                </div>
+                <div className="activity-meta">
+                  <span>{run.status}</span>
+                  <span>{run.orphanedTargetCount} orphan</span>
+                  <span>{formatDateTime(run.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

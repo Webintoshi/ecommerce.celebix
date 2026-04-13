@@ -5,6 +5,7 @@ import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
+import { RepairProjectButton } from "@/components/RepairProjectButton";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
@@ -58,6 +59,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const provisionedAt = readDateValue(bootstrap.provisionedAt);
   const createdAt = formatDateTime(store.createdAt);
   const updatedAt = formatDateTime(store.updatedAt);
+  const provisioning = store.provisioning;
+  const pendingProvisioningSteps = provisioning.steps.filter(
+    (step) => step.status === "failed" || step.status === "pending",
+  );
   const subscription = store.management.subscription;
   const subscriptionStatusClass =
     subscription.status === "active" ? "pill-success" : "pill-accent";
@@ -76,6 +81,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span className="pill pill-capitalize">{store.status}</span>
             <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
               {store.health.label}
+            </span>
+            <span className={`pill ${provisioning.state === "ready" ? "pill-success" : "pill-accent"}`}>
+              {provisioning.state}
             </span>
             <span className="pill">{store.storefrontDomain}</span>
           </div>
@@ -141,6 +149,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Oncelik: <strong>{store.management.priority}</strong></span>
             <span>Hedef yayin: <strong>{formatDate(store.management.launchTarget)}</strong></span>
             <span>Storefront: <strong>{store.storefrontStatus}</strong></span>
+            <span>Provisioning: <strong>{provisioning.state}</strong></span>
             <span>Affiliate orani: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
             <span>Store admin: <strong>{store.storeAdminCount}</strong></span>
             <span>Paket baslangici: <strong>{formatDate(subscription.startDate)}</strong></span>
@@ -342,6 +351,47 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Resource ID: <strong>{adminDeployment?.resourceId || "-"}</strong></span>
           </div>
         </div>
+      </div>
+
+      <div className="card section-tight">
+        <div className="section-head">
+          <div>
+            <div className="card-title">Provisioning Lifecycle</div>
+            <p className="section-copy">
+              Owner panel create ve repair akisinin hangi adimda oldugunu bu bloktan izle.
+            </p>
+          </div>
+          {superAdmin ? <RepairProjectButton slug={store.slug} /> : null}
+        </div>
+        <div className="meta-pairs">
+          <span>State: <strong>{provisioning.state}</strong></span>
+          <span>Last Run: <strong>{formatDateTime(provisioning.lastRunAt)}</strong></span>
+          <span>Blocking Step: <strong>{provisioning.blockingStepCount}</strong></span>
+          <span>Failed Step: <strong>{provisioning.failedStepCount}</strong></span>
+          <span>Pending Step: <strong>{provisioning.pendingStepCount}</strong></span>
+        </div>
+        {provisioning.lastError ? (
+          <p className="card-note">Son hata: {provisioning.lastError}</p>
+        ) : (
+          <p className="card-note">Provisioning metadata owner authority icinde senkron tutuluyor.</p>
+        )}
+        {pendingProvisioningSteps.length > 0 ? (
+          <div className="stack-list stack-top-md">
+            {pendingProvisioningSteps.map((step) => (
+              <div key={step.key} className="inline-card">
+                <div>
+                  <strong>{step.key}</strong>
+                  <p>{step.message || step.status}</p>
+                </div>
+                <div className="actions compact-actions">
+                  <span className={`pill ${step.status === "failed" ? "pill-accent" : "pill-success"}`}>
+                    {step.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="card section-tight">

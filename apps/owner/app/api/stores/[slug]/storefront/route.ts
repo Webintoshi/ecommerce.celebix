@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { getStoreConfig, updateStoreStorefrontConfig } from "@celebix/platform-config";
+import { getStoreConfig, repairStoreConfig, updateStoreStorefrontConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
@@ -31,7 +31,7 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
   try {
     const { slug } = await params;
     await ensureStoreConfigFromOwnerAuthority(slug);
-    const store = getStoreConfig(slug);
+    const store = getStoreConfig(slug) ? repairStoreConfig(slug) : null;
 
     if (!store) {
       return NextResponse.json({ error: "Magaza bulunamadi." }, { status: 404 });
@@ -76,9 +76,8 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
 
     try {
       deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
-    } catch (error) {
+    } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
-      throw error;
     }
 
     await syncOwnerStoresAndMetrics();

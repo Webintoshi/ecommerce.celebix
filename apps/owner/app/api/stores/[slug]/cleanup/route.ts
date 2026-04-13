@@ -18,7 +18,16 @@ export async function DELETE(request: Request, { params }: RouteContext) {
     const body = await request.json().catch(() => ({}));
     const force = body && typeof body === "object" && "force" in body ? Boolean((body as { force?: unknown }).force) : false;
     const result = await cleanupStoreResources(auth.user.id, slug, { force });
-    return NextResponse.json({ success: true, result }, { status: 200 });
+    return NextResponse.json(
+      {
+        success: result.success,
+        authorityDeleted: result.authorityDeleted,
+        cleanupRunId: result.cleanupRunId,
+        orphanedTargets: result.orphanedTargets,
+        result,
+      },
+      { status: result.authorityDeleted ? 200 : 409 },
+    );
   } catch (error) {
     return NextResponse.json(
       {

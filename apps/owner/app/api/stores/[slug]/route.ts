@@ -108,17 +108,30 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       allowNonDisposable: true,
     });
 
-    if (!result.deleted) {
+    if (!result.authorityDeleted) {
       return NextResponse.json(
         {
-          error: "Proje tam olarak silinemedi. Detaylar result icinde dondu.",
+          error: "Proje authority kaydi silinemedi.",
+          success: false,
+          authorityDeleted: false,
+          cleanupRunId: result.cleanupRunId,
+          orphanedTargets: result.orphanedTargets,
           result,
         },
         { status: 409 },
       );
     }
 
-    return NextResponse.json({ success: true, result }, { status: 200 });
+    return NextResponse.json(
+      {
+        success: true,
+        authorityDeleted: result.authorityDeleted,
+        cleanupRunId: result.cleanupRunId,
+        orphanedTargets: result.orphanedTargets,
+        result,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Proje silinemedi.";
     const status = /bulunamadi/i.test(message) ? 404 : 500;

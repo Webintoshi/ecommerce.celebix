@@ -73,7 +73,7 @@ export default async function StoresPage() {
                         {store.health.label}
                       </span>
                       <div className="table-inline-meta">
-                        Runtime: {store.health.adminRuntimeConsistent ? "hazir" : "sorunlu"} / Secrets: {store.health.secretAuthorityReady ? "hazir" : "drift"} / Consistency: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "temiz"}
+                        Provisioning: {store.provisioning.state} / Failed: {store.provisioning.failedStepCount} / Pending: {store.provisioning.pendingStepCount} / Runtime: {store.health.adminRuntimeConsistent ? "hazir" : "sorunlu"} / Secrets: {store.health.secretAuthorityReady ? "hazir" : "drift"} / Consistency: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "temiz"}
                       </div>
                     </td>
                     <td>

@@ -1,52 +1,32 @@
 import { NextResponse } from "next/server";
-import { createStore, updateStoreStorefrontConfig } from "@celebix/platform-config";
+import { createStore } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
-import {
-  listDashboardStores,
-  recordOwnerAuditLog,
-  syncOwnerStoresAndMetrics,
-  updateOwnerStoreR2Authority,
-  updateStoreManagementProfile,
-} from "@/lib/control-plane";
-import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
-import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
-import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
-import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
-import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
-import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
-import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
-import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
-import { syncStoreAuthorityRepoForStore, syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
-import {
-  releaseGeneratedDeploymentWindow,
-  reserveGeneratedDeploymentWindow,
-} from "@/lib/generated-deployment-guard";
+import { listDashboardStores, recordOwnerAuditLog } from "@/lib/control-plane";
+import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
+import { runStoreProvisioningWorkflow } from "@/lib/store-provisioning";
 import { isRedisLockError } from "@/lib/redis";
 
-function shouldAutoProvisionGeneratedApps(): boolean {
-  const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
+function predictStoreSlug(name: string, explicitSlug?: string): string {
+  const candidate = explicitSlug?.trim() || name.trim();
 
-  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") {
-    return false;
-  }
-
-  return true;
+  return candidate
+    .toLocaleLowerCase("tr")
+    .replace(/Ä±/g, "i")
+    .replace(/ÄŸ/g, "g")
+    .replace(/Ã¼/g, "u")
+    .replace(/ÅŸ/g, "s")
+    .replace(/Ã¶/g, "o")
+    .replace(/Ã§/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-async function runGeneratedDeploymentStep<T>(
-  input: {
-    slug: string;
-    target: "admin" | "storefront";
-  },
-  action: () => Promise<T>,
-): Promise<T> {
-  const deploymentWindow = await reserveGeneratedDeploymentWindow(input);
-
-  try {
-    return await action();
-  } finally {
-    await releaseGeneratedDeploymentWindow(deploymentWindow);
+function parseDuration(value: number | string | null | undefined): number | null | undefined {
+  if (typeof value === "string") {
+    return value.trim().length > 0 ? Number(value) : null;
   }
+
+  return value ?? undefined;
 }
 
 export async function GET() {
@@ -83,7 +63,16 @@ export async function POST(request: Request) {
       packageDurationMonths?: number | string | null;
     };
 
-    const result = createStore({
+    const predictedSlug = predictStoreSlug(body.name ?? "", body.slug);
+
+    if (predictedSlug && (await hasUnresolvedCleanupRun(predictedSlug))) {
+      return NextResponse.json(
+        { error: `"${predictedSlug}" icin cozulmemis cleanup tombstone kaydi var. Aynı slug ile tekrar acilamaz.` },
+        { status: 409 },
+      );
+    }
+
+    const created = createStore({
       name: body.name ?? "",
       slug: body.slug,
       domain: body.domain ?? "",
@@ -96,156 +85,37 @@ export async function POST(request: Request) {
       storefrontDeploymentName: body.storefrontDeploymentName,
     });
 
-    const warnings: string[] = [];
-    const bootstrapStatus = await getSupabaseBootstrapStatus();
-    const r2BootstrapStatus = await getR2BootstrapStatus();
+    const workflow = await runStoreProvisioningWorkflow({
+      auth,
+      slug: created.store.slug,
+      mode: "create",
+      packageStartDate: body.packageStartDate,
+      packageDurationMonths: parseDuration(body.packageDurationMonths),
+    });
 
-    await syncOwnerStoresAndMetrics();
-    try {
-      const authoritySync = await syncStoreAuthorityRepoForStore(result.store.slug);
-
-      if (authoritySync.status !== "synced") {
-        warnings.push(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
-      }
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Store authority repo senkronu tamamlanamadi.");
-    }
-
-    try {
-      await updateStoreManagementProfile(auth, result.store.slug, {
-        packageStartDate: body.packageStartDate,
-        packageDurationMonths:
-          typeof body.packageDurationMonths === "string"
-            ? body.packageDurationMonths.trim().length > 0
-              ? Number(body.packageDurationMonths)
-              : null
-            : body.packageDurationMonths ?? null,
-      });
-    } catch (error) {
-      warnings.push(
-        error instanceof Error ? error.message : "Paket suresi owner profiline islenemedi."
-      );
-    }
-
-    if (bootstrapStatus.configured) {
-      try {
-        await provisionSupabaseForStore(result.store);
-        try {
-          const starterSeed = await seedStarterStorefrontContent(result.store);
-
-          if (starterSeed.status === "skipped") {
-            warnings.push(starterSeed.message);
-          }
-        } catch (error) {
-          warnings.push(
-            error instanceof Error
-              ? error.message
-              : "Starter storefront icerigi otomatik olarak yazilamadi.",
-          );
-        }
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : "Supabase otomatik kurulumu tamamlanamadi.");
-      }
-    } else {
-      warnings.push(bootstrapStatus.lastError || "Supabase otomasyonu icin owner env eksik.");
-    }
-
-    if (r2BootstrapStatus.configured) {
-      try {
-        const r2Provisioning = await provisionR2ForStore(result.store);
-        await updateOwnerStoreR2Authority(result.store.slug, {
-          bucketName: r2Provisioning.bucketName,
-          publicUrl: r2Provisioning.publicUrl,
-          managedDomain: r2Provisioning.managedDomain,
-        });
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : "R2 otomatik kurulumu tamamlanamadi.");
-      }
-    } else {
-      warnings.push(r2BootstrapStatus.lastError || "R2 otomasyonu icin owner env eksik.");
-    }
-
-    try {
-      await prepareStoreAdminDeployment(result.store.slug);
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Admin deployment blueprint hazirlanamadi.");
-    }
-
-    const shouldAutoProvisionApps = shouldAutoProvisionGeneratedApps();
-
-    if (shouldAutoProvisionApps) {
-      try {
-        await runGeneratedDeploymentStep({
-          slug: result.store.slug,
-          target: "admin",
-        }, async () => {
-          await provisionAdminDeploymentForStore(result.store.slug, { waitForRuntime: false });
-        });
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : "Admin deployment otomasyonu tamamlanamadi.");
-      }
-    }
-
-    try {
-      if (result.store.storefront?.status === "not_started") {
-        const scaffoldResult = await scaffoldStorefrontApp(result.store.slug);
-        updateStoreStorefrontConfig(result.store.slug, {
-          appDir: scaffoldResult.relativeAppDirectory,
-          status: "scaffolded",
-        });
-      }
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Storefront scaffold tamamlanamadi.");
-    }
-    try {
-      await prepareStorefrontDeployment(result.store.slug);
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Storefront deployment blueprint hazirlanamadi.");
-    }
-    try {
-      const repoSync = await syncStorefrontRepoForStore(result.store.slug);
-
-      if (repoSync.status !== "synced") {
-        warnings.push(repoSync.message || "Storefront repo senkronu tamamlanamadi.");
-      }
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : "Storefront repo senkronu tamamlanamadi.");
-    }
-    if (shouldAutoProvisionApps) {
-      try {
-        await runGeneratedDeploymentStep({
-          slug: result.store.slug,
-          target: "storefront",
-        }, async () => {
-          const storefrontDeployment = await provisionStorefrontDeploymentForStore(result.store.slug, {
-            waitForRuntime: false,
-          });
-
-          if (storefrontDeployment.status !== "configured") {
-            warnings.push(
-              storefrontDeployment.message ||
-                "Storefront deployment tamamlandi ancak canli runtime henuz tutarli degil.",
-            );
-          }
-        });
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : "Storefront deployment otomasyonu tamamlanamadi.");
-      }
-    }
-    await syncOwnerStoresAndMetrics();
     await recordOwnerAuditLog({
       actorId: auth.user.id,
       action: "store_created",
       targetType: "store",
-      targetId: result.store.slug,
+      targetId: created.store.slug,
       details: {
-        name: result.store.name,
-        domain: result.store.domains.storefront,
-        warnings
-      }
+        name: created.store.name,
+        domain: created.store.domains.storefront,
+        provisioningState: workflow.provisioningState,
+        blockers: workflow.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
+      },
     });
 
-    return NextResponse.json({ ...result, warnings }, { status: 201 });
+    return NextResponse.json(
+      {
+        ...created,
+        store: workflow.store,
+        provisioningState: workflow.provisioningState,
+        steps: workflow.steps,
+        blockers: workflow.blockers,
+      },
+      { status: workflow.provisioningState === "ready" ? 201 : 202 },
+    );
   } catch (error) {
     if (isRedisLockError(error)) {
       return NextResponse.json({ error: error.message }, { status: 409 });

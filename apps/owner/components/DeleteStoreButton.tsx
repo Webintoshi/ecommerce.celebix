@@ -20,6 +20,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmationValue, setConfirmationValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [details, setDetails] = useState<CleanupTargetResult[]>([]);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -35,6 +36,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
   function resetState() {
     setConfirmationValue("");
     setError(null);
+    setNotice(null);
     setDetails([]);
     setCopied(false);
   }
@@ -55,6 +57,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
     }
 
     setError(null);
+    setNotice(null);
     setDetails([]);
 
     startTransition(async () => {
@@ -71,12 +74,26 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
 
         const payload = (await response.json()) as {
           error?: string;
+          authorityDeleted?: boolean;
+          orphanedTargets?: CleanupTargetResult[];
           result?: { targets?: CleanupTargetResult[] };
         };
 
         if (!response.ok) {
           setError(payload.error || "Proje silme islemi basarisiz oldu.");
           setDetails(payload.result?.targets ?? []);
+          return;
+        }
+
+        const orphanedTargets = payload.orphanedTargets ?? [];
+        const targetDetails = payload.result?.targets ?? orphanedTargets;
+
+        if (orphanedTargets.length > 0) {
+          setNotice("Owner authority silindi. Orphan kalan hedefler asagida listelendi.");
+          setDetails(targetDetails);
+          window.setTimeout(() => {
+            window.location.assign("/stores");
+          }, 1800);
           return;
         }
 
@@ -169,6 +186,7 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
         </div>
 
         {error ? <p className="form-error stack-top-sm">{error}</p> : null}
+        {notice ? <p className="form-notice stack-top-sm">{notice}</p> : null}
 
         {details.length > 0 ? (
           <div className="stack-list stack-top-md">
