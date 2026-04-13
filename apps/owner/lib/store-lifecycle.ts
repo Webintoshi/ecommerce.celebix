@@ -128,6 +128,15 @@ function isMissingCleanupRunsTableError(error: unknown): boolean {
   return /owner_cleanup_runs/i.test(error.message) && /does not exist|relation|schema cache/i.test(error.message);
 }
 
+function isBlankPostgrestError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const record = error as Record<string, unknown>;
+  return !record.message && !record.details && !record.hint && !record.code;
+}
+
 function normalizeStep(value: unknown): ProvisioningStepSummary | null {
   const record = asRecord(value);
   const key = readOptionalString(record.key) as ProvisioningStepKey | null;
@@ -402,7 +411,9 @@ export async function createCleanupRun(input: {
     .single<Record<string, unknown>>();
 
   if (error) {
-    if (isMissingCleanupRunsTableError(new Error(error.message))) {
+    const fallbackError = typeof error.message === "string" ? new Error(error.message) : error;
+
+    if (isMissingCleanupRunsTableError(fallbackError) || isBlankPostgrestError(error)) {
       const now = new Date().toISOString();
       return {
         id: "",
@@ -417,7 +428,11 @@ export async function createCleanupRun(input: {
       };
     }
 
-    throw new Error(error.message);
+    throw new Error(
+      typeof error.message === "string" && error.message.trim().length > 0
+        ? error.message
+        : "Cleanup run authority yazilamadi.",
+    );
   }
 
   return {

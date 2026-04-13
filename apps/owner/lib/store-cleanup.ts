@@ -26,6 +26,34 @@ interface OwnerStoreCleanupRow {
   storefront_app_dir: string | null;
 }
 
+function buildFallbackCleanupRow(slug: string): OwnerStoreCleanupRow | null {
+  const config = getStoreConfig(slug) ? repairStoreConfig(slug) : null;
+
+  if (!config) {
+    return null;
+  }
+
+  return {
+    id: "",
+    slug: config.slug,
+    name: config.name,
+    admin_domain: config.domains.admin,
+    storefront_domain: config.domains.storefront,
+    supabase_project_ref:
+      config.supabase.projectRef && config.supabase.projectRef !== "pending-owner-bootstrap"
+        ? config.supabase.projectRef
+        : null,
+    r2_bucket_name: config.r2?.bucketName ?? null,
+    r2_managed_domain: config.r2?.managedDomain ?? null,
+    metadata: {
+      bootstrap: config.bootstrap ?? {},
+      storefront: config.storefront ?? {},
+      features: config.features ?? [],
+    },
+    storefront_app_dir: config.storefront?.appDir ?? null,
+  };
+}
+
 interface CoolifyApplication {
   uuid?: string;
   name?: string;
@@ -610,11 +638,12 @@ export async function cleanupStoreResources(
     throw new Error(error.message);
   }
 
-  if (!data) {
+  const ownerStoreExists = Boolean(data);
+  const store = (data as OwnerStoreCleanupRow | null) ?? buildFallbackCleanupRow(slug);
+
+  if (!store) {
     throw new Error("Temizlenecek proje bulunamadi.");
   }
-
-  const store = data as OwnerStoreCleanupRow;
 
   if (!options.force && !options.allowNonDisposable && !store.slug.startsWith("smoke-")) {
     throw new Error("Bu cleanup yolu yalnizca disposable smoke projeler icin kullanilabilir.");
@@ -807,10 +836,17 @@ export async function cleanupStoreResources(
     });
   }
 
-  const ownerDeleteResult = await deleteOwnerStoreRow(store.slug);
+  const ownerDeleteResult = ownerStoreExists
+    ? await deleteOwnerStoreRow(store.slug)
+    : {
+        type: "owner-record" as const,
+        identifier: store.slug,
+        status: "missing" as const,
+        message: "Owner authority kaydi zaten silinmis.",
+      };
   results.push(ownerDeleteResult);
 
-  if (ownerDeleteResult.status !== "deleted") {
+  if (ownerDeleteResult.status === "failed") {
     await recordOwnerAuditLog({
       actorId,
       action: "store_cleanup_failed",
@@ -820,6 +856,8 @@ export async function cleanupStoreResources(
         authorityDeleted: false,
         results,
       },
+    }).catch((auditError) => {
+      console.error("Owner cleanup failure audit yazilamadi:", auditError);
     });
 
     return {
@@ -836,14 +874,21 @@ export async function cleanupStoreResources(
   const orphanedTargets = results.filter(
     (result) => result.type !== "owner-record" && (result.status === "failed" || result.status === "skipped"),
   );
-  const cleanupRun = await createCleanupRun({
-    slug: store.slug,
-    storeName: store.name,
-    authorityDeletedAt,
-    targets: results
-      .filter((result) => result.type !== "owner-record")
-      .map((result) => asCleanupTargetSummary(result)),
-  });
+  let cleanupRunId: string | null = null;
+
+  try {
+    const cleanupRun = await createCleanupRun({
+      slug: store.slug,
+      storeName: store.name,
+      authorityDeletedAt,
+      targets: results
+        .filter((result) => result.type !== "owner-record")
+        .map((result) => asCleanupTargetSummary(result)),
+    });
+    cleanupRunId = cleanupRun.id || null;
+  } catch (cleanupRunError) {
+    console.error("Owner cleanup run authority yazilamadi:", cleanupRunError);
+  }
 
   await recordOwnerAuditLog({
     actorId,
@@ -852,17 +897,19 @@ export async function cleanupStoreResources(
     targetId: store.slug,
     details: {
       authorityDeleted: true,
-      cleanupRunId: cleanupRun.id,
+      cleanupRunId,
       orphanedTargets,
       results,
     },
+  }).catch((auditError) => {
+    console.error("Owner cleanup completion audit yazilamadi:", auditError);
   });
 
   return {
     slug: store.slug,
     success: true,
     authorityDeleted: true,
-    cleanupRunId: cleanupRun.id || null,
+    cleanupRunId,
     orphanedTargets,
     targets: results,
   };
