@@ -121,6 +121,101 @@ function getInitials(name: string) {
     .join("");
 }
 
+type Testimonial = (typeof testimonials)[number];
+
+function RatingStars({
+  rating,
+  iconClassName = "h-3.5 w-3.5",
+}: {
+  rating: number;
+  iconClassName?: string;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[...Array(5)].map((_, index) => (
+        <Star
+          key={index}
+          className={cn(
+            iconClassName,
+            index < rating ? "fill-[#8A6B37] text-[#8A6B37]" : "fill-neutral-200 text-neutral-200"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VerifiedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
+      <Check className="h-3 w-3" />
+      Dogrulanmis Alici
+    </span>
+  );
+}
+
+function DesktopTestimonialCard({ review }: { review: Testimonial }) {
+  return (
+    <div className="flex h-full overflow-hidden rounded-[30px] border border-[#ebe2d6] bg-white shadow-[0_22px_48px_-32px_rgba(55,38,16,0.3)]">
+      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-[linear-gradient(180deg,#faf6ef_0%,#f3ece0_100%)] sm:w-40 lg:w-48">
+        <ImageWithFallback
+          src={review.image}
+          alt={review.name}
+          fallback={getInitials(review.name)}
+        />
+      </div>
+
+      <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
+        <div className="mb-3">
+          <RatingStars rating={review.rating} />
+        </div>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2 gap-y-1">
+          <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
+            {review.name}
+          </span>
+          {review.verified ? <VerifiedBadge /> : null}
+        </div>
+
+        <p className="text-sm leading-7 text-neutral-600">{review.content}</p>
+      </div>
+    </div>
+  );
+}
+
+function MobileTestimonialCard({ review }: { review: Testimonial }) {
+  return (
+    <article className="relative min-w-[86%] max-w-[86%] snap-center overflow-hidden rounded-[28px] border border-[#ebe2d6] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-5 shadow-[0_22px_48px_-32px_rgba(55,38,16,0.34)]">
+      <div className="pointer-events-none absolute right-4 top-2 text-[4rem] leading-none text-[#8A6B37]/10">
+        &quot;
+      </div>
+
+      <div className="flex items-start gap-4">
+        <div className="rounded-[24px] bg-[linear-gradient(180deg,#faf6ef_0%,#f3ece0_100%)] p-2.5">
+          <ImageWithFallback
+            src={review.image}
+            alt={review.name}
+            fallback={getInitials(review.name)}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 pt-1">
+          <RatingStars rating={review.rating} iconClassName="h-4 w-4" />
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 gap-y-1">
+            <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
+              {review.name}
+            </span>
+            {review.verified ? <VerifiedBadge /> : null}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-5 text-[0.95rem] leading-7 text-neutral-700">{review.content}</p>
+    </article>
+  );
+}
+
 export function TestimonialsSection({
   heading = "Musteri Yorumlari",
   countLabel = "1581 degerlendirmeden",
@@ -157,13 +252,25 @@ export function TestimonialsSection({
   return (
     <section className="bg-neutral-50 py-16 lg:py-20">
       <div className="container-premium">
-        <div className="mb-10 text-center">
+        <div className="mb-8 text-center lg:mb-10">
           <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
           <p className="text-sm text-neutral-500">{countLabel}</p>
         </div>
 
+        <div className="lg:hidden">
+          <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 pt-1">
+            {testimonials.map((review) => (
+              <MobileTestimonialCard key={review.id} review={review} />
+            ))}
+          </div>
+
+          <p className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.24em] text-neutral-400">
+            Yorumlari kaydirarak inceleyin
+          </p>
+        </div>
+
         <div
-          className="relative"
+          className="relative hidden lg:block"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -180,50 +287,7 @@ export function TestimonialsSection({
                   {testimonials
                     .slice(slideIndex * 2, slideIndex * 2 + 2)
                     .map((review) => (
-                      <div
-                        key={review.id}
-                        className="flex overflow-hidden bg-white shadow-sm"
-                      >
-                        <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
-                          <ImageWithFallback
-                            src={review.image}
-                            alt={review.name}
-                            fallback={getInitials(review.name)}
-                          />
-                        </div>
-
-                        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-                          <div className="mb-3 flex items-center gap-0.5">
-                            {[...Array(5)].map((_, index) => (
-                              <Star
-                                key={index}
-                                className={cn(
-                                  "h-3.5 w-3.5",
-                                  index < review.rating
-                                    ? "fill-[#8A6B37] text-[#8A6B37]"
-                                    : "fill-neutral-200 text-neutral-200"
-                                )}
-                              />
-                            ))}
-                          </div>
-
-                          <div className="mb-3 flex items-center gap-2">
-                            <span className="text-sm font-semibold uppercase text-neutral-900">
-                              {review.name}
-                            </span>
-                            {review.verified ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-                                <Check className="h-3 w-3" />
-                                Dogrulanmis Alici
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <p className="text-sm leading-relaxed text-neutral-600">
-                            {review.content}
-                          </p>
-                        </div>
-                      </div>
+                      <DesktopTestimonialCard key={review.id} review={review} />
                     ))}
                 </div>
               ))}
@@ -266,6 +330,17 @@ export function TestimonialsSection({
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </section>
   );
 }
