@@ -439,20 +439,17 @@ export function TestimonialsSection({
               </Link>
             </div>
 
-            <div
-              className={cn(
-                "mt-8 grid gap-6",
-                displayedBlogPosts.length === 3
-                  ? "grid-cols-1 md:grid-cols-3"
-                  : "mx-auto max-w-3xl grid-cols-1"
-              )}
-            >
+            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
               {displayedBlogPosts.map((post) => {
                 const imageSource =
                   resolveStorefrontAssetUrl(post.image) || resolveStorefrontDirectAssetUrl(post.image);
 
                 return (
-                  <Link key={post.id} href={post.href} className="group block">
+                  <Link
+                    key={post.id}
+                    href={post.href}
+                    className={cn("group block", displayedBlogPosts.length === 1 && "md:col-start-2")}
+                  >
                     <article>
                       <div className="relative aspect-[16/9] overflow-hidden bg-neutral-200">
                         {imageSource ? (
