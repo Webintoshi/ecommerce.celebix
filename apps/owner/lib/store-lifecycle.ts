@@ -9,6 +9,7 @@ export type CleanupRunStatus = "resolved" | "orphaned";
 export type ProvisioningStepKey =
   | "owner_supabase_auth"
   | "cleanup_guard"
+  | "deployment_branch_preflight"
   | "supabase_preflight"
   | "r2_preflight"
   | "coolify_preflight"
@@ -65,6 +66,7 @@ export interface CleanupRunSummary {
 const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   owner_supabase_auth: "Owner Supabase authority",
   cleanup_guard: "Cleanup tombstone guard",
+  deployment_branch_preflight: "Deployment branch guard",
   supabase_preflight: "Supabase bootstrap preflight",
   r2_preflight: "R2 bootstrap preflight",
   coolify_preflight: "Coolify preflight",

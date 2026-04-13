@@ -2,6 +2,7 @@ import "server-only";
 
 import type { StoreConfig } from "@celebix/platform-config";
 import {
+  getStoreDeploymentBranches,
   requireStoreConfig,
   updateStoreStorefrontConfig,
   updateStoreStorefrontDeploymentConfig,
@@ -120,13 +121,7 @@ function getRepositoryUrl(): string {
 }
 
 function getRepositoryBranch(store: StoreConfig): string {
-  return (
-    store.storefront?.deploymentBranch?.trim() ||
-    process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "main"
-  );
+  return getStoreDeploymentBranches(store.slug, store).storefrontBranch;
 }
 
 function sleep(ms: number): Promise<void> {

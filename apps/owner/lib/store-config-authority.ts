@@ -3,6 +3,8 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  getDefaultAdminDeploymentBranch,
+  getDefaultStorefrontDeploymentBranch,
   getRepoRoot,
   getStoreConfig,
   getStores,
@@ -76,6 +78,10 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     readOptionalString(storefront.runtimeUrl) ?? `https://${row.storefront_domain}`;
   const adminRuntimeUrl =
     readOptionalString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${row.admin_domain}`;
+  const adminDeploymentBranch =
+    readOptionalString(bootstrap.adminDeploymentBranch) ?? getDefaultAdminDeploymentBranch();
+  const storefrontDeploymentBranch =
+    readOptionalString(storefront.deploymentBranch) ?? getDefaultStorefrontDeploymentBranch(row.slug);
 
   return {
     name: row.name,
@@ -129,6 +135,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       adminEnvLocalPath: readOptionalString(bootstrap.adminEnvLocalPath) ?? `stores/${row.slug}/admin.env.local`,
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
+      adminDeploymentBranch,
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:
@@ -167,6 +174,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       lastRepoSyncError: readOptionalString(storefront.lastRepoSyncError) ?? undefined,
       deploymentProvider: "coolify",
       deploymentName: readOptionalString(storefront.deploymentName) ?? `${row.slug}-storefront`,
+      deploymentBranch: storefrontDeploymentBranch,
       runtimeUrl: storefrontRuntimeUrl,
       resourceId: readOptionalString(storefront.resourceId) ?? undefined,
       deploymentStatus:

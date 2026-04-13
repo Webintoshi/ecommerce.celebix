@@ -11,7 +11,7 @@ import { getStoreConfig, removeStoreArtifacts, repairStoreConfig } from "@celebi
 import { recordOwnerAuditLog } from "@/lib/control-plane";
 import { createCleanupRun, type CleanupTargetSummary } from "@/lib/store-lifecycle";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
-import { deleteStorefrontRepoForStore, isGitHubRepoSyncConfigured } from "@/lib/storefront-repo-sync";
+import { deleteStoreRepoArtifactsForStore, isGitHubRepoSyncConfigured } from "@/lib/storefront-repo-sync";
 
 interface OwnerStoreCleanupRow {
   id: string;
@@ -115,12 +115,14 @@ interface StoreCleanupTargets {
     resourceId?: string | null;
     name?: string | null;
     runtimeUrl?: string | null;
+    branch?: string | null;
   };
   storefront: {
     resourceId?: string | null;
     name?: string | null;
     runtimeUrl?: string | null;
     appDir?: string | null;
+    branch?: string | null;
   };
   supabase: {
     provider: "managed" | "self_hosted_coolify" | "unknown";
@@ -575,6 +577,10 @@ function buildCleanupTargets(store: OwnerStoreCleanupRow): StoreCleanupTargets {
       resourceId: readString(bootstrap.adminDeploymentResourceId),
       name: readString(bootstrap.adminDeploymentName) ?? `${store.slug}-admin`,
       runtimeUrl: readString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${store.admin_domain}`,
+      branch:
+        readString(bootstrap.adminDeploymentBranch) ||
+        storeConfig?.bootstrap?.adminDeploymentBranch ||
+        null,
     },
     storefront: {
       resourceId: readString(storefront.resourceId),
@@ -585,6 +591,10 @@ function buildCleanupTargets(store: OwnerStoreCleanupRow): StoreCleanupTargets {
         readString(storefront.appDir) ||
         storeConfig?.storefront?.appDir ||
         `apps/storefront-${store.slug}`,
+      branch:
+        readString(storefront.deploymentBranch) ||
+        storeConfig?.storefront?.deploymentBranch ||
+        null,
     },
     supabase: {
       provider:
@@ -811,22 +821,27 @@ export async function cleanupStoreResources(
   }
 
   if (isGitHubRepoSyncConfigured()) {
-    const remoteCleanup = await deleteStorefrontRepoForStore(store.slug, {
+    const remoteCleanupRuns = await deleteStoreRepoArtifactsForStore(store.slug, {
       storefrontAppDir: targets.storefront.appDir,
+      authorityBranch: targets.admin.branch,
+      storefrontBranch: targets.storefront.branch,
     });
-    results.push({
-      type: "repo-github",
-      identifier: `${remoteCleanup.repository}:${remoteCleanup.branch}`,
-      status:
-        remoteCleanup.status === "deleted"
-          ? "deleted"
-          : remoteCleanup.status === "missing"
-            ? "missing"
-            : remoteCleanup.status === "skipped"
-              ? "skipped"
-              : "failed",
-      message: remoteCleanup.message,
-    });
+
+    for (const remoteCleanup of remoteCleanupRuns) {
+      results.push({
+        type: "repo-github",
+        identifier: `${remoteCleanup.repository}:${remoteCleanup.branch}`,
+        status:
+          remoteCleanup.status === "deleted"
+            ? "deleted"
+            : remoteCleanup.status === "missing"
+              ? "missing"
+              : remoteCleanup.status === "skipped"
+                ? "skipped"
+                : "failed",
+        message: remoteCleanup.message,
+      });
+    }
   } else {
     results.push({
       type: "repo-github",

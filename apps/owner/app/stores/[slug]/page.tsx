@@ -44,11 +44,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const supabaseProvisioning = readStringValue(bootstrap.supabaseProvisioning);
   const supabaseDashboardUrl = readStringValue(bootstrap.supabaseDashboardUrl) || store.supabaseDashboardUrl;
   const adminDeploymentName = readStringValue(bootstrap.adminDeploymentName);
+  const adminDeploymentBranch = readStringValue(bootstrap.adminDeploymentBranch);
   const adminDeploymentStatus = readStringValue(bootstrap.adminDeploymentStatus);
   const adminDeploymentRuntimeUrl = readStringValue(bootstrap.adminDeploymentRuntimeUrl);
   const adminDeploymentPreparedAt = readDateValue(bootstrap.adminDeploymentPreparedAt);
   const storefrontConfig = (store.storefront ?? {}) as Record<string, unknown>;
   const storefrontDeploymentName = readStringValue(storefrontConfig.deploymentName);
+  const storefrontDeploymentBranch = readStringValue(storefrontConfig.deploymentBranch);
   const storefrontDeploymentStatus = readStringValue(storefrontConfig.deploymentStatus);
   const storefrontRuntimeUrl = readStringValue(storefrontConfig.runtimeUrl);
   const storefrontRepoSyncStatus = readStringValue(storefrontConfig.repoSyncStatus);
@@ -203,11 +205,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Secret Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Drift"}</strong></span>
             <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
             <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
+            <span>Admin Branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
             <span>R2 Public URL: <strong>{store.r2PublicUrl || "-"}</strong></span>
             <span>R2 Managed Domain: <strong>{store.r2ManagedDomain || "-"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
             <span>Storefront Domain: <strong>{store.storefrontDomain}</strong></span>
+            <span>Storefront Branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
             <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
             <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>

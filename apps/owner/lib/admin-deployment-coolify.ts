@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { StoreConfig } from "@celebix/platform-config";
-import { requireStoreConfig, updateStoreAdminDeploymentConfig } from "@celebix/platform-config";
+import {
+  getStoreDeploymentBranches,
+  requireStoreConfig,
+  updateStoreAdminDeploymentConfig,
+} from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint, type StoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 
@@ -113,13 +117,7 @@ function getRepositoryUrl(): string {
 }
 
 function getRepositoryBranch(store: StoreConfig): string {
-  return (
-    store.bootstrap?.adminDeploymentBranch?.trim() ||
-    process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "main"
-  );
+  return getStoreDeploymentBranches(store.slug, store).adminBranch;
 }
 
 function sleep(ms: number): Promise<void> {

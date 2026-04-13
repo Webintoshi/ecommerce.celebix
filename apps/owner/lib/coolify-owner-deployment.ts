@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getOwnerRepositoryBranch } from "@celebix/platform-config";
+
 interface CoolifyApplication {
   uuid?: string;
   name?: string;
@@ -53,13 +55,7 @@ function getOwnerRuntimeUrl(): string | null {
 }
 
 function getDesiredOwnerBranch(): string {
-  return (
-    process.env.COOLIFY_OWNER_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "deploy/owner"
-  );
+  return getOwnerRepositoryBranch();
 }
 
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {

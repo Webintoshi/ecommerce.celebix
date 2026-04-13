@@ -3,7 +3,9 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  getOwnerRepositoryBranch,
   getRepoRoot,
+  getStoreDeploymentBranches,
   requireStoreConfig,
   updateStoreStorefrontRepoSyncConfig,
 } from "@celebix/platform-config";
@@ -16,6 +18,8 @@ export interface StorefrontRepoSyncResult {
   syncedAt: string | null;
   message: string | null;
   committedPaths: string[];
+  createdBranch?: boolean;
+  baseBranch?: string | null;
 }
 
 export interface StorefrontRepoDeleteResult {
@@ -101,13 +105,36 @@ function getGitHubRepository(): string {
   );
 }
 
-function getGitHubBranch(): string {
+function normalizeBranchName(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed
+    .replace(/^refs\/heads\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
+}
+
+function getGitHubBaseBranch(): string {
   return (
-    process.env.GITHUB_SYNC_BRANCH?.trim() ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
+    normalizeBranchName(process.env.GITHUB_SYNC_BASE_BRANCH) ||
+    normalizeBranchName(process.env.GITHUB_SYNC_BRANCH) ||
+    normalizeBranchName(process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH) ||
+    normalizeBranchName(process.env.CELEBIX_GIT_BRANCH) ||
     "main"
   );
+}
+
+function getAuthorityGitHubBranch(): string {
+  return normalizeBranchName(getOwnerRepositoryBranch()) || getGitHubBaseBranch();
+}
+
+function getStorefrontGitHubBranch(slug: string): string {
+  const store = requireStoreConfig(slug);
+  return getStoreDeploymentBranches(slug, store).storefrontBranch;
 }
 
 function getCommitterName(): string {
@@ -147,6 +174,75 @@ async function githubFetch<T>(pathname: string, init: RequestInit = {}): Promise
   }
 
   return (await response.json()) as T;
+}
+
+async function readGitHubRef(
+  repository: string,
+  branch: string,
+): Promise<GitHubRefResponse | null> {
+  const response = await fetch(
+    `https://api.github.com/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
+    {
+      headers: buildHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`GitHub API hatasi (${response.status}): ${errorText || response.statusText}`);
+  }
+
+  return (await response.json()) as GitHubRefResponse;
+}
+
+async function ensureGitHubBranch(input: {
+  repository: string;
+  branch: string;
+  baseBranch: string;
+}): Promise<{ headSha: string; createdBranch: boolean; baseBranch: string }> {
+  const existingRef = await readGitHubRef(input.repository, input.branch);
+  const existingHeadSha = existingRef?.object?.sha;
+
+  if (existingHeadSha) {
+    return {
+      headSha: existingHeadSha,
+      createdBranch: false,
+      baseBranch: input.baseBranch,
+    };
+  }
+
+  const baseRef = await readGitHubRef(input.repository, input.baseBranch);
+  const baseHeadSha = baseRef?.object?.sha;
+
+  if (!baseHeadSha) {
+    throw new Error(`GitHub base branch referansi okunamadi: ${input.baseBranch}`);
+  }
+
+  await githubFetch(`/repos/${input.repository}/git/refs`, {
+    method: "POST",
+    body: JSON.stringify({
+      ref: `refs/heads/${input.branch}`,
+      sha: baseHeadSha,
+    }),
+  });
+
+  const createdRef = await readGitHubRef(input.repository, input.branch);
+  const createdHeadSha = createdRef?.object?.sha;
+
+  if (!createdHeadSha) {
+    throw new Error(`GitHub branch olusturuldu ama referansi okunamadi: ${input.branch}`);
+  }
+
+  return {
+    headSha: createdHeadSha,
+    createdBranch: true,
+    baseBranch: input.baseBranch,
+  };
 }
 
 function collectFilesRecursively(directory: string): string[] {
@@ -233,22 +329,23 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
 
 async function syncGitHubFiles(input: {
   slug: string;
+  branch: string;
+  baseBranch: string;
   files: Array<{ absolutePath: string; relativePath: string }>;
   commitMessage: string;
+  trackStorefrontSync?: boolean;
 }): Promise<StorefrontRepoSyncResult> {
   const repository = getGitHubRepository();
-  const branch = getGitHubBranch();
+  const branch = normalizeBranchName(input.branch) || input.branch;
   const syncedAt = new Date().toISOString();
 
   try {
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
-
-    if (!headSha) {
-      throw new Error("GitHub branch referansi okunamadi.");
-    }
+    const branchRef = await ensureGitHubBranch({
+      repository,
+      branch,
+      baseBranch: input.baseBranch,
+    });
+    const headSha = branchRef.headSha;
 
     const headCommit = await githubFetch<GitHubCommitResponse>(
       `/repos/${repository}/git/commits/${headSha}`,
@@ -326,12 +423,14 @@ async function syncGitHubFiles(input: {
       }),
     });
 
-    updateStoreStorefrontRepoSyncConfig(input.slug, {
-      syncStatus: "synced",
-      commitSha: commit.sha,
-      syncedAt,
-      lastError: undefined,
-    });
+    if (input.trackStorefrontSync) {
+      updateStoreStorefrontRepoSyncConfig(input.slug, {
+        syncStatus: "synced",
+        commitSha: commit.sha,
+        syncedAt,
+        lastError: undefined,
+      });
+    }
 
     return {
       repository,
@@ -341,16 +440,20 @@ async function syncGitHubFiles(input: {
       syncedAt,
       message: `${input.files.length} dosya GitHub repositorysine senkronlandi.`,
       committedPaths: input.files.map((file) => file.relativePath),
+      createdBranch: branchRef.createdBranch,
+      baseBranch: branchRef.baseBranch,
     };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Storefront repo senkronu basarisiz oldu.";
 
-    updateStoreStorefrontRepoSyncConfig(input.slug, {
-      syncStatus: "failed",
-      syncedAt,
-      lastError: message,
-    });
+    if (input.trackStorefrontSync) {
+      updateStoreStorefrontRepoSyncConfig(input.slug, {
+        syncStatus: "failed",
+        syncedAt,
+        lastError: message,
+      });
+    }
 
     return {
       repository,
@@ -360,6 +463,8 @@ async function syncGitHubFiles(input: {
       syncedAt,
       message,
       committedPaths: [],
+      createdBranch: false,
+      baseBranch: input.baseBranch,
     };
   }
 }
@@ -373,12 +478,14 @@ export function isGitHubRepoSyncConfigured(): boolean {
   );
 }
 
-export async function deleteStorefrontRepoForStore(
-  slug: string,
-  options: { storefrontAppDir?: string | null } = {},
-): Promise<StorefrontRepoDeleteResult> {
+async function deleteStoreRepoArtifactsFromBranch(input: {
+  slug: string;
+  branch: string;
+  storefrontAppDir?: string | null;
+  includeStorefrontApp: boolean;
+}): Promise<StorefrontRepoDeleteResult> {
   const repository = getGitHubRepository();
-  const branch = getGitHubBranch();
+  const branch = normalizeBranchName(input.branch) || input.branch;
   const deletedAt = new Date().toISOString();
 
   if (!isGitHubRepoSyncConfigured()) {
@@ -395,14 +502,20 @@ export async function deleteStorefrontRepoForStore(
 
   try {
     const repoRoot = getRepoRoot();
-    const relativeAppDir = normalizeRelativeAppDir(options.storefrontAppDir, slug);
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
+    const relativeAppDir = normalizeRelativeAppDir(input.storefrontAppDir, input.slug);
+    const ref = await readGitHubRef(repository, branch);
+    const headSha = ref?.object?.sha;
 
     if (!headSha) {
-      throw new Error("GitHub branch referansi okunamadi.");
+      return {
+        repository,
+        branch,
+        status: "missing",
+        commitSha: null,
+        deletedAt,
+        message: "Remote branch bulunamadi.",
+        deletedPaths: [],
+      };
     }
 
     const headCommit = await githubFetch<GitHubCommitResponse>(
@@ -422,11 +535,17 @@ export async function deleteStorefrontRepoForStore(
         .filter((entry) => entry.type === "blob" && typeof entry.path === "string")
         .map((entry) => entry.path as string),
     );
-    const deletedPaths = Array.from(currentPaths).filter(
-      (entryPath) =>
-        entryPath.startsWith(`stores/${slug}/`) ||
-        entryPath.startsWith(`${relativeAppDir}/`),
-    );
+    const deletedPaths = Array.from(currentPaths).filter((entryPath) => {
+      if (entryPath.startsWith(`stores/${input.slug}/`)) {
+        return true;
+      }
+
+      if (input.includeStorefrontApp && entryPath.startsWith(`${relativeAppDir}/`)) {
+        return true;
+      }
+
+      return false;
+    });
 
     const registryPath = path.join(repoRoot, "stores", "registry.json");
     const treeEntries: Array<{
@@ -493,7 +612,7 @@ export async function deleteStorefrontRepoForStore(
     const commit = await githubFetch<GitHubCreateCommitResponse>(`/repos/${repository}/git/commits`, {
       method: "POST",
       body: JSON.stringify({
-        message: `chore: remove store scaffold for ${slug}`,
+        message: `chore: remove store scaffold for ${input.slug}`,
         tree: nextTree.sha,
         parents: [headSha],
         author: {
@@ -543,6 +662,51 @@ export async function deleteStorefrontRepoForStore(
   }
 }
 
+export async function deleteStoreRepoArtifactsForStore(
+  slug: string,
+  options: {
+    storefrontAppDir?: string | null;
+    authorityBranch?: string | null;
+    storefrontBranch?: string | null;
+  } = {},
+): Promise<StorefrontRepoDeleteResult[]> {
+  const authorityBranch = normalizeBranchName(options.authorityBranch) || getAuthorityGitHubBranch();
+  let storefrontBranch = normalizeBranchName(options.storefrontBranch);
+
+  if (!storefrontBranch) {
+    try {
+      storefrontBranch = getStorefrontGitHubBranch(slug);
+    } catch {
+      storefrontBranch = null;
+    }
+  }
+
+  const branchPlans = new Map<string, { includeStorefrontApp: boolean }>();
+  branchPlans.set(authorityBranch, { includeStorefrontApp: false });
+
+  if (storefrontBranch) {
+    const current = branchPlans.get(storefrontBranch);
+    branchPlans.set(storefrontBranch, {
+      includeStorefrontApp: current?.includeStorefrontApp || true,
+    });
+  }
+
+  const results: StorefrontRepoDeleteResult[] = [];
+
+  for (const [branch, plan] of branchPlans.entries()) {
+    results.push(
+      await deleteStoreRepoArtifactsFromBranch({
+        slug,
+        branch,
+        storefrontAppDir: options.storefrontAppDir,
+        includeStorefrontApp: plan.includeStorefrontApp,
+      }),
+    );
+  }
+
+  return results;
+}
+
 export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boolean> {
   if (!isGitHubRepoSyncConfigured()) {
     return false;
@@ -557,11 +721,9 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
     }
 
     const repository = getGitHubRepository();
-    const branch = getGitHubBranch();
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
+    const branch = getStorefrontGitHubBranch(slug);
+    const ref = await readGitHubRef(repository, branch);
+    const headSha = ref?.object?.sha;
 
     if (!headSha) {
       return false;
@@ -599,15 +761,21 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
 export async function syncStoreAuthorityRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
   return syncGitHubFiles({
     slug,
+    branch: getAuthorityGitHubBranch(),
+    baseBranch: getGitHubBaseBranch(),
     files: resolveAuthorityFiles(slug),
     commitMessage: `chore: sync store authority for ${slug}`,
+    trackStorefrontSync: false,
   });
 }
 
 export async function syncStorefrontRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
   return syncGitHubFiles({
     slug,
+    branch: getStorefrontGitHubBranch(slug),
+    baseBranch: getGitHubBaseBranch(),
     files: resolveRepoFiles(slug),
     commitMessage: `chore: sync storefront scaffold for ${slug}`,
+    trackStorefrontSync: true,
   });
 }

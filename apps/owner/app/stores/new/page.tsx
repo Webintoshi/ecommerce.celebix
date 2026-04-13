@@ -1,3 +1,7 @@
+import {
+  getDefaultAdminDeploymentBranch,
+  getStorefrontDeploymentBranchPrefix,
+} from "@celebix/platform-config";
 import { CreateStoreForm } from "@/components/CreateStoreForm";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getSupabaseBootstrapStatus } from "@/lib/supabase-bootstrap";
@@ -22,7 +26,10 @@ export default async function NewStorePage() {
       </div>
 
       <div className="card card-cap">
-        <CreateStoreForm />
+        <CreateStoreForm
+          ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
+          storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
+        />
       </div>
     </>
   );

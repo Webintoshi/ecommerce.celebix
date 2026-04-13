@@ -43,6 +43,7 @@ import {
 import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
+import { validateConfiguredStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
 
 type ProvisioningMode = "create" | "repair";
 
@@ -268,6 +269,17 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     }
 
     return "Cleanup tombstone bulunmadi.";
+  });
+
+  await runPreflightStep(tracker, "deployment_branch_preflight", async () => {
+    const store = repairStoreConfig(input.slug);
+    const validation = validateConfiguredStoreDeploymentBranches(store);
+
+    if (validation.errors.length > 0) {
+      throw new Error(validation.errors.join(" "));
+    }
+
+    return `Deploy branch plani hazir: admin ${validation.adminBranch}, storefront ${validation.storefrontBranch}`;
   });
 
   await runPreflightStep(tracker, "supabase_preflight", async () => {
