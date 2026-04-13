@@ -13,6 +13,7 @@ interface CoolifyApplication {
 
 const COOLIFY_API_PREFIX = "/api/v1";
 const COOLIFY_API_TIMEOUT_MS = 15000;
+let ownerDeploymentSelfHealPromise: Promise<OwnerDeploymentBranchRepairResult | null> | null = null;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -57,6 +58,14 @@ function getOwnerRuntimeUrl(): string | null {
 
 function getDesiredOwnerBranch(): string {
   return getOwnerRepositoryBranch();
+}
+
+function hasOwnerDeploymentRepairEnv(): boolean {
+  return Boolean(
+    process.env.COOLIFY_API_URL?.trim() &&
+      process.env.COOLIFY_API_TOKEN?.trim() &&
+      process.env.COOLIFY_RESOURCE_UUID?.trim(),
+  );
 }
 
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
@@ -203,4 +212,22 @@ export async function repairOwnerDeploymentBranch(options?: {
     runtimeUrl,
     deploymentTriggered: triggerDeploy,
   };
+}
+
+export async function repairOwnerDeploymentBranchOnce(): Promise<OwnerDeploymentBranchRepairResult | null> {
+  if (!hasOwnerDeploymentRepairEnv()) {
+    return null;
+  }
+
+  ownerDeploymentSelfHealPromise ??= repairOwnerDeploymentBranch({ triggerDeploy: false }).catch(
+    (error) => {
+      console.error(
+        "Owner deployment authority self-heal failed:",
+        error instanceof Error ? error.message : error,
+      );
+      return null;
+    },
+  );
+
+  return ownerDeploymentSelfHealPromise;
 }
