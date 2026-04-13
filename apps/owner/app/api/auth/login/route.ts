@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { expireOwnerAuthCookies } from "@/lib/owner-auth-cookies";
-import { getOwnerSupabaseAnonKey, getOwnerSupabaseUrl } from "@/lib/owner-supabase-shared";
+import {
+  formatMissingOwnerSupabaseEnvMessage,
+  getMissingOwnerSupabaseEnvNames,
+  getOwnerSupabaseAnonKey,
+  getOwnerSupabaseUrl,
+} from "@/lib/owner-supabase-shared";
 import { verifyLegacyOwnerPassword } from "@/lib/legacy-owner-auth";
 
 type LoginBody = {
@@ -106,6 +111,15 @@ function createOwnerRouteClient(
 
 export async function POST(request: Request) {
   try {
+    const missingEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
+
+    if (missingEnv.length > 0) {
+      return NextResponse.json(
+        { error: formatMissingOwnerSupabaseEnvMessage(missingEnv) },
+        { status: 503 },
+      );
+    }
+
     const { email, password }: LoginBody = await request.json();
 
     if (!email || !password) {

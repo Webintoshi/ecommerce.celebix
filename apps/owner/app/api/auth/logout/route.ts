@@ -2,7 +2,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { expireOwnerAuthCookies } from "@/lib/owner-auth-cookies";
-import { getOwnerSupabaseAnonKey, getOwnerSupabaseUrl } from "@/lib/owner-supabase-shared";
+import {
+  getMissingOwnerSupabaseEnvNames,
+  getOwnerSupabaseAnonKey,
+  getOwnerSupabaseUrl,
+} from "@/lib/owner-supabase-shared";
 
 type PendingCookie = {
   name: string;
@@ -38,6 +42,13 @@ export async function POST() {
     const requestCookies = await cookies();
     const cookieMutations: PendingCookie[] = [];
     const existingAuthCookies = requestCookies.getAll();
+
+    if (getMissingOwnerSupabaseEnvNames().length > 0) {
+      const response = NextResponse.json({ success: true }, { status: 200 });
+      expireOwnerAuthCookies(response, existingAuthCookies);
+      return response;
+    }
+
     const client = createOwnerRouteClient(requestCookies, cookieMutations);
 
     await client.auth.signOut({ scope: "local" });

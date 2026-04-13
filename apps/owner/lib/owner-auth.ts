@@ -3,6 +3,10 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createOwnerServerClient, createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import {
+  formatMissingOwnerSupabaseEnvMessage,
+  getMissingOwnerSupabaseEnvNames,
+} from "@/lib/owner-supabase-shared";
 
 export interface OwnerProfile {
   id: string;
@@ -18,6 +22,13 @@ export interface OwnerAuthContext {
 }
 
 export async function getOwnerAuthContext(): Promise<OwnerAuthContext | null> {
+  const missingEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
+
+  if (missingEnv.length > 0) {
+    console.error("Owner auth skipped:", formatMissingOwnerSupabaseEnvMessage(missingEnv));
+    return null;
+  }
+
   const supabase = await createOwnerServerClient();
   const {
     data: { user }

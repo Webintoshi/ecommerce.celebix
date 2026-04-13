@@ -8,6 +8,12 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
+  const ownerEnvError =
+    params.error === "owner_auth_env_missing"
+      ? "Owner auth public authority eksik. Supabase public envleri tanimlanmamis."
+      : params.error === "owner_auth_service_missing"
+        ? "Owner auth service authority eksik. Service role anahtari tanimlanmamis."
+        : null;
 
   return (
     <main className="login-page">
@@ -40,6 +46,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {params.error === "confirmation_failed" ? (
           <p className="login-message is-error">E-posta onayi tamamlanamadi. Linki tekrar dene.</p>
         ) : null}
+        {ownerEnvError ? <p className="login-message is-error">{ownerEnvError}</p> : null}
       </section>
     </main>
   );

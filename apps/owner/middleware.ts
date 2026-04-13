@@ -12,6 +12,8 @@ import {
   hasOwnerAuthCookies,
 } from "@/lib/owner-auth-cookies";
 import {
+  formatMissingOwnerSupabaseEnvMessage,
+  getMissingOwnerSupabaseEnvNames,
   getOwnerSupabaseAnonKey,
   getOwnerSupabaseServiceRoleKey,
   getOwnerSupabaseUrl,
@@ -68,6 +70,15 @@ function buildRecoverRedirect(request: NextRequest) {
   return withSecurity(request, NextResponse.redirect(recoverUrl));
 }
 
+function buildLoginErrorRedirect(request: NextRequest, errorCode: string) {
+  const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
+  loginUrl.searchParams.set("error", errorCode);
+  if (request.nextUrl.pathname !== OWNER_LOGIN_PATH) {
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  }
+  return withSecurity(request, NextResponse.redirect(loginUrl));
+}
+
 function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginRequest>["reason"]) {
   if (reason === "missing-origin") {
     return "Guvenlik dogrulamasi icin origin basligi gerekli.";
@@ -79,6 +90,44 @@ function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginR
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);
+  const missingPublicEnv = getMissingOwnerSupabaseEnvNames();
+  const missingAuthEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
+
+  if (missingPublicEnv.length > 0) {
+    const message = formatMissingOwnerSupabaseEnvMessage(missingPublicEnv);
+
+    if (pathname.startsWith("/api/") && pathname !== OWNER_PUBLIC_RUNTIME_API_PATH) {
+      return jsonResponse(request, { error: message }, 503);
+    }
+
+    if (
+      pathname === OWNER_LOGIN_PATH ||
+      pathname === OWNER_RECOVER_PATH ||
+      pathname.startsWith(OWNER_CONFIRM_PREFIX)
+    ) {
+      return withSecurity(request, NextResponse.next());
+    }
+
+    return buildLoginErrorRedirect(request, "owner_auth_env_missing");
+  }
+
+  if (missingAuthEnv.length > 0) {
+    const message = formatMissingOwnerSupabaseEnvMessage(missingAuthEnv);
+
+    if (pathname.startsWith("/api/") && pathname !== OWNER_PUBLIC_RUNTIME_API_PATH) {
+      return jsonResponse(request, { error: message }, 503);
+    }
+
+    if (
+      pathname === OWNER_LOGIN_PATH ||
+      pathname === OWNER_RECOVER_PATH ||
+      pathname.startsWith(OWNER_CONFIRM_PREFIX)
+    ) {
+      return withSecurity(request, NextResponse.next());
+    }
+
+    return buildLoginErrorRedirect(request, "owner_auth_service_missing");
+  }
 
   if (pathname === OWNER_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
