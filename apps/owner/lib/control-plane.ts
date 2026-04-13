@@ -801,15 +801,24 @@ function mapCleanupRunOverview(run: CleanupRunSummary): CleanupRunOverview {
 
 let trackedStoreConfigNormalizationPromise: Promise<void> | null = null;
 
+function shouldRepairTrackedStoreConfigsAtRuntime(): boolean {
+  const raw = process.env.CELEBIX_ALLOW_RUNTIME_STORE_CONFIG_REPAIR?.trim().toLowerCase();
+  return raw === "1" || raw === "true";
+}
+
 async function ensureTrackedStoreConfigsNormalized(): Promise<void> {
+  if (!shouldRepairTrackedStoreConfigsAtRuntime()) {
+    return;
+  }
+
   if (!trackedStoreConfigNormalizationPromise) {
     trackedStoreConfigNormalizationPromise = Promise.resolve()
       .then(() => {
         repairTrackedStoreConfigs();
       })
       .catch((error) => {
+        console.error("Tracked store config normalization skipped at runtime:", error);
         trackedStoreConfigNormalizationPromise = null;
-        throw error;
       });
   }
 
