@@ -8,7 +8,6 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import {
-  applyOwnerSiteDataReset,
   expireOwnerAuthCookies,
   hasOwnerAuthCookies,
 } from "@/lib/owner-auth-cookies";
@@ -22,6 +21,7 @@ const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
+const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
@@ -40,7 +40,12 @@ function jsonResponse(request: NextRequest, body: Record<string, unknown>, statu
 }
 
 function isProtectedOwnerPage(pathname: string) {
-  return !pathname.startsWith("/api") && pathname !== OWNER_LOGIN_PATH && !pathname.startsWith(OWNER_CONFIRM_PREFIX);
+  return (
+    !pathname.startsWith("/api") &&
+    pathname !== OWNER_LOGIN_PATH &&
+    pathname !== OWNER_RECOVER_PATH &&
+    !pathname.startsWith(OWNER_CONFIRM_PREFIX)
+  );
 }
 
 function isProtectedOwnerApi(pathname: string) {
@@ -55,6 +60,12 @@ function buildLoginRedirect(request: NextRequest) {
   const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
   loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   return withSecurity(request, NextResponse.redirect(loginUrl));
+}
+
+function buildRecoverRedirect(request: NextRequest) {
+  const recoverUrl = new URL(OWNER_RECOVER_PATH, request.url);
+  recoverUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  return withSecurity(request, NextResponse.redirect(recoverUrl));
 }
 
 function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginRequest>["reason"]) {
@@ -132,21 +143,27 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (pathname === OWNER_LOGIN_PATH) {
-      const loginResponse = hasOwnerAuthCookies(requestCookies)
-        ? expireOwnerAuthCookies(response, requestCookies)
-        : response;
-      return withSecurity(request, applyOwnerSiteDataReset(loginResponse));
+      if (hasOwnerAuthCookies(requestCookies)) {
+        return expireOwnerAuthCookies(buildRecoverRedirect(request), requestCookies);
+      }
+
+      return withSecurity(request, response);
+    }
+
+    if (pathname === OWNER_RECOVER_PATH) {
+      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
     }
 
     if (pathname.startsWith("/api/")) {
       const unauthorizedResponse = NextResponse.json({ error: "Owner oturumu gerekli." }, { status: 401 });
-      return withSecurity(
-        request,
-        applyOwnerSiteDataReset(expireOwnerAuthCookies(unauthorizedResponse, requestCookies)),
-      );
+      return withSecurity(request, expireOwnerAuthCookies(unauthorizedResponse, requestCookies));
     }
 
-    return applyOwnerSiteDataReset(expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies));
+    if (hasOwnerAuthCookies(requestCookies)) {
+      return expireOwnerAuthCookies(buildRecoverRedirect(request), requestCookies);
+    }
+
+    return expireOwnerAuthCookies(buildLoginRedirect(request), requestCookies);
   }
 
   const serviceClient = createClient(getOwnerSupabaseUrl(), getOwnerSupabaseServiceRoleKey(), {
@@ -166,26 +183,22 @@ export async function middleware(request: NextRequest) {
     await supabase.auth.signOut();
 
     if (pathname === OWNER_LOGIN_PATH) {
-      return withSecurity(
-        request,
-        applyOwnerSiteDataReset(expireOwnerAuthCookies(response, requestCookies)),
-      );
+      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
+    }
+
+    if (pathname === OWNER_RECOVER_PATH) {
+      return withSecurity(request, expireOwnerAuthCookies(response, requestCookies));
     }
 
     if (pathname.startsWith("/api/")) {
       const forbiddenResponse = NextResponse.json({ error: "Owner yetkisi bulunamadi." }, { status: 403 });
-      return withSecurity(
-        request,
-        applyOwnerSiteDataReset(expireOwnerAuthCookies(forbiddenResponse, requestCookies)),
-      );
+      return withSecurity(request, expireOwnerAuthCookies(forbiddenResponse, requestCookies));
     }
 
-    const loginUrl = new URL(OWNER_LOGIN_PATH, request.url);
-    loginUrl.searchParams.set("error", "unauthorized");
-    return withSecurity(
-      request,
-      applyOwnerSiteDataReset(expireOwnerAuthCookies(NextResponse.redirect(loginUrl), requestCookies)),
-    );
+    const recoverUrl = new URL(OWNER_RECOVER_PATH, request.url);
+    recoverUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    recoverUrl.searchParams.set("error", "unauthorized");
+    return withSecurity(request, expireOwnerAuthCookies(NextResponse.redirect(recoverUrl), requestCookies));
   }
 
   return withSecurity(request, response);

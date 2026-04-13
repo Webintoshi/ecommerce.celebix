@@ -11,11 +11,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/login",
-        headers: [{ key: "Clear-Site-Data", value: "\"cache\", \"cookies\", \"storage\"" }],
-      },
-      {
-        source: "/api/auth/logout",
+        source: "/auth/recover",
         headers: [{ key: "Clear-Site-Data", value: "\"cache\", \"cookies\", \"storage\"" }],
       },
     ];
