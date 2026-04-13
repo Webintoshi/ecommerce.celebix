@@ -119,11 +119,11 @@ export function ThemeProvider({
     applyTheme(nextResolvedTheme, nextTheme, disableTransitionOnChange);
   }
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
-  return <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {
