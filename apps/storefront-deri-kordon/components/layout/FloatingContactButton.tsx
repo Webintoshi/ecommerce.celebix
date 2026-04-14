@@ -192,4 +192,44 @@ export function FloatingContactButton() {
                   key="open-text"
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -10, opac
+                  exit={{ y: -10, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="inline-block tracking-[-0.01em]"
+                >
+                  İletişim
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </span>
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
+function getChannelStyles(type: FloatingContactChannelType): string {
+  switch (type) {
+    case "whatsapp":
+      return "text-white";
+    case "instagram":
+      return "text-white";
+    case "form":
+      return "text-white";
+    default:
+      return "text-white";
+  }
+}
+
+function getChannelIcon(type: FloatingContactChannelType) {
+  const iconClass = "h-3.5 w-3.5";
+
+  switch (type) {
+    case "instagram":
+      return <Instagram className={iconClass} />;
+    case "form":
+      return <MessageSquareText className={iconClass} />;
+    case "whatsapp":
+    default:
+      return <MessageCircle className={iconClass} />;
+  }
+}
