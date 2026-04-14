@@ -1,74 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft, Building2, CreditCard, Package, RefreshCw, Save, Waypoints } from "lucide-react";
+import { ArrowLeft, RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
+import { PaymentProviderLogo } from "@/components/admin/payment-provider-logo";
 import { PaymentGatewayForm } from "@/components/admin/payment-gateway-form";
 import { PAYMENT_PROVIDER_REGISTRY } from "@/lib/payment-providers";
 import { addPaymentGateway, getDefaultPaymentGatewayConfig, validatePaymentGatewayConfig } from "@/lib/payments";
 import type { PaymentGateway, PaymentGatewayFormState } from "@/types/payment";
-
-const PAYMENT_LOGO_PATHS: Partial<Record<PaymentGateway, string>> = {
-  paytr: "/payment-logos/paytr.png",
-  iyzico: "/payment-logos/iyzico.png",
-  paynet: "/payment-logos/paynet.png",
-  craftgate: "/payment-logos/craftgate.png",
-  stripe: "/payment-logos/stripe.png",
-  bank_transfer: "/payment-logos/bank-transfer.png",
-  cod: "/payment-logos/cod.png",
-};
-
-const GATEWAY_ICONS: Partial<Record<PaymentGateway, typeof CreditCard>> = {
-  paytr: CreditCard,
-  iyzico: CreditCard,
-  paynet: CreditCard,
-  craftgate: Waypoints,
-  stripe: CreditCard,
-  bank_transfer: Building2,
-  cod: Package,
-};
-
-function PaymentProviderLogo({
-  gateway,
-  name,
-  accentClassName,
-  size,
-  iconClassName,
-}: {
-  gateway: PaymentGateway;
-  name: string;
-  accentClassName: string;
-  size: number;
-  iconClassName: string;
-}) {
-  const Icon = GATEWAY_ICONS[gateway] ?? CreditCard;
-  const [hasError, setHasError] = useState(false);
-  const src = PAYMENT_LOGO_PATHS[gateway];
-
-  if (!src || hasError) {
-    return (
-      <div className={`h-full w-full rounded-xl bg-gradient-to-r ${accentClassName} flex items-center justify-center shadow-sm text-white`}>
-        <Icon className={iconClassName} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full rounded-xl flex items-center justify-center bg-white shadow-sm overflow-hidden">
-      <Image
-        src={src}
-        alt={name}
-        width={size}
-        height={size}
-        className="h-full w-full object-contain"
-        onError={() => setHasError(true)}
-      />
-    </div>
-  );
-}
 
 export default function NewPaymentGatewayPage() {
   const router = useRouter();
