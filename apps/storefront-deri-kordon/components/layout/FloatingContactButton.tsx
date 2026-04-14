@@ -87,11 +87,11 @@ export function FloatingContactButton() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: isBottomPosition ? 10 : -10, scale: 0.98 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className={`w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/65 bg-white/88 p-1.5 shadow-[0_22px_54px_-22px_rgba(15,23,42,0.28)] ring-1 ring-black/5 backdrop-blur-2xl ${
+              className={`w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-[#5a4c3f]/45 bg-[linear-gradient(180deg,rgba(31,27,23,0.94),rgba(18,16,13,0.98))] p-1.5 shadow-[0_28px_64px_-24px_rgba(0,0,0,0.52)] ring-1 ring-white/5 backdrop-blur-2xl ${
                 isBottomPosition ? "mb-3" : "mt-3"
               }`}
             >
-              <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-neutral-300/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#bb8c4a]/70 to-transparent" />
               <div className="flex flex-col gap-2">
                 {channels.map((channel, index) => {
                   const label = channel.label || getFloatingContactDefaultLabel(channel.type);
@@ -108,7 +108,7 @@ export function FloatingContactButton() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 8 }}
                       transition={{ delay: index * 0.04, duration: 0.2 }}
-                      className="group flex items-center gap-3 rounded-[18px] border border-black/5 bg-white/92 px-3.5 py-3 text-neutral-900 shadow-[0_8px_22px_-18px_rgba(15,23,42,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                      className="group flex items-center gap-3 rounded-[18px] border border-white/8 bg-white/[0.04] px-3.5 py-3 text-white shadow-[0_10px_24px_-18px_rgba(0,0,0,0.42)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/14 hover:bg-white/[0.06]"
                     >
                       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getChannelAccent(channel.type)}`}>
                         {getChannelIcon(channel.type)}
@@ -118,7 +118,7 @@ export function FloatingContactButton() {
                         {label}
                       </span>
 
-                      <ExternalLink className="h-4 w-4 shrink-0 text-neutral-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-neutral-700" />
+                      <ExternalLink className="h-4 w-4 shrink-0 text-white/45 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white/82" />
                     </motion.a>
                   );
                 })}
@@ -132,12 +132,12 @@ export function FloatingContactButton() {
           onClick={toggleOpen}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="group relative inline-flex h-[3.25rem] items-center gap-3 overflow-hidden rounded-full border border-white/65 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,241,234,0.98))] px-4 pr-[1.125rem] text-neutral-900 shadow-[0_16px_34px_-18px_rgba(15,23,42,0.3)] ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_22px_48px_-22px_rgba(15,23,42,0.36)]"
+          className="group relative inline-flex h-[3.25rem] items-center gap-3 overflow-hidden rounded-full border border-[#5d4f42]/50 bg-[linear-gradient(180deg,rgba(36,31,26,0.96),rgba(20,18,15,0.98))] px-4 pr-[1.125rem] text-white shadow-[0_18px_38px_-18px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_24px_50px_-22px_rgba(0,0,0,0.56)]"
           aria-expanded={isOpen}
           aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
         >
-          <span className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),transparent_60%)] opacity-70" />
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+          <span className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)] opacity-100" />
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/10">
             <AnimatePresence mode="wait" initial={false}>
               {isOpen ? (
                 <motion.span
@@ -163,7 +163,7 @@ export function FloatingContactButton() {
             </AnimatePresence>
           </span>
 
-          <span className="relative text-[15px] font-semibold tracking-[-0.02em] text-neutral-900">
+          <span className="relative text-[15px] font-semibold tracking-[-0.02em] text-white">
             {isOpen ? "Kapat" : "Iletisim"}
           </span>
         </motion.button>
@@ -175,13 +175,13 @@ export function FloatingContactButton() {
 function getChannelAccent(type: FloatingContactChannelType): string {
   switch (type) {
     case "whatsapp":
-      return "bg-[#25D366]/14 text-[#179c4b]";
+      return "bg-[#25D366]/18 text-[#7ef0ae]";
     case "instagram":
-      return "bg-[linear-gradient(135deg,rgba(131,58,180,0.12),rgba(253,29,29,0.12),rgba(247,119,55,0.12))] text-[#9a2db4]";
+      return "bg-[linear-gradient(135deg,rgba(131,58,180,0.2),rgba(253,29,29,0.18),rgba(247,119,55,0.16))] text-[#ffb0d7]";
     case "form":
-      return "bg-neutral-900/8 text-neutral-700";
+      return "bg-white/10 text-white/85";
     default:
-      return "bg-neutral-900/8 text-neutral-700";
+      return "bg-white/10 text-white/85";
   }
 }
 
