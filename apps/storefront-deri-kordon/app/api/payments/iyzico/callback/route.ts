@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         const success = status === "captured";
 
         await createPaymentWebhookEvent({
-            provider: "iyzico",
+            provider: gateway.gateway,
             gatewayId: gateway.id,
             paymentAttemptId: attempt.id,
             orderId: attempt.order_id,
