@@ -448,10 +448,7 @@ export function TestimonialsSection({
                   <Link
                     key={post.id}
                     href={post.href}
-                    className={cn(
-                      "group block",
-                      displayedBlogPosts.length === 1 && "mx-auto w-full max-w-[26rem] md:col-start-2"
-                    )}
+                    className="group block"
                   >
                     <article>
                       <div className="relative aspect-[16/9] overflow-hidden bg-neutral-200">
@@ -471,7 +468,7 @@ export function TestimonialsSection({
                         )}
                       </div>
 
-                      <h4 className="mt-5 text-center text-[clamp(1.35rem,1.8vw,2rem)] font-semibold tracking-tight text-neutral-900">
+                      <h4 className="mt-5 text-center text-[clamp(1.1rem,1.25vw,1.45rem)] font-semibold tracking-tight text-neutral-900">
                         {post.title}
                       </h4>
                     </article>
