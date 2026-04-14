@@ -4,7 +4,13 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import Stripe from "stripe";
-import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/payment-providers";
+import {
+    getPaymentGatewayRuntimeStatus,
+    IYZICO_FAMILY_GATEWAYS,
+    isGatewayInFamily,
+    PAYTR_FAMILY_GATEWAYS,
+    resolveIyzicoBaseUrl,
+} from "@/lib/payment-providers";
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { PaymentAttempt, PaymentInitResult } from "@/types/payment-runtime";
@@ -197,7 +203,7 @@ function createStripeClient(gateway: PaymentGatewayConfig) {
     }
 
     return new Stripe(secretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-02-25.clover",
     });
 }
 
@@ -311,11 +317,11 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
         };
     }
 
-    if (context.gateway.gateway === "iyzico") {
+    if (isGatewayInFamily(context.gateway.gateway, IYZICO_FAMILY_GATEWAYS)) {
         return initializeIyzicoPayment(context);
     }
 
-    if (context.gateway.gateway === "paytr") {
+    if (isGatewayInFamily(context.gateway.gateway, PAYTR_FAMILY_GATEWAYS)) {
         return initializePaytrPayment(context);
     }
 
