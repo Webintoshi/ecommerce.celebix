@@ -55,10 +55,17 @@ interface StorefrontDeploymentProvisioningOptions {
   waitForRuntime?: boolean;
 }
 
+interface EnsuredStorefrontApplication {
+  application: CoolifyApplication;
+  reusedExisting: boolean;
+}
+
 const COOLIFY_API_PREFIX = "/api/v1";
 const STOREFRONT_DEPLOYMENT_POLL_DELAY_MS = 5000;
-const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 24;
+const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 36;
 const COOLIFY_API_TIMEOUT_MS = 15000;
+const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
+const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -331,44 +338,48 @@ function isLegacyApplicationPayloadError(error: unknown): boolean {
   );
 }
 
-async function ensureStorefrontApplication(
-  store: StoreConfig,
+function findMatchingStorefrontApplication(
+  applications: CoolifyApplication[],
   blueprint: StorefrontDeploymentBlueprint,
-  projectUuid: string,
-  environmentUuid: string,
-): Promise<CoolifyApplication> {
-  const applications = await listApplications();
+): CoolifyApplication | null {
   const runtimeUrl = blueprint.runtimeUrl.replace(/\/+$/, "");
-  const payload = buildStorefrontAppPayload(store, blueprint, projectUuid, environmentUuid);
-  const existing =
+
+  return (
     applications.find((application) => application.uuid === blueprint.resourceId) ||
     applications.find((application) => application.name === blueprint.appName) ||
     applications.find((application) => {
       const fqdn =
         application.fqdn?.replace(/\/+$/, "") || application.domain?.replace(/\/+$/, "");
       return fqdn === runtimeUrl;
+    }) ||
+    null
+  );
+}
+
+async function createStorefrontApplication(
+  payload: StorefrontApplicationPayload,
+): Promise<CoolifyApplication> {
+  try {
+    return await coolifyFetch<CoolifyApplication>("/applications/public", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
-
-  if (!existing) {
-    try {
-      return await coolifyFetch<CoolifyApplication>("/applications/public", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-    } catch (error) {
-      if (!isLegacyApplicationPayloadError(error)) {
-        throw error;
-      }
-
-      return coolifyFetch<CoolifyApplication>("/applications/public", {
-        method: "POST",
-        body: JSON.stringify(buildLegacyCompatibleStorefrontPayload(payload)),
-      });
+  } catch (error) {
+    if (!isLegacyApplicationPayloadError(error)) {
+      throw error;
     }
+
+    return coolifyFetch<CoolifyApplication>("/applications/public", {
+      method: "POST",
+      body: JSON.stringify(buildLegacyCompatibleStorefrontPayload(payload)),
+    });
   }
+}
 
-  const applicationUuid = resolveIdentifier(existing);
-
+async function updateStorefrontApplication(
+  applicationUuid: string,
+  payload: StorefrontApplicationPayload,
+): Promise<void> {
   try {
     await coolifyFetch(`/applications/${applicationUuid}`, {
       method: "PATCH",
@@ -384,8 +395,70 @@ async function ensureStorefrontApplication(
       body: JSON.stringify(buildLegacyCompatibleStorefrontPayload(payload)),
     });
   }
+}
 
-  return existing;
+async function ensureStorefrontApplication(
+  store: StoreConfig,
+  blueprint: StorefrontDeploymentBlueprint,
+  projectUuid: string,
+  environmentUuid: string,
+): Promise<EnsuredStorefrontApplication> {
+  const applications = await listApplications();
+  const payload = buildStorefrontAppPayload(store, blueprint, projectUuid, environmentUuid);
+  const existing = findMatchingStorefrontApplication(applications, blueprint);
+
+  if (!existing) {
+    return {
+      application: await createStorefrontApplication(payload),
+      reusedExisting: false,
+    };
+  }
+
+  const applicationUuid = resolveIdentifier(existing);
+  await updateStorefrontApplication(applicationUuid, payload);
+
+  return {
+    application: existing,
+    reusedExisting: true,
+  };
+}
+
+async function deleteStorefrontApplication(applicationUuid: string): Promise<void> {
+  await coolifyFetch(`/applications/${applicationUuid}`, {
+    method: "DELETE",
+  });
+}
+
+async function waitForStorefrontApplicationDeletion(applicationUuid: string): Promise<void> {
+  for (let attempt = 0; attempt < APPLICATION_DELETE_POLL_ATTEMPTS; attempt += 1) {
+    const applications = await listApplications();
+
+    if (!applications.some((application) => application.uuid === applicationUuid)) {
+      return;
+    }
+
+    await sleep(APPLICATION_DELETE_POLL_DELAY_MS);
+  }
+
+  throw new Error(`Storefront application silinip kaybolmadi: ${applicationUuid}`);
+}
+
+async function recreateStorefrontApplication(
+  store: StoreConfig,
+  blueprint: StorefrontDeploymentBlueprint,
+  projectUuid: string,
+  environmentUuid: string,
+  staleApplicationUuid: string,
+): Promise<EnsuredStorefrontApplication> {
+  await deleteStorefrontApplication(staleApplicationUuid);
+  await waitForStorefrontApplicationDeletion(staleApplicationUuid);
+
+  const payload = buildStorefrontAppPayload(store, blueprint, projectUuid, environmentUuid);
+
+  return {
+    application: await createStorefrontApplication(payload),
+    reusedExisting: false,
+  };
 }
 
 async function syncApplicationEnv(
@@ -443,6 +516,7 @@ export async function provisionStorefrontDeploymentForStore(
   const store = requireStoreConfig(slug);
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
+  let currentApplicationUuid = blueprint.resourceId ?? null;
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
     updateStoreStorefrontDeploymentConfig(slug, {
@@ -481,7 +555,7 @@ export async function provisionStorefrontDeploymentForStore(
       );
     });
     const environmentUuid = resolveIdentifier(environment);
-    const application = await ensureStorefrontApplication(
+    let ensuredApplication = await ensureStorefrontApplication(
       store,
       blueprint,
       projectUuid,
@@ -493,15 +567,15 @@ export async function provisionStorefrontDeploymentForStore(
         }`,
       );
     });
-    const applicationUuid = resolveIdentifier(application);
-    await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
+    currentApplicationUuid = resolveIdentifier(ensuredApplication.application);
+    await syncApplicationEnv(currentApplicationUuid, blueprint.envEntries).catch((error) => {
       throw new Error(
         `Storefront env senkronu basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
         }`,
       );
     });
-    await startApplication(applicationUuid).catch((error) => {
+    await startApplication(currentApplicationUuid).catch((error) => {
       throw new Error(
         `Storefront deployment start basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
@@ -519,13 +593,13 @@ export async function provisionStorefrontDeploymentForStore(
         deploymentStatus: "prepared",
         deploymentName: blueprint.appName,
         runtimeUrl: blueprint.runtimeUrl,
-        resourceId: applicationUuid,
+        resourceId: currentApplicationUuid,
         lastError: "Storefront deployment tetiklendi. Runtime dogrulamasi owner health ekranindan izlenmeli.",
       });
 
       return {
         appName: blueprint.appName,
-        resourceId: applicationUuid,
+        resourceId: currentApplicationUuid,
         runtimeUrl: blueprint.runtimeUrl,
         status: "prepared",
         runtimeConsistent: false,
@@ -534,7 +608,7 @@ export async function provisionStorefrontDeploymentForStore(
       };
     }
 
-    const runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
+    let runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
       throw new Error(
         `Storefront runtime smoke test basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
@@ -542,10 +616,51 @@ export async function provisionStorefrontDeploymentForStore(
       );
     });
     if (!runtimeBlueprint.runtimeConsistent) {
-      throw new Error(
-        runtimeBlueprint.runtimeMessage ||
-          "Storefront runtime beklenen sure icinde tutarli cevap vermedi.",
-      );
+      if (ensuredApplication.reusedExisting && currentApplicationUuid) {
+        ensuredApplication = await recreateStorefrontApplication(
+          store,
+          blueprint,
+          projectUuid,
+          environmentUuid,
+          currentApplicationUuid,
+        ).catch((error) => {
+          throw new Error(
+            `Storefront stale application recreate basarisiz: ${
+              error instanceof Error ? error.message : "bilinmeyen hata"
+            }`,
+          );
+        });
+        currentApplicationUuid = resolveIdentifier(ensuredApplication.application);
+
+        await syncApplicationEnv(currentApplicationUuid, blueprint.envEntries).catch((error) => {
+          throw new Error(
+            `Storefront env senkronu basarisiz: ${
+              error instanceof Error ? error.message : "bilinmeyen hata"
+            }`,
+          );
+        });
+        await startApplication(currentApplicationUuid).catch((error) => {
+          throw new Error(
+            `Storefront deployment start basarisiz: ${
+              error instanceof Error ? error.message : "bilinmeyen hata"
+            }`,
+          );
+        });
+        runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
+          throw new Error(
+            `Storefront runtime smoke test basarisiz: ${
+              error instanceof Error ? error.message : "bilinmeyen hata"
+            }`,
+          );
+        });
+      }
+
+      if (!runtimeBlueprint.runtimeConsistent) {
+        throw new Error(
+          runtimeBlueprint.runtimeMessage ||
+            "Storefront runtime beklenen sure icinde tutarli cevap vermedi.",
+        );
+      }
     }
 
     const deploymentStatus = "configured";
@@ -560,14 +675,14 @@ export async function provisionStorefrontDeploymentForStore(
       deploymentStatus,
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: applicationUuid,
+      resourceId: currentApplicationUuid ?? undefined,
       deployedAt,
       lastError: runtimeBlueprint.runtimeMessage ?? undefined,
     });
 
     return {
       appName: blueprint.appName,
-      resourceId: applicationUuid,
+      resourceId: currentApplicationUuid,
       runtimeUrl: blueprint.runtimeUrl,
       status: deploymentStatus,
       runtimeConsistent: runtimeBlueprint.runtimeConsistent,
@@ -579,7 +694,7 @@ export async function provisionStorefrontDeploymentForStore(
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: blueprint.resourceId ?? undefined,
+      resourceId: currentApplicationUuid ?? undefined,
       lastError:
         error instanceof Error
           ? error.message
