@@ -41,6 +41,18 @@ interface CoolifyBulkEnvEntry {
   is_multiline?: boolean;
 }
 
+interface CoolifyApplicationLogsPayload {
+  logs?: string | null;
+}
+
+interface CoolifyDeploymentSummary {
+  deployment_uuid?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  logs?: string | null;
+}
+
 export interface StorefrontDeploymentProvisioningResult {
   appName: string;
   resourceId: string | null;
@@ -491,6 +503,73 @@ async function startApplication(applicationUuid: string): Promise<void> {
   });
 }
 
+function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
+  if (!logs?.trim()) {
+    return null;
+  }
+
+  const lines = logs
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "").trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return lines.slice(-8).join(" | ").slice(0, 1200);
+}
+
+async function readApplicationLogSummary(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<CoolifyApplicationLogsPayload>(
+    `/applications/${applicationUuid}/logs?lines=120`,
+  );
+
+  return summarizeCoolifyLogs(payload.logs);
+}
+
+async function readLatestDeploymentSummary(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<unknown>(
+    `/deployments/applications/${applicationUuid}?take=1&skip=0`,
+  );
+
+  const deployments = Array.isArray(payload)
+    ? (payload as CoolifyDeploymentSummary[])
+    : [];
+  const latest = deployments[0];
+
+  if (!latest) {
+    return null;
+  }
+
+  const summaryParts = [
+    latest.status?.trim() ? `status=${latest.status.trim()}` : null,
+    latest.updated_at?.trim() ? `updated_at=${latest.updated_at.trim()}` : null,
+    summarizeCoolifyLogs(latest.logs),
+  ].filter(Boolean);
+
+  return summaryParts.length > 0 ? summaryParts.join(" | ") : null;
+}
+
+async function buildStorefrontRuntimeFailureDiagnostics(
+  applicationUuid: string | null,
+): Promise<string | null> {
+  if (!applicationUuid) {
+    return null;
+  }
+
+  const [deploymentSummary, logSummary] = await Promise.all([
+    readLatestDeploymentSummary(applicationUuid).catch(() => null),
+    readApplicationLogSummary(applicationUuid).catch(() => null),
+  ]);
+  const parts = [
+    deploymentSummary ? `Coolify deployment ${deploymentSummary}` : null,
+    logSummary ? `Coolify logs ${logSummary}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" || ") : null;
+}
+
 async function waitForStorefrontRuntime(
   store: StoreConfig,
 ): Promise<StorefrontDeploymentBlueprint> {
@@ -656,9 +735,13 @@ export async function provisionStorefrontDeploymentForStore(
       }
 
       if (!runtimeBlueprint.runtimeConsistent) {
+        const diagnostics = await buildStorefrontRuntimeFailureDiagnostics(currentApplicationUuid);
+
         throw new Error(
-          runtimeBlueprint.runtimeMessage ||
-            "Storefront runtime beklenen sure icinde tutarli cevap vermedi.",
+          diagnostics
+            ? `${runtimeBlueprint.runtimeMessage || "Storefront runtime beklenen sure icinde tutarli cevap vermedi."} | ${diagnostics}`
+            : runtimeBlueprint.runtimeMessage ||
+                "Storefront runtime beklenen sure icinde tutarli cevap vermedi.",
         );
       }
     }
