@@ -105,7 +105,7 @@ export default function NewPaymentGatewayPage() {
     setSaving(true);
     try {
       await addPaymentGateway(formData);
-      toast.success("Odeme altyapisi eklendi.");
+      toast.success("Ödeme altyapısı eklendi.");
       router.push("/admin/ayarlar/odeme");
       router.refresh();
     } catch (error) {
@@ -127,7 +127,7 @@ export default function NewPaymentGatewayPage() {
             Geri Don
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Yeni Odeme Altyapisi</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Yeni Ödeme Altyapısı</h1>
             <p className="text-sm text-gray-500 mt-1">
               GurmePOS referansi ile provider katalogunu genisletiyoruz. Canli adapter hazir olmayan saglayicilar checkouta acilmaz.
             </p>
@@ -147,7 +147,7 @@ export default function NewPaymentGatewayPage() {
       {!selectedGateway || !formData ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Odeme Saglayicisi Secin</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Ödeme Sağlayıcısı Seçin</h2>
             <p className="text-gray-500 text-sm">
               Once provideri ekleyin, sonra runtime durumu "Canliya Hazir" olanlari checkouta acin.
             </p>

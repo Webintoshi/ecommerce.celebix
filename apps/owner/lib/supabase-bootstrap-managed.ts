@@ -7,6 +7,7 @@ import {
   upsertStoreAdminEnvLocal,
   updateStoreSupabaseConfig,
 } from "@celebix/platform-config";
+import { createDefaultStorePaymentGateways } from "@celebix/payment-core";
 import { upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 import type { SupabaseBootstrapStatus, SupabaseOrganization, SupabaseProvisioningResult } from "@/lib/supabase-bootstrap.shared";
 
@@ -254,6 +255,18 @@ function buildProjectName(store: StoreConfig): string {
   return baseName.slice(0, 48);
 }
 
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function serializeJsonLiteral(value: unknown): string {
+  return `'${escapeSqlLiteral(JSON.stringify(value))}'::jsonb`;
+}
+
+function buildStorefrontSiteUrl(store: StoreConfig): string {
+  return `https://${store.domains.storefront}`;
+}
+
 function hasExistingProvisionedProject(store: StoreConfig): boolean {
   const projectRef = store.supabase.projectRef?.trim();
   return Boolean(projectRef && projectRef !== "pending-owner-bootstrap");
@@ -409,6 +422,22 @@ async function applySqlBootstrapBundle(ref: string): Promise<void> {
   }
 }
 
+async function seedManagedPaymentGatewaySettings(ref: string, store: StoreConfig): Promise<void> {
+  const paymentGateways = createDefaultStorePaymentGateways({
+    storefrontUrl: buildStorefrontSiteUrl(store),
+  });
+
+  await runDatabaseQuery(
+    ref,
+    `
+      insert into public.settings (key, value)
+      values ('payment_gateways', ${serializeJsonLiteral(paymentGateways)})
+      on conflict (key) do nothing;
+    `,
+    "celebix_payment_gateways_seed",
+  );
+}
+
 function generateDatabasePassword(): string {
   return crypto.randomBytes(24).toString("base64url");
 }
@@ -487,6 +516,7 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   try {
     await waitForDatabaseQuery(projectRef);
     await applySqlBootstrapBundle(projectRef);
+    await seedManagedPaymentGatewaySettings(projectRef, store);
 
     const { publicKey, serviceKey } = await waitForProjectApiKeys(projectRef);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {

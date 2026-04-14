@@ -9,6 +9,7 @@ import {
   upsertStoreAdminEnvLocal,
   updateStoreSupabaseConfig,
 } from "@celebix/platform-config";
+import { createDefaultStorePaymentGateways } from "@celebix/payment-core";
 import { upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 import type { SupabaseBootstrapStatus, SupabaseOrganization, SupabaseProvisioningResult } from "@/lib/supabase-bootstrap.shared";
 
@@ -225,7 +226,12 @@ function serializeJsonLiteral(value: unknown): string {
   return `'${escapeSqlLiteral(JSON.stringify(value))}'::jsonb`;
 }
 
+function buildStorefrontSiteUrl(store: StoreConfig): string {
+  return `https://${store.domains.storefront}`;
+}
+
 function buildInitialStoreSettings(store: StoreConfig, publicUrl: string) {
+  const storefrontUrl = buildStorefrontSiteUrl(store);
   const supportEmail =
     store.branding?.supportEmail?.trim() || `destek@${store.domains.storefront}`;
   const supportPhone = store.branding?.supportPhone?.trim() || "+90 532 000 00 00";
@@ -313,9 +319,15 @@ function buildInitialStoreSettings(store: StoreConfig, publicUrl: string) {
       key: "storefront_bootstrap",
       value: {
         provider: "owner",
-        siteUrl: publicUrl,
+        siteUrl: storefrontUrl,
         generatedAt: new Date().toISOString(),
       },
+    },
+    {
+      key: "payment_gateways",
+      value: createDefaultStorePaymentGateways({
+        storefrontUrl,
+      }),
     },
   ] as const;
 }

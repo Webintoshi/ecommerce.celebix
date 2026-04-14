@@ -9,6 +9,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@celebix/payment-core": [
+        "../../packages/payment-core/src/index.ts"
       ]
     }
   },
