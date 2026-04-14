@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +9,6 @@ import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
   const [nextPath, setNextPath] = useState("/admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +26,7 @@ export default function AdminLoginPage() {
         setNextPath(next);
       }
 
+      const supabase = getBrowserSupabaseClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
     return () => {
       mounted = false;
     };
-  }, [router, supabase]);
+  }, [router]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -70,6 +70,7 @@ export default function AdminLoginPage() {
         return;
       }
 
+      const supabase = getBrowserSupabaseClient();
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
