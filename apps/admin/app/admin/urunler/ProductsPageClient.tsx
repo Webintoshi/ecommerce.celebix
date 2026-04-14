@@ -763,35 +763,30 @@ export default function ProductsPageClient({
               {
                 label: "Toplam ürün",
                 value: stats.total.toLocaleString("tr-TR"),
-                hint: "Listeye dahil tüm ürünler",
                 icon: Package,
                 tone: "border-stone-200 bg-stone-50 text-stone-700",
               },
               {
                 label: "Öne çıkan",
                 value: stats.featured.toLocaleString("tr-TR"),
-                hint: "Vitrin önceliği verilenler",
                 icon: Star,
                 tone: "border-amber-200 bg-amber-50 text-amber-700",
               },
               {
                 label: "Yeni ürün",
                 value: stats.new.toLocaleString("tr-TR"),
-                hint: "Yeni etiketi taşıyanlar",
                 icon: TrendingUp,
                 tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
               },
               {
                 label: "Az stok",
                 value: stats.lowStock.toLocaleString("tr-TR"),
-                hint: "Hızlı aksiyon gerektirenler",
                 icon: AlertTriangle,
                 tone: "border-rose-200 bg-rose-50 text-rose-700",
               },
               {
                 label: "Toplam varyant",
                 value: stats.totalVariants.toLocaleString("tr-TR"),
-                hint: "Katalog derinliği",
                 icon: Grid,
                 tone: "border-orange-200 bg-orange-50 text-orange-700",
               },
@@ -805,7 +800,6 @@ export default function ProductsPageClient({
                     <div>
                       <p className="text-sm font-medium text-stone-600">{item.label}</p>
                       <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-stone-950">{item.value}</p>
-                      <p className="mt-1 text-sm text-stone-500">{item.hint}</p>
                     </div>
                     <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm", item.tone)}>
                       <item.icon className="h-5 w-5" />
@@ -821,16 +815,9 @@ export default function ProductsPageClient({
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C94E00]">
+                    <h2 className="text-xl font-semibold tracking-[-0.03em] text-stone-950 md:text-2xl">
                       Filtreler ve Kontroller
-                    </p>
-                    <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-stone-950 md:text-2xl">
-                      Katalog görünümünü rafine edin
                     </h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-                      Arama, kategori, sıralama ve görünüm tercihleriniz aynı yüzeyde; daha sakin,
-                      daha hızlı ve daha okunur bir ürün operasyonu için düzenlendi.
-                    </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-stone-600">
@@ -1325,9 +1312,6 @@ export default function ProductsPageClient({
                     <div className="flex flex-col gap-3 border-b border-[#FE6100]/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="text-lg font-semibold tracking-[-0.03em] text-stone-950">Tablo görünümü</h3>
-                        <p className="mt-1 text-sm text-stone-600">
-                          Daha yoğun katalog kontrolü, net kolon ayrımı ve mobilde okunur kart yedeği.
-                        </p>
                       </div>
                       <label className="inline-flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 shadow-sm">
                         <input

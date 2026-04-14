@@ -78,7 +78,6 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
               <AnimatedNumber value={abandoned.count} />
             </p>
-            <p className="mt-1 text-sm text-gray-600">Geri kazanım bekleyen sepet</p>
           </div>
 
           <div className="rounded-[24px] border border-[#FE6100]/15 bg-gradient-to-br from-[#fff3e9] via-[#fffaf6] to-white p-4">
@@ -89,7 +88,6 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
               ₺<AnimatedNumber value={abandoned.total} />
             </p>
-            <p className="mt-1 text-sm text-gray-600">Potansiyel geri kazanım hacmi</p>
           </div>
         </div>
 
@@ -160,11 +158,6 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             <Target className="h-4 w-4 text-[#FE6100]" />
             <p className="text-sm font-semibold">Önerilen aksiyon</p>
           </div>
-          <p className="mt-3 text-sm leading-6 text-gray-600">
-            Sepeti terk eden kullanıcıları geri kazanmak için son 24 saatteki davranışları takip edin ve
-            hızlı aksiyon alın.
-          </p>
-
           {abandoned.count > 0 ? (
             <Link
               href="/admin/siparisler/sepet-terk"

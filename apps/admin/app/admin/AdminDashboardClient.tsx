@@ -147,13 +147,11 @@ function AnimatedCounter({
 function HeroMetric({
   label,
   value,
-  hint,
   icon: Icon,
   tone,
 }: {
   label: string;
   value: string;
-  hint: string;
   icon: ElementType;
   tone: string;
 }) {
@@ -167,7 +165,6 @@ function HeroMetric({
           <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">
             {value}
           </p>
-          <p className="mt-1 text-sm text-gray-600">{hint}</p>
         </div>
         <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm", tone)}>
           <Icon className="h-5 w-5" />
@@ -245,28 +242,24 @@ function QuickActions() {
     {
       icon: FileText,
       label: "Siparişler",
-      description: "Açık ve yeni siparişleri yönetin",
       href: "/admin/siparisler",
       tone: "from-[#fff4ea] to-white text-[#FE6100] border-[#FE6100]/15",
     },
     {
       icon: Package,
       label: "Ürünler",
-      description: "Katalog, fiyat ve stok düzenleyin",
       href: "/admin/urunler",
       tone: "from-amber-50 to-white text-amber-700 border-amber-200/60",
     },
     {
       icon: Users,
       label: "Müşteriler",
-      description: "Müşteri hareketlerini inceleyin",
       href: "/admin/musteriler",
       tone: "from-emerald-50 to-white text-emerald-700 border-emerald-200/60",
     },
     {
       icon: ShoppingCart,
       label: "Terk Edilen Sepetler",
-      description: "Geri kazanım fırsatlarını takip edin",
       href: "/admin/siparisler/sepet-terk",
       tone: "from-rose-50 to-white text-rose-700 border-rose-200/60",
     },
@@ -302,7 +295,6 @@ function QuickActions() {
                 <p className="mt-4 text-base font-semibold tracking-[-0.02em] text-gray-950">
                   {action.label}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-gray-600">{action.description}</p>
               </div>
               <ArrowUpRight className="h-4 w-4 text-gray-400 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[#FE6100]" />
             </div>
@@ -618,28 +610,24 @@ export default function AdminDashboardClient({
               <HeroMetric
                 label="Canlı Ziyaretçi"
                 value={liveData.liveVisitors.toLocaleString("tr-TR")}
-                hint="Anlık mağaza trafiği"
                 icon={Wifi}
                 tone="border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white text-emerald-700"
               />
               <HeroMetric
                 label="Sepete Ekleme"
                 value={liveData.today.addToCart.toLocaleString("tr-TR")}
-                hint="Bugün gerçekleşen aksiyon"
                 icon={ShoppingCart}
                 tone="border-amber-200/60 bg-gradient-to-br from-amber-50 to-white text-amber-700"
               />
               <HeroMetric
                 label="Terk Edilen Sepet"
                 value={liveData.abandonedCarts.count.toLocaleString("tr-TR")}
-                hint={`Toplam potansiyel ${`₺${totalAbandonedValue.toLocaleString("tr-TR")}`}`}
                 icon={AlertTriangle}
                 tone="border-rose-200/60 bg-gradient-to-br from-rose-50 to-white text-rose-700"
               />
               <HeroMetric
                 label="İzlenen Sayfa"
                 value={topPageCount.toLocaleString("tr-TR")}
-                hint="Öne çıkan sayfa görüntülemesi"
                 icon={Activity}
                 tone="border-[#FE6100]/15 bg-gradient-to-br from-[#fff4ea] to-white text-[#FE6100]"
               />
@@ -697,7 +685,6 @@ export default function AdminDashboardClient({
                     <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
                       {liveDeviceTotal.toLocaleString("tr-TR")}
                     </p>
-                    <p className="mt-1 text-sm text-gray-600">Toplam izlenen aktif cihaz</p>
                   </div>
 
                   <div className="rounded-[24px] border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white p-4">
@@ -707,7 +694,6 @@ export default function AdminDashboardClient({
                     <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
                       {liveData.today.purchases.toLocaleString("tr-TR")}
                     </p>
-                    <p className="mt-1 text-sm text-gray-600">Bugünkü tamamlanan işlem</p>
                   </div>
 
                   <div className="rounded-[24px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
@@ -717,7 +703,6 @@ export default function AdminDashboardClient({
                     <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
                       {liveData.devices.mobile.toLocaleString("tr-TR")}
                     </p>
-                    <p className="mt-1 text-sm text-gray-600">Mobil cihazdan gelen ziyaretçi</p>
                   </div>
 
                   <div className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
@@ -727,7 +712,6 @@ export default function AdminDashboardClient({
                     <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
                       {liveData.devices.desktop.toLocaleString("tr-TR")}
                     </p>
-                    <p className="mt-1 text-sm text-gray-600">Masaüstünden gelen ziyaretçi</p>
                   </div>
                 </div>
               </SectionCard>
