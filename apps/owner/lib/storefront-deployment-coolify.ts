@@ -53,6 +53,11 @@ interface CoolifyDeploymentSummary {
   logs?: string | null;
 }
 
+interface CoolifyStartApplicationResponse {
+  message?: string | null;
+  deployment_uuid?: string | null;
+}
+
 export interface StorefrontDeploymentProvisioningResult {
   appName: string;
   resourceId: string | null;
@@ -497,10 +502,85 @@ async function syncApplicationEnv(
   });
 }
 
-async function startApplication(applicationUuid: string): Promise<void> {
-  await coolifyFetch(`/applications/${applicationUuid}/start?force=true&instant_deploy=true`, {
-    method: "POST",
-  });
+async function startApplication(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<CoolifyStartApplicationResponse>(
+    `/applications/${applicationUuid}/start?force=true&instant_deploy=true`,
+    {
+      method: "POST",
+    },
+  );
+
+  return payload.deployment_uuid?.trim() || null;
+}
+
+async function readDeploymentSummaryByUuid(deploymentUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<CoolifyDeploymentSummary>(`/deployments/${deploymentUuid}`);
+  const summaryParts = [
+    payload.status?.trim() ? `status=${payload.status.trim()}` : null,
+    payload.updated_at?.trim() ? `updated_at=${payload.updated_at.trim()}` : null,
+    summarizeCoolifyLogs(payload.logs),
+  ].filter(Boolean);
+
+  return summaryParts.length > 0 ? summaryParts.join(" | ") : null;
+}
+
+async function readApplicationLogSummary(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<CoolifyApplicationLogsPayload>(
+    `/applications/${applicationUuid}/logs?lines=120`,
+  );
+
+  return summarizeCoolifyLogs(payload.logs);
+}
+
+async function readApplicationConfigSummary(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<{
+    status?: string | null;
+    git_branch?: string | null;
+    base_directory?: string | null;
+    install_command?: string | null;
+    build_command?: string | null;
+    start_command?: string | null;
+  }>(`/applications/${applicationUuid}`);
+
+  const parts = [
+    payload.status?.trim() ? `status=${payload.status.trim()}` : null,
+    payload.git_branch?.trim() ? `branch=${payload.git_branch.trim()}` : null,
+    payload.base_directory?.trim() ? `base=${payload.base_directory.trim()}` : null,
+    payload.install_command?.trim() ? `install=${payload.install_command.trim()}` : null,
+    payload.build_command?.trim() ? `build=${payload.build_command.trim()}` : null,
+    payload.start_command?.trim() ? `start=${payload.start_command.trim()}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" | ").slice(0, 1200) : null;
+}
+
+async function readLatestDeploymentSummary(applicationUuid: string): Promise<string | null> {
+  const payload = await coolifyFetch<unknown>(
+    `/deployments/applications/${applicationUuid}?take=1&skip=0`,
+  );
+
+  if (Array.isArray(payload) && payload.length > 0) {
+    const latest = payload[0] as {
+      status?: string | null;
+      updated_at?: string | null;
+      git_branch?: string | null;
+      base_directory?: string | null;
+      build_command?: string | null;
+      start_command?: string | null;
+    };
+    const summaryParts = [
+      latest.status?.trim() ? `status=${latest.status.trim()}` : null,
+      latest.updated_at?.trim() ? `updated_at=${latest.updated_at.trim()}` : null,
+      latest.git_branch?.trim() ? `branch=${latest.git_branch.trim()}` : null,
+      latest.base_directory?.trim() ? `base=${latest.base_directory.trim()}` : null,
+      latest.build_command?.trim() ? `build=${latest.build_command.trim()}` : null,
+      latest.start_command?.trim() ? `start=${latest.start_command.trim()}` : null,
+    ].filter(Boolean);
+
+    return summaryParts.length > 0 ? summaryParts.join(" | ").slice(0, 1200) : null;
+  }
+
+  return null;
 }
 
 function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
@@ -520,54 +600,36 @@ function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
   return lines.slice(-8).join(" | ").slice(0, 1200);
 }
 
-async function readApplicationLogSummary(applicationUuid: string): Promise<string | null> {
-  const payload = await coolifyFetch<CoolifyApplicationLogsPayload>(
-    `/applications/${applicationUuid}/logs?lines=120`,
-  );
-
-  return summarizeCoolifyLogs(payload.logs);
-}
-
-async function readLatestDeploymentSummary(applicationUuid: string): Promise<string | null> {
-  const payload = await coolifyFetch<unknown>(
-    `/deployments/applications/${applicationUuid}?take=1&skip=0`,
-  );
-
-  const deployments = Array.isArray(payload)
-    ? (payload as CoolifyDeploymentSummary[])
-    : [];
-  const latest = deployments[0];
-
-  if (!latest) {
-    return null;
-  }
-
-  const summaryParts = [
-    latest.status?.trim() ? `status=${latest.status.trim()}` : null,
-    latest.updated_at?.trim() ? `updated_at=${latest.updated_at.trim()}` : null,
-    summarizeCoolifyLogs(latest.logs),
-  ].filter(Boolean);
-
-  return summaryParts.length > 0 ? summaryParts.join(" | ") : null;
-}
-
 async function buildStorefrontRuntimeFailureDiagnostics(
   applicationUuid: string | null,
+  deploymentUuid: string | null,
 ): Promise<string | null> {
   if (!applicationUuid) {
     return "Coolify uygulama UUID bilinmiyor.";
   }
 
-  const [deploymentResult, logResult] = await Promise.allSettled([
+  const [deploymentUuidResult, deploymentListResult, configResult, logResult] = await Promise.allSettled([
+    deploymentUuid ? readDeploymentSummaryByUuid(deploymentUuid) : Promise.resolve("Coolify deployment UUID yok"),
     readLatestDeploymentSummary(applicationUuid),
+    readApplicationConfigSummary(applicationUuid),
     readApplicationLogSummary(applicationUuid),
   ]);
   const parts = [
-    deploymentResult.status === "fulfilled"
-      ? deploymentResult.value
-        ? `Coolify deployment ${deploymentResult.value}`
-        : "Coolify deployment ozeti bos dondu"
-      : `Coolify deployment ozeti okunamadi: ${deploymentResult.reason instanceof Error ? deploymentResult.reason.message : "bilinmeyen hata"}`,
+    deploymentUuidResult.status === "fulfilled"
+      ? deploymentUuidResult.value
+        ? `Coolify deployment ${deploymentUuidResult.value}`
+        : "Coolify deployment UUID ozeti bos dondu"
+      : `Coolify deployment UUID ozeti okunamadi: ${deploymentUuidResult.reason instanceof Error ? deploymentUuidResult.reason.message : "bilinmeyen hata"}`,
+    deploymentListResult.status === "fulfilled"
+      ? deploymentListResult.value
+        ? `Coolify deployment listesi ${deploymentListResult.value}`
+        : "Coolify deployment listesi bos dondu"
+      : `Coolify deployment listesi okunamadi: ${deploymentListResult.reason instanceof Error ? deploymentListResult.reason.message : "bilinmeyen hata"}`,
+    configResult.status === "fulfilled"
+      ? configResult.value
+        ? `Coolify app ${configResult.value}`
+        : "Coolify app ozeti bos dondu"
+      : `Coolify app ozeti okunamadi: ${configResult.reason instanceof Error ? configResult.reason.message : "bilinmeyen hata"}`,
     logResult.status === "fulfilled"
       ? logResult.value
         ? `Coolify logs ${logResult.value}`
@@ -604,6 +666,7 @@ export async function provisionStorefrontDeploymentForStore(
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
   let currentApplicationUuid = blueprint.resourceId ?? null;
+  let currentDeploymentUuid: string | null = null;
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
     updateStoreStorefrontDeploymentConfig(slug, {
@@ -662,7 +725,7 @@ export async function provisionStorefrontDeploymentForStore(
         }`,
       );
     });
-    await startApplication(currentApplicationUuid).catch((error) => {
+    currentDeploymentUuid = await startApplication(currentApplicationUuid).catch((error) => {
       throw new Error(
         `Storefront deployment start basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
@@ -726,7 +789,7 @@ export async function provisionStorefrontDeploymentForStore(
             }`,
           );
         });
-        await startApplication(currentApplicationUuid).catch((error) => {
+        currentDeploymentUuid = await startApplication(currentApplicationUuid).catch((error) => {
           throw new Error(
             `Storefront deployment start basarisiz: ${
               error instanceof Error ? error.message : "bilinmeyen hata"
@@ -743,7 +806,10 @@ export async function provisionStorefrontDeploymentForStore(
       }
 
       if (!runtimeBlueprint.runtimeConsistent) {
-        const diagnostics = await buildStorefrontRuntimeFailureDiagnostics(currentApplicationUuid);
+        const diagnostics = await buildStorefrontRuntimeFailureDiagnostics(
+          currentApplicationUuid,
+          currentDeploymentUuid,
+        );
 
         throw new Error(
           diagnostics
