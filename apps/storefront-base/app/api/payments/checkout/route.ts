@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActivePaymentGatewayById } from "@/lib/db/payment-gateways";
 import { createOrder, updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
-import { initializePayment } from "@/lib/payment-runtime";
+import { initializePayment, PaymentCheckoutError } from "@/lib/payment-runtime";
 
 function getBaseUrl(request: NextRequest) {
     const forwardedProto = request.headers.get("x-forwarded-proto");
@@ -31,14 +31,24 @@ function getRequestIp(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+        const normalizedShippingCost = Number(body?.shippingCost || 0);
+        const normalizedDiscount = Number(body?.discount || 0);
 
         if (!body?.paymentMethod) {
             return NextResponse.json({ success: false, error: "Odeme yontemi secilmelidir." }, { status: 422 });
         }
 
+        if (!Array.isArray(body?.items) || body.items.length === 0) {
+            return NextResponse.json({ success: false, error: "Sepet bos oldugu icin odeme baslatilamadi." }, { status: 422 });
+        }
+
+        if (!body?.contactEmail?.trim()) {
+            return NextResponse.json({ success: false, error: "Iletisim e-posta adresi zorunludur." }, { status: 422 });
+        }
+
         const gateway = await getActivePaymentGatewayById(body.paymentMethod);
         if (!gateway) {
-            return NextResponse.json({ success: false, error: "Secilen odeme yontemi aktif degil." }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Secilen odeme yontemi aktif degil ya da yeniden secilmelidir." }, { status: 422 });
         }
 
         const order = await createOrder({
@@ -47,8 +57,8 @@ export async function POST(request: NextRequest) {
             shippingAddress: body.shippingAddress,
             billingAddress: body.billingAddress,
             paymentMethod: body.paymentMethod,
-            shippingCost: body.shippingCost,
-            discount: body.discount,
+            shippingCost: normalizedShippingCost,
+            discount: normalizedDiscount,
             notes: body.notes,
             contactEmail: body.contactEmail,
             abandonedCartSessionId: body.abandonedCartSessionId,
@@ -95,6 +105,8 @@ export async function POST(request: NextRequest) {
                 customerIp: getRequestIp(request),
                 shippingAddress: body.shippingAddress,
                 billingAddress: body.billingAddress || body.shippingAddress,
+                shippingCost: normalizedShippingCost,
+                discount: normalizedDiscount,
                 siteUrl: getBaseUrl(request),
             });
 
@@ -107,13 +119,21 @@ export async function POST(request: NextRequest) {
             await updatePaymentStatus(order.id, "failed");
             await updateOrderStatus(order.id, "cancelled");
 
+            const normalizedError = paymentError instanceof PaymentCheckoutError
+                ? paymentError
+                : new PaymentCheckoutError(
+                    paymentError instanceof Error ? paymentError.message : "Odeme baslatilamadi.",
+                );
+
             return NextResponse.json(
                 {
                     success: false,
-                    error: paymentError instanceof Error ? paymentError.message : "Odeme baslatilamadi.",
+                    error: normalizedError.message,
+                    errorCode: normalizedError.code,
+                    retryable: normalizedError.retryable,
                     order,
                 },
-                { status: 502 },
+                { status: normalizedError.httpStatus },
             );
         }
     } catch (error) {

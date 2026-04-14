@@ -47,7 +47,39 @@ interface CheckoutContext {
     customerIp: string;
     shippingAddress: CheckoutAddressInput;
     billingAddress: CheckoutAddressInput;
+    shippingCost?: number;
+    discount?: number;
     siteUrl: string;
+}
+
+type CheckoutPriceLine = {
+    id: string;
+    externalId: string;
+    name: string;
+    category1: string;
+    itemType: "PHYSICAL" | "VIRTUAL";
+    cents: number;
+};
+
+export class PaymentCheckoutError extends Error {
+    readonly code: string;
+    readonly httpStatus: number;
+    readonly retryable: boolean;
+
+    constructor(
+        message: string,
+        options?: {
+            code?: string;
+            httpStatus?: number;
+            retryable?: boolean;
+        },
+    ) {
+        super(message);
+        this.name = "PaymentCheckoutError";
+        this.code = options?.code || "payment_checkout_failed";
+        this.httpStatus = options?.httpStatus ?? 422;
+        this.retryable = options?.retryable ?? false;
+    }
 }
 
 function toCurrencyAmount(value: number) {
@@ -116,6 +148,207 @@ function buildBuyerName(address: CheckoutAddressInput) {
     return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Musteri";
 }
 
+function normalizeCountryName(value: string | undefined) {
+    const normalized = value?.trim().toLowerCase() || "";
+    if (!normalized) {
+        return "Turkey";
+    }
+
+    if (
+        normalized === "turkey"
+        || normalized === "turkiye"
+        || normalized === "tÃ¼rkiye"
+        || normalized === "tÃ£Â¼rkiye"
+    ) {
+        return "Turkey";
+    }
+
+    return value?.trim() || "Turkey";
+}
+
+function toCents(value: number) {
+    return Math.round(value * 100);
+}
+
+function fromCents(value: number) {
+    return value / 100;
+}
+
+function throwCheckoutError(
+    message: string,
+    options?: {
+        code?: string;
+        httpStatus?: number;
+        retryable?: boolean;
+    },
+): never {
+    throw new PaymentCheckoutError(message, options);
+}
+
+function normalizeCheckoutError(error: unknown, fallbackMessage: string) {
+    if (error instanceof PaymentCheckoutError) {
+        return error;
+    }
+
+    const message = error instanceof Error ? error.message : fallbackMessage;
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes("zaman asimina")) {
+        return new PaymentCheckoutError(message, {
+            code: "provider_timeout",
+            httpStatus: 504,
+            retryable: true,
+        });
+    }
+
+    if (normalized.includes("fetch failed") || normalized.includes("network") || normalized.includes("socket")) {
+        return new PaymentCheckoutError(message, {
+            code: "provider_unavailable",
+            httpStatus: 503,
+            retryable: true,
+        });
+    }
+
+    return new PaymentCheckoutError(message, {
+        code: "provider_request_failed",
+        httpStatus: 422,
+        retryable: false,
+    });
+}
+
+function validateCheckoutContext(context: CheckoutContext) {
+    if (!Array.isArray(context.items) || context.items.length === 0) {
+        throwCheckoutError("Sepet bos oldugu icin odeme baslatilamadi.", {
+            code: "empty_cart",
+            httpStatus: 422,
+        });
+    }
+
+    if (!context.customerEmail?.trim()) {
+        throwCheckoutError("Iletisim e-posta adresi zorunludur.", {
+            code: "missing_contact_email",
+            httpStatus: 422,
+        });
+    }
+
+    if (context.order.total <= 0 && context.gateway.gateway !== "bank_transfer" && context.gateway.gateway !== "cod") {
+        throwCheckoutError("Kart ile odeme icin toplam tutar sifirdan buyuk olmalidir.", {
+            code: "invalid_total",
+            httpStatus: 422,
+        });
+    }
+}
+
+function distributeDiscountAcrossLines(lines: CheckoutPriceLine[], discountCents: number) {
+    if (discountCents <= 0 || lines.length === 0) {
+        return lines;
+    }
+
+    const grossCents = lines.reduce((sum, line) => sum + line.cents, 0);
+    if (grossCents <= 0) {
+        return lines;
+    }
+
+    const cappedDiscount = Math.min(discountCents, grossCents - 1);
+    if (cappedDiscount <= 0) {
+        return lines;
+    }
+
+    const allocations = lines.map((line) => {
+        const rawShare = (line.cents * cappedDiscount) / grossCents;
+        const allocated = Math.min(line.cents, Math.floor(rawShare));
+        return {
+            line,
+            allocated,
+            remainder: rawShare - allocated,
+        };
+    });
+
+    let remainingDiscount = cappedDiscount - allocations.reduce((sum, entry) => sum + entry.allocated, 0);
+    allocations.sort((left, right) => right.remainder - left.remainder);
+
+    while (remainingDiscount > 0) {
+        let applied = false;
+
+        for (const entry of allocations) {
+            if (entry.allocated >= entry.line.cents) {
+                continue;
+            }
+
+            entry.allocated += 1;
+            remainingDiscount -= 1;
+            applied = true;
+
+            if (remainingDiscount === 0) {
+                break;
+            }
+        }
+
+        if (!applied) {
+            break;
+        }
+    }
+
+    return allocations
+        .map((entry) => ({
+            ...entry.line,
+            cents: Math.max(1, entry.line.cents - entry.allocated),
+        }))
+        .filter((line) => line.cents > 0);
+}
+
+function buildCheckoutPriceLines(context: CheckoutContext) {
+    const lines: CheckoutPriceLine[] = context.items.map((item, index) => ({
+        id: item.productId || `product-${index + 1}`,
+        externalId: item.productId || `product-${index + 1}`,
+        name: item.quantity > 1 ? `${item.productName} x${item.quantity}` : item.productName,
+        category1: "Urun",
+        itemType: "PHYSICAL",
+        cents: Math.max(1, toCents(item.total ?? item.price * item.quantity)),
+    }));
+
+    const shippingCents = Math.max(0, toCents(context.shippingCost || 0));
+    if (shippingCents > 0) {
+        lines.push({
+            id: `${context.order.id}-shipping`,
+            externalId: `${context.order.id}-shipping`,
+            name: "Kargo Ucreti",
+            category1: "Kargo",
+            itemType: "VIRTUAL",
+            cents: shippingCents,
+        });
+    }
+
+    return distributeDiscountAcrossLines(lines, Math.max(0, toCents(context.discount || 0)));
+}
+
+function assertCheckoutAmountInvariant(context: CheckoutContext, lines: CheckoutPriceLine[]) {
+    const itemsGrossCents = context.items.reduce((sum, item) => {
+        return sum + Math.max(0, toCents(item.total ?? item.price * item.quantity));
+    }, 0);
+    const shippingCents = Math.max(0, toCents(context.shippingCost || 0));
+    const discountCents = Math.max(0, toCents(context.discount || 0));
+    const grossCents = itemsGrossCents + shippingCents;
+
+    if (discountCents > grossCents) {
+        throwCheckoutError("Indirim tutari siparis toplamindan buyuk olamaz.", {
+            code: "discount_exceeds_total",
+            httpStatus: 422,
+        });
+    }
+
+    const expectedTotalCents = grossCents - discountCents;
+    const orderTotalCents = toCents(context.order.total);
+    const lineTotalCents = lines.reduce((sum, line) => sum + line.cents, 0);
+
+    if (expectedTotalCents !== orderTotalCents || lineTotalCents !== orderTotalCents) {
+        throwCheckoutError("Sepet toplami ile odeme toplami uyusmuyor. Lutfen sayfayi yenileyip tekrar deneyin.", {
+            code: "amount_mismatch",
+            httpStatus: 422,
+        });
+    }
+}
+
 function formatIyzicoDate(date: Date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -173,14 +406,53 @@ function createPaytrCallbackHash(input: {
         .digest("base64");
 }
 
-function buildPaytrBasket(items: CheckoutItemInput[]) {
-    const basket = items.map((item) => [
-        item.productName,
-        toCurrencyAmount(item.price),
-        item.quantity,
+function buildPaytrBasket(lines: CheckoutPriceLine[]) {
+    const basket = lines.map((line) => [
+        line.name,
+        toCurrencyAmount(fromCents(line.cents)),
+        1,
     ]);
 
     return Buffer.from(JSON.stringify(basket)).toString("base64");
+}
+
+async function readProviderJsonResponse(
+    response: Response,
+    fallbackMessage: string,
+    options?: {
+        retryable?: boolean;
+    },
+) {
+    const raw = await response.text();
+    let payload: Record<string, unknown> = {};
+
+    if (raw.trim()) {
+        try {
+            payload = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+            throw new PaymentCheckoutError(`${fallbackMessage} Gecersiz yanit dondurdu.`, {
+                code: "provider_invalid_response",
+                httpStatus: 503,
+                retryable: options?.retryable ?? true,
+            });
+        }
+    }
+
+    if (!response.ok) {
+        const message = typeof payload.reason === "string"
+            ? payload.reason
+            : typeof payload.message === "string"
+                ? payload.message
+                : fallbackMessage;
+
+        throw new PaymentCheckoutError(message, {
+            code: "provider_http_error",
+            httpStatus: 503,
+            retryable: options?.retryable ?? true,
+        });
+    }
+
+    return payload;
 }
 
 function createIyzipayClient(gateway: PaymentGatewayConfig) {
@@ -303,10 +575,15 @@ async function iyzicoRequest<T>(input: {
 }
 
 export async function initializePayment(context: CheckoutContext): Promise<PaymentInitResult> {
+    validateCheckoutContext(context);
+
     const runtimeStatus = getPaymentGatewayRuntimeStatus(context.gateway);
 
     if (!runtimeStatus.isReady) {
-        throw new Error("Secilen odeme yontemi canli checkout akisina hazir degil.");
+        throwCheckoutError("Secilen odeme yontemi canli checkout akisina hazir degil.", {
+            code: "gateway_not_ready",
+            httpStatus: 422,
+        });
     }
 
     if (context.gateway.gateway === "bank_transfer" || context.gateway.gateway === "cod") {
@@ -317,16 +594,19 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
         };
     }
 
+    const priceLines = buildCheckoutPriceLines(context);
+    assertCheckoutAmountInvariant(context, priceLines);
+
     if (isGatewayInFamily(context.gateway.gateway, IYZICO_FAMILY_GATEWAYS)) {
-        return initializeIyzicoPayment(context);
+        return initializeIyzicoPayment(context, priceLines);
     }
 
     if (isGatewayInFamily(context.gateway.gateway, PAYTR_FAMILY_GATEWAYS)) {
-        return initializePaytrPayment(context);
+        return initializePaytrPayment(context, priceLines);
     }
 
     if (context.gateway.gateway === "stripe") {
-        return initializeStripePayment(context);
+        return initializeStripePayment(context, priceLines);
     }
 
     if (context.gateway.gateway === "paynet") {
@@ -334,13 +614,16 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
     }
 
     if (context.gateway.gateway === "craftgate") {
-        return initializeCraftgatePayment(context);
+        return initializeCraftgatePayment(context, priceLines);
     }
 
-    throw new Error("Bu odeme saglayicisi icin runtime entegrasyonu henuz tamamlanmadi.");
+    throwCheckoutError("Bu odeme saglayicisi icin runtime entegrasyonu henuz tamamlanmadi.", {
+        code: "gateway_runtime_missing",
+        httpStatus: 422,
+    });
 }
 
-async function initializeIyzicoPayment(context: CheckoutContext): Promise<PaymentInitResult> {
+async function initializeIyzicoPayment(context: CheckoutContext, priceLines: CheckoutPriceLine[]): Promise<PaymentInitResult> {
     const paymentAttempt = await createPaymentAttempt({
         orderId: context.order.id,
         gatewayId: context.gateway.id,
@@ -357,7 +640,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
 
     const addressLine = context.shippingAddress.address?.trim() || "Adres bilgisi yok";
     const city = context.shippingAddress.city?.trim() || "Istanbul";
-    const country = context.shippingAddress.country?.trim() || "Turkey";
+    const country = normalizeCountryName(context.shippingAddress.country);
     const buyerName = buildBuyerName(context.shippingAddress);
     const now = formatIyzicoDate(new Date());
 
@@ -397,16 +680,16 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         billingAddress: {
             contactName: buyerName,
             city: context.billingAddress.city?.trim() || city,
-            country: context.billingAddress.country?.trim() || country,
+            country: normalizeCountryName(context.billingAddress.country) || country,
             address: context.billingAddress.address?.trim() || addressLine,
             zipCode: context.billingAddress.postalCode || context.shippingAddress.postalCode || "34000",
         },
-        basketItems: context.items.map((item) => ({
-            id: item.productId,
-            name: item.productName,
-            category1: "Gida",
-            itemType: "PHYSICAL",
-            price: toCurrencyAmount(item.total ?? item.price * item.quantity),
+        basketItems: priceLines.map((line) => ({
+            id: line.id,
+            name: line.name,
+            category1: line.category1,
+            itemType: line.itemType,
+            price: toCurrencyAmount(fromCents(line.cents)),
         })),
     };
 
@@ -442,22 +725,26 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {
+        const normalizedError = normalizeCheckoutError(error, "iyzico odeme baslatilamadi.");
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "iyzico odeme baslatilamadi.",
+            errorMessage: normalizedError.message,
             completedAt: new Date().toISOString(),
         });
-        throw error;
+        throw normalizedError;
     }
 }
 
-async function initializePaytrPayment(context: CheckoutContext): Promise<PaymentInitResult> {
+async function initializePaytrPayment(context: CheckoutContext, priceLines: CheckoutPriceLine[]): Promise<PaymentInitResult> {
     const merchantId = context.gateway.credentials.merchantId;
     const merchantKey = context.gateway.credentials.merchantKey;
     const merchantSalt = context.gateway.credentials.merchantSalt;
 
     if (!merchantId || !merchantKey || !merchantSalt) {
-        throw new Error("PAYTR merchant bilgileri eksik.");
+        throwCheckoutError("PAYTR merchant bilgileri eksik.", {
+            code: "gateway_config_incomplete",
+            httpStatus: 422,
+        });
     }
 
     const paymentAttempt = await createPaymentAttempt({
@@ -476,7 +763,7 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 
     const merchantOid = sanitizeReference(paymentAttempt.id);
     const paymentAmount = toPaytrAmount(context.order.total);
-    const userBasket = buildPaytrBasket(context.items);
+    const userBasket = buildPaytrBasket(priceLines);
     const testMode = context.gateway.environment === "production" ? "0" : "1";
     const paytrToken = createPaytrToken({
         merchantId,
@@ -525,7 +812,7 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
             signal: AbortSignal.timeout(20000),
         });
 
-        const result = await response.json() as Record<string, unknown>;
+        const result = await readProviderJsonResponse(response, "PAYTR token uretilemedi.");
         const token = typeof result.token === "string" ? result.token : null;
         const status = typeof result.status === "string" ? result.status : "failed";
         const reason = typeof result.reason === "string" ? result.reason : null;
@@ -551,17 +838,18 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {
+        const normalizedError = normalizeCheckoutError(error, "PAYTR odeme baslatilamadi.");
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
             providerReferenceId: merchantOid,
-            errorMessage: error instanceof Error ? error.message : "PAYTR odeme baslatilamadi.",
+            errorMessage: normalizedError.message,
             completedAt: new Date().toISOString(),
         });
-        throw error;
+        throw normalizedError;
     }
 }
 
-async function initializeStripePayment(context: CheckoutContext): Promise<PaymentInitResult> {
+async function initializeStripePayment(context: CheckoutContext, priceLines: CheckoutPriceLine[]): Promise<PaymentInitResult> {
     const stripe = createStripeClient(context.gateway);
     const paymentAttempt = await createPaymentAttempt({
         orderId: context.order.id,
@@ -596,15 +884,15 @@ async function initializeStripePayment(context: CheckoutContext): Promise<Paymen
                     gatewayId: context.gateway.id,
                 },
             },
-            line_items: context.items.map((item) => ({
-                quantity: item.quantity,
+            line_items: priceLines.map((line) => ({
+                quantity: 1,
                 price_data: {
                     currency: (context.gateway.currency || "TRY").toLowerCase(),
-                    unit_amount: Math.round(item.price * 100),
+                    unit_amount: line.cents,
                     product_data: {
-                        name: item.productName,
+                        name: line.name,
                         metadata: {
-                            productId: item.productId,
+                            productId: line.externalId,
                         },
                     },
                 },
@@ -631,12 +919,13 @@ async function initializeStripePayment(context: CheckoutContext): Promise<Paymen
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {
+        const normalizedError = normalizeCheckoutError(error, "Stripe checkout baslatilamadi.");
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Stripe checkout baslatilamadi.",
+            errorMessage: normalizedError.message,
             completedAt: new Date().toISOString(),
         });
-        throw error;
+        throw normalizedError;
     }
 }
 
@@ -644,7 +933,10 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
     const secretKey = context.gateway.credentials.apiKey;
 
     if (!secretKey) {
-        throw new Error("Paynet secret key eksik.");
+        throwCheckoutError("Paynet secret key eksik.", {
+            code: "gateway_config_incomplete",
+            httpStatus: 422,
+        });
     }
 
     const paymentAttempt = await createPaymentAttempt({
@@ -709,7 +1001,7 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
             signal: AbortSignal.timeout(20000),
         });
 
-        const result = await response.json() as Record<string, unknown>;
+        const result = await readProviderJsonResponse(response, "Paynet odeme linki olusturulamadi.");
         const redirectUrl = typeof result.url === "string" ? result.url : null;
         const checkoutToken = typeof result.id === "string" ? result.id : null;
         const errorMessage = typeof result.message === "string" ? result.message : "Paynet odeme linki olusturulamadi.";
@@ -734,17 +1026,18 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {
+        const normalizedError = normalizeCheckoutError(error, "Paynet odeme linki olusturulamadi.");
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
             providerReferenceId: paymentAttempt.id,
-            errorMessage: error instanceof Error ? error.message : "Paynet odeme linki olusturulamadi.",
+            errorMessage: normalizedError.message,
             completedAt: new Date().toISOString(),
         });
-        throw error;
+        throw normalizedError;
     }
 }
 
-async function initializeCraftgatePayment(context: CheckoutContext): Promise<PaymentInitResult> {
+async function initializeCraftgatePayment(context: CheckoutContext, priceLines: CheckoutPriceLine[]): Promise<PaymentInitResult> {
     const craftgate = createCraftgateClient(context.gateway);
     const paymentAttempt = await createPaymentAttempt({
         orderId: context.order.id,
@@ -777,10 +1070,10 @@ async function initializeCraftgatePayment(context: CheckoutContext): Promise<Pay
             clientIp: context.customerIp,
             enabledPaymentMethods: [Craftgate.Model.PaymentMethod.Card],
             enabledInstallments: [1, 2, 3, 6, 9, 12],
-            items: context.items.map((item) => ({
-                name: item.productName,
-                price: Number(toCurrencyAmount(item.total ?? item.price * item.quantity)),
-                externalId: item.productId,
+            items: priceLines.map((line) => ({
+                name: line.name,
+                price: Number(toCurrencyAmount(fromCents(line.cents))),
+                externalId: line.externalId,
             })),
         });
 
@@ -802,12 +1095,13 @@ async function initializeCraftgatePayment(context: CheckoutContext): Promise<Pay
             paymentAttemptId: paymentAttempt.id,
         };
     } catch (error) {
+        const normalizedError = normalizeCheckoutError(error, "Craftgate checkout baslatilamadi.");
         await updatePaymentAttempt(paymentAttempt.id, {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Craftgate checkout baslatilamadi.",
+            errorMessage: normalizedError.message,
             completedAt: new Date().toISOString(),
         });
-        throw error;
+        throw normalizedError;
     }
 }
 

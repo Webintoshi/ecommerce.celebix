@@ -49,6 +49,7 @@ export default function CheckoutPage() {
 
   const [paymentGateways, setPaymentGateways] = useState<PaymentGatewayConfig[]>([]);
   const [isLoadingGateways, setIsLoadingGateways] = useState(true);
+  const [gatewayLoadError, setGatewayLoadError] = useState("");
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -174,6 +175,46 @@ export default function CheckoutPage() {
     initData();
   }, [shippingInfo.country, shippingInfo.city]);
 
+  useEffect(() => {
+    if (isLoadingGateways) {
+      return;
+    }
+
+    setGatewayLoadError(
+      paymentGateways.length === 0
+        ? "Odeme yontemleri su anda listelenemedi. Lutfen tekrar deneyin."
+        : "",
+    );
+  }, [isLoadingGateways, paymentGateways]);
+
+  useEffect(() => {
+    setSelectedPaymentMethod((current) =>
+      paymentGateways.some((gateway) => gateway.id === current) ? current : (paymentGateways[0]?.id ?? "")
+    );
+  }, [paymentGateways]);
+
+  const handleRetryPaymentGateways = async () => {
+    setIsLoadingGateways(true);
+    setGatewayLoadError("");
+
+    try {
+      const gateways = await getActivePaymentGateways();
+      setPaymentGateways(gateways);
+
+      if (gateways.length === 0) {
+        setGatewayLoadError("Odeme yontemleri su anda listelenemedi. Lutfen tekrar deneyin.");
+        return;
+      }
+
+      toast.success("Odeme yontemleri yenilendi.");
+    } catch (error) {
+      setPaymentGateways([]);
+      setGatewayLoadError("Odeme yontemleri yuklenemedi. Lutfen tekrar deneyin.");
+    } finally {
+      setIsLoadingGateways(false);
+    }
+  };
+
   const handleNextStep = () => {
     if (!contactEmail || !contactEmail.includes("@")) {
       toast.error("Geçerli bir e-posta adresi giriniz.");
@@ -256,6 +297,11 @@ export default function CheckoutPage() {
   };
 
   const handleCompleteOrder = async () => {
+    if (paymentGateways.length === 0) {
+      toast.error(gatewayLoadError || "Odeme yontemleri su anda hazir degil.");
+      return;
+    }
+
     if (!selectedPaymentMethod) {
       toast.error("Lütfen bir ödeme yöntemi seçiniz.");
       return;
@@ -381,10 +427,20 @@ export default function CheckoutPage() {
         body: JSON.stringify(orderData)
       });
 
-      const result = await response.json();
+      const rawResult = await response.text();
+      let result: Record<string, any> = {};
 
-      if (!result.success) {
-        toast.error(result.error);
+      if (rawResult.trim()) {
+        try {
+          result = JSON.parse(rawResult);
+        } catch {
+          toast.error(`Odeme servisi gecersiz yanit dondurdu (${response.status}).`);
+          return;
+        }
+      }
+
+      if (!response.ok || !result.success) {
+        toast.error(result.error || "Odeme baslatilamadi.");
         return;
       }
 
@@ -816,30 +872,57 @@ export default function CheckoutPage() {
                   </div>
 
                   {/* Payment Method Selection */}
-                  <div className="grid grid-cols-1 gap-4 mb-8">
-                    {paymentGateways.map(gateway => (
-                      <label
-                        key={gateway.id}
-                        onClick={() => setSelectedPaymentMethod(gateway.id)}
-                        className={cn(
-                          "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                          selectedPaymentMethod === gateway.id ? "border-primary bg-primary/5" : "border-gray-100 hover:border-gray-200"
-                        )}
-                      >
-                        <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", selectedPaymentMethod === gateway.id ? "border-primary" : "border-gray-300")}>
-                          {selectedPaymentMethod === gateway.id && <div className="w-2.5 h-2.5 bg-primary rounded-full" />}
-                        </div>
+                  {isLoadingGateways ? (
+                    <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Odeme yontemleri yukleniyor...
+                      </div>
+                    </div>
+                  ) : gatewayLoadError ? (
+                    <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-800">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div className="flex-1">
-                          <span className="font-bold text-gray-900 block">{gateway.name}</span>
-                          <span className="text-xs text-gray-400">{gateway.description}</span>
+                          <p className="font-semibold">Odeme yontemleri su anda listelenemedi.</p>
+                          <p className="mt-1 text-amber-700">{gatewayLoadError}</p>
                         </div>
-                        {/* Icon */}
-                        {gateway.gateway === 'bank_transfer' && <Building2 className="h-5 w-5 text-gray-400" />}
-                        {gateway.gateway === 'cod' && <Truck className="h-5 w-5 text-gray-400" />}
-                        {isCardLikeGateway(gateway.gateway) && <CreditCard className="h-5 w-5 text-gray-400" />}
-                      </label>
-                    ))}
-                  </div>
+                        <button
+                          type="button"
+                          onClick={handleRetryPaymentGateways}
+                          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Tekrar Dene
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 mb-8">
+                      {paymentGateways.map(gateway => (
+                        <label
+                          key={gateway.id}
+                          onClick={() => setSelectedPaymentMethod(gateway.id)}
+                          className={cn(
+                            "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                            selectedPaymentMethod === gateway.id ? "border-primary bg-primary/5" : "border-gray-100 hover:border-gray-200"
+                          )}
+                        >
+                          <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", selectedPaymentMethod === gateway.id ? "border-primary" : "border-gray-300")}>
+                            {selectedPaymentMethod === gateway.id && <div className="w-2.5 h-2.5 bg-primary rounded-full" />}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-bold text-gray-900 block">{gateway.name}</span>
+                            <span className="text-xs text-gray-400">{gateway.description}</span>
+                          </div>
+                          {/* Icon */}
+                          {gateway.gateway === 'bank_transfer' && <Building2 className="h-5 w-5 text-gray-400" />}
+                          {gateway.gateway === 'cod' && <Truck className="h-5 w-5 text-gray-400" />}
+                          {isCardLikeGateway(gateway.gateway) && <CreditCard className="h-5 w-5 text-gray-400" />}
+                        </label>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Selected Gateway Details */}
                   {paymentGateways.find(g => g.id === selectedPaymentMethod)?.gateway === 'bank_transfer' && (
@@ -881,7 +964,7 @@ export default function CheckoutPage() {
                     </button>
                     <button
                       onClick={handleCompleteOrder}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isLoadingGateways || paymentGateways.length === 0 || !selectedPaymentMethod}
                       className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
                     >
                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lock className="h-4 w-4" />}
