@@ -13,6 +13,7 @@ import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/s
 import { PaymentGatewayConfig } from "@/types/payment";
 import { ShippingRate } from "@/lib/shipping-storage";
 import { toast } from "sonner";
+import { getPaymentProviderLogoPath } from "@celebix/payment-core";
 import {
   CreditCard,
   Truck,
@@ -173,6 +174,12 @@ export default function CheckoutPage() {
 
     initData();
   }, [shippingInfo.country, shippingInfo.city]);
+
+  useEffect(() => {
+    setSelectedPaymentMethod((current) =>
+      paymentGateways.some((gateway) => gateway.id === current) ? current : (paymentGateways[0]?.id ?? "")
+    );
+  }, [paymentGateways]);
 
   const handleNextStep = () => {
     if (!contactEmail || !contactEmail.includes("@")) {
@@ -412,13 +419,18 @@ export default function CheckoutPage() {
     toast.success("Kopyalandı!");
   };
 
-  const getGatewayType = (id: string) => {
-    return paymentGateways.find(g => g.id === id)?.gateway;
-  };
-
   const isCardLikeGateway = (gatewayType?: string) => {
     return Boolean(gatewayType && !["bank_transfer", "cod"].includes(gatewayType));
   };
+
+  const selectedGateway = paymentGateways.find((gateway) => gateway.id === selectedPaymentMethod);
+  const selectedGatewayType = selectedGateway?.gateway;
+  const selectedGatewayInstructions = selectedGateway?.instructions?.trim() || "";
+  const selectedGatewayHasBankAccount = Boolean(
+    selectedGateway?.bankAccount?.bankName?.trim()
+      && selectedGateway?.bankAccount?.iban?.trim()
+      && selectedGateway?.bankAccount?.accountHolder?.trim(),
+  );
 
   if (items.length === 0) {
     return (
@@ -781,7 +793,7 @@ export default function CheckoutPage() {
 
                   {/* VISUAL CREDIT CARD WRAPPER */}
                   <div className="mb-8">
-                    {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
+                    {isCardLikeGateway(selectedGatewayType) && (
                       <div className="w-full max-w-md mx-auto aspect-[1.586] rounded-2xl p-6 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-500/20 mb-8 transform transition-transform hover:scale-[1.02] duration-500">
                         {/* Gradient Background */}
                         <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] via-[#8b5cf6] to-[#ec4899]" />
@@ -817,7 +829,10 @@ export default function CheckoutPage() {
 
                   {/* Payment Method Selection */}
                   <div className="grid grid-cols-1 gap-4 mb-8">
-                    {paymentGateways.map(gateway => (
+                    {paymentGateways.map((gateway) => {
+                      const logoSrc = getPaymentProviderLogoPath(gateway.gateway);
+
+                      return (
                       <label
                         key={gateway.id}
                         onClick={() => setSelectedPaymentMethod(gateway.id)}
@@ -833,32 +848,53 @@ export default function CheckoutPage() {
                           <span className="font-bold text-gray-900 block">{gateway.name}</span>
                           <span className="text-xs text-gray-400">{gateway.description}</span>
                         </div>
-                        {/* Icon */}
-                        {gateway.gateway === 'bank_transfer' && <Building2 className="h-5 w-5 text-gray-400" />}
-                        {gateway.gateway === 'cod' && <Truck className="h-5 w-5 text-gray-400" />}
-                        {isCardLikeGateway(gateway.gateway) && <CreditCard className="h-5 w-5 text-gray-400" />}
+                        {logoSrc ? (
+                          <div className="flex h-10 w-[96px] shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white px-3">
+                            <img
+                              src={logoSrc}
+                              alt={`${gateway.name} logo`}
+                              className="max-h-6 w-auto max-w-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            {gateway.gateway === "bank_transfer" && <Building2 className="h-5 w-5 text-gray-400" />}
+                            {gateway.gateway === "cod" && <Truck className="h-5 w-5 text-gray-400" />}
+                            {isCardLikeGateway(gateway.gateway) && <CreditCard className="h-5 w-5 text-gray-400" />}
+                          </>
+                        )}
                       </label>
-                    ))}
+                    )})}
                   </div>
 
                   {/* Selected Gateway Details */}
-                  {paymentGateways.find(g => g.id === selectedPaymentMethod)?.gateway === 'bank_transfer' && (
+                  {selectedGatewayType === 'bank_transfer' && (selectedGatewayHasBankAccount || selectedGatewayInstructions) && (
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      {selectedGatewayHasBankAccount && (
+                        <>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-medium">Banka</span>
-                        <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.bankName}</span>
+                        <span className="font-bold text-gray-900 text-right">{selectedGateway?.bankAccount?.bankName}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-medium">Alıcı</span>
-                        <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.accountHolder}</span>
+                        <span className="font-bold text-gray-900 text-right">{selectedGateway?.bankAccount?.accountHolder}</span>
                       </div>
                       <div className="pt-4 border-t border-gray-200">
                         <p className="text-xs text-gray-500 font-bold uppercase mb-2">IBAN</p>
                         <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
-                          <code className="font-mono font-bold text-gray-900 break-all">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban}</code>
-                          <button onClick={() => copyToClipboard(paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Kopyala</button>
+                          <code className="font-mono font-bold text-gray-900 break-all">{selectedGateway?.bankAccount?.iban}</code>
+                          <button onClick={() => copyToClipboard(selectedGateway?.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Kopyala</button>
                         </div>
                       </div>
+                        </>
+                      )}
+                      {selectedGatewayInstructions && (
+                        <div className={cn("rounded-lg border bg-white p-4", selectedGatewayHasBankAccount ? "border-gray-200" : "border-amber-100 bg-amber-50")}>
+                          <p className="mb-2 text-xs font-bold uppercase text-gray-500">Odeme Bilgisi</p>
+                          <p className="whitespace-pre-line text-sm leading-6 text-gray-700">{selectedGatewayInstructions}</p>
+                        </div>
+                      )}
                       <div className="flex gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-lg">
                         <AlertCircle className="h-4 w-4 shrink-0" />
                         Sipariş numaranızı açıklama kısmına yazmayı unutmayınız.
@@ -866,7 +902,13 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && selectedPaymentMethod && (
+                  {selectedGatewayType === 'cod' && selectedGatewayInstructions && (
+                    <div className="animate-in fade-in rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm leading-6 text-gray-700 whitespace-pre-line">
+                      {selectedGatewayInstructions}
+                    </div>
+                  )}
+
+                  {isCardLikeGateway(selectedGatewayType) && selectedPaymentMethod && (
                     <div className="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm font-medium text-center animate-in fade-in">
                       Ödeme butonuna tıkladıktan sonra güvenli 3D Secure ekranına yönlendirileceksiniz.
                     </div>

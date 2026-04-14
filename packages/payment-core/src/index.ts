@@ -127,6 +127,7 @@ export interface PaymentGatewayConfig {
   gateway: PaymentGateway;
   name: string;
   description: string;
+  instructions: string;
   icon: string;
   status: PaymentMethodStatus;
   environment: PaymentEnvironment;
@@ -508,6 +509,30 @@ function getProviderIcon(gateway: PaymentGateway): string {
       return "package";
     default:
       return "credit-card";
+  }
+}
+
+export function getPaymentProviderLogoPath(gateway: PaymentGateway): string | null {
+  switch (gateway) {
+    case "paytr":
+    case "paytr_iframe":
+      return "/payment-logos/paytr.png";
+    case "iyzico":
+    case "iyzico_iframe":
+    case "pay_with_iyzico":
+      return "/payment-logos/iyzico.png";
+    case "craftgate":
+      return "/payment-logos/craftgate.png";
+    case "paynet":
+      return "/payment-logos/paynet.png";
+    case "stripe":
+      return "/payment-logos/stripe.png";
+    case "bank_transfer":
+      return "/payment-logos/bank-transfer.png";
+    case "cod":
+      return "/payment-logos/cod.png";
+    default:
+      return null;
   }
 }
 
@@ -1057,6 +1082,7 @@ export function createPaymentProviderCatalog(options: PaymentProviderCatalogOpti
       gateway,
       name: definition.name,
       description: definition.description,
+      instructions: "",
       icon: getProviderIcon(gateway),
       status: "inactive",
       environment: gateway === "bank_transfer" || gateway === "cod" ? "production" : "sandbox",
@@ -1129,6 +1155,7 @@ export function createPaymentProviderCatalog(options: PaymentProviderCatalogOpti
       id: typeof raw.id === "string" ? raw.id : base.id,
       name: typeof raw.name === "string" && raw.name.trim() ? raw.name : base.name,
       description: typeof raw.description === "string" ? raw.description : base.description,
+      instructions: typeof raw.instructions === "string" ? raw.instructions : base.instructions,
       icon: typeof raw.icon === "string" && raw.icon.trim() ? raw.icon : base.icon,
       status: raw.status === "active" || raw.status === "test" ? raw.status : "inactive",
       environment,
@@ -1174,6 +1201,7 @@ export function createPaymentProviderCatalog(options: PaymentProviderCatalogOpti
       gateway: gateway.gateway,
       name: gateway.name,
       description: gateway.description,
+      ...(gateway.instructions.trim() ? { instructions: gateway.instructions } : {}),
       icon: gateway.icon,
       supportedMethods: gateway.supportedMethods,
       supportedCardTypes: gateway.supportedCardTypes,
