@@ -459,14 +459,14 @@ export async function runStoreProvisioningWorkflow(
       async () => {
         const deployment = await runGeneratedDeploymentStep(
           { slug: input.slug, target: "admin" },
-          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: false }),
+          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
         );
 
-        if (deployment.status === "failed") {
+        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
           throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
         }
 
-        return deployment.message || "Admin deployment tetiklendi.";
+        return deployment.message || "Admin runtime dogrulandi.";
       },
     ],
     [
@@ -512,31 +512,52 @@ export async function runStoreProvisioningWorkflow(
 
         const deployment = await runGeneratedDeploymentStep(
           { slug: input.slug, target: "storefront" },
-          () => provisionStorefrontDeploymentForStore(input.slug, { waitForRuntime: false }),
+          () => provisionStorefrontDeploymentForStore(input.slug, { waitForRuntime: true }),
         );
 
         if (
           deployment.status === "failed" ||
           deployment.status === "pending-owner-env" ||
-          deployment.status === "pending-repo-sync"
+          deployment.status === "pending-repo-sync" ||
+          deployment.status !== "configured" ||
+          !deployment.runtimeConsistent
         ) {
           throw new Error(deployment.message || "Storefront deployment basarisiz oldu.");
         }
 
-        return deployment.message || "Storefront deployment tetiklendi.";
+        return deployment.message || "Storefront runtime dogrulandi.";
       },
     ],
-    ];
+  ];
 
-    for (const [key, action] of workflow) {
-      const succeeded = await runWorkflowStep(tracker, key, action);
+  for (const [key, action] of workflow) {
+    const succeeded = await runWorkflowStep(tracker, key, action);
 
-      if (!succeeded) {
-        break;
-      }
+    if (!succeeded) {
+      break;
     }
+  }
 
-    await syncOwnerStoresAndMetrics();
+  if (getProvisioningBlockers(tracker.summary).length === 0) {
+    await tracker.start("authority_repo_sync");
+
+    try {
+      const authoritySync = await syncStoreAuthorityRepoForStore(input.slug);
+
+      if (authoritySync.status !== "synced") {
+        throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+
+      await tracker.complete(
+        "authority_repo_sync",
+        authoritySync.message || "Store authority repo son durumla senkronlandi.",
+      );
+    } catch (error) {
+      await tracker.fail("authority_repo_sync", error);
+    }
+  }
+
+  await syncOwnerStoresAndMetrics();
     const result = await tracker.finalize();
 
     await recordOwnerAuditLog({

@@ -541,16 +541,19 @@ export async function provisionStorefrontDeploymentForStore(
         }`,
       );
     });
-    const deploymentStatus = runtimeBlueprint.runtimeConsistent ? "configured" : "prepared";
-    const deployedAt = runtimeBlueprint.runtimeConsistent
-      ? new Date().toISOString()
-      : undefined;
+    if (!runtimeBlueprint.runtimeConsistent) {
+      throw new Error(
+        runtimeBlueprint.runtimeMessage ||
+          "Storefront runtime beklenen sure icinde tutarli cevap vermedi.",
+      );
+    }
+
+    const deploymentStatus = "configured";
+    const deployedAt = new Date().toISOString();
 
     updateStoreStorefrontConfig(slug, {
       appDir: store.storefront?.appDir ?? "",
-      status: runtimeBlueprint.runtimeConsistent
-        ? "active"
-        : store.storefront?.status ?? "scaffolded",
+      status: "active",
       lastScaffoldError: store.storefront?.lastScaffoldError,
     });
     updateStoreStorefrontDeploymentConfig(slug, {

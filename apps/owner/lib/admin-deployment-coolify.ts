@@ -513,8 +513,14 @@ export async function provisionAdminDeploymentForStore(
         }`,
       );
     });
-    const deploymentStatus = runtimeBlueprint.runtimeConsistent ? "configured" : "prepared";
-    const deployedAt = runtimeBlueprint.runtimeConsistent ? new Date().toISOString() : undefined;
+    if (!runtimeBlueprint.runtimeConsistent) {
+      throw new Error(
+        runtimeBlueprint.runtimeMessage || "Admin runtime beklenen sure icinde tutarli cevap vermedi.",
+      );
+    }
+
+    const deploymentStatus = "configured";
+    const deployedAt = new Date().toISOString();
 
     updateStoreAdminDeploymentConfig(slug, {
       deploymentStatus,

@@ -8,7 +8,7 @@ import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { getRepoRoot } from "@celebix/platform-config";
-import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import { syncStoreAuthorityRepoForStore, syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 import {
   type DeploymentWindowHandle,
   releaseGeneratedDeploymentWindow,
@@ -75,9 +75,15 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
     let deployment;
 
     try {
-      deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
+      deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: true });
     } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
+    }
+
+    const authoritySync = await syncStoreAuthorityRepoForStore(slug);
+
+    if (authoritySync.status !== "synced") {
+      throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
     }
 
     await syncOwnerStoresAndMetrics();
