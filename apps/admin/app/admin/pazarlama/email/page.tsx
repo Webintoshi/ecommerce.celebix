@@ -319,11 +319,8 @@ export default function EmailMarketingPage() {
               </span>
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  Kampanya kurgusunu daha sıcak, daha net ve daha kontrollü yönetin.
+                  E-posta Kampanyaları
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-[#7a6654] md:text-[15px]">
-                  Resend bağlantısını doğrulayın, şablonları düzenleyin ve alıcı seçiminden önizlemeye kadar tüm e-posta akışını tek panelde yönetin.
-                </p>
               </div>
             </div>
 
@@ -368,7 +365,6 @@ export default function EmailMarketingPage() {
                     Gönderici bağlantısı
                   </span>
                   <h2 className="mt-3 text-lg font-semibold text-[#3f2a17]">Resend ayarları</h2>
-                  <p className="mt-1 text-sm text-[#826c57]">Mağaza bazlı gönderici kimliğini güvenli şekilde yönetin.</p>
                 </div>
                 <a
                   href="https://resend.com/signup"
@@ -459,7 +455,6 @@ export default function EmailMarketingPage() {
                       Şablon listesi
                     </span>
                     <h2 className="mt-3 text-lg font-semibold text-[#3f2a17]">Kampanya akışları</h2>
-                    <p className="mt-1 text-sm text-[#826c57]">Her kampanya tipi için konu ve içerik alanını ayrı yönetin.</p>
                   </div>
 
                   <div className="space-y-2">

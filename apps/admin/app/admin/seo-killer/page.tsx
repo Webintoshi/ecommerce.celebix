@@ -100,7 +100,6 @@ function BigCard({
   icon: Icon,
   tone,
   title,
-  subtitle,
   count,
   completed,
   score,
@@ -109,7 +108,6 @@ function BigCard({
   icon: LucideIcon;
   tone: string;
   title: string;
-  subtitle: string;
   count: number;
   completed: number;
   score: number;
@@ -133,7 +131,6 @@ function BigCard({
 
         <div className="mt-6">
           <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[#8f7765]">{subtitle}</p>
         </div>
 
         <div className="mt-6 rounded-[24px] border border-[#f0e3d7] bg-[#fcf8f3] p-4">
@@ -276,9 +273,6 @@ export default function SEODashboard() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#2f241d] md:text-4xl">SEO Merkezi</h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7f6858] md:text-base">
-                    Ürün, kategori ve sabit sayfa performansını tek akışta takip edin; eksikleri sıcak, premium bir yönetim deneyimiyle tamamlayın.
-                  </p>
                 </div>
               </div>
             </div>
@@ -353,7 +347,6 @@ export default function SEODashboard() {
               icon={Package}
               tone="border-[#ffd8b8] bg-gradient-to-br from-[#fff3e7] to-white text-[#C54E00]"
               title="Ürünler"
-              subtitle="Satıştaki ürünlerin başlık, açıklama ve görsel bütünlüğünü yönetin."
               count={stats.products.total}
               completed={stats.products.completed}
               score={stats.products.avgScore}
@@ -363,7 +356,6 @@ export default function SEODashboard() {
               icon={FolderOpen}
               tone="border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600"
               title="Kategoriler"
-              subtitle="Listeleme sayfalarının taranabilir ve açıklayıcı görünmesini sağlayın."
               count={stats.categories.total}
               completed={stats.categories.completed}
               score={stats.categories.avgScore}
@@ -373,7 +365,6 @@ export default function SEODashboard() {
               icon={FileText}
               tone="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600"
               title="Sayfalar"
-              subtitle="Ana sayfa ve kurumsal içeriklerde marka anlatısını güçlendirin."
               count={stats.pages.total}
               completed={stats.pages.completed}
               score={stats.pages.avgScore}

@@ -247,9 +247,7 @@ export default function PromoBannerSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Promosyon Banner Yönetimi</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Ana sayfadaki promosyon bannerlarını yönetin. Önerilen boyutlar: 
-            <span className="font-medium text-gray-700"> Masaüstü: 1080x1350px</span> (4:5), 
-            <span className="font-medium text-gray-700"> Mobil: 1080x600px</span> (16:9)
+            Önerilen boyutlar: <span className="font-medium text-gray-700">Masaüstü: 1080x1350</span>, <span className="font-medium text-gray-700">Mobil: 1080x600</span>
           </p>
         </div>
         <button

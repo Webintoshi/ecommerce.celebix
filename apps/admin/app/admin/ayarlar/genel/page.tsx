@@ -619,7 +619,6 @@ export default function GeneralSettingsPage() {
         <div className="flex items-center justify-between px-6 py-4 xl:px-8">
           <div>
             <h1 className="text-xl font-bold tracking-[-0.03em] text-[#2f241d]">Mağaza Ayarları</h1>
-            <p className="text-[13px] text-[#7d6959] mt-0.5">Mağazanızın temel bilgilerini yönetin</p>
           </div>
           <button
             onClick={() => void handleSubmit()}

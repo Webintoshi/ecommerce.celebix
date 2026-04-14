@@ -558,11 +558,6 @@ function RevenueCard({
               <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950 md:text-[30px]">
                 Dönemsel gelir akışı
               </h2>
-              <p className="mt-2 text-sm leading-6 text-gray-600 md:text-[15px]">
-                {selectedPeriod === "today"
-                  ? "Bugün içindeki sipariş ve gelir hareketlerini izleyin."
-                  : "Seçili zaman aralığında gelir performansınızın nasıl geliştiğini tek bakışta görün."}
-              </p>
             </div>
           </div>
 

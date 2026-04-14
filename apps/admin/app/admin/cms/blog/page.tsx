@@ -114,12 +114,8 @@ export default function BlogListingPage() {
 
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  İçerik planını sıcak ve premium bir düzende yönetin
+                  Blog İçerikleri
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
-                  Blog içeriklerinizi yönetin; mağazaya özel stratejiyi aynı ekranda daha okunaklı,
-                  daha net bir yönetim deneyimiyle takip edin.
-                </p>
               </div>
             </div>
 
@@ -222,9 +218,6 @@ function LoadingState() {
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-stone-900">Blog stratejisi yükleniyor</h2>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-stone-600">
-          Kategoriler, ürünler ve mevcut yazılar bir araya getiriliyor; görünüm hazırlanıyor.
-        </p>
       </div>
     </section>
   );
@@ -260,7 +253,7 @@ function ListView({
           <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
             İçerik listesi
           </div>
-          <h2 className="mt-3 text-lg font-semibold text-stone-900">Yazılar daha net okunur tabloda</h2>
+          <h2 className="mt-3 text-lg font-semibold text-stone-900">Yazılar</h2>
         </div>
         <div className="text-sm text-stone-600">
           Toplam {totalPosts} yazı içinden {posts.length} kayıt gösteriliyor.
