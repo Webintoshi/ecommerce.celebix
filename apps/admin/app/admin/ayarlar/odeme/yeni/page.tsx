@@ -114,21 +114,6 @@ export default function NewPaymentGatewayPage() {
                   {provider.name}
                 </h3>
                 <p className="text-xs text-gray-500">{provider.description}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className={`px-2 py-0.5 text-[10px] rounded-full ${provider.implementationStatus === "live" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                    {provider.implementationStatus === "live" ? "Canli adapter hazir" : "Katalog hazir"}
-                  </span>
-                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full">
-                    {provider.integrationFamily}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {provider.supportedMethods.slice(0, 3).map((method) => (
-                    <span key={method} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full">
-                      {method}
-                    </span>
-                  ))}
-                </div>
               </button>
             ))}
           </div>
