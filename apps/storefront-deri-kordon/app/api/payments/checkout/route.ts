@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
                 customerIp: getRequestIp(request),
                 shippingAddress: body.shippingAddress,
                 billingAddress: body.billingAddress || body.shippingAddress,
+                shippingCost: Number(body.shippingCost || 0),
+                discount: Number(body.discount || 0),
                 siteUrl: getBaseUrl(request),
             });
 

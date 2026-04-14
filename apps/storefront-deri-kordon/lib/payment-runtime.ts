@@ -47,6 +47,8 @@ interface CheckoutContext {
     customerIp: string;
     shippingAddress: CheckoutAddressInput;
     billingAddress: CheckoutAddressInput;
+    shippingCost?: number;
+    discount?: number;
     siteUrl: string;
 }
 
@@ -114,6 +116,129 @@ function sanitizeReference(value: string) {
 
 function buildBuyerName(address: CheckoutAddressInput) {
     return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Musteri";
+}
+
+function normalizeCountryName(value: string | undefined) {
+    const normalized = value?.trim().toLowerCase() || "";
+    if (!normalized) {
+        return "Turkey";
+    }
+
+    if (
+        normalized === "turkey"
+        || normalized === "turkiye"
+        || normalized === "türkiye"
+        || normalized === "tã¼rkiye"
+    ) {
+        return "Turkey";
+    }
+
+    return value?.trim() || "Turkey";
+}
+
+function toCents(value: number) {
+    return Math.round(value * 100);
+}
+
+function fromCents(value: number) {
+    return value / 100;
+}
+
+type IyzicoBasketLine = {
+    id: string;
+    name: string;
+    category1: string;
+    itemType: "PHYSICAL" | "VIRTUAL";
+    cents: number;
+};
+
+function distributeDiscountAcrossLines(lines: IyzicoBasketLine[], discountCents: number) {
+    if (discountCents <= 0 || lines.length === 0) {
+        return lines;
+    }
+
+    const grossCents = lines.reduce((sum, line) => sum + line.cents, 0);
+    if (grossCents <= 0) {
+        return lines;
+    }
+
+    const cappedDiscount = Math.min(discountCents, grossCents - 1);
+    if (cappedDiscount <= 0) {
+        return lines;
+    }
+
+    const allocations = lines.map((line) => {
+        const rawShare = (line.cents * cappedDiscount) / grossCents;
+        const baseAllocation = Math.min(line.cents, Math.floor(rawShare));
+        return {
+            line,
+            allocated: baseAllocation,
+            remainder: rawShare - baseAllocation,
+        };
+    });
+
+    let remainingDiscount = cappedDiscount - allocations.reduce((sum, entry) => sum + entry.allocated, 0);
+    allocations.sort((left, right) => right.remainder - left.remainder);
+
+    while (remainingDiscount > 0) {
+        let applied = false;
+
+        for (const entry of allocations) {
+            if (entry.allocated >= entry.line.cents) {
+                continue;
+            }
+
+            entry.allocated += 1;
+            remainingDiscount -= 1;
+            applied = true;
+
+            if (remainingDiscount === 0) {
+                break;
+            }
+        }
+
+        if (!applied) {
+            break;
+        }
+    }
+
+    return allocations
+        .map((entry) => ({
+            ...entry.line,
+            cents: Math.max(1, entry.line.cents - entry.allocated),
+        }))
+        .filter((line) => line.cents > 0);
+}
+
+function buildIyzicoBasketItems(context: CheckoutContext) {
+    const lines: IyzicoBasketLine[] = context.items.map((item, index) => ({
+        id: item.productId || `product-${index + 1}`,
+        name: item.productName,
+        category1: "Urun",
+        itemType: "PHYSICAL",
+        cents: Math.max(1, toCents(item.total ?? item.price * item.quantity)),
+    }));
+
+    const shippingCents = Math.max(0, toCents(context.shippingCost || 0));
+    if (shippingCents > 0) {
+        lines.push({
+            id: `${context.order.id}-shipping`,
+            name: "Kargo Ucreti",
+            category1: "Kargo",
+            itemType: "VIRTUAL",
+            cents: shippingCents,
+        });
+    }
+
+    const discountedLines = distributeDiscountAcrossLines(lines, Math.max(0, toCents(context.discount || 0)));
+
+    return discountedLines.map((line) => ({
+        id: line.id,
+        name: line.name,
+        category1: line.category1,
+        itemType: line.itemType,
+        price: toCurrencyAmount(fromCents(line.cents)),
+    }));
 }
 
 function formatIyzicoDate(date: Date) {
@@ -357,7 +482,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
 
     const addressLine = context.shippingAddress.address?.trim() || "Adres bilgisi yok";
     const city = context.shippingAddress.city?.trim() || "Istanbul";
-    const country = context.shippingAddress.country?.trim() || "Turkey";
+    const country = normalizeCountryName(context.shippingAddress.country);
     const buyerName = buildBuyerName(context.shippingAddress);
     const now = formatIyzicoDate(new Date());
 
@@ -397,17 +522,11 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         billingAddress: {
             contactName: buyerName,
             city: context.billingAddress.city?.trim() || city,
-            country: context.billingAddress.country?.trim() || country,
+            country: normalizeCountryName(context.billingAddress.country) || country,
             address: context.billingAddress.address?.trim() || addressLine,
             zipCode: context.billingAddress.postalCode || context.shippingAddress.postalCode || "34000",
         },
-        basketItems: context.items.map((item) => ({
-            id: item.productId,
-            name: item.productName,
-            category1: "Gida",
-            itemType: "PHYSICAL",
-            price: toCurrencyAmount(item.total ?? item.price * item.quantity),
-        })),
+        basketItems: buildIyzicoBasketItems(context),
     };
 
     try {
