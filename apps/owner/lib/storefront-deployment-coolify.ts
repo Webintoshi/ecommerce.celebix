@@ -584,11 +584,47 @@ async function readLatestDeploymentSummary(applicationUuid: string): Promise<str
 }
 
 function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
-  if (!logs?.trim()) {
+  const trimmedLogs = logs?.trim();
+
+  if (!trimmedLogs) {
     return null;
   }
 
-  const lines = logs
+  try {
+    const parsed = JSON.parse(trimmedLogs) as Array<{
+      output?: string | null;
+      command?: string | null;
+      type?: string | null;
+      timestamp?: string | null;
+    }>;
+
+    if (Array.isArray(parsed)) {
+      const entries = parsed
+        .map((entry) => {
+          const output = entry.output?.replace(/\u001b\[[0-9;]*m/g, "").trim();
+          const command = entry.command?.replace(/\u001b\[[0-9;]*m/g, "").trim();
+
+          if (output) {
+            return output;
+          }
+
+          if (command) {
+            return command;
+          }
+
+          return null;
+        })
+        .filter((entry): entry is string => Boolean(entry));
+
+      if (entries.length > 0) {
+        return entries.slice(-10).join(" | ").slice(0, 1200);
+      }
+    }
+  } catch {
+    // fall back to plain-text log summarization
+  }
+
+  const lines = trimmedLogs
     .split(/\r?\n/)
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "").trim())
     .filter(Boolean);
