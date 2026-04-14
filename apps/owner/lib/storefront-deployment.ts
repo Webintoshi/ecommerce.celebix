@@ -445,7 +445,7 @@ export async function getStorefrontDeploymentBlueprint(
     resourceId: store.storefront?.resourceId ?? null,
     serverPort,
     workspace,
-    installCommand: "npm ci --include=optional --no-audit --no-fund",
+    installCommand: "npm install --include=optional --no-audit --no-fund",
     buildCommand: `npm run build --workspace ${workspace}`,
     startCommand: `npm run start --workspace ${workspace}`,
     appDirectory,
