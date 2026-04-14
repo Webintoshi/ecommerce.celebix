@@ -120,13 +120,29 @@ export default async function OrderDetailPage({ params }: PageProps) {
     const gatewayConfig = (paymentGateways as PaymentGateway[]).find(
         (g) => g.id === order.payment_method
     );
-    const paymentMethodName = gatewayConfig
-        ? gatewayConfig.name
-        : order.payment_method === "cod"
-          ? "Kapıda Ödeme"
-          : order.payment_method === "bank_transfer"
-            ? "Havale / EFT"
-            : "Kredi Kartı";
+    let paymentMethodName = "Kredi Kartı";
+    if (gatewayConfig) {
+        paymentMethodName = gatewayConfig.name;
+    } else if (order.payment_method === "cod" || order.payment_method === "cash") {
+        paymentMethodName = "Kapıda Ödeme";
+    } else if (order.payment_method === "bank_transfer") {
+        paymentMethodName = "Havale / EFT";
+    } else {
+        const m = (order.payment_method || "").toLowerCase();
+        if (m.includes("iyzico")) paymentMethodName = "İyzico";
+        else if (m.includes("paytr")) paymentMethodName = "PAYTR";
+        else if (m.includes("stripe")) paymentMethodName = "Stripe";
+        else if (m.includes("craftgate")) paymentMethodName = "Craftgate";
+        else if (m.includes("paynet")) paymentMethodName = "Paynet";
+        else if (order.payment_method && order.payment_method.startsWith("pg-")) {
+            const parts = order.payment_method.replace("pg-", "").split("-");
+            if (parts.length > 0) {
+                paymentMethodName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+            } else {
+                paymentMethodName = order.payment_method;
+            }
+        }
+    }
 
     const statusConfig = getStatusConfig(order.status);
 

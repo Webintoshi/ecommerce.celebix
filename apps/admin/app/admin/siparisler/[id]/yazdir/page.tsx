@@ -41,11 +41,24 @@ function getStatusLabel(status: OrderStatus) {
 }
 
 function getPaymentMethodName(paymentMethod: string, paymentGateways: PaymentGateway[]) {
-  if (paymentMethod === "cod") return "Kapıda Ödeme";
-  if (paymentMethod === "bank_transfer") return "Havale / EFT";
+  if (paymentMethod === "cod" || paymentMethod === "cash") return "Kapıda Ödeme";
+  if (paymentMethod === "bank_transfer" || paymentMethod === "havale") return "Havale / EFT";
 
   const gateway = paymentGateways.find((g) => g.id === paymentMethod);
-  return gateway?.name || "Kredi Kartı";
+  if (gateway) return gateway.name;
+
+  const m = (paymentMethod || "").toLowerCase();
+  if (m.includes("iyzico")) return "İyzico";
+  if (m.includes("paytr")) return "PAYTR";
+  if (m.includes("stripe")) return "Stripe";
+  if (m.includes("craftgate")) return "Craftgate";
+  if (m.includes("paynet")) return "Paynet";
+  
+  if (paymentMethod && paymentMethod.startsWith("pg-")) {
+    const parts = paymentMethod.replace("pg-", "").split("-");
+    if (parts.length > 0) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  }
+  return paymentMethod || "Kredi Kartı";
 }
 
 function formatPrice(amount: number) {

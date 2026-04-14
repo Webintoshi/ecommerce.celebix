@@ -248,15 +248,24 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   };
 
   const getPaymentMethodName = (method: string) => {
-    const methods: Record<string, string> = {
-      cod: "Kapıda Ödeme",
-      bank_transfer: "Havale/EFT",
-      credit_card: "Kredi Kartı",
-      paytr: "PAYTR",
-      iyzico: "İyzico",
-      stripe: "Stripe",
-    };
-    return methods[method] || method;
+    if (!method) return "Bilinmiyor";
+    const m = method.toLowerCase();
+    if (m.includes("iyzico")) return "İyzico";
+    if (m.includes("paytr")) return "PAYTR";
+    if (m.includes("stripe")) return "Stripe";
+    if (m.includes("craftgate")) return "Craftgate";
+    if (m.includes("paynet")) return "Paynet";
+    if (m.includes("cod") || m.includes("cash")) return "Kapıda Ödeme";
+    if (m.includes("bank_transfer") || m.includes("havale")) return "Havale/EFT";
+    if (m.includes("credit_card")) return "Kredi Kartı";
+
+    if (method.startsWith("pg-")) {
+      const parts = method.replace("pg-", "").split("-");
+      if (parts.length > 0) {
+        return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      }
+    }
+    return method;
   };
 
   if (loading) {

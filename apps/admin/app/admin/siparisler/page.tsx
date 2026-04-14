@@ -129,48 +129,50 @@ function formatTime(date: Date) {
   }).format(new Date(date));
 }
 
-function getPaymentMethodIcon(method: string) {
-  const icons: Record<string, string> = {
-    cod: "💵",
-    bank_transfer: "🏦",
-    credit_card: "💳",
-    paytr: "💳",
-    iyzico: "💳",
-    stripe: "💳",
-  };
-
-  return icons[method] || "💳";
+function getPaymentMethodIcon(method: string | undefined) {
+  if (!method) return "💳";
+  const m = method.toLowerCase();
+  if (m.includes("cod") || m.includes("cash")) return "📦";
+  if (m.includes("bank_transfer") || m.includes("havale")) return "🏦";
+  return "💳";
 }
 
 function getPaymentMethodName(method: string | undefined) {
-  const names: Record<string, string> = {
-    cod: "Kapıda ödeme",
-    bank_transfer: "Havale/EFT",
-    credit_card: "Kredi kartı",
-    paytr: "PAYTR",
-    iyzico: "İyzico",
-    stripe: "Stripe",
-  };
+  if (!method) return "Bilinmiyor";
 
-  return names[method || ""] || method || "Bilinmiyor";
+  const m = method.toLowerCase();
+  if (m.includes("iyzico")) return "İyzico";
+  if (m.includes("paytr")) return "PAYTR";
+  if (m.includes("stripe")) return "Stripe";
+  if (m.includes("craftgate")) return "Craftgate";
+  if (m.includes("paynet")) return "Paynet";
+  if (m.includes("cod") || m.includes("cash")) return "Kapıda Ödeme";
+  if (m.includes("bank_transfer") || m.includes("havale")) return "Havale/EFT";
+  if (m.includes("credit_card")) return "Kredi Kartı";
+
+  if (method.startsWith("pg-")) {
+    const parts = method.replace("pg-", "").split("-");
+    if (parts.length > 0) {
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+  }
+
+  return method;
 }
 
 function SummaryCard({
   label,
   value,
-  hint,
   tone,
 }: {
   label: string;
   value: string;
-  hint: string;
   tone: string;
 }) {
   return (
     <div className={cn("border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6", tone)}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
       <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-      <p className="mt-1 text-sm text-gray-600">{hint}</p>
     </div>
   );
 }
@@ -399,25 +401,21 @@ export default function OrdersPage() {
               <SummaryCard
                 label="Toplam Sipariş"
                 value={stats.total.toLocaleString("tr-TR")}
-                hint="Tüm sipariş kayıtları"
                 tone=""
               />
               <SummaryCard
                 label="Bugünkü Sipariş"
                 value={stats.today.toLocaleString("tr-TR")}
-                hint="Son 24 saatte oluşan sipariş"
                 tone=""
               />
               <SummaryCard
                 label="Bekleyen İşlem"
                 value={stats.pending.toLocaleString("tr-TR")}
-                hint="Operasyon bekleyen sipariş"
                 tone=""
               />
               <SummaryCard
                 label="Toplam Ciro"
                 value={formatPrice(stats.revenue)}
-                hint="Siparişlerden oluşan toplam tutar"
                 tone=""
               />
             </div>
@@ -469,11 +467,8 @@ export default function OrdersPage() {
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+                  <h2 id="orders-filters-title" className="text-xl font-semibold tracking-[-0.03em] text-gray-950">
                     Filtreler ve Sıralama
-                  </p>
-                  <h2 id="orders-filters-title" className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Siparişleri daraltın ve önceliklendirin
                   </h2>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600">
@@ -561,10 +556,7 @@ export default function OrdersPage() {
             <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Sipariş Tablosu
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">
                     Sipariş listesi
                   </h2>
                 </div>

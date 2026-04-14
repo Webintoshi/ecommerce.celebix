@@ -39,8 +39,9 @@ export async function POST(_: Request, { params }: RouteContext) {
       const deployment = await provisionAdminDeploymentForStore(slug, { waitForRuntime: false });
       return NextResponse.json({ success: true, deployment }, { status: 200 });
     } catch (error) {
-      await releaseGeneratedDeploymentWindow(deploymentWindow);
       throw error;
+    } finally {
+      await releaseGeneratedDeploymentWindow(deploymentWindow);
     }
   } catch (error) {
     if (isRedisLockError(error)) {

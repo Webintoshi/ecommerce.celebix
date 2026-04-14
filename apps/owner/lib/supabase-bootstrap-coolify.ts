@@ -194,8 +194,20 @@ function normalizeArrayPayload<T>(payload: unknown): T[] {
       return (payload as { data: T[] }).data;
     }
 
+    if ("result" in payload && Array.isArray((payload as { result?: unknown }).result)) {
+      return (payload as { result: T[] }).result;
+    }
+
     if ("services" in payload && Array.isArray((payload as { services?: unknown }).services)) {
       return (payload as { services: T[] }).services;
+    }
+
+    if ("envs" in payload && Array.isArray((payload as { envs?: unknown }).envs)) {
+      return (payload as { envs: T[] }).envs;
+    }
+
+    if ("variables" in payload && Array.isArray((payload as { variables?: unknown }).variables)) {
+      return (payload as { variables: T[] }).variables;
     }
 
     if ("environments" in payload && Array.isArray((payload as { environments?: unknown }).environments)) {
@@ -611,6 +623,22 @@ async function createSupabaseService(store: StoreConfig, projectUuid: string, en
   });
 }
 
+async function listServices(): Promise<CoolifyService[]> {
+  const payload = await coolifyFetch<unknown>("/services");
+  return normalizeArrayPayload<CoolifyService>(payload);
+}
+
+async function ensureSupabaseService(store: StoreConfig, projectUuid: string, environmentUuid: string): Promise<CoolifyService> {
+  const targetName = buildSupabaseServiceName(store);
+  const existing = (await listServices()).find((service) => service.name === targetName);
+
+  if (existing) {
+    return existing;
+  }
+
+  return createSupabaseService(store, projectUuid, environmentUuid);
+}
+
 async function listServiceEnvs(serviceUuid: string): Promise<CoolifyEnvironmentVariable[]> {
   const payload = await coolifyFetch<unknown>(`/services/${serviceUuid}/envs`);
   return normalizeArrayPayload<CoolifyEnvironmentVariable>(payload);
@@ -769,10 +797,12 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   const environmentUuid = resolveIdentifier(environment);
   const targetPublicUrl = await buildSupabasePublicUrl(store);
   const targetDashboardUrl = buildSupabaseDashboardUrl(targetPublicUrl);
+  const targetServiceName = buildSupabaseServiceName(store);
+  let serviceUuid: string | null = null;
 
   try {
-    const service = await createSupabaseService(store, projectUuid, environmentUuid);
-    const serviceUuid = resolveIdentifier(service);
+    const service = await ensureSupabaseService(store, projectUuid, environmentUuid);
+    serviceUuid = resolveIdentifier(service);
     const { publicKey, serviceKey, adminUser, adminPassword } = await waitForSupabaseRuntime(serviceUuid);
     await ensureSelfHostedStoreSchema(targetPublicUrl, adminUser, adminPassword);
     await seedSelfHostedStoreSettings(store, targetPublicUrl, adminUser, adminPassword);
@@ -810,18 +840,19 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
       projectUrl: targetPublicUrl,
       adminEnvLocalPath,
       dashboardUrl: targetDashboardUrl,
-      projectName: service.name || buildSupabaseServiceName(store),
+      projectName: service.name || targetServiceName,
       resourceId: serviceUuid,
     };
   } catch (error) {
     updateStoreSupabaseConfig(store.slug, {
-      projectRef: store.supabase.projectRef || "pending-owner-bootstrap",
-      url: store.supabase.url,
+      projectRef: serviceUuid ? buildProjectReference(store, serviceUuid) : store.supabase.projectRef || "pending-owner-bootstrap",
+      url: targetPublicUrl || store.supabase.url,
       provider: "self_hosted_coolify",
       organizationSlug: organization.slug,
       provisioningStatus: "failed",
-      dashboardUrl: store.supabase.dashboardUrl,
-      projectName: buildSupabaseServiceName(store),
+      dashboardUrl: targetDashboardUrl || store.supabase.dashboardUrl,
+      projectName: targetServiceName,
+      resourceId: serviceUuid ?? undefined,
       lastProvisionError: error instanceof Error ? error.message : "Coolify Supabase provisioning basarisiz oldu.",
     });
 
