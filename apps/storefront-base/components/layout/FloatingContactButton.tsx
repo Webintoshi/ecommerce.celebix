@@ -69,7 +69,7 @@ export function FloatingContactButton() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-[-1] bg-neutral-950/8 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[-1] bg-neutral-950/12 backdrop-blur-[1px]"
             onClick={closeMenu}
           />
         ) : null}
@@ -87,11 +87,11 @@ export function FloatingContactButton() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: isBottomPosition ? 10 : -10, scale: 0.98 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className={`w-[min(17.5rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-[#d6bd9d]/60 bg-[linear-gradient(180deg,rgba(255,250,243,0.95),rgba(246,235,217,0.94))] p-1.5 shadow-[0_22px_54px_-22px_rgba(64,43,18,0.24)] ring-1 ring-white/70 backdrop-blur-xl ${
+              className={`w-[min(16.75rem,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-[#7f6444]/35 bg-[linear-gradient(180deg,rgba(33,27,22,0.94),rgba(21,18,15,0.96))] p-1.5 shadow-[0_24px_52px_-24px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl ${
                 isBottomPosition ? "mb-3" : "mt-3"
               }`}
             >
-              <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#c69559]/72 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#b88a52]/62 to-transparent" />
               <div className="flex flex-col gap-2">
                 {channels.map((channel, index) => {
                   const label = channel.label || getFloatingContactDefaultLabel(channel.type);
@@ -108,7 +108,7 @@ export function FloatingContactButton() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 8 }}
                       transition={{ delay: index * 0.04, duration: 0.2 }}
-                      className="group flex items-center gap-3 rounded-[16px] border border-[#d3b895]/45 bg-white/72 px-3.5 py-2.5 text-[#2f2419] shadow-[0_10px_24px_-20px_rgba(64,43,18,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#c9aa82]/65 hover:bg-white/84"
+                      className="group flex items-center gap-3 rounded-[14px] border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[#f4ede2] shadow-[0_10px_24px_-20px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.06]"
                     >
                       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getChannelAccent(channel.type)}`}>
                         {getChannelIcon(channel.type)}
@@ -118,7 +118,7 @@ export function FloatingContactButton() {
                         {label}
                       </span>
 
-                      <ExternalLink className="h-4 w-4 shrink-0 text-[#a28764] transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[#7f6038]" />
+                      <ExternalLink className="h-4 w-4 shrink-0 text-white/45 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white/82" />
                     </motion.a>
                   );
                 })}
@@ -132,12 +132,12 @@ export function FloatingContactButton() {
           onClick={toggleOpen}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="group relative inline-flex h-[3rem] items-center gap-2.5 overflow-hidden rounded-full border border-[#b98954]/55 bg-[linear-gradient(135deg,rgba(188,138,79,0.96),rgba(128,86,47,0.96))] px-3.5 pr-4 text-white shadow-[0_18px_36px_-20px_rgba(79,49,20,0.45)] ring-1 ring-white/20 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_24px_46px_-22px_rgba(79,49,20,0.5)]"
+          className="group relative inline-flex h-[2.875rem] items-center gap-2.5 overflow-hidden rounded-full border border-[#8f714f]/45 bg-[linear-gradient(135deg,rgba(52,41,31,0.96),rgba(33,27,21,0.98))] px-3.5 pr-4 text-[#f6ede1] shadow-[0_16px_34px_-20px_rgba(0,0,0,0.48)] ring-1 ring-white/10 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_22px_44px_-22px_rgba(0,0,0,0.55)]"
           aria-expanded={isOpen}
           aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
         >
-          <span className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.36),transparent_62%)] opacity-100" />
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] ring-1 ring-white/25">
+          <span className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_62%)] opacity-100" />
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-white/14">
             <AnimatePresence mode="wait" initial={false}>
               {isOpen ? (
                 <motion.span
@@ -163,7 +163,7 @@ export function FloatingContactButton() {
             </AnimatePresence>
           </span>
 
-          <span className="relative text-[15px] font-semibold tracking-[-0.02em] text-white">
+          <span className="relative text-[14px] font-semibold tracking-[-0.01em] text-[#f6ede1]">
             {isOpen ? "Kapat" : "Iletisim"}
           </span>
         </motion.button>
@@ -175,13 +175,13 @@ export function FloatingContactButton() {
 function getChannelAccent(type: FloatingContactChannelType): string {
   switch (type) {
     case "whatsapp":
-      return "bg-[#25D366]/18 text-[#1e9b4c]";
+      return "bg-[#25D366]/18 text-[#7ee0a3]";
     case "instagram":
-      return "bg-[linear-gradient(135deg,rgba(131,58,180,0.14),rgba(253,29,29,0.12),rgba(247,119,55,0.12))] text-[#b2368e]";
+      return "bg-[linear-gradient(135deg,rgba(131,58,180,0.22),rgba(253,29,29,0.2),rgba(247,119,55,0.16))] text-[#ffc1e1]";
     case "form":
-      return "bg-[#8b5a2b]/14 text-[#7b4c1d]";
+      return "bg-white/12 text-white/85";
     default:
-      return "bg-[#8b5a2b]/14 text-[#7b4c1d]";
+      return "bg-white/12 text-white/85";
   }
 }
 
