@@ -47,10 +47,9 @@ export async function POST(_: Request, { params }: RouteContext) {
 
       await syncOwnerStoresAndMetrics();
       return NextResponse.json({ success: true, deployment }, { status: 200 });
-    } catch (error) {
-      throw error;
     } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
+      await syncOwnerStoresAndMetrics().catch(() => undefined);
     }
   } catch (error) {
     if (isRedisLockError(error)) {

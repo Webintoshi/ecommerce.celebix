@@ -76,29 +76,30 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
 
     try {
       deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: true });
+
+      const authoritySync = await syncStoreAuthorityRepoForStore(slug);
+
+      if (authoritySync.status !== "synced") {
+        throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+
+      await syncOwnerStoresAndMetrics();
+
+      return NextResponse.json(
+        {
+          success: true,
+          slug,
+          appDir: result.relativeAppDirectory,
+          blueprint,
+          repoSync,
+          deployment,
+        },
+        { status: 201 }
+      );
     } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
+      await syncOwnerStoresAndMetrics().catch(() => undefined);
     }
-
-    const authoritySync = await syncStoreAuthorityRepoForStore(slug);
-
-    if (authoritySync.status !== "synced") {
-      throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
-    }
-
-    await syncOwnerStoresAndMetrics();
-
-    return NextResponse.json(
-      {
-        success: true,
-        slug,
-        appDir: result.relativeAppDirectory,
-        blueprint,
-        repoSync,
-        deployment,
-      },
-      { status: 201 }
-    );
   } catch (error) {
     if (isRedisLockError(error)) {
       return NextResponse.json({ error: error.message }, { status: 409 });
