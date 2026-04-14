@@ -2,6 +2,10 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 import type { StoreConfig } from "@celebix/platform-config";
+import {
+  createPaymentProviderCatalog,
+  mergeStorePaymentGatewaysWithDefaults,
+} from "@celebix/payment-core";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 type JsonRecord = Record<string, unknown>;
@@ -651,6 +655,44 @@ function buildBlogPosts(
   ];
 }
 
+function buildStorefrontSiteUrl(store: StoreConfig): string {
+  return `https://${store.domains.storefront}`;
+}
+
+async function ensureStorePaymentGateways(
+  target: ReturnType<typeof createClient<any>>,
+  store: StoreConfig,
+) {
+  const storefrontUrl = buildStorefrontSiteUrl(store);
+  const paymentCatalog = createPaymentProviderCatalog({ storefrontUrl });
+  const { data, error } = await target
+    .from("settings")
+    .select("value")
+    .eq("key", "payment_gateways")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Payment gateway ayarlari okunamadi: ${error.message}`);
+  }
+
+  const existingGateways = paymentCatalog.normalizePaymentGateways(data?.value);
+  const mergedGateways = mergeStorePaymentGatewaysWithDefaults({
+    storefrontUrl,
+    existingGateways,
+  });
+  const { error: upsertError } = await target.from("settings").upsert(
+    {
+      key: "payment_gateways",
+      value: mergedGateways,
+    },
+    { onConflict: "key" },
+  );
+
+  if (upsertError) {
+    throw new Error(`Payment gateway ayarlari yazilamadi: ${upsertError.message}`);
+  }
+}
+
 async function hasCatalogContent(target: ReturnType<typeof createClient<any>>) {
   const [categories, products, blogPosts] = await Promise.all([
     target.from("categories").select("id", { count: "exact", head: true }),
@@ -690,13 +732,15 @@ export async function seedStarterStorefrontContent(
     },
   });
 
+  await ensureStorePaymentGateways(target, store);
+
   if (!options?.force) {
     const contentExists = await hasCatalogContent(target);
 
     if (contentExists) {
       return {
         status: "skipped",
-        message: "Starter storefront content atlandi; store zaten kategori veya urun iceriyor.",
+        message: "Starter storefront content atlandi; payment gateway sablonlari guncellendi ve store zaten kategori veya urun iceriyor.",
       };
     }
   }

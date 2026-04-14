@@ -262,6 +262,33 @@ export const DEFAULT_RUNTIME_IMPLEMENTED_GATEWAYS = [
   "cod",
 ] as const satisfies readonly PaymentGateway[];
 
+export const DEFAULT_STORE_PAYMENT_GATEWAYS = [
+  "paytr",
+  "paytr_iframe",
+  "iyzico",
+  "iyzico_iframe",
+  "pay_with_iyzico",
+  "garanti",
+  "garanti_pay",
+  "finansbank",
+  "ziraatpay",
+  "ziraat_katilim",
+  "ziraat",
+  "yapi_kredi",
+  "esnekpos",
+  "param",
+  "paratika",
+  "qnbpay",
+  "lidio",
+  "moka",
+  "hepsipay",
+  "craftgate",
+  "paynet",
+  "stripe",
+  "bank_transfer",
+  "cod",
+] as const satisfies readonly PaymentGateway[];
+
 const DEFAULT_BANK_ACCOUNT: PaymentBankAccountConfig = {
   bankName: "",
   iban: "",
@@ -276,6 +303,33 @@ const DEFAULT_COD_SETTINGS: CashOnDeliveryConfig = {
   applicableRegions: ["TURKIYE"],
   instructions: "",
 };
+
+function buildSeededPaymentGatewayId(gateway: PaymentGateway) {
+  return `seed-${gateway}`;
+}
+
+function resolveSeededGatewayConfiguration(
+  gateway: PaymentGateway,
+  storefrontUrl: string,
+  configuration: Record<string, string>,
+) {
+  if (isGatewayInFamily(gateway, PAYTR_FAMILY_GATEWAYS)) {
+    return {
+      ...configuration,
+      callbackUrl: configuration.callbackUrl || `${stripTrailingSlash(storefrontUrl)}/api/payments/paytr/callback`,
+    };
+  }
+
+  return configuration;
+}
+
+interface StorePaymentGatewaySeedOptions {
+  storefrontUrl: string;
+  existingGateways?: PaymentGatewayConfig[];
+  gateways?: readonly PaymentGateway[];
+  implementedGateways?: readonly PaymentGateway[];
+  now?: string;
+}
 
 const THREED_TYPE_OPTIONS: PaymentFieldOption[] = [
   { value: "3D_PAY", label: "3D Pay" },
@@ -1196,4 +1250,39 @@ export function createPaymentProviderCatalog(options: PaymentProviderCatalogOpti
     isRuntimeReadyPaymentGateway,
     getPaymentGatewayRuntimeStatus,
   };
+}
+
+export function createDefaultStorePaymentGateways(options: StorePaymentGatewaySeedOptions): PaymentGatewayConfig[] {
+  const catalog = createPaymentProviderCatalog({
+    storefrontUrl: options.storefrontUrl,
+    implementedGateways: options.implementedGateways,
+  });
+  const timestamp = options.now ?? new Date().toISOString();
+
+  return (options.gateways ?? DEFAULT_STORE_PAYMENT_GATEWAYS).map((gateway) => {
+    const seededGateway = catalog.createPaymentGatewayDefaults(gateway);
+
+    return {
+      ...seededGateway,
+      id: buildSeededPaymentGatewayId(gateway),
+      configuration: resolveSeededGatewayConfiguration(
+        gateway,
+        options.storefrontUrl,
+        seededGateway.configuration,
+      ),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
+export function mergeStorePaymentGatewaysWithDefaults(options: StorePaymentGatewaySeedOptions): PaymentGatewayConfig[] {
+  const existingGateways = options.existingGateways ?? [];
+  const existingGatewayIds = new Set(existingGateways.map((gateway) => gateway.gateway));
+  const defaultGateways = createDefaultStorePaymentGateways(options);
+
+  return [
+    ...existingGateways,
+    ...defaultGateways.filter((gateway) => !existingGatewayIds.has(gateway.gateway)),
+  ];
 }
