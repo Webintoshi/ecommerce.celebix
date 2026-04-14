@@ -3,7 +3,6 @@
 import { Lock, Settings, Wallet } from "lucide-react";
 import {
     getDefaultIyzicoBaseUrl,
-    getPaymentGatewayRuntimeStatus,
     getPaymentProviderDefinition,
     IYZICO_PRODUCTION_BASE_URL,
     IYZICO_SANDBOX_BASE_URL,
@@ -42,7 +41,6 @@ function renderFieldType(type?: string, secret?: boolean) {
 
 export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGatewayFormProps) {
     const definition = getPaymentProviderDefinition(gateway.gateway);
-    const runtimeStatus = getPaymentGatewayRuntimeStatus(gateway);
 
     function update(patch: Partial<PaymentGatewayConfig>) {
         onChange({ ...gateway, ...patch });
@@ -66,19 +64,6 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
 
     return (
         <div className="space-y-6">
-            <div className={`rounded-xl border p-4 ${runtimeStatus.isReady ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
-                <div className="flex items-center justify-between gap-4">
-                    <div>
-                        <h3 className={`text-sm font-semibold ${runtimeStatus.isReady ? "text-emerald-800" : "text-amber-800"}`}>
-                            Runtime Durumu: {runtimeStatus.label}
-                        </h3>
-                        <p className={`mt-1 text-sm ${runtimeStatus.isReady ? "text-emerald-700" : "text-amber-700"}`}>
-                            {runtimeStatus.message}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
             {errors.length > 0 && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4">
                     <h3 className="text-sm font-semibold text-red-800">Form hataları</h3>
