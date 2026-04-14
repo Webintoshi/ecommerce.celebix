@@ -59,7 +59,6 @@ export function FloatingContactButton() {
   }
 
   const isBottomPosition = settings.position.startsWith("bottom");
-  const buttonEyebrow = storeInfo?.name?.trim() || "Hizli destek";
 
   return (
     <div className={`pointer-events-none fixed z-50 ${POSITION_CLASSES[settings.position]}`}>
@@ -88,7 +87,7 @@ export function FloatingContactButton() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: isBottomPosition ? 10 : -10, scale: 0.98 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className={`w-[min(19.5rem,calc(100vw-2rem))] overflow-hidden rounded-[26px] border border-white/55 bg-white/78 p-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-2xl ${
+              className={`w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/65 bg-white/88 p-1.5 shadow-[0_22px_54px_-22px_rgba(15,23,42,0.28)] ring-1 ring-black/5 backdrop-blur-2xl ${
                 isBottomPosition ? "mb-3" : "mt-3"
               }`}
             >
@@ -109,19 +108,14 @@ export function FloatingContactButton() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 8 }}
                       transition={{ delay: index * 0.04, duration: 0.2 }}
-                      className="group flex items-center gap-3 rounded-[20px] border border-black/5 bg-white/88 px-3.5 py-3 text-neutral-900 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                      className="group flex items-center gap-3 rounded-[18px] border border-black/5 bg-white/92 px-3.5 py-3 text-neutral-900 shadow-[0_8px_22px_-18px_rgba(15,23,42,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
                     >
                       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getChannelAccent(channel.type)}`}>
                         {getChannelIcon(channel.type)}
                       </span>
 
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.95rem] font-semibold tracking-[-0.02em]">
-                          {label}
-                        </span>
-                        <span className="block text-[11px] text-neutral-500">
-                          Hemen baglan
-                        </span>
+                      <span className="min-w-0 flex-1 truncate text-[0.95rem] font-semibold tracking-[-0.02em]">
+                        {label}
                       </span>
 
                       <ExternalLink className="h-4 w-4 shrink-0 text-neutral-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-neutral-700" />
@@ -138,7 +132,7 @@ export function FloatingContactButton() {
           onClick={toggleOpen}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="group relative inline-flex h-14 items-center gap-3 overflow-hidden rounded-full border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(246,241,234,0.96))] px-4 pr-5 text-neutral-900 shadow-[0_18px_40px_-18px_rgba(15,23,42,0.38)] ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_24px_54px_-22px_rgba(15,23,42,0.42)]"
+          className="group relative inline-flex h-[3.25rem] items-center gap-3 overflow-hidden rounded-full border border-white/65 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,241,234,0.98))] px-4 pr-[1.125rem] text-neutral-900 shadow-[0_16px_34px_-18px_rgba(15,23,42,0.3)] ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_22px_48px_-22px_rgba(15,23,42,0.36)]"
           aria-expanded={isOpen}
           aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
         >
@@ -169,13 +163,8 @@ export function FloatingContactButton() {
             </AnimatePresence>
           </span>
 
-          <span className="relative flex flex-col items-start leading-none">
-            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-              {buttonEyebrow}
-            </span>
-            <span className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-neutral-900">
-              {isOpen ? "Kapat" : "Iletisim"}
-            </span>
+          <span className="relative text-[15px] font-semibold tracking-[-0.02em] text-neutral-900">
+            {isOpen ? "Kapat" : "Iletisim"}
           </span>
         </motion.button>
       </div>
