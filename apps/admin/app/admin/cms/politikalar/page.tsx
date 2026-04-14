@@ -112,12 +112,8 @@ export default function PolicyPagesListingPage() {
               </span>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  Hukuk metinlerini sıcak ve net bir görünümle yönetin
+                  Politika Sayfaları
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
-                  Mağaza footer'ında gösterilecek politika sayfalarını tek akışta düzenleyin.
-                  İçeriği olmayan politikalar storefront'ta görünmez; veri mantığı korunur.
-                </p>
               </div>
             </div>
 
@@ -249,9 +245,6 @@ function LoadingState() {
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-stone-900">Politikalar yükleniyor</h2>
-        <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">
-          Politika kartları hazırlanıyor ve yayın durumu görünür hale getiriliyor.
-        </p>
       </div>
     </section>
   );

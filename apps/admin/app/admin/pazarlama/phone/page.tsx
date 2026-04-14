@@ -64,11 +64,8 @@ export default function PhoneMarketingPage() {
               </span>
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  Arama akışını daha net, hızlı ve kontrollü yönetin.
+                  Telefon Kampanyaları
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-[#7a6654] md:text-[15px]">
-                  Müşteri seçimini tek ekranda yönetin, telefon listelerini düzenli görün ve arama notlarını ekibinizle uyumlu şekilde hazırlayın.
-                </p>
               </div>
             </div>
 

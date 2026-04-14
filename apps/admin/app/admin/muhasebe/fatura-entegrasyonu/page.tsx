@@ -320,9 +320,6 @@ export default function AccountingIntegrationsPage() {
                   </div>
                   <div>
                     <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Muhasebe bağlantıları</h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7f6858] md:text-base">
-                      Paraşüt, BizimHesap, Mikro, Logo İşbaşı, KolayBi ve Mükellef entegrasyonlarını tek panelde yönetin, durumu izleyin ve akışları güvenle güncelleyin.
-                    </p>
                   </div>
                 </div>
               </div>

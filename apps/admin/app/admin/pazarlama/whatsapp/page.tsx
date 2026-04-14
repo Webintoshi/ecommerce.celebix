@@ -112,11 +112,8 @@ export default function WhatsAppMarketingPage() {
               </span>
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  WhatsApp iletişim akışını daha seçici ve daha premium hale getirin.
+                  WhatsApp Kampanyaları
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-[#7a6654] md:text-[15px]">
-                  Doğru müşterileri seçin, mesaj şablonlarını düzenleyin ve gönderim öncesi içerik kalitesini tek panelde kontrol edin.
-                </p>
               </div>
             </div>
 

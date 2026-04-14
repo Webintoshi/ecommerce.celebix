@@ -71,7 +71,7 @@ export default function NewDiscountPage() {
             </div>
             <div className="bg-white/80 px-5 py-4 backdrop-blur-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tema</p>
-              <p className="mt-1 text-sm font-semibold text-[#2f241d]">Warm premium admin</p>
+              <p className="mt-1 text-sm font-semibold text-[#2f241d]">Standart</p>
             </div>
             <div className="bg-white/80 px-5 py-4 backdrop-blur-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Durum</p>

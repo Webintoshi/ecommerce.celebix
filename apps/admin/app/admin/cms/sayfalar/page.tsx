@@ -93,12 +93,8 @@ export default function PagesListingPage() {
               </span>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  Sabit sayfa içeriğini tek bakışta yönetin
+                  Kurumsal Sayfalar
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
-                  Ortak adminde yalnızca mağaza içeriği gireceğiniz sabit sayfalar yer alır. Yeni
-                  sayfa oluşturma kapatıldı; mevcut akış korunur.
-                </p>
               </div>
             </div>
 
@@ -231,9 +227,6 @@ function LoadingState() {
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-stone-900">Sayfalar yükleniyor</h2>
-        <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">
-          Sabit sayfa kartları hazırlanıyor ve mevcut içerik durumu listeleniyor.
-        </p>
       </div>
     </section>
   );
