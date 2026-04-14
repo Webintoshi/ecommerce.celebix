@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Search, X, Command } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath, type StorefrontLocale } from "@/lib/i18n";
 
@@ -129,13 +129,13 @@ export function HeaderSearchOverlay({
   if (!isMounted || !isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-start justify-center pt-[15vh] px-4">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center px-4 pb-6 pt-[8vh] sm:pt-[10vh]">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-neutral-950/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(28,20,10,0.28),rgba(10,8,5,0.66))] backdrop-blur-[3px]"
         onClick={onClose}
       />
 
@@ -144,57 +144,68 @@ export function HeaderSearchOverlay({
         initial={{ opacity: 0, y: -20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -20, scale: 0.96 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#e5d9ca] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_42%,#fcf8f2_100%)] shadow-[0_38px_90px_-34px_rgba(36,24,8,0.55)]"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d4b17b] to-transparent" />
+
         {/* Input Header */}
-        <div className="flex items-center gap-3 border-b border-neutral-100 px-4 py-3">
-          <Search className="h-5 w-5 text-neutral-400" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ürün ara..."
-            className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 outline-none"
-          />
-          {query ? (
-            <button
-              onClick={() => setQuery("")}
-              className="rounded-full p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : (
-            <div className="flex items-center gap-1 rounded-md bg-neutral-100 px-1.5 py-0.5">
-              <Command className="h-3 w-3 text-neutral-400" />
-              <span className="text-xs text-neutral-500">K</span>
-            </div>
-          )}
+        <div className="border-b border-[#ebe1d3] px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
+          <div className="flex items-center gap-2 rounded-2xl border border-[#d8c6a9]/80 bg-white/95 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_-24px_rgba(65,43,14,0.5)]">
+            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#f8f2e8] text-[#8e6a36]">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ürün ara..."
+              className="h-9 flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 outline-none"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                aria-label="Aramayı temizle"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1">
+                <Command className="h-3 w-3 text-neutral-400" />
+                <span className="text-[11px] font-medium text-neutral-500">K</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-2 pl-1 text-[11px] font-medium tracking-[0.08em] text-neutral-400">
+            En az 2 karakter yazın
+          </p>
         </div>
 
         {/* Results Area */}
-        <div className="max-h-[50vh] overflow-y-auto">
+        <div className="search-overlay-scroll max-h-[52vh] overflow-y-auto px-2 py-2 sm:px-3">
           {normalizedQuery.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-3 rounded-full bg-neutral-50 p-3">
-                <Search className="h-6 w-6 text-neutral-300" />
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <div className="mb-4 rounded-full bg-[radial-gradient(circle,#f5ecde_0%,#fbf6ee_72%)] p-4 ring-1 ring-[#ecdcc5]">
+                <Search className="h-7 w-7 text-[#b69564]" />
               </div>
-              <p className="text-sm text-neutral-400">
+              <p className="text-sm font-medium text-neutral-500">
                 Bir ürün adı yazarak aramaya başlayın
               </p>
             </div>
           ) : isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-800" />
+            <div className="flex items-center justify-center py-14">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e8dbc7] border-t-[#8a6635]" />
             </div>
           ) : results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-sm text-neutral-400">Sonuç bulunamadı</p>
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <p className="text-sm font-medium text-neutral-500">Sonuç bulunamadı</p>
             </div>
           ) : (
-            <div className="py-2">
+            <div className="py-1">
               {results.slice(0, MAX_RESULTS).map((product) => {
                 const firstVariant = product.variants?.[0];
                 const price = formatPrice(firstVariant?.price);
@@ -215,17 +226,17 @@ export function HeaderSearchOverlay({
                     key={product.id}
                     href={buildLocalizedPath(ROUTES.product(product.slug), locale)}
                     onClick={onClose}
-                    className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-neutral-50"
+                    className="group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 transition-all duration-200 hover:border-[#e8dcc9] hover:bg-white hover:shadow-[0_22px_44px_-36px_rgba(50,34,13,0.55)]"
                   >
-                    <div className="h-12 w-12 overflow-hidden rounded-lg bg-neutral-100">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-[#ece3d8] bg-neutral-100">
                       <img
                         src={getProductImage(product, resolveImageSrc)}
                         alt={product.name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-neutral-700">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-neutral-900 group-hover:text-neutral-700">
                         {product.name}
                       </p>
                       {price ? (
@@ -235,7 +246,7 @@ export function HeaderSearchOverlay({
                               {originalPriceLabel}
                             </p>
                           ) : null}
-                          <p className="text-xs text-neutral-500">{price}</p>
+                          <p className="text-xs font-medium text-[#8a6635]">{price}</p>
                         </div>
                       ) : null}
                     </div>
@@ -247,15 +258,31 @@ export function HeaderSearchOverlay({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/50 px-4 py-2 text-xs text-neutral-400">
-          <span>{results.length > 0 ? `${Math.min(results.length, MAX_RESULTS)} sonuç` : ""}</span>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <kbd className="rounded bg-white px-1.5 py-0.5 font-sans text-[10px] ring-1 ring-neutral-200">ESC</kbd>
-              <span>kapat</span>
-            </span>
-          </div>
+        <div className="flex items-center justify-between border-t border-[#ebe1d3] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,245,237,0.92))] px-4 py-3 text-xs text-neutral-500 sm:px-6">
+          <span className="rounded-full border border-[#e4d6c3] bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600">
+            {results.length > 0 ? `${Math.min(results.length, MAX_RESULTS)} sonuç` : ""}
+          </span>
+          <span className="flex items-center gap-2">
+            <kbd className="rounded-md border border-[#e4d6c3] bg-white px-1.5 py-0.5 font-sans text-[10px] text-neutral-500">ESC</kbd>
+            <span className="text-[11px] font-medium">kapat</span>
+          </span>
         </div>
+
+        <style jsx>{`
+          .search-overlay-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(138, 102, 53, 0.35) transparent;
+          }
+
+          .search-overlay-scroll::-webkit-scrollbar {
+            width: 7px;
+          }
+
+          .search-overlay-scroll::-webkit-scrollbar-thumb {
+            background: rgba(138, 102, 53, 0.35);
+            border-radius: 999px;
+          }
+        `}</style>
       </motion.div>
     </div>,
     document.body
