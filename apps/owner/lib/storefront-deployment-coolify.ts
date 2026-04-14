@@ -287,7 +287,7 @@ function buildStorefrontAppPayload(
     description: `Celebix storefront deployment for ${store.slug}`,
     domains: blueprint.runtimeUrl,
     ports_exposes: blueprint.serverPort,
-    base_directory: ".",
+    base_directory: "/",
     install_command: blueprint.installCommand,
     build_command: blueprint.buildCommand,
     start_command: blueprint.startCommand,
