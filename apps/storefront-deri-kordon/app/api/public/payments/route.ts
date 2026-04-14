@@ -5,6 +5,8 @@ import {
     sanitizePublicPaymentGateway,
 } from "@/lib/payment-providers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     try {
         const activeGateways = (await getStoredPaymentGateways())
