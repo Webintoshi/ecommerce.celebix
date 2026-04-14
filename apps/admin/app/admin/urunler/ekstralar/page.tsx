@@ -89,28 +89,24 @@ export default async function CustomizationSchemasPage() {
                 {
                   label: "Toplam şema",
                   value: schemas.length.toLocaleString("tr-TR"),
-                  hint: "Tanımlı ekstra akışları",
                   icon: Layers3,
                   tone: "text-[#FE6100]",
                 },
                 {
                   label: "Aktif şema",
                   value: activeSchemas.toLocaleString("tr-TR"),
-                  hint: "Kullanıma açık yapı",
                   icon: Settings2,
                   tone: "text-emerald-700",
                 },
                 {
                   label: "Toplam atama",
                   value: totalAssignments.toLocaleString("tr-TR"),
-                  hint: "Ürün ve kategori eşleşmeleri",
                   icon: Tags,
                   tone: "text-amber-700",
                 },
                 {
                   label: "Toplam adım",
                   value: totalSteps.toLocaleString("tr-TR"),
-                  hint: "Tüm şemalardaki adım sayısı",
                   icon: Package,
                   tone: "text-stone-700",
                 },
@@ -123,7 +119,6 @@ export default async function CustomizationSchemasPage() {
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
                         <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
-                        <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
                       </div>
                       <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white shadow-sm ${metric.tone}`}>
                         <Icon className="h-5 w-5" />

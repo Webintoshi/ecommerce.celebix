@@ -54,28 +54,24 @@ export default async function ProductReviewsPage() {
                 {
                   label: "Toplam yorum",
                   value: counts.all.toLocaleString("tr-TR"),
-                  hint: "Tüm moderasyon kayıtları",
                   icon: MessageSquare,
                   tone: "text-[#FE6100]",
                 },
                 {
                   label: "Onay bekleyen",
                   value: counts.pending.toLocaleString("tr-TR"),
-                  hint: "İnceleme bekleyen içerikler",
                   icon: Clock3,
                   tone: "text-amber-700",
                 },
                 {
                   label: "Yayındaki yorum",
                   value: counts.approved.toLocaleString("tr-TR"),
-                  hint: "Ürün sayfalarında görünür",
                   icon: CheckCircle2,
                   tone: "text-emerald-700",
                 },
                 {
                   label: "Reddedilen",
                   value: counts.rejected.toLocaleString("tr-TR"),
-                  hint: "Yayına alınmayan yorumlar",
                   icon: XCircle,
                   tone: "text-rose-700",
                 },
@@ -88,7 +84,6 @@ export default async function ProductReviewsPage() {
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
                         <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
-                        <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
                       </div>
                       <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white shadow-sm ${metric.tone}`}>
                         <Icon className="h-5 w-5" />
