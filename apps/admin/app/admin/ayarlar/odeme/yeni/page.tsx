@@ -69,9 +69,6 @@ export default function NewPaymentGatewayPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{"Yeni \u00d6deme Altyap\u0131s\u0131"}</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              GurmePOS referansi ile provider katalogunu genisletiyoruz. Canli adapter hazir olmayan saglayicilar checkouta acilmaz.
-            </p>
           </div>
         </div>
 
@@ -89,9 +86,6 @@ export default function NewPaymentGatewayPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1">{"\u00d6deme Sa\u011flay\u0131c\u0131s\u0131 Se\u00e7in"}</h2>
-            <p className="text-gray-500 text-sm">
-              Once provideri ekleyin, sonra runtime durumu "Canliya Hazir" olanlari checkouta acin.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
