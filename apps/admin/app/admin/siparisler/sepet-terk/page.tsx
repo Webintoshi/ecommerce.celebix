@@ -178,19 +178,16 @@ function getCartStatus(cart: AbandonedCart) {
 function HeroMetric({
   label,
   value,
-  hint,
   tone,
 }: {
   label: string;
   value: string;
-  hint: string;
   tone?: string;
 }) {
   return (
     <div className={cn("border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6", tone)}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
       <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-      <p className="mt-1 text-sm text-gray-600">{hint}</p>
     </div>
   );
 }
@@ -198,13 +195,11 @@ function HeroMetric({
 function MetricCard({
   title,
   value,
-  hint,
   icon: Icon,
   tone,
 }: {
   title: string;
   value: string;
-  hint: string;
   icon: typeof Package;
   tone: string;
 }) {
@@ -220,7 +215,6 @@ function MetricCard({
           <div>
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
-            <p className="mt-1 text-sm text-gray-500">{hint}</p>
           </div>
           <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm", tone)}>
             <Icon className="h-5 w-5" />
@@ -422,22 +416,18 @@ export default function AbandonedCartsPage() {
               <HeroMetric
                 label="Son 24 Saatte Terk"
                 value={safeStats.last24h.abandoned.toLocaleString("tr-TR")}
-                hint="Yeni terk edilen sepet adedi"
               />
               <HeroMetric
                 label="Son 24 Saatte Kurtarılan"
                 value={safeStats.last24h.recovered.toLocaleString("tr-TR")}
-                hint="Geri kazanılan sepet adedi"
               />
               <HeroMetric
                 label="Son 24 Saat Kayıp Değer"
                 value={formatCurrency(safeStats.last24h.lostValue)}
-                hint="Anlık potansiyel gelir kaybı"
               />
               <HeroMetric
                 label="Sepetten Satın Alma Oranı"
                 value={`%${safeStats.conversion.rate.toFixed(1)}`}
-                hint="Haftalık dönüşüm görünümü"
               />
             </div>
           </motion.section>
@@ -446,28 +436,24 @@ export default function AbandonedCartsPage() {
             <MetricCard
               title="Toplam sepet"
               value={safeStats.total.toLocaleString("tr-TR")}
-              hint="Takip edilen tüm sepetler"
               icon={ShoppingCart}
               tone="border-[#FE6100]/15 from-[#fff2e8] to-white text-[#FE6100]"
             />
             <MetricCard
               title="Aktif terk"
               value={activeAbandonedCount.toLocaleString("tr-TR")}
-              hint="Geri kazanım bekleyen sepetler"
               icon={Activity}
               tone="border-rose-200/60 from-rose-50 to-white text-rose-700"
             />
             <MetricCard
               title="Toplam değer"
               value={formatCurrency(safeStats.totalValue)}
-              hint="Tüm sepetlerin toplam hacmi"
               icon={DollarSign}
               tone="border-amber-200/60 from-amber-50 to-white text-amber-700"
             />
             <MetricCard
               title="Ortalama sepet"
               value={formatCurrency(Number(safeStats.avgValue.toFixed(2)))}
-              hint="Sepet başına ortalama değer"
               icon={Calendar}
               tone="border-emerald-200/60 from-emerald-50 to-white text-emerald-700"
             />
@@ -477,12 +463,7 @@ export default function AbandonedCartsPage() {
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Filtreler ve Sıralama
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Kurtarma görünümünü sadeleştirin
-                  </h2>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve Sıralama</h2>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600">
                   <ListFilter className="h-4 w-4 text-[#FE6100]" />

@@ -227,11 +227,6 @@ export default function SegmentsPage() {
               <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
                 Müşteri segmentleri
               </div>
-              <div>
-                <p className="max-w-2xl text-sm leading-6 text-[#7d6959] md:text-base">
-                  Segment kurallarını sıcak premium panel diline uygun biçimde yönetin, üyeleri inceleyin ve kayıt akışını tek panelden tamamlayın.
-                </p>
-              </div>
             </div>
 
             <button
@@ -244,9 +239,9 @@ export default function SegmentsPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3">
-            <HeroStat label="Toplam segment" value={segmentCount.toLocaleString("tr-TR")} detail="Kayıtlı segment havuzu" />
-            <HeroStat label="Eşleşen müşteri" value={matchedCustomers.toLocaleString("tr-TR")} detail="Tüm segmentlerdeki toplam eşleşme" />
-            <HeroStat label="Aktif görünüm" value={loading ? "Hazırlanıyor" : `${filtered.length.toLocaleString("tr-TR")} segment`} detail={activeSearch ? "Arama sonucuna göre filtrelendi" : "Tam liste gösteriliyor"} />
+            <HeroStat label="Toplam segment" value={segmentCount.toLocaleString("tr-TR")} />
+            <HeroStat label="Eşleşen müşteri" value={matchedCustomers.toLocaleString("tr-TR")} />
+            <HeroStat label="Aktif görünüm" value={loading ? "Hazırlanıyor" : `${filtered.length.toLocaleString("tr-TR")} segment`} />
           </div>
         </section>
 
@@ -256,8 +251,7 @@ export default function SegmentsPage() {
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Filtreler</p>
-                <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">Segment listesini daraltın</h2>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler</h2>
               </div>
               <div aria-live="polite" className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600">
                 <Users className="h-4 w-4 text-[#FE6100]" />
@@ -290,7 +284,6 @@ export default function SegmentsPage() {
               </div>
               <div>
                 <p className="text-base font-semibold text-[#2f241d]">Segmentler hazırlanıyor</p>
-                <p className="mt-1 text-sm text-[#7d6959]">Müşteri ve segment verileri eşleştiriliyor.</p>
               </div>
             </div>
           </section>
@@ -365,7 +358,6 @@ export default function SegmentsPage() {
                       {editingId ? "Segment düzenle" : "Yeni segment"}
                     </div>
                     <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[#2f241d]">Segment kural akışı</h2>
-                    <p className="mt-1 text-sm text-[#7d6959]">Koşulları düzenleyin, ardından mevcut müşteri havuzuna göre segmenti kaydedin.</p>
                   </div>
                   <button onClick={() => setOpenForm(false)} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#eadccd] bg-white text-[#6e5b4e] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"><X className="h-5 w-5" /></button>
                 </div>
@@ -526,12 +518,11 @@ export default function SegmentsPage() {
   );
 }
 
-function HeroStat({ label, value, detail }: { label: string; value: string; detail: string }) {
+function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-white/70 bg-white/80 px-5 py-5 backdrop-blur-sm md:px-6">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">{value}</p>
-      <p className="mt-1 text-sm text-[#7d6959]">{detail}</p>
     </div>
   );
 }

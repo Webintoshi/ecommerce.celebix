@@ -229,28 +229,23 @@ export default function VariantAttributesPage() {
                 {
                   label: "Toplam nitelik",
                   value: attributes.length.toLocaleString("tr-TR"),
-                  hint: "Tanımlı tüm nitelik grupları",
                 },
                 {
                   label: "Toplam değer",
                   value: totalValues.toLocaleString("tr-TR"),
-                  hint: "Varyantlarda kullanılacak seçenekler",
                 },
                 {
                   label: "Renk tabanlı",
                   value: colorValueCount.toLocaleString("tr-TR"),
-                  hint: "Renk kodu kullanan değerler",
                 },
                 {
                   label: "Görselli değer",
                   value: imageValueCount.toLocaleString("tr-TR"),
-                  hint: "Özel görseli olan seçenekler",
                 },
               ].map((metric) => (
                 <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
-                  <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
                 </div>
               ))}
             </div>
@@ -259,12 +254,7 @@ export default function VariantAttributesPage() {
           <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Bilgilendirme</p>
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Nitelikler ne işe yarar?</h2>
-                <p className="max-w-3xl text-sm leading-6 text-[#786658]">
-                  Nitelikler, ürün varyantlarını tanımlayan ana özellik gruplarıdır. Örneğin renk, beden,
-                  gramaj veya malzeme gibi alanlar; ürün oluşturma akışında bu sayfadaki yapı üzerinden kullanılır.
-                </p>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Nitelik Özeti</h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
@@ -281,12 +271,7 @@ export default function VariantAttributesPage() {
           <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Tarama ve filtreleme</p>
                 <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Nitelik listesi</h2>
-                <p className="text-sm leading-6 text-[#786658]">
-                  Nitelik gruplarını adlarına göre filtreleyin, değerlerini ön izleyin ve gerektiğinde düzenleme
-                  aksiyonlarına hızlıca erişin.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">

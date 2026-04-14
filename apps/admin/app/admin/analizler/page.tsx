@@ -287,25 +287,21 @@ export default function AnalyticsPage() {
               <HeaderMetric
                 label="Canlı ziyaretçi"
                 value={liveVisitors.toLocaleString("tr-TR")}
-                hint="Anlık trafik"
                 tone="emerald"
               />
               <HeaderMetric
                 label="Ortalama sipariş"
                 value={formatCurrency(stats.avgOrderValue || 0)}
-                hint="Seçili dönem ortalaması"
                 tone="amber"
               />
               <HeaderMetric
                 label="Sayfa görüntüleme"
                 value={pageViewCount.toLocaleString("tr-TR")}
-                hint="Canlı veride öne çıkan sayfalar"
                 tone="rose"
               />
               <HeaderMetric
                 label="Sepet aksiyonu"
                 value={addToCartCount.toLocaleString("tr-TR")}
-                hint="Son 24 saat"
                 tone="burgundy"
                 className="md:col-span-2 xl:col-span-3 2xl:col-span-1"
               />
@@ -399,13 +395,11 @@ export default function AnalyticsPage() {
 function HeaderMetric({
   label,
   value,
-  hint,
   className,
   tone = "slate",
 }: {
   label: string;
   value: string;
-  hint: string;
   className?: string;
   tone?: "slate" | "burgundy" | "amber" | "emerald" | "rose" | "blue";
 }) {
@@ -431,7 +425,6 @@ function HeaderMetric({
     <div className={cn("bg-gradient-to-br px-6 py-5 md:px-8", toneStyles[tone], className)}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
       <p className={cn("mt-2 text-2xl font-semibold tracking-[-0.04em]", valueColors[tone])}>{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{hint}</p>
     </div>
   );
 }

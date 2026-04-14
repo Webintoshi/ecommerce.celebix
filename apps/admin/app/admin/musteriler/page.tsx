@@ -690,10 +690,10 @@ export default function CustomersPage({
             </div>
 
             <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
-              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} hint="Kayıtlı müşteri havuzu" />
-              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} hint="İletişime açık ve aktif kayıtlar" />
-              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} hint="Son dönemde pasif kalan hesaplar" />
-              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} hint="Müşteri kaynaklı toplam gelir" />
+              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} />
+              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} />
+              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} />
+              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} />
             </div>
           </section>
 
@@ -726,28 +726,24 @@ export default function CustomersPage({
             <StatCard
               title="Görünen kayıt"
               value={filteredCustomers.length.toLocaleString("tr-TR")}
-              detail="Mevcut arama ve filtre sonucunda listelenen müşteri"
               icon={Search}
               tone="border-[#FE6100]/15 from-[#fff2e8] to-white text-[#FE6100]"
             />
             <StatCard
               title="Seçili müşteri"
               value={selectedCustomers.length.toLocaleString("tr-TR")}
-              detail="Toplu işlem için işaretlenen kayıt"
               icon={UserCheck}
               tone="border-amber-200/70 from-amber-50 to-white text-amber-700"
             />
             <StatCard
               title="Engellenen"
               value={metrics.blocked.toLocaleString("tr-TR")}
-              detail="İşlem ve iletişim kısıtlı müşteri hesabı"
               icon={ShieldAlert}
               tone="border-rose-200/70 from-rose-50 to-white text-rose-700"
             />
             <StatCard
               title="Ort. sipariş değeri"
               value={metrics.total > 0 ? formatPrice(metrics.totalRevenue / Math.max(metrics.total, 1)) : formatPrice(0)}
-              detail="Toplam harcamanın müşteri bazında ortalaması"
               icon={Calendar}
               tone="border-stone-200 from-stone-50 to-white text-stone-700"
             />
@@ -757,12 +753,7 @@ export default function CustomersPage({
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Filtreler ve işlemler
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Müşteri listesini daraltın ve yönetin
-                  </h2>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve işlemler</h2>
                 </div>
                 <div
                   aria-live="polite"
@@ -822,12 +813,7 @@ export default function CustomersPage({
             <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Müşteri tablosu
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Müşteri listesi
-                  </h2>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Müşteri listesi</h2>
                 </div>
                 <div aria-live="polite" className="text-sm text-gray-500">
                   {loading
@@ -1110,23 +1096,21 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
-  detail: string;
   tone: string;
 }
 
-function HeroMetric({ label, value, hint }: { label: string; value: string; hint: string }) {
+function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
         <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-        <p className="mt-1 text-sm text-gray-600">{hint}</p>
       </div>
     </div>
   );
 }
 
-function StatCard({ title, value, detail, icon: Icon, tone }: StatCardProps) {
+function StatCard({ title, value, icon: Icon, tone }: StatCardProps) {
   return (
     <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
       <div className="p-6">
@@ -1134,7 +1118,6 @@ function StatCard({ title, value, detail, icon: Icon, tone }: StatCardProps) {
           <div>
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
-            <p className="mt-2 text-sm text-gray-500">{detail}</p>
           </div>
           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm ${tone}`}>
             <Icon className="h-5 w-5" />

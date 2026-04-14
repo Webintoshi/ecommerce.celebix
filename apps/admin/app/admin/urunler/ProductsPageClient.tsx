@@ -710,28 +710,23 @@ export default function ProductsPageClient({
                 {
                   label: "Görünen ürün",
                   value: visibleCount.toLocaleString("tr-TR"),
-                  hint: reorderMode ? "Sıralama için tüm liste açık" : "Mevcut liste sonucu",
                 },
                 {
                   label: "Seçili ürün",
                   value: selectedProducts.length.toLocaleString("tr-TR"),
-                  hint: "Toplu işlemlere hazır seçim",
                 },
                 {
                   label: "Aktif filtre",
                   value: activeFilterCount.toLocaleString("tr-TR"),
-                  hint: activeFilterCount > 0 ? "Arama veya kategori uygulandı" : "Tüm katalog gösteriliyor",
                 },
                 {
                   label: "Düşük stok riski",
                   value: stats.lowStock.toLocaleString("tr-TR"),
-                  hint: "İlk varyant stoğu 10 altı ürünler",
                 },
               ].map((item) => (
                 <div key={item.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{item.label}</p>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{item.value}</p>
-                  <p className="mt-1 text-sm text-stone-600">{item.hint}</p>
                 </div>
               ))}
             </div>

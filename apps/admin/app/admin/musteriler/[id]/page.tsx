@@ -368,10 +368,10 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
             </div>
 
             <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
-              <HeroMetric icon={ShoppingBag} label="Toplam Sipariş" value={String(customer.total_orders)} detail="Tamamlanan ve açık sipariş toplamı" />
-              <HeroMetric icon={TrendingUp} label="Toplam Harcama" value={formatPrice(customer.total_spent)} detail="Müşteri bazlı toplam gelir" />
-              <HeroMetric icon={CreditCard} label="Ortalama Sipariş" value={formatPrice(averageOrderValue)} detail="Sipariş başına ortalama tutar" />
-              <HeroMetric icon={Calendar} label="Son Sipariş" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} detail="En son işlem tarihi" />
+              <HeroMetric icon={ShoppingBag} label="Toplam Sipariş" value={String(customer.total_orders)} />
+              <HeroMetric icon={TrendingUp} label="Toplam Harcama" value={formatPrice(customer.total_spent)} />
+              <HeroMetric icon={CreditCard} label="Ortalama Sipariş" value={formatPrice(averageOrderValue)} />
+              <HeroMetric icon={Calendar} label="Son Sipariş" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} />
             </div>
           </section>
 
@@ -417,7 +417,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   </div>
 
                   {orders.length === 0 ? (
-                    <EmptyState icon={Package} title="Henüz sipariş yok." detail="İlk siparişten sonra sipariş akışı burada görünür." />
+                    <EmptyState icon={Package} title="Henüz sipariş yok." />
                   ) : (
                     <div className="divide-y divide-[#f1e6dc]">
                       {orders.slice(0, 5).map((order) => (
@@ -543,7 +543,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
               </div>
 
               {orders.length === 0 ? (
-                <EmptyState icon={Package} title="Henüz sipariş yok." detail="Sipariş oluştuğunda bu liste otomatik olarak dolacak." />
+                <EmptyState icon={Package} title="Henüz sipariş yok." />
               ) : (
                 <div className="divide-y divide-[#f1e6dc]">
                   {orders.map((order) => (
@@ -656,7 +656,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 ))
               ) : (
                 <div className="col-span-full">
-                  <EmptyState icon={MapPin} title="Kayıtlı adres yok." detail="Yeni adres eklendiğinde burada görünür." />
+                  <EmptyState icon={MapPin} title="Kayıtlı adres yok." />
                 </div>
               )}
             </section>
@@ -672,7 +672,6 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 <EmptyState
                   icon={Star}
                   title="Henüz tercih edilen ürün yok."
-                  detail="Müşterinin ilk siparişlerinden sonra ürün tercihleri burada özetlenir."
                 />
               ) : (
                 <div className="divide-y divide-[#f1e6dc]">
@@ -724,12 +723,10 @@ function HeroMetric({
   icon: Icon,
   label,
   value,
-  detail,
 }: {
   icon: ElementType;
   label: string;
   value: string;
-  detail: string;
 }) {
   return (
     <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
@@ -737,7 +734,6 @@ function HeroMetric({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
           <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-          <p className="mt-1 text-sm text-gray-600">{detail}</p>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
           <Icon className="h-5 w-5" />
@@ -750,11 +746,9 @@ function HeroMetric({
 function EmptyState({
   icon: Icon,
   title,
-  detail,
 }: {
   icon: ElementType;
   title: string;
-  detail: string;
 }) {
   return (
     <div className="px-6 py-14 text-center">
@@ -762,7 +756,6 @@ function EmptyState({
         <Icon className="h-9 w-9" />
       </div>
       <p className="mt-5 text-lg font-semibold text-gray-950">{title}</p>
-      <p className="mt-2 text-sm text-gray-500">{detail}</p>
     </div>
   );
 }
