@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ExternalLink,
   Instagram,
@@ -8,7 +8,7 @@ import {
   MessageSquareText,
   X,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useStoreInfo } from "@/lib/store-info-context";
 import {
   getFloatingContactDefaultLabel,
@@ -19,10 +19,10 @@ import {
 } from "@celebix/platform-config/src/floating-contact";
 
 const POSITION_CLASSES = {
-  "bottom-right": "bottom-6 right-6",
-  "bottom-left": "bottom-6 left-6",
-  "top-right": "top-24 right-6",
-  "top-left": "top-24 left-6",
+  "bottom-right": "bottom-4 right-4 sm:bottom-6 sm:right-6",
+  "bottom-left": "bottom-4 left-4 sm:bottom-6 sm:left-6",
+  "top-right": "top-20 right-4 sm:top-24 sm:right-6",
+  "top-left": "top-20 left-4 sm:top-24 sm:left-6",
 } as const;
 
 export function FloatingContactButton() {
@@ -32,7 +32,6 @@ export function FloatingContactButton() {
     () => normalizeFloatingContactSettings(storeInfo?.floatingContact),
     [storeInfo?.floatingContact]
   );
-
   const channels = useMemo(
     () =>
       settings.channels
@@ -42,8 +41,7 @@ export function FloatingContactButton() {
         }))
         .filter(
           (channel) =>
-            (channel.enabled || channel.href.trim().length > 0) &&
-            channel.resolvedHref
+            (channel.enabled || channel.href.trim().length > 0) && channel.resolvedHref
         ),
     [settings.channels]
   );
@@ -61,42 +59,44 @@ export function FloatingContactButton() {
   }
 
   const isBottomPosition = settings.position.startsWith("bottom");
+  const buttonEyebrow = storeInfo?.name?.trim() || "Hizli destek";
 
   return (
-    <div
-      className={`pointer-events-none fixed z-50 ${POSITION_CLASSES[settings.position]}`}
-    >
+    <div className={`pointer-events-none fixed z-50 ${POSITION_CLASSES[settings.position]}`}>
       <AnimatePresence>
-        {isOpen && (
+        {isOpen ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[-1] bg-neutral-950/10 backdrop-blur-[2px]"
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[-1] bg-neutral-950/8 backdrop-blur-[2px]"
             onClick={closeMenu}
           />
-        )}
+        ) : null}
       </AnimatePresence>
 
       <div
-        className={`pointer-events-auto flex items-end ${
-          isBottomPosition ? "flex-col" : "flex-col-reverse"
+        className={`pointer-events-auto flex max-w-[calc(100vw-2rem)] ${
+          isBottomPosition ? "flex-col items-end" : "flex-col-reverse items-end"
         }`}
       >
-        <div
-          className={`flex flex-col gap-2 ${
-            isBottomPosition ? "mb-3" : "mt-3"
-          }`}
-        >
-          <AnimatePresence mode="popLayout">
-            {isOpen
-              ? channels.map((channel, index) => {
-                  const label =
-                    channel.label || getFloatingContactDefaultLabel(channel.type);
-                  const external = isFloatingContactExternalHref(
-                    channel.resolvedHref
-                  );
+        <AnimatePresence>
+          {isOpen ? (
+            <motion.div
+              initial={{ opacity: 0, y: isBottomPosition ? 14 : -14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: isBottomPosition ? 10 : -10, scale: 0.98 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className={`w-[min(19.5rem,calc(100vw-2rem))] overflow-hidden rounded-[26px] border border-white/55 bg-white/78 p-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-2xl ${
+                isBottomPosition ? "mb-3" : "mt-3"
+              }`}
+            >
+              <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-neutral-300/80 to-transparent" />
+              <div className="flex flex-col gap-2">
+                {channels.map((channel, index) => {
+                  const label = channel.label || getFloatingContactDefaultLabel(channel.type);
+                  const external = isFloatingContactExternalHref(channel.resolvedHref);
 
                   return (
                     <motion.a
@@ -104,61 +104,56 @@ export function FloatingContactButton() {
                       href={channel.resolvedHref}
                       target={external ? "_blank" : undefined}
                       rel={external ? "noreferrer noopener" : undefined}
-                      initial={{ opacity: 0, y: isBottomPosition ? 20 : -20, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: isBottomPosition ? 10 : -10, scale: 0.95 }}
-                      transition={{
-                        duration: 0.35,
-                        delay: index * 0.06,
-                        ease: [0.16, 1, 0.3, 1],
-                      }}
                       onClick={closeMenu}
-                      className={`group relative inline-flex min-w-[200px] items-center justify-between gap-3 overflow-hidden rounded-[22px] px-4 py-3.5 text-[13px] font-semibold tracking-[-0.01em] shadow-[0_14px_42px_-14px_rgba(0,0,0,0.35)] transition-all duration-300 hover:shadow-[0_20px_50px_-16px_rgba(0,0,0,0.45)] hover:scale-[1.02] active:scale-[0.98] ${getChannelStyles(channel.type)}`}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 8 }}
+                      transition={{ delay: index * 0.04, duration: 0.2 }}
+                      className="group flex items-center gap-3 rounded-[20px] border border-black/5 bg-white/88 px-3.5 py-3 text-neutral-900 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
                     >
-                      <span className="relative z-10 inline-flex items-center gap-2.5">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                          {getChannelIcon(channel.type)}
-                        </span>
-                        <span className="relative top-px">{label}</span>
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getChannelAccent(channel.type)}`}>
+                        {getChannelIcon(channel.type)}
                       </span>
-                      <ExternalLink className="relative z-10 h-3.5 w-3.5 opacity-70 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" />
 
-                      {channel.type === "whatsapp" && (
-                        <span className="absolute inset-0 bg-gradient-to-br from-[#25D366] via-[#128C7E] to-[#075E54] opacity-100 transition-opacity duration-300 group-hover:opacity-90" />
-                      )}
-                      {channel.type === "instagram" && (
-                        <span className="absolute inset-0 bg-gradient-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] opacity-100 transition-opacity duration-300 group-hover:opacity-90" />
-                      )}
-                      {channel.type === "form" && (
-                        <span className="absolute inset-0 bg-gradient-to-br from-neutral-800 via-neutral-900 to-black opacity-100 transition-opacity duration-300 group-hover:opacity-95" />
-                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[0.95rem] font-semibold tracking-[-0.02em]">
+                          {label}
+                        </span>
+                        <span className="block text-[11px] text-neutral-500">
+                          Hemen baglan
+                        </span>
+                      </span>
+
+                      <ExternalLink className="h-4 w-4 shrink-0 text-neutral-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-neutral-700" />
                     </motion.a>
                   );
-                })
-              : null}
-          </AnimatePresence>
-        </div>
+                })}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         <motion.button
           type="button"
           onClick={toggleOpen}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-white/90 px-4 py-3.5 text-[13px] font-semibold text-neutral-800 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-neutral-200/60 backdrop-blur-xl transition-all duration-300 hover:bg-white hover:shadow-[0_16px_48px_-14px_rgba(0,0,0,0.3)] hover:ring-neutral-300/60"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="group relative inline-flex h-14 items-center gap-3 overflow-hidden rounded-full border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(246,241,234,0.96))] px-4 pr-5 text-neutral-900 shadow-[0_18px_40px_-18px_rgba(15,23,42,0.38)] ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:shadow-[0_24px_54px_-22px_rgba(15,23,42,0.42)]"
           aria-expanded={isOpen}
-          aria-label={isOpen ? "İletişim seçeneklerini kapat" : "İletişim seçeneklerini aç"}
+          aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
         >
-          <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 transition-colors duration-300 group-hover:bg-neutral-200">
-            <AnimatePresence mode="wait">
+          <span className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),transparent_60%)] opacity-70" />
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <AnimatePresence mode="wait" initial={false}>
               {isOpen ? (
                 <motion.span
                   key="close"
                   initial={{ rotate: -90, opacity: 0 }}
                   animate={{ rotate: 0, opacity: 1 }}
                   exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  <X className="h-4 w-4 text-neutral-700" />
+                  <X className="h-4 w-4" />
                 </motion.span>
               ) : (
                 <motion.span
@@ -166,40 +161,21 @@ export function FloatingContactButton() {
                   initial={{ rotate: 90, opacity: 0 }}
                   animate={{ rotate: 0, opacity: 1 }}
                   exit={{ rotate: -90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  <MessageCircle className="h-4 w-4 text-neutral-700" />
+                  <MessageCircle className="h-4 w-4" />
                 </motion.span>
               )}
             </AnimatePresence>
           </span>
 
-          <span className="relative hidden pr-1 sm:inline">
-            <AnimatePresence mode="wait">
-              {isOpen ? (
-                <motion.span
-                  key="close-text"
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -10, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="inline-block tracking-[-0.01em]"
-                >
-                  Kapat
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="open-text"
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -10, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="inline-block tracking-[-0.01em]"
-                >
-                  İletişim
-                </motion.span>
-              )}
-            </AnimatePresence>
+          <span className="relative flex flex-col items-start leading-none">
+            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-400">
+              {buttonEyebrow}
+            </span>
+            <span className="mt-1 text-[15px] font-semibold tracking-[-0.02em] text-neutral-900">
+              {isOpen ? "Kapat" : "Iletisim"}
+            </span>
           </span>
         </motion.button>
       </div>
@@ -207,29 +183,27 @@ export function FloatingContactButton() {
   );
 }
 
-function getChannelStyles(type: FloatingContactChannelType): string {
+function getChannelAccent(type: FloatingContactChannelType): string {
   switch (type) {
     case "whatsapp":
-      return "text-white";
+      return "bg-[#25D366]/14 text-[#179c4b]";
     case "instagram":
-      return "text-white";
+      return "bg-[linear-gradient(135deg,rgba(131,58,180,0.12),rgba(253,29,29,0.12),rgba(247,119,55,0.12))] text-[#9a2db4]";
     case "form":
-      return "text-white";
+      return "bg-neutral-900/8 text-neutral-700";
     default:
-      return "text-white";
+      return "bg-neutral-900/8 text-neutral-700";
   }
 }
 
 function getChannelIcon(type: FloatingContactChannelType) {
-  const iconClass = "h-3.5 w-3.5";
-
-  switch (type) {
-    case "instagram":
-      return <Instagram className={iconClass} />;
-    case "form":
-      return <MessageSquareText className={iconClass} />;
-    case "whatsapp":
-    default:
-      return <MessageCircle className={iconClass} />;
+  if (type === "instagram") {
+    return <Instagram className="h-4 w-4" />;
   }
+
+  if (type === "form") {
+    return <MessageSquareText className="h-4 w-4" />;
+  }
+
+  return <MessageCircle className="h-4 w-4" />;
 }
