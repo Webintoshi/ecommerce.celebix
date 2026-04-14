@@ -10,6 +10,7 @@ import {
   updateStoreSupabaseConfig,
 } from "@celebix/platform-config";
 import { createDefaultStorePaymentGateways } from "@celebix/payment-core";
+import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 import type { SupabaseBootstrapStatus, SupabaseOrganization, SupabaseProvisioningResult } from "@/lib/supabase-bootstrap.shared";
 
@@ -38,6 +39,27 @@ interface CoolifyEnvironmentVariable {
 
 interface CoolifyServer {
   ip?: string | null;
+}
+
+interface OwnerStoreMetadataRow {
+  id: string;
+  metadata: Record<string, unknown> | null;
+}
+
+interface PgMetaTarget {
+  baseUrl: string | null;
+  extraHeaders?: Record<string, string>;
+  label: string;
+}
+
+interface SupabaseRuntimeConnection {
+  publicKey: string;
+  publicUrl: string;
+  publicUrl8000: string | null;
+  internalApiUrl: string | null;
+  serviceKey: string;
+  adminUser: string;
+  adminPassword: string;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
@@ -136,6 +158,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 function buildHeaders(): HeadersInit {
   return {
     Authorization: `Bearer ${getCoolifyApiToken()}`,
@@ -143,11 +171,16 @@ function buildHeaders(): HeadersInit {
   };
 }
 
-function buildBasicAuthHeaders(user: string, password: string): HeadersInit {
+function buildBasicAuthHeaders(
+  user: string,
+  password: string,
+  extraHeaders: Record<string, string> = {},
+): HeadersInit {
   const token = Buffer.from(`${user}:${password}`, "utf8").toString("base64");
   return {
     Authorization: `Basic ${token}`,
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
 }
 
@@ -346,11 +379,11 @@ function buildInitialStoreSettings(store: StoreConfig, publicUrl: string) {
 
 async function seedSelfHostedStoreSettings(
   store: StoreConfig,
-  publicUrl: string,
+  runtime: SupabaseRuntimeConnection,
   adminUser: string,
   adminPassword: string,
 ): Promise<void> {
-  const values = buildInitialStoreSettings(store, publicUrl)
+  const values = buildInitialStoreSettings(store, runtime.publicUrl)
     .map(
       (entry) =>
         `('${escapeSqlLiteral(entry.key)}', ${serializeJsonLiteral(entry.value)})`,
@@ -358,7 +391,9 @@ async function seedSelfHostedStoreSettings(
     .join(",\n");
 
   await runSelfHostedPgMetaQuery(
-    publicUrl,
+    runtime.publicUrl,
+    runtime.publicUrl8000,
+    runtime.internalApiUrl,
     adminUser,
     adminPassword,
     `
@@ -494,6 +529,39 @@ async function buildSupabasePublicUrl(store: StoreConfig): Promise<string> {
   const publicIp = await resolveCoolifyPublicIp();
   const hostLabel = pickSupabaseHostLabel(store);
   return `https://supabasekong-${hostLabel}.${publicIp}.sslip.io`;
+}
+
+async function listCoolifyRoutingIps(): Promise<string[]> {
+  const candidates = new Set<string>();
+  const explicitIp = getCoolifyServerPublicIp();
+
+  if (explicitIp && isIpv4Address(explicitIp)) {
+    candidates.add(explicitIp);
+  }
+
+  try {
+    const server = await coolifyFetch<CoolifyServer>(`/servers/${getCoolifyServerUuid()}`);
+    const serverIp = server.ip?.trim();
+
+    if (serverIp && isIpv4Address(serverIp)) {
+      candidates.add(serverIp);
+    }
+  } catch {
+    // Fallback probes are best-effort only.
+  }
+
+  try {
+    const apiHostname = new URL(getCoolifyApiUrl()).hostname;
+    const resolved = await lookup(apiHostname, { family: 4 });
+
+    if (resolved.address && isIpv4Address(resolved.address)) {
+      candidates.add(resolved.address);
+    }
+  } catch {
+    // DNS fallback is best-effort only.
+  }
+
+  return Array.from(candidates);
 }
 
 function buildAdminEnvEntries(store: StoreConfig, projectUrl: string, publicKey: string, serviceKey: string): Record<string, string> {
@@ -644,29 +712,115 @@ async function listServiceEnvs(serviceUuid: string): Promise<CoolifyEnvironmentV
   return normalizeArrayPayload<CoolifyEnvironmentVariable>(payload);
 }
 
+function sanitizeErrorMessage(value: string): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+function appendPgMetaTarget(
+  targets: PgMetaTarget[],
+  seen: Set<string>,
+  input: PgMetaTarget | null,
+): void {
+  if (!input?.baseUrl?.trim()) {
+    return;
+  }
+
+  const normalizedBaseUrl = input.baseUrl.replace(/\/+$/, "");
+  const hostHeader = input.extraHeaders?.Host || "";
+  const dedupeKey = `${normalizedBaseUrl}::${hostHeader}`;
+
+  if (seen.has(dedupeKey)) {
+    return;
+  }
+
+  seen.add(dedupeKey);
+  targets.push({
+    ...input,
+    baseUrl: normalizedBaseUrl,
+  });
+}
+
+async function buildPgMetaTargets(
+  publicUrl: string,
+  publicUrl8000: string | null,
+  internalApiUrl: string | null,
+): Promise<PgMetaTarget[]> {
+  const targets: PgMetaTarget[] = [];
+  const seen = new Set<string>();
+  const normalizedPublicUrl = publicUrl.replace(/\/+$/, "");
+  const publicHost = new URL(normalizedPublicUrl).host;
+
+  appendPgMetaTarget(targets, seen, {
+    baseUrl: internalApiUrl,
+    label: "runtime-internal-api",
+  });
+  appendPgMetaTarget(targets, seen, {
+    baseUrl: normalizedPublicUrl,
+    label: "public-url",
+  });
+  appendPgMetaTarget(targets, seen, {
+    baseUrl: publicUrl8000,
+    label: "public-url-8000",
+  });
+
+  for (const ip of await listCoolifyRoutingIps()) {
+    appendPgMetaTarget(targets, seen, {
+      baseUrl: `http://${ip}`,
+      label: `host-header-http:${ip}`,
+      extraHeaders: {
+        Host: publicHost,
+        "X-Forwarded-Host": publicHost,
+        "X-Forwarded-Proto": "https",
+      },
+    });
+  }
+
+  return targets;
+}
+
 async function runSelfHostedPgMetaQuery(
-  baseUrl: string,
+  publicUrl: string,
+  publicUrl8000: string | null,
+  internalApiUrl: string | null,
   adminUser: string,
   adminPassword: string,
   query: string,
 ) {
-  const response = await fetch(
-    `${baseUrl.replace(/\/+$/, "")}/api/platform/pg-meta/${SELF_HOSTED_PG_META_REF}/query`,
-    {
-      method: "POST",
-      headers: buildBasicAuthHeaders(adminUser, adminPassword),
-      body: JSON.stringify({ query }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(COOLIFY_API_TIMEOUT_MS),
-    },
-  );
+  const failures: string[] = [];
+  const targets = await buildPgMetaTargets(publicUrl, publicUrl8000, internalApiUrl);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Self-hosted pg-meta hatasi (${response.status}): ${errorText || response.statusText}`);
+  for (const target of targets) {
+    try {
+      const response = await fetch(
+        `${target.baseUrl}/api/platform/pg-meta/${SELF_HOSTED_PG_META_REF}/query`,
+        {
+          method: "POST",
+          headers: buildBasicAuthHeaders(adminUser, adminPassword, target.extraHeaders),
+          body: JSON.stringify({ query }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(COOLIFY_API_TIMEOUT_MS),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        failures.push(
+          `${target.label} -> HTTP ${response.status}: ${sanitizeErrorMessage(errorText || response.statusText)}`,
+        );
+        continue;
+      }
+
+      return response.json();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? sanitizeErrorMessage(error.message)
+          : "Bilinmeyen fetch hatasi";
+      failures.push(`${target.label} -> ${message}`);
+    }
   }
 
-  return response.json();
+  throw new Error(`Self-hosted pg-meta erisilemedi. ${failures.join(" | ")}`);
 }
 
 function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: string[]): string | null {
@@ -679,12 +833,7 @@ function findEnvValue(variables: CoolifyEnvironmentVariable[], candidates: strin
   return match?.value?.trim() || null;
 }
 
-async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
-  publicKey: string;
-  serviceKey: string;
-  adminUser: string;
-  adminPassword: string;
-}> {
+async function waitForSupabaseRuntime(serviceUuid: string): Promise<SupabaseRuntimeConnection> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < ENV_POLL_ATTEMPTS; attempt += 1) {
@@ -704,12 +853,19 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
         "SERVICE_SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
       ]);
+      const publicUrl8000 =
+        findEnvValue(variables, ["SERVICE_URL_SUPABASEKONG_8000"])?.replace(/\/+$/, "") || null;
+      const internalApiUrl =
+        findEnvValue(variables, ["API_EXTERNAL_URL"])?.replace(/\/+$/, "") || null;
       const adminUser = findEnvValue(variables, ["SERVICE_USER_ADMIN"]);
       const adminPassword = findEnvValue(variables, ["SERVICE_PASSWORD_ADMIN"]);
 
       if (publicUrl && publicKey && serviceKey && adminUser && adminPassword) {
         return {
           publicKey,
+          publicUrl,
+          publicUrl8000,
+          internalApiUrl,
           serviceKey,
           adminUser,
           adminPassword,
@@ -728,12 +884,14 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<{
 }
 
 async function ensureSelfHostedStoreSchema(
-  publicUrl: string,
+  runtime: SupabaseRuntimeConnection,
   adminUser: string,
   adminPassword: string,
 ): Promise<void> {
   const productsExists = await runSelfHostedPgMetaQuery(
-    publicUrl,
+    runtime.publicUrl,
+    runtime.publicUrl8000,
+    runtime.internalApiUrl,
     adminUser,
     adminPassword,
     "select to_regclass('public.products') is not null as exists;",
@@ -744,12 +902,89 @@ async function ensureSelfHostedStoreSchema(
     : buildBootstrapQueries(ADDITIVE_BOOTSTRAP_SQL_FILES);
 
   for (const query of queries) {
-    await runSelfHostedPgMetaQuery(publicUrl, adminUser, adminPassword, query.sql);
+    await runSelfHostedPgMetaQuery(
+      runtime.publicUrl,
+      runtime.publicUrl8000,
+      runtime.internalApiUrl,
+      adminUser,
+      adminPassword,
+      query.sql,
+    );
   }
 }
 
 function buildProjectReference(store: StoreConfig, serviceUuid: string): string {
   return `coolify:${store.slug}:${serviceUuid}`;
+}
+
+async function syncOwnerStoreSupabaseAuthority(input: {
+  slug: string;
+  projectRef: string;
+  projectUrl: string;
+  organizationSlug: string;
+  provisioningStatus: "configured" | "failed";
+  projectName?: string;
+  resourceId?: string;
+  dashboardUrl?: string;
+  adminEnvLocalPath?: string;
+  lastProvisionError?: string;
+}): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("id, metadata")
+    .eq("slug", input.slug)
+    .maybeSingle<OwnerStoreMetadataRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return;
+  }
+
+  const metadata = asRecord(data.metadata);
+  const bootstrap = asRecord(metadata.bootstrap);
+  const supabase = asRecord(metadata.supabase);
+  const nextMetadata = {
+    ...metadata,
+    bootstrap: {
+      ...bootstrap,
+      adminEnvLocalPath: input.adminEnvLocalPath ?? bootstrap.adminEnvLocalPath ?? null,
+      organizationSlug: input.organizationSlug || bootstrap.organizationSlug || null,
+      supabaseProvider: "self_hosted_coolify",
+      supabaseProjectName: input.projectName ?? bootstrap.supabaseProjectName ?? null,
+      supabaseResourceId: input.resourceId ?? bootstrap.supabaseResourceId ?? null,
+      supabaseDashboardUrl: input.dashboardUrl ?? bootstrap.supabaseDashboardUrl ?? null,
+      provisionedAt:
+        input.provisioningStatus === "configured"
+          ? new Date().toISOString()
+          : bootstrap.provisionedAt ?? null,
+      lastProvisionError: input.lastProvisionError ?? null,
+      supabaseProvisioning: input.provisioningStatus,
+    },
+    supabase: {
+      ...supabase,
+      provider: "self_hosted_coolify",
+      dashboardUrl: input.dashboardUrl ?? supabase.dashboardUrl ?? null,
+      storage: "separate-project-per-store",
+    },
+  };
+
+  const { error: updateError } = await serviceClient
+    .from("owner_stores")
+    .update({
+      supabase_project_ref:
+        input.projectRef === "pending-owner-bootstrap" ? null : input.projectRef,
+      supabase_url: input.projectUrl === "configure-in-env" ? null : input.projectUrl,
+      metadata: nextMetadata,
+    })
+    .eq("slug", input.slug);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
 }
 
 function buildOrganization(store?: StoreConfig): SupabaseOrganization {
@@ -799,62 +1034,98 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   const targetDashboardUrl = buildSupabaseDashboardUrl(targetPublicUrl);
   const targetServiceName = buildSupabaseServiceName(store);
   let serviceUuid: string | null = null;
+  let runtime: SupabaseRuntimeConnection | null = null;
 
   try {
     const service = await ensureSupabaseService(store, projectUuid, environmentUuid);
     serviceUuid = resolveIdentifier(service);
-    const { publicKey, serviceKey, adminUser, adminPassword } = await waitForSupabaseRuntime(serviceUuid);
-    await ensureSelfHostedStoreSchema(targetPublicUrl, adminUser, adminPassword);
-    await seedSelfHostedStoreSettings(store, targetPublicUrl, adminUser, adminPassword);
-    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, targetPublicUrl);
+    runtime = await waitForSupabaseRuntime(serviceUuid);
+    const resolvedProjectUrl = runtime.publicUrl || targetPublicUrl;
+    const resolvedDashboardUrl = buildSupabaseDashboardUrl(resolvedProjectUrl);
+    await ensureSelfHostedStoreSchema(runtime, runtime.adminUser, runtime.adminPassword);
+    await seedSelfHostedStoreSettings(store, runtime, runtime.adminUser, runtime.adminPassword);
+    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, resolvedProjectUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...legacyAdminAuthEntries,
-      ...buildAdminEnvEntries(store, targetPublicUrl, publicKey, serviceKey),
+      ...buildAdminEnvEntries(store, resolvedProjectUrl, runtime.publicKey, runtime.serviceKey),
       ...getSharedRedisEnvEntries(),
     });
     await upsertStoreSupabaseSecret({
       slug: store.slug,
-      supabaseUrl: targetPublicUrl,
-      supabaseServiceRoleKey: serviceKey,
-      supabaseAnonKey: publicKey,
+      supabaseUrl: resolvedProjectUrl,
+      supabaseServiceRoleKey: runtime.serviceKey,
+      supabaseAnonKey: runtime.publicKey,
       supabaseLegacyUrl: legacyAdminAuthEntries.SUPABASE_LEGACY_URL ?? null,
       supabaseLegacyAnonKey: legacyAdminAuthEntries.SUPABASE_LEGACY_ANON_KEY ?? null,
     });
 
     updateStoreSupabaseConfig(store.slug, {
       projectRef: buildProjectReference(store, serviceUuid),
-      url: targetPublicUrl,
+      url: resolvedProjectUrl,
       provider: "self_hosted_coolify",
       organizationSlug: organization.slug,
       provisioningStatus: "configured",
-      dashboardUrl: targetDashboardUrl,
+      dashboardUrl: resolvedDashboardUrl,
       projectName: service.name || buildSupabaseServiceName(store),
       resourceId: serviceUuid,
       adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
     });
+    await syncOwnerStoreSupabaseAuthority({
+      slug: store.slug,
+      projectRef: buildProjectReference(store, serviceUuid),
+      projectUrl: resolvedProjectUrl,
+      organizationSlug: organization.slug,
+      provisioningStatus: "configured",
+      projectName: service.name || targetServiceName,
+      resourceId: serviceUuid,
+      dashboardUrl: resolvedDashboardUrl,
+      adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
+    }).catch(() => undefined);
 
     return {
       provider: "self_hosted_coolify",
       organization,
       projectRef: buildProjectReference(store, serviceUuid),
-      projectUrl: targetPublicUrl,
+      projectUrl: resolvedProjectUrl,
       adminEnvLocalPath,
-      dashboardUrl: targetDashboardUrl,
+      dashboardUrl: resolvedDashboardUrl,
       projectName: service.name || targetServiceName,
       resourceId: serviceUuid,
     };
   } catch (error) {
+    const failedProjectRef = serviceUuid
+      ? buildProjectReference(store, serviceUuid)
+      : store.supabase.projectRef || "pending-owner-bootstrap";
+    const failedProjectUrl = runtime?.publicUrl || targetPublicUrl || store.supabase.url;
+    const failedDashboardUrl =
+      runtime?.publicUrl
+        ? buildSupabaseDashboardUrl(runtime.publicUrl)
+        : targetDashboardUrl || store.supabase.dashboardUrl;
+    const failedMessage =
+      error instanceof Error ? error.message : "Coolify Supabase provisioning basarisiz oldu.";
+
     updateStoreSupabaseConfig(store.slug, {
-      projectRef: serviceUuid ? buildProjectReference(store, serviceUuid) : store.supabase.projectRef || "pending-owner-bootstrap",
-      url: targetPublicUrl || store.supabase.url,
+      projectRef: failedProjectRef,
+      url: failedProjectUrl,
       provider: "self_hosted_coolify",
       organizationSlug: organization.slug,
       provisioningStatus: "failed",
-      dashboardUrl: targetDashboardUrl || store.supabase.dashboardUrl,
+      dashboardUrl: failedDashboardUrl,
       projectName: targetServiceName,
       resourceId: serviceUuid ?? undefined,
-      lastProvisionError: error instanceof Error ? error.message : "Coolify Supabase provisioning basarisiz oldu.",
+      lastProvisionError: failedMessage,
     });
+    await syncOwnerStoreSupabaseAuthority({
+      slug: store.slug,
+      projectRef: failedProjectRef,
+      projectUrl: failedProjectUrl,
+      organizationSlug: organization.slug,
+      provisioningStatus: "failed",
+      projectName: targetServiceName,
+      resourceId: serviceUuid ?? undefined,
+      dashboardUrl: failedDashboardUrl,
+      lastProvisionError: failedMessage,
+    }).catch(() => undefined);
 
     throw error;
   }
