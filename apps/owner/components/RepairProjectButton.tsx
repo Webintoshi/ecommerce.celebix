@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { normalizeActionError, readActionResponse } from "@/components/action-request";
 
 interface ProvisioningStepSummary {
   key: string;
@@ -25,40 +26,46 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
     setNotice(null);
     setDetails([]);
 
-    startTransition(async () => {
-      const response = await fetch(`/api/stores/${slug}/repair`, {
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        success?: boolean;
-        provisioningState?: string;
-        blockers?: ProvisioningStepSummary[];
-        steps?: ProvisioningStepSummary[];
-      };
+    startTransition(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/stores/${slug}/repair`, {
+            method: "POST",
+          });
+          const { payload, errorMessage } = await readActionResponse<{
+            error?: string;
+            success?: boolean;
+            provisioningState?: string;
+            blockers?: ProvisioningStepSummary[];
+            steps?: ProvisioningStepSummary[];
+          }>(response);
 
-      if (!response.ok) {
-        setError(payload.error || "Repair akisi basarisiz oldu.");
-        return;
-      }
+          if (!response.ok) {
+            setError(errorMessage || "Repair akisi basarisiz oldu.");
+            return;
+          }
 
-      setDetails(payload.steps ?? []);
-      setNotice(
-        payload.provisioningState === "ready"
-          ? "Repair akisi tamamlandi; provisioning state hazir."
-          : "Repair akisi calisti; kalan blocker'lar asagida listelendi.",
-      );
+          setDetails(payload?.steps ?? []);
+          setNotice(
+            payload?.provisioningState === "ready"
+              ? "Repair akisi tamamlandi; provisioning state hazir."
+              : "Repair akisi calisti; kalan blocker'lar asagida listelendi.",
+          );
 
-      if (payload.provisioningState !== "ready") {
-        setError(
-          payload.blockers
-            ?.map((step) => step.message)
-            .filter((value): value is string => Boolean(value))
-            .join(" / ") || "Provisioning henuz pending_repair durumda.",
-        );
-      }
+          if (payload?.provisioningState !== "ready") {
+            setError(
+              payload?.blockers
+                ?.map((step) => step.message)
+                .filter((value): value is string => Boolean(value))
+                .join(" / ") || "Provisioning henuz pending_repair durumda.",
+            );
+          }
 
-      router.refresh();
+          router.refresh();
+        } catch (error) {
+          setError(normalizeActionError(error, "Repair akisi basarisiz oldu."));
+        }
+      })();
     });
   }
 

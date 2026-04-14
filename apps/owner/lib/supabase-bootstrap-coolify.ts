@@ -65,6 +65,8 @@ interface SupabaseRuntimeConnection {
 const COOLIFY_API_PREFIX = "/api/v1";
 const ENV_POLL_DELAY_MS = 5000;
 const ENV_POLL_ATTEMPTS = 24;
+const PG_META_POLL_DELAY_MS = 5000;
+const PG_META_POLL_ATTEMPTS = 8;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const SELF_HOSTED_PG_META_REF = "default";
 const CORE_BOOTSTRAP_SQL_FILES = [
@@ -605,11 +607,6 @@ function getSharedRedisEnvEntries(): Record<string, string> {
   return entries;
 }
 
-function hasExistingProvisionedProject(store: StoreConfig): boolean {
-  const projectRef = store.supabase.projectRef?.trim();
-  return Boolean(projectRef && projectRef !== "pending-owner-bootstrap");
-}
-
 function resolveIdentifier(value: CoolifyProject | CoolifyEnvironment | CoolifyService): string {
   const identifier =
     value.uuid ||
@@ -913,6 +910,39 @@ async function ensureSelfHostedStoreSchema(
   }
 }
 
+async function waitForSelfHostedPgMetaRuntime(
+  runtime: SupabaseRuntimeConnection,
+  adminUser: string,
+  adminPassword: string,
+): Promise<void> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < PG_META_POLL_ATTEMPTS; attempt += 1) {
+    try {
+      await runSelfHostedPgMetaQuery(
+        runtime.publicUrl,
+        runtime.publicUrl8000,
+        runtime.internalApiUrl,
+        adminUser,
+        adminPassword,
+        "select 1 as ok;",
+      );
+      return;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error("Self-hosted pg-meta hazir degil.");
+    }
+
+    await sleep(PG_META_POLL_DELAY_MS);
+  }
+
+  throw new Error(
+    `Self-hosted pg-meta hazir olmadi. ${lastError?.message ?? "Bilinmeyen pg-meta hatasi."}`,
+  );
+}
+
 function buildProjectReference(store: StoreConfig, serviceUuid: string): string {
   return `coolify:${store.slug}:${serviceUuid}`;
 }
@@ -1019,12 +1049,6 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
 }
 
 export async function provisionSupabaseForStore(store: StoreConfig): Promise<SupabaseProvisioningResult> {
-  if (hasExistingProvisionedProject(store)) {
-    throw new Error(
-      `Bu magaza icin zaten bir Supabase kaynagi olusturulmus: ${store.supabase.projectRef}. Yeni provisioning oncesi mevcut kaynagi temizleyin veya store kaydini sifirlayin.`,
-    );
-  }
-
   const organization = buildOrganization(store);
   const project = await ensureProject(store);
   const projectUuid = resolveIdentifier(project);
@@ -1042,6 +1066,7 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     runtime = await waitForSupabaseRuntime(serviceUuid);
     const resolvedProjectUrl = runtime.publicUrl || targetPublicUrl;
     const resolvedDashboardUrl = buildSupabaseDashboardUrl(resolvedProjectUrl);
+    await waitForSelfHostedPgMetaRuntime(runtime, runtime.adminUser, runtime.adminPassword);
     await ensureSelfHostedStoreSchema(runtime, runtime.adminUser, runtime.adminPassword);
     await seedSelfHostedStoreSettings(store, runtime, runtime.adminUser, runtime.adminPassword);
     const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, resolvedProjectUrl);

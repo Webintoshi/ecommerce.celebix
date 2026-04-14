@@ -44,6 +44,10 @@ import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import { validateConfiguredStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
+import {
+  releaseStoreProvisioningWindow,
+  reserveStoreProvisioningWindow,
+} from "@/lib/store-provisioning-guard";
 
 type ProvisioningMode = "create" | "repair";
 
@@ -346,18 +350,24 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
 export async function runStoreProvisioningWorkflow(
   input: StoreProvisioningWorkflowInput,
 ): Promise<StoreProvisioningWorkflowResult> {
-  await ensureStoreConfigFromOwnerAuthority(input.slug);
-  repairStoreConfig(input.slug);
-  await syncOwnerStoresAndMetrics();
+  const provisioningWindow = await reserveStoreProvisioningWindow({
+    slug: input.slug,
+    mode: input.mode,
+  });
 
-  const tracker = await initializeTracker(input.slug, input.mode);
-  await runPreflights(input, tracker);
+  try {
+    await ensureStoreConfigFromOwnerAuthority(input.slug);
+    repairStoreConfig(input.slug);
+    await syncOwnerStoresAndMetrics();
 
-  if (getProvisioningBlockers(tracker.summary).length > 0) {
-    return tracker.finalize();
-  }
+    const tracker = await initializeTracker(input.slug, input.mode);
+    await runPreflights(input, tracker);
 
-  const workflow: Array<[ProvisioningStepKey, () => Promise<string>]> = [
+    if (getProvisioningBlockers(tracker.summary).length > 0) {
+      return tracker.finalize();
+    }
+
+    const workflow: Array<[ProvisioningStepKey, () => Promise<string>]> = [
     [
       "authority_repo_sync",
       async () => {
@@ -499,36 +509,39 @@ export async function runStoreProvisioningWorkflow(
         return deployment.message || "Storefront deployment tetiklendi.";
       },
     ],
-  ];
+    ];
 
-  for (const [key, action] of workflow) {
-    const succeeded = await runWorkflowStep(tracker, key, action);
+    for (const [key, action] of workflow) {
+      const succeeded = await runWorkflowStep(tracker, key, action);
 
-    if (!succeeded) {
-      break;
+      if (!succeeded) {
+        break;
+      }
     }
+
+    await syncOwnerStoresAndMetrics();
+    const result = await tracker.finalize();
+
+    await recordOwnerAuditLog({
+      actorId: input.auth.user.id,
+      action: input.mode === "repair" ? "store_repair_run" : "store_provisioning_run",
+      targetType: "store",
+      targetId: input.slug,
+      details: {
+        provisioningState: result.provisioningState,
+        blockers: result.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
+        steps: result.steps.map((step) => ({
+          key: step.key,
+          status: step.status,
+          message: step.message,
+        })),
+      },
+    });
+
+    return result;
+  } finally {
+    await releaseStoreProvisioningWindow(provisioningWindow);
   }
-
-  await syncOwnerStoresAndMetrics();
-  const result = await tracker.finalize();
-
-  await recordOwnerAuditLog({
-    actorId: input.auth.user.id,
-    action: input.mode === "repair" ? "store_repair_run" : "store_provisioning_run",
-    targetType: "store",
-    targetId: input.slug,
-    details: {
-      provisioningState: result.provisioningState,
-      blockers: result.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
-      steps: result.steps.map((step) => ({
-        key: step.key,
-        status: step.status,
-        message: step.message,
-      })),
-    },
-  });
-
-  return result;
 }
 
 export function predictPendingRepairStatus(steps: ProvisioningStepSummary[]): ProvisioningState {

@@ -1049,13 +1049,24 @@ function buildNextMetadata(
 function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string, unknown> | null): Record<string, unknown> {
   const current = asRecord(existingMetadata);
   const owner = asRecord(current.owner);
+  const bootstrap = asRecord(current.bootstrap);
+  const storefront = asRecord(current.storefront);
+  const supabase = asRecord(current.supabase);
 
   return {
     ...current,
-    bootstrap: store.bootstrap ?? current.bootstrap ?? null,
+    bootstrap: {
+      ...bootstrap,
+      ...(store.bootstrap ?? {}),
+    },
+    storefront: {
+      ...storefront,
+      ...(store.storefront ?? {}),
+    },
     supabase: {
+      ...supabase,
       provider: store.supabase.provider,
-      dashboardUrl: store.supabase.dashboardUrl ?? null,
+      dashboardUrl: store.supabase.dashboardUrl ?? readOptionalString(supabase.dashboardUrl) ?? null,
       storage: store.supabase.storage,
     },
     features: store.features,

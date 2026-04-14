@@ -25,11 +25,17 @@ export async function POST(_request: Request, { params }: ProvisionSupabaseRoute
       return NextResponse.json({ error: "Magaza bulunamadi." }, { status: 404 });
     }
 
+    const isSelfHostedCoolifyStore = store.supabase.provider === "self_hosted_coolify";
+
     if (store.bootstrap?.supabaseProvisioning === "configured") {
       return NextResponse.json({ error: "Bu magazanin Supabase baglantisi zaten kurulu." }, { status: 409 });
     }
 
-    if (store.bootstrap?.supabaseProvisioning === "failed" && store.supabase.projectRef !== "pending-owner-bootstrap") {
+    if (
+      store.bootstrap?.supabaseProvisioning === "failed" &&
+      store.supabase.projectRef !== "pending-owner-bootstrap" &&
+      !isSelfHostedCoolifyStore
+    ) {
       return NextResponse.json(
         {
           error: `Bu magazada daha once acilmis bir Supabase projesi var: ${store.supabase.projectRef}. Yeni proje acilmamasi icin otomatik retry durduruldu.`
