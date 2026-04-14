@@ -555,16 +555,24 @@ async function buildStorefrontRuntimeFailureDiagnostics(
   applicationUuid: string | null,
 ): Promise<string | null> {
   if (!applicationUuid) {
-    return null;
+    return "Coolify uygulama UUID bilinmiyor.";
   }
 
-  const [deploymentSummary, logSummary] = await Promise.all([
-    readLatestDeploymentSummary(applicationUuid).catch(() => null),
-    readApplicationLogSummary(applicationUuid).catch(() => null),
+  const [deploymentResult, logResult] = await Promise.allSettled([
+    readLatestDeploymentSummary(applicationUuid),
+    readApplicationLogSummary(applicationUuid),
   ]);
   const parts = [
-    deploymentSummary ? `Coolify deployment ${deploymentSummary}` : null,
-    logSummary ? `Coolify logs ${logSummary}` : null,
+    deploymentResult.status === "fulfilled"
+      ? deploymentResult.value
+        ? `Coolify deployment ${deploymentResult.value}`
+        : "Coolify deployment ozeti bos dondu"
+      : `Coolify deployment ozeti okunamadi: ${deploymentResult.reason instanceof Error ? deploymentResult.reason.message : "bilinmeyen hata"}`,
+    logResult.status === "fulfilled"
+      ? logResult.value
+        ? `Coolify logs ${logResult.value}`
+        : "Coolify log ozeti bos dondu"
+      : `Coolify log ozeti okunamadi: ${logResult.reason instanceof Error ? logResult.reason.message : "bilinmeyen hata"}`,
   ].filter(Boolean);
 
   return parts.length > 0 ? parts.join(" || ") : null;
