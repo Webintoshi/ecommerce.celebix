@@ -4,13 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
     AlertTriangle,
-    Building2,
     CheckCircle,
     CreditCard,
-    DollarSign,
     Edit,
     Filter,
-    Package,
     Plus,
     RefreshCw,
     Search,
@@ -20,6 +17,7 @@ import {
     TrendingUp,
     Zap,
 } from "lucide-react";
+import { PaymentProviderLogo } from "@/components/admin/payment-provider-logo";
 import { getPaymentGatewayRuntimeStatus, getPaymentProviderDefinition } from "@/lib/payment-providers";
 import {
     deletePaymentGateway,
@@ -29,7 +27,7 @@ import {
     testPaymentGatewayConnection,
     togglePaymentGatewayStatus,
 } from "@/lib/payments";
-import { PaymentEnvironment, PaymentGateway, PaymentGatewayConfig, PaymentMethodStatus } from "@/types/payment";
+import { PaymentEnvironment, PaymentGatewayConfig, PaymentMethodStatus } from "@/types/payment";
 
 export default function PaymentSettingsPage() {
     const [paymentGateways, setPaymentGateways] = useState<PaymentGatewayConfig[]>([]);
@@ -124,20 +122,6 @@ export default function PaymentSettingsPage() {
         return env === "production"
             ? "bg-red-100 text-red-700"
             : "bg-blue-100 text-blue-700";
-    };
-
-    const getGatewayIcon = (gateway: PaymentGateway) => {
-        switch (gateway) {
-            case "iyzico":
-            case "bank_transfer":
-                return Building2;
-            case "stripe":
-                return DollarSign;
-            case "cod":
-                return Package;
-            default:
-                return CreditCard;
-        }
     };
 
     return (
@@ -261,7 +245,6 @@ export default function PaymentSettingsPage() {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredGateways.map((gateway) => {
-                    const GatewayIcon = getGatewayIcon(gateway.gateway);
                     const runtimeStatus = getPaymentGatewayRuntimeStatus(gateway);
                     const providerDefinition = getPaymentProviderDefinition(gateway.gateway);
                     const canTestConnection = providerDefinition.supportsConnectionTest;
@@ -273,8 +256,14 @@ export default function PaymentSettingsPage() {
                         >
                             <div className="flex-1 p-6">
                                 <div className="mb-4 flex items-start justify-between">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-50">
-                                        <GatewayIcon className="h-6 w-6 text-gray-700" />
+                                    <div className="h-12 w-12">
+                                        <PaymentProviderLogo
+                                            gateway={gateway.gateway}
+                                            name={gateway.name}
+                                            accentClassName={providerDefinition.accentClassName}
+                                            size={48}
+                                            iconClassName="h-6 w-6"
+                                        />
                                     </div>
                                     <button
                                         onClick={() => handleToggleStatus(gateway.id, gateway.status)}
