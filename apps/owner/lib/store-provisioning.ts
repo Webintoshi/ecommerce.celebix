@@ -77,6 +77,18 @@ function shouldAutoProvisionGeneratedApps(): boolean {
   return true;
 }
 
+const PREFLIGHT_STEP_KEYS: ProvisioningStepKey[] = [
+  "owner_supabase_auth",
+  "cleanup_guard",
+  "deployment_branch_preflight",
+  "supabase_preflight",
+  "r2_preflight",
+  "coolify_preflight",
+  "github_preflight",
+  "starter_source_preflight",
+  "generated_apps_toggle",
+];
+
 function normalizeStarterSourceUrl(value: string): string {
   const trimmed = value.trim();
   const absolute = trimmed.startsWith("http://") || trimmed.startsWith("https://")
@@ -347,6 +359,11 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 }
 
+function getPreflightBlockers(summary: ProvisioningSummary): ProvisioningStepSummary[] {
+  const preflightKeys = new Set(PREFLIGHT_STEP_KEYS);
+  return getProvisioningBlockers(summary).filter((step) => preflightKeys.has(step.key));
+}
+
 export async function runStoreProvisioningWorkflow(
   input: StoreProvisioningWorkflowInput,
 ): Promise<StoreProvisioningWorkflowResult> {
@@ -363,7 +380,7 @@ export async function runStoreProvisioningWorkflow(
     const tracker = await initializeTracker(input.slug, input.mode);
     await runPreflights(input, tracker);
 
-    if (getProvisioningBlockers(tracker.summary).length > 0) {
+    if (getPreflightBlockers(tracker.summary).length > 0) {
       return tracker.finalize();
     }
 
