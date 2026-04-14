@@ -1,0 +1,68 @@
+{
+  "name": "Lilyum Flora Ordu",
+  "slug": "lilyum-flora-ordu",
+  "status": "draft",
+  "theme": {
+    "key": "leather",
+    "label": "Leather",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Ordunun bir numaralı çiçekçisi.",
+    "supportEmail": "destek@lilyumflora.net",
+    "supportPhone": "+90 545 628 41 52",
+    "senderEmail": "noreply@lilyumflora.net",
+    "smsSenderTitle": "LILYUMFLORA",
+    "defaultProductBrand": "Lilyum Flora Ordu"
+  },
+  "domains": {
+    "storefront": "lilyumflora.net",
+    "admin": "admin.lilyumflora.net"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-14T19:51:42.053Z",
+    "envTemplatePath": "stores/lilyum-flora-ordu/admin.env.example",
+    "coolifyProjectName": "Lilyum Flora Ordu",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Lilyum Flora Ordu admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Lilyum Flora Ordu websitesi",
+    "deploymentBranch": "deploy/storefront/lilyum-flora-ordu",
+    "runtimeUrl": "https://lilyumflora.net",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
