@@ -679,6 +679,18 @@ function extractRelevantLogTail(value: string): string {
     return normalized;
   }
 
+  const codeFrameMatches = Array.from(normalized.matchAll(/\n\s*\d+\s+\|/g));
+
+  if (codeFrameMatches.length > 0) {
+    const lastCodeFrame = codeFrameMatches[codeFrameMatches.length - 1];
+    const index = lastCodeFrame.index ?? -1;
+
+    if (index >= 0) {
+      const start = Math.max(0, index - 700);
+      return `...${normalized.slice(start).slice(0, 2200)}`;
+    }
+  }
+
   const patterns = [
     /npm ERR!/gi,
     /error:/gi,
