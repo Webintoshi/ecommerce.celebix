@@ -98,6 +98,8 @@ function buildPackageJson(slug: string): string {
         typecheck: "tsc -p tsconfig.json --noEmit",
       },
       dependencies: {
+        "@celebix/payment-core": "0.1.0",
+        "@celebix/platform-config": "0.1.0",
         "@aws-sdk/client-s3": "^3.985.0",
         "@craftgate/craftgate": "^1.0.65",
         "@dnd-kit/core": "^6.1.0",

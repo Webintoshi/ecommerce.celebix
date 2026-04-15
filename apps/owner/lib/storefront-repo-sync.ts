@@ -61,7 +61,14 @@ interface GitHubCreateCommitResponse {
 }
 
 const EXCLUDED_DIRECTORY_NAMES = new Set([".next", "node_modules"]);
-const EXCLUDED_FILENAMES = new Set([".env.local"]);
+const EXCLUDED_FILENAMES = new Set([".env.local", "tsconfig.tsbuildinfo"]);
+const STOREFRONT_SHARED_ROOT_FILES = [
+  ".npmrc",
+  "nixpacks.toml",
+  "package.json",
+  "package-lock.json",
+  "tsconfig.base.json",
+] as const;
 
 function getGitHubToken(): string {
   const token =
@@ -271,6 +278,27 @@ function collectFilesRecursively(directory: string): string[] {
   return files;
 }
 
+function pushRepoFile(
+  files: Array<{ absolutePath: string; relativePath: string }>,
+  repoRoot: string,
+  absolutePath: string,
+): void {
+  if (!fs.existsSync(absolutePath)) {
+    return;
+  }
+
+  const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, "/");
+
+  if (files.some((file) => file.relativePath === relativePath)) {
+    return;
+  }
+
+  files.push({
+    absolutePath,
+    relativePath,
+  });
+}
+
 function normalizeRelativeAppDir(value: string | null | undefined, slug: string): string {
   const trimmed = value?.trim();
   if (!trimmed) {
@@ -290,12 +318,28 @@ function resolveAuthorityFiles(slug: string): Array<{ absolutePath: string; rela
   const adminEnvExamplePath = path.join(storeDirectory, "admin.env.example");
 
   for (const absolutePath of [registryPath, storeConfigPath, adminEnvExamplePath]) {
-    if (fs.existsSync(absolutePath)) {
-      files.push({
-        absolutePath,
-        relativePath: path.relative(repoRoot, absolutePath).replace(/\\/g, "/"),
-      });
-    }
+    pushRepoFile(files, repoRoot, absolutePath);
+  }
+
+  return files;
+}
+
+function resolveStorefrontSharedFiles(): Array<{ absolutePath: string; relativePath: string }> {
+  const repoRoot = getRepoRoot();
+  const files: Array<{ absolutePath: string; relativePath: string }> = [];
+
+  for (const relativePath of STOREFRONT_SHARED_ROOT_FILES) {
+    pushRepoFile(files, repoRoot, path.join(repoRoot, relativePath));
+  }
+
+  const packagesDirectory = path.join(repoRoot, "packages");
+
+  if (!fs.existsSync(packagesDirectory)) {
+    return files;
+  }
+
+  for (const absolutePath of collectFilesRecursively(packagesDirectory)) {
+    pushRepoFile(files, repoRoot, absolutePath);
   }
 
   return files;
@@ -317,11 +361,12 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
     throw new Error("Storefront app dizini bulunamadi.");
   }
 
+  for (const sharedFile of resolveStorefrontSharedFiles()) {
+    files.push(sharedFile);
+  }
+
   for (const absolutePath of collectFilesRecursively(appDirectory)) {
-    files.push({
-      absolutePath,
-      relativePath: path.relative(repoRoot, absolutePath).replace(/\\/g, "/"),
-    });
+    pushRepoFile(files, repoRoot, absolutePath);
   }
 
   return files;
@@ -746,12 +791,14 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
         .filter((entry) => entry.type === "blob" && typeof entry.path === "string")
         .map((entry) => entry.path as string),
     );
+    const sharedPaths = resolveStorefrontSharedFiles().map((file) => file.relativePath);
 
     return [
       "stores/registry.json",
       `stores/${slug}/store.config.json`,
       `stores/${slug}/admin.env.example`,
       `${relativeAppDir.replace(/\\/g, "/")}/package.json`,
+      ...sharedPaths,
     ].every((requiredPath) => paths.has(requiredPath));
   } catch {
     return false;
