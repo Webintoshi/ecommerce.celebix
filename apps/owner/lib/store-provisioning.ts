@@ -39,6 +39,7 @@ import {
   isGitHubRepoSyncConfigured,
   syncStoreAuthorityRepoForStore,
   syncStorefrontRepoForStore,
+  validateGitHubRepoSyncReadiness,
 } from "@/lib/storefront-repo-sync";
 import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
@@ -65,6 +66,11 @@ export interface StoreProvisioningWorkflowResult {
   steps: ProvisioningStepSummary[];
   blockers: ProvisioningStepSummary[];
   repaired: boolean;
+}
+
+export interface ProvisioningEnvironmentReadiness {
+  ready: boolean;
+  errors: string[];
 }
 
 function shouldAutoProvisionGeneratedApps(): boolean {
@@ -112,6 +118,101 @@ function getCoolifyMissingEnv(): string[] {
 
 function hasExplicitManagementInput(input: StoreProvisioningWorkflowInput): boolean {
   return input.packageStartDate !== undefined || input.packageDurationMonths !== undefined;
+}
+
+export async function validateProvisioningEnvironmentReadiness(): Promise<ProvisioningEnvironmentReadiness> {
+  const errors: string[] = [];
+
+  try {
+    const serviceClient = createOwnerServiceClient();
+    const { error } = await serviceClient
+      .from("owner_profiles")
+      .select("id", { head: true, count: "exact" });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } catch (error) {
+    errors.push(
+      `Owner Supabase authority hazir degil: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const status = await getSupabaseBootstrapStatus();
+
+    if (!status.configured) {
+      errors.push(status.lastError || `${status.provider} Supabase bootstrap authority eksik.`);
+    }
+  } catch (error) {
+    errors.push(
+      `Supabase bootstrap authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const status = await getR2BootstrapStatus();
+
+    if (!status.configured) {
+      errors.push(status.lastError || "R2 bootstrap authority eksik.");
+    }
+  } catch (error) {
+    errors.push(
+      `R2 bootstrap authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  const coolifyMissing = getCoolifyMissingEnv();
+  if (coolifyMissing.length > 0) {
+    errors.push(`Coolify authority eksik: ${coolifyMissing.join(", ")}`);
+  }
+
+  try {
+    const gitHubReadiness = await validateGitHubRepoSyncReadiness();
+
+    if (!gitHubReadiness.ready) {
+      errors.push(gitHubReadiness.message || "GitHub repo sync authority hazir degil.");
+    }
+  } catch (error) {
+    errors.push(
+      `GitHub repo sync authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const sourceBase = getStarterSourceBase();
+    const response = await fetch(`${sourceBase}/api/homepage`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      errors.push(`Starter source fetch failed (${response.status}) for ${sourceBase}`);
+    }
+  } catch (error) {
+    errors.push(
+      `Starter source dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  if (!shouldAutoProvisionGeneratedApps()) {
+    errors.push("Generated app provisioning owner env tarafinda kapali.");
+  }
+
+  return {
+    ready: errors.length === 0,
+    errors,
+  };
 }
 
 async function runGeneratedDeploymentStep<T>(
@@ -329,11 +430,13 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "github_preflight", async () => {
-    if (!isGitHubRepoSyncConfigured()) {
-      throw new Error("GitHub repo write-back authority eksik.");
+    const readiness = await validateGitHubRepoSyncReadiness();
+
+    if (!readiness.ready) {
+      throw new Error(readiness.message || "GitHub repo sync authority hazir degil.");
     }
 
-    return "GitHub repo sync authority hazir.";
+    return readiness.message || "GitHub repo sync authority hazir.";
   });
 
   await runPreflightStep(tracker, "starter_source_preflight", async () => {

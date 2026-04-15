@@ -186,16 +186,20 @@ function hasGitMetadata(): boolean {
 }
 
 async function isRepoSynced(store: StoreConfig, relativeAppDir: string | null): Promise<boolean> {
-  if (store.storefront?.repoSyncStatus === "synced" && store.storefront?.repoSyncedAt) {
-    return true;
-  }
-
   if (!relativeAppDir?.trim()) {
     return false;
   }
 
-  if (!hasGitMetadata()) {
+  if (isGitHubRepoSyncConfigured()) {
     return checkStorefrontRepoSyncOnGithub(store.slug);
+  }
+
+  if (store.storefront?.repoSyncStatus === "synced" && store.storefront?.repoSyncedAt) {
+    return true;
+  }
+
+  if (!hasGitMetadata()) {
+    return false;
   }
 
   const packageJsonPath = `${relativeAppDir.replace(/\\/g, "/")}/package.json`;

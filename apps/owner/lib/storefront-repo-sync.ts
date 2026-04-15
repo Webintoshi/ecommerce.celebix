@@ -60,6 +60,22 @@ interface GitHubCreateCommitResponse {
   sha?: string;
 }
 
+interface GitHubRepositoryResponse {
+  default_branch?: string;
+  permissions?: {
+    push?: boolean;
+  };
+}
+
+export interface GitHubRepoSyncReadiness {
+  configured: boolean;
+  ready: boolean;
+  repository: string | null;
+  baseBranch: string | null;
+  authorityBranch: string | null;
+  message: string | null;
+}
+
 const EXCLUDED_DIRECTORY_NAMES = new Set([".next", "node_modules"]);
 const EXCLUDED_FILENAMES = new Set([".env.local", "tsconfig.tsbuildinfo"]);
 const STOREFRONT_SHARED_ROOT_FILES = [
@@ -207,6 +223,36 @@ async function readGitHubRef(
   return (await response.json()) as GitHubRefResponse;
 }
 
+async function readGitHubRepository(
+  repository: string,
+): Promise<GitHubRepositoryResponse> {
+  return githubFetch<GitHubRepositoryResponse>(`/repos/${repository}`);
+}
+
+async function resolveGitHubBaseBranch(
+  repository: string,
+  preferredBaseBranch: string,
+): Promise<string> {
+  const preferredRef = await readGitHubRef(repository, preferredBaseBranch);
+
+  if (preferredRef?.object?.sha) {
+    return preferredBaseBranch;
+  }
+
+  const repositoryInfo = await readGitHubRepository(repository);
+  const defaultBranch = normalizeBranchName(repositoryInfo.default_branch);
+
+  if (defaultBranch && defaultBranch !== preferredBaseBranch) {
+    const defaultRef = await readGitHubRef(repository, defaultBranch);
+
+    if (defaultRef?.object?.sha) {
+      return defaultBranch;
+    }
+  }
+
+  throw new Error(`GitHub base branch referansi okunamadi: ${preferredBaseBranch}`);
+}
+
 async function ensureGitHubBranch(input: {
   repository: string;
   branch: string;
@@ -223,11 +269,12 @@ async function ensureGitHubBranch(input: {
     };
   }
 
-  const baseRef = await readGitHubRef(input.repository, input.baseBranch);
+  const resolvedBaseBranch = await resolveGitHubBaseBranch(input.repository, input.baseBranch);
+  const baseRef = await readGitHubRef(input.repository, resolvedBaseBranch);
   const baseHeadSha = baseRef?.object?.sha;
 
   if (!baseHeadSha) {
-    throw new Error(`GitHub base branch referansi okunamadi: ${input.baseBranch}`);
+    throw new Error(`GitHub base branch referansi okunamadi: ${resolvedBaseBranch}`);
   }
 
   await githubFetch(`/repos/${input.repository}/git/refs`, {
@@ -248,7 +295,7 @@ async function ensureGitHubBranch(input: {
   return {
     headSha: createdHeadSha,
     createdBranch: true,
-    baseBranch: input.baseBranch,
+    baseBranch: resolvedBaseBranch,
   };
 }
 
@@ -521,6 +568,64 @@ export function isGitHubRepoSyncConfigured(): boolean {
         process.env.COOLIFY_APPLICATION_REPOSITORY_URL?.trim() ||
         process.env.CELEBIX_GIT_REPOSITORY?.trim()),
   );
+}
+
+export async function validateGitHubRepoSyncReadiness(): Promise<GitHubRepoSyncReadiness> {
+  if (!isGitHubRepoSyncConfigured()) {
+    return {
+      configured: false,
+      ready: false,
+      repository: null,
+      baseBranch: null,
+      authorityBranch: null,
+      message: "GitHub repo write-back authority eksik.",
+    };
+  }
+
+  try {
+    const repository = getGitHubRepository();
+    const preferredBaseBranch = getGitHubBaseBranch();
+    const authorityBranch = getAuthorityGitHubBranch();
+    const repositoryInfo = await readGitHubRepository(repository);
+
+    if (repositoryInfo.permissions?.push === false) {
+      return {
+        configured: true,
+        ready: false,
+        repository,
+        baseBranch: null,
+        authorityBranch,
+        message: `GitHub token "${repository}" icin push yetkisine sahip degil.`,
+      };
+    }
+
+    const baseBranch = await resolveGitHubBaseBranch(repository, preferredBaseBranch);
+    const fallbackNote =
+      baseBranch !== preferredBaseBranch
+        ? ` (configured base ${preferredBaseBranch} yerine ${baseBranch} kullanilacak)`
+        : "";
+
+    return {
+      configured: true,
+      ready: true,
+      repository,
+      baseBranch,
+      authorityBranch,
+      message: `GitHub repo sync hazir: ${repository}#${baseBranch}${fallbackNote}`,
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      ready: false,
+      repository: null,
+      baseBranch: null,
+      authorityBranch: null,
+      message:
+        error instanceof Error
+          ? error.message
+          : "GitHub repo sync authority dogrulanamadi.",
+    };
+  }
 }
 
 async function deleteStoreRepoArtifactsFromBranch(input: {

@@ -5,7 +5,10 @@ import { validateNewStoreDeploymentBranches } from "@/lib/deployment-branch-guar
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { isRedisLockError } from "@/lib/redis";
 import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
-import { runStoreProvisioningWorkflow } from "@/lib/store-provisioning";
+import {
+  runStoreProvisioningWorkflow,
+  validateProvisioningEnvironmentReadiness,
+} from "@/lib/store-provisioning";
 
 function predictStoreSlug(name: string, explicitSlug?: string): string {
   const candidate = explicitSlug?.trim() || name.trim();
@@ -89,6 +92,18 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
+    }
+
+    const environmentReadiness = await validateProvisioningEnvironmentReadiness();
+
+    if (!environmentReadiness.ready) {
+      return NextResponse.json(
+        {
+          error: environmentReadiness.errors[0] || "Provisioning authority hazir degil.",
+          preflightErrors: environmentReadiness.errors,
+        },
+        { status: 409 },
+      );
     }
 
     const created = createStore({
