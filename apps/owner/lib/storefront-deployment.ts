@@ -109,22 +109,6 @@ function parseEnvFile(contents: string): Record<string, string> {
   return envMap;
 }
 
-function buildInstrumentedBuildCommand(workspace: string): string {
-  const escapedWorkspace = workspace.replace(/'/g, "'\"'\"'");
-  return [
-    "bash -lc '",
-    "mkdir -p /tmp/celebix && ",
-    `npm run build --workspace '${escapedWorkspace}' 2>&1 | tee /tmp/celebix/storefront-build.log; `,
-    "code=${PIPESTATUS[0]}; ",
-    "if [ \"$code\" -ne 0 ]; then ",
-    "echo __CELEBIX_BUILD_LOG_START__; ",
-    "tail -n 200 /tmp/celebix/storefront-build.log; ",
-    "echo __CELEBIX_BUILD_LOG_END__; ",
-    "exit \"$code\"; ",
-    "fi'",
-  ].join("");
-}
-
 function resolveAdminEnvEntries(store: StoreConfig): Record<string, string> {
   const repoRoot = getRepoRoot();
   const relativePath = store.bootstrap?.adminEnvLocalPath || `stores/${store.slug}/admin.env.local`;
@@ -462,7 +446,7 @@ export async function getStorefrontDeploymentBlueprint(
     serverPort,
     workspace,
     installCommand: "npm install --include=optional --no-audit --no-fund",
-    buildCommand: buildInstrumentedBuildCommand(workspace),
+    buildCommand: `npm run build --workspace ${workspace}`,
     startCommand: `npm run start --workspace ${workspace}`,
     appDirectory,
     envLocalPath: appDirectory ? path.posix.join(relativeAppDir || "", ".env.local") : null,
