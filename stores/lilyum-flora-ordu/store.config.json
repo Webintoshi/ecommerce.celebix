@@ -51,7 +51,7 @@
   "storefront": {
     "appDir": "apps/storefront-lilyum-flora-ordu",
     "status": "active",
-    "lastScaffoldedAt": "2026-04-15T02:44:05.846Z",
+    "lastScaffoldedAt": "2026-04-15T02:47:26.594Z",
     "repoSyncStatus": "pending",
     "deploymentProvider": "coolify",
     "deploymentName": "Lilyum Flora Ordu websitesi",
@@ -59,8 +59,8 @@
     "runtimeUrl": "https://lilyumflora.net",
     "resourceId": "r108wipnz0280tbh1vaaax25",
     "deploymentStatus": "configured",
-    "preparedAt": "2026-04-15T02:44:05.847Z",
-    "deployedAt": "2026-04-15T02:44:05.846Z"
+    "preparedAt": "2026-04-15T02:47:26.594Z",
+    "deployedAt": "2026-04-15T02:47:26.593Z"
   },
   "features": [
     "catalog",
