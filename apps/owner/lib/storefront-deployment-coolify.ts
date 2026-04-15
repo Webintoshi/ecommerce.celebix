@@ -623,11 +623,19 @@ function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
       );
 
       if (interestingEntries.length > 0) {
-        return interestingEntries.slice(-12).join(" | ").slice(0, 1600);
+        return interestingEntries
+          .slice(-12)
+          .map(extractRelevantLogTail)
+          .join(" | ")
+          .slice(0, 2200);
       }
 
       if (entries.length > 0) {
-        return entries.slice(-14).join(" | ").slice(0, 1600);
+        return entries
+          .slice(-14)
+          .map(extractRelevantLogTail)
+          .join(" | ")
+          .slice(0, 2200);
       }
     }
   } catch {
@@ -646,14 +654,62 @@ function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
   );
 
   if (interestingLines.length > 0) {
-    return interestingLines.slice(-12).join(" | ").slice(0, 1600);
+    return interestingLines
+      .slice(-12)
+      .map(extractRelevantLogTail)
+      .join(" | ")
+      .slice(0, 2200);
   }
 
   if (lines.length === 0) {
     return null;
   }
 
-  return lines.slice(-12).join(" | ").slice(0, 1600);
+  return lines
+    .slice(-12)
+    .map(extractRelevantLogTail)
+    .join(" | ")
+    .slice(0, 2200);
+}
+
+function extractRelevantLogTail(value: string): string {
+  const normalized = value.replace(/\u001b\[[0-9;]*m/g, "").trim();
+
+  if (normalized.length <= 900) {
+    return normalized;
+  }
+
+  const patterns = [
+    /npm ERR!/gi,
+    /error:/gi,
+    /\bfailed\b/gi,
+    /cannot find/gi,
+    /not found/gi,
+    /exit code/gi,
+    /ELIFECYCLE/gi,
+    /Module not found/gi,
+    /TypeError/gi,
+    /ReferenceError/gi,
+    /SyntaxError/gi,
+  ];
+  let lastMatchIndex = -1;
+
+  for (const pattern of patterns) {
+    const matches = normalized.matchAll(pattern);
+
+    for (const match of matches) {
+      if (typeof match.index === "number") {
+        lastMatchIndex = Math.max(lastMatchIndex, match.index);
+      }
+    }
+  }
+
+  if (lastMatchIndex >= 0) {
+    const start = Math.max(0, lastMatchIndex - 220);
+    return `...${normalized.slice(start).slice(0, 1400)}`;
+  }
+
+  return `...${normalized.slice(-1400)}`;
 }
 
 async function buildStorefrontRuntimeFailureDiagnostics(
