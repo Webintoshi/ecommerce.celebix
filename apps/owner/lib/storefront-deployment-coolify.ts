@@ -616,8 +616,18 @@ function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
         })
         .filter((entry): entry is string => Boolean(entry));
 
+      const interestingEntries = entries.filter((entry) =>
+        /(ERR!|error|failed|cannot find|not found|exit code|ELIFECYCLE|Module not found|Traceback|panic|E[A-Z]{3,}|TypeError|ReferenceError|SyntaxError)/i.test(
+          entry,
+        ),
+      );
+
+      if (interestingEntries.length > 0) {
+        return interestingEntries.slice(-12).join(" | ").slice(0, 1600);
+      }
+
       if (entries.length > 0) {
-        return entries.slice(-10).join(" | ").slice(0, 1200);
+        return entries.slice(-14).join(" | ").slice(0, 1600);
       }
     }
   } catch {
@@ -629,11 +639,21 @@ function summarizeCoolifyLogs(logs: string | null | undefined): string | null {
     .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "").trim())
     .filter(Boolean);
 
+  const interestingLines = lines.filter((line) =>
+    /(ERR!|error|failed|cannot find|not found|exit code|ELIFECYCLE|Module not found|Traceback|panic|E[A-Z]{3,}|TypeError|ReferenceError|SyntaxError)/i.test(
+      line,
+    ),
+  );
+
+  if (interestingLines.length > 0) {
+    return interestingLines.slice(-12).join(" | ").slice(0, 1600);
+  }
+
   if (lines.length === 0) {
     return null;
   }
 
-  return lines.slice(-8).join(" | ").slice(0, 1200);
+  return lines.slice(-12).join(" | ").slice(0, 1600);
 }
 
 async function buildStorefrontRuntimeFailureDiagnostics(
