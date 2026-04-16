@@ -6,7 +6,6 @@ import { ArrowRight } from "lucide-react";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { SectionHeader } from "./SectionHeader";
 
 export interface PromoBanner {
   id: number | string;
@@ -91,13 +90,7 @@ export default function PromotionalBanners({
   return (
     <section className="section-shell pt-0">
       <div className="container-premium">
-        <SectionHeader
-          eyebrow="Kampanya Alani"
-          title="Admin yonetimli banner akislari"
-          description="Sadece veri varsa gorunen, urun deneyimini bozmayan temiz kampanya slotlari."
-        />
-
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {banners.map((banner, index) => {
             const imageSrc = resolveStorefrontAssetUrl(banner.image) || banner.image;
             const href = buildLocalizedPath(banner.buttonLink || "/urunler", locale);
