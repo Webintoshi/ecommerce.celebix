@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ChevronLeft, ChevronRight, Clock3, Flower2, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES, SITE_NAME } from "@/lib/constants";
+import { SITE_NAME } from "@/lib/constants";
 
 interface HeroSlide {
   id: number | string;
@@ -18,12 +17,6 @@ interface HeroSlide {
   buttonText?: string;
   buttonLink?: string;
 }
-
-const FALLBACK_TRUST_ITEMS = [
-  { icon: Clock3, label: "Aynı gün seçkileri" },
-  { icon: Flower2, label: "Taze ve güncel vitrin" },
-  { icon: ShieldCheck, label: "Güvenli sipariş akışı" },
-];
 
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const [current, setCurrent] = useState(0);
@@ -45,21 +38,12 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="section-shell pt-6 sm:pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_48%,#e8edf2_100%)] px-6 py-12 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-12 lg:py-16">
-            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(218,99,13,0.14),transparent_58%)]" />
-            <div className="relative max-w-2xl">
-              <p className="section-eyebrow">Lilyum Flora Ordu</p>
-              <h1 className="section-title mt-4 text-[var(--store-ink)] sm:text-5xl">
-                Sakin, premium ve ürün odaklı bir çiçek vitrini
-              </h1>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Link href={ROUTES.products} className="cta-primary">
-                  Vitrini İncele
-                </Link>
-                <Link href={ROUTES.contact} className="cta-secondary">
-                  İletişim Bilgileri
-                </Link>
-              </div>
+          <div className="overflow-hidden rounded-[36px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_48%,#e8edf2_100%)] p-2 shadow-[var(--store-shadow-soft)] sm:p-3">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] bg-[linear-gradient(140deg,#fffdf8_0%,#f7efe7_36%,#e8edf2_100%)] sm:aspect-[16/9] lg:aspect-[16/8.7]">
+              <div className="absolute left-[7%] top-[12%] h-24 w-24 rounded-full bg-[#DA630D]/14 sm:h-36 sm:w-36" />
+              <div className="absolute right-[8%] top-[16%] h-28 w-28 rounded-full bg-[#505E71]/14 sm:h-44 sm:w-44" />
+              <div className="absolute bottom-[-10%] left-[20%] h-40 w-40 rounded-full bg-white/60 sm:h-56 sm:w-56" />
+              <div className="absolute inset-x-[12%] bottom-[14%] h-[34%] rounded-[32px] border border-white/50 bg-white/35" />
             </div>
           </div>
         </div>
@@ -68,119 +52,76 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   }
 
   const slide = slides[current];
-  const heroTitle = slide.title || slide.alt || SITE_NAME;
-  const heroSubtitle =
-    slide.subtitle ||
-    "Güncel koleksiyonlar ve gönderime hazır seçimler tek bakışta.";
+  const currentSlideLabel = slide.alt || slide.title || SITE_NAME;
 
   return (
     <section className="section-shell pt-6 sm:pt-8">
       <div className="container-premium">
-        <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[var(--store-panel)] shadow-[var(--store-shadow-soft)]">
-          <div className="relative min-h-[560px] lg:min-h-[620px]">
-            <div className="absolute inset-0 hidden md:block">
-              <Image
-                src={slide.desktop}
-                alt={slide.alt}
-                fill
-                priority
-                className="object-cover"
-                sizes="100vw"
-              />
-            </div>
-            <div className="absolute inset-0 md:hidden">
-              <Image
-                src={slide.mobile || slide.desktop}
-                alt={slide.alt}
-                fill
-                priority
-                className="object-cover"
-                sizes="100vw"
-              />
-            </div>
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(80,94,113,0.78)_0%,rgba(80,94,113,0.48)_42%,rgba(80,94,113,0.12)_100%)] md:bg-[linear-gradient(90deg,rgba(80,94,113,0.74)_0%,rgba(80,94,113,0.4)_48%,rgba(80,94,113,0.08)_100%)]" />
-
-            <div className="relative z-10 flex min-h-[560px] flex-col justify-between p-6 sm:p-8 lg:min-h-[620px] lg:p-12">
-              <div className="max-w-2xl pt-6 sm:pt-10">
-                <p className="inline-flex rounded-full border border-white/18 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/88 backdrop-blur">
-                  {slide.title || "Premium Floral Seçim"}
-                </p>
-                <h1 className="mt-5 font-[var(--font-display)] text-4xl font-semibold leading-[0.92] tracking-[-0.05em] text-white sm:text-5xl lg:text-7xl">
-                  {heroTitle}
-                </h1>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-white/82 sm:text-base">
-                  {heroSubtitle}
-                </p>
-
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                  <Link
-                    href={slide.buttonLink || slide.link || ROUTES.products}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-[var(--store-accent)] transition hover:bg-[var(--store-surface-alt)]"
-                  >
-                    {slide.buttonText || "Koleksiyonu İncele"}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href={ROUTES.contact}
-                    className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/14"
-                  >
-                    Teslimat ve İletişim
-                  </Link>
-                </div>
+        <div className="overflow-hidden rounded-[36px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_38%,#edf1f4_100%)] p-2 shadow-[var(--store-shadow-soft)] sm:p-3">
+          <div className="relative overflow-hidden rounded-[30px]">
+            <div className="relative aspect-[4/5] sm:aspect-[16/9] lg:aspect-[16/8.7]">
+              <div className="absolute inset-0 hidden md:block">
+                <Image
+                  src={slide.desktop}
+                  alt={currentSlideLabel}
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="100vw"
+                />
               </div>
-
-              <div className="grid gap-3 pt-10 md:grid-cols-[1fr_auto] md:items-end">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {FALLBACK_TRUST_ITEMS.map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-[24px] border border-white/12 bg-white/10 px-4 py-4 text-white backdrop-blur-md"
-                    >
-                      <item.icon className="h-4 w-4 text-[var(--store-blush)]" />
-                      <p className="mt-3 text-sm font-semibold">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {slides.length > 1 ? (
-                  <div className="flex items-center justify-between gap-4 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-white backdrop-blur-md md:justify-end">
-                    <div className="flex items-center gap-2">
-                      {slides.map((item, index) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setCurrent(index)}
-                          className={cn(
-                            "h-2.5 rounded-full transition-all",
-                            index === current ? "w-8 bg-white" : "w-2.5 bg-white/45",
-                          )}
-                          aria-label={`Slide ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="hidden items-center gap-2 sm:flex">
-                      <button
-                        type="button"
-                        onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/10 transition hover:bg-white/16"
-                          aria-label="Önceki slide"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrent((current + 1) % slides.length)}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/10 transition hover:bg-white/16"
-                        aria-label="Sonraki slide"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+              <div className="absolute inset-0 md:hidden">
+                <Image
+                  src={slide.mobile || slide.desktop}
+                  alt={currentSlideLabel}
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="100vw"
+                />
               </div>
             </div>
           </div>
+
+          {slides.length > 1 ? (
+            <div className="flex items-center justify-center gap-3 px-4 pb-2 pt-4 sm:justify-between sm:px-6">
+              <div className="hidden sm:flex sm:items-center sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="Önceki slide"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrent((current + 1) % slides.length)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="Sonraki slide"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {slides.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCurrent(index)}
+                    className={cn(
+                      "h-2.5 rounded-full transition-all",
+                      index === current ? "w-8 bg-[var(--store-accent)]" : "w-2.5 bg-[var(--store-border-strong)]",
+                    )}
+                    aria-label={`Slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="sm:hidden" />
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
