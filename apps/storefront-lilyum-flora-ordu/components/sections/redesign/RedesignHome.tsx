@@ -1,7 +1,6 @@
 import { CategoriesSection } from "./CategoriesSection";
 import { HeroSection } from "./ExistingSections";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
-import PromotionalBanners from "./PromotionalBanners";
 import { StoreLocationsSection } from "./StoreLocationsSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { TrustStrip } from "./TrustStrip";
@@ -37,7 +36,6 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         eyebrow={uiCopy?.categoriesEyebrow}
         heading={uiCopy?.categoriesHeading}
       />
-      <PromotionalBanners initialBanners={data.promoBanners as never[]} />
       <ProductShowcaseSections
         categories={data.categories}
         allProducts={(data.allProducts as never[]) || []}
@@ -51,7 +49,6 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         linkLabel={uiCopy?.storesLinkLabel}
         storesHref={storesHref}
         heroBanners={data.heroBanners}
-        promoBanners={data.promoBanners}
       />
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
