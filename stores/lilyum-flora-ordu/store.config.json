@@ -35,7 +35,10 @@
     "storage": "separate-project-per-store"
   },
   "r2": {
-    "provisioning": "pending-owner-env"
+    "bucketName": "lilyum-flora-ordu-assets",
+    "publicUrl": "https://pub-2acb22775dc640c7861719d6fb9aadea.r2.dev",
+    "managedDomain": "pub-2acb22775dc640c7861719d6fb9aadea.r2.dev",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-04-14T19:51:42.053Z",

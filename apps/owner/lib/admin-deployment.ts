@@ -11,6 +11,7 @@ import {
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
+import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
@@ -227,19 +228,10 @@ async function readAdminEnvEntries(
       secretRecord?.supabase_legacy_anon_key?.trim() || existingEnv.SUPABASE_LEGACY_ANON_KEY.trim();
   }
 
-  for (const key of [
-    "CLOUDFLARE_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-    "R2_BUCKET_NAME",
-    "R2_PUBLIC_URL",
-  ] as const) {
-    const value =
-      existingEnv[key]?.trim() ||
-      (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
-      (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+  const r2EnvEntries = await resolveR2DeploymentEnv(store, existingEnv);
 
-    if (value) {
+  for (const [key, value] of Object.entries(r2EnvEntries)) {
+    if (value.trim()) {
       envEntries[key] = value;
     }
   }

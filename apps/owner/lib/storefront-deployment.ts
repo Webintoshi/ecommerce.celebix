@@ -17,6 +17,7 @@ import {
   checkStorefrontRepoSyncOnGithub,
   isGitHubRepoSyncConfigured,
 } from "@/lib/storefront-repo-sync";
+import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -306,14 +307,6 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
     secretRecord?.supabase_service_role_key?.trim() ||
     adminEnvEntries.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
     "";
-  const r2BucketName =
-    adminEnvEntries.R2_BUCKET_NAME?.trim() ||
-    store.r2?.bucketName?.trim() ||
-    "";
-  const r2PublicUrl =
-    adminEnvEntries.R2_PUBLIC_URL?.trim() ||
-    store.r2?.publicUrl?.trim() ||
-    "";
   const entries: Record<string, string> = {
     ...buildPublicEnvEntries(store),
     ...getSharedRedisEnvEntries(),
@@ -330,27 +323,16 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
     entries.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
   }
 
-  const optionalAdminEnvKeys = [
-    "CLOUDFLARE_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-  ] as const;
+  const r2EnvEntries = await resolveR2DeploymentEnv(store, adminEnvEntries);
 
-  for (const key of optionalAdminEnvKeys) {
-    const value = adminEnvEntries[key]?.trim();
-
-    if (value) {
+  for (const [key, value] of Object.entries(r2EnvEntries)) {
+    if (value.trim()) {
       entries[key] = value;
     }
   }
 
-  if (r2BucketName) {
-    entries.R2_BUCKET_NAME = r2BucketName;
-  }
-
-  if (r2PublicUrl) {
-    entries.R2_PUBLIC_URL = r2PublicUrl;
-    entries.NEXT_PUBLIC_R2_PUBLIC_URL = r2PublicUrl;
+  if (r2EnvEntries.R2_PUBLIC_URL?.trim()) {
+    entries.NEXT_PUBLIC_R2_PUBLIC_URL = r2EnvEntries.R2_PUBLIC_URL.trim();
   }
 
   return entries;
