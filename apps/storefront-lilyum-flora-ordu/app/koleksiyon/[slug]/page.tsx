@@ -460,8 +460,8 @@ export default async function CollectionPage({
 
       <section className="section-shell pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#fbf2ef_0%,#f7ebe6_42%,#efe2de_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
-            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(181,95,119,0.14),transparent_52%)]" />
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_42%,#e8edf2_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
+            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(218,99,13,0.14),transparent_52%)]" />
             <div className="relative max-w-3xl">
               <p className="section-eyebrow">Koleksiyon</p>
               <h1 className="store-product-title-detail mb-3 text-[var(--store-ink)]">{category.name}</h1>

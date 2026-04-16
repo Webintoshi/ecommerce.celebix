@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
           </p>
           <Link
             href="/giris"
-            className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
+              className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-[#B5520B] transition-colors"
           >
             Giris Sayfasina Git
           </Link>
@@ -133,7 +133,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#B5520B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

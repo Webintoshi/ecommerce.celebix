@@ -119,7 +119,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-[var(--store-border)] bg-[#2F232A] text-white">
+    <footer className="border-t border-[var(--store-border)] bg-[var(--store-ink)] text-white">
       <div className="container-premium py-14 sm:py-16">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-8">
           <div className="space-y-6">
@@ -258,7 +258,7 @@ export function Footer() {
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-[24px] border border-white/12 bg-[#31211f] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.3)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-[24px] border border-white/12 bg-[#445163] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.3)]">
                     <div className="space-y-1">
                       {LOCALE_SWITCH_OPTIONS.map((option) => {
                         const isActive = option.locale === locale;
@@ -270,7 +270,7 @@ export function Footer() {
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-[18px] px-3 py-2 transition ${
                               isActive
-                                ? "bg-white text-[#261917]"
+                                ? "bg-white text-[var(--store-ink)]"
                                 : "text-white/82 hover:bg-white/10 hover:text-white"
                             }`}
                           >

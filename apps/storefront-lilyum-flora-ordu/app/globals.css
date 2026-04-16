@@ -1,48 +1,48 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fff8f5;
-  --foreground: #2d2028;
-  --primary: #b55f77;
-  --primary-foreground: #fffafb;
-  --secondary: #f0e4df;
-  --secondary-foreground: #3b2a33;
-  --accent: #f7ebe7;
-  --accent-strong: #dfb5c0;
-  --accent-sage: #dfe8de;
-  --muted: #7a6670;
-  --muted-foreground: #7a6670;
-  --card: rgba(255, 252, 250, 0.94);
-  --card-foreground: #2d2028;
-  --popover: #fffdfb;
-  --popover-foreground: #2d2028;
-  --border: rgba(96, 70, 79, 0.12);
-  --border-strong: rgba(96, 70, 79, 0.22);
+  --background: #f6f6f6;
+  --foreground: #505e71;
+  --primary: #da630d;
+  --primary-foreground: #ffffff;
+  --secondary: #e8edf2;
+  --secondary-foreground: #505e71;
+  --accent: #eef2f5;
+  --accent-strong: #f3ba91;
+  --accent-sage: #e8edf2;
+  --muted: #6f7b8a;
+  --muted-foreground: #6f7b8a;
+  --card: rgba(255, 255, 255, 0.94);
+  --card-foreground: #505e71;
+  --popover: #ffffff;
+  --popover-foreground: #505e71;
+  --border: rgba(80, 94, 113, 0.12);
+  --border-strong: rgba(80, 94, 113, 0.22);
   --input: rgba(255, 255, 255, 0.9);
-  --ring: rgba(181, 95, 119, 0.24);
+  --ring: rgba(218, 99, 13, 0.24);
   --destructive: #c34a62;
-  --destructive-foreground: #fffafb;
+  --destructive-foreground: #ffffff;
 
   --radius-sm: 14px;
   --radius-md: 20px;
   --radius-lg: 28px;
   --radius-xl: 36px;
 
-  --shadow-soft: 0 22px 60px -38px rgba(69, 39, 49, 0.24);
-  --shadow-card: 0 20px 48px -34px rgba(69, 39, 49, 0.2);
-  --shadow-floating: 0 30px 80px -44px rgba(60, 34, 41, 0.26);
+  --shadow-soft: 0 22px 60px -38px rgba(80, 94, 113, 0.2);
+  --shadow-card: 0 20px 48px -34px rgba(80, 94, 113, 0.18);
+  --shadow-floating: 0 30px 80px -44px rgba(80, 94, 113, 0.22);
 
   --store-surface: var(--background);
-  --store-surface-alt: #f3e6e1;
-  --store-panel: rgba(255, 251, 249, 0.94);
+  --store-surface-alt: #e8edf2;
+  --store-panel: rgba(255, 255, 255, 0.94);
   --store-ink: var(--foreground);
-  --store-ink-soft: #5f4c57;
+  --store-ink-soft: #677486;
   --store-muted: var(--muted);
   --store-border: var(--border);
   --store-border-strong: var(--border-strong);
   --store-accent: var(--primary);
-  --store-accent-strong: #96465c;
-  --store-blush: #f3c3cd;
+  --store-accent-strong: #b5520b;
+  --store-blush: #f3ba91;
   --store-shadow-soft: var(--shadow-card);
 
   --store-font-heading: "Cormorant Garamond", "Times New Roman", serif;
@@ -102,9 +102,9 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 34%),
-      radial-gradient(circle at top right, rgba(223, 232, 222, 0.72), transparent 30%),
-      linear-gradient(180deg, #fffdfb 0%, #fff8f5 34%, #f8f0eb 100%);
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), transparent 34%),
+      radial-gradient(circle at top right, rgba(218, 99, 13, 0.12), transparent 28%),
+      linear-gradient(180deg, #ffffff 0%, #f6f6f6 38%, #edf1f4 100%);
     color: var(--foreground);
     font-family: var(--store-font-body);
     font-size: var(--store-font-base-size);
@@ -196,11 +196,11 @@
       transform 180ms ease,
       background-color 180ms ease,
       box-shadow 180ms ease;
-    box-shadow: 0 18px 42px -26px rgba(181, 95, 119, 0.42);
+    box-shadow: 0 18px 42px -26px rgba(218, 99, 13, 0.36);
   }
 
   .cta-primary:hover {
-    background: #9f5268;
+    background: var(--store-accent-strong);
     transform: translateY(-1px);
   }
 
@@ -225,7 +225,7 @@
   }
 
   .cta-secondary:hover {
-    border-color: rgba(181, 95, 119, 0.32);
+    border-color: rgba(218, 99, 13, 0.28);
     background: rgba(255, 255, 255, 0.96);
     transform: translateY(-1px);
   }

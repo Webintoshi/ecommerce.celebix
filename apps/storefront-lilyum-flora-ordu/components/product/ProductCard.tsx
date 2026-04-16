@@ -129,7 +129,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link
         href={productHref}
-        className="group grid gap-5 rounded-[28px] border border-[var(--store-border)] bg-white p-4 shadow-[var(--store-shadow-soft)] transition hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(61,37,29,0.12)] sm:grid-cols-[160px_minmax(0,1fr)]"
+        className="group grid gap-5 rounded-[28px] border border-[var(--store-border)] bg-white p-4 shadow-[var(--store-shadow-soft)] transition hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(80,94,113,0.14)] sm:grid-cols-[160px_minmax(0,1fr)]"
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-[22px] bg-[var(--store-surface-alt)]">
           <ProductCardBadges product={product} hasDiscount={hasDiscount} />
@@ -185,7 +185,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   return (
     <Link
       href={productHref}
-      className="group block rounded-[28px] border border-[var(--store-border)] bg-white p-3 shadow-[var(--store-shadow-soft)] transition hover:-translate-y-0.5 hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(61,37,29,0.12)]"
+      className="group block rounded-[28px] border border-[var(--store-border)] bg-white p-3 shadow-[var(--store-shadow-soft)] transition hover:-translate-y-0.5 hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(80,94,113,0.14)]"
     >
       <div className="relative overflow-hidden rounded-[22px] bg-[var(--store-surface-alt)]">
         <ProductCardBadges product={product} hasDiscount={hasDiscount} />

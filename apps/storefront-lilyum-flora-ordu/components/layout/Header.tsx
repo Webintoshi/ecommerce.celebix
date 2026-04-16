@@ -139,8 +139,8 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-[var(--store-border)] bg-[rgba(255,248,245,0.94)] shadow-[0_18px_45px_rgba(83,51,59,0.08)] backdrop-blur-xl"
-          : "border-b border-transparent bg-[rgba(255,248,245,0.84)] backdrop-blur-md"
+          ? "border-b border-[var(--store-border)] bg-[rgba(246,246,246,0.94)] shadow-[0_18px_45px_rgba(80,94,113,0.1)] backdrop-blur-xl"
+          : "border-b border-transparent bg-[rgba(246,246,246,0.84)] backdrop-blur-md"
       }`}
     >
       <div className="container-premium">

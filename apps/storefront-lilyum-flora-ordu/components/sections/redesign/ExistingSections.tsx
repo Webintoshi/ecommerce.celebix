@@ -45,8 +45,8 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="section-shell pt-6 sm:pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#fbf2ef_0%,#f7eae6_48%,#efe3df_100%)] px-6 py-12 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-12 lg:py-16">
-            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(181,95,119,0.14),transparent_58%)]" />
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_48%,#e8edf2_100%)] px-6 py-12 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-12 lg:py-16">
+            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(218,99,13,0.14),transparent_58%)]" />
             <div className="relative max-w-2xl">
               <p className="section-eyebrow">Lilyum Flora Ordu</p>
               <h1 className="section-title mt-4 text-[var(--store-ink)] sm:text-5xl">
@@ -98,7 +98,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                 sizes="100vw"
               />
             </div>
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(35,19,16,0.72)_0%,rgba(35,19,16,0.44)_42%,rgba(35,19,16,0.10)_100%)] md:bg-[linear-gradient(90deg,rgba(35,19,16,0.68)_0%,rgba(35,19,16,0.38)_48%,rgba(35,19,16,0.06)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(80,94,113,0.78)_0%,rgba(80,94,113,0.48)_42%,rgba(80,94,113,0.12)_100%)] md:bg-[linear-gradient(90deg,rgba(80,94,113,0.74)_0%,rgba(80,94,113,0.4)_48%,rgba(80,94,113,0.08)_100%)]" />
 
             <div className="relative z-10 flex min-h-[560px] flex-col justify-between p-6 sm:p-8 lg:min-h-[620px] lg:p-12">
               <div className="max-w-2xl pt-6 sm:pt-10">

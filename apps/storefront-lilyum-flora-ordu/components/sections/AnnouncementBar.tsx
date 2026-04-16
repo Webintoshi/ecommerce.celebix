@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   link: "/urunler",
   linkText: "Vitrini Aç",
   enabled: true,
-  backgroundColor: "#96465C",
+  backgroundColor: "#DA630D",
 };
 
 function normalizeAnnouncementColor(value?: string) {

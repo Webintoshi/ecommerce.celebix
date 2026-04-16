@@ -70,7 +70,7 @@ export default async function TermsPage() {
                 key={section.title}
                 className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#DA630D]/10 text-[#DA630D]">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold text-[#18110B]">{section.title}</h2>

@@ -35,7 +35,7 @@ export function FilterDrawer({
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="absolute inset-0 bg-[#2A1E1A]/38 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-[rgba(80,94,113,0.34)] backdrop-blur-sm" onClick={onClose} />
 
       <div className="absolute inset-y-0 left-0 w-full max-w-sm overflow-y-auto bg-[var(--store-surface)]">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--store-border)] bg-[var(--store-surface)] px-5 py-4">
@@ -77,7 +77,7 @@ export function FilterDrawer({
           />
         </div>
 
-        <div className="safe-area-pb fixed inset-x-0 bottom-0 border-t border-[var(--store-border)] bg-[rgba(255,248,245,0.96)] p-4 backdrop-blur-xl lg:hidden">
+        <div className="safe-area-pb fixed inset-x-0 bottom-0 border-t border-[var(--store-border)] bg-[rgba(246,246,246,0.96)] p-4 backdrop-blur-xl lg:hidden">
           <button type="button" onClick={onClose} className="cta-primary w-full justify-center">
             Sonuçları Göster
           </button>

@@ -14,17 +14,17 @@ interface ComplementaryProductsProps {
 export function ComplementaryProducts({ title, products, loading }: ComplementaryProductsProps) {
   if (loading) {
     return (
-      <section className="py-16 bg-[#F3E0E1]/20">
+      <section className="py-16 bg-[#E8EDF2]/40">
         <div className="container-premium">
           <div className="flex items-center justify-between mb-8">
-            <div className="h-8 w-64 bg-[#F3E0E1] rounded-lg animate-pulse" />
-            <div className="h-6 w-24 bg-[#F3E0E1] rounded-lg animate-pulse" />
+            <div className="h-8 w-64 bg-[#E8EDF2] rounded-lg animate-pulse" />
+            <div className="h-6 w-24 bg-[#E8EDF2] rounded-lg animate-pulse" />
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="aspect-[3/4] bg-[#F3E0E1] rounded-2xl animate-pulse"
+                className="aspect-[3/4] bg-[#E8EDF2] rounded-2xl animate-pulse"
               />
             ))}
           </div>
@@ -36,13 +36,13 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
   if (products.length === 0) return null;
 
   return (
-    <section className="py-16 bg-[#F3E0E1]/20 border-y border-[#7B1113]/10">
+    <section className="py-16 bg-[#E8EDF2]/40 border-y border-[#DA630D]/12">
       <div className="container-premium">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-semibold text-[#7B1113]">{title}</h2>
+          <h2 className="text-2xl font-semibold text-[#505E71]">{title}</h2>
           <Link
             href="/urunler"
-            className="flex items-center gap-1 text-[#7B1113] font-medium hover:gap-2 transition-all"
+            className="flex items-center gap-1 text-[#DA630D] font-medium hover:gap-2 transition-all"
           >
             Tümünü Gör
             <ChevronRight className="w-5 h-5" />

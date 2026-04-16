@@ -94,7 +94,7 @@ export default function PromotionalBanners({
           {banners.map((banner, index) => {
             const imageSrc = resolveStorefrontAssetUrl(banner.image) || banner.image;
             const href = buildLocalizedPath(banner.buttonLink || "/urunler", locale);
-            const accent = banner.color || (index === 0 ? "#7B1113" : index === 1 ? "#8B6A48" : "#50624B");
+            const accent = banner.color || (index === 0 ? "#DA630D" : index === 1 ? "#505E71" : "#8390A1");
 
             return (
               <Link
@@ -111,7 +111,7 @@ export default function PromotionalBanners({
                     sizes={index === 0 ? "(max-width: 1024px) 100vw, 60vw" : "(max-width: 1024px) 100vw, 30vw"}
                     unoptimized={imageSrc.startsWith("http")}
                   />
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(26,15,13,0.08)_0%,rgba(26,15,13,0.62)_100%)]" />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(80,94,113,0.08)_0%,rgba(80,94,113,0.68)_100%)]" />
                   <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
                     <div className="flex flex-wrap items-center gap-2">
                       <span

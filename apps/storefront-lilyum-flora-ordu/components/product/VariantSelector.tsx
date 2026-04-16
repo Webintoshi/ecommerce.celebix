@@ -17,8 +17,8 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-[#7B1113]">Boyut Seçin</span>
-        <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
+        <span className="font-medium text-[#505E71]">Boyut Seçin</span>
+        <span className="rounded-full bg-[#E8EDF2] px-3 py-1 text-sm text-[#505E71]">
           {selectedVariant?.weight}g
         </span>
       </div>
@@ -37,10 +37,10 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
                 relative px-5 py-3 rounded-xl text-sm font-medium
                 transition-all duration-200 border-2
                 ${isSelected 
-                  ? "bg-[#7B1113] text-white border-[#7B1113] shadow-lg shadow-[#7B1113]/25" 
+                  ? "border-[#DA630D] bg-[#DA630D] text-white shadow-lg shadow-[#DA630D]/20" 
                   : isOutOfStock
                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                    : "bg-white text-[#7B1113] border-[#7B1113]/20 hover:border-[#7B1113]/50"
+                    : "border-[#505E71]/20 bg-white text-[#505E71] hover:border-[#DA630D]/50"
                 }
               `}
             >
@@ -74,8 +74,8 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
       </div>
       
       {/* Variant Info */}
-      <p className="text-sm text-[#6b4b4c]">
-        Seçilen: <span className="font-medium text-[#7B1113]">{selectedVariant?.name}</span>
+      <p className="text-sm text-[#6F7B8A]">
+        Seçilen: <span className="font-medium text-[#DA630D]">{selectedVariant?.name}</span>
         {selectedVariant?.stock > 0 && selectedVariant?.stock <= 5 && (
           <span className="text-amber-600 ml-2">(Son {selectedVariant.stock} adet!)</span>
         )}
