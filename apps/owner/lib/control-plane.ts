@@ -36,6 +36,11 @@ type StoreSubscriptionStatus = "unconfigured" | "active" | "expiring" | "expired
 type HealthLabel = "kritik" | "kurulum" | "operasyonel" | "hazir";
 const STORE_SETUP_REVENUE = 19000;
 const STORE_SUBSCRIPTION_EXPIRING_THRESHOLD_DAYS = 14;
+const OWNER_SUMMARY_CACHE_TTL_MS = readPositiveIntegerEnv("OWNER_SUMMARY_CACHE_TTL_MS", 30_000);
+const OWNER_METRICS_BACKGROUND_SYNC_INTERVAL_MS = readPositiveIntegerEnv(
+  "OWNER_METRICS_BACKGROUND_SYNC_INTERVAL_MS",
+  300_000
+);
 
 interface OwnerStoreRow {
   id: string;
@@ -166,6 +171,17 @@ interface AdminRuntimeHealth {
   adminRuntimeMessage: string | null;
   adminRuntimeUrl: string | null;
 }
+
+type DashboardStoreBuildMode = "summary" | "detail";
+
+interface CachedValue<T> {
+  expiresAt: number;
+  value: T;
+}
+
+const dashboardStoreSummaryCache = new Map<string, CachedValue<DashboardStoreSummary[]>>();
+let ownerStoreMetricsSyncPromise: Promise<void> | null = null;
+let ownerStoreMetricsLastStartedAt = 0;
 
 export interface StoreManagementProfile {
   clientCompanyName: string | null;
@@ -510,6 +526,48 @@ async function getAuthoritativeStoreConfig(slug: string): Promise<StoreConfig | 
   return ensureStoreConfigFromOwnerAuthority(slug).catch(() => null);
 }
 
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : fallback;
+}
+
+function readFromCache<T>(cache: Map<string, CachedValue<T>>, key: string): T | null {
+  const entry = cache.get(key);
+
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+}
+
+function writeToCache<T>(cache: Map<string, CachedValue<T>>, key: string, value: T, ttlMs: number): T {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs,
+  });
+  return value;
+}
+
+function clearDashboardStoreSummaryCaches(): void {
+  dashboardStoreSummaryCache.clear();
+}
+
+function getDashboardStoreSummaryCacheKey(context: OwnerAuthContext, mode: DashboardStoreBuildMode): string {
+  return `${mode}:${context.profile.role}:${context.user.id}`;
+}
+
 function resolveStoreEnvPath(store: StoreConfig): string {
   const repoRoot = getRepoRoot();
   const configured = store.bootstrap?.adminEnvLocalPath;
@@ -554,6 +612,26 @@ function hasExpandedSecretFields(secret: Awaited<ReturnType<typeof getStoreSupab
 
 function hasLegacyAuthFields(secret: Awaited<ReturnType<typeof getStoreSupabaseSecret>>): boolean {
   return Boolean(secret?.supabase_legacy_url && secret?.supabase_legacy_anon_key);
+}
+
+function getEmptyConnectionReadiness(): StoreConnectionReadiness {
+  return {
+    secretCoverage: false,
+    secretAuthorityReady: false,
+    legacyAuthConfigured: false,
+    envAdminDomain: null,
+    envAdminUrl: null,
+    envStoreDomain: null,
+    envStorefrontUrl: null,
+    envSupabaseUrl: null,
+    hasEnvAnonKey: false,
+    hasEnvServiceRoleKey: false,
+    secretSupabaseUrl: null,
+    hasSecretAnonKey: false,
+    hasSecretServiceRoleKey: false,
+    secretLegacyUrl: null,
+    hasSecretLegacyAnonKey: false
+  };
 }
 
 async function readStoreConnectionReadiness(store: StoreConfig, ownerStoreId?: string): Promise<StoreConnectionReadiness> {
@@ -704,6 +782,23 @@ async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntim
   }
 }
 
+function deriveStoredAdminRuntimeHealth(store: OwnerStoreRow): AdminRuntimeHealth {
+  const bootstrap = asRecord(store.metadata?.bootstrap);
+  const adminRuntimeUrl = toAbsoluteUrl(store.admin_domain);
+  const deploymentStatus = readOptionalString(bootstrap.adminDeploymentStatus);
+  const deploymentReady = deploymentStatus === "configured";
+
+  return {
+    adminDeploymentReady: deploymentReady,
+    adminRuntimeConsistent: deploymentReady,
+    adminRuntimeMessage:
+      deploymentReady
+        ? null
+        : readOptionalString(bootstrap.adminDeploymentLastError) || "Admin runtime henuz canli olarak dogrulanmadi.",
+    adminRuntimeUrl
+  };
+}
+
 async function readAdminControlPlaneSnapshot(
   store: OwnerStoreRow,
   ownerStoreId: string
@@ -823,6 +918,20 @@ async function ensureTrackedStoreConfigsNormalized(): Promise<void> {
   }
 
   await trackedStoreConfigNormalizationPromise;
+}
+
+function scheduleOwnerStoresAndMetricsSync(): void {
+  if (ownerStoreMetricsSyncPromise) {
+    return;
+  }
+
+  if (Date.now() - ownerStoreMetricsLastStartedAt < OWNER_METRICS_BACKGROUND_SYNC_INTERVAL_MS) {
+    return;
+  }
+
+  void syncOwnerStoresAndMetrics().catch((error) => {
+    console.error("Owner metrics background sync failed:", error);
+  });
 }
 
 function readLifecycleStage(value: unknown): StoreLifecycleStage {
@@ -1117,6 +1226,16 @@ async function createStoreServiceClient(store: StoreConfig, ownerStoreId?: strin
       persistSession: false
     }
   });
+}
+
+async function countStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<number> {
+  const client = await createStoreServiceClient(store, ownerStoreId);
+
+  if (!client) {
+    return 0;
+  }
+
+  return getExactCount(client.from("profiles").select("id", { count: "exact", head: true }));
 }
 
 async function listStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<StoreAdminSummary[]> {
@@ -1523,7 +1642,7 @@ function buildStoreConsistency(
 
 async function getAccessibleStoreData(context: OwnerAuthContext): Promise<AccessibleStoreData> {
   const serviceClient = createOwnerServiceClient();
-  await syncOwnerStoresAndMetrics();
+  scheduleOwnerStoresAndMetricsSync();
 
   const superAdmin = context.profile.role === "super_admin";
   let accessRows: OwnerStoreAccessRow[] = [];
@@ -1636,7 +1755,10 @@ async function getAccessibleStoreData(context: OwnerAuthContext): Promise<Access
   };
 }
 
-async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<DashboardStoreSummary[]> {
+async function buildDashboardStoreSummaries(
+  context: OwnerAuthContext,
+  mode: DashboardStoreBuildMode = "summary"
+): Promise<DashboardStoreSummary[]> {
   await ensureTrackedStoreConfigsNormalized();
   const accessible = await getAccessibleStoreData(context);
 
@@ -1644,53 +1766,41 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
     accessible.stores.map(async (store) => {
       const metric = accessible.metricsMap.get(store.id);
       const storeConfig = await getAuthoritativeStoreConfig(store.slug);
-      const shouldRefreshMetrics = Boolean(storeConfig && isSuspiciousZeroMetrics(metric, store));
-      const [storeAdmins, connectionReadiness, adminRuntimeHealth, refreshedMetrics] = await Promise.all([
-        storeConfig ? listStoreAdminsForConfig(storeConfig, store.id).catch(() => []) : Promise.resolve([]),
-        storeConfig
-          ? readStoreConnectionReadiness(storeConfig, store.id).catch(() => ({
-              secretCoverage: false,
-              secretAuthorityReady: false,
-              legacyAuthConfigured: false,
-              envAdminDomain: null,
-              envAdminUrl: null,
-              envStoreDomain: null,
-              envStorefrontUrl: null,
-              envSupabaseUrl: null,
-              hasEnvAnonKey: false,
-              hasEnvServiceRoleKey: false,
-              secretSupabaseUrl: null,
-              hasSecretAnonKey: false,
-              hasSecretServiceRoleKey: false,
-              secretLegacyUrl: null,
-              hasSecretLegacyAnonKey: false
-            }))
-          : Promise.resolve({
-              secretCoverage: false,
-              secretAuthorityReady: false,
-              legacyAuthConfigured: false,
-              envAdminDomain: null,
-              envAdminUrl: null,
-              envStoreDomain: null,
-              envStorefrontUrl: null,
-              envSupabaseUrl: null,
-              hasEnvAnonKey: false,
-              hasEnvServiceRoleKey: false,
-              secretSupabaseUrl: null,
-              hasSecretAnonKey: false,
-              hasSecretServiceRoleKey: false,
-              secretLegacyUrl: null,
-              hasSecretLegacyAnonKey: false
-            }),
-        readAdminRuntimeHealth(store),
-        shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig, store.id).catch(() => null) : Promise.resolve(null)
-      ]);
+      const summaryMode = mode === "summary";
+      const shouldRefreshMetrics = Boolean(!summaryMode && storeConfig && isSuspiciousZeroMetrics(metric, store));
+      const [connectionReadiness, storeAdminCount, adminRuntimeHealth, storeAdmins, refreshedMetrics] =
+        summaryMode
+          ? await Promise.all([
+              storeConfig
+                ? readStoreConnectionReadiness(storeConfig, store.id).catch(() => getEmptyConnectionReadiness())
+                : Promise.resolve(getEmptyConnectionReadiness()),
+              storeConfig ? countStoreAdminsForConfig(storeConfig, store.id).catch(() => 0) : Promise.resolve(0),
+              Promise.resolve(deriveStoredAdminRuntimeHealth(store)),
+              Promise.resolve<StoreAdminSummary[]>([]),
+              Promise.resolve<StoreMetricsSnapshot | null>(null)
+            ])
+          : await Promise.all([
+              storeConfig
+                ? readStoreConnectionReadiness(storeConfig, store.id).catch(() => getEmptyConnectionReadiness())
+                : Promise.resolve(getEmptyConnectionReadiness()),
+              Promise.resolve(0),
+              readAdminRuntimeHealth(store),
+              storeConfig ? listStoreAdminsForConfig(storeConfig, store.id).catch(() => []) : Promise.resolve([]),
+              shouldRefreshMetrics && storeConfig ? collectStoreMetrics(storeConfig, store.id).catch(() => null) : Promise.resolve(null)
+            ]);
       const runtimeSnapshot =
-        storeConfig && (!refreshedMetrics || storeAdmins.length === 0)
+        !summaryMode && storeConfig && (!refreshedMetrics || storeAdmins.length === 0)
           ? await readAdminControlPlaneSnapshot(store, store.id).catch(() => null)
           : null;
       const resolvedStoreAdmins =
-        storeAdmins.length > 0 ? storeAdmins : runtimeSnapshot?.storeAdmins?.length ? runtimeSnapshot.storeAdmins : storeAdmins;
+        summaryMode
+          ? []
+          : storeAdmins.length > 0
+            ? storeAdmins
+            : runtimeSnapshot?.storeAdmins?.length
+              ? runtimeSnapshot.storeAdmins
+              : storeAdmins;
+      const resolvedStoreAdminCount = summaryMode ? storeAdminCount : resolvedStoreAdmins.length;
       const resolvedMetrics = refreshedMetrics ?? runtimeSnapshot?.metrics ?? null;
       const metricsRow = resolvedMetrics
         ? {
@@ -1732,7 +1842,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         commissionRate: accessible.commissionMap.get(store.id) ?? null,
         totalAffiliateRate: accessible.affiliateRateMap.get(store.id) ?? 0,
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
-        storeAdminCount: resolvedStoreAdmins.length,
+        storeAdminCount: resolvedStoreAdminCount,
         management: parseStoreManagementProfile(store.metadata, {
           storeStatus: store.status,
           storefrontStatus: store.storefront_status
@@ -1741,7 +1851,7 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
         health: buildStoreHealth(
           store,
           metricsRow?.last_synced_at ?? null,
-          resolvedStoreAdmins.length,
+          resolvedStoreAdminCount,
           connectionReadiness,
           adminRuntimeHealth
         ),
@@ -1752,200 +1862,225 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
 }
 
 export async function syncOwnerStoresAndMetrics(): Promise<void> {
-  await ensureTrackedStoreConfigsNormalized();
-  const serviceClient = createOwnerServiceClient();
-  const unresolvedCleanupSlugs = await listUnresolvedCleanupSlugs();
-  const storeConfigs = getStores()
-    .map((store) => getStoreConfig(store.slug))
-    .filter((store): store is StoreConfig => Boolean(store))
-    .filter((store) => !store.slug.startsWith("smoke-"))
-    .filter((store) => !unresolvedCleanupSlugs.has(store.slug));
-
-  if (storeConfigs.length === 0) {
+  if (ownerStoreMetricsSyncPromise) {
+    await ownerStoreMetricsSyncPromise;
     return;
   }
 
-  const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
-    .from("owner_stores")
-    .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain");
+  ownerStoreMetricsLastStartedAt = Date.now();
+  ownerStoreMetricsSyncPromise = (async () => {
+    await ensureTrackedStoreConfigsNormalized();
+    const serviceClient = createOwnerServiceClient();
+    const unresolvedCleanupSlugs = await listUnresolvedCleanupSlugs();
+    const storeConfigs = getStores()
+      .map((store) => getStoreConfig(store.slug))
+      .filter((store): store is StoreConfig => Boolean(store))
+      .filter((store) => !store.slug.startsWith("smoke-"))
+      .filter((store) => !unresolvedCleanupSlugs.has(store.slug));
 
-  if (existingStoreRowsError) {
-    throw new Error(existingStoreRowsError.message);
-  }
-
-  const allExistingRows = (existingStoreRows as Array<{
-    id: string;
-    slug: string;
-    status: "draft" | "active" | "paused";
-    storefront_domain: string;
-    admin_domain: string;
-    metadata: Record<string, unknown> | null;
-    supabase_url: string | null;
-    r2_bucket_name: string | null;
-    r2_public_url: string | null;
-    r2_managed_domain: string | null;
-  }>) ?? [];
-  const activeStoreSlugs = new Set(storeConfigs.map((store) => store.slug));
-  const orphanedSmokeRows = allExistingRows.filter((row) => {
-    if (activeStoreSlugs.has(row.slug)) {
-      return false;
+    if (storeConfigs.length === 0) {
+      clearDashboardStoreSummaryCaches();
+      return;
     }
 
-    const storefrontDomain = row.storefront_domain?.trim().toLocaleLowerCase("tr") || "";
-    const adminDomain = row.admin_domain?.trim().toLocaleLowerCase("tr") || "";
-
-    return (
-      row.status === "draft" &&
-      (row.slug.startsWith("smoke-") ||
-        storefrontDomain.includes(".sslip.io") ||
-        adminDomain.includes(".sslip.io"))
-    );
-  });
-
-  if (orphanedSmokeRows.length > 0) {
-    const { error: orphanDeleteError } = await serviceClient
+    const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
       .from("owner_stores")
-      .delete()
-      .in(
-        "id",
-        orphanedSmokeRows.map((row) => row.id),
-      );
+      .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain");
 
-    if (orphanDeleteError) {
-      throw new Error(orphanDeleteError.message);
+    if (existingStoreRowsError) {
+      throw new Error(existingStoreRowsError.message);
     }
-  }
 
-  const existingRows = allExistingRows.filter((row) => activeStoreSlugs.has(row.slug));
-  const authorityMap = new Map<string, OwnerStoreAuthorityFields>(
-    existingRows.map((row) => [
-      row.slug,
-      {
-        metadata: row.metadata ?? null,
-        r2_bucket_name: row.r2_bucket_name ?? null,
-        r2_public_url: row.r2_public_url ?? null,
-        r2_managed_domain: row.r2_managed_domain ?? null,
+    const allExistingRows = (existingStoreRows as Array<{
+      id: string;
+      slug: string;
+      status: "draft" | "active" | "paused";
+      storefront_domain: string;
+      admin_domain: string;
+      metadata: Record<string, unknown> | null;
+      supabase_url: string | null;
+      r2_bucket_name: string | null;
+      r2_public_url: string | null;
+      r2_managed_domain: string | null;
+    }>) ?? [];
+    const activeStoreSlugs = new Set(storeConfigs.map((store) => store.slug));
+    const orphanedSmokeRows = allExistingRows.filter((row) => {
+      if (activeStoreSlugs.has(row.slug)) {
+        return false;
       }
-    ])
-  );
-  const storeIdBySlug = new Map(existingRows.map((row) => [row.slug, row.id]));
-  const secretUrlBySlug = new Map<string, string>();
 
-  for (const store of storeConfigs) {
-    const storeId = storeIdBySlug.get(store.slug);
+      const storefrontDomain = row.storefront_domain?.trim().toLocaleLowerCase("tr") || "";
+      const adminDomain = row.admin_domain?.trim().toLocaleLowerCase("tr") || "";
 
-    if (!storeId) {
-      continue;
+      return (
+        row.status === "draft" &&
+        (row.slug.startsWith("smoke-") ||
+          storefrontDomain.includes(".sslip.io") ||
+          adminDomain.includes(".sslip.io"))
+      );
+    });
+
+    if (orphanedSmokeRows.length > 0) {
+      const { error: orphanDeleteError } = await serviceClient
+        .from("owner_stores")
+        .delete()
+        .in(
+          "id",
+          orphanedSmokeRows.map((row) => row.id),
+        );
+
+      if (orphanDeleteError) {
+        throw new Error(orphanDeleteError.message);
+      }
     }
 
-    const secretRecord = await getStoreSupabaseSecretByStoreId(storeId).catch(() => null);
-    const secretUrl = secretRecord?.supabase_url?.trim();
-
-    if (secretUrl) {
-      secretUrlBySlug.set(store.slug, secretUrl);
-    }
-  }
-
-  const { error: upsertStoresError } = await serviceClient
-    .from("owner_stores")
-    .upsert(
-      storeConfigs.map((store) =>
-        buildOwnerStoreRow(store, authorityMap.get(store.slug) ?? null, {
-          supabaseUrl: secretUrlBySlug.get(store.slug) ?? null,
-        })
-      ),
-      { onConflict: "slug" }
+    const existingRows = allExistingRows.filter((row) => activeStoreSlugs.has(row.slug));
+    const authorityMap = new Map<string, OwnerStoreAuthorityFields>(
+      existingRows.map((row) => [
+        row.slug,
+        {
+          metadata: row.metadata ?? null,
+          r2_bucket_name: row.r2_bucket_name ?? null,
+          r2_public_url: row.r2_public_url ?? null,
+          r2_managed_domain: row.r2_managed_domain ?? null,
+        }
+      ])
     );
+    const storeIdBySlug = new Map(existingRows.map((row) => [row.slug, row.id]));
+    const secretUrlBySlug = new Map<string, string>();
 
-  if (upsertStoresError) {
-    throw new Error(upsertStoresError.message);
-  }
-
-  const { data: ownerStores, error: storeReadError } = await serviceClient
-    .from("owner_stores")
-    .select("id, slug")
-    .in(
-      "slug",
-      storeConfigs.map((store) => store.slug)
-    );
-
-  if (storeReadError) {
-    throw new Error(storeReadError.message);
-  }
-
-  const storeIdMap = new Map((ownerStores ?? []).map((store) => [store.slug as string, store.id as string]));
-  const { data: existingMetricsRows, error: existingMetricsError } = await serviceClient
-    .from("owner_store_metrics")
-    .select("*")
-    .in("store_id", Array.from(storeIdMap.values()));
-
-  if (existingMetricsError) {
-    throw new Error(existingMetricsError.message);
-  }
-
-  const existingMetricsMap = new Map(((existingMetricsRows as OwnerMetricRow[]) ?? []).map((row) => [row.store_id, row]));
-
-  await Promise.all(
-    storeConfigs.map(async (store) => {
-      const storeId = storeIdMap.get(store.slug);
+    for (const store of storeConfigs) {
+      const storeId = storeIdBySlug.get(store.slug);
 
       if (!storeId) {
-        return;
+        continue;
       }
 
-      let metrics: StoreMetricsSnapshot;
+      const secretRecord = await getStoreSupabaseSecretByStoreId(storeId).catch(() => null);
+      const secretUrl = secretRecord?.supabase_url?.trim();
 
-      try {
-        metrics = await collectStoreMetrics(store, storeId);
-      } catch (error) {
-        console.error(`Store metrics sync failed for ${store.slug}:`, error);
-        const existingMetric = existingMetricsMap.get(storeId);
+      if (secretUrl) {
+        secretUrlBySlug.set(store.slug, secretUrl);
+      }
+    }
 
-        if (!existingMetric) {
+    const { error: upsertStoresError } = await serviceClient
+      .from("owner_stores")
+      .upsert(
+        storeConfigs.map((store) =>
+          buildOwnerStoreRow(store, authorityMap.get(store.slug) ?? null, {
+            supabaseUrl: secretUrlBySlug.get(store.slug) ?? null,
+          })
+        ),
+        { onConflict: "slug" }
+      );
+
+    if (upsertStoresError) {
+      throw new Error(upsertStoresError.message);
+    }
+
+    const { data: ownerStores, error: storeReadError } = await serviceClient
+      .from("owner_stores")
+      .select("id, slug")
+      .in(
+        "slug",
+        storeConfigs.map((store) => store.slug)
+      );
+
+    if (storeReadError) {
+      throw new Error(storeReadError.message);
+    }
+
+    const storeIdMap = new Map((ownerStores ?? []).map((store) => [store.slug as string, store.id as string]));
+    const { data: existingMetricsRows, error: existingMetricsError } = await serviceClient
+      .from("owner_store_metrics")
+      .select("*")
+      .in("store_id", Array.from(storeIdMap.values()));
+
+    if (existingMetricsError) {
+      throw new Error(existingMetricsError.message);
+    }
+
+    const existingMetricsMap = new Map(((existingMetricsRows as OwnerMetricRow[]) ?? []).map((row) => [row.store_id, row]));
+
+    await Promise.all(
+      storeConfigs.map(async (store) => {
+        const storeId = storeIdMap.get(store.slug);
+
+        if (!storeId) {
           return;
         }
 
-        metrics = {
-          productCount: existingMetric.product_count ?? 0,
-          orderCount: existingMetric.order_count ?? 0,
-          customerCount: existingMetric.customer_count ?? 0,
-          pendingOrderCount: existingMetric.pending_order_count ?? 0,
-          totalRevenue: Number(existingMetric.total_revenue ?? 0),
-          averageOrderValue: Number(existingMetric.average_order_value ?? 0),
-          lastSyncedAt: existingMetric.last_synced_at ?? new Date().toISOString()
-        };
-      }
+        let metrics: StoreMetricsSnapshot;
 
-      const { error } = await serviceClient.from("owner_store_metrics").upsert(
-        {
-          store_id: storeId,
-          product_count: metrics.productCount,
-          order_count: metrics.orderCount,
-          customer_count: metrics.customerCount,
-          pending_order_count: metrics.pendingOrderCount,
-          total_revenue: metrics.totalRevenue,
-          average_order_value: metrics.averageOrderValue,
-          last_synced_at: metrics.lastSyncedAt
-        },
-        { onConflict: "store_id" }
-      );
+        try {
+          metrics = await collectStoreMetrics(store, storeId);
+        } catch (error) {
+          console.error(`Store metrics sync failed for ${store.slug}:`, error);
+          const existingMetric = existingMetricsMap.get(storeId);
 
-      if (error) {
-        throw new Error(error.message);
-      }
-    })
-  );
+          if (!existingMetric) {
+            return;
+          }
+
+          metrics = {
+            productCount: existingMetric.product_count ?? 0,
+            orderCount: existingMetric.order_count ?? 0,
+            customerCount: existingMetric.customer_count ?? 0,
+            pendingOrderCount: existingMetric.pending_order_count ?? 0,
+            totalRevenue: Number(existingMetric.total_revenue ?? 0),
+            averageOrderValue: Number(existingMetric.average_order_value ?? 0),
+            lastSyncedAt: existingMetric.last_synced_at ?? new Date().toISOString()
+          };
+        }
+
+        const { error } = await serviceClient.from("owner_store_metrics").upsert(
+          {
+            store_id: storeId,
+            product_count: metrics.productCount,
+            order_count: metrics.orderCount,
+            customer_count: metrics.customerCount,
+            pending_order_count: metrics.pendingOrderCount,
+            total_revenue: metrics.totalRevenue,
+            average_order_value: metrics.averageOrderValue,
+            last_synced_at: metrics.lastSyncedAt
+          },
+          { onConflict: "store_id" }
+        );
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      })
+    );
+
+    clearDashboardStoreSummaryCaches();
+  })();
+
+  try {
+    await ownerStoreMetricsSyncPromise;
+  } finally {
+    ownerStoreMetricsSyncPromise = null;
+  }
 }
 
 export async function listDashboardStores(context: OwnerAuthContext): Promise<DashboardStoreSummary[]> {
-  return buildDashboardStoreSummaries(context);
+  const cacheKey = getDashboardStoreSummaryCacheKey(context, "summary");
+  const cached = readFromCache(dashboardStoreSummaryCache, cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const stores = await buildDashboardStoreSummaries(context, "summary");
+  return writeToCache(dashboardStoreSummaryCache, cacheKey, stores, OWNER_SUMMARY_CACHE_TTL_MS);
 }
 
 export async function getStoreConsistencyForSlug(
   context: OwnerAuthContext,
   slug: string
 ): Promise<StoreConsistencySummary | null> {
-  const stores = await listDashboardStores(context);
+  const stores = await buildDashboardStoreSummaries(context, "detail");
   return stores.find((store) => store.slug === slug)?.consistency ?? null;
 }
 
