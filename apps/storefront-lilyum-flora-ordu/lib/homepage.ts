@@ -108,15 +108,6 @@ function hydrateHomepageProducts(
   });
 }
 
-const HOMEPAGE_CATEGORY_ORDER = [
-  { slug: "cuzdan-kartlik", name: "Cüzdan & Kartlık" },
-  { slug: "apple-watch-saat-kayislari", name: "Apple Watch Kayışları" },
-  { slug: "saat-kayislari", name: "Deri Saat Kayışları" },
-  { slug: "canta-organizer", name: "Çanta & Organizer" },
-  { slug: "aksesuar", name: "Aksesuar" },
-  { slug: "gunluk-yasam", name: "Günlük Yaşam" },
-] as const;
-
 function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
   const rawSlides = Array.isArray(payload)
     ? (payload as RawHeroSlide[])
@@ -126,8 +117,7 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         ? ((payload as { banners: unknown[] }).banners as RawHeroSlide[])
         : [];
 
-  return rawSlides
-    .map((slide, index) => {
+  return rawSlides.reduce<HomepageHeroBanner[]>((result, slide, index) => {
       const desktop =
         slide.desktop ||
         slide.desktopImage ||
@@ -147,14 +137,14 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         desktop;
 
       if (!desktop && !mobile) {
-        return null;
+        return result;
       }
 
       const title = slide.overlay?.title || slide.title || "";
       const subtitle = slide.overlay?.subtitle || slide.subtitle || "";
       const rawId = slide.id;
 
-      return {
+      result.push({
         id:
           typeof rawId === "number" || typeof rawId === "string"
             ? rawId
@@ -167,9 +157,10 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         subtitle,
         buttonText: slide.overlay?.ctaText || slide.buttonText || "",
         buttonLink: slide.overlay?.ctaLink || slide.buttonLink || slide.link || "",
-      };
-    })
-    .filter((slide): slide is HomepageHeroBanner => Boolean(slide));
+      });
+
+      return result;
+    }, []);
 }
 
 function normalizePromoBanners(payload: unknown) {
@@ -219,38 +210,14 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
-  const orderedSlugs = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
-  const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
-    let query = supabase
-      .from("categories")
-      .select("*")
-      .in("slug", orderedSlugs)
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (includeIsActiveFilter) {
-      query = query.eq("is_active", true);
-    }
-
-    return query;
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  if ((data?.length ?? 0) > 0) {
-    return data ?? [];
-  }
-
-  const fallbackQuery = await runCategoriesQuery((includeIsActiveFilter) => {
+  const result = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("categories")
       .select("*")
       .is("parent_id", null)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true })
-      .limit(6);
+      .limit(8);
 
     if (includeIsActiveFilter) {
       query = query.eq("is_active", true);
@@ -259,48 +226,11 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
     return query;
   });
 
-  if (fallbackQuery.error) {
-    throw fallbackQuery.error;
+  if (result.error) {
+    throw result.error;
   }
 
-  return fallbackQuery.data ?? [];
-}
-
-async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
-  const strictQuery = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*, raw_attributes:attributes)")
-    .eq("is_active", true)
-    .or("status.eq.published,status.is.null")
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (!strictQuery.error && (strictQuery.data?.length ?? 0) > 0) {
-    return strictQuery.data ?? [];
-  }
-
-  const publishedQuery = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*, raw_attributes:attributes)")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (!publishedQuery.error && (publishedQuery.data?.length ?? 0) > 0) {
-    return publishedQuery.data ?? [];
-  }
-
-  const fallbackQuery = await supabase
-    .from("products")
-    .select("*, variants:product_variants(*, raw_attributes:attributes)")
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (fallbackQuery.error) {
-    throw fallbackQuery.error;
-  }
-
-  return fallbackQuery.data ?? [];
+  return result.data ?? [];
 }
 
 async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
@@ -416,22 +346,12 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categoryOrder = new Map(
-    HOMEPAGE_CATEGORY_ORDER.map((entry, index) => [entry.slug, index]),
-  );
 
   const categoryBase = (categoriesData || [])
     .filter((category) => category.slug && category.name)
     .sort((left, right) => {
-      const leftPriority = categoryOrder.get(left.slug) ?? 99;
-      const rightPriority = categoryOrder.get(right.slug) ?? 99;
-
-      if (leftPriority !== rightPriority) {
-        return leftPriority - rightPriority;
-      }
-
-      const leftSort = typeof left.sort_order === "number" ? left.sort_order : 999;
-      const rightSort = typeof right.sort_order === "number" ? right.sort_order : 999;
+      const leftSort = typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
+      const rightSort = typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
 
       if (leftSort !== rightSort) {
         return leftSort - rightSort;

@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { Clock3, ExternalLink, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { SectionHeader } from "./SectionHeader";
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -27,9 +29,8 @@ function buildGalleryImages({
         .filter((image): image is string => Boolean(image))
         .map((image, imageIndex) => ({
           id: `hero-${index}-${imageIndex}`,
-          src: image,
+          src: resolveStorefrontAssetUrl(image) || image,
           alt: banner.alt || `${storeName} vitrin gorunumu`,
-          city: "Vitrin",
         })),
     ),
     ...(promoBanners || []).flatMap((banner, index) =>
@@ -37,37 +38,27 @@ function buildGalleryImages({
         .filter((image): image is string => Boolean(image))
         .map((image, imageIndex) => ({
           id: `promo-${index}-${imageIndex}`,
-          src: image,
-          alt: banner.title || `${storeName} koleksiyon gorseli`,
-          city: "Koleksiyon",
+          src: resolveStorefrontAssetUrl(image) || image,
+          alt: banner.title || `${storeName} kampanya gorseli`,
         })),
     ),
-  ].slice(0, 4);
+  ].slice(0, 3);
 
-  if (realImages.length > 0) {
-    return realImages;
-  }
-
-  return [
-    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak gorunum 1`, city: "Studio" },
-    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak gorunum 2`, city: "Showroom" },
-    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak gorunum 3`, city: "Atolye" },
-    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak gorunum 4`, city: "Marka" },
-  ];
+  return realImages;
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Magaza Deneyimi",
-  heading = "Markanizi fiziksel temas noktalariyla guclendirin",
-  description = "Genel ayarlara girdiginiz iletisim ve adres verileri, bu alanda otomatik olarak premium bir sunuma donusur.",
-  linkLabel = "Magaza detaylarini gor",
+  eyebrow = "Magaza Guveni",
+  heading = "Teslimat ve iletisim sinyallerini netlestirin",
+  description = "Adres, telefon ve iletisim verileri ayni alanda sakin bir guven katmani olarak sunulur.",
+  linkLabel = "Iletisime Git",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi admin genel ayarlarda tanimlandiginda burada otomatik gorunur.";
+  const address = storeInfo?.address || "Adres bilgisi girildiginde bu alan otomatik guncellenir.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
@@ -75,128 +66,115 @@ export function StoreLocationsSection({
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
     : storesHref;
 
-  const cards = [
-    {
-      id: "main",
-      badge: "Magaza & Deneyim",
-      name: `${storeName} Studio`,
-      summary:
-        storeInfo?.address
-          ? `${storeName} icin girdiginiz adres ve iletisim bilgileri burada premium bir vitrinde gosterilir.`
-          : `${storeName} icin adres ve iletisim bilgilerini adminden tamamladiginizda bu alan tam magaza deneyimine donusur.`,
-      hours: "Pzt - Cmt / 10:00 - 19:00",
-      address,
-      actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Harita" : "Detaylari Ac",
-      icon: <MapPin className="size-4" />,
-    },
-    {
-      id: "support",
-      badge: "Iletisim",
-      name: "Destek ve Teklif Hatti",
-      summary:
-        "Kurumsal talepler, teslimat sorulari ve musteri destek akislari ayarlardan gelen telefon ve e-posta ile otomatik guncellenir.",
-      hours: "Hafta ici hizli geri donus",
-      address: `${phone} • ${email}`,
-      actionHref: `mailto:${email}`,
-      actionLabel: "E-Posta",
-      icon: <Mail className="size-4" />,
-    },
-  ];
-
   return (
-    <section className="bg-white py-16 sm:py-20">
-      <div className="mx-auto max-w-[1500px] px-5 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            {eyebrow}
-          </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            {heading}
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-[#69584A] sm:text-[15px]">
-            {description}
-          </p>
-        </div>
+    <section className="section-shell">
+      <div className="container-premium">
+        <SectionHeader
+          eyebrow={eyebrow}
+          title={heading}
+          description={description}
+          action={
+            <Link href={storesHref} className="cta-secondary">
+              {linkLabel}
+            </Link>
+          }
+        />
 
-        <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 lg:grid-cols-4 lg:gap-4">
-          {galleryImages.map((image, index) => (
-            <div key={image.id} className="group relative overflow-hidden bg-[#E7DED3]">
-              <div className="relative aspect-[5/5.8]">
-                <Image
-                  src={image.src}
-                  alt={image.alt}
-                  fill
-                  priority={index < 2}
-                  sizes="(min-width: 1280px) 24vw, (min-width: 768px) 25vw, 50vw"
-                  className="object-cover transition duration-700 group-hover:scale-[1.02]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/0 to-transparent" />
-                <div className="absolute bottom-3 left-3 rounded-full bg-white/88 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-[#4F3A27] backdrop-blur">
-                  {image.city}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {cards.map((card) => (
-            <article
-              key={card.id}
-              className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
-                    {card.badge}
+        <div className="mt-8 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="soft-panel overflow-hidden p-5 sm:p-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {galleryImages.length > 0 ? (
+                galleryImages.map((image, index) => (
+                  <div key={image.id} className={`relative overflow-hidden rounded-[24px] ${index === 0 ? "sm:col-span-2" : ""}`}>
+                    <div className={`relative ${index === 0 ? "aspect-[16/12]" : "aspect-[4/5]"}`}>
+                      <Image
+                        src={image.src}
+                        alt={image.alt}
+                        fill
+                        priority={index === 0}
+                        sizes={index === 0 ? "(max-width: 640px) 100vw, 40vw" : "(max-width: 640px) 100vw, 20vw"}
+                        className="object-cover"
+                        unoptimized={image.src.startsWith("http")}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[28px] bg-[linear-gradient(135deg,#f4e7de_0%,#ead9cf_100%)] p-8 sm:col-span-3">
+                  <p className="section-eyebrow">Hazir Alan</p>
+                  <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+                    Magaza gorselleri geldikce burasi otomatik dolar
+                  </h3>
+                  <p className="section-copy mt-3">
+                    Banner ve kampanya gorselleri varsa bu blokta kullanilir; veri yoksa yalnizca guven kartlari gorunur.
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{card.name}</h3>
                 </div>
+              )}
+            </div>
+          </div>
 
+          <div className="grid gap-4">
+            <article className="soft-panel p-6 sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="section-eyebrow">Iletisim</p>
+                  <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+                    {storeName}
+                  </h3>
+                </div>
                 <a
-                  href={card.actionHref}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
                 >
-                  {card.icon}
-                  <span>{card.actionLabel}</span>
+                  Harita
+                  <ExternalLink className="h-4 w-4" />
                 </a>
               </div>
 
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{card.summary}</p>
-
-              <div className="mt-5 space-y-3 text-sm text-[#4D3C2F]">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
-                  <Clock3 className="size-4 text-[#8C6D4C]" />
-                  <span>{card.hours}</span>
+              <div className="mt-6 grid gap-4 text-sm text-[var(--store-ink-soft)]">
+                <div className="flex items-start gap-3">
+                  <MapPin className="mt-1 h-4 w-4 text-[var(--store-accent)]" />
+                  <p className="leading-7">{address}</p>
                 </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-1 size-4 text-[#8C6D4C]" />
-                  <p className="text-sm leading-6 text-[#6A5A4E]">{card.address}</p>
-                </div>
-                <div className="flex flex-wrap gap-5 text-[#6A5A4E]">
-                  <span className="inline-flex items-center gap-2">
-                    <Phone className="size-4 text-[#8C6D4C]" />
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-[var(--store-accent)]" />
+                  <a href={`tel:${phone}`} className="hover:text-[var(--store-accent)]">
                     {phone}
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <Mail className="size-4 text-[#8C6D4C]" />
+                  </a>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-[var(--store-accent)]" />
+                  <a href={`mailto:${email}`} className="hover:text-[var(--store-accent)]">
                     {email}
-                  </span>
+                  </a>
                 </div>
               </div>
             </article>
-          ))}
-        </div>
 
-        <div className="mt-8 flex justify-center">
-          <Link
-            href={storesHref}
-            className="inline-flex items-center gap-2 rounded-full border border-[#B99874] bg-white px-5 py-3 text-sm font-medium text-[#3F2E22] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
-          >
-            <span>{linkLabel}</span>
-            <ExternalLink className="size-4" />
-          </Link>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
+                <Clock3 className="h-5 w-5 text-[var(--store-accent)]" />
+                <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
+                  Hizli Geri Donus
+                </h4>
+                <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
+                  Siparis, teslimat ve urun secimi sorulari icin iletisim alani net ve erisilebilir tutulur.
+                </p>
+              </article>
+
+              <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
+                <ShieldCheck className="h-5 w-5 text-[var(--store-accent)]" />
+                <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
+                  Guven Veren Sunum
+                </h4>
+                <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
+                  Adres, telefon ve destek bilgileri urun vitrininden ayrismadan tek ritimde sunulur.
+                </p>
+              </article>
+            </div>
+          </div>
         </div>
       </div>
     </section>

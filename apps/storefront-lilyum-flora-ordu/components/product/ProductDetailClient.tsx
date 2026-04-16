@@ -13,7 +13,7 @@ import {
   Package,
   Clock,
   BadgeCheck,
-  Hammer,
+  Flower2,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -28,6 +28,7 @@ import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
+import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 import {
@@ -200,7 +201,7 @@ export function ProductDetailClient({
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
   const displayImages = React.useMemo(() => {
-    const baseImages = product.images || [];
+    const baseImages = product?.images || [];
 
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter(
@@ -220,7 +221,7 @@ export function ProductDetailClient({
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--store-surface)]">
         <div className="animate-pulse text-center">
           <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
           <div className="h-4 w-32 rounded bg-neutral-200" />
@@ -231,9 +232,9 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--store-surface)]">
         <div className="text-center">
-          <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
+          <p className="text-neutral-500">Urun bilgisi yuklenemedi.</p>
         </div>
       </div>
     );
@@ -288,7 +289,7 @@ export function ProductDetailClient({
   };
 
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
+    if (isOutOfStock) return { text: "Tukendi", color: "text-neutral-400" };
     if (variant.stock <= 5) {
       return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
     }
@@ -306,30 +307,30 @@ export function ProductDetailClient({
       : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[var(--store-surface)]">
+      <div className="border-b border-[var(--store-border)] bg-[var(--store-surface)]">
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
+              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-[var(--store-accent)]"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <span className="hidden sm:inline">Tum Urunlere Don</span>
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
                 href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[var(--store-accent)]"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[var(--store-accent)]"
               >
-                Ürünler
+                Urunler
               </Link>
               <ChevronRight className="w-4 h-4" />
               <span className="max-w-[150px] truncate font-medium text-neutral-900">
@@ -359,7 +360,7 @@ export function ProductDetailClient({
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Öne Çıkan
+                    Secili
                   </span>
                 )}
               </div>
@@ -382,7 +383,7 @@ export function ProductDetailClient({
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} değerlendirme)
+                  ({product.reviewCount || 0} degerlendirme)
                 </span>
               </div>
 
@@ -400,7 +401,7 @@ export function ProductDetailClient({
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} İndirim
+                    %{discountPercent} Indirim
                   </span>
                 )}
                 {product.new && (
@@ -415,6 +416,21 @@ export function ProductDetailClient({
                 )}
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  "Canli vitrin sunumu",
+                  "Guvenli siparis akisi",
+                  "Teslimat bilgisi net gorunum",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-[20px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--store-ink-soft)] shadow-[var(--store-shadow-soft)]"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+
               <VariantSelectorV2
                 variants={variants}
                 selectedIndex={selectedVariant}
@@ -423,7 +439,7 @@ export function ProductDetailClient({
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
-                  Ekstra seçenekler yükleniyor...
+                  Ekstra secenekler yukleniyor...
                 </div>
               ) : activeSchema ? (
                 <div
@@ -432,7 +448,7 @@ export function ProductDetailClient({
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Kişiselleştirme
+                      Kisisellestirme
                     </span>
                     <span className="h-px w-8 bg-neutral-300" />
                   </div>
@@ -466,7 +482,7 @@ export function ProductDetailClient({
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
                     <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+                      +{formatPrice(customizationState.extraPrice)} kisisellestirme
                     </p>
                   )}
                 </div>
@@ -552,33 +568,33 @@ export function ProductDetailClient({
                 {[
                   {
                     id: "features",
-                    label: "Ürün Detayları",
+                    label: "Urun Detaylari",
                     content: <ProductFeatures product={product} />,
                   },
                   {
                     id: "specs",
-                    label: "Özellikler",
+                    label: "Teslimat ve Sunum",
                     content: (
                       <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
+                              Sunum
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
+                              Urun gorselleri ve aciklamalarla netlestirilir
                             </p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
+                          <Flower2 className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
+                              Stil
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
+                              Premium floral vitrinde sakin urun hiyerarsisi
                             </p>
                           </div>
                         </div>
@@ -586,10 +602,10 @@ export function ProductDetailClient({
                           <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
+                              Hazirlama
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
+                              Teslimat bilgisi aktif stok ve secimlere gore guncellenir
                             </p>
                           </div>
                         </div>
@@ -597,10 +613,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
+                              Guven
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
+                              Siparis akisi ve urun secimi mevcut commerce kurallariyla korunur
                             </p>
                           </div>
                         </div>
@@ -609,35 +625,31 @@ export function ProductDetailClient({
                   },
                   {
                     id: "shipping",
-                    label: "Kargo & İade",
+                    label: "Siparis Bilgilendirme",
                     content: (
                       <div className="space-y-4 text-sm text-neutral-600">
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
+                            Teslimat
                           </h4>
                           <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
+                            Teslimat ve hazirlama akisi mevcut stok, varyant ve magaza ayarlarina gore calisir. Bu sayfa yalnizca bilgiyi daha net sunar.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
+                            Iade ve Destek
                           </h4>
                           <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
+                            Siparis sonrasi destek, iletisim kanallari ve politika sayfalari footer ile checkout akisi uzerinden ayni contract ile korunur.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
+                            Ozel Secimler
                           </h4>
                           <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
+                            Kisisellestirme veya ek secenekler varsa fiyat ve gecerlilik durumu mevcut storefront mantigi korunarak bu blokta yansitilir.
                           </p>
                         </div>
                       </div>
@@ -696,25 +708,22 @@ export function ProductDetailClient({
         />
       </div>
 
-      <section
-        className="border-t border-neutral-200 py-16 lg:py-20"
-        style={{ backgroundColor: "#f8f8f8f8" }}
-      >
+      <section className="border-t border-[var(--store-border)] py-16 lg:py-20">
         <div className="container-premium">
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
+                Kesfet
               </span>
               <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Ürünler
+                Benzer Urunler
               </h2>
             </div>
             <Link
               href={buildLocalizedPath("/urunler", locale)}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
-              Tümünü Gör
+              Tumunu Gor
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>
@@ -739,6 +748,13 @@ export function ProductDetailClient({
           )}
         </div>
       </section>
+
+      <MobileStickyBar
+        price={displayPrice}
+        originalPrice={displayOriginalPrice}
+        onAddToCart={handleAddToCart}
+        isOutOfStock={isOutOfStock || isSchemaLoading}
+      />
     </div>
   );
 }

@@ -1,134 +1,301 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Package } from "lucide-react";
+import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
-import { ProductCardSkeleton } from "@/components/ui/skeleton";
 import { Product } from "@/types/product";
+import { EmptyResultsState } from "./EmptyResultsState";
+import { ProductGridToolbar, type SortOption } from "./ProductGridToolbar";
+import {
+  ActiveFilters,
+  FilterSidebar,
+  createDefaultFilters,
+  type FilterCategoryOption,
+  type FilterState,
+} from "./FilterSidebar";
+import { FilterDrawer } from "./FilterDrawer";
+import { ROUTES } from "@/lib/constants";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
+  categoryCounts?: Record<string, number>;
+  categoryOptions?: Array<{ slug: string; name: string }>;
 }
 
-const ITEMS_PER_LOAD = 12;
+const ITEMS_PER_PAGE = 12;
 
-function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
-  const [displayCount, setDisplayCount] = React.useState(ITEMS_PER_LOAD);
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
-  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+const SORT_OPTIONS: SortOption[] = [
+  { value: "featured", label: "One Cikanlar" },
+  { value: "newest", label: "Yeni Gelenler" },
+  { value: "price-asc", label: "Fiyat Artan" },
+  { value: "price-desc", label: "Fiyat Azalan" },
+  { value: "popular", label: "Populer" },
+];
 
-  const sortedProducts = React.useMemo(() => initialProducts, [initialProducts]);
+function normalizeKey(value?: string | null) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getProductPrice(product: Product) {
+  return typeof product.variants?.[0]?.price === "number" ? product.variants[0].price : 0;
+}
+
+function getProductOriginalPrice(product: Product) {
+  return typeof product.variants?.[0]?.originalPrice === "number"
+    ? product.variants[0].originalPrice
+    : undefined;
+}
+
+function getRoundedPriceBounds(products: Product[]): [number, number] {
+  const prices = products
+    .map((product) => getProductPrice(product))
+    .filter((price) => Number.isFinite(price) && price > 0);
+
+  if (prices.length === 0) {
+    return [0, 5000];
+  }
+
+  const minPrice = Math.floor(Math.min(...prices) / 100) * 100;
+  const maxPrice = Math.ceil(Math.max(...prices) / 100) * 100;
+  return [Math.max(0, minPrice), Math.max(maxPrice, minPrice + 100)];
+}
+
+function sortProducts(products: Product[], sort: SortOption["value"]) {
+  const items = [...products];
+
+  switch (sort) {
+    case "newest":
+      return items.sort((left, right) => Number(Boolean(right.new)) - Number(Boolean(left.new)));
+    case "price-asc":
+      return items.sort((left, right) => getProductPrice(left) - getProductPrice(right));
+    case "price-desc":
+      return items.sort((left, right) => getProductPrice(right) - getProductPrice(left));
+    case "popular":
+      return items.sort((left, right) => {
+        const rightScore = Number(right.sales_count || 0) + Number(right.reviewCount || 0) + Number(right.rating || 0);
+        const leftScore = Number(left.sales_count || 0) + Number(left.reviewCount || 0) + Number(left.rating || 0);
+        return rightScore - leftScore;
+      });
+    case "featured":
+    default:
+      return items.sort((left, right) => Number(Boolean(right.featured)) - Number(Boolean(left.featured)));
+  }
+}
+
+function filterProducts(products: Product[], filters: FilterState) {
+  return products.filter((product) => {
+    const categoryKey = normalizeKey(product.category);
+    const productPrice = getProductPrice(product);
+    const originalPrice = getProductOriginalPrice(product);
+    const isDiscounted = typeof originalPrice === "number" && originalPrice > productPrice;
+    const hasStock = product.variants?.some((variant) => Number(variant.stock || 0) > 0);
+
+    if (filters.categories.length > 0 && !filters.categories.includes(categoryKey)) {
+      return false;
+    }
+
+    if (productPrice < filters.priceRange[0] || productPrice > filters.priceRange[1]) {
+      return false;
+    }
+
+    if (filters.inStock && !hasStock) {
+      return false;
+    }
+
+    if (filters.onSale && !isDiscounted) {
+      return false;
+    }
+
+    if (filters.isNew && !product.new) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function ProductsPageClient({
+  initialProducts,
+  categoryCounts = {},
+  categoryOptions = [],
+}: ProductsPageClientProps) {
+  const { locale } = useStorefrontRoute();
+  const priceBounds = React.useMemo(() => getRoundedPriceBounds(initialProducts), [initialProducts]);
+  const [filters, setFilters] = React.useState<FilterState>(() => createDefaultFilters(priceBounds));
+  const [sortBy, setSortBy] = React.useState<SortOption["value"]>("featured");
+  const [visibleCount, setVisibleCount] = React.useState(ITEMS_PER_PAGE);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = React.useState(false);
 
   React.useEffect(() => {
-    if (!loadMoreRef.current) return;
+    setFilters(createDefaultFilters(priceBounds));
+  }, [priceBounds]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          displayCount < sortedProducts.length &&
-          !isLoadingMore
-        ) {
-          setIsLoadingMore(true);
-          setTimeout(() => {
-            setDisplayCount((prev) =>
-              Math.min(prev + ITEMS_PER_LOAD, sortedProducts.length),
-            );
-            setIsLoadingMore(false);
-          }, 300);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-
-    observer.observe(loadMoreRef.current);
-    return () => observer.disconnect();
-  }, [displayCount, sortedProducts.length, isLoadingMore]);
-
-  const visibleProducts = sortedProducts.slice(0, displayCount);
-  const hasMore = displayCount < sortedProducts.length;
-
-  return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <section className="container-premium py-8 sm:py-12">
-        {visibleProducts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-[28px] border border-neutral-200 bg-white py-20 text-center shadow-[0_18px_48px_-36px_rgba(42,28,15,0.18)]"
-          >
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100">
-              <Package className="h-8 w-8 text-neutral-400" />
-            </div>
-            <h3 className="mb-2 text-xl font-medium text-neutral-900">
-              Ürün vitrini hazır
-            </h3>
-            <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
-              Adminde yayınlanan ilk ürünler geldiği anda bu alan premium ürün
-              kartlarıyla otomatik dolar.
-            </p>
-          </motion.div>
-        ) : (
-          <>
-            <motion.div
-              layout
-              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"
-            >
-              <AnimatePresence mode="popLayout">
-                {visibleProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                  >
-                    <ProductCard product={product} index={index} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-
-            <div ref={loadMoreRef} className="mt-12 flex justify-center">
-              {hasMore ? (
-                <div className="flex items-center gap-2 text-neutral-500">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Daha fazla ürün yükleniyor...</span>
-                </div>
-              ) : null}
-            </div>
-          </>
-        )}
-      </section>
-    </div>
+  const availableCategoryOptions = React.useMemo<FilterCategoryOption[]>(
+    () =>
+      categoryOptions.map((category) => ({
+        value: normalizeKey(category.slug),
+        label: category.name,
+        count: categoryCounts[category.slug] || categoryCounts[normalizeKey(category.slug)] || 0,
+      })),
+    [categoryCounts, categoryOptions],
   );
-}
 
-export function ProductsPageClient({ initialProducts }: ProductsPageClientProps) {
+  const filteredProducts = React.useMemo(
+    () => filterProducts(initialProducts, filters),
+    [filters, initialProducts],
+  );
+  const sortedProducts = React.useMemo(
+    () => sortProducts(filteredProducts, sortBy),
+    [filteredProducts, sortBy],
+  );
+
+  React.useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [filters, sortBy]);
+
+  const visibleProducts = sortedProducts.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedProducts.length;
+
   return (
-    <React.Suspense
-      fallback={
-        <div className="min-h-screen bg-[#F8F8F8]">
-          <section className="pt-20 pb-10 sm:pt-28 sm:pb-12">
-            <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-              <div className="mx-auto mb-6 h-4 w-32 animate-pulse rounded bg-neutral-200" />
-              <div className="mx-auto mb-4 h-12 w-64 animate-pulse rounded bg-neutral-200" />
-              <div className="mx-auto h-6 w-96 max-w-full animate-pulse rounded bg-neutral-200" />
-            </div>
-          </section>
-          <div className="container-premium py-8 sm:py-12">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-              {[...Array(9)].map((_, index) => (
-                <ProductCardSkeleton key={index} />
-              ))}
+    <div className="bg-[var(--store-surface)]">
+      <section className="section-shell pt-8">
+        <div className="container-premium">
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#f8eee7_0%,#f4e9e0_42%,#eadbd2_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
+            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(123,17,19,0.12),transparent_52%)]" />
+            <div className="relative max-w-2xl">
+              <p className="section-eyebrow">Tum Urunler</p>
+              <h1 className="section-title mt-4 text-[var(--store-ink)]">
+                Cicekleri kategori, fiyat ve durum filtreleriyle hizla kesfet
+              </h1>
+              <p className="section-copy mt-4">
+                Mobilde kolay acilan drawer, aktif filtre chipleri ve net kart duzeni ile urun kesfi daha hizli ilerler.
+              </p>
+              <p className="mt-5 text-sm font-semibold text-[var(--store-accent)]">
+                {sortedProducts.length} urun goruntuleniyor
+              </p>
             </div>
           </div>
         </div>
-      }
-    >
-      <ProductsPageContent initialProducts={initialProducts} />
-    </React.Suspense>
+      </section>
+
+      <section className="section-shell pt-6">
+        <div className="container-premium">
+          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+            <div className="hidden lg:block">
+              <div className="sticky top-28">
+                <FilterSidebar
+                  filters={filters}
+                  onFilterChange={(next: Partial<FilterState>) =>
+                    setFilters((current) => ({ ...current, ...next }))
+                  }
+                  categoryOptions={availableCategoryOptions}
+                  priceBounds={priceBounds}
+                />
+              </div>
+            </div>
+
+            <div>
+              <ProductGridToolbar
+                title="Vitrin Sonuclari"
+                totalCount={sortedProducts.length}
+                visibleCount={visibleProducts.length}
+                sortValue={sortBy}
+                sortOptions={SORT_OPTIONS}
+                onSortChange={setSortBy}
+                activeFilterCount={
+                  filters.categories.length +
+                  (filters.priceRange[0] > priceBounds[0] || filters.priceRange[1] < priceBounds[1] ? 1 : 0) +
+                  (filters.inStock ? 1 : 0) +
+                  (filters.onSale ? 1 : 0) +
+                  (filters.isNew ? 1 : 0)
+                }
+                onOpenFilters={() => setIsFilterDrawerOpen(true)}
+              />
+
+              <div className="mt-4">
+                <ActiveFilters
+                  filters={filters}
+                  onFilterChange={(next: Partial<FilterState>) =>
+                    setFilters((current) => ({ ...current, ...next }))
+                  }
+                  categoryOptions={availableCategoryOptions}
+                  priceBounds={priceBounds}
+                />
+              </div>
+
+              {visibleProducts.length === 0 ? (
+                <div className="mt-6">
+                  <EmptyResultsState
+                    title="Filtrelere uygun urun bulunamadi"
+                    body="Aktif filtreleri temizleyerek tum vitrine geri donebilir ya da farkli bir kategori deneyebilirsin."
+                    actionLabel="Tum Urunler"
+                    actionHref={buildLocalizedPath(ROUTES.products, locale)}
+                    onReset={() => setFilters(createDefaultFilters(priceBounds))}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                    {visibleProducts.map((product, index) => (
+                      <ProductCard key={product.id} product={product} index={index} />
+                    ))}
+                  </div>
+
+                  {hasMore ? (
+                    <div className="mt-10 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount((current) => current + ITEMS_PER_PAGE)}
+                        className="cta-secondary"
+                      >
+                        Daha Fazla Goster
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-shell pt-0">
+        <div className="container-premium">
+          <div className="soft-panel px-6 py-8">
+            <p className="section-eyebrow">Kesif Notu</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
+              Temiz grid, net fiyatlama ve sakin CTA ritmi
+            </h2>
+            <p className="section-copy mt-3 max-w-3xl">
+              Bu listing yapisi admin panelinden gelen urun akisini bozmadan, daha net kategori gecisleri ve mobilde daha rahat filtre kullanimi saglar.
+            </p>
+            <div className="mt-5">
+              <Link
+                href={buildLocalizedPath("/iletisim", locale)}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-accent)] transition hover:text-[var(--store-accent-strong)]"
+              >
+                Teslimat ve destek bilgileri
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        filters={filters}
+        onFilterChange={(next: Partial<FilterState>) =>
+          setFilters((current) => ({ ...current, ...next }))
+        }
+        categoryOptions={availableCategoryOptions}
+        priceBounds={priceBounds}
+      />
+    </div>
   );
 }

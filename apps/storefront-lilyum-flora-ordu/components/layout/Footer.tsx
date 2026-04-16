@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Instagram, Youtube } from "lucide-react";
+import { ChevronDown, Instagram, Mail, Phone, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
@@ -47,8 +47,6 @@ export function Footer() {
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const activeLocaleOption =
-    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
@@ -66,6 +64,7 @@ export function Footer() {
             cache: "no-store",
           }),
         ]);
+
         if (!isMounted) {
           return;
         }
@@ -73,6 +72,7 @@ export function Footer() {
         const topLevelCategories = categories
           .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
           .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
+          .slice(0, 6)
           .map((category) => ({
             id: category.id,
             name: category.name,
@@ -81,9 +81,7 @@ export function Footer() {
 
         setCategoryLinks(topLevelCategories);
         if (policyResponse.ok) {
-          const payload = (await policyResponse.json()) as {
-            pages?: PolicyFooterLink[];
-          };
+          const payload = (await policyResponse.json()) as { pages?: PolicyFooterLink[] };
           setPolicyLinks(Array.isArray(payload.pages) ? payload.pages : []);
         } else {
           setPolicyLinks([]);
@@ -115,61 +113,155 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
     { name: copy.footerContact, href: "/iletisim" },
+    { name: "Tum Urunler", href: "/urunler" },
+    { name: "SSS", href: "/sss" },
   ];
 
   return (
-    <footer className="bg-[#0B1120] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-          <div className="lg:col-span-1">
-            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
-              {logoSrc ? (
-                <div className="relative h-10 w-[150px]">
-                  <Image
-                    src={logoSrc}
-                    alt={logoAlt}
-                    fill
-                    className="object-contain object-left brightness-0 invert"
-                    sizes="150px"
-                    unoptimized={usesProxiedLogo}
-                  />
-                </div>
-              ) : (
-                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
-              )}
-            </Link>
-
-            <div className="mb-6 space-y-2">
-              <p className="text-sm text-gray-300">{contactPhone}</p>
-              <p className="break-all text-sm text-gray-300">{contactEmail}</p>
+    <footer className="border-t border-[var(--store-border)] bg-[#261917] text-white">
+      <div className="container-premium py-14 sm:py-16">
+        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-8">
+          <div className="space-y-6">
+            <div>
+              <Link href={buildLocalizedPath("/", locale)} className="inline-block">
+                {logoSrc ? (
+                  <div className="relative h-10 w-[156px]">
+                    <Image
+                      src={logoSrc}
+                      alt={logoAlt}
+                      fill
+                      className="object-contain object-left brightness-0 invert"
+                      sizes="156px"
+                      unoptimized={usesProxiedLogo}
+                    />
+                  </div>
+                ) : (
+                  <p className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.05em] text-white">
+                    {logoAlt}
+                  </p>
+                )}
+              </Link>
+              <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
+                Sakin ama guclu bir floral vitrin. Admin tarafindan yonetilen banner, urun ve kategori akisi burada temiz bir alisveris deneyimine donusur.
+              </p>
             </div>
 
-            <div className="mb-6">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
+            <div className="grid gap-3 text-sm text-white/78">
+              <a href={`tel:${contactPhone}`} className="inline-flex items-center gap-2 hover:text-white">
+                <Phone className="h-4 w-4 text-[var(--store-blush)]" />
+                {contactPhone}
+              </a>
+              <a href={`mailto:${contactEmail}`} className="inline-flex items-center gap-2 hover:text-white">
+                <Mail className="h-4 w-4 text-[var(--store-blush)]" />
+                {contactEmail}
+              </a>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/6 text-white/78 transition hover:border-white/28 hover:bg-white/10 hover:text-white"
+                aria-label="Instagram"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a
+                href={youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/6 text-white/78 transition hover:border-white/28 hover:bg-white/10 hover:text-white"
+                aria-label="YouTube"
+              >
+                <Youtube className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
+              {copy.aboutHeading}
+            </p>
+            <ul className="mt-5 space-y-3">
+              {aboutLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="text-sm text-white/72 transition hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
+              {copy.categoriesHeading}
+            </p>
+            <ul className="mt-5 space-y-3">
+              {categoryLinks.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    className="text-sm text-white/72 transition hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="space-y-8">
+            {policyLinks.length > 0 ? (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
+                  {copy.policiesHeading}
+                </p>
+                <ul className="mt-5 space-y-3">
+                  {policyLinks.map((link) => (
+                    <li key={link.slug}>
+                      <Link
+                        href={buildLocalizedPath(link.href, locale)}
+                        className="text-sm text-white/72 transition hover:text-white"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
                 Language
               </p>
-              <div ref={localeMenuRef} className="relative w-fit">
+              <div ref={localeMenuRef} className="relative mt-4 w-fit">
                 <button
                   type="button"
                   onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-full border border-white/14 bg-white/8 px-4 py-3 text-left text-white transition hover:border-white/28"
                   aria-expanded={isLocaleMenuOpen}
                   aria-haspopup="listbox"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
-                    <span className="text-sm">{locale.toUpperCase()}</span>
+                    <span className="text-sm font-semibold">
+                      {LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale)?.label || "TR"}
+                    </span>
+                    <span className="text-xs uppercase text-white/72">{locale}</span>
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-[24px] border border-white/12 bg-[#31211f] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.3)]">
                     <div className="space-y-1">
                       {LOCALE_SWITCH_OPTIONS.map((option) => {
                         const isActive = option.locale === locale;
@@ -179,10 +271,10 @@ export function Footer() {
                             href={buildLocalizedPath(internalPathname, option.locale)}
                             hrefLang={option.locale}
                             onClick={() => setIsLocaleMenuOpen(false)}
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
+                            className={`flex items-center justify-between rounded-[18px] px-3 py-2 transition ${
                               isActive
-                                ? "bg-white text-[#0B1120]"
-                                : "text-white/88 hover:bg-white/10 hover:text-white"
+                                ? "bg-white text-[#261917]"
+                                : "text-white/82 hover:bg-white/10 hover:text-white"
                             }`}
                           >
                             <span className="text-sm font-medium">{option.label}</span>
@@ -195,97 +287,20 @@ export function Footer() {
                 ) : null}
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <a
-                href={instagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a
-                href={youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-4 w-4" />
-              </a>
-            </div>
           </div>
-
-          <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.aboutHeading}
-            </p>
-            <ul className="space-y-3">
-              {aboutLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.categoriesHeading}
-            </p>
-            <ul className="space-y-3">
-              {categoryLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    href={buildLocalizedPath(`/${link.slug}`, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {policyLinks.length > 0 ? (
-          <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.policiesHeading}
-            </p>
-            <ul className="space-y-3">
-              {policyLinks.map((link) => (
-                <li key={link.slug}>
-                  <Link
-                    href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          ) : null}
         </div>
       </div>
 
-      <div className="border-t border-gray-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
-          <p className="text-xs text-gray-500">
+      <div className="border-t border-white/10">
+        <div className="container-premium flex flex-col items-center justify-between gap-3 py-5 text-center sm:flex-row sm:text-left">
+          <p className="text-xs text-white/55">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+            className="text-[10px] uppercase tracking-[0.2em] text-white/45 transition hover:text-white/72"
           >
             Powered by Celebix
           </a>

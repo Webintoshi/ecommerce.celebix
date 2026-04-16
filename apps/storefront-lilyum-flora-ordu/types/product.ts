@@ -1,41 +1,30 @@
-// Ürün Kategorileri
-export type ProductCategory =
-  | "fistik-ezmesi"
-  | "findik-ezmesi"
-  | "kuruyemis";
+// Product categories remain admin-defined and store-specific.
+export type ProductCategory = string;
 
-// Ürün Alt Kategorileri
-export type ProductSubcategory =
-  | "sekersiz"
-  | "hurmalı"
-  | "balli"
-  | "klasik"
-  | "sutlu-findik-kremasi"
-  | "kakaolu"
-  | "cig"
-  | "kavrulmus";
+// Product subcategories remain admin-defined and store-specific.
+export type ProductSubcategory = string;
 
-// Ürün Durumu
+// Product publishing state.
 export type ProductStatus = "draft" | "published" | "archived" | "scheduled";
 
-// Besin Değeri Bazı
+// Nutrition display basis.
 export type NutritionBasis = "per_100g" | "per_serving";
 
-// KDV Oranları
+// Tax rates used by the storefront.
 export type TaxRate = 0 | 1 | 8 | 10 | 20;
 
-// Alerjenler
-export type Allergen = 
-  | "fistik" 
-  | "sut" 
-  | "yumurta" 
-  | "gluten" 
-  | "yerfistigi" 
-  | "badem" 
-  | "kaju" 
+// Legacy allergen set kept for compatibility with current data shapes.
+export type Allergen =
+  | "fistik"
+  | "sut"
+  | "yumurta"
+  | "gluten"
+  | "yerfistigi"
+  | "badem"
+  | "kaju"
   | "ceviz";
 
-// Görsel Yapısı (Alt text + sıralama)
+// Product image metadata.
 export interface ProductImage {
   url: string;
   alt: string;
@@ -43,7 +32,7 @@ export interface ProductImage {
   sortOrder: number;
 }
 
-// Besin Değerleri
+// Nutrition summary.
 export interface NutritionalInfo {
   calories: number;
   protein: number;
@@ -53,9 +42,9 @@ export interface NutritionalInfo {
   sugar?: number;
 }
 
-// Vitamin/Mineral
+// Vitamin and mineral values.
 export interface Vitamins {
-  a?: string; // "%15" formatında
+  a?: string;
   c?: string;
   d?: string;
   e?: string;
@@ -65,15 +54,15 @@ export interface Vitamins {
   zinc?: string;
 }
 
-// Ürün Boyutları
+// Product dimensions.
 export interface ProductDimensions {
-  width?: number; // cm
+  width?: number;
   height?: number;
   depth?: number;
-  weight?: number; // gram
+  weight?: number;
 }
 
-// İndirim Kuralı
+// Discount rule shape.
 export interface DiscountRule {
   id: string;
   name: string;
@@ -90,22 +79,24 @@ export interface DiscountRule {
   endsAt?: string;
 }
 
-// Ürün Varyasyonu - Genişletilmiş
+// Product variant shape.
 export interface ProductVariant {
   id: string;
   name: string;
-  weight: number | string; // Veritabanında string, frontend'de number olabilir
+  weight: number | string;
   price: number;
   originalPrice?: number;
-  cost?: number; // Maliyet
+  cost?: number;
   stock: number;
   sku: string;
   barcode?: string;
-  groupName?: string; // "Gramaj", "Renk"
+  groupName?: string;
   images?: string[];
   unit?: "adet" | "kg" | "g" | "lt" | "ml" | "paket" | "kutu";
   maxPurchaseQuantity?: number;
   warehouseLocation?: string;
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
 }
 
 export interface ProductReview {
@@ -121,7 +112,7 @@ export interface ProductReview {
   createdAt: string;
 }
 
-// SEO Verileri
+// SEO metadata for a product.
 export interface ProductSEO {
   title: string;
   description: string;
@@ -132,13 +123,13 @@ export interface ProductSEO {
   robots: "index,follow" | "noindex,follow" | "index,nofollow" | "noindex,nofollow";
 }
 
-// Stok Yönetimi
+// Stock management options.
 export interface StockSettings {
   trackStock: boolean;
   lowStockThreshold: number;
 }
 
-// Besin Değerleri Ayarları
+// Nutrition settings.
 export interface NutritionSettings {
   basis: NutritionBasis;
   servingSize: number;
@@ -150,7 +141,7 @@ export interface NutritionSettings {
   shelfLifeDays?: number;
 }
 
-// Ürün - Genişletilmiş
+// Product data used across storefront views.
 export interface Product {
   id: string;
   name: string;
@@ -162,6 +153,7 @@ export interface Product {
   variants: ProductVariant[];
   images: string[];
   imagesV2?: ProductImage[];
+  images_v2?: Array<string | { url?: string | null }>;
   tags: string[];
   nutritionalInfo?: NutritionalInfo;
   vegan: boolean;
@@ -175,9 +167,9 @@ export interface Product {
   isActive?: boolean;
   seoTitle?: string;
   seoDescription?: string;
+  seo_title?: string;
+  seo_description?: string;
   discount?: number;
-  
-  // Yeni Alanlar
   status?: ProductStatus;
   isDraft?: boolean;
   publishedAt?: string;
@@ -197,7 +189,7 @@ export interface Product {
   isBestseller?: boolean;
 }
 
-// Kategori Bilgisi
+// Category data used across homepage and listing views.
 export interface CategoryInfo {
   id: string;
   name: string;
@@ -214,7 +206,7 @@ export interface CategoryInfo {
   children?: CategoryInfo[];
 }
 
-// Ürün Filtreleri
+// Filter shape for product listings.
 export interface ProductFilters {
   category?: ProductCategory;
   subcategory?: ProductSubcategory;
@@ -227,7 +219,7 @@ export interface ProductFilters {
   status?: ProductStatus;
 }
 
-// Ürün Sıralama
+// Product sorting options.
 export type ProductSortOption =
   | "featured"
   | "newest"
@@ -236,9 +228,8 @@ export type ProductSortOption =
   | "rating"
   | "popular";
 
-// Wizard Form State
+// Wizard form state kept for compatibility with admin-fed product editing flows.
 export interface ProductWizardState {
-  // Adım 1: Temel Bilgiler
   name: string;
   slug: string;
   description: string;
@@ -248,36 +239,23 @@ export interface ProductWizardState {
   tags: string[];
   brand: string;
   countryOfOrigin: string;
-  
-  // Adım 2: Görseller
   images: ProductImage[];
-  
-  // Adım 3: Fiyatlandırma
   variants: ProductVariant[];
   taxRate: TaxRate;
   discountRules: DiscountRule[];
-  
-  // Adım 4: Stok
   trackStock: boolean;
   lowStockThreshold: number;
-  
-  // Adım 5: SEO
   seo: ProductSEO;
-  
-  // Adım 6: Besin Değerleri
   nutritionalInfo: NutritionalInfo;
   nutritionSettings: NutritionSettings;
   vegan: boolean;
   glutenFree: boolean;
   sugarFree: boolean;
   highProtein: boolean;
-  
-  // Adım 7: Yayın
   status: ProductStatus;
   publishedAt?: string;
 }
 
-// Wizard Adımları
 export interface WizardStep {
   id: number;
   title: string;
@@ -287,11 +265,53 @@ export interface WizardStep {
 }
 
 export const WIZARD_STEPS: WizardStep[] = [
-  { id: 1, title: "Temel Bilgiler", description: "Ürün adı, kategori, açıklama", icon: "FileText", isRequired: true },
-  { id: 2, title: "Görseller", description: "Fotoğraflar ve SEO optimizasyonu", icon: "Image", isRequired: true },
-  { id: 3, title: "Fiyatlandırma", description: "Varyantlar ve indirimler", icon: "Tag", isRequired: true },
-  { id: 4, title: "Stok Yönetimi", description: "Stok takip ayarları", icon: "Package", isRequired: false },
-  { id: 5, title: "SEO & Meta", description: "Arama motoru optimizasyonu", icon: "Search", isRequired: true },
-  { id: 6, title: "Besin Değerleri", description: "Ürün içerik bilgileri", icon: "Apple", isRequired: false },
-  { id: 7, title: "Önizle & Yayınla", description: "Son kontrol ve yayınlama", icon: "CheckCircle", isRequired: true },
+  {
+    id: 1,
+    title: "Temel Bilgiler",
+    description: "Urun adi, kategori ve aciklama",
+    icon: "FileText",
+    isRequired: true,
+  },
+  {
+    id: 2,
+    title: "Gorseller",
+    description: "Fotograflar ve SEO optimizasyonu",
+    icon: "Image",
+    isRequired: true,
+  },
+  {
+    id: 3,
+    title: "Fiyatlandirma",
+    description: "Varyantlar ve indirimler",
+    icon: "Tag",
+    isRequired: true,
+  },
+  {
+    id: 4,
+    title: "Stok Yonetimi",
+    description: "Stok takip ayarlari",
+    icon: "Package",
+    isRequired: false,
+  },
+  {
+    id: 5,
+    title: "SEO & Meta",
+    description: "Arama motoru optimizasyonu",
+    icon: "Search",
+    isRequired: true,
+  },
+  {
+    id: 6,
+    title: "Besin Degerleri",
+    description: "Urun icerik bilgileri",
+    icon: "Apple",
+    isRequired: false,
+  },
+  {
+    id: 7,
+    title: "Onizle & Yayinla",
+    description: "Son kontrol ve yayinlama",
+    icon: "CheckCircle",
+    isRequired: true,
+  },
 ];

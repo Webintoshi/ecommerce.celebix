@@ -53,6 +53,18 @@ export function Header() {
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
+  const quickLinks = useMemo(
+    () => [
+      { label: "Tum Cicekler", href: ROUTES.products },
+      ...headerCategories.slice(0, 4).map((category) => ({
+        label: getLocalizedCategoryLabel(category.slug, category.name, locale),
+        href: ROUTES.category(category.slug),
+      })),
+      { label: "Iletisim", href: ROUTES.contact },
+    ],
+    [headerCategories, locale],
+  );
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -127,43 +139,80 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
-          : "bg-[#F8F8F8F8]"
+          ? "border-b border-[var(--store-border)] bg-[rgba(249,245,239,0.92)] shadow-[0_18px_45px_rgba(61,37,29,0.08)] backdrop-blur-xl"
+          : "border-b border-transparent bg-[rgba(249,245,239,0.82)] backdrop-blur-md"
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center justify-between lg:h-20">
-          <button
-            className="-ml-2 p-2 lg:hidden"
-            onClick={() => setIsMenuOpen((open) => !open)}
-            aria-label={copy.menuLabel}
-            type="button"
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+        <div className="hidden items-center justify-between border-b border-[var(--store-border)] py-2 lg:flex">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--store-muted)]">
+            Lilyum Flora Ordu
+          </p>
+          <div className="flex items-center gap-2">
+            {quickLinks.slice(0, 4).map((link) => (
+              <Link
+                key={`${link.href}-${link.label}`}
+                href={buildLocalizedPath(link.href, locale)}
+                className="rounded-full border border-[var(--store-border)] bg-white px-3 py-1 text-[11px] font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
 
-          <Link href={buildLocalizedPath(ROUTES.home, locale)} className="flex-shrink-0" aria-label={logoAlt}>
+        <div className="flex h-[74px] items-center justify-between gap-3 lg:h-[88px]">
+          <div className="flex items-center gap-2 lg:hidden">
+            <button
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)]"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-label={copy.menuLabel}
+              type="button"
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)]"
+              aria-label={copy.searchLabel}
+              onClick={() => setIsSearchOpen(true)}
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          </div>
+
+          <Link
+            href={buildLocalizedPath(ROUTES.home, locale)}
+            className="min-w-0 flex-shrink-0"
+            aria-label={logoAlt}
+          >
             {logoSrc ? (
-              <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
+              <div className="relative h-8 w-[126px] sm:h-9 sm:w-[144px] lg:h-10 lg:w-[170px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 104px, (max-width: 1024px) 118px, 128px"
+                  sizes="(max-width: 640px) 126px, (max-width: 1024px) 144px, 170px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
-                {logoAlt}
-              </span>
+              <div>
+                <p className="font-[var(--font-display)] text-lg font-semibold tracking-[-0.04em] text-[var(--store-ink)] lg:text-2xl">
+                  {logoAlt}
+                </p>
+                <p className="hidden text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--store-muted)] sm:block">
+                  Premium Floral Storefront
+                </p>
+              </div>
             )}
           </Link>
 
-          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
-            {headerCategories.map((category) => {
+          <nav className="hidden items-center gap-6 lg:flex xl:gap-7">
+            {headerCategories.slice(0, 7).map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
               if (category.children.length === 0) {
@@ -171,9 +220,10 @@ export function Header() {
                   <Link
                     key={category.id}
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text group relative text-[0.92rem] text-[var(--store-ink-soft)] transition hover:text-[var(--store-accent)]"
                   >
-                    {localizedCategoryName}
+                    <span>{localizedCategoryName}</span>
+                    <span className="absolute -bottom-1 left-0 h-[2px] w-0 bg-[var(--store-accent)] transition-all duration-300 group-hover:w-full" />
                   </Link>
                 );
               }
@@ -182,20 +232,21 @@ export function Header() {
                 <div key={category.id} className="group relative">
                   <Link
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-[var(--store-ink-soft)] transition hover:text-[var(--store-accent)]"
                   >
                     {localizedCategoryName}
                     <ChevronDown className="h-4 w-4" />
+                    <span className="absolute -bottom-1 left-0 h-[2px] w-0 bg-[var(--store-accent)] transition-all duration-300 group-hover:w-full" />
                   </Link>
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                    <div className="soft-panel p-4">
                       <div className="space-y-1">
                         {category.children.map((subcategory) => (
                           <Link
                             key={subcategory.id}
                             href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                            className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
+                            className="block rounded-[18px] px-4 py-3 text-sm text-[var(--store-ink-soft)] transition hover:bg-[var(--store-surface-alt)] hover:text-[var(--store-accent)]"
                           >
                             {subcategory.name}
                           </Link>
@@ -208,29 +259,34 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              className="p-2"
+              className="hidden h-11 items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 text-sm font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)] lg:inline-flex"
               aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
             >
-              <Search className="h-5 w-5 text-neutral-600" />
+              <Search className="h-4 w-4" />
+              Ara
             </button>
 
-            <Link href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)} className="hidden p-2 sm:block">
-              <User className="h-5 w-5 text-neutral-600" />
+            <Link
+              href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
+              className="hidden h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)] sm:flex"
+              aria-label="Hesap"
+            >
+              <User className="h-5 w-5" />
             </Link>
 
             <button
               type="button"
-              className="relative p-2"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
               aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5 text-neutral-600" />
+              <ShoppingBag className="h-5 w-5" />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--store-accent)] px-1 text-[10px] font-semibold text-white">
                   {cartItemCount}
                 </span>
               ) : null}
@@ -240,34 +296,49 @@ export function Header() {
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
-          <nav className="container-premium space-y-4 py-4">
-            {headerCategories.map((category) => (
-              <div key={category.id} className="space-y-2">
+        <div className="border-t border-[var(--store-border)] bg-[var(--store-surface)] lg:hidden">
+          <nav className="container-premium py-5">
+            <div className="flex flex-wrap gap-2">
+              {quickLinks.slice(0, 5).map((link) => (
                 <Link
-                  href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  key={`mobile-top-${link.href}-${link.label}`}
+                  href={buildLocalizedPath(link.href, locale)}
+                  className="rounded-full border border-[var(--store-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--store-ink-soft)]"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {getLocalizedCategoryLabel(category.slug, category.name, locale)}
+                  {link.label}
                 </Link>
+              ))}
+            </div>
 
-                {category.children.length > 0 ? (
-                  <div className="space-y-2 border-l border-neutral-200 pl-4">
-                    {category.children.map((subcategory) => (
-                      <Link
-                        key={subcategory.id}
-                        href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        {subcategory.name}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+            <div className="mt-5 space-y-4">
+              {headerCategories.map((category) => (
+                <div key={category.id} className="rounded-[24px] border border-[var(--store-border)] bg-white/80 p-4">
+                  <Link
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="store-nav-text block text-[15px] text-[var(--store-ink)]"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {getLocalizedCategoryLabel(category.slug, category.name, locale)}
+                  </Link>
+
+                  {category.children.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {category.children.map((subcategory) => (
+                        <Link
+                          key={subcategory.id}
+                          href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                          className="rounded-[16px] bg-[var(--store-surface-alt)] px-3 py-2 text-sm text-[var(--store-ink-soft)]"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {subcategory.name}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </nav>
         </div>
       ) : null}
@@ -277,6 +348,7 @@ export function Header() {
         onClose={() => setIsSearchOpen(false)}
         locale={locale}
         resolveImageSrc={resolveStorefrontAssetUrl}
+        quickLinks={quickLinks}
       />
     </header>
   );

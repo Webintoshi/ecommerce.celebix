@@ -9,21 +9,21 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
+  categoriesHeading: "Bugunun cicek secimleri",
   viewAllLabel: "Tumunu Gor",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+    { title: "Cok Sevilenler", subtitle: "Guncel Vitrin" },
+    { title: "Premium Aranjmanlar", subtitle: "Editor Secimi" },
+    { title: "Yeni Seckiler", subtitle: "Sezona Uygun" },
+    { title: "Hediye Alternatifleri", subtitle: "Kolay Kesif" },
   ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  storesEyebrow: "Magaza Guveni",
+  storesHeading: "Teslimat, iletisim ve magaza bilgilerini tek blokta sunun",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Genel ayarlara girilen iletisim, adres ve gorsel verileri burada sakin ve guven veren bir storefront bolumune donusur.",
+  storesLinkLabel: "Iletisime Git",
+  testimonialsHeading: "Musteri Degerlendirmeleri",
+  testimonialsCountLabel: "Gercek yorumlar geldikce bu alan otomatik yenilenir",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -70,7 +70,7 @@ export default async function Home() {
     buildLocalizedPath("/urunler", locale),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/magazalarimiz", locale);
+  const storesHref = buildLocalizedPath("/iletisim", locale);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)

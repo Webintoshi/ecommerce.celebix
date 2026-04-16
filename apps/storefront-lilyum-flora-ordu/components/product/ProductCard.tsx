@@ -10,6 +10,7 @@ import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatPrice } from "@/lib/utils";
 import { getProductCardSwatches } from "@/lib/variant-selection";
 import { Product } from "@/types/product";
+import { BadgePill } from "./BadgePill";
 
 interface ProductCardProps {
   product: Product;
@@ -19,7 +20,7 @@ interface ProductCardProps {
 
 function getResolvedProductImages(product: Product) {
   const legacyImagesV2 = Array.isArray(
-    (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2
+    (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2,
   )
     ? (
         (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? []
@@ -43,13 +44,13 @@ function ProductCardSwatches({ product }: { product: Product }) {
   }
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-2">
+    <div className="mt-3 flex items-center gap-2">
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
           title={swatch.value}
           aria-label={swatch.value}
-          className="relative h-4 w-4 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100"
+          className="relative h-4 w-4 overflow-hidden rounded-full border border-[var(--store-border-strong)] bg-[var(--store-surface-alt)]"
         >
           {swatch.image_url ? (
             <img
@@ -60,7 +61,7 @@ function ProductCardSwatches({ product }: { product: Product }) {
           ) : swatch.color_code ? (
             <span className="block h-full w-full" style={{ backgroundColor: swatch.color_code }} />
           ) : (
-            <span className="block h-full w-full bg-neutral-200" />
+            <span className="block h-full w-full bg-[var(--store-surface-alt)]" />
           )}
         </span>
       ))}
@@ -75,19 +76,35 @@ function ProductCardRating({ product }: { product: Product }) {
     return null;
   }
 
-  const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
+  return (
+    <div className="mt-2 flex items-center gap-2 text-sm text-[var(--store-ink-soft)]">
+      <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
+        <Star className="h-4 w-4 fill-current" />
+        <span className="font-semibold">{rating.toFixed(1)}</span>
+      </span>
+      {product.reviewCount ? <span>({product.reviewCount})</span> : null}
+    </div>
+  );
+}
+
+function ProductCardBadges({ product, hasDiscount }: { product: Product; hasDiscount: boolean }) {
+  const badges = [
+    product.new ? { label: "Yeni", tone: "solid" as const } : null,
+    product.isBestseller ? { label: "Cok Satan", tone: "soft" as const } : null,
+    product.featured ? { label: "Secili", tone: "outline" as const } : null,
+    hasDiscount ? { label: "Indirim", tone: "soft" as const } : null,
+  ].filter(Boolean) as Array<{ label: string; tone: "soft" | "solid" | "outline" }>;
+
+  if (badges.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-0.5">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <Star
-          key={`${product.id}-rating-${index}`}
-          className={`h-3.5 w-3.5 ${
-            index < filledStars
-              ? "fill-[#8A6B37] text-[#8A6B37]"
-              : "fill-neutral-200 text-neutral-200"
-          }`}
-        />
+    <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+      {badges.slice(0, 3).map((badge) => (
+        <BadgePill key={badge.label} tone={badge.tone}>
+          {badge.label}
+        </BadgePill>
       ))}
     </div>
   );
@@ -104,42 +121,60 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
       : undefined;
+  const hasDiscount = Boolean(originalPrice && displayPrice && originalPrice > displayPrice);
   const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
+  const categoryLabel = product.category || "Cicek";
 
   if (viewMode === "list") {
     return (
-      <Link href={productHref} className="group block">
-        <div className="flex gap-6 bg-white p-4">
-          <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
-            {primaryImage ? (
-              <Image
-                src={primaryImage}
-                alt={product.name}
-                fill
-                className="object-cover"
-                unoptimized={usesProxiedPrimaryImage}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-                Gorsel yok
-              </div>
-            )}
-          </div>
-          <div className="flex flex-1 flex-col justify-center">
-            <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
+      <Link
+        href={productHref}
+        className="group grid gap-5 rounded-[28px] border border-[var(--store-border)] bg-white p-4 shadow-[var(--store-shadow-soft)] transition hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(61,37,29,0.12)] sm:grid-cols-[160px_minmax(0,1fr)]"
+      >
+        <div className="relative aspect-[4/5] overflow-hidden rounded-[22px] bg-[var(--store-surface-alt)]">
+          <ProductCardBadges product={product} hasDiscount={hasDiscount} />
+          {primaryImage ? (
+            <Image
+              src={primaryImage}
+              alt={product.name}
+              fill
+              className="object-cover transition duration-700 group-hover:scale-[1.04]"
+              unoptimized={usesProxiedPrimaryImage}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--store-muted)]">
+              Gorsel yok
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+              {categoryLabel}
+            </p>
+            <h3 className="store-product-title mt-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)]">
               {product.name}
             </h3>
-            <ProductCardRating product={product} />
-            {typeof displayPrice === "number" ? (
-              <div className="mt-1 flex items-baseline gap-2">
-                {originalPrice ? (
-                  <span className="text-xs text-neutral-400 line-through">
-                    {formatPrice(originalPrice)}
-                  </span>
-                ) : null}
-                <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
-              </div>
+            {product.shortDescription ? (
+              <p className="mt-3 line-clamp-2 text-sm leading-7 text-[var(--store-ink-soft)]">
+                {product.shortDescription}
+              </p>
             ) : null}
+            <ProductCardRating product={product} />
+          </div>
+
+          <div className="mt-5">
+            <div className="flex items-end gap-2">
+              <p className="text-xl font-semibold text-[var(--store-accent)]">
+                {typeof displayPrice === "number" ? formatPrice(displayPrice) : "Bilgi al"}
+              </p>
+              {originalPrice ? (
+                <span className="pb-0.5 text-sm text-[var(--store-muted)] line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+            </div>
             <ProductCardSwatches product={product} />
           </div>
         </div>
@@ -148,42 +183,52 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   }
 
   return (
-    <Link href={productHref} className="group block">
-      <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
-        {primaryImage ? (
-          <Image
-            src={primaryImage}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            unoptimized={usesProxiedPrimaryImage}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-            Gorsel yok
-          </div>
-        )}
+    <Link
+      href={productHref}
+      className="group block rounded-[28px] border border-[var(--store-border)] bg-white p-3 shadow-[var(--store-shadow-soft)] transition hover:-translate-y-0.5 hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(61,37,29,0.12)]"
+    >
+      <div className="relative overflow-hidden rounded-[22px] bg-[var(--store-surface-alt)]">
+        <ProductCardBadges product={product} hasDiscount={hasDiscount} />
+        <div className="relative aspect-[4/5]">
+          {primaryImage ? (
+            <Image
+              src={primaryImage}
+              alt={product.name}
+              fill
+              className="object-cover transition duration-700 group-hover:scale-[1.04]"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              unoptimized={usesProxiedPrimaryImage}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--store-muted)]">
+              Gorsel yok
+            </div>
+          )}
+        </div>
       </div>
 
-      <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
-        {product.name}
-      </h3>
+      <div className="px-1 pb-1 pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+          {categoryLabel}
+        </p>
+        <h3 className="store-product-title mt-2 line-clamp-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)]">
+          {product.name}
+        </h3>
+        <ProductCardRating product={product} />
 
-      <ProductCardRating product={product} />
-
-      {typeof displayPrice === "number" ? (
-        <div className="mt-1 flex items-baseline justify-center gap-2">
+        <div className="mt-3 flex items-end gap-2">
+          <p className="text-lg font-semibold text-[var(--store-accent)]">
+            {typeof displayPrice === "number" ? formatPrice(displayPrice) : "Bilgi al"}
+          </p>
           {originalPrice ? (
-            <span className="text-xs text-neutral-400 line-through">
+            <span className="pb-0.5 text-sm text-[var(--store-muted)] line-through">
               {formatPrice(originalPrice)}
             </span>
           ) : null}
-          <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
         </div>
-      ) : null}
 
-      <ProductCardSwatches product={product} />
+        <ProductCardSwatches product={product} />
+      </div>
     </Link>
   );
 }

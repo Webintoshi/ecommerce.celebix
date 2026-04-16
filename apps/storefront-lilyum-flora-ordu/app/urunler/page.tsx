@@ -186,13 +186,47 @@ async function getCategoryCounts() {
   }
 }
 
+async function getCategoryOptions() {
+  const supabase = createServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("slug, name, sort_order, parent_id, is_active")
+      .is("parent_id", null)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Failed to fetch category options:", error);
+      return [];
+    }
+
+    return (data || [])
+      .filter((category) => category.slug && category.name)
+      .map((category) => ({
+        slug: category.slug,
+        name: category.name,
+      }));
+  } catch (error) {
+    console.error("Failed to fetch category options:", error);
+    return [];
+  }
+}
+
 export default async function AllProductsPage() {
-  const [products, categoryCounts] = await Promise.all([getProducts(), getCategoryCounts()]);
+  const [products, categoryCounts, categoryOptions] = await Promise.all([
+    getProducts(),
+    getCategoryCounts(),
+    getCategoryOptions(),
+  ]);
 
   return (
     <ProductsPageClient
       initialProducts={products}
       categoryCounts={categoryCounts}
+      categoryOptions={categoryOptions}
     />
   );
 }

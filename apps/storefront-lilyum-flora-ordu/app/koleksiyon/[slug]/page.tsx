@@ -410,7 +410,7 @@ export default async function CollectionPage({
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[var(--store-surface)]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -430,13 +430,13 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
+      <nav className="border-b border-[var(--store-border)] bg-[var(--store-surface)]" aria-label="Breadcrumb">
         <div className="container-premium py-3">
-          <ol className="flex items-center gap-2 text-sm text-neutral-500">
+          <ol className="flex items-center gap-2 text-sm text-[var(--store-muted)]">
             <li>
               <Link
                 href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-neutral-900"
+                className="transition-colors hover:text-[var(--store-accent)]"
               >
                 {copy.breadcrumbHome}
               </Link>
@@ -445,48 +445,54 @@ export default async function CollectionPage({
             <li>
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-neutral-900"
+                className="transition-colors hover:text-[var(--store-accent)]"
               >
                 {copy.breadcrumbProducts}
               </Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li className="font-medium text-neutral-900" aria-current="page">
+            <li className="font-medium text-[var(--store-ink)]" aria-current="page">
               {category.name}
             </li>
           </ol>
         </div>
       </nav>
 
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{category.name}</h1>
-          {category.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
-            </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
+      <section className="section-shell pt-8">
+        <div className="container-premium">
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#f8eee7_0%,#f4e9e0_42%,#eadbd2_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
+            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(123,17,19,0.12),transparent_52%)]" />
+            <div className="relative max-w-3xl">
+              <p className="section-eyebrow">Koleksiyon</p>
+              <h1 className="store-product-title-detail mb-3 text-[var(--store-ink)]">{category.name}</h1>
+              {category.description ? (
+                <p className="max-w-2xl text-base leading-relaxed text-[var(--store-ink-soft)] md:text-lg">
+                  {category.description}
+                </p>
+              ) : null}
+              <p className="mt-4 text-sm font-semibold text-[var(--store-accent)]">{products.length} urun</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <main className="container-premium py-10 md:py-12">
+      <main className="container-premium pb-12 pt-2 md:pb-16">
         <CollectionProductsClient products={products} />
       </main>
 
       {category.faq && category.faq.length > 0 ? (
-        <section className="mt-2 border-t border-neutral-200 bg-white">
+        <section className="mt-2 border-t border-[var(--store-border)] bg-white">
           <div className="container-premium py-12">
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
+            <h2 className="mb-6 text-2xl font-semibold tracking-tight text-[var(--store-ink)]">
               {copy.faqHeading}
             </h2>
             <div className="max-w-3xl space-y-4">
               {category.faq.map((item, index) => (
-                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
-                  <summary className="cursor-pointer list-none font-medium text-neutral-900">
+                <details key={index} className="rounded-[28px] border border-[var(--store-border)] bg-[var(--store-surface)] p-5">
+                  <summary className="cursor-pointer list-none font-medium text-[var(--store-ink)]">
                     {item.question}
                   </summary>
-                  <p className="mt-3 leading-relaxed text-neutral-600">{item.answer}</p>
+                  <p className="mt-3 leading-relaxed text-[var(--store-ink-soft)]">{item.answer}</p>
                 </details>
               ))}
             </div>

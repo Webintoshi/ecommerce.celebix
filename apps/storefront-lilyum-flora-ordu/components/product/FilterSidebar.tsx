@@ -1,40 +1,32 @@
 "use client";
 
 import * as React from "react";
-import { cn, formatPriceValue } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RangeSlider } from "@/components/ui/slider";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { cn, formatPrice } from "@/lib/utils";
+import { BadgePill } from "./BadgePill";
 
 export interface FilterState {
   categories: string[];
   priceRange: [number, number];
-  vegan: boolean;
-  sugarFree: boolean;
-  highProtein: boolean;
-  glutenFree: boolean;
   inStock: boolean;
   onSale: boolean;
   isNew: boolean;
 }
 
+export interface FilterCategoryOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
 interface FilterSidebarProps {
   filters: FilterState;
   onFilterChange: (filters: Partial<FilterState>) => void;
-  categoryCounts?: Record<string, number>;
+  categoryOptions?: FilterCategoryOption[];
+  priceBounds: [number, number];
   className?: string;
+  showCategories?: boolean;
 }
-
-const CATEGORIES = [
-  { value: "kol-saati-kordonu", label: "Kol Saati Kordonu" },
-  { value: "akilli-saat-kordonu", label: "Akıllı Saat Kordonu" },
-  { value: "deri-bileklik", label: "Deri Bileklik" },
-  { value: "anahtarlik", label: "Anahtarlık" },
-  { value: "kartlik", label: "Kartlık" },
-  { value: "cuzdan", label: "Cüzdan" },
-  { value: "kemer", label: "Kemer" },
-  { value: "canta", label: "Çanta" },
-];
 
 interface FilterSectionProps {
   title: string;
@@ -46,200 +38,97 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
-    <div className="border-b border-[#E5E2DE] pb-4">
+    <div className="border-b border-[var(--store-border)] pb-4">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-sm font-medium text-[#0F1626] tracking-wide uppercase hover:text-[#8A6B37] transition-colors"
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--store-ink)]"
       >
         {title}
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
+        {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
-      {isOpen && <div className="pt-3 space-y-3">{children}</div>}
+      {isOpen ? <div className="space-y-3 pt-3">{children}</div> : null}
     </div>
   );
 }
 
-export function FilterSidebar({ filters, onFilterChange, categoryCounts, className }: FilterSidebarProps) {
-  const handleCategoryChange = (category: string, checked: boolean) => {
-    const newCategories = checked
-      ? [...filters.categories, category]
-      : filters.categories.filter((c) => c !== category);
-    onFilterChange({ categories: newCategories });
-  };
-
-  const hasActiveFilters =
-    filters.categories.length > 0 ||
-    filters.priceRange[0] > 0 ||
-    filters.priceRange[1] < 500 ||
-    filters.vegan ||
-    filters.sugarFree ||
-    filters.highProtein ||
-    filters.glutenFree ||
-    filters.inStock ||
-    filters.onSale ||
-    filters.isNew;
-
-  const clearFilters = () => {
-    onFilterChange({
-      categories: [],
-      priceRange: [0, 500],
-      vegan: false,
-      sugarFree: false,
-      highProtein: false,
-      glutenFree: false,
-      inStock: false,
-      onSale: false,
-      isNew: false,
-    });
-  };
-
+function FilterCheckbox({
+  label,
+  checked,
+  onChange,
+  count,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  count?: number;
+}) {
   return (
-    <div className={cn("bg-white p-6 border border-[#E5E2DE]", className)}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-serif text-xl text-[#0F1626]">Filtreler</h2>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
-          >
-            Temizle
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <FilterSection title="Kategoriler">
-          {CATEGORIES.map((category) => (
-            <Checkbox
-              key={category.value}
-              label={category.label}
-              checked={filters.categories.includes(category.value)}
-              onChange={(e) => handleCategoryChange(category.value, e.target.checked)}
-              count={categoryCounts?.[category.value]}
-            />
-          ))}
-        </FilterSection>
-
-        <FilterSection title="Fiyat Aralığı">
-          <RangeSlider
-            min={0}
-            max={5000}
-            step={50}
-            value={filters.priceRange}
-            onChange={(value) => onFilterChange({ priceRange: value })}
-          />
-        </FilterSection>
-
-        <FilterSection title="Özellikler">
-          <Checkbox
-            label="El Yapımı"
-            checked={filters.vegan}
-            onChange={(e) => onFilterChange({ vegan: e.target.checked })}
-          />
-          <Checkbox
-            label="Vegan Deri"
-            checked={filters.sugarFree}
-            onChange={(e) => onFilterChange({ sugarFree: e.target.checked })}
-          />
-          <Checkbox
-            label="Premium Koleksiyon"
-            checked={filters.highProtein}
-            onChange={(e) => onFilterChange({ highProtein: e.target.checked })}
-          />
-          <Checkbox
-            label="Kişiselleştirilebilir"
-            checked={filters.glutenFree}
-            onChange={(e) => onFilterChange({ glutenFree: e.target.checked })}
-          />
-        </FilterSection>
-
-        <FilterSection title="Stok & İndirim" defaultOpen={false}>
-          <Checkbox
-            label="Stokta olanlar"
-            checked={filters.inStock}
-            onChange={(e) => onFilterChange({ inStock: e.target.checked })}
-          />
-          <Checkbox
-            label="İndirimli ürünler"
-            checked={filters.onSale}
-            onChange={(e) => onFilterChange({ onSale: e.target.checked })}
-          />
-          <Checkbox
-            label="Yeni ürünler"
-            checked={filters.isNew}
-            onChange={(e) => onFilterChange({ isNew: e.target.checked })}
-          />
-        </FilterSection>
-      </div>
-    </div>
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-[18px] border border-transparent px-1 py-1 text-sm text-[var(--store-ink-soft)] transition hover:border-[var(--store-border)] hover:bg-white">
+      <span className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="h-4 w-4 rounded border-[var(--store-border-strong)] text-[var(--store-accent)] focus:ring-[var(--store-accent)]"
+        />
+        <span>{label}</span>
+      </span>
+      {typeof count === "number" ? (
+        <span className="text-xs text-[var(--store-muted)]">{count}</span>
+      ) : null}
+    </label>
   );
 }
 
-interface ActiveFiltersProps {
+export function countActiveFilters(filters: FilterState, priceBounds: [number, number]) {
+  return (
+    filters.categories.length +
+    (filters.priceRange[0] > priceBounds[0] || filters.priceRange[1] < priceBounds[1] ? 1 : 0) +
+    (filters.inStock ? 1 : 0) +
+    (filters.onSale ? 1 : 0) +
+    (filters.isNew ? 1 : 0)
+  );
+}
+
+export function createDefaultFilters(priceBounds: [number, number]): FilterState {
+  return {
+    categories: [],
+    priceRange: priceBounds,
+    inStock: false,
+    onSale: false,
+    isNew: false,
+  };
+}
+
+export function ActiveFilters({
+  filters,
+  onFilterChange,
+  categoryOptions = [],
+  priceBounds,
+}: {
   filters: FilterState;
   onFilterChange: (filters: Partial<FilterState>) => void;
-}
+  categoryOptions?: FilterCategoryOption[];
+  priceBounds: [number, number];
+}) {
+  const activeFilters: Array<{ label: string; onRemove: () => void }> = [];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  "kol-saati-kordonu": "Kol Saati Kordonu",
-  "akilli-saat-kordonu": "Akıllı Saat Kordonu",
-  "deri-bileklik": "Deri Bileklik",
-  "anahtarlik": "Anahtarlık",
-  "kartlik": "Kartlık",
-  "cuzdan": "Cüzdan",
-  "kemer": "Kemer",
-  "canta": "Çanta",
-};
-
-export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
-  const activeFilters: { label: string; onRemove: () => void }[] = [];
-
-  filters.categories.forEach((cat) => {
+  filters.categories.forEach((category) => {
+    const label = categoryOptions.find((item) => item.value === category)?.label || category;
     activeFilters.push({
-      label: CATEGORY_LABELS[cat] || cat,
+      label,
       onRemove: () =>
         onFilterChange({
-          categories: filters.categories.filter((c) => c !== cat),
+          categories: filters.categories.filter((item) => item !== category),
         }),
     });
   });
 
-  if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000) {
+  if (filters.priceRange[0] > priceBounds[0] || filters.priceRange[1] < priceBounds[1]) {
     activeFilters.push({
-      label: `${formatPriceValue(filters.priceRange[0])}₺ - ${formatPriceValue(filters.priceRange[1])}₺`,
-      onRemove: () => onFilterChange({ priceRange: [0, 5000] }),
-    });
-  }
-
-  if (filters.vegan) {
-    activeFilters.push({
-      label: "El Yapımı",
-      onRemove: () => onFilterChange({ vegan: false }),
-    });
-  }
-
-  if (filters.sugarFree) {
-    activeFilters.push({
-      label: "Vegan Deri",
-      onRemove: () => onFilterChange({ sugarFree: false }),
-    });
-  }
-
-  if (filters.highProtein) {
-    activeFilters.push({
-      label: "Premium Koleksiyon",
-      onRemove: () => onFilterChange({ highProtein: false }),
-    });
-  }
-
-  if (filters.glutenFree) {
-    activeFilters.push({
-      label: "Kişiselleştirilebilir",
-      onRemove: () => onFilterChange({ glutenFree: false }),
+      label: `${formatPrice(filters.priceRange[0])} - ${formatPrice(filters.priceRange[1])}`,
+      onRemove: () => onFilterChange({ priceRange: priceBounds }),
     });
   }
 
@@ -252,7 +141,7 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
 
   if (filters.onSale) {
     activeFilters.push({
-      label: "İndirimli",
+      label: "Indirimli",
       onRemove: () => onFilterChange({ onSale: false }),
     });
   }
@@ -264,20 +153,163 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
     });
   }
 
-  if (activeFilters.length === 0) return null;
+  if (activeFilters.length === 0) {
+    return null;
+  }
 
   return (
     <div className="flex flex-wrap gap-2">
       {activeFilters.map((filter, index) => (
         <button
-          key={index}
+          key={`${filter.label}-${index}`}
+          type="button"
           onClick={filter.onRemove}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8A6B37]/10 text-[#0F1626] text-sm border border-[#8A6B37]/20 hover:bg-[#8A6B37]/20 transition-colors"
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
         >
           {filter.label}
-          <X className="w-3.5 h-3.5" />
+          <X className="h-3.5 w-3.5" />
         </button>
       ))}
+    </div>
+  );
+}
+
+export function FilterSidebar({
+  filters,
+  onFilterChange,
+  categoryOptions = [],
+  priceBounds,
+  className,
+  showCategories = true,
+}: FilterSidebarProps) {
+  const hasActiveFilters = countActiveFilters(filters, priceBounds) > 0;
+
+  const clearFilters = () => {
+    onFilterChange(createDefaultFilters(priceBounds));
+  };
+
+  return (
+    <div className={cn("soft-panel p-5", className)}>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div>
+          <p className="section-eyebrow">Filtreler</p>
+          <h2 className="mt-2 text-xl font-semibold text-[var(--store-ink)]">Kesfi Daralt</h2>
+        </div>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-sm font-semibold text-[var(--store-accent)] transition hover:text-[var(--store-accent-strong)]"
+          >
+            Temizle
+          </button>
+        ) : null}
+      </div>
+
+      <div className="space-y-4">
+        {showCategories && categoryOptions.length > 0 ? (
+          <FilterSection title="Kategoriler">
+            {categoryOptions.map((category) => (
+              <FilterCheckbox
+                key={category.value}
+                label={category.label}
+                count={category.count}
+                checked={filters.categories.includes(category.value)}
+                onChange={(checked) => {
+                  const nextCategories = checked
+                    ? [...filters.categories, category.value]
+                    : filters.categories.filter((item) => item !== category.value);
+                  onFilterChange({ categories: nextCategories });
+                }}
+              />
+            ))}
+          </FilterSection>
+        ) : null}
+
+        <FilterSection title="Fiyat Araligi">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+                Min
+              </span>
+              <input
+                type="number"
+                min={priceBounds[0]}
+                max={filters.priceRange[1]}
+                value={filters.priceRange[0]}
+                onChange={(event) => {
+                  const nextMin = Number(event.target.value || priceBounds[0]);
+                  onFilterChange({
+                    priceRange: [Math.max(priceBounds[0], nextMin), filters.priceRange[1]],
+                  });
+                }}
+                className="h-11 w-full rounded-[18px] border border-[var(--store-border)] bg-white px-4 text-sm text-[var(--store-ink)] outline-none focus:border-[var(--store-accent)]"
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+                Max
+              </span>
+              <input
+                type="number"
+                min={filters.priceRange[0]}
+                max={priceBounds[1]}
+                value={filters.priceRange[1]}
+                onChange={(event) => {
+                  const nextMax = Number(event.target.value || priceBounds[1]);
+                  onFilterChange({
+                    priceRange: [filters.priceRange[0], Math.min(priceBounds[1], nextMax)],
+                  });
+                }}
+                className="h-11 w-full rounded-[18px] border border-[var(--store-border)] bg-white px-4 text-sm text-[var(--store-ink)] outline-none focus:border-[var(--store-accent)]"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              { label: "Tum Fiyatlar", range: priceBounds },
+              { label: "0 - 1000", range: [priceBounds[0], Math.min(priceBounds[1], 1000)] as [number, number] },
+              { label: "1000 - 2500", range: [Math.min(priceBounds[1], 1000), Math.min(priceBounds[1], 2500)] as [number, number] },
+              { label: "2500+", range: [Math.min(priceBounds[1], 2500), priceBounds[1]] as [number, number] },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => onFilterChange({ priceRange: option.range })}
+              >
+                <BadgePill
+                  tone={
+                    filters.priceRange[0] === option.range[0] && filters.priceRange[1] === option.range[1]
+                      ? "solid"
+                      : "outline"
+                  }
+                >
+                  {option.label}
+                </BadgePill>
+              </button>
+            ))}
+          </div>
+        </FilterSection>
+
+        <FilterSection title="Durum">
+          <FilterCheckbox
+            label="Stokta olanlar"
+            checked={filters.inStock}
+            onChange={(checked) => onFilterChange({ inStock: checked })}
+          />
+          <FilterCheckbox
+            label="Indirimli urunler"
+            checked={filters.onSale}
+            onChange={(checked) => onFilterChange({ onSale: checked })}
+          />
+          <FilterCheckbox
+            label="Yeni eklenenler"
+            checked={filters.isNew}
+            onChange={(checked) => onFilterChange({ isNew: checked })}
+          />
+        </FilterSection>
+      </div>
     </div>
   );
 }

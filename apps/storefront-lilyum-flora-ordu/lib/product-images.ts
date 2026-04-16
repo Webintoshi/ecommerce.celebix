@@ -46,13 +46,17 @@ export function getResolvedProductImages(
   variant?: ProductVariant | null
 ) {
   const variantWithAttributeImages = variant as VariantWithAttributeImages | undefined;
-  const variantImages = Array.isArray(variant?.images) ? variant.images : [];
-  const attributeImages = Array.isArray(variantWithAttributeImages?.attributes)
-    ? variantWithAttributeImages.attributes.map((attribute) => attribute.image_url ?? "")
+  const variantImages: string[] = Array.isArray(variant?.images)
+    ? variant.images.filter((image): image is string => typeof image === "string")
     : [];
-  const productImages =
+  const attributeImages: string[] = Array.isArray(variantWithAttributeImages?.attributes)
+    ? (variantWithAttributeImages.attributes as Array<{ image_url?: string | null }>).map(
+        (attribute) => attribute.image_url ?? "",
+      )
+    : [];
+  const productImages: string[] =
     Array.isArray(product.images) && product.images.length > 0
-      ? product.images
+      ? product.images.filter((image): image is string => typeof image === "string")
       : getLegacyProductImages(product);
 
   return collectImageUrls([...variantImages, ...attributeImages, ...productImages]);
