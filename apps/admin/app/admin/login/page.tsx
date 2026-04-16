@@ -77,13 +77,11 @@ export default function AdminLoginPage() {
       });
 
       if (sessionError) {
-        toast.error(sessionError.message);
-        return;
+        console.warn("Admin browser session sync warning:", sessionError);
       }
 
       toast.success("Giriş yapıldı.");
-      router.replace(nextPath);
-      router.refresh();
+      window.location.assign(nextPath);
     } catch (error) {
       console.error("Admin login error:", error);
       toast.error("Beklenmeyen bir hata oluştu.");

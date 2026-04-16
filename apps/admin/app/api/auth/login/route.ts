@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
@@ -26,6 +28,40 @@ function createAdminLoginClient() {
       persistSession: false,
     },
   });
+}
+
+async function applyAdminSessionCookies(
+  response: NextResponse,
+  session: { access_token: string; refresh_token: string },
+) {
+  const cookieStore = await cookies();
+  const authClient = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          try {
+            cookieStore.set(cookie.name, cookie.value, cookie.options);
+          } catch {
+            // Route handlers can fail to mutate the request cookie store in some runtimes.
+          }
+
+          response.cookies.set(cookie.name, cookie.value, cookie.options);
+        }
+      },
+    },
+  });
+
+  const { error } = await authClient.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -121,7 +157,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         session: data.session,
         user: data.user,
@@ -129,6 +165,13 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
+
+    await applyAdminSessionCookies(response, {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Giris yapilamadi.";
     return NextResponse.json({ error: message }, { status: 500 });
