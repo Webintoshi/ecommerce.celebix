@@ -30,7 +30,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `hero-${index}-${imageIndex}`,
           src: resolveStorefrontAssetUrl(image) || image,
-          alt: banner.alt || `${storeName} vitrin gorunumu`,
+          alt: banner.alt || `${storeName} vitrin görünümü`,
         })),
     ),
     ...(promoBanners || []).flatMap((banner, index) =>
@@ -39,7 +39,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `promo-${index}-${imageIndex}`,
           src: resolveStorefrontAssetUrl(image) || image,
-          alt: banner.title || `${storeName} kampanya gorseli`,
+          alt: banner.title || `${storeName} kampanya görseli`,
         })),
     ),
   ].slice(0, 3);
@@ -48,17 +48,17 @@ function buildGalleryImages({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Magaza Guveni",
-  heading = "Teslimat ve iletisim sinyallerini netlestirin",
-  description = "Adres, telefon ve iletisim verileri ayni alanda sakin bir guven katmani olarak sunulur.",
-  linkLabel = "Iletisime Git",
+  eyebrow = "Mağaza",
+  heading = "Teslimat ve iletişim",
+  description,
+  linkLabel = "İletişime Git",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi girildiginde bu alan otomatik guncellenir.";
+  const address = storeInfo?.address || "Adres bilgisi eklendiğinde burada görünür.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
@@ -100,14 +100,11 @@ export function StoreLocationsSection({
                   </div>
                 ))
               ) : (
-                <div className="rounded-[28px] bg-[linear-gradient(135deg,#f4e7de_0%,#ead9cf_100%)] p-8 sm:col-span-3">
-                  <p className="section-eyebrow">Hazir Alan</p>
+                <div className="rounded-[28px] bg-[linear-gradient(135deg,#f7ebe8_0%,#f1dfdb_100%)] p-8 sm:col-span-3">
+                  <p className="section-eyebrow">Hazır Alan</p>
                   <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
-                    Magaza gorselleri geldikce burasi otomatik dolar
+                    Mağaza görselleri geldikçe burası dolar
                   </h3>
-                  <p className="section-copy mt-3">
-                    Banner ve kampanya gorselleri varsa bu blokta kullanilir; veri yoksa yalnizca guven kartlari gorunur.
-                  </p>
                 </div>
               )}
             </div>
@@ -117,7 +114,7 @@ export function StoreLocationsSection({
             <article className="soft-panel p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="section-eyebrow">Iletisim</p>
+                  <p className="section-eyebrow">İletişim</p>
                   <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
                     {storeName}
                   </h3>
@@ -157,20 +154,20 @@ export function StoreLocationsSection({
               <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
                 <Clock3 className="h-5 w-5 text-[var(--store-accent)]" />
                 <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
-                  Hizli Geri Donus
+                  Hızlı Geri Dönüş
                 </h4>
                 <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
-                  Siparis, teslimat ve urun secimi sorulari icin iletisim alani net ve erisilebilir tutulur.
+                  Sipariş ve teslimat soruları için ulaşım bilgileri net tutulur.
                 </p>
               </article>
 
               <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
                 <ShieldCheck className="h-5 w-5 text-[var(--store-accent)]" />
                 <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
-                  Guven Veren Sunum
+                  Güven Veren Sunum
                 </h4>
                 <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
-                  Adres, telefon ve destek bilgileri urun vitrininden ayrismadan tek ritimde sunulur.
+                  Adres, telefon ve destek bilgileri tek ritimde sunulur.
                 </p>
               </article>
             </div>

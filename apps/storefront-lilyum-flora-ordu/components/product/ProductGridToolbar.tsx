@@ -36,10 +36,10 @@ export function ProductGridToolbar({
     <div className="soft-panel flex flex-col gap-4 rounded-[28px] px-5 py-5 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="section-eyebrow">Kesif</p>
+          <p className="section-eyebrow">Keşif</p>
           <h2 className="mt-2 text-2xl font-semibold text-[var(--store-ink)]">{title}</h2>
           <p className="mt-2 text-sm text-[var(--store-muted)]">
-            {description || `${visibleCount} / ${totalCount} urun gosteriliyor.`}
+            {description || `${visibleCount} / ${totalCount} ürün gösteriliyor.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -54,7 +54,7 @@ export function ProductGridToolbar({
           ) : null}
           <label className="flex min-w-[190px] items-center gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-muted)]">
             <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-ink)]">
-              Sirala
+              Sırala
             </span>
             <select
               value={sortValue}

@@ -32,8 +32,8 @@ function normalizeTestimonials(items?: HomepageTestimonial[]) {
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "Gercek yorumlar geldikce bu alan otomatik yenilenir",
+  heading = "Müşteri Yorumları",
+  countLabel,
   items,
 }: {
   heading?: string;
@@ -50,7 +50,7 @@ export function TestimonialsSection({
     <section className="section-shell">
       <div className="container-premium">
         <SectionHeader
-          eyebrow="Guven Veren Yorumlar"
+          eyebrow="Güven Veren Yorumlar"
           title={heading}
           description={countLabel}
         />
@@ -82,7 +82,7 @@ export function TestimonialsSection({
                   <p className="text-base font-semibold text-[var(--store-ink)]">{review.name}</p>
                   <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--store-muted)]">
                     <Check className="h-3 w-3" />
-                    Dogrulanmis yorum
+                    Doğrulanmış yorum
                   </span>
                 </div>
               </div>

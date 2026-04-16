@@ -234,7 +234,7 @@ export function ProductDetailClient({
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--store-surface)]">
         <div className="text-center">
-          <p className="text-neutral-500">Urun bilgisi yuklenemedi.</p>
+          <p className="text-[var(--store-muted)]">Ürün bilgisi yüklenemedi.</p>
         </div>
       </div>
     );
@@ -289,11 +289,11 @@ export function ProductDetailClient({
   };
 
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tukendi", color: "text-neutral-400" };
+    if (isOutOfStock) return { text: "Tükendi", color: "text-[var(--store-muted)]" };
     if (variant.stock <= 5) {
       return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
     }
-    return { text: "Stokta var", color: "text-neutral-500" };
+    return { text: "Stokta var", color: "text-emerald-700" };
   };
 
   const stockStatus = getStockStatus();
@@ -316,7 +316,7 @@ export function ProductDetailClient({
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-[var(--store-accent)]"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tum Urunlere Don</span>
+              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
@@ -330,7 +330,7 @@ export function ProductDetailClient({
                 href={buildLocalizedPath("/urunler", locale)}
                 className="transition-colors hover:text-[var(--store-accent)]"
               >
-                Urunler
+                Ürünler
               </Link>
               <ChevronRight className="w-4 h-4" />
               <span className="max-w-[150px] truncate font-medium text-neutral-900">
@@ -360,7 +360,7 @@ export function ProductDetailClient({
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Secili
+                    Seçili
                   </span>
                 )}
               </div>
@@ -376,14 +376,14 @@ export function ProductDetailClient({
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
+                          ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} degerlendirme)
+                  ({product.reviewCount || 0} değerlendirme)
                 </span>
               </div>
 
@@ -401,7 +401,7 @@ export function ProductDetailClient({
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} Indirim
+                    %{discountPercent} İndirim
                   </span>
                 )}
                 {product.new && (
@@ -409,18 +409,13 @@ export function ProductDetailClient({
                     Yeni
                   </span>
                 )}
-                {product.vegan && (
-                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
-                    Vegan
-                  </span>
-                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  "Canli vitrin sunumu",
-                  "Guvenli siparis akisi",
-                  "Teslimat bilgisi net gorunum",
+                  "Canlı vitrin sunumu",
+                  "Güvenli sipariş akışı",
+                  "Teslimat bilgisi net görünümü",
                 ].map((item) => (
                   <div
                     key={item}
@@ -439,7 +434,7 @@ export function ProductDetailClient({
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
-                  Ekstra secenekler yukleniyor...
+                  Ekstra seçenekler yükleniyor...
                 </div>
               ) : activeSchema ? (
                 <div
@@ -448,7 +443,7 @@ export function ProductDetailClient({
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Kisisellestirme
+                      Kişiselleştirme
                     </span>
                     <span className="h-px w-8 bg-neutral-300" />
                   </div>
@@ -482,7 +477,7 @@ export function ProductDetailClient({
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
                     <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kisisellestirme
+                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
                     </p>
                   )}
                 </div>
@@ -521,7 +516,7 @@ export function ProductDetailClient({
                       ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                          : "bg-[var(--store-accent)] text-white hover:bg-[var(--store-accent-strong)]"
                       }
                     `}
                   >
@@ -538,8 +533,8 @@ export function ProductDetailClient({
                       flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
                       ${
                         isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
+                          ? "text-[var(--store-accent)]"
+                          : "hover:text-[var(--store-accent)]"
                       }
                     `}
                   >
@@ -551,7 +546,7 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
+                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[var(--store-accent)]"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
@@ -568,7 +563,7 @@ export function ProductDetailClient({
                 {[
                   {
                     id: "features",
-                    label: "Urun Detaylari",
+                    label: "Ürün Detayları",
                     content: <ProductFeatures product={product} />,
                   },
                   {
@@ -583,7 +578,7 @@ export function ProductDetailClient({
                               Sunum
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Urun gorselleri ve aciklamalarla netlestirilir
+                              Ürün görselleriyle net bir sunum verilir
                             </p>
                           </div>
                         </div>
@@ -594,7 +589,7 @@ export function ProductDetailClient({
                               Stil
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Premium floral vitrinde sakin urun hiyerarsisi
+                              Premium floral vitrinde sakin ürün hiyerarşisi
                             </p>
                           </div>
                         </div>
@@ -602,10 +597,10 @@ export function ProductDetailClient({
                           <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Hazirlama
+                              Hazırlama
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Teslimat bilgisi aktif stok ve secimlere gore guncellenir
+                              Teslimat bilgisi aktif stok ve seçimlere göre güncellenir
                             </p>
                           </div>
                         </div>
@@ -613,10 +608,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Guven
+                              Güven
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Siparis akisi ve urun secimi mevcut commerce kurallariyla korunur
+                              Sipariş akışı ve ürün seçimi mevcut commerce kurallarıyla korunur
                             </p>
                           </div>
                         </div>
@@ -625,7 +620,7 @@ export function ProductDetailClient({
                   },
                   {
                     id: "shipping",
-                    label: "Siparis Bilgilendirme",
+                    label: "Sipariş Bilgilendirme",
                     content: (
                       <div className="space-y-4 text-sm text-neutral-600">
                         <div>
@@ -633,23 +628,23 @@ export function ProductDetailClient({
                             Teslimat
                           </h4>
                           <p>
-                            Teslimat ve hazirlama akisi mevcut stok, varyant ve magaza ayarlarina gore calisir. Bu sayfa yalnizca bilgiyi daha net sunar.
+                            Teslimat ve hazırlama akışı mevcut stok, varyant ve mağaza ayarlarına göre çalışır.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Iade ve Destek
+                            İade ve Destek
                           </h4>
                           <p>
-                            Siparis sonrasi destek, iletisim kanallari ve politika sayfalari footer ile checkout akisi uzerinden ayni contract ile korunur.
+                            Sipariş sonrası destek ve politika sayfaları mevcut akışta korunur.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Ozel Secimler
+                            Özel Seçimler
                           </h4>
                           <p>
-                            Kisisellestirme veya ek secenekler varsa fiyat ve gecerlilik durumu mevcut storefront mantigi korunarak bu blokta yansitilir.
+                            Kişiselleştirme veya ek seçenekler varsa fiyat durumu bu blokta yansıtılır.
                           </p>
                         </div>
                       </div>
@@ -713,17 +708,17 @@ export function ProductDetailClient({
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Kesfet
+                Keşfet
               </span>
               <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Urunler
+                Benzer Ürünler
               </h2>
             </div>
             <Link
               href={buildLocalizedPath("/urunler", locale)}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
-              Tumunu Gor
+              Tümünü Gör
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>

@@ -141,7 +141,7 @@ export function ActiveFilters({
 
   if (filters.onSale) {
     activeFilters.push({
-      label: "Indirimli",
+      label: "İndirimli",
       onRemove: () => onFilterChange({ onSale: false }),
     });
   }
@@ -193,7 +193,7 @@ export function FilterSidebar({
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <p className="section-eyebrow">Filtreler</p>
-          <h2 className="mt-2 text-xl font-semibold text-[var(--store-ink)]">Kesfi Daralt</h2>
+          <h2 className="mt-2 text-xl font-semibold text-[var(--store-ink)]">Keşfi Daralt</h2>
         </div>
         {hasActiveFilters ? (
           <button
@@ -226,7 +226,7 @@ export function FilterSidebar({
           </FilterSection>
         ) : null}
 
-        <FilterSection title="Fiyat Araligi">
+        <FilterSection title="Fiyat Aralığı">
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
@@ -268,7 +268,7 @@ export function FilterSidebar({
 
           <div className="flex flex-wrap gap-2 pt-1">
             {[
-              { label: "Tum Fiyatlar", range: priceBounds },
+              { label: "Tüm Fiyatlar", range: priceBounds },
               { label: "0 - 1000", range: [priceBounds[0], Math.min(priceBounds[1], 1000)] as [number, number] },
               { label: "1000 - 2500", range: [Math.min(priceBounds[1], 1000), Math.min(priceBounds[1], 2500)] as [number, number] },
               { label: "2500+", range: [Math.min(priceBounds[1], 2500), priceBounds[1]] as [number, number] },
@@ -299,7 +299,7 @@ export function FilterSidebar({
             onChange={(checked) => onFilterChange({ inStock: checked })}
           />
           <FilterCheckbox
-            label="Indirimli urunler"
+            label="İndirimli ürünler"
             checked={filters.onSale}
             onChange={(checked) => onFilterChange({ onSale: checked })}
           />

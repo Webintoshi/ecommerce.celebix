@@ -23,11 +23,11 @@ interface CollectionProductsClientProps {
 const ITEMS_PER_PAGE = 12;
 
 const SORT_OPTIONS: SortOption[] = [
-  { value: "featured", label: "One Cikanlar" },
+  { value: "featured", label: "\u00d6ne \u00c7\u0131kanlar" },
   { value: "newest", label: "Yeni Gelenler" },
   { value: "price-asc", label: "Fiyat Artan" },
   { value: "price-desc", label: "Fiyat Azalan" },
-  { value: "popular", label: "Populer" },
+  { value: "popular", label: "Pop\u00fcler" },
 ];
 
 function getProductPrice(product: Product) {
@@ -128,9 +128,9 @@ export default function CollectionProductsClient({
   if (products.length === 0) {
     return (
       <EmptyResultsState
-        title="Bu koleksiyonda henuz urun yok"
-        body={copy.missingCategoryDescription || "Bu koleksiyon icin urun geldikce vitrin otomatik dolacak."}
-        actionLabel={copy.productsTitle || "Tum Urunler"}
+        title={"Bu koleksiyonda hen\u00fcz \u00fcr\u00fcn yok"}
+        body={copy.missingCategoryDescription || "Bu koleksiyon i\u00e7in \u00fcr\u00fcn geldik\u00e7e vitrin otomatik dolar."}
+        actionLabel={copy.productsTitle || "T\u00fcm \u00dcr\u00fcnler"}
         actionHref={buildLocalizedPath("/urunler", locale)}
       />
     );
@@ -156,7 +156,7 @@ export default function CollectionProductsClient({
 
       <div>
         <ProductGridToolbar
-          title="Koleksiyon Sonuclari"
+          title={"Koleksiyon Sonu\u00e7lar\u0131"}
           totalCount={sortedProducts.length}
           visibleCount={visibleProducts.length}
           sortValue={sortBy}
@@ -184,8 +184,8 @@ export default function CollectionProductsClient({
         {visibleProducts.length === 0 ? (
           <div className="mt-6">
             <EmptyResultsState
-              title="Bu filtrelere uygun urun bulunamadi"
-              body="Filtreleri temizleyerek koleksiyonun tum urunlerini yeniden gorebilirsin."
+              title={"Bu filtrelere uygun \u00fcr\u00fcn bulunamad\u0131"}
+              body={"Filtreleri temizleyerek koleksiyona geri d\u00f6nebilirsiniz."}
               actionLabel="Filtreleri Temizle"
               actionHref={buildLocalizedPath("/urunler", locale)}
               onReset={() => setFilters(createDefaultFilters(priceBounds))}
@@ -206,7 +206,7 @@ export default function CollectionProductsClient({
                   onClick={() => setVisibleCount((current) => current + ITEMS_PER_PAGE)}
                   className="cta-secondary"
                 >
-                  Daha Fazla Goster
+                  {"Daha Fazla G\u00f6ster"}
                 </button>
               </div>
             ) : null}

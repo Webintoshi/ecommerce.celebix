@@ -36,12 +36,12 @@ export function MobileStickyBar({
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="safe-area-pb fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--store-border)] bg-[rgba(249,245,239,0.96)] p-4 shadow-[0_-8px_30px_rgba(37,25,20,0.12)] backdrop-blur-xl lg:hidden"
+          className="safe-area-pb fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--store-border)] bg-[rgba(255,248,245,0.96)] p-4 shadow-[0_-8px_30px_rgba(83,51,59,0.12)] backdrop-blur-xl lg:hidden"
         >
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                Sepet Hazir
+                Sepet Hazır
               </p>
               <div className="mt-1 flex items-end gap-2">
                 <span className="text-2xl font-semibold text-[var(--store-accent)]">{formatPrice(price)}</span>
@@ -64,7 +64,7 @@ export function MobileStickyBar({
               }`}
             >
               <ShoppingCart className="h-4 w-4" />
-              {isOutOfStock ? "Tukendi" : "Sepete Ekle"}
+              {isOutOfStock ? "Tükendi" : "Sepete Ekle"}
             </button>
           </div>
         </motion.div>

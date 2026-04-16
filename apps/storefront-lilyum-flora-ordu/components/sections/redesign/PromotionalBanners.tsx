@@ -62,7 +62,7 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         mobileImage: banner.mobileImage || banner.mobile || image,
         title: banner.title || `Kampanya ${index + 1}`,
         subtitle: banner.subtitle || "",
-        buttonText: banner.buttonText || "Incele",
+        buttonText: banner.buttonText || "İncele",
         buttonLink: banner.buttonLink || "/urunler",
         order: typeof banner.order === "number" ? banner.order : index + 1,
         badge: banner.badge,
@@ -118,7 +118,7 @@ export default function PromotionalBanners({
                         className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white"
                         style={{ backgroundColor: accent }}
                       >
-                        {banner.badge || "Secili Kampanya"}
+                        {banner.badge || "Seçili Kampanya"}
                       </span>
                       {banner.discount ? (
                         <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
@@ -135,7 +135,7 @@ export default function PromotionalBanners({
                       </p>
                     ) : null}
                     <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--store-accent)]">
-                      {banner.buttonText || "Incele"}
+                      {banner.buttonText || "İncele"}
                       <ArrowRight className="h-4 w-4" />
                     </span>
                   </div>

@@ -45,7 +45,7 @@ export function FilterDrawer({
             </div>
             <div>
               <p className="section-eyebrow">Mobil Filtre</p>
-              <h2 className="mt-1 text-lg font-semibold text-[var(--store-ink)]">Sonuclari Daralt</h2>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--store-ink)]">Sonuçları Daralt</h2>
             </div>
           </div>
 
@@ -77,9 +77,9 @@ export function FilterDrawer({
           />
         </div>
 
-        <div className="safe-area-pb fixed inset-x-0 bottom-0 border-t border-[var(--store-border)] bg-[rgba(249,245,239,0.96)] p-4 backdrop-blur-xl lg:hidden">
+        <div className="safe-area-pb fixed inset-x-0 bottom-0 border-t border-[var(--store-border)] bg-[rgba(255,248,245,0.96)] p-4 backdrop-blur-xl lg:hidden">
           <button type="button" onClick={onClose} className="cta-primary w-full justify-center">
-            Sonuclari Goster
+            Sonuçları Göster
           </button>
         </div>
       </div>

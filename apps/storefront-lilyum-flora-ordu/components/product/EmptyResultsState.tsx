@@ -19,7 +19,7 @@ export function EmptyResultsState({
 }: EmptyResultsStateProps) {
   return (
     <div className="soft-panel rounded-[32px] px-6 py-14 text-center sm:px-10">
-      <p className="section-eyebrow">Kesif beklemede</p>
+      <p className="section-eyebrow">Keşif beklemede</p>
       <h3 className="mt-3 text-2xl font-semibold text-[var(--store-ink)]">{title}</h3>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--store-muted)]">
         {body}

@@ -20,9 +20,9 @@ interface HeroSlide {
 }
 
 const FALLBACK_TRUST_ITEMS = [
-  { icon: Clock3, label: "Ayni gun secimler" },
-  { icon: Flower2, label: "Taze ve guncel vitrin" },
-  { icon: ShieldCheck, label: "Guvenli siparis akisi" },
+  { icon: Clock3, label: "Aynı gün seçkileri" },
+  { icon: Flower2, label: "Taze ve güncel vitrin" },
+  { icon: ShieldCheck, label: "Güvenli sipariş akışı" },
 ];
 
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
@@ -45,22 +45,19 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="section-shell pt-6 sm:pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#f7efe6_0%,#f3e6df_48%,#ead9d0_100%)] px-6 py-12 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-12 lg:py-16">
-            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(123,17,19,0.12),transparent_58%)]" />
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#fbf2ef_0%,#f7eae6_48%,#efe3df_100%)] px-6 py-12 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-12 lg:py-16">
+            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(181,95,119,0.14),transparent_58%)]" />
             <div className="relative max-w-2xl">
               <p className="section-eyebrow">Lilyum Flora Ordu</p>
               <h1 className="section-title mt-4 text-[var(--store-ink)] sm:text-5xl">
-                Sakin, premium ve urun odakli bir cicek vitrini
+                Sakin, premium ve ürün odaklı bir çiçek vitrini
               </h1>
-              <p className="section-copy mt-4 max-w-xl">
-                Hero bannerlar admin panelde tanimlandiginda bu alan otomatik olarak canli kampanya ve kategori vitrininize donusur.
-              </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link href={ROUTES.products} className="cta-primary">
-                  Vitrini Incele
+                  Vitrini İncele
                 </Link>
                 <Link href={ROUTES.contact} className="cta-secondary">
-                  Iletisim Bilgileri
+                  İletişim Bilgileri
                 </Link>
               </div>
             </div>
@@ -74,7 +71,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const heroTitle = slide.title || slide.alt || SITE_NAME;
   const heroSubtitle =
     slide.subtitle ||
-    "Guncel koleksiyonlar, gonderime hazir secimler ve premium floral sunum tek bakista.";
+    "Güncel koleksiyonlar ve gönderime hazır seçimler tek bakışta.";
 
   return (
     <section className="section-shell pt-6 sm:pt-8">
@@ -106,7 +103,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
             <div className="relative z-10 flex min-h-[560px] flex-col justify-between p-6 sm:p-8 lg:min-h-[620px] lg:p-12">
               <div className="max-w-2xl pt-6 sm:pt-10">
                 <p className="inline-flex rounded-full border border-white/18 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/88 backdrop-blur">
-                  {slide.title || "Premium Floral Secim"}
+                  {slide.title || "Premium Floral Seçim"}
                 </p>
                 <h1 className="mt-5 font-[var(--font-display)] text-4xl font-semibold leading-[0.92] tracking-[-0.05em] text-white sm:text-5xl lg:text-7xl">
                   {heroTitle}
@@ -120,14 +117,14 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                     href={slide.buttonLink || slide.link || ROUTES.products}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-[var(--store-accent)] transition hover:bg-[var(--store-surface-alt)]"
                   >
-                    {slide.buttonText || "Koleksiyonu Incele"}
+                    {slide.buttonText || "Koleksiyonu İncele"}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link
                     href={ROUTES.contact}
                     className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/14"
                   >
-                    Teslimat ve Iletisim
+                    Teslimat ve İletişim
                   </Link>
                 </div>
               </div>
@@ -166,7 +163,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                         type="button"
                         onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
                         className="flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/10 transition hover:bg-white/16"
-                        aria-label="Onceki slide"
+                          aria-label="Önceki slide"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>

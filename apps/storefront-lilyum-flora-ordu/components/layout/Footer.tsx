@@ -114,12 +114,12 @@ export function Footer() {
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
     { name: copy.footerContact, href: "/iletisim" },
-    { name: "Tum Urunler", href: "/urunler" },
+    { name: "Tüm Ürünler", href: "/urunler" },
     { name: "SSS", href: "/sss" },
   ];
 
   return (
-    <footer className="border-t border-[var(--store-border)] bg-[#261917] text-white">
+    <footer className="border-t border-[var(--store-border)] bg-[#2F232A] text-white">
       <div className="container-premium py-14 sm:py-16">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-8">
           <div className="space-y-6">
@@ -142,9 +142,6 @@ export function Footer() {
                   </p>
                 )}
               </Link>
-              <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
-                Sakin ama guclu bir floral vitrin. Admin tarafindan yonetilen banner, urun ve kategori akisi burada temiz bir alisveris deneyimine donusur.
-              </p>
             </div>
 
             <div className="grid gap-3 text-sm text-white/78">
@@ -239,7 +236,7 @@ export function Footer() {
 
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
-                Language
+                Dil
               </p>
               <div ref={localeMenuRef} className="relative mt-4 w-fit">
                 <button

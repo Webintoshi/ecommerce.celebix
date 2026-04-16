@@ -64,10 +64,9 @@ export function CategoriesSection({
         <SectionHeader
           eyebrow={eyebrow}
           title={heading}
-          description="Ana kategorileri hizli ve temiz sekilde kesfet. Vitrin yapisi admin sirasi ile otomatik kurulur."
           action={
             <Link href={buildLocalizedPath(ROUTES.products, locale)} className="cta-secondary">
-              Tumunu Gor
+              Tümünü Gör
             </Link>
           }
         />
@@ -94,12 +93,12 @@ export function CategoriesSection({
                   }
                 />
               ) : (
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,#ead9d0_0%,#f5ece4_100%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,#f7e7e4_0%,#fdf7f4_100%)]" />
               )}
 
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(36,20,16,0.08)_0%,rgba(36,20,16,0.52)_100%)]" />
               <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                <p className="section-eyebrow text-white/78">Editor Secimi</p>
+                <p className="section-eyebrow text-white/78">Editör Seçimi</p>
                 <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
                   {featuredCategory.name}
                 </h3>
@@ -135,13 +134,13 @@ export function CategoriesSection({
                       }
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#f6eee7_0%,#efe2d9_100%)]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#fbf1ed_0%,#f2e0dc_100%)]" />
                   )}
 
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(28,18,14,0.42)_100%)]" />
                   <div className="absolute inset-x-0 bottom-0 p-5">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/72">
-                      {category.productCount > 0 ? `${category.productCount} urun` : "Secili vitrin"}
+                      {category.productCount > 0 ? `${category.productCount} ürün` : "Seçili vitrin"}
                     </p>
                     <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-white">
                       {category.name}

@@ -61,7 +61,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased bg-[#F8F8F8F8]" suppressHydrationWarning>
+      <body className="bg-[var(--background)] font-sans antialiased" suppressHydrationWarning>
         {gtmId ? (
           <noscript>
             <iframe

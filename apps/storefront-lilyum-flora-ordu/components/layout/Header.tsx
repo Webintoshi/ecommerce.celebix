@@ -55,12 +55,12 @@ export function Header() {
 
   const quickLinks = useMemo(
     () => [
-      { label: "Tum Cicekler", href: ROUTES.products },
+      { label: "Tüm Çiçekler", href: ROUTES.products },
       ...headerCategories.slice(0, 4).map((category) => ({
         label: getLocalizedCategoryLabel(category.slug, category.name, locale),
         href: ROUTES.category(category.slug),
       })),
-      { label: "Iletisim", href: ROUTES.contact },
+      { label: "İletişim", href: ROUTES.contact },
     ],
     [headerCategories, locale],
   );
@@ -139,8 +139,8 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-[var(--store-border)] bg-[rgba(249,245,239,0.92)] shadow-[0_18px_45px_rgba(61,37,29,0.08)] backdrop-blur-xl"
-          : "border-b border-transparent bg-[rgba(249,245,239,0.82)] backdrop-blur-md"
+          ? "border-b border-[var(--store-border)] bg-[rgba(255,248,245,0.94)] shadow-[0_18px_45px_rgba(83,51,59,0.08)] backdrop-blur-xl"
+          : "border-b border-transparent bg-[rgba(255,248,245,0.84)] backdrop-blur-md"
       }`}
     >
       <div className="container-premium">

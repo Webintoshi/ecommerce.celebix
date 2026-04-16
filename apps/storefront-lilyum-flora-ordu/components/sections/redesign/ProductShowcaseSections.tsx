@@ -65,13 +65,10 @@ function EmptyShowcaseState() {
       <div className="container-premium">
         <div className="soft-panel px-6 py-10 text-center sm:px-8 sm:py-12">
           <div className="mx-auto max-w-2xl">
-            <p className="section-eyebrow justify-center">Vitrin Hazir</p>
+            <p className="section-eyebrow justify-center">Vitrin Hazır</p>
             <h2 className="section-title mt-4 text-[var(--store-ink)]">
-              Urunler geldikce koleksiyon alanlari otomatik dolacak
+              Ürünler geldikçe koleksiyon alanları otomatik dolacak
             </h2>
-            <p className="section-copy mt-4">
-              Admin panelindeki yayinli urunler ve aktif kategoriler, bu bolumde ek frontend mantigi gerektirmeden premium merchandising bloklarina donusur.
-            </p>
           </div>
         </div>
       </div>
@@ -83,7 +80,7 @@ export function ProductShowcaseSections({
   categories = [],
   allProducts,
   groupCopy,
-  viewAllLabel = "Tumunu Gor",
+  viewAllLabel = "Tümünü Gör",
 }: ProductShowcaseSectionsProps) {
   const { locale } = useStorefrontRoute();
 
@@ -98,7 +95,7 @@ export function ProductShowcaseSections({
       : [
           {
             id: "latest",
-            title: "Guncel Secimler",
+            title: "Güncel Seçimler",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
@@ -113,7 +110,7 @@ export function ProductShowcaseSections({
   const effectiveGroups = fallbackGroups.map((group, index) => ({
     ...group,
     title: groupCopy?.[index]?.title || group.title,
-    subtitle: groupCopy?.[index]?.subtitle || "Secili Grup",
+    subtitle: groupCopy?.[index]?.subtitle || "Seçili Grup",
   }));
 
   return (
@@ -124,7 +121,6 @@ export function ProductShowcaseSections({
             <SectionHeader
               eyebrow={group.subtitle}
               title={group.title}
-              description="Temiz kart yapisi, net fiyat hiyerarsisi ve hizli urun kesfi ile hazir merchandising satiri."
               action={
                 <Link
                   href={buildLocalizedPath(
@@ -143,13 +139,13 @@ export function ProductShowcaseSections({
               <div className="mb-5 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
                   <Sparkles className="h-3.5 w-3.5 text-[var(--store-accent)]" />
-                  Urun odakli secim
+                  Ürün odaklı seçim
                 </span>
                 <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
                   Mobilde kolay tarama
                 </span>
                 <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
-                  Guncel kategori akisi
+                  Güncel kategori akışı
                 </span>
               </div>
             ) : null}

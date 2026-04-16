@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Product } from "@/types/product";
 import { EmptyResultsState } from "./EmptyResultsState";
@@ -27,11 +26,11 @@ interface ProductsPageClientProps {
 const ITEMS_PER_PAGE = 12;
 
 const SORT_OPTIONS: SortOption[] = [
-  { value: "featured", label: "One Cikanlar" },
+  { value: "featured", label: "\u00d6ne \u00c7\u0131kanlar" },
   { value: "newest", label: "Yeni Gelenler" },
   { value: "price-asc", label: "Fiyat Artan" },
   { value: "price-desc", label: "Fiyat Azalan" },
-  { value: "popular", label: "Populer" },
+  { value: "popular", label: "Pop\u00fcler" },
 ];
 
 function normalizeKey(value?: string | null) {
@@ -165,18 +164,15 @@ export function ProductsPageClient({
     <div className="bg-[var(--store-surface)]">
       <section className="section-shell pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#f8eee7_0%,#f4e9e0_42%,#eadbd2_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
-            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(123,17,19,0.12),transparent_52%)]" />
+          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#fbf2ef_0%,#f7ebe6_42%,#efe2de_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
+            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(181,95,119,0.14),transparent_52%)]" />
             <div className="relative max-w-2xl">
-              <p className="section-eyebrow">Tum Urunler</p>
+              <p className="section-eyebrow">{"T\u00fcm \u00dcr\u00fcnler"}</p>
               <h1 className="section-title mt-4 text-[var(--store-ink)]">
-                Cicekleri kategori, fiyat ve durum filtreleriyle hizla kesfet
+                {"\u00c7i\u00e7ekleri kategori ve fiyatla h\u0131zl\u0131ca ke\u015ffet"}
               </h1>
-              <p className="section-copy mt-4">
-                Mobilde kolay acilan drawer, aktif filtre chipleri ve net kart duzeni ile urun kesfi daha hizli ilerler.
-              </p>
               <p className="mt-5 text-sm font-semibold text-[var(--store-accent)]">
-                {sortedProducts.length} urun goruntuleniyor
+                {`${sortedProducts.length} \u00fcr\u00fcn g\u00f6r\u00fcnt\u00fcleniyor`}
               </p>
             </div>
           </div>
@@ -201,7 +197,7 @@ export function ProductsPageClient({
 
             <div>
               <ProductGridToolbar
-                title="Vitrin Sonuclari"
+                title={"Vitrin Sonu\u00e7lar\u0131"}
                 totalCount={sortedProducts.length}
                 visibleCount={visibleProducts.length}
                 sortValue={sortBy}
@@ -231,9 +227,9 @@ export function ProductsPageClient({
               {visibleProducts.length === 0 ? (
                 <div className="mt-6">
                   <EmptyResultsState
-                    title="Filtrelere uygun urun bulunamadi"
-                    body="Aktif filtreleri temizleyerek tum vitrine geri donebilir ya da farkli bir kategori deneyebilirsin."
-                    actionLabel="Tum Urunler"
+                    title={"Filtrelere uygun \u00fcr\u00fcn bulunamad\u0131"}
+                    body={"Filtreleri temizleyerek t\u00fcm vitrine d\u00f6nebilirsiniz."}
+                    actionLabel={"T\u00fcm \u00dcr\u00fcnler"}
                     actionHref={buildLocalizedPath(ROUTES.products, locale)}
                     onReset={() => setFilters(createDefaultFilters(priceBounds))}
                   />
@@ -253,34 +249,12 @@ export function ProductsPageClient({
                         onClick={() => setVisibleCount((current) => current + ITEMS_PER_PAGE)}
                         className="cta-secondary"
                       >
-                        Daha Fazla Goster
+                        {"Daha Fazla G\u00f6ster"}
                       </button>
                     </div>
                   ) : null}
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-shell pt-0">
-        <div className="container-premium">
-          <div className="soft-panel px-6 py-8">
-            <p className="section-eyebrow">Kesif Notu</p>
-            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
-              Temiz grid, net fiyatlama ve sakin CTA ritmi
-            </h2>
-            <p className="section-copy mt-3 max-w-3xl">
-              Bu listing yapisi admin panelinden gelen urun akisini bozmadan, daha net kategori gecisleri ve mobilde daha rahat filtre kullanimi saglar.
-            </p>
-            <div className="mt-5">
-              <Link
-                href={buildLocalizedPath("/iletisim", locale)}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-accent)] transition hover:text-[var(--store-accent-strong)]"
-              >
-                Teslimat ve destek bilgileri
-              </Link>
             </div>
           </div>
         </div>

@@ -12,26 +12,26 @@ interface TrustItem {
 const DEFAULT_ITEMS: TrustItem[] = [
   {
     id: "vitrin",
-    title: "Canli vitrin",
-    body: "Banner, kategori ve kampanya alanlari admin icerigiyle anlik yenilenir.",
+    title: "Canlı vitrin",
+    body: "Banner ve kategori akışı güncel kalır.",
     icon: Flower2,
   },
   {
     id: "stok",
-    title: "Guncel secim",
-    body: "Fiyat, varyant ve stok gorunumu secilen urune gore storefront'ta ayni anda yansir.",
+    title: "Güncel seçim",
+    body: "Fiyat ve stok bilgisi seçilen ürüne göre yansır.",
     icon: Sparkles,
   },
   {
     id: "guven",
-    title: "Guvenli akis",
-    body: "Sepet, odeme ve siparis akislari mevcut commerce mantigi korunarak calisir.",
+    title: "Güvenli akış",
+    body: "Sepet ve sipariş akışı mevcut yapıyla çalışır.",
     icon: ShieldCheck,
   },
   {
     id: "yorum",
-    title: "Gercek sinyaller",
-    body: "Onayli yorumlar ve urun odakli kesif bloklari deneyimi destekler.",
+    title: "Gerçek yorumlar",
+    body: "Onaylı yorumlar ve seçili bloklar deneyimi destekler.",
     icon: BadgeCheck,
   },
 ];

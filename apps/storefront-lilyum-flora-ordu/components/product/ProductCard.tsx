@@ -90,9 +90,9 @@ function ProductCardRating({ product }: { product: Product }) {
 function ProductCardBadges({ product, hasDiscount }: { product: Product; hasDiscount: boolean }) {
   const badges = [
     product.new ? { label: "Yeni", tone: "solid" as const } : null,
-    product.isBestseller ? { label: "Cok Satan", tone: "soft" as const } : null,
-    product.featured ? { label: "Secili", tone: "outline" as const } : null,
-    hasDiscount ? { label: "Indirim", tone: "soft" as const } : null,
+    product.isBestseller ? { label: "\u00c7ok Satan", tone: "soft" as const } : null,
+    product.featured ? { label: "Se\u00e7ili", tone: "outline" as const } : null,
+    hasDiscount ? { label: "\u0130ndirim", tone: "soft" as const } : null,
   ].filter(Boolean) as Array<{ label: string; tone: "soft" | "solid" | "outline" }>;
 
   if (badges.length === 0) {
@@ -123,7 +123,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       : undefined;
   const hasDiscount = Boolean(originalPrice && displayPrice && originalPrice > displayPrice);
   const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
-  const categoryLabel = product.category || "Cicek";
+  const categoryLabel = product.category || "\u00c7i\u00e7ek";
 
   if (viewMode === "list") {
     return (
@@ -143,7 +143,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--store-muted)]">
-              Gorsel yok
+              {"G\u00f6rsel yok"}
             </div>
           )}
         </div>
@@ -201,7 +201,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--store-muted)]">
-              Gorsel yok
+              {"G\u00f6rsel yok"}
             </div>
           )}
         </div>

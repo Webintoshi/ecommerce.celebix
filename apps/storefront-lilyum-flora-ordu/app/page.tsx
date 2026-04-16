@@ -9,21 +9,18 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Bugunun cicek secimleri",
-  viewAllLabel: "Tumunu Gor",
+  categoriesHeading: "Bugünün çiçek seçimleri",
+  viewAllLabel: "Tümünü Gör",
   productGroups: [
-    { title: "Cok Sevilenler", subtitle: "Guncel Vitrin" },
-    { title: "Premium Aranjmanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Sezona Uygun" },
-    { title: "Hediye Alternatifleri", subtitle: "Kolay Kesif" },
+    { title: "Çok Sevilenler", subtitle: "Güncel Vitrin" },
+    { title: "Premium Aranjmanlar", subtitle: "Editör Seçimi" },
+    { title: "Yeni Seçkiler", subtitle: "Sezona Uygun" },
+    { title: "Hediye Seçimleri", subtitle: "Kolay Keşif" },
   ],
-  storesEyebrow: "Magaza Guveni",
-  storesHeading: "Teslimat, iletisim ve magaza bilgilerini tek blokta sunun",
-  storesDescription:
-    "Genel ayarlara girilen iletisim, adres ve gorsel verileri burada sakin ve guven veren bir storefront bolumune donusur.",
-  storesLinkLabel: "Iletisime Git",
-  testimonialsHeading: "Musteri Degerlendirmeleri",
-  testimonialsCountLabel: "Gercek yorumlar geldikce bu alan otomatik yenilenir",
+  storesEyebrow: "Mağaza",
+  storesHeading: "Teslimat ve iletişim",
+  storesLinkLabel: "İletişime Git",
+  testimonialsHeading: "Müşteri Yorumları",
 };
 
 export async function generateMetadata(): Promise<Metadata> {

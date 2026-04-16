@@ -13,11 +13,11 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Ayni gun teslimat icin secili vitrine goz atin.",
+  message: "Aynı gün teslimat için seçili vitrini inceleyin.",
   link: "/urunler",
-  linkText: "Vitrini Ac",
+  linkText: "Vitrini Aç",
   enabled: true,
-  backgroundColor: "#7B1113",
+  backgroundColor: "#96465C",
 };
 
 function normalizeAnnouncementColor(value?: string) {
@@ -91,7 +91,7 @@ export function AnnouncementBar() {
             className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] sm:block"
             style={{ color: textColor, opacity: 0.78 }}
           >
-            Guncel Duyuru
+            Güncel Duyuru
           </p>
           <p
             className="max-w-3xl text-xs font-medium sm:text-sm"

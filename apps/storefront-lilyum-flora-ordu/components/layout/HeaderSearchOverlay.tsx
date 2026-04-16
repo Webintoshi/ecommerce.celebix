@@ -156,7 +156,7 @@ export function HeaderSearchOverlay({
         const payload = (await response.json()) as SearchProductsResponse;
 
         if (!response.ok || payload.success === false) {
-          throw new Error(payload.error || "Arama basarisiz");
+          throw new Error(payload.error || "Arama başarısız");
         }
 
         setResults(Array.isArray(payload.products) ? payload.products : []);
@@ -167,7 +167,7 @@ export function HeaderSearchOverlay({
 
         console.error("Header search request failed:", error);
         setResults([]);
-        setErrorMessage("Arama sonuclari su anda alinamiyor.");
+        setErrorMessage("Arama sonuçları şu anda alınamıyor.");
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -199,7 +199,7 @@ export function HeaderSearchOverlay({
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Urun arama penceresi"
+          aria-label="Ürün arama penceresi"
         >
           <div className="border-b border-[var(--store-border)] px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-start gap-4">
@@ -208,7 +208,7 @@ export function HeaderSearchOverlay({
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="section-eyebrow">Hizli Kesif</p>
+                <p className="section-eyebrow">Hızlı Keşif</p>
                 <form className="mt-3" onSubmit={(event) => event.preventDefault()}>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--store-muted)]" />
@@ -217,7 +217,7 @@ export function HeaderSearchOverlay({
                       type="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Buket, orkide, gul ya da urun adi ara..."
+                      placeholder={"Buket, orkide, g\u00fcl ya da \u00fcr\u00fcn ad\u0131 ara..."}
                       className="h-14 w-full rounded-[24px] border border-[var(--store-border-strong)] bg-white pl-12 pr-14 text-base font-medium text-[var(--store-ink)] outline-none transition focus:border-[var(--store-accent)]"
                     />
                     {query ? (
@@ -225,7 +225,7 @@ export function HeaderSearchOverlay({
                         type="button"
                         onClick={() => setQuery("")}
                         className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--store-muted)] transition hover:bg-[var(--store-surface-alt)] hover:text-[var(--store-ink)]"
-                        aria-label="Aramayi temizle"
+                        aria-label="Aramayı temizle"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -251,7 +251,7 @@ export function HeaderSearchOverlay({
                 type="button"
                 onClick={onClose}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-[var(--store-border)] bg-white text-[var(--store-muted)] transition hover:border-[var(--store-border-strong)] hover:text-[var(--store-ink)]"
-                aria-label="Aramayi kapat"
+                aria-label="Aramayı kapat"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -262,35 +262,29 @@ export function HeaderSearchOverlay({
             {normalizedQuery.length < 2 ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-dashed border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Kesif icin yazmaya basla</p>
-                  <p className="section-copy mt-3">
-                    En az 2 karakter yaz. Arama acikken urunler, kategoriye yakin eslesmeler ve hizli gecisler anlik guncellenir.
-                  </p>
+                  <p className="section-title text-[var(--store-ink)]">Keşif için yazmaya başla</p>
+                  <p className="section-copy mt-3">En az 2 karakter yaz.</p>
                 </div>
               </div>
             ) : isLoading ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto text-center">
-                  <p className="section-title text-[var(--store-ink)]">Araniyor</p>
-                  <p className="section-copy mt-3">
-                    Uygun urunler yukleniyor.
-                  </p>
+                  <p className="section-title text-[var(--store-ink)]">Aranıyor</p>
+                  <p className="section-copy mt-3">Uygun ürünler yükleniyor.</p>
                 </div>
               </div>
             ) : errorMessage ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Arama su an kullanilamiyor</p>
+                  <p className="section-title text-[var(--store-ink)]">Arama şu an kullanılamıyor</p>
                   <p className="section-copy mt-3">{errorMessage}</p>
                 </div>
               </div>
             ) : results.length === 0 ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Sonuc bulunamadi</p>
-                  <p className="section-copy mt-3">
-                    Farkli bir urun adi dene ya da hazir kisayollardan devam et.
-                  </p>
+                  <p className="section-title text-[var(--store-ink)]">Sonuç bulunamadı</p>
+                  <p className="section-copy mt-3">Farklı bir ürün adı deneyin.</p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
                     {quickLinks.slice(0, 4).map((link) => (
                       <Link
@@ -308,9 +302,9 @@ export function HeaderSearchOverlay({
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="section-eyebrow">Sonuclar</p>
+                  <p className="section-eyebrow">Sonuçlar</p>
                   <p className="text-sm text-[var(--store-muted)]">
-                    {Math.min(results.length, MAX_RESULTS)} urun
+                    {Math.min(results.length, MAX_RESULTS)} ürün
                   </p>
                 </div>
 
@@ -349,7 +343,7 @@ export function HeaderSearchOverlay({
 
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                            {product.category || "Urun"}
+                            {product.category || "Ürün"}
                           </p>
                           <p className="store-product-title mt-1 text-[var(--store-ink)]">
                             {product.name}
