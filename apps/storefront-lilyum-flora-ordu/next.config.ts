@@ -44,6 +44,7 @@ function buildRemotePatterns(): NonNullable<NextConfig["images"]>["remotePattern
 }
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   env: {
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
   },
