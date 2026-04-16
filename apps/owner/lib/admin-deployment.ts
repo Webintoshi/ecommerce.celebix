@@ -72,11 +72,6 @@ function resolveRuntimeDomain(
   return urlDomain ?? domain;
 }
 
-function toPlainHttpUrl(value: string): string {
-  const trimmed = value.trim();
-  return /^https:\/\//i.test(trimmed) ? trimmed.replace(/^https:\/\//i, "http://") : trimmed;
-}
-
 function resolveEnvLocalPath(store: StoreConfig): string {
   const relativePath = store.bootstrap?.adminEnvLocalPath || `stores/${store.slug}/admin.env.local`;
   return path.isAbsolute(relativePath) ? relativePath : path.join(getRepoRoot(), relativePath);
@@ -197,7 +192,7 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
 
   const derivedSelfHostedServerUrl =
     store.supabase.provider === "self_hosted_coolify"
-      ? toPlainHttpUrl(runtimeAuthority?.publicUrl?.trim() || supabaseUrl || "")
+      ? (runtimeAuthority?.publicUrl?.trim() || supabaseUrl || "")
       : "";
   const serverUrl =
     derivedSelfHostedServerUrl ||
