@@ -1,7 +1,7 @@
 {
   "name": "Lilyum Flora Ordu",
   "slug": "lilyum-flora-ordu",
-  "status": "draft",
+  "status": "active",
   "theme": {
     "key": "leather",
     "label": "Leather",
@@ -31,35 +31,35 @@
     "projectRef": "coolify:lilyum-flora-ordu:rnourf65cur29orhb47b10n1",
     "url": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store",
-    "dashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default"
+    "dashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default",
+    "storage": "separate-project-per-store"
   },
   "r2": {
     "provisioning": "pending-owner-env"
   },
   "bootstrap": {
     "createdAt": "2026-04-14T19:51:42.053Z",
+    "provisionedAt": "2026-04-16T01:12:16.678Z",
     "envTemplatePath": "stores/lilyum-flora-ordu/admin.env.example",
     "adminEnvLocalPath": "stores/lilyum-flora-ordu/admin.env.local",
+    "organizationSlug": "lilyum-flora-ordu",
     "coolifyProjectName": "Lilyum Flora Ordu",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "Lilyum Flora Ordu admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
-    "adminDeploymentStatus": "pending-owner-env",
-    "organizationSlug": "lilyum-flora-ordu",
+    "adminDeploymentStatus": "configured",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProjectName": "lilyum-flora-ordu-db",
     "supabaseResourceId": "rnourf65cur29orhb47b10n1",
+    "supabaseProjectName": "lilyum-flora-ordu-db",
     "supabaseDashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default",
-    "provisionedAt": "2026-04-16T01:12:16.678Z",
     "supabaseProvisioning": "configured"
   },
   "storefront": {
     "appDir": "apps/storefront-lilyum-flora-ordu",
     "status": "active",
     "lastScaffoldedAt": "2026-04-16T01:23:31.309Z",
-    "repoSyncStatus": "pending",
+    "repoSyncStatus": "synced",
     "deploymentProvider": "coolify",
     "deploymentName": "Lilyum Flora Ordu websitesi",
     "deploymentBranch": "deploy/storefront/lilyum-flora-ordu",
