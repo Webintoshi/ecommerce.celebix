@@ -28,10 +28,11 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
+    "projectRef": "coolify:lilyum-flora-ordu:rnourf65cur29orhb47b10n1",
+    "url": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store"
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
     "provisioning": "pending-owner-env"
@@ -39,14 +40,20 @@
   "bootstrap": {
     "createdAt": "2026-04-14T19:51:42.053Z",
     "envTemplatePath": "stores/lilyum-flora-ordu/admin.env.example",
+    "adminEnvLocalPath": "stores/lilyum-flora-ordu/admin.env.local",
     "coolifyProjectName": "Lilyum Flora Ordu",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "Lilyum Flora Ordu admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
     "adminDeploymentStatus": "pending-owner-env",
+    "organizationSlug": "lilyum-flora-ordu",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProvisioning": "pending-owner-env"
+    "supabaseProjectName": "lilyum-flora-ordu-db",
+    "supabaseResourceId": "rnourf65cur29orhb47b10n1",
+    "supabaseDashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-16T01:12:16.678Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
     "appDir": "apps/storefront-lilyum-flora-ordu",
