@@ -148,6 +148,15 @@ function getRepositoryBranch(store: StoreConfig): string {
   return getStoreDeploymentBranches(store.slug, store).storefrontBranch;
 }
 
+function getCoolifyGithubAppUuid(): string | null {
+  const value =
+    process.env.COOLIFY_GITHUB_APP_UUID?.trim() ||
+    process.env.COOLIFY_GITHUB_APP_SOURCE_UUID?.trim() ||
+    "";
+
+  return value || null;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -376,6 +385,18 @@ function findMatchingStorefrontApplication(
 async function createStorefrontApplication(
   payload: StorefrontApplicationPayload,
 ): Promise<CoolifyApplication> {
+  const githubAppUuid = getCoolifyGithubAppUuid();
+
+  if (githubAppUuid) {
+    return coolifyFetch<CoolifyApplication>("/applications/private-github-app", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        github_app_uuid: githubAppUuid,
+      }),
+    });
+  }
+
   try {
     return await coolifyFetch<CoolifyApplication>("/applications/public", {
       method: "POST",

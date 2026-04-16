@@ -46,7 +46,7 @@
     "adminDeploymentName": "Lilyum Flora Ordu admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
-    "adminDeploymentResourceId": "frsmprcew1ty111a1jge3whj",
+    "adminDeploymentResourceId": "c892d2k143y52ynijoraqily",
     "adminDeploymentStatus": "configured",
     "adminDeploymentPreparedAt": "2026-04-16T04:23:02.385Z",
     "adminDeploymentDeployedAt": "2026-04-16T04:23:02.385Z",
@@ -67,7 +67,7 @@
     "deploymentName": "Lilyum Flora Ordu websitesi",
     "deploymentBranch": "deploy/storefront/lilyum-flora-ordu",
     "runtimeUrl": "https://lilyumflora.net",
-    "resourceId": "r108wipnz0280tbh1vaaax25",
+    "resourceId": "u8ube66kvwpcmug91rsa81s4",
     "deploymentStatus": "configured",
     "preparedAt": "2026-04-16T01:23:31.309Z",
     "deployedAt": "2026-04-16T01:23:31.308Z"

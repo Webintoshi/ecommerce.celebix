@@ -127,6 +127,15 @@ function getRepositoryBranch(store: StoreConfig): string {
   return getStoreDeploymentBranches(store.slug, store).adminBranch;
 }
 
+function getCoolifyGithubAppUuid(): string | null {
+  const value =
+    process.env.COOLIFY_GITHUB_APP_UUID?.trim() ||
+    process.env.COOLIFY_GITHUB_APP_SOURCE_UUID?.trim() ||
+    "";
+
+  return value || null;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -337,6 +346,21 @@ async function ensureAdminApplication(
     });
 
   if (!existing) {
+    const githubAppUuid = getCoolifyGithubAppUuid();
+
+    if (githubAppUuid) {
+      return {
+        application: await coolifyFetch<CoolifyApplication>("/applications/private-github-app", {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            github_app_uuid: githubAppUuid
+          })
+        }),
+        reusedExisting: false
+      };
+    }
+
     try {
       return {
         application: await coolifyFetch<CoolifyApplication>("/applications/public", {
@@ -415,6 +439,20 @@ async function recreateAdminApplication(
   await waitForAdminApplicationDeletion(staleApplicationUuid);
 
   const payload = buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid);
+  const githubAppUuid = getCoolifyGithubAppUuid();
+
+  if (githubAppUuid) {
+    return {
+      application: await coolifyFetch<CoolifyApplication>("/applications/private-github-app", {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          github_app_uuid: githubAppUuid
+        })
+      }),
+      reusedExisting: false
+    };
+  }
 
   try {
     return {
