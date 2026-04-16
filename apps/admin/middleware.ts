@@ -1,17 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import type { UserRole } from "@/lib/permissions";
 import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
+import { clearAdminRoleCookie, readAdminRoleCookie } from "@/lib/admin-role-cookie";
 import {
   applySecurityHeaders,
   isMutationMethod,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
-import {
-  getSupabaseServerUrl,
-  getSupabaseServiceRoleKey,
-} from "@/lib/supabase-shared";
-import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
@@ -110,7 +104,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -132,50 +126,27 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
-  let profile = readCachedAdminProfile(user.id);
+  const adminRole = readAdminRoleCookie(request.cookies.getAll());
 
-  if (!profile) {
-    const serviceClient = createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    const { data } = await serviceClient
-      .from("profiles")
-      .select("id,full_name,role,task_definition")
-      .eq("id", user.id)
-      .maybeSingle<{
-        id: string;
-        full_name: string | null;
-        role: string;
-        task_definition: string | null;
-      }>();
-
-    if (data) {
-      profile = {
-        id: data.id,
-        full_name: data.full_name,
-        role: data.role as UserRole,
-        task_definition: data.task_definition,
-      };
-      writeCachedAdminProfile(profile);
-    }
-  }
-
-  if (!profile || !ADMIN_ROLES.has(profile.role)) {
+  if (!adminRole || adminRole.userId !== user.id || !ADMIN_ROLES.has(adminRole.role)) {
     if (pathname.startsWith("/api/")) {
+      const unauthorizedResponse = NextResponse.json(
+        { success: false, error: "Admin yetkisi bulunamadi." },
+        { status: 403 },
+      );
+      clearAdminRoleCookie(unauthorizedResponse);
       return applySecurityHeaders(
         request,
-        NextResponse.json({ success: false, error: "Admin yetkisi bulunamadi." }, { status: 403 }),
+        unauthorizedResponse,
         "admin",
       );
     }
 
     const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("error", "unauthorized");
-    return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    clearAdminRoleCookie(redirectResponse);
+    return applySecurityHeaders(request, redirectResponse, "admin");
   }
 
   if (pathname === ADMIN_LOGIN_PATH) {

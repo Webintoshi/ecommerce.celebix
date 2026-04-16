@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
+import type { UserRole } from "@/lib/permissions";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
+import { clearAdminRoleCookie, writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { chunkSessionCookieValue, encodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
@@ -43,6 +45,21 @@ function applyAdminSessionCookies(response: NextResponse, session: Session) {
   for (const chunk of chunks) {
     response.cookies.set(chunk.name, chunk.value, cookieOptions);
   }
+}
+
+async function readAdminRole(userId: string): Promise<string | null> {
+  const serviceClient = createAdminServiceClient();
+  const { data, error } = await serviceClient
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle<{ role: string }>();
+
+  if (error || !data?.role) {
+    return null;
+  }
+
+  return data.role;
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -95,8 +112,12 @@ function readAuthErrorMessage(error: unknown): string {
 }
 
 function isCredentialFailure(message: string): boolean {
-  const normalized = message.toLowerCase();
+const normalized = message.toLowerCase();
   return normalized.includes("invalid login credentials") || normalized.includes("invalid credentials");
+}
+
+function isKnownAdminRole(role: string): role is UserRole {
+  return ["super_admin", "product_manager", "content_creator", "order_manager"].includes(role);
 }
 
 export async function POST(request: Request) {
@@ -148,6 +169,15 @@ export async function POST(request: Request) {
     );
 
     applyAdminSessionCookies(response, data.session);
+    const adminRole = await readAdminRole(data.user.id);
+    if (adminRole && isKnownAdminRole(adminRole)) {
+      writeAdminRoleCookie(response, {
+        userId: data.user.id,
+        role: adminRole,
+      });
+    } else {
+      clearAdminRoleCookie(response);
+    }
 
     return response;
   } catch (error) {
