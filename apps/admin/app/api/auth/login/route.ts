@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
@@ -17,24 +16,19 @@ type UserRecord = {
   user_metadata?: Record<string, unknown> | null;
 };
 
+type PendingCookie = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function createAdminLoginClient() {
-  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-}
-
-async function applyAdminSessionCookies(
-  response: NextResponse,
-  session: { access_token: string; refresh_token: string },
-) {
+async function createAdminLoginClient() {
   const cookieStore = await cookies();
+  const pendingCookies: PendingCookie[] = [];
   const authClient = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
@@ -42,26 +36,24 @@ async function applyAdminSessionCookies(
       },
       setAll(cookiesToSet) {
         for (const cookie of cookiesToSet) {
-          try {
-            cookieStore.set(cookie.name, cookie.value, cookie.options);
-          } catch {
-            // Route handlers can fail to mutate the request cookie store in some runtimes.
-          }
-
-          response.cookies.set(cookie.name, cookie.value, cookie.options);
+          pendingCookies.push({
+            name: cookie.name,
+            value: cookie.value,
+            options: cookie.options,
+          });
         }
       },
     },
   });
 
-  const { error } = await authClient.auth.setSession({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  return {
+    authClient,
+    applyCookies(response: NextResponse) {
+      for (const cookie of pendingCookies) {
+        response.cookies.set(cookie.name, cookie.value, cookie.options);
+      }
+    },
+  };
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -127,8 +119,8 @@ export async function POST(request: Request) {
     }
 
     let repaired = false;
-    let publicClient = createAdminLoginClient();
-    let { data, error } = await publicClient.auth.signInWithPassword({
+    let loginClient = await createAdminLoginClient();
+    let { data, error } = await loginClient.authClient.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -140,8 +132,8 @@ export async function POST(request: Request) {
         const repairResult = await repairSelfHostedPassword(email, password);
         repaired = repairResult.repaired;
 
-        publicClient = createAdminLoginClient();
-        ({ data, error } = await publicClient.auth.signInWithPassword({
+        loginClient = await createAdminLoginClient();
+        ({ data, error } = await loginClient.authClient.auth.signInWithPassword({
           email: email.trim(),
           password,
         }));
@@ -166,10 +158,7 @@ export async function POST(request: Request) {
       { status: 200 },
     );
 
-    await applyAdminSessionCookies(response, {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    });
+    loginClient.applyCookies(response);
 
     return response;
   } catch (error) {
