@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next dev --port 3200",
     "check:copy": "node ./scripts/check-turkish-copy.cjs",
+    "prepare:standalone": "node ./scripts/prepare-standalone-runtime.cjs",
     "build": "npm run check:copy && cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
+    "start:standalone": "node ./scripts/start-standalone.cjs",
     "start": "node ./scripts/start-production.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

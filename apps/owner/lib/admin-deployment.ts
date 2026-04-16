@@ -338,8 +338,9 @@ export async function getStoreAdminDeploymentBlueprint(
     deploymentMarker,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
-    buildCommand: "npm run build --workspace @celebix/admin",
-    startCommand: "npm run start --workspace @celebix/admin",
+    buildCommand:
+      "npm run build --workspace @celebix/admin && node ./apps/admin/scripts/prepare-standalone-runtime.cjs",
+    startCommand: "node ./apps/admin/scripts/start-standalone.cjs",
     envLocalPath: path.relative(getRepoRoot(), resolveEnvLocalPath(store)).replace(/\\/g, "/"),
     envTemplatePath: path.relative(getRepoRoot(), resolveEnvTemplatePath(store)).replace(/\\/g, "/"),
     envEntries,
