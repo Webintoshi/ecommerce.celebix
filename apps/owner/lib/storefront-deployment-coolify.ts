@@ -503,14 +503,15 @@ async function syncApplicationEnv(
 }
 
 async function startApplication(applicationUuid: string): Promise<string | null> {
-  const payload = await coolifyFetch<CoolifyStartApplicationResponse>(
-    `/applications/${applicationUuid}/start?force=true&instant_deploy=true`,
+  const payload = await coolifyFetch<{ deployments?: CoolifyStartApplicationResponse[] }>(
+    `/deploy?uuid=${encodeURIComponent(applicationUuid)}&force=true`,
     {
-      method: "POST",
+      method: "GET",
     },
   );
 
-  return payload.deployment_uuid?.trim() || null;
+  const deployment = Array.isArray(payload.deployments) ? payload.deployments[0] : null;
+  return deployment?.deployment_uuid?.trim() || null;
 }
 
 async function readDeploymentSummaryByUuid(deploymentUuid: string): Promise<string | null> {
@@ -559,8 +560,14 @@ async function readLatestDeploymentSummary(applicationUuid: string): Promise<str
     `/deployments/applications/${applicationUuid}?take=1&skip=0`,
   );
 
-  if (Array.isArray(payload) && payload.length > 0) {
-    const latest = payload[0] as {
+  const deployments = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === "object" && "deployments" in payload && Array.isArray((payload as { deployments?: unknown }).deployments)
+      ? (payload as { deployments: unknown[] }).deployments
+      : [];
+
+  if (deployments.length > 0) {
+    const latest = deployments[0] as {
       status?: string | null;
       updated_at?: string | null;
       git_branch?: string | null;

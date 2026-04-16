@@ -458,8 +458,8 @@ async function syncApplicationEnv(applicationUuid: string, envEntries: Record<st
 }
 
 async function startApplication(applicationUuid: string): Promise<void> {
-  await coolifyFetch(`/applications/${applicationUuid}/start?force=true&instant_deploy=true`, {
-    method: "POST"
+  await coolifyFetch(`/deploy?uuid=${encodeURIComponent(applicationUuid)}&force=true`, {
+    method: "GET"
   });
 }
 
