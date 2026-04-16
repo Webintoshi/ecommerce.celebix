@@ -44,7 +44,7 @@ function formatTopPageLabel(url: string) {
 }
 
 export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) {
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     setLastUpdate(new Date());
@@ -105,7 +105,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            {formatLastUpdated(lastUpdate)}
+            {lastUpdate ? formatLastUpdated(lastUpdate) : "--:--"}
           </div>
         </div>
       </div>

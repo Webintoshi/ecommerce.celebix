@@ -480,6 +480,7 @@ export default function AdminDashboardClient({
   initialData: DashboardBootstrapData;
   initialError?: string;
 }) {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [stats, setStats] = useState<DashboardStats>(initialData.stats);
   const [recentOrders, setRecentOrders] = useState<DashboardRecentOrder[]>(initialData.recentOrders);
   const [lowStockProducts, setLowStockProducts] = useState<DashboardLowStockProduct[]>(
@@ -520,6 +521,10 @@ export default function AdminDashboardClient({
   };
 
   useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const refreshLiveData = async () => {
@@ -552,6 +557,47 @@ export default function AdminDashboardClient({
   const liveDeviceTotal = liveData.devices.mobile + liveData.devices.desktop + liveData.devices.tablet;
   const topPageCount = liveData.topPages[0]?.count || 0;
   const totalAbandonedValue = Number(liveData.abandonedCarts.total || 0);
+
+  if (!isHydrated) {
+    return (
+      <main
+        role="main"
+        aria-busy="true"
+        className="relative min-h-screen overflow-hidden bg-[#f7f0e8]"
+      >
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 right-[-120px] h-[420px] w-[420px] rounded-full bg-gradient-to-br from-[#FE6100]/16 via-[#FFB067]/10 to-transparent blur-3xl" />
+          <div className="absolute left-[-100px] top-[28%] h-[320px] w-[320px] rounded-full bg-gradient-to-tr from-amber-200/30 via-orange-100/14 to-transparent blur-3xl" />
+          <div className="absolute bottom-[-140px] right-[20%] h-[340px] w-[340px] rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+          <div className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+              <div className="h-5 w-28 rounded-full bg-[#FE6100]/10" />
+              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-24 rounded-[24px] border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-2 2xl:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-[320px] rounded-[30px] border border-[#FE6100]/10 bg-white/80"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <motion.main
