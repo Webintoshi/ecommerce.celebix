@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
@@ -16,6 +17,53 @@ interface HeroSlide {
   subtitle?: string;
   buttonText?: string;
   buttonLink?: string;
+}
+
+function HeroMedia({
+  desktop,
+  mobile,
+  alt,
+  href,
+}: {
+  desktop: string;
+  mobile?: string;
+  alt: string;
+  href?: string;
+}) {
+  const media = (
+    <div className="relative aspect-[5/6] sm:aspect-[16/9] lg:aspect-[16/6.2]">
+      <div className="absolute inset-0 hidden md:block">
+        <Image
+          src={desktop}
+          alt={alt}
+          fill
+          priority
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 92vw"
+        />
+      </div>
+      <div className="absolute inset-0 md:hidden">
+        <Image
+          src={mobile || desktop}
+          alt={alt}
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+        />
+      </div>
+    </div>
+  );
+
+  if (!href) {
+    return media;
+  }
+
+  return (
+    <Link href={href} className="block">
+      {media}
+    </Link>
+  );
 }
 
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
@@ -38,12 +86,27 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="section-shell pt-6 sm:pt-8">
         <div className="container-premium">
-          <div className="overflow-hidden rounded-[36px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_48%,#e8edf2_100%)] p-2 shadow-[var(--store-shadow-soft)] sm:p-3">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] bg-[linear-gradient(140deg,#fffdf8_0%,#f7efe7_36%,#e8edf2_100%)] sm:aspect-[16/9] lg:aspect-[16/8.7]">
-              <div className="absolute left-[7%] top-[12%] h-24 w-24 rounded-full bg-[#DA630D]/14 sm:h-36 sm:w-36" />
-              <div className="absolute right-[8%] top-[16%] h-28 w-28 rounded-full bg-[#505E71]/14 sm:h-44 sm:w-44" />
-              <div className="absolute bottom-[-10%] left-[20%] h-40 w-40 rounded-full bg-white/60 sm:h-56 sm:w-56" />
-              <div className="absolute inset-x-[12%] bottom-[14%] h-[34%] rounded-[32px] border border-white/50 bg-white/35" />
+          <div className="overflow-hidden rounded-[40px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f6f6f6_100%)] p-3 shadow-[var(--store-shadow-soft)] sm:p-4 lg:p-5">
+            <div className="overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-white">
+              <div className="relative aspect-[5/6] sm:aspect-[16/9] lg:aspect-[16/6.2]">
+                <div className="absolute inset-y-0 left-0 w-[44%] bg-[#505E71]" />
+                <div className="absolute inset-y-0 right-0 w-[56%] bg-[#F6F6F6]" />
+                <div className="absolute inset-y-[14%] left-[5%] w-[22%] rounded-[30px] bg-white/95" />
+                <div className="absolute bottom-[14%] left-[30%] h-[48%] w-[16%] rounded-[30px] bg-[#DA630D]" />
+                <div className="absolute right-[8%] top-[14%] h-[50%] w-[24%] rounded-[32px] bg-[#505E71]/14" />
+                <div className="absolute bottom-[12%] right-[20%] h-[36%] w-[14%] rounded-[30px] bg-[#DA630D]/18" />
+                <div className="absolute right-[12%] top-[18%] h-20 w-20 rounded-full bg-white sm:h-28 sm:w-28" />
+                <div className="absolute bottom-[14%] left-[16%] h-16 w-16 rounded-full bg-[#F6F6F6] sm:h-24 sm:w-24" />
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-3">
+              <div className="flex gap-2">
+                <span className="h-2.5 w-8 rounded-full bg-[#DA630D]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--store-border-strong)]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--store-border-strong)]" />
+              </div>
+              <div className="h-10 w-28 rounded-full bg-[linear-gradient(90deg,#505E71_0%,#DA630D_100%)]" />
             </div>
           </div>
         </div>
@@ -53,73 +116,89 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   const slide = slides[current];
   const currentSlideLabel = slide.alt || slide.title || SITE_NAME;
+  const currentSlideHref = slide.buttonLink || slide.link;
 
   return (
     <section className="section-shell pt-6 sm:pt-8">
       <div className="container-premium">
-        <div className="overflow-hidden rounded-[36px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_38%,#edf1f4_100%)] p-2 shadow-[var(--store-shadow-soft)] sm:p-3">
-          <div className="relative overflow-hidden rounded-[30px]">
-            <div className="relative aspect-[4/5] sm:aspect-[16/9] lg:aspect-[16/8.7]">
-              <div className="absolute inset-0 hidden md:block">
-                <Image
-                  src={slide.desktop}
-                  alt={currentSlideLabel}
-                  fill
-                  priority
-                  className="object-cover"
-                  sizes="100vw"
-                />
-              </div>
-              <div className="absolute inset-0 md:hidden">
-                <Image
-                  src={slide.mobile || slide.desktop}
-                  alt={currentSlideLabel}
-                  fill
-                  priority
-                  className="object-cover"
-                  sizes="100vw"
-                />
-              </div>
-            </div>
+        <div className="overflow-hidden rounded-[40px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f6f6f6_100%)] p-3 shadow-[var(--store-shadow-soft)] sm:p-4 lg:p-5">
+          <div className="overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-white">
+            <HeroMedia
+              desktop={slide.desktop}
+              mobile={slide.mobile}
+              alt={currentSlideLabel}
+              href={currentSlideHref}
+            />
           </div>
 
           {slides.length > 1 ? (
-            <div className="flex items-center justify-center gap-3 px-4 pb-2 pt-4 sm:justify-between sm:px-6">
-              <div className="hidden sm:flex sm:items-center sm:gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
-                  aria-label="Önceki slide"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrent((current + 1) % slides.length)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
-                  aria-label="Sonraki slide"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+            <div className="mt-4 flex flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-5">
+              <div className="-mx-1 flex flex-1 gap-3 overflow-x-auto px-1 scrollbar-hide">
+                {slides.map((item, index) => {
+                  const previewLabel = item.alt || item.title || `${SITE_NAME} ${index + 1}`;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setCurrent(index)}
+                      className={cn(
+                        "min-w-[148px] flex-[0_0_148px] overflow-hidden rounded-[24px] border bg-[var(--store-surface-alt)] transition sm:min-w-[180px] sm:flex-[0_0_180px] lg:min-w-[168px] lg:flex-[0_0_168px]",
+                        index === current
+                          ? "border-[var(--store-accent)] shadow-[var(--store-shadow-soft)]"
+                          : "border-[var(--store-border)] hover:border-[var(--store-accent)]",
+                      )}
+                      aria-label={`Slide ${index + 1}`}
+                    >
+                      <div className="relative aspect-[16/10]">
+                        <Image
+                          src={item.mobile || item.desktop}
+                          alt={previewLabel}
+                          fill
+                          className="object-cover"
+                          sizes="180px"
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex items-center gap-2">
-                {slides.map((item, index) => (
+              <div className="flex items-center justify-between gap-4 lg:min-w-[188px] lg:justify-end">
+                <div className="flex items-center gap-2">
+                  {slides.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setCurrent(index)}
+                      className={cn(
+                        "h-2.5 rounded-full transition-all",
+                        index === current ? "w-8 bg-[var(--store-accent)]" : "w-2.5 bg-[var(--store-border-strong)]",
+                      )}
+                      aria-label={`Slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => setCurrent(index)}
-                    className={cn(
-                      "h-2.5 rounded-full transition-all",
-                      index === current ? "w-8 bg-[var(--store-accent)]" : "w-2.5 bg-[var(--store-border-strong)]",
-                    )}
-                    aria-label={`Slide ${index + 1}`}
-                  />
-                ))}
+                    onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                    aria-label="Onceki banner"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrent((current + 1) % slides.length)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                    aria-label="Sonraki banner"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-
-              <div className="sm:hidden" />
             </div>
           ) : null}
         </div>
