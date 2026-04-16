@@ -18,7 +18,7 @@ if (!standaloneServer) {
 }
 
 const child = spawn(process.execPath, [standaloneServer], {
-  cwd: repoRoot,
+  cwd: appRoot,
   env: {
     ...process.env,
     PORT: port,
