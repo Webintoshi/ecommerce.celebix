@@ -48,7 +48,7 @@ function getEmptyDashboardData(): DashboardBootstrapData {
 export default async function AdminDashboardPage() {
   try {
     const initialData = await withServerTimeout(
-      getAdminDashboardBootstrapData(),
+      getAdminDashboardBootstrapData({ includeLiveData: false }),
       7000,
       "Dashboard ilk açılışta zaman aşımına uğradı."
     );

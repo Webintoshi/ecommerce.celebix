@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
+import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { createServiceSupabaseClient, createSessionServerClient } from "@/lib/supabase-server";
 
 export interface AdminProfile {
@@ -29,6 +30,18 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
     return null;
   }
 
+  const cachedProfile = readCachedAdminProfile(user.id);
+
+  if (cachedProfile) {
+    return {
+      user,
+      profile: {
+        ...cachedProfile,
+        email: user.email || "",
+      },
+    };
+  }
+
   const serviceClient = createServiceSupabaseClient();
   const { data: profile, error: profileError } = await serviceClient
     .from("profiles")
@@ -44,6 +57,8 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
   if (profileError || !profile) {
     return null;
   }
+
+  writeCachedAdminProfile(profile);
 
   return {
     user,

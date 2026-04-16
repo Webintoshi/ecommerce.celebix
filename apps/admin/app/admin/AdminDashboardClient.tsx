@@ -537,6 +537,8 @@ export default function AdminDashboardClient({
       }
     };
 
+    void refreshLiveData();
+
     const interval = window.setInterval(() => {
       void refreshLiveData();
     }, 20000);

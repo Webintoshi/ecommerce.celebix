@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import type { UserRole } from "@/lib/permissions";
 import {
   applySecurityHeaders,
   isMutationMethod,
@@ -12,6 +13,7 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl
 } from "@/lib/supabase-shared";
+import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
@@ -148,14 +150,37 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
-  const serviceClient = createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  let profile = readCachedAdminProfile(user.id);
 
-  const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
+  if (!profile) {
+    const serviceClient = createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data } = await serviceClient
+      .from("profiles")
+      .select("id,full_name,role,task_definition")
+      .eq("id", user.id)
+      .maybeSingle<{
+        id: string;
+        full_name: string | null;
+        role: string;
+        task_definition: string | null;
+      }>();
+
+    if (data) {
+      profile = {
+        id: data.id,
+        full_name: data.full_name,
+        role: data.role as UserRole,
+        task_definition: data.task_definition,
+      };
+      writeCachedAdminProfile(profile);
+    }
+  }
 
   if (!profile || !ADMIN_ROLES.has(profile.role)) {
     await supabase.auth.signOut();

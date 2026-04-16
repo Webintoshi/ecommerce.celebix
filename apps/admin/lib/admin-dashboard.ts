@@ -7,16 +7,8 @@ import type {
   DashboardBootstrapData,
   DashboardLowStockProduct,
   DashboardRecentOrder,
+  LiveAnalyticsSnapshot,
 } from "@/lib/admin-data-types";
-
-type ProductRow = {
-  id: string;
-  name: string;
-  variants: Array<{
-    name: string | null;
-    stock: number | null;
-  }> | null;
-};
 
 type OrderRow = {
   id: string;
@@ -36,20 +28,92 @@ type OrderTotalRow = {
   total: number | string | null;
 };
 
-export async function getAdminDashboardBootstrapData(): Promise<DashboardBootstrapData> {
-  return getOrSetCachedValue("admin:dashboard:bootstrap:v1", 15_000, async () => {
+type LowStockVariantIdRow = {
+  product_id: string | null;
+};
+
+type LowStockVariantRow = {
+  product_id: string | null;
+  name: string | null;
+  stock: number | null;
+  product:
+    | {
+        id: string;
+        name: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+      }>
+    | null;
+};
+
+type DashboardBootstrapOptions = {
+  includeLiveData?: boolean;
+};
+
+function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
+  return {
+    liveVisitors: 0,
+    devices: {
+      mobile: 0,
+      desktop: 0,
+      tablet: 0,
+    },
+    topPages: [],
+    abandonedCarts: {
+      count: 0,
+      total: 0,
+    },
+    today: {
+      addToCart: 0,
+      purchases: 0,
+    },
+    recentEvents: [],
+  };
+}
+
+function normalizeJoinedProduct(
+  value: LowStockVariantRow["product"],
+): { id: string; name: string } | null {
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first?.id ? first : null;
+  }
+
+  return value?.id ? value : null;
+}
+
+export async function getAdminDashboardBootstrapData(
+  options: DashboardBootstrapOptions = {},
+): Promise<DashboardBootstrapData> {
+  const includeLiveData = options.includeLiveData ?? true;
+  const cacheKey = includeLiveData
+    ? "admin:dashboard:bootstrap:v2:full"
+    : "admin:dashboard:bootstrap:v2:core";
+  const cacheTtlMs = includeLiveData ? 15_000 : 30_000;
+
+  return getOrSetCachedValue(cacheKey, cacheTtlMs, async () => {
     const supabase = createServerClient();
 
-    const [productsResponse, recentOrdersResponse, totalOrdersResponse, pendingOrdersResponse, deliveredOrdersResponse, liveData] = await Promise.all([
-      supabase
-        .from("products")
-        .select("id,name,variants:product_variants(name,stock)")
-        .order("created_at", { ascending: false }),
+    const [
+      recentOrdersResponse,
+      totalProductsResponse,
+      totalOrdersResponse,
+      pendingOrdersResponse,
+      deliveredOrdersResponse,
+      lowStockProductIdsResponse,
+      lowStockVariantsResponse,
+      liveData,
+    ] = await Promise.all([
       supabase
         .from("orders")
         .select("id,order_number,shipping_address,total,created_at,status")
         .order("created_at", { ascending: false })
         .limit(5),
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true }),
       supabase
         .from("orders")
         .select("id", { count: "exact", head: true }),
@@ -61,12 +125,22 @@ export async function getAdminDashboardBootstrapData(): Promise<DashboardBootstr
         .from("orders")
         .select("total")
         .eq("status", "delivered"),
-      getLiveAnalyticsSnapshot(),
+      supabase
+        .from("product_variants")
+        .select("product_id")
+        .lt("stock", 10)
+        .not("product_id", "is", null),
+      supabase
+        .from("product_variants")
+        .select("product_id,name,stock,product:products(id,name)")
+        .lt("stock", 10)
+        .not("product_id", "is", null)
+        .order("stock", { ascending: true })
+        .limit(40),
+      includeLiveData
+        ? getLiveAnalyticsSnapshot()
+        : Promise.resolve(getEmptyLiveAnalyticsSnapshot()),
     ]);
-
-    if (productsResponse.error) {
-      throw productsResponse.error;
-    }
 
     if (recentOrdersResponse.error) {
       throw recentOrdersResponse.error;
@@ -84,20 +158,45 @@ export async function getAdminDashboardBootstrapData(): Promise<DashboardBootstr
       throw deliveredOrdersResponse.error;
     }
 
-    const products = (productsResponse.data || []) as ProductRow[];
+    if (totalProductsResponse.error) {
+      throw totalProductsResponse.error;
+    }
+
+    if (lowStockProductIdsResponse.error) {
+      throw lowStockProductIdsResponse.error;
+    }
+
+    if (lowStockVariantsResponse.error) {
+      throw lowStockVariantsResponse.error;
+    }
+
     const recentOrdersRows = (recentOrdersResponse.data || []) as OrderRow[];
     const deliveredOrders = (deliveredOrdersResponse.data || []) as OrderTotalRow[];
+    const lowStockProductIds = new Set(
+      ((lowStockProductIdsResponse.data || []) as LowStockVariantIdRow[])
+        .map((row) => row.product_id)
+        .filter((productId): productId is string => Boolean(productId)),
+    );
+    const lowStockProductsMap = new Map<string, DashboardLowStockProduct>();
 
-    const allLowStockProducts = products
-      .filter((product) => product.variants?.some((variant) => Number(variant.stock || 0) < 10))
-      .map<DashboardLowStockProduct>((product) => ({
+    ((lowStockVariantsResponse.data || []) as LowStockVariantRow[]).forEach((variant) => {
+      const product = normalizeJoinedProduct(variant.product);
+      if (!product) {
+        return;
+      }
+
+      const existingProduct = lowStockProductsMap.get(product.id) || {
         id: product.id,
         name: product.name,
-        variants: (product.variants || []).map((variant) => ({
-          name: variant.name || "Varsayilan",
-          stock: Number(variant.stock || 0),
-        })),
-      }));
+        variants: [],
+      };
+
+      existingProduct.variants.push({
+        name: variant.name || "Varsayilan",
+        stock: Number(variant.stock || 0),
+      });
+      lowStockProductsMap.set(product.id, existingProduct);
+    });
 
     const recentOrders = recentOrdersRows.map<DashboardRecentOrder>((order) => ({
       id: order.id,
@@ -124,14 +223,14 @@ export async function getAdminDashboardBootstrapData(): Promise<DashboardBootstr
 
     return {
       stats: {
-        totalProducts: products.length,
+        totalProducts: Number(totalProductsResponse.count || 0),
         totalOrders: Number(totalOrdersResponse.count || 0),
         pendingOrders: Number(pendingOrdersResponse.count || 0),
         totalRevenue,
-        lowStockProducts: allLowStockProducts.length,
+        lowStockProducts: lowStockProductIds.size,
       },
       recentOrders,
-      lowStockProducts: allLowStockProducts.slice(0, 5),
+      lowStockProducts: Array.from(lowStockProductsMap.values()).slice(0, 5),
       liveData,
     };
   });
