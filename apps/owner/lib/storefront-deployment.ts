@@ -11,6 +11,7 @@ import {
   type StoreConfig,
   updateStoreStorefrontDeploymentConfig,
 } from "@celebix/platform-config";
+import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import {
   checkStorefrontRepoSyncOnGithub,
@@ -284,17 +285,24 @@ function getSharedOptionalEnvEntries(): Record<string, string> {
 async function buildEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
   const adminEnvEntries = resolveAdminEnvEntries(store);
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
+  const runtimeAuthority =
+    store.supabase.provider === "self_hosted_coolify" && store.bootstrap?.supabaseResourceId
+      ? await readCoolifySupabaseRuntimeAuthority(store.bootstrap.supabaseResourceId).catch(() => null)
+      : null;
   const configuredStoreUrl =
     store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
   const supabaseUrl =
+    runtimeAuthority?.publicUrl?.trim() ||
     secretRecord?.supabase_url?.trim() ||
     adminEnvEntries.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     configuredStoreUrl;
   const anonKey =
+    runtimeAuthority?.publicKey?.trim() ||
     secretRecord?.supabase_anon_key?.trim() ||
     adminEnvEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     "";
   const serviceRoleKey =
+    runtimeAuthority?.serviceKey?.trim() ||
     secretRecord?.supabase_service_role_key?.trim() ||
     adminEnvEntries.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
     "";

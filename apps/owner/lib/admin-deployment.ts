@@ -156,14 +156,17 @@ async function readAdminEnvEntries(
       ? await readCoolifySupabaseRuntimeAuthority(store.bootstrap.supabaseResourceId).catch(() => null)
       : null;
   const supabaseUrl =
+    runtimeAuthority?.publicUrl?.trim() ||
     secretRecord?.supabase_url?.trim() ||
     existingEnv.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     (store.supabase.url !== "configure-in-env" ? store.supabase.url : "");
   const anonKey =
+    runtimeAuthority?.publicKey?.trim() ||
     secretRecord?.supabase_anon_key?.trim() ||
     existingEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     "";
   const serviceRoleKey =
+    runtimeAuthority?.serviceKey?.trim() ||
     secretRecord?.supabase_service_role_key?.trim() ||
     existingEnv.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
     "";
