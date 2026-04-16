@@ -11,6 +11,7 @@ export async function GET() {
     adminDomain: runtime.adminDomain,
     storefrontUrl: runtime.storefrontUrl,
     adminUrl: runtime.adminUrl,
+    authStrategy: "supabase_cookie_direct_v1",
     generatedAt: new Date().toISOString()
   });
 }
