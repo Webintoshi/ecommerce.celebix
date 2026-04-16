@@ -9,6 +9,7 @@ type CookieValue = {
 
 type SessionCookiePayload = {
   access_token?: string;
+  user?: User | null;
 };
 
 function readChunkedCookieValue(cookies: CookieValue[], cookieName: string): string | null {
@@ -42,6 +43,17 @@ export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookie
   } catch {
     return null;
   }
+}
+
+export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User | null {
+  const session = readSupabaseSessionCookie(cookies);
+  const user = session?.user;
+
+  if (!user?.id) {
+    return null;
+  }
+
+  return user;
 }
 
 export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise<User | null> {

@@ -155,6 +155,20 @@ interface SidebarProps {
   initialProfile?: InitialAdminProfile | null;
 }
 
+type AdminMeResponse =
+  | {
+      success: true;
+      profile: {
+        email: string;
+        full_name: string | null;
+        role: UserRole;
+      };
+    }
+  | {
+      success: false;
+      error?: string;
+    };
+
 export function AdminSidebar({
   isOpen = true,
   onClose,
@@ -166,9 +180,18 @@ export function AdminSidebar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const userEmail = initialProfile?.email;
-  const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
-  const role: UserRole | null = initialProfile?.role || null;
+  const [resolvedProfile, setResolvedProfile] = useState<InitialAdminProfile | null>(initialProfile);
+  const [isRecoveringProfile, setIsRecoveringProfile] = useState(false);
+  const [hasAttemptedProfileRecovery, setHasAttemptedProfileRecovery] = useState(Boolean(initialProfile?.role));
+  const userEmail = resolvedProfile?.email;
+  const userName = resolvedProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
+  const role: UserRole | null = resolvedProfile?.role || null;
+
+  useEffect(() => {
+    setResolvedProfile(initialProfile);
+    setIsRecoveringProfile(false);
+    setHasAttemptedProfileRecovery(Boolean(initialProfile?.role));
+  }, [initialProfile]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -194,6 +217,47 @@ export function AdminSidebar({
 
     setExpandedMenus((prev) => Array.from(new Set([...prev, ...autoExpand])));
   }, [pathname]);
+
+  useEffect(() => {
+    if (role || hasAttemptedProfileRecovery) {
+      return;
+    }
+
+    let active = true;
+    setHasAttemptedProfileRecovery(true);
+    setIsRecoveringProfile(true);
+
+    fetch("/api/admin/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as AdminMeResponse | null;
+        if (!active || !response.ok || !payload?.success || !payload.profile?.role) {
+          return;
+        }
+
+        setResolvedProfile({
+          email: payload.profile.email,
+          fullName: payload.profile.full_name,
+          role: payload.profile.role,
+        });
+      })
+      .catch((error) => {
+        if (active) {
+          console.warn("Admin profile recovery failed:", error);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsRecoveringProfile(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasAttemptedProfileRecovery, role]);
 
   const filteredItems = useMemo(() => {
     if (!role) {
@@ -277,7 +341,7 @@ export function AdminSidebar({
           </div>
         </div>
 
-        {!role ? (
+        {!role && !isRecoveringProfile ? (
           <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
             Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
           </div>
