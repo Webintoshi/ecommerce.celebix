@@ -135,7 +135,9 @@ export async function POST(request: Request) {
       password,
     });
 
-    if (readAuthErrorMessage(error).includes("Invalid login credentials")) {
+    const initialErrorMessage = readAuthErrorMessage(error);
+
+    if (isCredentialFailure(initialErrorMessage)) {
       const legacyVerified = await verifyLegacyAdminPassword(email, password);
 
       if (legacyVerified) {

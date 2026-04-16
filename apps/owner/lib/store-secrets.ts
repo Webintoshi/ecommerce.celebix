@@ -31,6 +31,10 @@ function normalizeOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function normalizeComparableSecret(value: string | null | undefined): string | null {
+  return value?.trim() || null;
+}
+
 function isExpandedSecretColumnError(message: string | undefined): boolean {
   return /(supabase_anon_key|supabase_legacy_url|supabase_legacy_anon_key)/i.test(message || "");
 }
@@ -136,12 +140,47 @@ async function upsertMetadataSecretFallbackByStoreId(input: {
   }
 }
 
+async function upsertRuntimeSecretAuthorityByStoreId(input: {
+  storeId: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  supabaseAnonKey: string;
+}): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const basePayload = {
+    store_id: input.storeId,
+    supabase_url: input.supabaseUrl,
+    supabase_service_role_key: input.supabaseServiceRoleKey,
+  };
+  const { error } = await serviceClient.from("owner_store_secrets").upsert(
+    {
+      ...basePayload,
+      supabase_anon_key: input.supabaseAnonKey,
+    },
+    { onConflict: "store_id" }
+  );
+
+  if (error) {
+    if (!isExpandedSecretColumnError(error.message)) {
+      throw new Error(error.message);
+    }
+
+    const { error: fallbackError } = await serviceClient.from("owner_store_secrets").upsert(basePayload, {
+      onConflict: "store_id"
+    });
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message);
+    }
+  }
+}
+
 async function recoverRuntimeSecretFallbackByStoreId(
   storeId: string,
   row: OwnerStoreSecretRow | null,
   metadataRow: OwnerStoreMetadataRow | null
 ): Promise<OwnerStoreSecretRow | null> {
-  if (!row || row.supabase_anon_key?.trim()) {
+  if (!row && !metadataRow) {
     return row;
   }
 
@@ -152,6 +191,20 @@ async function recoverRuntimeSecretFallbackByStoreId(
     return row;
   }
 
+  const hasAuthorityDrift =
+    normalizeComparableSecret(row?.supabase_url) !== normalizeComparableSecret(runtimeAuthority.publicUrl) ||
+    normalizeComparableSecret(row?.supabase_service_role_key) !== normalizeComparableSecret(runtimeAuthority.serviceKey) ||
+    normalizeComparableSecret(row?.supabase_anon_key) !== normalizeComparableSecret(runtimeAuthority.publicKey);
+
+  if (hasAuthorityDrift) {
+    await upsertRuntimeSecretAuthorityByStoreId({
+      storeId,
+      supabaseUrl: runtimeAuthority.publicUrl,
+      supabaseServiceRoleKey: runtimeAuthority.serviceKey,
+      supabaseAnonKey: runtimeAuthority.publicKey,
+    }).catch(() => undefined);
+  }
+
   await upsertMetadataSecretFallbackByStoreId({
     storeId,
     supabaseAnonKey: runtimeAuthority.publicKey,
@@ -159,9 +212,12 @@ async function recoverRuntimeSecretFallbackByStoreId(
 
   return {
     ...row,
+    store_id: row?.store_id ?? storeId,
     supabase_anon_key: runtimeAuthority.publicKey,
-    supabase_url: row.supabase_url ?? runtimeAuthority.publicUrl,
-    supabase_service_role_key: row.supabase_service_role_key ?? runtimeAuthority.serviceKey,
+    supabase_url: runtimeAuthority.publicUrl,
+    supabase_service_role_key: runtimeAuthority.serviceKey,
+    supabase_legacy_url: row?.supabase_legacy_url ?? null,
+    supabase_legacy_anon_key: row?.supabase_legacy_anon_key ?? null,
   };
 }
 
