@@ -63,8 +63,8 @@ function ReviewImageTile({ source, fallbackSource, alt, className = "object-cove
 
   if (failed || !currentSource) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-neutral-100 px-2 text-center text-[11px] font-medium text-neutral-500">
-        Görsel yüklenemedi
+      <div className="flex h-full w-full items-center justify-center bg-[var(--store-surface-alt)] px-2 text-center text-[11px] font-medium text-[var(--store-ink-soft)]">
+        {"G\u00f6rsel y\u00fcklenemedi"}
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function ProductReviewsSection({
         const payload = await response.json();
 
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error || "Yorumlar yüklenemedi");
+          throw new Error(payload?.error || "Yorumlar y\u00fcklenemedi");
         }
 
         if (isMounted) {
@@ -167,7 +167,7 @@ export function ProductReviewsSection({
     if (remainingSlots <= 0) {
       setFeedback({
         type: "error",
-        message: `En fazla ${MAX_PRODUCT_REVIEW_IMAGES} görsel ekleyebilirsiniz.`,
+        message: `En fazla ${MAX_PRODUCT_REVIEW_IMAGES} g\u00f6rsel ekleyebilirsiniz.`,
       });
       return;
     }
@@ -192,7 +192,7 @@ export function ProductReviewsSection({
 
         const payload = await response.json();
         if (!response.ok || !payload?.success || typeof payload.url !== "string") {
-          throw new Error(payload?.error || `${file.name} yüklenemedi`);
+          throw new Error(payload?.error || `${file.name} y\u00fcklenemedi`);
         }
 
         uploaded.push({
@@ -205,7 +205,7 @@ export function ProductReviewsSection({
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Görseller yüklenemedi.",
+        message: error instanceof Error ? error.message : "G\u00f6rseller y\u00fcklenemedi.",
       });
     } finally {
       setIsUploading(false);
@@ -251,7 +251,7 @@ export function ProductReviewsSection({
       if (!response.ok || !payload?.success) {
         setFeedback({
           type: "error",
-          message: payload?.error || "Yorum gönderilemedi.",
+          message: payload?.error || "Yorum g\u00f6nderilemedi.",
         });
         return;
       }
@@ -259,85 +259,105 @@ export function ProductReviewsSection({
       resetForm();
       setFeedback({
         type: "success",
-        message: payload?.message || "Yorumunuz onay için alındı.",
+        message: payload?.message || "Yorumunuz onay i\u00e7in al\u0131nd\u0131.",
       });
     });
   };
 
   return (
-    <section className="space-y-8 border-t border-neutral-200 pt-8">
+    <section className="space-y-8 border-t border-[var(--store-border)] pt-10">
       <div className="space-y-3">
         <div>
-          <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">Ürün Yorumları</p>
-          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Müşteri yorumları</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--store-accent)]">
+            {"\u00dcr\u00fcn Yorumlar\u0131"}
+          </p>
+          <h2 className="mt-2 text-2xl tracking-tight text-[var(--store-ink)]">
+            {"M\u00fc\u015fteri yorumlar\u0131"}
+          </h2>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-          <div className="flex items-center gap-1">
+
+        <div className="flex flex-wrap items-center gap-3 rounded-full border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_62%,#eef2f5_100%)] px-4 py-3 text-sm text-[var(--store-ink-soft)] sm:w-fit">
+          <div className="flex items-center gap-1 rounded-full bg-white px-3 py-1 shadow-[0_8px_24px_rgba(80,94,113,0.08)]">
             {[1, 2, 3, 4, 5].map((value) => (
               <Star
                 key={value}
                 className={`h-4 w-4 ${
                   value <= Math.round(summary.rating)
-                    ? "fill-[#8A6B37] text-[#8A6B37]"
-                    : "fill-neutral-200 text-neutral-200"
+                    ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
+                    : "fill-[var(--store-surface-alt)] text-[var(--store-surface-alt)]"
                 }`}
               />
             ))}
           </div>
-          <span className="font-medium text-neutral-900">{summary.rating.toFixed(1)}</span>
-          <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>{summary.reviewCount} onaylı yorum</span>
-          <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>Yeni yorumlar önce moderasyona düşer.</span>
+          <span className="font-semibold text-[var(--store-ink)]">{summary.rating.toFixed(1)}</span>
+          <span aria-hidden="true" className="text-[var(--store-border-strong)]">
+            /
+          </span>
+          <span>{`${summary.reviewCount} onayl\u0131 yorum`}</span>
+          <span aria-hidden="true" className="text-[var(--store-border-strong)]">
+            /
+          </span>
+          <span>{"Yeni yorumlar \u00f6nce moderasyona d\u00fc\u015fer."}</span>
         </div>
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <div className="space-y-4">
           {isLoading ? (
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
-              Yorumlar yükleniyor...
+            <div className="rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_100%)] p-6 text-sm text-[var(--store-ink-soft)] shadow-[var(--store-shadow-soft)]">
+              {"Yorumlar y\u00fckleniyor..."}
             </div>
           ) : reviews.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
-              <p className="text-base font-medium text-neutral-900">Bu ürün için henüz onaylı yorum yok.</p>
-              <p className="mt-2 text-sm leading-6 text-neutral-500">
-                İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.
+            <div className="rounded-[32px] border border-dashed border-[var(--store-border-strong)] bg-[linear-gradient(135deg,rgba(246,246,246,0.9)_0%,#ffffff_100%)] p-8 text-center shadow-[var(--store-shadow-soft)]">
+              <p className="text-base font-semibold text-[var(--store-ink)]">
+                {"Bu \u00fcr\u00fcn i\u00e7in hen\u00fcz onayl\u0131 yorum yok."}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--store-ink-soft)]">
+                {"\u0130lk g\u00f6rselli yorumu siz g\u00f6nderin. Onay sonras\u0131 burada yay\u0131nlan\u0131r."}
               </p>
             </div>
           ) : (
             reviews.map((review) => (
-              <article key={review.id} className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <article
+                key={review.id}
+                className="rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,rgba(246,246,246,0.8)_100%)] p-5 shadow-[var(--store-shadow-soft)]"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-neutral-900">{review.reviewerName}</div>
-                    <div className="mt-1 text-xs text-neutral-500">{formatDate(review.createdAt)}</div>
+                    <div className="text-sm font-semibold text-[var(--store-ink)]">{review.reviewerName}</div>
+                    <div className="mt-1 text-xs text-[var(--store-ink-soft)]">{formatDate(review.createdAt)}</div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 rounded-full border border-[var(--store-border)] bg-white px-3 py-1.5">
                     {[1, 2, 3, 4, 5].map((value) => (
                       <Star
                         key={value}
                         className={`h-4 w-4 ${
                           value <= review.rating
-                            ? "fill-[#8A6B37] text-[#8A6B37]"
-                            : "fill-neutral-200 text-neutral-200"
+                            ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
+                            : "fill-[var(--store-surface-alt)] text-[var(--store-surface-alt)]"
                         }`}
                       />
                     ))}
                   </div>
                 </div>
+
                 {review.title ? (
-                  <h3 className="mt-4 text-base font-semibold text-neutral-900">{review.title}</h3>
+                  <h3 className="mt-4 text-base font-semibold text-[var(--store-ink)]">{review.title}</h3>
                 ) : null}
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-neutral-600">{review.body}</p>
+
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--store-ink-soft)]">{review.body}</p>
+
                 {review.imageUrls.length > 0 ? (
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {review.imageUrls.map((imageUrl, index) => (
-                      <div key={`${review.id}-${index}`} className="relative aspect-square overflow-hidden rounded-2xl bg-neutral-100">
+                      <div
+                        key={`${review.id}-${index}`}
+                        className="relative aspect-square overflow-hidden rounded-[24px] border border-[var(--store-border)] bg-[var(--store-surface-alt)]"
+                      >
                         <ReviewImageTile
                           source={resolveStorefrontAssetUrl(imageUrl) || imageUrl}
                           fallbackSource={resolveStorefrontDirectAssetUrl(imageUrl) || imageUrl}
-                          alt={`${productName} yorum görseli ${index + 1}`}
+                          alt={`${productName} yorum g\u00f6rseli ${index + 1}`}
                           className="object-cover"
                         />
                       </div>
@@ -349,13 +369,17 @@ export function ProductReviewsSection({
           )}
         </div>
 
-        <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
+        <div className="rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,rgba(246,246,246,0.94)_100%)] p-5 shadow-[0_26px_60px_rgba(80,94,113,0.12)] lg:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-semibold text-neutral-900">Yorum bırak</h3>
-              <p className="mt-1 text-sm text-neutral-500">Görsel ekleyebilir, ürünü puanlayabilirsiniz.</p>
+              <h3 className="text-xl font-semibold text-[var(--store-ink)]">{"Yorum b\u0131rak"}</h3>
+              <p className="mt-1 text-sm text-[var(--store-ink-soft)]">
+                {"G\u00f6rsel ekleyebilir, \u00fcr\u00fcn\u00fc puanlayabilirsiniz."}
+              </p>
             </div>
-            <Camera className="h-5 w-5 text-neutral-400" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-accent)] shadow-[0_10px_24px_rgba(80,94,113,0.08)]">
+              <Camera className="h-5 w-5" />
+            </div>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -364,36 +388,38 @@ export function ProductReviewsSection({
                 value={reviewerName}
                 onChange={(event) => setReviewerName(event.target.value)}
                 placeholder="Ad Soyad"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                className="w-full rounded-[22px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-ink)] outline-none transition placeholder:text-[var(--store-muted)] focus:border-[var(--store-accent)] focus:ring-4 focus:ring-[rgba(218,99,13,0.12)]"
               />
               <input
                 value={reviewerEmail}
                 onChange={(event) => setReviewerEmail(event.target.value)}
-                placeholder="E-posta (opsiyonel)"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                placeholder={"E-posta (opsiyonel)"}
+                className="w-full rounded-[22px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-ink)] outline-none transition placeholder:text-[var(--store-muted)] focus:border-[var(--store-accent)] focus:ring-4 focus:ring-[rgba(218,99,13,0.12)]"
               />
             </div>
 
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Yorum başlığı (opsiyonel)"
-              className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              placeholder={"Yorum ba\u015fl\u0131\u011f\u0131 (opsiyonel)"}
+              className="w-full rounded-[22px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-ink)] outline-none transition placeholder:text-[var(--store-muted)] focus:border-[var(--store-accent)] focus:ring-4 focus:ring-[rgba(218,99,13,0.12)]"
             />
 
             <div className="space-y-2">
-              <div className="text-sm font-medium text-neutral-900">Puanınız</div>
-              <div className="flex items-center gap-2">
+              <div className="text-sm font-medium text-[var(--store-ink)]">{"Puan\u0131n\u0131z"}</div>
+              <div className="flex items-center gap-2 rounded-[24px] border border-[var(--store-border)] bg-white px-3 py-2.5">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => setRating(value)}
-                    className="rounded-full p-1 transition hover:scale-105"
+                    className="rounded-full p-1 transition hover:scale-105 hover:bg-[rgba(218,99,13,0.08)]"
                   >
                     <Star
                       className={`h-6 w-6 ${
-                        value <= rating ? "fill-[#8A6B37] text-[#8A6B37]" : "fill-neutral-200 text-neutral-200"
+                        value <= rating
+                          ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
+                          : "fill-[var(--store-surface-alt)] text-[var(--store-surface-alt)]"
                       }`}
                     />
                   </button>
@@ -405,14 +431,14 @@ export function ProductReviewsSection({
               value={body}
               onChange={(event) => setBody(event.target.value)}
               rows={5}
-              placeholder="Ürün hakkındaki deneyiminizi yazın..."
-              className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              placeholder={"\u00dcr\u00fcn hakk\u0131ndaki deneyiminizi yaz\u0131n..."}
+              className="w-full rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--store-ink)] outline-none transition placeholder:text-[var(--store-muted)] focus:border-[var(--store-accent)] focus:ring-4 focus:ring-[rgba(218,99,13,0.12)]"
             />
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-neutral-900">Görsel ekleyin</div>
-                <div className="text-xs text-neutral-500">Maksimum {MAX_PRODUCT_REVIEW_IMAGES}</div>
+                <div className="text-sm font-medium text-[var(--store-ink)]">{"G\u00f6rsel ekleyin"}</div>
+                <div className="text-xs text-[var(--store-ink-soft)]">{`Maksimum ${MAX_PRODUCT_REVIEW_IMAGES}`}</div>
               </div>
 
               <input
@@ -428,26 +454,29 @@ export function ProductReviewsSection({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || uploadedImages.length >= MAX_PRODUCT_REVIEW_IMAGES}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--store-ink)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                Görsel Seç
+                {"G\u00f6rsel Se\u00e7"}
               </button>
 
               {uploadedImages.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {uploadedImages.map((image) => (
-                    <div key={image.url} className="relative aspect-square overflow-hidden rounded-2xl bg-neutral-100">
+                    <div
+                      key={image.url}
+                      className="relative aspect-square overflow-hidden rounded-[24px] border border-[var(--store-border)] bg-[var(--store-surface-alt)]"
+                    >
                       <ReviewImageTile
                         source={image.previewUrl}
                         fallbackSource={image.url}
-                        alt="Yüklenen yorum görseli"
+                        alt={"Y\u00fcklenen yorum g\u00f6rseli"}
                         className="object-cover"
                       />
                       <button
                         type="button"
                         onClick={() => removeUploadedImage(image.url)}
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white"
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--store-ink)] text-white shadow-[0_10px_18px_rgba(80,94,113,0.2)]"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -457,16 +486,16 @@ export function ProductReviewsSection({
               ) : null}
             </div>
 
-            <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs leading-6 text-neutral-500">
-              Yorumlar önce onaya düşer. Onaylanan görsel ve metinler ürün sayfasında yayınlanır.
+            <div className="rounded-[24px] border border-[var(--store-border)] bg-[rgba(246,246,246,0.9)] px-4 py-3 text-xs leading-6 text-[var(--store-ink-soft)]">
+              {"Yorumlar \u00f6nce onaya d\u00fc\u015fer. Onaylanan g\u00f6rsel ve metinler \u00fcr\u00fcn sayfas\u0131nda yay\u0131nlan\u0131r."}
             </div>
 
             {feedback ? (
               <div
                 className={`rounded-2xl px-4 py-3 text-sm ${
                   feedback.type === "success"
-                    ? "bg-green-50 text-green-700 ring-1 ring-green-200"
-                    : "bg-red-50 text-red-700 ring-1 ring-red-200"
+                    ? "border border-[rgba(80,94,113,0.16)] bg-[rgba(80,94,113,0.08)] text-[var(--store-ink)]"
+                    : "border border-[rgba(218,99,13,0.18)] bg-[rgba(218,99,13,0.1)] text-[var(--store-accent-strong)]"
                 }`}
               >
                 {feedback.message}
@@ -477,9 +506,9 @@ export function ProductReviewsSection({
               type="button"
               onClick={handleSubmit}
               disabled={isPending || isUploading}
-              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#8A6B37] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#755a2d] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[var(--store-accent)] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white shadow-[0_18px_32px_rgba(218,99,13,0.22)] transition hover:bg-[var(--store-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
+              {isPending ? "G\u00f6nderiliyor..." : "Yorumu G\u00f6nder"}
             </button>
           </div>
         </div>
