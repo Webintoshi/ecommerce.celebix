@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { getStoreRuntime } from "@/lib/store-runtime";
+import {
+  getSupabaseAuthStorageKey,
+  getSupabaseServerUrl,
+  getSupabaseUrl,
+} from "@/lib/supabase-shared";
 
 export async function GET() {
   const runtime = getStoreRuntime();
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseServerUrl = getSupabaseServerUrl();
 
   return NextResponse.json({
     slug: runtime.slug,
@@ -12,6 +19,10 @@ export async function GET() {
     storefrontUrl: runtime.storefrontUrl,
     adminUrl: runtime.adminUrl,
     authStrategy: "supabase_cookie_direct_v1",
+    authCookieName: getSupabaseAuthStorageKey(),
+    supabaseUrl,
+    supabaseServerUrl,
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
     generatedAt: new Date().toISOString()
   });
 }
