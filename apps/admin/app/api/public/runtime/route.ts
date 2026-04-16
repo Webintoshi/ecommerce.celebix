@@ -23,6 +23,7 @@ export async function GET() {
     supabaseUrl,
     supabaseServerUrl,
     hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    deploymentMarker: process.env.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null,
     generatedAt: new Date().toISOString()
   });
 }

@@ -18,6 +18,7 @@ export interface StoreAdminDeploymentBlueprint {
   appName: string;
   runtimeUrl: string;
   resourceId: string | null;
+  deploymentMarker: string | null;
   workspace: string;
   installCommand: string;
   buildCommand: string;
@@ -36,6 +37,7 @@ interface RuntimePayload {
   adminDomain?: string | null;
   storefrontUrl?: string | null;
   adminUrl?: string | null;
+  deploymentMarker?: string | null;
 }
 
 function toAbsoluteUrl(value: string): string {
@@ -142,7 +144,10 @@ function getSharedRedisEnvEntries(): Record<string, string> {
   return entries;
 }
 
-async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
+async function readAdminEnvEntries(
+  store: StoreConfig,
+  options?: { deploymentMarker?: string | null },
+): Promise<Record<string, string>> {
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const existingEnv = readExistingAdminEnvMap(store);
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
@@ -165,6 +170,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
 
   const envEntries: Record<string, string> = {
     CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
+    CELEBIX_ADMIN_DEPLOYMENT_MARKER:
+      options?.deploymentMarker?.trim() ||
+      existingEnv.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() ||
+      "",
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
@@ -235,7 +244,11 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
   return envEntries;
 }
 
-async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): Promise<{
+async function readRuntimeConsistency(
+  store: StoreConfig,
+  runtimeUrl: string,
+  expectedDeploymentMarker?: string | null,
+): Promise<{
   configured: boolean;
   consistent: boolean;
   message: string | null;
@@ -273,6 +286,13 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
       mismatches.push(`admin ${runtimeAdmin}`);
     }
 
+    if (
+      expectedDeploymentMarker?.trim() &&
+      payload.deploymentMarker?.trim() !== expectedDeploymentMarker.trim()
+    ) {
+      mismatches.push(`marker ${payload.deploymentMarker?.trim() || "missing"}`);
+    }
+
     return {
       configured: true,
       consistent: mismatches.length === 0,
@@ -287,10 +307,14 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
   }
 }
 
-export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<StoreAdminDeploymentBlueprint> {
+export async function getStoreAdminDeploymentBlueprint(
+  slug: string,
+  options?: { deploymentMarker?: string | null },
+): Promise<StoreAdminDeploymentBlueprint> {
   const store = requireStoreConfig(slug);
-  const envEntries = await readAdminEnvEntries(store);
+  const envEntries = await readAdminEnvEntries(store, options);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
+  const deploymentMarker = envEntries.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null;
   const hasRequiredEnv = Boolean(
     envEntries.NEXT_PUBLIC_SUPABASE_URL &&
       envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
@@ -301,7 +325,7 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  const runtime = await readRuntimeConsistency(store, runtimeUrl);
+  const runtime = await readRuntimeConsistency(store, runtimeUrl, deploymentMarker);
   runtimeConsistent = runtime.consistent;
   runtimeMessage = runtime.message;
   status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
@@ -311,6 +335,7 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
     appName: store.bootstrap?.adminDeploymentName || `${store.slug}-admin`,
     runtimeUrl,
     resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
+    deploymentMarker,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
     buildCommand: "npm run build --workspace @celebix/admin",

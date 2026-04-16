@@ -28,6 +28,11 @@ interface CoolifyApplication {
 
 type AdminApplicationPayload = ReturnType<typeof buildAdminAppPayload>;
 
+interface EnsuredAdminApplication {
+  application: CoolifyApplication;
+  reusedExisting: boolean;
+}
+
 interface CoolifyBulkEnvEntry {
   key: string;
   value: string;
@@ -55,6 +60,8 @@ const COOLIFY_API_PREFIX = "/api/v1";
 const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 24;
 const COOLIFY_API_TIMEOUT_MS = 15000;
+const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
+const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -317,7 +324,7 @@ async function ensureAdminApplication(
   blueprint: StoreAdminDeploymentBlueprint,
   projectUuid: string,
   environmentUuid: string
-): Promise<CoolifyApplication> {
+): Promise<EnsuredAdminApplication> {
   const applications = await listApplications();
   const runtimeUrl = blueprint.runtimeUrl.replace(/\/+$/, "");
   const payload = buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid);
@@ -331,19 +338,25 @@ async function ensureAdminApplication(
 
   if (!existing) {
     try {
-      return await coolifyFetch<CoolifyApplication>("/applications/public", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
+      return {
+        application: await coolifyFetch<CoolifyApplication>("/applications/public", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        }),
+        reusedExisting: false
+      };
     } catch (error) {
       if (!isLegacyApplicationPayloadError(error)) {
         throw error;
       }
 
-      return coolifyFetch<CoolifyApplication>("/applications/public", {
-        method: "POST",
-        body: JSON.stringify(buildLegacyCompatibleAdminPayload(payload))
-      });
+      return {
+        application: await coolifyFetch<CoolifyApplication>("/applications/public", {
+          method: "POST",
+          body: JSON.stringify(buildLegacyCompatibleAdminPayload(payload))
+        }),
+        reusedExisting: false
+      };
     }
   }
 
@@ -365,7 +378,65 @@ async function ensureAdminApplication(
     });
   }
 
-  return existing;
+  return {
+    application: existing,
+    reusedExisting: true
+  };
+}
+
+async function deleteAdminApplication(applicationUuid: string): Promise<void> {
+  await coolifyFetch(`/applications/${applicationUuid}`, {
+    method: "DELETE"
+  });
+}
+
+async function waitForAdminApplicationDeletion(applicationUuid: string): Promise<void> {
+  for (let attempt = 0; attempt < APPLICATION_DELETE_POLL_ATTEMPTS; attempt += 1) {
+    const applications = await listApplications();
+
+    if (!applications.some((application) => application.uuid === applicationUuid)) {
+      return;
+    }
+
+    await sleep(APPLICATION_DELETE_POLL_DELAY_MS);
+  }
+
+  throw new Error(`Admin application silinip kaybolmadi: ${applicationUuid}`);
+}
+
+async function recreateAdminApplication(
+  store: StoreConfig,
+  blueprint: StoreAdminDeploymentBlueprint,
+  projectUuid: string,
+  environmentUuid: string,
+  staleApplicationUuid: string
+): Promise<EnsuredAdminApplication> {
+  await deleteAdminApplication(staleApplicationUuid);
+  await waitForAdminApplicationDeletion(staleApplicationUuid);
+
+  const payload = buildAdminAppPayload(store, blueprint, projectUuid, environmentUuid);
+
+  try {
+    return {
+      application: await coolifyFetch<CoolifyApplication>("/applications/public", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }),
+      reusedExisting: false
+    };
+  } catch (error) {
+    if (!isLegacyApplicationPayloadError(error)) {
+      throw error;
+    }
+
+    return {
+      application: await coolifyFetch<CoolifyApplication>("/applications/public", {
+        method: "POST",
+        body: JSON.stringify(buildLegacyCompatibleAdminPayload(payload))
+      }),
+      reusedExisting: false
+    };
+  }
 }
 
 async function syncApplicationEnv(applicationUuid: string, envEntries: Record<string, string>): Promise<void> {
@@ -392,11 +463,14 @@ async function startApplication(applicationUuid: string): Promise<void> {
   });
 }
 
-async function waitForAdminRuntime(store: StoreConfig): Promise<StoreAdminDeploymentBlueprint> {
+async function waitForAdminRuntime(
+  store: StoreConfig,
+  deploymentMarker: string,
+): Promise<StoreAdminDeploymentBlueprint> {
   let lastBlueprint: StoreAdminDeploymentBlueprint | null = null;
 
   for (let attempt = 0; attempt < ADMIN_DEPLOYMENT_POLL_ATTEMPTS; attempt += 1) {
-    lastBlueprint = await getStoreAdminDeploymentBlueprint(store.slug);
+    lastBlueprint = await getStoreAdminDeploymentBlueprint(store.slug, { deploymentMarker });
 
     if (lastBlueprint.runtimeConsistent) {
       return lastBlueprint;
@@ -405,7 +479,7 @@ async function waitForAdminRuntime(store: StoreConfig): Promise<StoreAdminDeploy
     await sleep(ADMIN_DEPLOYMENT_POLL_DELAY_MS);
   }
 
-  return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug);
+  return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug, { deploymentMarker });
 }
 
 export async function provisionAdminDeploymentForStore(
@@ -413,7 +487,8 @@ export async function provisionAdminDeploymentForStore(
   options: AdminDeploymentProvisioningOptions = {},
 ): Promise<AdminDeploymentProvisioningResult> {
   const store = requireStoreConfig(slug);
-  const blueprint = await getStoreAdminDeploymentBlueprint(slug);
+  const deploymentMarker = `admin-${Date.now()}`;
+  let blueprint = await getStoreAdminDeploymentBlueprint(slug, { deploymentMarker });
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
   const hasCoolifyAuthority = Boolean(
     process.env.COOLIFY_API_URL?.trim() &&
@@ -474,8 +549,8 @@ export async function provisionAdminDeploymentForStore(
       );
     });
     const environmentUuid = resolveIdentifier(environment);
-    const application = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
-    const applicationUuid = resolveIdentifier(application);
+    let ensuredApplication = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
+    let applicationUuid = resolveIdentifier(ensuredApplication.application);
     await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
       throw new Error(
         `Admin deployment env senkronu basarisiz: ${
@@ -511,13 +586,49 @@ export async function provisionAdminDeploymentForStore(
       };
     }
 
-    const runtimeBlueprint = await waitForAdminRuntime(store).catch((error) => {
+    let runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker).catch((error) => {
       throw new Error(
         `Admin runtime smoke test basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
         }`,
       );
     });
+
+    if (!runtimeBlueprint.runtimeConsistent && ensuredApplication.reusedExisting) {
+      ensuredApplication = await recreateAdminApplication(
+        store,
+        blueprint,
+        projectUuid,
+        environmentUuid,
+        applicationUuid,
+      );
+      applicationUuid = resolveIdentifier(ensuredApplication.application);
+
+      await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
+        throw new Error(
+          `Admin deployment env senkronu (recreate) basarisiz: ${
+            error instanceof Error ? error.message : "bilinmeyen hata"
+          }`,
+        );
+      });
+
+      await startApplication(applicationUuid).catch((error) => {
+        throw new Error(
+          `Admin deployment start (recreate) basarisiz: ${
+            error instanceof Error ? error.message : "bilinmeyen hata"
+          }`,
+        );
+      });
+
+      runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker).catch((error) => {
+        throw new Error(
+          `Admin runtime smoke test (recreate) basarisiz: ${
+            error instanceof Error ? error.message : "bilinmeyen hata"
+          }`,
+        );
+      });
+    }
+
     if (!runtimeBlueprint.runtimeConsistent) {
       throw new Error(
         runtimeBlueprint.runtimeMessage || "Admin runtime beklenen sure icinde tutarli cevap vermedi.",
