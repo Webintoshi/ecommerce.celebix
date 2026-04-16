@@ -1,6 +1,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
-import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import {
+  getSupabaseAnonKey,
+  getSupabaseServerUrl,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl
+} from "@/lib/supabase-shared";
 
 // Lazy browser client proxy so existing imports keep working.
 export const supabase = new Proxy({} as SupabaseClient, {
@@ -13,7 +18,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
 
 // Service role client for trusted server-side admin/database operations.
 export function createServerClient() {
-  return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
+  return createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -23,7 +28,7 @@ export function createServerClient() {
 
 // Fallback anon server client for rare cases where service role is not desired.
 export function createAnonServerClient() {
-  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

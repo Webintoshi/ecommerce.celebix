@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import { getSupabaseAnonKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
 type LoginBody = {
@@ -20,7 +20,7 @@ function normalizeEmail(value: string): string {
 }
 
 function createAdminLoginClient() {
-  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

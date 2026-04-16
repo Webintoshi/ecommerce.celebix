@@ -10,6 +10,7 @@ import {
   type StoreConfig,
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
+import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
@@ -145,6 +146,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const existingEnv = readExistingAdminEnvMap(store);
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
+  const runtimeAuthority =
+    store.supabase.provider === "self_hosted_coolify" && store.bootstrap?.supabaseResourceId
+      ? await readCoolifySupabaseRuntimeAuthority(store.bootstrap.supabaseResourceId).catch(() => null)
+      : null;
   const supabaseUrl =
     secretRecord?.supabase_url?.trim() ||
     existingEnv.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
@@ -183,6 +188,16 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
 
   if (serviceRoleKey) {
     envEntries.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
+  }
+
+  const serverUrl =
+    existingEnv.SUPABASE_SERVER_URL?.trim() ||
+    existingEnv.SUPABASE_INTERNAL_URL?.trim() ||
+    runtimeAuthority?.internalApiUrl?.trim() ||
+    "";
+
+  if (serverUrl) {
+    envEntries.SUPABASE_SERVER_URL = serverUrl;
   }
 
   if (secretRecord?.supabase_legacy_url?.trim() || existingEnv.SUPABASE_LEGACY_URL?.trim()) {

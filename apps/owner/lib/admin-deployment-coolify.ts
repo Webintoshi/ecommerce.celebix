@@ -415,11 +415,16 @@ export async function provisionAdminDeploymentForStore(
   const store = requireStoreConfig(slug);
   const blueprint = await getStoreAdminDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
+  const hasCoolifyAuthority = Boolean(
+    process.env.COOLIFY_API_URL?.trim() &&
+    process.env.COOLIFY_API_TOKEN?.trim()
+  );
 
   if (
     blueprint.runtimeConsistent &&
     blueprint.status === "configured" &&
-    !blueprint.resourceId
+    !blueprint.resourceId &&
+    !hasCoolifyAuthority
   ) {
     return {
       appName: blueprint.appName,

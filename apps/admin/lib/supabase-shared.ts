@@ -8,18 +8,44 @@ function requireEnvValue(name: string, value: string | undefined): string {
   return normalized;
 }
 
-function normalizeUrl(value: string): string {
+function normalizeUrl(name: string, value: string): string {
   const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
 
   try {
     return new URL(normalized).toString().replace(/\/$/, "");
   } catch {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is malformed");
+    throw new Error(`${name} is malformed`);
   }
 }
 
 export function getSupabaseUrl(): string {
-  return normalizeUrl(requireEnvValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL));
+  return normalizeUrl(
+    "NEXT_PUBLIC_SUPABASE_URL",
+    requireEnvValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  );
+}
+
+export function getSupabaseServerUrl(): string {
+  const serverUrl =
+    process.env.SUPABASE_SERVER_URL ??
+    process.env.SUPABASE_INTERNAL_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  return normalizeUrl(
+    process.env.SUPABASE_SERVER_URL?.trim()
+      ? "SUPABASE_SERVER_URL"
+      : process.env.SUPABASE_INTERNAL_URL?.trim()
+        ? "SUPABASE_INTERNAL_URL"
+        : "NEXT_PUBLIC_SUPABASE_URL",
+    requireEnvValue(
+      process.env.SUPABASE_SERVER_URL?.trim()
+        ? "SUPABASE_SERVER_URL"
+        : process.env.SUPABASE_INTERNAL_URL?.trim()
+          ? "SUPABASE_INTERNAL_URL"
+          : "NEXT_PUBLIC_SUPABASE_URL",
+      serverUrl
+    )
+  );
 }
 
 export function getSupabaseAnonKey(): string {

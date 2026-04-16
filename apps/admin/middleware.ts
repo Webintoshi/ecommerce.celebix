@@ -6,7 +6,12 @@ import {
   isMutationMethod,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
-import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import {
+  getSupabaseAnonKey,
+  getSupabaseServerUrl,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl
+} from "@/lib/supabase-shared";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
@@ -111,7 +116,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  const supabase = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -143,7 +148,7 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
-  const serviceClient = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
+  const serviceClient = createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
