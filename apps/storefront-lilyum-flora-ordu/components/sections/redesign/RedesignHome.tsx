@@ -1,4 +1,3 @@
-import { CategoriesSection } from "./CategoriesSection";
 import { HeroSection } from "./ExistingSections";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
 import { StoreLocationsSection } from "./StoreLocationsSection";
@@ -30,11 +29,11 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
   return (
     <main className="min-h-screen bg-[var(--store-surface)]">
       <HeroSection slides={data.heroBanners || []} />
-      <TrustStrip />
-      <CategoriesSection
-        initialCategories={(data.categories as never[]) || []}
+      <TrustStrip
+        categories={(data.categories as never[]) || []}
         eyebrow={uiCopy?.categoriesEyebrow}
         heading={uiCopy?.categoriesHeading}
+        viewAllLabel={uiCopy?.viewAllLabel}
       />
       <ProductShowcaseSections
         categories={data.categories}
