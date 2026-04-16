@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
-import { createChunks, stringToBase64URL } from "@supabase/ssr/dist/main/utils";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
+import { chunkSessionCookieValue, encodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
 type LoginBody = {
@@ -31,8 +31,8 @@ function createAdminLoginClient() {
 
 function applyAdminSessionCookies(response: NextResponse, session: Session) {
   const { name: cookieName, ...cookieOptions } = getSupabaseCookieOptions();
-  const encodedSession = `base64-${stringToBase64URL(JSON.stringify(session))}`;
-  const chunks = createChunks(cookieName, encodedSession);
+  const encodedSession = encodeSessionCookiePayload(JSON.stringify(session));
+  const chunks = chunkSessionCookieValue(cookieName, encodedSession);
   const staleChunkCount = Math.max(chunks.length, 8);
 
   response.cookies.set(cookieName, "", { ...cookieOptions, maxAge: 0 });

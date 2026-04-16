@@ -1,6 +1,6 @@
 import { createClient, type User } from "@supabase/supabase-js";
-import { stringFromBase64URL } from "@supabase/ssr/dist/main/utils";
 import { getSupabaseAnonKey, getSupabaseAuthStorageKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
+import { decodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
 
 type CookieValue = {
   name: string;
@@ -38,11 +38,7 @@ export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookie
   }
 
   try {
-    const decodedValue = encodedValue.startsWith("base64-")
-      ? stringFromBase64URL(encodedValue.slice("base64-".length))
-      : encodedValue;
-
-    return JSON.parse(decodedValue) as SessionCookiePayload;
+    return JSON.parse(decodeSessionCookiePayload(encodedValue)) as SessionCookiePayload;
   } catch {
     return null;
   }

@@ -8,6 +8,7 @@ import {
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
 import {
+  getSupabaseServerUrl,
   getSupabaseServiceRoleKey,
 } from "@/lib/supabase-shared";
 import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
