@@ -18,6 +18,21 @@ function normalizeUrl(name: string, value: string): string {
   }
 }
 
+function shouldPreferPublicSupabaseUrl(serverUrl: string, publicUrl: string): boolean {
+  try {
+    const server = new URL(serverUrl);
+    const publicRuntime = new URL(publicUrl);
+
+    return (
+      server.protocol === "http:" &&
+      publicRuntime.protocol === "https:" &&
+      server.hostname === publicRuntime.hostname
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getSupabaseUrl(): string {
   return normalizeUrl(
     "NEXT_PUBLIC_SUPABASE_URL",
@@ -41,12 +56,13 @@ export function getSupabaseCookieOptions() {
 }
 
 export function getSupabaseServerUrl(): string {
+  const publicUrl = getSupabaseUrl();
   const serverUrl =
     process.env.SUPABASE_SERVER_URL ??
     process.env.SUPABASE_INTERNAL_URL ??
     process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-  return normalizeUrl(
+  const normalized = normalizeUrl(
     process.env.SUPABASE_SERVER_URL?.trim()
       ? "SUPABASE_SERVER_URL"
       : process.env.SUPABASE_INTERNAL_URL?.trim()
@@ -57,10 +73,12 @@ export function getSupabaseServerUrl(): string {
         ? "SUPABASE_SERVER_URL"
         : process.env.SUPABASE_INTERNAL_URL?.trim()
           ? "SUPABASE_INTERNAL_URL"
-          : "NEXT_PUBLIC_SUPABASE_URL",
+        : "NEXT_PUBLIC_SUPABASE_URL",
       serverUrl
     )
   );
+
+  return shouldPreferPublicSupabaseUrl(normalized, publicUrl) ? publicUrl : normalized;
 }
 
 export function getSupabaseAnonKey(): string {
