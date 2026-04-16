@@ -278,10 +278,12 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   }
 
   if (configured === "managed") {
-    return "managed";
+    throw new Error(
+      "Managed Supabase kapali. Store authority yalnizca self-hosted Coolify Supabase icin olusturulabilir.",
+    );
   }
 
-  return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
+  return "self_hosted_coolify";
 }
 
 function normalizeRepositoryBranch(value: string | null | undefined): string | null {
