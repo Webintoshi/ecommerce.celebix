@@ -38,19 +38,22 @@
     "createdAt": "2026-03-27T00:00:00.000Z",
     "envTemplatePath": "stores/deri-kordon/admin.env.example",
     "adminEnvLocalPath": "stores/deri-kordon/admin.env.local",
+    "coolifyProjectName": "DeryCraft",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "deri-kordon-admin",
+    "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://panel.celebix.co",
+    "adminDeploymentResourceId": "qckww8080cw8kwww8gsw4kog",
     "adminDeploymentStatus": "configured",
-    "adminDeploymentPreparedAt": "2026-04-08T00:00:00.000Z",
+    "adminDeploymentPreparedAt": "2026-04-16T03:57:48.305Z",
+    "adminDeploymentDeployedAt": "2026-04-16T03:57:48.304Z",
     "organizationSlug": "jzhvbqbjyrljtdrbvyqg",
     "supabaseProvider": "self_hosted_coolify",
     "supabaseProjectName": "derycraft-db",
     "supabaseResourceId": "xunl5elgny3wzmq7xylb6ts6",
     "supabaseDashboardUrl": "https://supabasekong-derycraft.46.225.183.57.sslip.io/project/default",
     "provisionedAt": "2026-03-28T00:23:53.023Z",
-    "supabaseProvisioning": "configured",
-    "adminDeploymentBranch": "deploy/owner"
+    "supabaseProvisioning": "configured"
   },
   "features": [
     "catalog",
@@ -70,6 +73,11 @@
     "appDir": "apps/storefront-deri-kordon",
     "status": "active",
     "lastScaffoldedAt": "2026-03-29T10:30:00.000Z",
-    "deploymentBranch": "deploy/derycraft"
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "deri-kordon-storefront",
+    "deploymentBranch": "deploy/derycraft",
+    "runtimeUrl": "https://derycraft.com",
+    "deploymentStatus": "pending-owner-env"
   }
 }
