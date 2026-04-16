@@ -1207,25 +1207,68 @@ function resolveSupabaseDashboardUrl(configuredDashboardUrl: string | null | und
   return `${baseUrl.replace(/\/+$/, "")}/project/default`;
 }
 
-async function createStoreServiceClient(store: StoreConfig, ownerStoreId?: string): Promise<SupabaseClient | null> {
+async function resolveStoreSupabaseAuthority(store: StoreConfig, ownerStoreId?: string): Promise<{
+  url: string | null;
+  serviceRoleKey: string | null;
+  anonKey: string | null;
+}> {
   const secretRecord = ownerStoreId
     ? await getStoreSupabaseSecretByStoreId(ownerStoreId)
     : await getStoreSupabaseSecret(store.slug);
   const envMap = parseEnvFile(resolveStoreEnvPath(store));
   const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
-  const url = secretRecord?.supabase_url || configuredStoreUrl || envMap.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY;
+  return {
+    url: secretRecord?.supabase_url || configuredStoreUrl || envMap.NEXT_PUBLIC_SUPABASE_URL || null,
+    serviceRoleKey: secretRecord?.supabase_service_role_key || envMap.SUPABASE_SERVICE_ROLE_KEY || null,
+    anonKey: secretRecord?.supabase_anon_key || envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
+  };
+}
 
-  if (!url || url === "configure-in-env" || !serviceKey) {
+async function createStoreServiceClient(store: StoreConfig, ownerStoreId?: string): Promise<SupabaseClient | null> {
+  const { url, serviceRoleKey } = await resolveStoreSupabaseAuthority(store, ownerStoreId);
+
+  if (!url || url === "configure-in-env" || !serviceRoleKey) {
     return null;
   }
 
-  return createClient(url, serviceKey, {
+  return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
     }
   });
+}
+
+async function verifyStoreAdminCredentials(
+  store: StoreConfig,
+  ownerStoreId: string | undefined,
+  email: string,
+  password: string
+): Promise<string | null> {
+  const { url, anonKey } = await resolveStoreSupabaseAuthority(store, ownerStoreId);
+
+  if (!url || url === "configure-in-env" || !anonKey) {
+    return "Store auth authority hazir degil.";
+  }
+
+  const verificationClient = createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    }
+  });
+  const { data, error } = await verificationClient.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error || !data.session || !data.user) {
+    return error?.message || "Store admin girisi dogrulanamadi.";
+  }
+
+  await verificationClient.auth.signOut().catch(() => undefined);
+  return null;
 }
 
 async function countStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<number> {
@@ -2743,7 +2786,8 @@ export async function createOrAssignStoreAdmin(
     throw new Error("Store konfigurasyonu bulunamadi.");
   }
 
-  const client = await createStoreServiceClient(storeConfig);
+  const ownerStoreId = allowedStore.id;
+  const client = await createStoreServiceClient(storeConfig, ownerStoreId);
 
   if (!client) {
     throw new Error("Store Supabase baglantisi hazir degil.");
@@ -2789,7 +2833,9 @@ export async function createOrAssignStoreAdmin(
     created = true;
   } else {
     const { error: updateUserError } = await client.auth.admin.updateUserById(existingUser.id, {
+      email: normalizedEmail,
       password,
+      email_confirm: true,
       user_metadata: {
         ...(existingUser.user_metadata || {}),
         full_name: fullName
@@ -2817,6 +2863,56 @@ export async function createOrAssignStoreAdmin(
     }
 
     throw new Error(profileError.message);
+  }
+
+  let verificationError = await verifyStoreAdminCredentials(
+    storeConfig,
+    ownerStoreId,
+    normalizedEmail,
+    password
+  );
+
+  if (verificationError) {
+    const { error: repairUserError } = await client.auth.admin.updateUserById(userId, {
+      email: normalizedEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        ...(existingUser?.user_metadata || {}),
+        full_name: fullName,
+      }
+    });
+
+    if (repairUserError) {
+      if (created) {
+        try {
+          await client.from("profiles").delete().eq("id", userId);
+        } catch {}
+        await client.auth.admin.deleteUser(userId).catch(() => undefined);
+      }
+
+      throw new Error(
+        `Store admin girisi dogrulanamadi: ${verificationError}. Onarma denemesi basarisiz: ${repairUserError.message}`
+      );
+    }
+
+    verificationError = await verifyStoreAdminCredentials(
+      storeConfig,
+      ownerStoreId,
+      normalizedEmail,
+      password
+    );
+  }
+
+  if (verificationError) {
+    if (created) {
+      try {
+        await client.from("profiles").delete().eq("id", userId);
+      } catch {}
+      await client.auth.admin.deleteUser(userId).catch(() => undefined);
+    }
+
+    throw new Error(`Store admin hesabi olusturuldu ancak giris testi basarisiz: ${verificationError}`);
   }
 
   await recordOwnerAuditLog({
