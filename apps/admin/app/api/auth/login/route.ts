@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient, type Session } from "@supabase/supabase-js";
+import { createChunks, stringToBase64URL } from "@supabase/ssr/dist/main/utils";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
-import { getSupabaseAnonKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
+import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
 type LoginBody = {
@@ -16,44 +16,33 @@ type UserRecord = {
   user_metadata?: Record<string, unknown> | null;
 };
 
-type PendingCookie = {
-  name: string;
-  value: string;
-  options?: Parameters<NextResponse["cookies"]["set"]>[2];
-};
-
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-async function createAdminLoginClient() {
-  const cookieStore = await cookies();
-  const pendingCookies: PendingCookie[] = [];
-  const authClient = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          pendingCookies.push({
-            name: cookie.name,
-            value: cookie.value,
-            options: cookie.options,
-          });
-        }
-      },
+function createAdminLoginClient() {
+  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
     },
   });
+}
 
-  return {
-    authClient,
-    applyCookies(response: NextResponse) {
-      for (const cookie of pendingCookies) {
-        response.cookies.set(cookie.name, cookie.value, cookie.options);
-      }
-    },
-  };
+function applyAdminSessionCookies(response: NextResponse, session: Session) {
+  const { name: cookieName, ...cookieOptions } = getSupabaseCookieOptions();
+  const encodedSession = `base64-${stringToBase64URL(JSON.stringify(session))}`;
+  const chunks = createChunks(cookieName, encodedSession);
+  const staleChunkCount = Math.max(chunks.length, 8);
+
+  response.cookies.set(cookieName, "", { ...cookieOptions, maxAge: 0 });
+  for (let index = 0; index < staleChunkCount; index += 1) {
+    response.cookies.set(`${cookieName}.${index}`, "", { ...cookieOptions, maxAge: 0 });
+  }
+
+  for (const chunk of chunks) {
+    response.cookies.set(chunk.name, chunk.value, cookieOptions);
+  }
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -119,8 +108,8 @@ export async function POST(request: Request) {
     }
 
     let repaired = false;
-    let loginClient = await createAdminLoginClient();
-    let { data, error } = await loginClient.authClient.auth.signInWithPassword({
+    let loginClient = createAdminLoginClient();
+    let { data, error } = await loginClient.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -132,8 +121,8 @@ export async function POST(request: Request) {
         const repairResult = await repairSelfHostedPassword(email, password);
         repaired = repairResult.repaired;
 
-        loginClient = await createAdminLoginClient();
-        ({ data, error } = await loginClient.authClient.auth.signInWithPassword({
+        loginClient = createAdminLoginClient();
+        ({ data, error } = await loginClient.auth.signInWithPassword({
           email: email.trim(),
           password,
         }));
@@ -158,7 +147,7 @@ export async function POST(request: Request) {
       { status: 200 },
     );
 
-    loginClient.applyCookies(response);
+    applyAdminSessionCookies(response, data.session);
 
     return response;
   } catch (error) {

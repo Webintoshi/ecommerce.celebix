@@ -25,6 +25,21 @@ export function getSupabaseUrl(): string {
   );
 }
 
+export function getSupabaseAuthStorageKey(): string {
+  return `sb-${new URL(getSupabaseUrl()).hostname.split(".")[0]}-auth-token`;
+}
+
+export function getSupabaseCookieOptions() {
+  return {
+    name: getSupabaseAuthStorageKey(),
+    path: "/",
+    sameSite: "lax" as const,
+    httpOnly: false,
+    secure: getSupabaseUrl().startsWith("https://"),
+    maxAge: 400 * 24 * 60 * 60,
+  };
+}
+
 export function getSupabaseServerUrl(): string {
   const serverUrl =
     process.env.SUPABASE_SERVER_URL ??

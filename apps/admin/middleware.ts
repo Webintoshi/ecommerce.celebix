@@ -9,6 +9,7 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import {
   getSupabaseAnonKey,
+  getSupabaseCookieOptions,
   getSupabaseServerUrl,
   getSupabaseServiceRoleKey,
   getSupabaseUrl
@@ -119,6 +120,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const supabase = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       getAll() {
         return request.cookies.getAll();
