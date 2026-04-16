@@ -200,8 +200,8 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       ? toPlainHttpUrl(runtimeAuthority?.publicUrl?.trim() || supabaseUrl || "")
       : "";
   const serverUrl =
-    existingEnv.SUPABASE_SERVER_URL?.trim() ||
     derivedSelfHostedServerUrl ||
+    existingEnv.SUPABASE_SERVER_URL?.trim() ||
     existingEnv.SUPABASE_INTERNAL_URL?.trim() ||
     runtimeAuthority?.internalApiUrl?.trim() ||
     "";
