@@ -1,18 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
+import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
 import {
   applySecurityHeaders,
   isMutationMethod,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
 import {
-  getSupabaseAnonKey,
-  getSupabaseCookieOptions,
-  getSupabaseServerUrl,
   getSupabaseServiceRoleKey,
-  getSupabaseUrl
 } from "@/lib/supabase-shared";
 import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
@@ -119,24 +115,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
-    cookieOptions: getSupabaseCookieOptions(),
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          request.cookies.set(cookie.name, cookie.value);
-          response.cookies.set(cookie.name, cookie.value, cookie.options);
-        }
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUserFromCookies(request.cookies.getAll());
 
   if (!user) {
     if (pathname.startsWith("/api/")) {
@@ -185,8 +164,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!profile || !ADMIN_ROLES.has(profile.role)) {
-    await supabase.auth.signOut();
-
     if (pathname.startsWith("/api/")) {
       return applySecurityHeaders(
         request,

@@ -1,10 +1,12 @@
 import "server-only";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
 import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
-import { createServiceSupabaseClient, createSessionServerClient } from "@/lib/supabase-server";
+import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 export interface AdminProfile {
   id: string;
@@ -20,13 +22,10 @@ export interface AdminAuthContext {
 }
 
 export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
-  const supabase = await createSessionServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const cookieStore = await cookies();
+  const user = await getSessionUserFromCookies(cookieStore.getAll());
 
-  if (userError || !user) {
+  if (!user) {
     return null;
   }
 
