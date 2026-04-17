@@ -28,34 +28,52 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
+    "projectRef": "coolify:butik-waya:w12sbc5go82uw8a5aofpmiin",
+    "url": "https://supabasekong-butik-waya.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store"
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-butik-waya.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
-    "provisioning": "pending-owner-env"
+    "bucketName": "butik-waya-assets",
+    "publicUrl": "https://pub-f6471fbbae48474da630c1ef87e6bd1f.r2.dev",
+    "managedDomain": "pub-f6471fbbae48474da630c1ef87e6bd1f.r2.dev",
+    "provisionedAt": "2026-04-17T09:15:57.711Z",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-04-17T09:09:48.083Z",
     "envTemplatePath": "stores/butik-waya/admin.env.example",
+    "adminEnvLocalPath": "stores/butik-waya/admin.env.local",
     "coolifyProjectName": "BUTİK WAYA",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "BUTİK WAYA admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.waya.celebix.co",
-    "adminDeploymentStatus": "pending-owner-env",
+    "adminDeploymentStatus": "failed",
+    "adminDeploymentPreparedAt": "2026-04-17T09:16:01.724Z",
+    "adminDeploymentLastError": "fetch failed",
+    "organizationSlug": "butik-waya",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProvisioning": "pending-owner-env"
+    "supabaseProjectName": "butik-waya-db",
+    "supabaseResourceId": "w12sbc5go82uw8a5aofpmiin",
+    "supabaseDashboardUrl": "https://supabasekong-butik-waya.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-17T09:15:48.982Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
-    "status": "not_started",
-    "repoSyncStatus": "pending",
+    "appDir": "apps/storefront-butik-waya",
+    "status": "scaffolded",
+    "lastScaffoldedAt": "2026-04-17T09:19:38.571Z",
+    "repoSyncStatus": "failed",
+    "repoSyncedAt": "2026-04-17T09:19:40.550Z",
+    "lastRepoSyncError": "GitHub API hatasi (403): {\n  \"documentation_url\": \"https://docs.github.com/free-pro-team@latest/rest/overview/rate-limits-for-the-rest-api#about-secondary-rate-limits\",\n  \"message\": \"You have exceeded a secondary rate limit. Please wait a few minutes before you try again. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) If you reach out to GitHub Support for help, please include the request ID 8E54:3C52D9:16FB367:151BBC2:69E1FB54.\"\n}",
     "deploymentProvider": "coolify",
     "deploymentName": "BUTİK WAYA websitesi",
     "deploymentBranch": "deploy/storefront/butik-waya",
     "runtimeUrl": "https://waya.celebix.co",
-    "deploymentStatus": "pending-owner-env"
+    "deploymentStatus": "pending-repo-sync",
+    "lastDeploymentError": "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
   },
   "features": [
     "catalog",
