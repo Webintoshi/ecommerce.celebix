@@ -260,16 +260,6 @@ async function listApplications(): Promise<CoolifyApplication[]> {
   return normalizeArrayPayload<CoolifyApplication>(payload);
 }
 
-function isGeneratedAutoDeployEnabled(): boolean {
-  const raw = process.env.COOLIFY_GENERATED_AUTO_DEPLOY?.trim().toLowerCase();
-
-  if (!raw) {
-    return true;
-  }
-
-  return !(raw === "0" || raw === "false" || raw === "no" || raw === "off");
-}
-
 function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymentBlueprint, projectUuid: string, environmentUuid: string) {
   return {
     project_uuid: projectUuid,
@@ -292,8 +282,8 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
     health_check_path: "/api/public/runtime",
     health_check_port: "3000",
     is_force_https_enabled: true,
-    // Generated store apps should follow their dedicated deploy branches by default.
-    is_auto_deploy_enabled: isGeneratedAutoDeployEnabled(),
+    // Generated admin apps are deployed explicitly by owner orchestration.
+    is_auto_deploy_enabled: false,
     instant_deploy: false
   };
 }

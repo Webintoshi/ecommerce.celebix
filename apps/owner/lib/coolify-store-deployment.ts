@@ -191,7 +191,7 @@ async function repairDeploymentTarget(
   },
 ): Promise<StoreDeploymentAuthorityTargetRepairResult> {
   const currentApplication = findApplication(applications, options.blueprint);
-  const desiredAutoDeployEnabled = true;
+  const desiredAutoDeployEnabled = options.target === "admin" ? false : true;
 
   if (!currentApplication?.uuid) {
     return {
