@@ -37,15 +37,17 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         allProducts={(data.allProducts as never[]) || []}
         groupCopy={uiCopy?.productGroups}
         viewAllLabel={uiCopy?.viewAllLabel}
-      />
-      <StoreLocationsSection
-        eyebrow={uiCopy?.storesEyebrow}
-        heading={uiCopy?.storesHeading}
-        description={uiCopy?.storesDescription}
-        linkLabel={uiCopy?.storesLinkLabel}
-        storesHref={storesHref}
-        testimonials={data.testimonials}
-        products={(data.allProducts as Record<string, unknown>[]) || []}
+        insetSection={
+          <StoreLocationsSection
+            eyebrow={uiCopy?.storesEyebrow}
+            heading={uiCopy?.storesHeading}
+            description={uiCopy?.storesDescription}
+            linkLabel={uiCopy?.storesLinkLabel}
+            storesHref={storesHref}
+            testimonials={data.testimonials}
+            products={(data.allProducts as Record<string, unknown>[]) || []}
+          />
+        }
       />
     </main>
   );
