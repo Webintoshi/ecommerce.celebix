@@ -7,8 +7,6 @@ import {
   Star,
   Heart,
   Share2,
-  Minus,
-  Plus,
   ArrowLeft,
   Package,
   Clock,
@@ -97,7 +95,6 @@ export function ProductDetailClient({
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
-  const [quantity, setQuantity] = useState(1);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
@@ -137,7 +134,6 @@ export function ProductDetailClient({
 
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
-    setQuantity(1);
     setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
 
@@ -258,13 +254,7 @@ export function ProductDetailClient({
       return;
     }
 
-    addToCart(product, variant, quantity, customizationState.payload || undefined);
-  };
-
-  const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) =>
-      Math.max(1, Math.min(variant.stock || 10, prev + delta)),
-    );
+    addToCart(product, variant, 1, customizationState.payload || undefined);
   };
 
   const toggleWishlist = () => {
@@ -411,21 +401,6 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  "Canlı vitrin sunumu",
-                  "Güvenli sipariş akışı",
-                  "Teslimat bilgisi net görünümü",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-[20px] border border-[var(--store-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--store-ink-soft)] shadow-[var(--store-shadow-soft)]"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-
               <VariantSelectorV2
                 variants={variants}
                 selectedIndex={selectedVariant}
@@ -483,30 +458,6 @@ export function ProductDetailClient({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
-                      Adet
-                    </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
-                      <button
-                        onClick={() => handleQuantityChange(-1)}
-                        disabled={quantity <= 1}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
-                      </button>
-                      <span className="w-10 text-center text-base font-medium text-neutral-900">
-                        {quantity}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(1)}
-                        disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
-                      </button>
-                    </div>
-                  </div>
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
