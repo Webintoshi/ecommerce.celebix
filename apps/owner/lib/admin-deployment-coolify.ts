@@ -7,6 +7,7 @@ import {
   updateStoreAdminDeploymentConfig,
 } from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint, type StoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { prepareCoolifyLiteralEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 
 interface CoolifyProject {
@@ -469,14 +470,18 @@ async function recreateAdminApplication(
 
 async function syncApplicationEnv(applicationUuid: string, envEntries: Record<string, string>): Promise<void> {
   const payload = {
-    data: Object.entries(envEntries).map(([key, value]) => ({
-      key,
-      value,
-      is_literal: true,
-      is_build_time: true,
-      is_runtime: true,
-      is_multiline: false
-    } satisfies CoolifyBulkEnvEntry))
+    data: Object.entries(envEntries).map(([key, value]) => {
+      const preparedValue = prepareCoolifyLiteralEnvValue(value);
+
+      return {
+        key,
+        value: preparedValue.value,
+        is_literal: true,
+        is_build_time: true,
+        is_runtime: true,
+        is_multiline: preparedValue.isMultiline
+      } satisfies CoolifyBulkEnvEntry;
+    })
   };
 
   await coolifyFetch(`/applications/${applicationUuid}/envs/bulk`, {
