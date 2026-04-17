@@ -7,7 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { formatPrice, cn } from "@/lib/utils";
-import { TURKISH_CITIES, SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_THRESHOLD } from "@/lib/constants";
 import { getActivePaymentGateways } from "@/lib/payments";
 import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/shipping";
 import { PaymentGatewayConfig } from "@/types/payment";
@@ -42,6 +42,10 @@ type AppliedCoupon = {
   discountAmount: number;
 };
 
+const STORE_COUNTRY = "T\u00fcrkiye";
+const STORE_CITY = "Ordu";
+const STORE_DISTRICT = "Alt\u0131nordu";
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, shipping: cartShipping, clearCart } = useCart();
@@ -59,10 +63,10 @@ export default function CheckoutPage() {
     lastName: "",
     address: "",
     postalCode: "",
-    city: "",
-    district: "",
+    city: STORE_CITY,
+    district: STORE_DISTRICT,
     phone: "",
-    country: "Türkiye",
+    country: STORE_COUNTRY,
   });
 
   // Account Creation State
@@ -652,28 +656,30 @@ export default function CheckoutPage() {
 
                     <div className="grid md:grid-cols-3 gap-6">
                       <div className="space-y-2 relative">
-                        <label className="text-sm font-medium text-gray-600">Şehir</label>
+                        <label className="text-sm font-medium text-gray-600">{"\u015eehir"}</label>
                         <select
                           value={shippingInfo.city}
-                          onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300 appearance-none cursor-pointer"
+                          disabled
+                          className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed"
                         >
-                          <option value="">Seçiniz</option>
-                          {TURKISH_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          <option value={STORE_CITY}>{STORE_CITY}</option>
                         </select>
                         <div className="absolute right-4 bottom-3.5 pointer-events-none text-gray-400">
                           <ChevronRight className="h-4 w-4 rotate-90" />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">İlçe</label>
-                        <input
-                          type="text"
+                      <div className="space-y-2 relative">
+                        <label className="text-sm font-medium text-gray-600">{"\u0130l\u00e7e"}</label>
+                        <select
                           value={shippingInfo.district}
-                          onChange={(e) => setShippingInfo({ ...shippingInfo, district: e.target.value })}
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
-                          placeholder="İlçe"
-                        />
+                          disabled
+                          className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed"
+                        >
+                          <option value={STORE_DISTRICT}>{STORE_DISTRICT}</option>
+                        </select>
+                        <div className="absolute right-4 bottom-3.5 pointer-events-none text-gray-400">
+                          <ChevronRight className="h-4 w-4 rotate-90" />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-600">Posta Kodu</label>
@@ -691,7 +697,6 @@ export default function CheckoutPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-gray-900">Teslimat Yöntemi</p>
-                          <p className="text-xs text-gray-500">Checkout ekranında müşteriye gösterilir.</p>
                         </div>
                         {selectedShippingRate ? (
                           <span className={cn("text-sm font-semibold", resolvedShippingCost === 0 ? "text-emerald-600" : "text-gray-900")}>
