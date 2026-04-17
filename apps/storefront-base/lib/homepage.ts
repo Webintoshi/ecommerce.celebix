@@ -229,10 +229,7 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
     let query = supabase
       .from("categories")
       .select("*")
-      .is("parent_id", null)
-      .order("created_at", { ascending: false })
-      .order("name", { ascending: true })
-      .limit(6);
+      .is("parent_id", null);
 
     if (includeIsActiveFilter) {
       query = query.eq("is_active", true);
@@ -245,7 +242,32 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
     throw result.error;
   }
 
-  return result.data ?? [];
+  return [...(result.data ?? [])]
+    .sort((left, right) => {
+      const leftCreatedAt =
+        typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+      const rightCreatedAt =
+        typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+      const hasCreatedAtOrdering =
+        Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
+
+      if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
+        return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+          (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+      }
+
+      const leftSortOrder =
+        typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
+      const rightSortOrder =
+        typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
+
+      if (leftSortOrder !== rightSortOrder) {
+        return leftSortOrder - rightSortOrder;
+      }
+
+      return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
+    })
+    .slice(0, 6);
 }
 
 async function fetchHomepageCategoriesWithCuration(
