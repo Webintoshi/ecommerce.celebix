@@ -405,6 +405,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
   const adminDeploymentName = input.adminDeploymentName || `${input.name} admin`;
   const storefrontDeploymentName = input.storefrontDeploymentName || `${input.name} websitesi`;
   const deploymentBranches = getStoreDeploymentBranches(input.slug);
+  const adminDomain = resolveAdminDomain(input.domain);
 
   return {
     name: input.name,
@@ -429,7 +430,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       },
       domains: {
         storefront: input.domain,
-        admin: resolveAdminDomain(input.domain)
+        admin: adminDomain
       },
     owner: {
       createdBy: "owner-panel",
@@ -451,7 +452,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       adminDeploymentProvider: "coolify",
       adminDeploymentName,
       adminDeploymentBranch: deploymentBranches.adminBranch,
-      adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
+      adminDeploymentRuntimeUrl: `https://${adminDomain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
       supabaseProvider: defaultSupabaseProvider,

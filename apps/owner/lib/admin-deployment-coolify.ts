@@ -59,7 +59,7 @@ interface AdminDeploymentProvisioningOptions {
 
 const COOLIFY_API_PREFIX = "/api/v1";
 const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
-const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 24;
+const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 48;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
 const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
@@ -515,6 +515,40 @@ async function waitForAdminRuntime(
   return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug, { deploymentMarker });
 }
 
+async function reconcileConfiguredAdminRuntime(
+  slug: string,
+  options: {
+    resourceId?: string | null;
+    message?: string | null;
+    externallyManaged?: boolean;
+  } = {},
+): Promise<AdminDeploymentProvisioningResult | null> {
+  const currentBlueprint = await getStoreAdminDeploymentBlueprint(slug);
+
+  if (!currentBlueprint.runtimeConsistent || currentBlueprint.status !== "configured") {
+    return null;
+  }
+
+  updateStoreAdminDeploymentConfig(slug, {
+    deploymentStatus: "configured",
+    deploymentName: currentBlueprint.appName,
+    runtimeUrl: currentBlueprint.runtimeUrl,
+    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? undefined,
+    deployedAt: new Date().toISOString(),
+    lastError: currentBlueprint.runtimeMessage ?? undefined,
+  });
+
+  return {
+    appName: currentBlueprint.appName,
+    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? null,
+    runtimeUrl: currentBlueprint.runtimeUrl,
+    status: "configured",
+    runtimeConsistent: true,
+    message: options.message ?? currentBlueprint.runtimeMessage,
+    externallyManaged: options.externallyManaged ?? false,
+  };
+}
+
 export async function provisionAdminDeploymentForStore(
   slug: string,
   options: AdminDeploymentProvisioningOptions = {},
@@ -527,6 +561,15 @@ export async function provisionAdminDeploymentForStore(
     process.env.COOLIFY_API_URL?.trim() &&
     process.env.COOLIFY_API_TOKEN?.trim()
   );
+  const alreadyHealthy = await reconcileConfiguredAdminRuntime(slug, {
+    resourceId: blueprint.resourceId,
+    message: "Admin deployment zaten healthy; owner tekrar deploy baslatmadi.",
+    externallyManaged: !hasCoolifyAuthority && !blueprint.resourceId,
+  });
+
+  if (alreadyHealthy) {
+    return alreadyHealthy;
+  }
 
   if (
     blueprint.runtimeConsistent &&
@@ -619,13 +662,25 @@ export async function provisionAdminDeploymentForStore(
       };
     }
 
-    let runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker).catch((error) => {
+    let runtimeBlueprint: StoreAdminDeploymentBlueprint;
+    try {
+      runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker);
+    } catch (error) {
+      const recoveredDeployment = await reconcileConfiguredAdminRuntime(slug, {
+        resourceId: applicationUuid,
+        message: "Admin runtime gec ayaga kalkti; owner durumu otomatik toparladi.",
+      });
+
+      if (recoveredDeployment) {
+        return recoveredDeployment;
+      }
+
       throw new Error(
         `Admin runtime smoke test basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
         }`,
       );
-    });
+    }
 
     if (!runtimeBlueprint.runtimeConsistent && ensuredApplication.reusedExisting) {
       ensuredApplication = await recreateAdminApplication(
@@ -653,16 +708,36 @@ export async function provisionAdminDeploymentForStore(
         );
       });
 
-      runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker).catch((error) => {
+      try {
+        runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker);
+      } catch (error) {
+        const recoveredDeployment = await reconcileConfiguredAdminRuntime(slug, {
+          resourceId: applicationUuid,
+          message: "Admin runtime recreate sonrasinda gec ayaga kalkti; owner durumu otomatik toparladi.",
+        });
+
+        if (recoveredDeployment) {
+          return recoveredDeployment;
+        }
+
         throw new Error(
           `Admin runtime smoke test (recreate) basarisiz: ${
             error instanceof Error ? error.message : "bilinmeyen hata"
           }`,
         );
-      });
+      }
     }
 
     if (!runtimeBlueprint.runtimeConsistent) {
+      const recoveredDeployment = await reconcileConfiguredAdminRuntime(slug, {
+        resourceId: applicationUuid,
+        message: "Admin runtime son kontrolde healthy bulundu; owner durumu otomatik toparladi.",
+      });
+
+      if (recoveredDeployment) {
+        return recoveredDeployment;
+      }
+
       throw new Error(
         runtimeBlueprint.runtimeMessage || "Admin runtime beklenen sure icinde tutarli cevap vermedi.",
       );
@@ -690,6 +765,15 @@ export async function provisionAdminDeploymentForStore(
       externallyManaged: false
     };
   } catch (error) {
+    const recoveredDeployment = await reconcileConfiguredAdminRuntime(slug, {
+      resourceId: blueprint.resourceId,
+      message: "Admin runtime gecikmeli olarak healthy bulundu; owner failed durumunu temizledi.",
+    }).catch(() => null);
+
+    if (recoveredDeployment) {
+      return recoveredDeployment;
+    }
+
     updateStoreAdminDeploymentConfig(slug, {
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,

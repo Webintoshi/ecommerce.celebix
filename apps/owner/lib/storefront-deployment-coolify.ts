@@ -80,7 +80,7 @@ interface EnsuredStorefrontApplication {
 
 const COOLIFY_API_PREFIX = "/api/v1";
 const STOREFRONT_DEPLOYMENT_POLL_DELAY_MS = 5000;
-const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 36;
+const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 60;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
 const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
@@ -814,6 +814,45 @@ async function waitForStorefrontRuntime(
   return lastBlueprint ?? getStorefrontDeploymentBlueprint(store.slug);
 }
 
+async function reconcileConfiguredStorefrontRuntime(
+  slug: string,
+  options: {
+    resourceId?: string | null;
+    message?: string | null;
+  } = {},
+): Promise<StorefrontDeploymentProvisioningResult | null> {
+  const store = requireStoreConfig(slug);
+  const currentBlueprint = await getStorefrontDeploymentBlueprint(slug);
+
+  if (!currentBlueprint.runtimeConsistent || currentBlueprint.status !== "configured") {
+    return null;
+  }
+
+  updateStoreStorefrontConfig(slug, {
+    appDir: store.storefront?.appDir ?? "",
+    status: "active",
+    lastScaffoldError: store.storefront?.lastScaffoldError,
+  });
+  updateStoreStorefrontDeploymentConfig(slug, {
+    deploymentStatus: "configured",
+    deploymentName: currentBlueprint.appName,
+    runtimeUrl: currentBlueprint.runtimeUrl,
+    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? undefined,
+    deployedAt: new Date().toISOString(),
+    lastError: currentBlueprint.runtimeMessage ?? undefined,
+  });
+
+  return {
+    appName: currentBlueprint.appName,
+    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? null,
+    runtimeUrl: currentBlueprint.runtimeUrl,
+    status: "configured",
+    runtimeConsistent: true,
+    message: options.message ?? currentBlueprint.runtimeMessage,
+    repoSynced: currentBlueprint.repoSynced,
+  };
+}
+
 export async function provisionStorefrontDeploymentForStore(
   slug: string,
   options: StorefrontDeploymentProvisioningOptions = {},
@@ -823,6 +862,14 @@ export async function provisionStorefrontDeploymentForStore(
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
   let currentApplicationUuid = blueprint.resourceId ?? null;
   let currentDeploymentUuid: string | null = null;
+  const alreadyHealthy = await reconcileConfiguredStorefrontRuntime(slug, {
+    resourceId: blueprint.resourceId,
+    message: "Storefront deployment zaten healthy; owner tekrar deploy baslatmadi.",
+  });
+
+  if (alreadyHealthy) {
+    return alreadyHealthy;
+  }
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
     updateStoreStorefrontDeploymentConfig(slug, {
@@ -914,13 +961,25 @@ export async function provisionStorefrontDeploymentForStore(
       };
     }
 
-    let runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
+    let runtimeBlueprint: StorefrontDeploymentBlueprint;
+    try {
+      runtimeBlueprint = await waitForStorefrontRuntime(store);
+    } catch (error) {
+      const recoveredDeployment = await reconcileConfiguredStorefrontRuntime(slug, {
+        resourceId: currentApplicationUuid,
+        message: "Storefront runtime gec ayaga kalkti; owner durumu otomatik toparladi.",
+      });
+
+      if (recoveredDeployment) {
+        return recoveredDeployment;
+      }
+
       throw new Error(
         `Storefront runtime smoke test basarisiz: ${
           error instanceof Error ? error.message : "bilinmeyen hata"
         }`,
       );
-    });
+    }
     if (!runtimeBlueprint.runtimeConsistent) {
       if (ensuredApplication.reusedExisting && currentApplicationUuid) {
         ensuredApplication = await recreateStorefrontApplication(
@@ -952,16 +1011,36 @@ export async function provisionStorefrontDeploymentForStore(
             }`,
           );
         });
-        runtimeBlueprint = await waitForStorefrontRuntime(store).catch((error) => {
+        try {
+          runtimeBlueprint = await waitForStorefrontRuntime(store);
+        } catch (error) {
+          const recoveredDeployment = await reconcileConfiguredStorefrontRuntime(slug, {
+            resourceId: currentApplicationUuid,
+            message: "Storefront runtime recreate sonrasinda gec ayaga kalkti; owner durumu otomatik toparladi.",
+          });
+
+          if (recoveredDeployment) {
+            return recoveredDeployment;
+          }
+
           throw new Error(
             `Storefront runtime smoke test basarisiz: ${
               error instanceof Error ? error.message : "bilinmeyen hata"
             }`,
           );
-        });
+        }
       }
 
       if (!runtimeBlueprint.runtimeConsistent) {
+        const recoveredDeployment = await reconcileConfiguredStorefrontRuntime(slug, {
+          resourceId: currentApplicationUuid,
+          message: "Storefront runtime son kontrolde healthy bulundu; owner durumu otomatik toparladi.",
+        });
+
+        if (recoveredDeployment) {
+          return recoveredDeployment;
+        }
+
         const diagnostics = await buildStorefrontRuntimeFailureDiagnostics(
           currentApplicationUuid,
           currentDeploymentUuid,
@@ -1003,6 +1082,15 @@ export async function provisionStorefrontDeploymentForStore(
       repoSynced: runtimeBlueprint.repoSynced,
     };
   } catch (error) {
+    const recoveredDeployment = await reconcileConfiguredStorefrontRuntime(slug, {
+      resourceId: currentApplicationUuid ?? blueprint.resourceId,
+      message: "Storefront runtime gecikmeli olarak healthy bulundu; owner failed durumunu temizledi.",
+    }).catch(() => null);
+
+    if (recoveredDeployment) {
+      return recoveredDeployment;
+    }
+
     updateStoreStorefrontDeploymentConfig(slug, {
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,
