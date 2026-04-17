@@ -1,5 +1,8 @@
 import { createServerClient } from "@/lib/supabase";
-import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+  getHomepageCurationSettings,
+  getProductListingOrderPositions,
+} from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
   getVariantAttributeRegistry,
@@ -210,6 +213,45 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+  return fetchHomepageCategoriesWithCuration(supabase, []);
+}
+
+async function fetchHomepageCategoriesWithCuration(
+  supabase: ReturnType<typeof createServerClient>,
+  featuredCategorySlugs: string[],
+) {
+  const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
+
+  if (featuredSlugs.length > 0) {
+    const curatedResult = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("*")
+        .in("slug", featuredSlugs)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
+
+    if (curatedResult.error) {
+      throw curatedResult.error;
+    }
+
+    if ((curatedResult.data?.length ?? 0) > 0) {
+      const orderMap = new Map(featuredSlugs.map((slug, index) => [slug, index]));
+      return (curatedResult.data ?? []).sort((left, right) => {
+        const leftPriority = orderMap.get(left.slug) ?? 99;
+        const rightPriority = orderMap.get(right.slug) ?? 99;
+        return leftPriority - rightPriority;
+      });
+    }
+  }
+
   const result = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("categories")
@@ -231,6 +273,16 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
   }
 
   return result.data ?? [];
+}
+
+function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T) {
+  return {
+    ...product,
+    featured:
+      typeof product.featured === "boolean"
+        ? product.featured
+        : Boolean(product.is_featured),
+  };
 }
 
 async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
@@ -321,7 +373,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
 
   const [
     heroBannersData,
-    categoriesData,
+    homepageCuration,
     promoBannersData,
     allProductsData,
     attributeRegistry,
@@ -333,7 +385,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       .select("value")
       .eq("key", "hero_banners")
       .maybeSingle(),
-    fetchHomepageCategories(supabase),
+    getHomepageCurationSettings(),
     supabase
       .from("settings")
       .select("value")
@@ -345,11 +397,32 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     getProductListingOrderPositions(),
   ]);
 
+  const categoriesData =
+    homepageCuration.featuredCategorySlugs.length > 0
+      ? await fetchHomepageCategoriesWithCuration(
+          supabase,
+          homepageCuration.featuredCategorySlugs,
+        )
+      : await fetchHomepageCategories(supabase);
+
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
+  const categoryOrder =
+    homepageCuration.featuredCategorySlugs.length > 0
+      ? new Map(homepageCuration.featuredCategorySlugs.map((slug, index) => [slug, index]))
+      : null;
 
   const categoryBase = (categoriesData || [])
     .filter((category) => category.slug && category.name)
     .sort((left, right) => {
+      if (categoryOrder) {
+        const leftPriority = categoryOrder.get(left.slug) ?? 99;
+        const rightPriority = categoryOrder.get(right.slug) ?? 99;
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+      }
+
       const leftSort = typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
       const rightSort = typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
 
@@ -400,9 +473,17 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   return {
     heroBanners: translatedHeroBanners,
     categories: translatedCategories,
-    products: hydrateHomepageProducts(translatedProducts || [], attributeRegistry),
+    products: hydrateHomepageProducts(
+      (translatedProducts || []).map((product) => withHomepageFeaturedFlag(product)),
+      attributeRegistry,
+    ),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: hydrateHomepageProducts(translatedShowcaseProducts || [], attributeRegistry),
+    allProducts: hydrateHomepageProducts(
+      (translatedShowcaseProducts || []).map((product) =>
+        withHomepageFeaturedFlag(product),
+      ),
+      attributeRegistry,
+    ),
     testimonials: testimonialsData,
   };
 }
