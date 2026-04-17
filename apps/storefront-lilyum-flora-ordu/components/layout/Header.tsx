@@ -55,14 +55,23 @@ export function Header() {
 
   const quickLinks = useMemo(
     () => [
-      { label: "Tüm Çiçekler", href: ROUTES.products },
+      { label: "T\u00fcm \u00c7i\u00e7ekler", href: ROUTES.products },
       ...headerCategories.slice(0, 4).map((category) => ({
         label: getLocalizedCategoryLabel(category.slug, category.name, locale),
         href: ROUTES.category(category.slug),
       })),
-      { label: "İletişim", href: ROUTES.contact },
+      { label: "\u0130leti\u015fim", href: ROUTES.contact },
     ],
     [headerCategories, locale],
+  );
+
+  const utilityLinks = useMemo(
+    () => [
+      { label: "Ana Sayfa", href: ROUTES.home },
+      { label: "Hakk\u0131m\u0131zda", href: ROUTES.about },
+      { label: "\u0130leti\u015fim", href: ROUTES.contact },
+    ],
+    [],
   );
 
   useEffect(() => {
@@ -139,29 +148,32 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-[var(--store-border)] bg-[rgba(246,246,246,0.94)] shadow-[0_18px_45px_rgba(80,94,113,0.1)] backdrop-blur-xl"
-          : "border-b border-transparent bg-[rgba(246,246,246,0.84)] backdrop-blur-md"
+          ? "border-b border-[var(--store-border)] bg-[rgba(246,246,246,0.94)] shadow-[0_16px_36px_rgba(80,94,113,0.08)] backdrop-blur-xl"
+          : "border-b border-transparent bg-[rgba(246,246,246,0.86)] backdrop-blur-md"
       }`}
     >
       <div className="container-premium">
-        <div className="hidden items-center justify-between border-b border-[var(--store-border)] py-2 lg:flex">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--store-muted)]">
-            Lilyum Flora Ordu
-          </p>
-          <div className="flex items-center gap-2">
-            {quickLinks.slice(0, 4).map((link) => (
-              <Link
-                key={`${link.href}-${link.label}`}
-                href={buildLocalizedPath(link.href, locale)}
-                className="rounded-full border border-[var(--store-border)] bg-white px-3 py-1 text-[11px] font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
-              >
-                {link.label}
-              </Link>
+        <div className="hidden items-center justify-end border-b border-[var(--store-border)] py-1.5 lg:flex">
+          <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+            {utilityLinks.map((link, index) => (
+              <div key={`${link.href}-${link.label}`} className="flex items-center gap-3">
+                <Link
+                  href={buildLocalizedPath(link.href, locale)}
+                  className="transition hover:text-[var(--store-accent)]"
+                >
+                  {link.label}
+                </Link>
+                {index < utilityLinks.length - 1 ? (
+                  <span aria-hidden="true" className="text-[var(--store-border-strong)]">
+                    /
+                  </span>
+                ) : null}
+              </div>
             ))}
           </div>
         </div>
 
-        <div className="flex h-[74px] items-center justify-between gap-3 lg:h-[88px]">
+        <div className="flex h-[72px] items-center justify-between gap-3 lg:h-[86px]">
           <div className="flex items-center gap-2 lg:hidden">
             <button
               className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)]"
