@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowUpRight, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 import { type StorefrontLocale, buildLocalizedPath } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -66,78 +66,6 @@ function getProductImage(
   }
 
   return resolveImageSrc(imageSource) || "/placeholder.svg";
-}
-
-function OverlayMessage({
-  title,
-  description,
-  quickLinks,
-  locale,
-  onClose,
-}: {
-  title: string;
-  description: string;
-  quickLinks: QuickLink[];
-  locale: StorefrontLocale;
-  onClose: () => void;
-}) {
-  const featuredLinks = quickLinks.slice(0, 4);
-
-  return (
-    <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <div className="rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.92)_100%)] p-7 shadow-[0_26px_60px_-42px_rgba(80,94,113,0.28)] sm:p-8">
-        <p className="section-eyebrow">Nazik kesif</p>
-        <h2 className="mt-4 text-[clamp(2rem,4vw,3.35rem)] font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
-          {title}
-        </h2>
-        <p className="mt-4 max-w-xl text-sm leading-7 text-[var(--store-ink-soft)] sm:text-[15px]">
-          {description}
-        </p>
-
-        {featuredLinks.length > 0 ? (
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            {featuredLinks.map((link) => (
-              <Link
-                key={`hero-${link.href}-${link.label}`}
-                href={buildLocalizedPath(link.href, locale)}
-                onClick={onClose}
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--store-ink-soft)] shadow-[0_12px_30px_-24px_rgba(80,94,113,0.32)] transition hover:text-[var(--store-accent)]"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {featuredLinks.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {featuredLinks.map((link) => (
-            <Link
-              key={`card-${link.href}-${link.label}`}
-              href={buildLocalizedPath(link.href, locale)}
-              onClick={onClose}
-              className="group rounded-[28px] border border-[rgba(80,94,113,0.08)] bg-white/88 p-5 shadow-[0_22px_54px_-44px_rgba(80,94,113,0.35)] transition hover:-translate-y-0.5 hover:border-[rgba(218,99,13,0.16)] hover:bg-white"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                    Kesfe git
-                  </p>
-                  <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
-                    {link.label}
-                  </p>
-                </div>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--store-surface-alt)] text-[var(--store-accent)] transition group-hover:bg-[rgba(218,99,13,0.12)]">
-                  <ArrowUpRight className="h-4 w-4" />
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export function HeaderSearchOverlay({
@@ -228,7 +156,7 @@ export function HeaderSearchOverlay({
         const payload = (await response.json()) as SearchProductsResponse;
 
         if (!response.ok || payload.success === false) {
-          throw new Error(payload.error || "Arama basarisiz");
+          throw new Error(payload.error || "Arama ba\u015far\u0131s\u0131z");
         }
 
         setResults(Array.isArray(payload.products) ? payload.products : []);
@@ -239,7 +167,7 @@ export function HeaderSearchOverlay({
 
         console.error("Header search request failed:", error);
         setResults([]);
-        setErrorMessage("Arama sonuclari su anda alinamiyor.");
+        setErrorMessage("Arama sonu\u00e7lar\u0131 \u015fu anda al\u0131nam\u0131yor.");
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -271,21 +199,14 @@ export function HeaderSearchOverlay({
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Urun arama penceresi"
+          aria-label="\u00dcr\u00fcn arama penceresi"
         >
           <div className="border-b border-[rgba(80,94,113,0.08)] px-5 py-5 sm:px-7 sm:py-6 lg:px-8">
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="section-eyebrow">Hizli Kesif</p>
-                    <p className="mt-2 text-sm text-[var(--store-ink-soft)]">
-                      Buket, orkide, gul ya da kategori arayabilirsin.
-                    </p>
-                  </div>
-                </div>
+                <p className="section-eyebrow">{"H\u0131zl\u0131 Ke\u015fif"}</p>
 
-                <form className="mt-5" onSubmit={(event) => event.preventDefault()}>
+                <form className="mt-4" onSubmit={(event) => event.preventDefault()}>
                   <div className="relative overflow-hidden rounded-[30px] border border-[rgba(80,94,113,0.08)] bg-white/90 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_18px_40px_-34px_rgba(80,94,113,0.36)] transition duration-300 focus-within:border-[rgba(218,99,13,0.18)] focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_24px_60px_-38px_rgba(218,99,13,0.26)]">
                     <div className="pointer-events-none absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f8fbfd_0%,#edf2f7_100%)] text-[var(--store-ink-soft)]">
                       <Search className="h-[18px] w-[18px]" />
@@ -295,7 +216,7 @@ export function HeaderSearchOverlay({
                       type="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Buket, orkide, gul ya da urun adi ara..."
+                      placeholder={"Buket, orkide, g\u00fcl ya da \u00fcr\u00fcn ad\u0131 ara..."}
                       className="h-[64px] w-full bg-transparent pl-[72px] pr-16 text-[15px] font-medium text-[var(--store-ink)] outline-none placeholder:text-[color:rgba(80,94,113,0.46)] sm:text-base"
                     />
                     {query ? (
@@ -303,7 +224,7 @@ export function HeaderSearchOverlay({
                         type="button"
                         onClick={() => setQuery("")}
                         className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--store-surface-alt)] text-[var(--store-muted)] transition hover:bg-white hover:text-[var(--store-ink)]"
-                        aria-label="Aramayi temizle"
+                        aria-label={"Aramay\u0131 temizle"}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -333,7 +254,7 @@ export function HeaderSearchOverlay({
                 type="button"
                 onClick={onClose}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/88 text-[var(--store-muted)] shadow-[0_16px_36px_-28px_rgba(80,94,113,0.35)] transition hover:text-[var(--store-ink)]"
-                aria-label="Aramayi kapat"
+                aria-label={"Aramay\u0131 kapat"}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -342,41 +263,44 @@ export function HeaderSearchOverlay({
 
           <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6 lg:px-8">
             {normalizedQuery.length < 2 ? (
-              <OverlayMessage
-                title="Bir cicek, kategori ya da urunle basla"
-                description="En az 2 karakter yazarak hizli sonuclara ulasabilir, istersen asagidaki kisayollardan dogrudan kesfe gecebilirsin."
-                quickLinks={quickLinks}
-                locale={locale}
-                onClose={onClose}
-              />
+              <div className="h-2" aria-hidden="true" />
             ) : isLoading ? (
-              <div className="flex min-h-[280px] items-center rounded-[32px] bg-white/78 px-6 shadow-[0_24px_64px_-50px_rgba(80,94,113,0.35)]">
+              <div className="flex min-h-[120px] items-center justify-center rounded-[28px] bg-white/70 px-6 shadow-[0_18px_48px_-42px_rgba(80,94,113,0.28)]">
                 <div className="mx-auto text-center">
-                  <p className="section-title text-[var(--store-ink)]">Araniyor</p>
-                  <p className="section-copy mt-3">Uygun urunler yukleniyor.</p>
+                  <p className="text-lg font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
+                    {"Aran\u0131yor"}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--store-ink-soft)]">
+                    {"Uygun \u00fcr\u00fcnler y\u00fckleniyor."}
+                  </p>
                 </div>
               </div>
             ) : errorMessage ? (
-              <div className="flex min-h-[280px] items-center rounded-[32px] bg-white/78 px-6 shadow-[0_24px_64px_-50px_rgba(80,94,113,0.35)]">
+              <div className="flex min-h-[120px] items-center justify-center rounded-[28px] bg-white/70 px-6 shadow-[0_18px_48px_-42px_rgba(80,94,113,0.28)]">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Arama su an kullanilamiyor</p>
-                  <p className="section-copy mt-3">{errorMessage}</p>
+                  <p className="text-lg font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
+                    {"Arama \u015fu an kullan\u0131lam\u0131yor"}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--store-ink-soft)]">{errorMessage}</p>
                 </div>
               </div>
             ) : results.length === 0 ? (
-              <OverlayMessage
-                title="Sonuc bulunamadi"
-                description="Aradigin urun su an bu isimle gorunmuyor. Dilersen kategorilerden ilerleyip baska bir ifade ile tekrar deneyebilirsin."
-                quickLinks={quickLinks}
-                locale={locale}
-                onClose={onClose}
-              />
+              <div className="flex min-h-[120px] items-center justify-center rounded-[28px] bg-white/70 px-6 shadow-[0_18px_48px_-42px_rgba(80,94,113,0.28)]">
+                <div className="mx-auto max-w-xl text-center">
+                  <p className="text-lg font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
+                    {"Sonu\u00e7 bulunamad\u0131"}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--store-ink-soft)]">
+                    {"Farkl\u0131 bir \u00fcr\u00fcn ad\u0131 deneyebilirsin."}
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="section-eyebrow">Sonuclar</p>
+                  <p className="section-eyebrow">{"Sonu\u00e7lar"}</p>
                   <p className="text-sm text-[var(--store-muted)]">
-                    {Math.min(results.length, MAX_RESULTS)} urun
+                    {Math.min(results.length, MAX_RESULTS)} {"\u00fcr\u00fcn"}
                   </p>
                 </div>
 
@@ -415,7 +339,7 @@ export function HeaderSearchOverlay({
 
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                            {product.category || "Urun"}
+                            {product.category || "\u00dcr\u00fcn"}
                           </p>
                           <p className="store-product-title mt-1 text-[var(--store-ink)]">
                             {product.name}
