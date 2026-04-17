@@ -149,16 +149,53 @@ type ProductLoadOptions = {
 
 type HomepageCurationState = {
   featuredCategorySlugs: string[];
+  featuredProductIdsByCategory: Record<string, string[]>;
   enforceFeaturedProductCaps: boolean;
 };
 
 const DEFAULT_HOMEPAGE_CURATION: HomepageCurationState = {
   featuredCategorySlugs: [],
+  featuredProductIdsByCategory: {},
   enforceFeaturedProductCaps: false,
 };
 
 function normalizeCategoryKey(value?: string | null) {
   return String(value || "").trim().toLocaleLowerCase("tr-TR");
+}
+
+function normalizeFeaturedProductIdsByCategory(
+  value: unknown,
+  featuredCategorySlugs: string[],
+) {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const allowedCategorySlugs = new Set(
+    featuredCategorySlugs.map((entry) => normalizeCategoryKey(entry)).filter(Boolean),
+  );
+
+  return Object.entries(record).reduce<Record<string, string[]>>((result, [key, rawValue]) => {
+    const normalizedKey = normalizeCategoryKey(key);
+    if (!normalizedKey || !allowedCategorySlugs.has(normalizedKey)) {
+      return result;
+    }
+
+    const normalizedIds = Array.isArray(rawValue)
+      ? rawValue
+          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+          .map((entry) => entry.trim())
+          .filter((entry, index, source) => source.indexOf(entry) === index)
+          .slice(0, 4)
+      : [];
+
+    if (normalizedIds.length > 0) {
+      result[normalizedKey] = normalizedIds;
+    }
+
+    return result;
+  }, {});
 }
 
 export default function ProductsPageClient({
@@ -259,6 +296,8 @@ export default function ProductsPageClient({
           disabled: false,
           reason: null as string | null,
           homepageCategorySlug: null as string | null,
+          featured: Boolean(product.featured),
+          featuredProductIds: [] as string[],
         };
       }
 
@@ -267,6 +306,8 @@ export default function ProductsPageClient({
           disabled: true,
           reason: "Once koleksiyonlardan en az 1 ana sayfa kategorisi yildizlayin.",
           homepageCategorySlug: null,
+          featured: false,
+          featuredProductIds: [] as string[],
         };
       }
 
@@ -276,16 +317,28 @@ export default function ProductsPageClient({
           disabled: true,
           reason: "Sadece ana sayfa icin secilen kategorilerdeki urunler yildizlanabilir.",
           homepageCategorySlug: null,
+          featured: false,
+          featuredProductIds: [] as string[],
         };
       }
+
+      const featuredProductIds =
+        homepageCuration.featuredProductIdsByCategory[homepageCategorySlug] || [];
 
       return {
         disabled: false,
         reason: null as string | null,
         homepageCategorySlug,
+        featured: featuredProductIds.includes(product.id),
+        featuredProductIds,
       };
     },
-    [homepageCuration.enforceFeaturedProductCaps, homepageCuration.featuredCategorySlugs.length, resolveHomepageCategorySlugForProduct],
+    [
+      homepageCuration.enforceFeaturedProductCaps,
+      homepageCuration.featuredCategorySlugs.length,
+      homepageCuration.featuredProductIdsByCategory,
+      resolveHomepageCategorySlugForProduct,
+    ],
   );
 
   const loadProducts = useCallback(
@@ -360,6 +413,7 @@ export default function ProductsPageClient({
         fetchAdminJson<{
           homepageCuration?: {
             featuredCategorySlugs?: string[];
+            featuredProductIdsByCategory?: Record<string, string[]>;
             enforceFeaturedProductCaps?: boolean;
           };
         }>("/api/settings?type=homepage-curation", { timeoutMs: 10000 }),
@@ -371,6 +425,14 @@ export default function ProductsPageClient({
               (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
             )
           : [],
+        featuredProductIdsByCategory: normalizeFeaturedProductIdsByCategory(
+          homepageCurationResponse.homepageCuration?.featuredProductIdsByCategory,
+          Array.isArray(homepageCurationResponse.homepageCuration?.featuredCategorySlugs)
+            ? homepageCurationResponse.homepageCuration.featuredCategorySlugs.filter(
+                (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+              )
+            : [],
+        ),
         enforceFeaturedProductCaps: Boolean(
           homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
         ),
@@ -386,16 +448,23 @@ export default function ProductsPageClient({
       const homepageCurationResponse = await fetchAdminJson<{
         homepageCuration?: {
           featuredCategorySlugs?: string[];
+          featuredProductIdsByCategory?: Record<string, string[]>;
           enforceFeaturedProductCaps?: boolean;
         };
       }>("/api/settings?type=homepage-curation", { timeoutMs: 10000 });
 
+      const featuredCategorySlugs = Array.isArray(homepageCurationResponse.homepageCuration?.featuredCategorySlugs)
+        ? homepageCurationResponse.homepageCuration.featuredCategorySlugs.filter(
+            (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+          )
+        : [];
+
       setHomepageCuration({
-        featuredCategorySlugs: Array.isArray(homepageCurationResponse.homepageCuration?.featuredCategorySlugs)
-          ? homepageCurationResponse.homepageCuration.featuredCategorySlugs.filter(
-              (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
-            )
-          : [],
+        featuredCategorySlugs,
+        featuredProductIdsByCategory: normalizeFeaturedProductIdsByCategory(
+          homepageCurationResponse.homepageCuration?.featuredProductIdsByCategory,
+          featuredCategorySlugs,
+        ),
         enforceFeaturedProductCaps: Boolean(
           homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
         ),
@@ -506,8 +575,8 @@ export default function ProductsPageClient({
   };
 
   const handleToggleFeatured = async (product: AdminProductListItem) => {
-    const nextFeatured = !product.featured;
     const homepageFeaturedState = getHomepageFeaturedState(product);
+    const nextFeatured = !homepageFeaturedState.featured;
 
     if (nextFeatured && homepageFeaturedState.disabled) {
       setNotice({
@@ -518,27 +587,116 @@ export default function ProductsPageClient({
     }
 
     setTogglingFeaturedProductIds((current) => [...current, product.id]);
-    setProducts((current) =>
-      current.map((entry) =>
-        entry.id === product.id ? { ...entry, featured: nextFeatured } : entry,
-      ),
-    );
     setNotice(null);
 
     try {
-      await fetchAdminJson("/api/products", {
-        timeoutMs: 12000,
-        init: {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: product.id,
-            is_featured: nextFeatured,
-          }),
-        },
-      });
+      if (homepageCuration.enforceFeaturedProductCaps) {
+        const homepageCategorySlug = homepageFeaturedState.homepageCategorySlug;
+        if (!homepageCategorySlug) {
+          throw new Error("Ürün için geçerli bir ana sayfa kategorisi bulunamadı.");
+        }
+
+        const previousHomepageCuration = homepageCuration;
+        const previousProductIds =
+          homepageCuration.featuredProductIdsByCategory[homepageCategorySlug] || [];
+
+        if (nextFeatured && previousProductIds.length >= 4) {
+          throw new Error("Her ana sayfa kategorisinde en fazla 4 urun yildizlanabilir.");
+        }
+
+        const nextProductIds = nextFeatured
+          ? [...previousProductIds, product.id]
+          : previousProductIds.filter((entry) => entry !== product.id);
+
+        const nextFeaturedProductIdsByCategory = {
+          ...homepageCuration.featuredProductIdsByCategory,
+        };
+
+        if (nextProductIds.length > 0) {
+          nextFeaturedProductIdsByCategory[homepageCategorySlug] = nextProductIds;
+        } else {
+          delete nextFeaturedProductIdsByCategory[homepageCategorySlug];
+        }
+
+        const optimisticHomepageCuration: HomepageCurationState = {
+          ...homepageCuration,
+          featuredProductIdsByCategory: nextFeaturedProductIdsByCategory,
+        };
+
+        setHomepageCuration(optimisticHomepageCuration);
+
+        try {
+          const response = await fetchAdminJson<{
+            homepageCuration?: {
+              featuredCategorySlugs?: string[];
+              featuredProductIdsByCategory?: Record<string, string[]>;
+              enforceFeaturedProductCaps?: boolean;
+            };
+          }>("/api/settings", {
+            timeoutMs: 12000,
+            init: {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                type: "homepage-curation",
+                homepageCuration: optimisticHomepageCuration,
+              }),
+            },
+          });
+
+          const normalizedFeaturedCategorySlugs = Array.isArray(response.homepageCuration?.featuredCategorySlugs)
+            ? response.homepageCuration.featuredCategorySlugs.filter(
+                (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+              )
+            : optimisticHomepageCuration.featuredCategorySlugs;
+
+          setHomepageCuration({
+            featuredCategorySlugs: normalizedFeaturedCategorySlugs,
+            featuredProductIdsByCategory: normalizeFeaturedProductIdsByCategory(
+              response.homepageCuration?.featuredProductIdsByCategory,
+              normalizedFeaturedCategorySlugs,
+            ),
+            enforceFeaturedProductCaps: Boolean(
+              response.homepageCuration?.enforceFeaturedProductCaps ??
+                optimisticHomepageCuration.enforceFeaturedProductCaps,
+            ),
+          });
+        } catch (error) {
+          setHomepageCuration(previousHomepageCuration);
+          throw error;
+        }
+      } else {
+        setProducts((current) =>
+          current.map((entry) =>
+            entry.id === product.id ? { ...entry, featured: nextFeatured } : entry,
+          ),
+        );
+
+        try {
+          await fetchAdminJson("/api/products", {
+            timeoutMs: 12000,
+            init: {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                id: product.id,
+                is_featured: nextFeatured,
+              }),
+            },
+          });
+        } catch (error) {
+          setProducts((current) =>
+            current.map((entry) =>
+              entry.id === product.id ? { ...entry, featured: product.featured } : entry,
+            ),
+          );
+          throw error;
+        }
+      }
 
       setNotice({
         tone: "success",
@@ -548,11 +706,6 @@ export default function ProductsPageClient({
       });
     } catch (error) {
       console.error("Failed to toggle featured product:", error);
-      setProducts((current) =>
-        current.map((entry) =>
-          entry.id === product.id ? { ...entry, featured: product.featured } : entry,
-        ),
-      );
       setNotice({
         tone: "error",
         text:
@@ -806,7 +959,7 @@ export default function ProductsPageClient({
   const sortedProducts = getSortedProducts();
   const stats = {
     total: pagination.total || products.length,
-    featured: products.filter((product) => product.featured).length,
+    featured: products.filter((product) => getHomepageFeaturedState(product).featured).length,
     new: products.filter((product) => product.isNew).length,
     lowStock: products.filter((product) => getPrimaryVariant(product).stock < 10).length,
     totalVariants: products.reduce((sum, product) => sum + product.variants.length, 0),
@@ -1287,6 +1440,9 @@ export default function ProductsPageClient({
                     const stockMeta = getStockMeta(primaryVariant.stock);
                     const StockIcon = stockMeta.icon;
                     const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
+                    const homepageFeaturedState = getHomepageFeaturedState(product);
+                    const isHomepageFeatured = homepageFeaturedState.featured;
+                    const isFeatureActionBlocked = !isHomepageFeatured && homepageFeaturedState.disabled;
 
                     return (
                       <article
@@ -1341,13 +1497,13 @@ export default function ProductsPageClient({
                               title={
                                 isFeatureActionBlocked
                                   ? homepageFeaturedState.reason || undefined
-                                  : product.featured
+                                  : isHomepageFeatured
                                     ? "Ürünü ana sayfa vitrinden kaldır"
                                     : "Ürünü ana sayfa vitrini için yıldızla"
                               }
                               className={cn(
                                 "inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white/90 text-stone-600 backdrop-blur-sm transition-all hover:text-[#C94E00]",
-                                product.featured
+                                isHomepageFeatured
                                   ? "border-amber-200 text-amber-700 hover:bg-amber-50"
                                   : "border-stone-200 hover:bg-white",
                                 isFeaturedUpdating ? "cursor-wait opacity-70" : "",
@@ -1357,10 +1513,10 @@ export default function ProductsPageClient({
                               {isFeaturedUpdating ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                                <Star className={cn("h-4 w-4", isHomepageFeatured ? "fill-current" : "")} />
                               )}
                             </button>
-                            {product.featured ? (
+                            {isHomepageFeatured ? (
                               <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/60 bg-white/90 px-3 py-1 text-xs font-medium text-amber-800 backdrop-blur-sm">
                                 <Star className="h-3 w-3 fill-current" />
                                 Öne çıkan
@@ -1538,7 +1694,8 @@ export default function ProductsPageClient({
                         const StockIcon = stockMeta.icon;
                         const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
                         const homepageFeaturedState = getHomepageFeaturedState(product);
-                        const isFeatureActionBlocked = !product.featured && homepageFeaturedState.disabled;
+                        const isHomepageFeatured = homepageFeaturedState.featured;
+                        const isFeatureActionBlocked = !isHomepageFeatured && homepageFeaturedState.disabled;
 
                         return (
                           <article
@@ -1577,7 +1734,7 @@ export default function ProductsPageClient({
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <h4 className="truncate text-base font-semibold text-stone-950">{product.name}</h4>
-                                  {product.featured ? (
+                                  {isHomepageFeatured ? (
                                     <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                                       Öne çıkan
                                     </span>
@@ -1646,13 +1803,13 @@ export default function ProductsPageClient({
                                   title={
                                     isFeatureActionBlocked
                                       ? homepageFeaturedState.reason || undefined
-                                      : product.featured
+                                      : isHomepageFeatured
                                         ? "Ürünü ana sayfa vitrinden kaldır"
                                         : "Ürünü ana sayfa vitrini için yıldızla"
                                   }
                                   className={cn(
                                     "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
-                                    product.featured
+                                    isHomepageFeatured
                                       ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                       : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
                                     isFeaturedUpdating ? "cursor-wait opacity-70" : "",
@@ -1663,7 +1820,7 @@ export default function ProductsPageClient({
                                   {isFeaturedUpdating ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                                    <Star className={cn("h-4 w-4", isHomepageFeatured ? "fill-current" : "")} />
                                   )}
                                 </button>
                                 <button
@@ -1754,7 +1911,8 @@ export default function ProductsPageClient({
                             const StockIcon = stockMeta.icon;
                             const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
                             const homepageFeaturedState = getHomepageFeaturedState(product);
-                            const isFeatureActionBlocked = !product.featured && homepageFeaturedState.disabled;
+                            const isHomepageFeatured = homepageFeaturedState.featured;
+                            const isFeatureActionBlocked = !isHomepageFeatured && homepageFeaturedState.disabled;
 
                             return (
                               <tr
@@ -1866,7 +2024,7 @@ export default function ProductsPageClient({
                                 </td>
                                 <td className="px-4 py-4 align-top">
                                   <div className="flex flex-wrap gap-2">
-                                    {product.featured ? (
+                                    {isHomepageFeatured ? (
                                       <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                                         <Star className="h-3 w-3 fill-current" />
                                         Öne çıkan
@@ -1890,13 +2048,13 @@ export default function ProductsPageClient({
                                       title={
                                         isFeatureActionBlocked
                                           ? homepageFeaturedState.reason || undefined
-                                          : product.featured
+                                          : isHomepageFeatured
                                             ? "Ürünü ana sayfa vitrinden kaldır"
                                             : "Ürünü ana sayfa vitrini için yıldızla"
                                       }
                                       className={cn(
                                         "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
-                                        product.featured
+                                        isHomepageFeatured
                                           ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                           : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
                                         isFeaturedUpdating ? "cursor-wait opacity-70" : "",
@@ -1907,7 +2065,7 @@ export default function ProductsPageClient({
                                       {isFeaturedUpdating ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                       ) : (
-                                        <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                                        <Star className={cn("h-4 w-4", isHomepageFeatured ? "fill-current" : "")} />
                                       )}
                                     </button>
                                     <Link

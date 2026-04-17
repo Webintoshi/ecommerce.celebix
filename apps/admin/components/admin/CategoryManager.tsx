@@ -61,7 +61,41 @@ const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
 
 interface HomepageCurationState {
   featuredCategorySlugs: string[];
+  featuredProductIdsByCategory: Record<string, string[]>;
   enforceFeaturedProductCaps: boolean;
+}
+
+function normalizeHomepageFeaturedProductIdsByCategory(
+  value: unknown,
+  featuredCategorySlugs: string[],
+): Record<string, string[]> {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const allowedSlugs = new Set(featuredCategorySlugs);
+
+  return Object.entries(record).reduce<Record<string, string[]>>((result, [key, rawValue]) => {
+    const normalizedKey = key.trim();
+    if (!normalizedKey || !allowedSlugs.has(normalizedKey)) {
+      return result;
+    }
+
+    const normalizedIds = Array.isArray(rawValue)
+      ? rawValue
+          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+          .map((entry) => entry.trim())
+          .filter((entry, index, source) => source.indexOf(entry) === index)
+          .slice(0, 4)
+      : [];
+
+    if (normalizedIds.length > 0) {
+      result[normalizedKey] = normalizedIds;
+    }
+
+    return result;
+  }, {});
 }
 
 function normalizeHomepageFeaturedCategorySlugs(value: unknown): string[] {
@@ -116,6 +150,7 @@ export default function CategoryManager() {
   const [featuredCategorySlugs, setFeaturedCategorySlugs] = useState<string[]>([]);
   const [homepageCuration, setHomepageCuration] = useState<HomepageCurationState>({
     featuredCategorySlugs: [],
+    featuredProductIdsByCategory: {},
     enforceFeaturedProductCaps: false,
   });
   const [featuredSavingSlug, setFeaturedSavingSlug] = useState<string | null>(null);
@@ -134,6 +169,7 @@ export default function CategoryManager() {
         fetchAdminJson<{
           homepageCuration?: {
             featuredCategorySlugs?: string[];
+            featuredProductIdsByCategory?: Record<string, string[]>;
             enforceFeaturedProductCaps?: boolean;
           };
         }>(
@@ -149,6 +185,10 @@ export default function CategoryManager() {
       setFeaturedCategorySlugs(normalizedFeaturedCategorySlugs);
       setHomepageCuration({
         featuredCategorySlugs: normalizedFeaturedCategorySlugs,
+        featuredProductIdsByCategory: normalizeHomepageFeaturedProductIdsByCategory(
+          homepageCurationResponse.homepageCuration?.featuredProductIdsByCategory,
+          normalizedFeaturedCategorySlugs,
+        ),
         enforceFeaturedProductCaps: Boolean(
           homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
         ),
@@ -401,6 +441,10 @@ export default function CategoryManager() {
     const nextSlugs = isFeatured
       ? featuredCategorySlugs.filter((entry) => entry !== category.slug)
       : sortHomepageFeaturedSlugs([...featuredCategorySlugs, category.slug]);
+    const nextFeaturedProductIdsByCategory = normalizeHomepageFeaturedProductIdsByCategory(
+      homepageCuration.featuredProductIdsByCategory,
+      nextSlugs,
+    );
 
     setFeaturedSavingSlug(category.slug);
     setFeaturedCategorySlugs(nextSlugs);
@@ -417,6 +461,7 @@ export default function CategoryManager() {
             type: "homepage-curation",
             homepageCuration: {
               featuredCategorySlugs: nextSlugs,
+              featuredProductIdsByCategory: nextFeaturedProductIdsByCategory,
               enforceFeaturedProductCaps: homepageCuration.enforceFeaturedProductCaps,
             },
           }),
@@ -426,6 +471,7 @@ export default function CategoryManager() {
       setHomepageCuration((current) => ({
         ...current,
         featuredCategorySlugs: nextSlugs,
+        featuredProductIdsByCategory: nextFeaturedProductIdsByCategory,
       }));
 
       showToast(
@@ -440,6 +486,10 @@ export default function CategoryManager() {
       setHomepageCuration((current) => ({
         ...current,
         featuredCategorySlugs: previousSlugs,
+        featuredProductIdsByCategory: normalizeHomepageFeaturedProductIdsByCategory(
+          current.featuredProductIdsByCategory,
+          previousSlugs,
+        ),
       }));
       showToast("error", "Ana sayfa vitrini guncellenemedi");
     } finally {
