@@ -296,15 +296,15 @@ export function ProductDetailClient({
     <div className="min-h-screen bg-[var(--store-surface)]">
       <div className="border-b border-[var(--store-border)] bg-[var(--store-surface)]">
         <div className="container-premium">
-          <div className="flex items-center gap-3 py-4 text-sm">
+          <div className="flex items-center gap-3 py-3 text-sm sm:py-4">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-[var(--store-accent)]"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <span className="text-[13px] font-medium">Tüm Ürünlere Dön</span>
             </Link>
-            <div className="ml-auto flex items-center gap-2 text-neutral-400">
+            <div className="ml-auto hidden items-center gap-2 text-neutral-400 md:flex">
               <Link
                 href={buildLocalizedPath("/", locale)}
                 className="transition-colors hover:text-[var(--store-accent)]"
@@ -327,9 +327,9 @@ export function ProductDetailClient({
         </div>
       </div>
 
-      <section className="py-8 lg:py-12">
+      <section className="py-5 sm:py-8 lg:py-12">
         <div className="container-premium">
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
             <div className="lg:sticky lg:top-28 lg:self-start">
               <ImageGallery
                 key={`${product.id}-${selectedVariant}`}
@@ -338,8 +338,8 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="space-y-4 sm:space-y-5">
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                 <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
                   {product.category}
                 </span>
@@ -361,11 +361,11 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
+              <h1 className="store-product-title-detail text-[2.15rem] leading-[0.92] tracking-tight text-neutral-900 sm:text-[2.8rem]">
                 {product.name}
               </h1>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3">
                 <div className="flex items-center gap-0.5">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -427,7 +427,7 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="space-y-5 border-y border-neutral-200 py-5">
+              <div className="space-y-4 border-y border-neutral-200 py-4 sm:space-y-5 sm:py-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div
@@ -563,9 +563,9 @@ export function ProductDetailClient({
         />
       </div>
 
-      <section className="border-t border-[var(--store-border)] py-16 lg:py-20">
+      <section className="border-t border-[var(--store-border)] py-12 lg:py-20">
         <div className="container-premium">
-          <div className="mb-10 flex items-center justify-between">
+          <div className="mb-7 flex items-center justify-between sm:mb-10">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
                 Keşfet
@@ -593,7 +593,7 @@ export function ProductDetailClient({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-8">
               <Suspense fallback={null}>
                 {relatedProducts.map((p, index) => (
                   <ProductCard

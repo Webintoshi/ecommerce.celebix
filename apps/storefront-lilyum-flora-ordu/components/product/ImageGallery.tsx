@@ -317,9 +317,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-[72px_1fr] sm:grid-cols-[100px_1fr] gap-3 sm:gap-4 items-start">
+      <div className="space-y-3 md:grid md:grid-cols-[72px_1fr] md:gap-3 md:space-y-0 lg:grid-cols-[100px_1fr] lg:gap-4 lg:items-start">
         {/* Sol: Thumbnails */}
-        <div className="relative flex flex-col">
+        <div className="relative hidden md:flex md:flex-col">
           <div 
             ref={thumbnailsRef}
             onScroll={checkScroll}
@@ -445,6 +445,32 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="md:hidden">
+          <div className="-mx-1 overflow-x-auto px-1 scrollbar-hide">
+            <div className="flex gap-2">
+              {displayImages.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedIndex(index)}
+                  className={`relative h-[72px] w-[72px] flex-shrink-0 overflow-hidden rounded-[18px] border transition-all ${
+                    index === selectedIndex
+                      ? "border-primary shadow-[0_16px_34px_-28px_rgba(218,99,13,0.35)]"
+                      : "border-[var(--store-border)] opacity-75"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${productName} - ${index + 1}`}
+                    draggable={false}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       {isClient ? createPortal(lightboxContent, document.body) : null}

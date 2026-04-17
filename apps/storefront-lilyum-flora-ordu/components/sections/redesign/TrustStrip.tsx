@@ -62,7 +62,7 @@ export function TrustStrip({
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="section-eyebrow">{eyebrow}</p>
-            <h2 className="mt-2 text-[clamp(1.5rem,2.8vw,2.2rem)] font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+            <h2 className="mt-2 text-[clamp(1.35rem,2.8vw,2.2rem)] font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
               {heading}
             </h2>
           </div>
@@ -74,17 +74,17 @@ export function TrustStrip({
           </Link>
         </div>
 
-        <div className="mt-7 md:hidden">
+        <div className="mt-6 md:hidden">
           <div className="-mx-5 overflow-x-auto px-5 scrollbar-hide">
-            <div className="flex snap-x snap-mandatory gap-4 pb-2">
+            <div className="flex snap-x snap-mandatory gap-3 pb-2">
               {displayCategories.map((category) => (
                 <Link
                   key={category.id}
                   href={category.href}
-                  className="min-w-[calc(50%-0.5rem)] flex-[0_0_calc(50%-0.5rem)] snap-start"
+                  className="min-w-[43vw] flex-[0_0_43vw] snap-start"
                 >
                   <article className="flex flex-col items-center text-center">
-                    <div className="relative aspect-square w-full max-w-[156px] overflow-hidden rounded-full border border-[var(--store-border)] bg-white shadow-[var(--store-shadow-soft)]">
+                    <div className="relative aspect-square w-full max-w-[154px] overflow-hidden rounded-full bg-white shadow-[0_20px_42px_-32px_rgba(80,94,113,0.34)]">
                       {category.image && !imageErrors[category.id] ? (
                         <Image
                           src={category.image}
@@ -104,10 +104,10 @@ export function TrustStrip({
                         <div className="absolute inset-0 bg-[linear-gradient(135deg,#ffffff_0%,#e8edf2_100%)]" />
                       )}
                     </div>
-                    <h3 className="mt-4 line-clamp-2 text-sm font-semibold text-[var(--store-ink)]">
+                    <h3 className="mt-3 line-clamp-2 text-[13px] font-semibold leading-5 text-[var(--store-ink)]">
                       {category.name}
                     </h3>
-                    <p className="mt-1 text-xs text-[var(--store-muted)]">
+                    <p className="mt-1 text-[11px] text-[var(--store-muted)]">
                       {category.productCount > 0 ? `${category.productCount} urun` : "Koleksiyona git"}
                     </p>
                   </article>

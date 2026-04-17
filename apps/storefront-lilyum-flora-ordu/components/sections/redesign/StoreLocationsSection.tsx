@@ -104,7 +104,7 @@ function ReviewCard({
   const usesProxiedImage = item.productImage ? isProxiedStorefrontAssetUrl(item.productImage) : false;
 
   return (
-    <article className="flex h-full flex-col rounded-[32px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.94)_100%)] p-5 shadow-[0_28px_70px_-52px_rgba(80,94,113,0.40)] sm:p-6">
+    <article className="flex h-full flex-col rounded-[28px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.94)_100%)] p-4 shadow-[0_28px_70px_-52px_rgba(80,94,113,0.40)] sm:rounded-[32px] sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.08)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-accent)]">
           {"Müşteri yorumu"}
@@ -124,7 +124,7 @@ function ReviewCard({
         </span>
       </div>
 
-      <div className="mt-6 flex min-h-[200px] flex-1 flex-col">
+      <div className="mt-5 flex min-h-[172px] flex-1 flex-col sm:mt-6 sm:min-h-[200px]">
         <span className="text-5xl leading-none text-[rgba(218,99,13,0.18)]">“</span>
         {item.title ? (
           <p className="mt-4 line-clamp-2 text-[15px] font-semibold tracking-[-0.02em] text-[var(--store-ink)]">
@@ -136,7 +136,7 @@ function ReviewCard({
         </p>
       </div>
 
-      <div className="mt-7 rounded-[26px] bg-white/92 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_12px_28px_-24px_rgba(80,94,113,0.26)]">
+      <div className="mt-6 rounded-[24px] bg-white/92 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_12px_28px_-24px_rgba(80,94,113,0.26)] sm:mt-7 sm:rounded-[26px]">
         <div className="flex items-center gap-3">
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[20px] bg-[var(--store-surface-alt)]">
             {item.productHref ? (
@@ -183,7 +183,7 @@ function ReviewCard({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-[rgba(80,94,113,0.08)] pt-4">
+        <div className="mt-4 flex flex-col items-start gap-3 border-t border-[rgba(80,94,113,0.08)] pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
             {item.productCategory || "Aldığı ürün"}
           </p>
@@ -220,11 +220,11 @@ export function StoreLocationsSection({
   return (
     <section className="section-shell">
       <div className="container-premium">
-        <div className="overflow-hidden rounded-[40px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(238,242,245,0.62)_100%)] px-5 py-6 shadow-[0_36px_90px_-58px_rgba(80,94,113,0.34)] sm:px-7 sm:py-7 lg:px-10 lg:py-10">
+        <div className="overflow-hidden rounded-[30px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(238,242,245,0.62)_100%)] px-5 py-6 shadow-[0_36px_90px_-58px_rgba(80,94,113,0.34)] sm:rounded-[40px] sm:px-7 sm:py-7 lg:px-10 lg:py-10">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="section-eyebrow">{eyebrow}</p>
-              <h2 className="mt-4 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
+              <h2 className="mt-4 text-[clamp(1.8rem,4vw,3.25rem)] font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
                 {heading}
               </h2>
               {description ? (
@@ -239,7 +239,17 @@ export function StoreLocationsSection({
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          <div className="mt-8 -mx-1 overflow-x-auto px-1 scrollbar-hide lg:hidden">
+            <div className="flex snap-x snap-mandatory gap-4">
+              {showcaseItems.map((item) => (
+                <div key={item.id} className="min-w-[82vw] flex-[0_0_82vw] snap-start sm:min-w-[58vw] sm:flex-[0_0_58vw]">
+                  <ReviewCard item={item} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8 hidden gap-5 lg:grid lg:grid-cols-3">
             {showcaseItems.map((item) => (
               <ReviewCard key={item.id} item={item} />
             ))}

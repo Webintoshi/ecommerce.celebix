@@ -33,11 +33,11 @@ export function ProductGridToolbar({
   filterLabel = "Filtreler",
 }: ProductGridToolbarProps) {
   return (
-    <div className="soft-panel flex flex-col gap-4 rounded-[28px] px-5 py-5 sm:px-6">
+    <div className="soft-panel flex flex-col gap-3 rounded-[24px] px-4 py-4 sm:gap-4 sm:rounded-[28px] sm:px-6 sm:py-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="section-eyebrow">Keşif</p>
-          <h2 className="mt-2 text-2xl font-semibold text-[var(--store-ink)]">{title}</h2>
+          <h2 className="mt-2 text-xl font-semibold text-[var(--store-ink)] sm:text-2xl">{title}</h2>
           <p className="mt-2 text-sm text-[var(--store-muted)]">
             {description || `${visibleCount} / ${totalCount} ürün gösteriliyor.`}
           </p>
@@ -52,7 +52,7 @@ export function ProductGridToolbar({
               </span>
             </button>
           ) : null}
-          <label className="flex min-w-[190px] items-center gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-muted)]">
+          <label className="flex w-full items-center gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 text-sm text-[var(--store-muted)] sm:min-w-[190px] sm:w-auto">
             <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-ink)]">
               Sırala
             </span>

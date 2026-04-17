@@ -73,11 +73,11 @@ export function ProductsPageClient({
     <div className="bg-[var(--store-surface)]">
       <section className="section-shell pt-8">
         <div className="container-premium">
-          <div className="relative overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_42%,#e8edf2_100%)] px-6 py-10 shadow-[var(--store-shadow-soft)] sm:px-8 lg:px-10 lg:py-12">
-            <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(218,99,13,0.14),transparent_52%)]" />
+          <div className="relative overflow-hidden rounded-[26px] border border-[var(--store-border)] bg-[linear-gradient(135deg,#ffffff_0%,#f6f6f6_42%,#e8edf2_100%)] px-5 py-8 shadow-[var(--store-shadow-soft)] sm:rounded-[32px] sm:px-8 lg:px-10 lg:py-12">
+            <div className="absolute right-0 top-0 hidden h-full w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(218,99,13,0.14),transparent_52%)] sm:block" />
             <div className="relative max-w-2xl">
               <p className="section-eyebrow">{"T\u00fcm \u00dcr\u00fcnler"}</p>
-              <h1 className="section-title mt-4 text-[var(--store-ink)]">
+              <h1 className="mt-3 text-[1.9rem] font-semibold leading-[0.95] tracking-[-0.05em] text-[var(--store-ink)] sm:mt-4 sm:text-[clamp(2.5rem,5vw,4.6rem)]">
                 {"Lilyum Flora Ordu vitrininin tüm ürünlerini keşfedin"}
               </h1>
               <p className="mt-5 text-sm font-semibold text-[var(--store-accent)]">
@@ -110,7 +110,7 @@ export function ProductsPageClient({
             </div>
           ) : (
             <>
-              <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-5 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
                 {visibleProducts.map((product, index) => (
                   <ProductCard key={product.id} product={product} index={index} />
                 ))}

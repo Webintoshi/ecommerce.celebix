@@ -193,22 +193,22 @@ export function HeaderSearchOverlay({
         aria-hidden="true"
       />
 
-      <div className="relative flex h-full w-full items-start justify-center p-4 pt-5 sm:p-6 sm:pt-8 lg:p-8 lg:pt-10">
+      <div className="relative flex h-full w-full items-start justify-center p-0 pt-0 sm:p-6 sm:pt-8 lg:p-8 lg:pt-10">
         <div
-          className="flex h-full max-h-[min(90vh,860px)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[36px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,246,246,0.96)_100%)] shadow-[0_48px_130px_-56px_rgba(42,30,26,0.40)] backdrop-blur-[28px]"
+          className="flex h-full max-h-[100vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-none border-x-0 border-b-0 border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,246,246,0.96)_100%)] shadow-[0_48px_130px_-56px_rgba(42,30,26,0.40)] backdrop-blur-[28px] sm:max-h-[min(90vh,860px)] sm:rounded-[36px] sm:border sm:border-white/70 sm:border-b"
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-label="\u00dcr\u00fcn arama penceresi"
         >
-          <div className="border-b border-[rgba(80,94,113,0.08)] px-5 py-5 sm:px-7 sm:py-6 lg:px-8">
+          <div className="border-b border-[rgba(80,94,113,0.08)] px-4 py-4 sm:px-7 sm:py-6 lg:px-8">
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
                 <p className="section-eyebrow">{"H\u0131zl\u0131 Ke\u015fif"}</p>
 
-                <form className="mt-4" onSubmit={(event) => event.preventDefault()}>
-                  <div className="relative overflow-hidden rounded-[30px] border border-[rgba(80,94,113,0.08)] bg-white/90 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_18px_40px_-34px_rgba(80,94,113,0.36)] transition duration-300 focus-within:border-[rgba(218,99,13,0.18)] focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_24px_60px_-38px_rgba(218,99,13,0.26)]">
-                    <div className="pointer-events-none absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f8fbfd_0%,#edf2f7_100%)] text-[var(--store-ink-soft)]">
+                <form className="mt-3 sm:mt-4" onSubmit={(event) => event.preventDefault()}>
+                  <div className="relative overflow-hidden rounded-[24px] border border-[rgba(80,94,113,0.08)] bg-white/90 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_18px_40px_-34px_rgba(80,94,113,0.36)] transition duration-300 focus-within:border-[rgba(218,99,13,0.18)] focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_24px_60px_-38px_rgba(218,99,13,0.26)] sm:rounded-[30px]">
+                    <div className="pointer-events-none absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f8fbfd_0%,#edf2f7_100%)] text-[var(--store-ink-soft)] sm:left-4 sm:h-11 sm:w-11">
                       <Search className="h-[18px] w-[18px]" />
                     </div>
                     <input
@@ -217,13 +217,13 @@ export function HeaderSearchOverlay({
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder={"Buket, orkide, g\u00fcl ya da \u00fcr\u00fcn ad\u0131 ara..."}
-                      className="h-[64px] w-full bg-transparent pl-[72px] pr-16 text-[15px] font-medium text-[var(--store-ink)] outline-none placeholder:text-[color:rgba(80,94,113,0.46)] sm:text-base"
+                      className="h-[58px] w-full bg-transparent pl-[60px] pr-14 text-[15px] font-medium text-[var(--store-ink)] outline-none placeholder:text-[color:rgba(80,94,113,0.46)] sm:h-[64px] sm:pl-[72px] sm:pr-16 sm:text-base"
                     />
                     {query ? (
                       <button
                         type="button"
                         onClick={() => setQuery("")}
-                        className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--store-surface-alt)] text-[var(--store-muted)] transition hover:bg-white hover:text-[var(--store-ink)]"
+                        className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--store-surface-alt)] text-[var(--store-muted)] transition hover:bg-white hover:text-[var(--store-ink)] sm:right-4 sm:h-10 sm:w-10"
                         aria-label={"Aramay\u0131 temizle"}
                       >
                         <X className="h-4 w-4" />
@@ -233,14 +233,14 @@ export function HeaderSearchOverlay({
                 </form>
 
                 {quickLinks.length > 0 ? (
-                  <div className="mt-4 rounded-[24px] bg-[rgba(80,94,113,0.04)] p-2">
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-3 rounded-[22px] bg-[rgba(80,94,113,0.04)] p-2 sm:mt-4 sm:rounded-[24px]">
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide sm:flex-wrap sm:overflow-visible sm:pb-0">
                       {quickLinks.slice(0, 6).map((link) => (
                         <Link
                           key={`${link.href}-${link.label}`}
                           href={buildLocalizedPath(link.href, locale)}
                           onClick={onClose}
-                          className="rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-[var(--store-ink-soft)] shadow-[0_10px_22px_-20px_rgba(80,94,113,0.35)] transition hover:text-[var(--store-accent)]"
+                          className="whitespace-nowrap rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-[var(--store-ink-soft)] shadow-[0_10px_22px_-20px_rgba(80,94,113,0.35)] transition hover:text-[var(--store-accent)]"
                         >
                           {link.label}
                         </Link>
@@ -253,7 +253,7 @@ export function HeaderSearchOverlay({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/88 text-[var(--store-muted)] shadow-[0_16px_36px_-28px_rgba(80,94,113,0.35)] transition hover:text-[var(--store-ink)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/88 text-[var(--store-muted)] shadow-[0_16px_36px_-28px_rgba(80,94,113,0.35)] transition hover:text-[var(--store-ink)] sm:h-11 sm:w-11"
                 aria-label={"Aramay\u0131 kapat"}
               >
                 <X className="h-5 w-5" />
@@ -261,7 +261,7 @@ export function HeaderSearchOverlay({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6 lg:px-8">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-7 sm:py-6 lg:px-8">
             {normalizedQuery.length < 2 ? (
               <div className="h-2" aria-hidden="true" />
             ) : isLoading ? (

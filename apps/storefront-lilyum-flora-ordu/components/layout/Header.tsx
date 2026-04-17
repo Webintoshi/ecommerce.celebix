@@ -173,10 +173,10 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex h-[72px] items-center justify-between gap-3 lg:h-[86px]">
+        <div className="flex h-[68px] items-center justify-between gap-3 sm:h-[72px] lg:h-[86px]">
           <div className="flex items-center gap-2 lg:hidden">
             <button
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)] sm:h-11 sm:w-11"
               onClick={() => setIsMenuOpen((open) => !open)}
               aria-label={copy.menuLabel}
               type="button"
@@ -186,7 +186,7 @@ export function Header() {
 
             <button
               type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)]"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink)] sm:h-11 sm:w-11"
               aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
             >
@@ -200,7 +200,7 @@ export function Header() {
             aria-label={logoAlt}
           >
             {logoSrc ? (
-              <div className="relative h-10 w-[148px] sm:h-11 sm:w-[172px] lg:h-[52px] lg:w-[220px]">
+              <div className="relative h-10 w-[142px] sm:h-11 sm:w-[172px] lg:h-[52px] lg:w-[220px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
@@ -292,7 +292,7 @@ export function Header() {
 
             <button
               type="button"
-              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)] sm:h-11 sm:w-11"
               aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
@@ -305,12 +305,50 @@ export function Header() {
             </button>
           </div>
         </div>
+
+        {!isMenuOpen ? (
+          <div className="border-t border-[var(--store-border)] py-2 lg:hidden">
+            <div className="-mx-5 overflow-x-auto px-5 scrollbar-hide">
+              <div className="flex min-w-max items-center gap-2">
+                {quickLinks.slice(0, 6).map((link) => (
+                  <Link
+                    key={`mobile-quick-${link.href}-${link.label}`}
+                    href={buildLocalizedPath(link.href, locale)}
+                    className="rounded-full border border-[var(--store-border)] bg-white px-3 py-2 text-[11px] font-semibold text-[var(--store-ink-soft)] shadow-[0_10px_24px_-24px_rgba(80,94,113,0.34)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {isMenuOpen ? (
         <div className="border-t border-[var(--store-border)] bg-[var(--store-surface)] lg:hidden">
-          <nav className="container-premium py-5">
+          <nav className="container-premium max-h-[calc(100vh-132px)] overflow-y-auto py-5">
             <div className="flex flex-wrap gap-2">
+              <Link
+                href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
+                className="rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] px-3 py-1.5 text-xs font-semibold text-[var(--store-ink-soft)]"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {user ? "Hesabım" : "Giriş Yap"}
+              </Link>
+              {utilityLinks.map((link) => (
+                <Link
+                  key={`mobile-utility-${link.href}`}
+                  href={buildLocalizedPath(link.href, locale)}
+                  className="rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] px-3 py-1.5 text-xs font-semibold text-[var(--store-ink-soft)]"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
               {quickLinks.slice(0, 5).map((link) => (
                 <Link
                   key={`mobile-top-${link.href}-${link.label}`}
@@ -323,9 +361,9 @@ export function Header() {
               ))}
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 space-y-3 pb-2">
               {headerCategories.map((category) => (
-                <div key={category.id} className="rounded-[24px] border border-[var(--store-border)] bg-white/80 p-4">
+                <div key={category.id} className="rounded-[22px] border border-[var(--store-border)] bg-white/88 p-4 shadow-[0_18px_40px_-34px_rgba(80,94,113,0.28)]">
                   <Link
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
                     className="store-nav-text block text-[15px] text-[var(--store-ink)]"
@@ -335,12 +373,12 @@ export function Header() {
                   </Link>
 
                   {category.children.length > 0 ? (
-                    <div className="mt-3 grid gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       {category.children.map((subcategory) => (
                         <Link
                           key={subcategory.id}
                           href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                          className="rounded-[16px] bg-[var(--store-surface-alt)] px-3 py-2 text-sm text-[var(--store-ink-soft)]"
+                          className="rounded-[16px] bg-[var(--store-surface-alt)] px-3 py-2.5 text-sm text-[var(--store-ink-soft)]"
                           onClick={() => setIsMenuOpen(false)}
                         >
                           {subcategory.name}

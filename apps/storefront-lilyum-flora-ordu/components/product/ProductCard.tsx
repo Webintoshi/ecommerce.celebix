@@ -223,16 +223,16 @@ export function ProductCard({
         type="button"
         onClick={handleWishlist}
         aria-label={isWishlisted ? "Favorilerden kald\u0131r" : "Favorilere ekle"}
-        className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[var(--store-ink)] shadow-[0_18px_34px_rgba(80,94,113,0.14)] backdrop-blur-sm transition hover:text-[var(--store-accent)] sm:right-4 sm:top-4"
+        className="absolute right-2.5 top-2.5 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/92 text-[var(--store-ink)] shadow-[0_18px_34px_rgba(80,94,113,0.14)] backdrop-blur-sm transition hover:text-[var(--store-accent)] sm:right-4 sm:top-4 sm:h-11 sm:w-11"
       >
         <Heart className={`h-5 w-5 ${isWishlisted ? "fill-[var(--store-accent)] text-[var(--store-accent)]" : ""}`} />
       </button>
 
       <Link
         href={productHref}
-        className="block transition duration-300 hover:-translate-y-1"
+        className="block transition duration-300 md:hover:-translate-y-1"
       >
-        <div className="relative mb-4 aspect-[4/5] overflow-hidden rounded-[30px] bg-[var(--store-surface-alt)]">
+        <div className="relative mb-3 aspect-[4/5] overflow-hidden rounded-[24px] bg-[var(--store-surface-alt)] sm:mb-4 sm:rounded-[30px]">
           <ProductCardBadges product={product} hasDiscount={hasDiscount} />
           {primaryImage ? (
             <Image
@@ -250,15 +250,15 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="px-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-muted)]">
+        <div className="px-0.5 sm:px-1">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--store-muted)] sm:text-[10px] sm:tracking-[0.22em]">
             {categoryLabel}
           </p>
           <h3
             className={`store-product-title mt-3 line-clamp-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)] ${
               compactTitle
                 ? "min-h-[2.7rem] text-[13px] leading-[1.35rem]"
-                : "min-h-[3.6rem]"
+                : "min-h-[3.1rem] text-[13px] leading-[1.35rem] sm:min-h-[3.6rem]"
             }`}
           >
             {product.name}
@@ -267,20 +267,20 @@ export function ProductCard({
           <ProductCardRating product={product} />
           <ProductCardSwatches product={product} />
 
-          <div className="mt-4 flex min-h-[44px] items-end gap-2.5">
+          <div className="mt-3 flex min-h-[38px] items-end gap-2 sm:mt-4 sm:min-h-[44px] sm:gap-2.5">
             {discountPercentage ? (
-              <span className="inline-flex h-8 min-w-[54px] items-center justify-center rounded-full bg-[var(--store-accent)] px-3 text-sm font-semibold text-white">
+              <span className="inline-flex h-7 min-w-[48px] items-center justify-center rounded-full bg-[var(--store-accent)] px-2.5 text-[12px] font-semibold text-white sm:h-8 sm:min-w-[54px] sm:px-3 sm:text-sm">
                 %{discountPercentage}
               </span>
             ) : null}
 
             <div className="flex items-end gap-2">
               {originalPrice ? (
-                <span className="pb-1 text-sm text-[var(--store-muted)] line-through">
+                <span className="pb-0.5 text-[12px] text-[var(--store-muted)] line-through sm:pb-1 sm:text-sm">
                   {formatPrice(originalPrice)}
                 </span>
               ) : null}
-              <p className="text-[1.8rem] font-semibold leading-none tracking-[-0.03em] text-[var(--store-ink)]">
+              <p className="text-[1.45rem] font-semibold leading-none tracking-[-0.03em] text-[var(--store-ink)] sm:text-[1.8rem]">
                 {typeof displayPrice === "number" ? formatPrice(displayPrice) : "Bilgi al"}
               </p>
             </div>

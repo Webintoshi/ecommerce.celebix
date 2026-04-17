@@ -31,7 +31,7 @@ function HeroMedia({
   href?: string;
 }) {
   const media = (
-    <div className="relative aspect-[5/6] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
+    <div className="relative aspect-[4/4.8] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
       <div className="absolute inset-0 hidden md:block">
         <Image
           src={desktop}
@@ -86,7 +86,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="pt-4 sm:pt-5">
         <div className="relative w-full overflow-hidden bg-[linear-gradient(90deg,#f6f6f6_0%,#ffffff_22%,#eef2f5_100%)]">
-          <div className="relative aspect-[5/6] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
+          <div className="relative aspect-[4/4.8] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
             <div className="absolute inset-y-0 left-0 w-[44%] bg-[#505E71]" />
             <div className="absolute inset-y-0 right-0 w-[56%] bg-[#F6F6F6]" />
             <div className="absolute inset-y-[14%] left-[5%] w-[22%] rounded-[30px] bg-white/95" />
@@ -132,7 +132,43 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
       {slides.length > 1 ? (
         <div className="section-shell pt-4">
           <div className="container-premium">
-            <div className="flex flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 shadow-[var(--store-shadow-soft)] lg:flex-row lg:items-center lg:justify-between lg:px-5">
+            <div className="flex items-center justify-between gap-4 rounded-[24px] border border-[var(--store-border)] bg-white px-4 py-3 shadow-[var(--store-shadow-soft)] sm:hidden">
+              <div className="flex items-center gap-2">
+                {slides.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCurrent(index)}
+                    className={cn(
+                      "h-2.5 rounded-full transition-all",
+                      index === current ? "w-8 bg-[var(--store-accent)]" : "w-2.5 bg-[var(--store-border-strong)]",
+                    )}
+                    aria-label={`Slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="Onceki banner"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrent((current + 1) % slides.length)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--store-border)] bg-[var(--store-surface-alt)] text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="Sonraki banner"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 shadow-[var(--store-shadow-soft)] sm:flex lg:flex-row lg:items-center lg:justify-between lg:px-5">
               <div className="-mx-1 flex flex-1 gap-3 overflow-x-auto px-1 scrollbar-hide">
                 {slides.map((item, index) => {
                   const previewLabel = item.alt || item.title || `${SITE_NAME} ${index + 1}`;
