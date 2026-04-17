@@ -149,6 +149,12 @@ export interface CreateStoreResult {
   envTemplatePath: string;
 }
 
+export interface StoreDomainMigrationInput {
+  storefrontDomain: string;
+  adminDomain?: string;
+  refreshDerivedBrandingEmails?: boolean;
+}
+
 export interface StoreSupabaseUpdateInput {
   projectRef: string;
   url: string;
@@ -210,6 +216,30 @@ export interface RemoveStoreArtifactsResult {
   updatedPaths: string[];
   removedPaths: string[];
   skippedPaths: string[];
+}
+
+function getDemoDomainRoot(): string {
+  return ensureDomain(process.env.OWNER_DEMO_DOMAIN_ROOT?.trim() || "celebix.co");
+}
+
+function resolveAdminDomain(storefrontDomain: string): string {
+  const normalizedStorefrontDomain = ensureDomain(storefrontDomain);
+  const demoRoot = getDemoDomainRoot();
+  const demoSuffix = `.${demoRoot}`;
+
+  if (normalizedStorefrontDomain.endsWith(demoSuffix)) {
+    const prefix = normalizedStorefrontDomain.slice(0, -demoSuffix.length);
+
+    if (prefix && !prefix.includes(".")) {
+      return `admin-${prefix}.${demoRoot}`;
+    }
+  }
+
+  return `admin.${normalizedStorefrontDomain}`;
+}
+
+export function getStoreAdminDomainForStorefrontDomain(storefrontDomain: string): string {
+  return resolveAdminDomain(storefrontDomain);
 }
 
 function findRepoRoot(startDirectory = process.cwd()): string {
@@ -278,24 +308,73 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   }
 
   if (configured === "managed") {
-    return "managed";
+    throw new Error(
+      "Managed Supabase kapali. Store authority yalnizca self-hosted Coolify Supabase icin olusturulabilir.",
+    );
   }
 
-  return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
+  return "self_hosted_coolify";
 }
 
-function resolveDefaultRepositoryBranch(kind: "admin" | "storefront"): string {
-  const kindSpecific =
-    kind === "admin"
-      ? process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim()
-      : process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH?.trim();
+function normalizeRepositoryBranch(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
 
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed
+    .replace(/^refs\/heads\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
+}
+
+export function getOwnerRepositoryBranch(): string {
   return (
-    kindSpecific ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "main"
+    normalizeRepositoryBranch(process.env.COOLIFY_OWNER_REPOSITORY_BRANCH) ||
+    normalizeRepositoryBranch(process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH) ||
+    "deploy/owner"
   );
+}
+
+export function getStorefrontDeploymentBranchPrefix(): string {
+  return (
+    normalizeRepositoryBranch(process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH_PREFIX) ||
+    normalizeRepositoryBranch(process.env.CELEBIX_STOREFRONT_BRANCH_PREFIX) ||
+    "deploy/storefront"
+  );
+}
+
+export function getDefaultAdminDeploymentBranch(): string {
+  return getOwnerRepositoryBranch();
+}
+
+export function getDefaultStorefrontDeploymentBranch(slug: string): string {
+  const normalizedSlug = ensureSlug(slug);
+  return `${getStorefrontDeploymentBranchPrefix()}/${normalizedSlug}`;
+}
+
+export interface StoreDeploymentBranches {
+  ownerBranch: string;
+  adminBranch: string;
+  storefrontBranch: string;
+}
+
+export function getStoreDeploymentBranches(
+  slug: string,
+  input?: Pick<StoreConfig, "bootstrap" | "storefront"> | null,
+): StoreDeploymentBranches {
+  const ownerBranch = getOwnerRepositoryBranch();
+
+  return {
+    ownerBranch,
+    adminBranch:
+      normalizeRepositoryBranch(input?.bootstrap?.adminDeploymentBranch) ||
+      getDefaultAdminDeploymentBranch(),
+    storefrontBranch:
+      normalizeRepositoryBranch(input?.storefront?.deploymentBranch) ||
+      getDefaultStorefrontDeploymentBranch(slug),
+  };
 }
 
 function ensureSlug(slug: string): string {
@@ -325,6 +404,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
   const coolifyProjectName = input.coolifyProjectName || input.name;
   const adminDeploymentName = input.adminDeploymentName || `${input.name} admin`;
   const storefrontDeploymentName = input.storefrontDeploymentName || `${input.name} websitesi`;
+  const deploymentBranches = getStoreDeploymentBranches(input.slug);
 
   return {
     name: input.name,
@@ -346,11 +426,11 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       senderEmail: `noreply@${input.domain}`,
       smsSenderTitle: input.slug.replace(/-/g, "").slice(0, 11).toUpperCase(),
       defaultProductBrand: input.name
-    },
-    domains: {
-      storefront: input.domain,
-      admin: `admin.${input.domain}`
-    },
+      },
+      domains: {
+        storefront: input.domain,
+        admin: resolveAdminDomain(input.domain)
+      },
     owner: {
       createdBy: "owner-panel",
       notes: "Merkezi owner panel uzerinden olusturuldu."
@@ -370,7 +450,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       coolifyProjectName,
       adminDeploymentProvider: "coolify",
       adminDeploymentName,
-      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin"),
+      adminDeploymentBranch: deploymentBranches.adminBranch,
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
@@ -382,7 +462,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       repoSyncStatus: "pending",
       deploymentProvider: "coolify",
       deploymentName: storefrontDeploymentName,
-      deploymentBranch: resolveDefaultRepositoryBranch("storefront"),
+      deploymentBranch: deploymentBranches.storefrontBranch,
       runtimeUrl: `https://${input.domain}`,
       deploymentStatus: "pending-owner-env"
     },
@@ -398,6 +478,18 @@ function buildRegistryEntry(config: StoreConfig): StoreRegistryEntry {
     theme: config.theme.key,
     status: config.status
   };
+}
+
+function upsertStoreRegistryEntry(config: StoreConfig): void {
+  const registryPath = path.join(getRepoRoot(), "stores", "registry.json");
+  const currentRegistry = getStores();
+  const nextEntry = buildRegistryEntry(config);
+  const nextRegistry = currentRegistry
+    .filter((entry) => entry.slug !== config.slug)
+    .concat(nextEntry)
+    .sort((left, right) => left.name.localeCompare(right.name, "tr"));
+
+  writeJsonFile(registryPath, nextRegistry);
 }
 
 function buildAdminEnvTemplate(config: StoreConfig): string {
@@ -473,6 +565,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     config.supabase.provider ??
     config.bootstrap?.supabaseProvider ??
     resolveDefaultSupabaseProvider();
+  const deploymentBranches = getStoreDeploymentBranches(config.slug, config);
   const normalizedBootstrap = {
     createdAt: config.bootstrap?.createdAt ?? new Date().toISOString(),
     envTemplatePath: config.bootstrap?.envTemplatePath ?? `stores/${config.slug}/admin.env.example`,
@@ -480,8 +573,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     coolifyProjectName: config.bootstrap?.coolifyProjectName ?? config.name,
     adminDeploymentProvider: config.bootstrap?.adminDeploymentProvider ?? "coolify",
     adminDeploymentName: config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`,
-    adminDeploymentBranch:
-      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+    adminDeploymentBranch: deploymentBranches.adminBranch,
     adminDeploymentRuntimeUrl:
       config.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
     adminDeploymentResourceId: config.bootstrap?.adminDeploymentResourceId,
@@ -513,8 +605,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     lastRepoSyncError: config.storefront?.lastRepoSyncError,
     deploymentProvider: config.storefront?.deploymentProvider ?? "coolify",
     deploymentName: config.storefront?.deploymentName ?? `${config.slug}-storefront`,
-    deploymentBranch:
-      config.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+    deploymentBranch: deploymentBranches.storefrontBranch,
     runtimeUrl: config.storefront?.runtimeUrl ?? `https://${config.domains.storefront}`,
     resourceId: config.storefront?.resourceId,
     deploymentStatus: config.storefront?.deploymentStatus ?? "pending-owner-env",
@@ -753,10 +844,85 @@ export function updateStoreConfig(slug: string, updater: (current: StoreConfig) 
   const current = requireStoreConfig(slug);
   const next = normalizeStoreConfig(updater(current));
   writeJsonFile(getStoreConfigPath(slug), next);
+  upsertStoreRegistryEntry(next);
   return next;
 }
 
+function shouldRefreshDerivedAddress(
+  currentValue: string | null | undefined,
+  previousDomain: string,
+  localPart: string,
+): boolean {
+  if (!currentValue?.trim()) {
+    return true;
+  }
+
+  return currentValue.trim().toLocaleLowerCase("tr") === `${localPart}@${previousDomain}`;
+}
+
+function writeAdminEnvTemplateForStore(config: StoreConfig): void {
+  const envTemplatePath = path.join(getStoreDirectory(config.slug), "admin.env.example");
+  fs.writeFileSync(envTemplatePath, buildAdminEnvTemplate(config), "utf8");
+}
+
+export function updateStoreDomains(slug: string, input: StoreDomainMigrationInput): StoreConfig {
+  const storefrontDomain = ensureDomain(input.storefrontDomain);
+  const adminDomain = ensureDomain(input.adminDomain?.trim() || resolveAdminDomain(storefrontDomain));
+  const refreshDerivedBrandingEmails = input.refreshDerivedBrandingEmails !== false;
+
+  const nextConfig = updateStoreConfig(slug, (current) => {
+    const previousStorefrontDomain = current.domains.storefront;
+    const supportEmail =
+      refreshDerivedBrandingEmails &&
+      shouldRefreshDerivedAddress(current.branding?.supportEmail, previousStorefrontDomain, "destek")
+        ? `destek@${storefrontDomain}`
+        : current.branding?.supportEmail;
+    const senderEmail =
+      refreshDerivedBrandingEmails &&
+      shouldRefreshDerivedAddress(current.branding?.senderEmail, previousStorefrontDomain, "noreply")
+        ? `noreply@${storefrontDomain}`
+        : current.branding?.senderEmail;
+
+    return {
+      ...current,
+      branding: {
+        ...(current.branding ?? {}),
+        supportEmail,
+        senderEmail,
+      },
+      domains: {
+        storefront: storefrontDomain,
+        admin: adminDomain,
+      },
+      bootstrap: current.bootstrap
+        ? {
+            ...current.bootstrap,
+            adminDeploymentRuntimeUrl: `https://${adminDomain}`,
+          }
+        : current.bootstrap,
+      storefront: current.storefront
+        ? {
+            ...current.storefront,
+            runtimeUrl: `https://${storefrontDomain}`,
+          }
+        : current.storefront,
+    };
+  });
+
+  writeAdminEnvTemplateForStore(nextConfig);
+  upsertStoreAdminEnvLocal(nextConfig.slug, {
+    NEXT_PUBLIC_STORE_DOMAIN: nextConfig.domains.storefront,
+    NEXT_PUBLIC_ADMIN_DOMAIN: nextConfig.domains.admin,
+    NEXT_PUBLIC_SITE_URL: `https://${nextConfig.domains.storefront}`,
+    NEXT_PUBLIC_ADMIN_URL: `https://${nextConfig.domains.admin}`,
+  });
+
+  return nextConfig;
+}
+
 export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpdateInput): StoreConfig {
+  const deploymentBranches = getStoreDeploymentBranches(slug);
+
   return updateStoreConfig(slug, (current) => ({
     ...current,
     supabase: {
@@ -774,7 +940,8 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        normalizeRepositoryBranch(current.bootstrap?.adminDeploymentBranch) ??
+        deploymentBranches.adminBranch,
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
@@ -794,6 +961,8 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
 }
 
 export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdminDeploymentUpdateInput): StoreConfig {
+  const deploymentBranches = getStoreDeploymentBranches(slug);
+
   return updateStoreConfig(slug, (current) => ({
     ...current,
     bootstrap: {
@@ -804,7 +973,8 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        normalizeRepositoryBranch(current.bootstrap?.adminDeploymentBranch) ??
+        deploymentBranches.adminBranch,
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: input.resourceId ?? current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: input.deploymentStatus,
@@ -888,6 +1058,8 @@ export function updateStoreR2Config(slug: string, input: StoreR2UpdateInput): St
 }
 
 export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdateInput): StoreConfig {
+  const deploymentBranches = getStoreDeploymentBranches(slug);
+
   return updateStoreConfig(slug, (current) => ({
     ...current,
     storefront: {
@@ -902,7 +1074,8 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        normalizeRepositoryBranch(current.storefront?.deploymentBranch) ??
+        deploymentBranches.storefrontBranch,
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
@@ -917,6 +1090,8 @@ export function updateStoreStorefrontDeploymentConfig(
   slug: string,
   input: StorefrontDeploymentUpdateInput,
 ): StoreConfig {
+  const deploymentBranches = getStoreDeploymentBranches(slug);
+
   return updateStoreConfig(slug, (current) => ({
     ...current,
     storefront: {
@@ -934,7 +1109,8 @@ export function updateStoreStorefrontDeploymentConfig(
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        normalizeRepositoryBranch(current.storefront?.deploymentBranch) ??
+        deploymentBranches.storefrontBranch,
       runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: input.resourceId ?? current.storefront?.resourceId,
       deploymentStatus: input.deploymentStatus,
@@ -953,6 +1129,8 @@ export function updateStoreStorefrontRepoSyncConfig(
   slug: string,
   input: StorefrontRepoSyncUpdateInput,
 ): StoreConfig {
+  const deploymentBranches = getStoreDeploymentBranches(slug);
+
   return updateStoreConfig(slug, (current) => ({
     ...current,
     storefront: {
@@ -969,7 +1147,8 @@ export function updateStoreStorefrontRepoSyncConfig(
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        normalizeRepositoryBranch(current.storefront?.deploymentBranch) ??
+        deploymentBranches.storefrontBranch,
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",

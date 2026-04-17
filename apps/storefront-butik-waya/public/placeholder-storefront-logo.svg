@@ -1,0 +1,8 @@
+<svg width="280" height="96" viewBox="0 0 280 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="280" height="96" rx="24" fill="#121212"/>
+  <rect x="16" y="16" width="64" height="64" rx="18" fill="#7B1113"/>
+  <path d="M36 33H60C65.5228 33 70 37.4772 70 43V43C70 48.5228 65.5228 53 60 53H36V33Z" fill="#F8F1EC"/>
+  <path d="M36 53H54C59.5228 53 64 57.4772 64 63V63H36V53Z" fill="#E7C9B5"/>
+  <text x="96" y="41" fill="#F8F1EC" font-family="Georgia, serif" font-size="24" font-weight="700">BUTİK WAYA</text>
+  <text x="96" y="62" fill="#D7C1B5" font-family="Arial, sans-serif" font-size="12" letter-spacing="2">CELEBIX STOREFRONT BASE</text>
+</svg>
