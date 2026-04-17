@@ -156,7 +156,7 @@ export function HeaderSearchOverlay({
         const payload = (await response.json()) as SearchProductsResponse;
 
         if (!response.ok || payload.success === false) {
-          throw new Error(payload.error || "Arama başarısız");
+          throw new Error(payload.error || "Arama basarisiz");
         }
 
         setResults(Array.isArray(payload.products) ? payload.products : []);
@@ -167,7 +167,7 @@ export function HeaderSearchOverlay({
 
         console.error("Header search request failed:", error);
         setResults([]);
-        setErrorMessage("Arama sonuçları şu anda alınamıyor.");
+        setErrorMessage("Arama sonuclari su anda alinamiyor.");
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -199,33 +199,35 @@ export function HeaderSearchOverlay({
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Ürün arama penceresi"
+          aria-label="Urun arama penceresi"
         >
           <div className="border-b border-[var(--store-border)] px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-start gap-4">
-              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[24px] border border-[var(--store-border)] bg-white text-[var(--store-ink)] shadow-[var(--store-shadow-soft)] sm:flex">
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/70 bg-[linear-gradient(180deg,#ffffff_0%,#f7f8fa_100%)] text-[var(--store-ink)] shadow-[0_14px_30px_rgba(80,94,113,0.08)] sm:flex">
                 <Search className="h-5 w-5" />
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="section-eyebrow">Hızlı Keşif</p>
+                <p className="section-eyebrow">Hizli Kesif</p>
                 <form className="mt-3" onSubmit={(event) => event.preventDefault()}>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--store-muted)]" />
+                  <div className="relative overflow-hidden rounded-[28px] border border-[rgba(80,94,113,0.12)] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] shadow-[0_20px_44px_rgba(80,94,113,0.08)] transition duration-300 focus-within:border-[rgba(218,99,13,0.42)] focus-within:shadow-[0_24px_60px_rgba(218,99,13,0.10)]">
+                    <div className="pointer-events-none absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--store-surface-alt)] text-[var(--store-ink-soft)]">
+                      <Search className="h-[18px] w-[18px]" />
+                    </div>
                     <input
                       ref={inputRef}
                       type="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder={"Buket, orkide, g\u00fcl ya da \u00fcr\u00fcn ad\u0131 ara..."}
-                      className="h-14 w-full rounded-[24px] border border-[var(--store-border-strong)] bg-white pl-12 pr-14 text-base font-medium text-[var(--store-ink)] outline-none transition focus:border-[var(--store-accent)]"
+                      placeholder="Buket, orkide, gul ya da urun adi ara..."
+                      className="h-[68px] w-full bg-transparent pl-[68px] pr-16 text-[15px] font-medium text-[var(--store-ink)] outline-none placeholder:text-[color:rgba(80,94,113,0.52)] sm:text-base"
                     />
                     {query ? (
                       <button
                         type="button"
                         onClick={() => setQuery("")}
-                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--store-muted)] transition hover:bg-[var(--store-surface-alt)] hover:text-[var(--store-ink)]"
-                        aria-label="Aramayı temizle"
+                        className="absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[var(--store-muted)] shadow-[0_10px_20px_rgba(80,94,113,0.08)] transition hover:text-[var(--store-ink)]"
+                        aria-label="Aramayi temizle"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -233,13 +235,13 @@ export function HeaderSearchOverlay({
                   </div>
                 </form>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2.5">
                   {quickLinks.slice(0, 6).map((link) => (
                     <Link
                       key={`${link.href}-${link.label}`}
                       href={buildLocalizedPath(link.href, locale)}
                       onClick={onClose}
-                      className="rounded-full border border-[var(--store-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                      className="rounded-full border border-[rgba(80,94,113,0.12)] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-3.5 py-2 text-xs font-semibold text-[var(--store-ink-soft)] shadow-[0_10px_22px_rgba(80,94,113,0.04)] transition hover:border-[rgba(218,99,13,0.28)] hover:text-[var(--store-accent)]"
                     >
                       {link.label}
                     </Link>
@@ -250,8 +252,8 @@ export function HeaderSearchOverlay({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-[var(--store-border)] bg-white text-[var(--store-muted)] transition hover:border-[var(--store-border-strong)] hover:text-[var(--store-ink)]"
-                aria-label="Aramayı kapat"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/70 bg-[linear-gradient(180deg,#ffffff_0%,#f7f8fa_100%)] text-[var(--store-muted)] shadow-[0_14px_30px_rgba(80,94,113,0.08)] transition hover:text-[var(--store-ink)]"
+                aria-label="Aramayi kapat"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -262,29 +264,29 @@ export function HeaderSearchOverlay({
             {normalizedQuery.length < 2 ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-dashed border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Keşif için yazmaya başla</p>
+                  <p className="section-title text-[var(--store-ink)]">Kesif icin yazmaya basla</p>
                   <p className="section-copy mt-3">En az 2 karakter yaz.</p>
                 </div>
               </div>
             ) : isLoading ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto text-center">
-                  <p className="section-title text-[var(--store-ink)]">Aranıyor</p>
-                  <p className="section-copy mt-3">Uygun ürünler yükleniyor.</p>
+                  <p className="section-title text-[var(--store-ink)]">Araniyor</p>
+                  <p className="section-copy mt-3">Uygun urunler yukleniyor.</p>
                 </div>
               </div>
             ) : errorMessage ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Arama şu an kullanılamıyor</p>
+                  <p className="section-title text-[var(--store-ink)]">Arama su an kullanilamiyor</p>
                   <p className="section-copy mt-3">{errorMessage}</p>
                 </div>
               </div>
             ) : results.length === 0 ? (
               <div className="flex min-h-[320px] items-center rounded-[28px] border border-[var(--store-border)] bg-white/75 px-6">
                 <div className="mx-auto max-w-xl text-center">
-                  <p className="section-title text-[var(--store-ink)]">Sonuç bulunamadı</p>
-                  <p className="section-copy mt-3">Farklı bir ürün adı deneyin.</p>
+                  <p className="section-title text-[var(--store-ink)]">Sonuc bulunamadi</p>
+                  <p className="section-copy mt-3">Farkli bir urun adi deneyin.</p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
                     {quickLinks.slice(0, 4).map((link) => (
                       <Link
@@ -302,9 +304,9 @@ export function HeaderSearchOverlay({
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="section-eyebrow">Sonuçlar</p>
+                  <p className="section-eyebrow">Sonuclar</p>
                   <p className="text-sm text-[var(--store-muted)]">
-                    {Math.min(results.length, MAX_RESULTS)} ürün
+                    {Math.min(results.length, MAX_RESULTS)} urun
                   </p>
                 </div>
 
@@ -343,7 +345,7 @@ export function HeaderSearchOverlay({
 
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                            {product.category || "Ürün"}
+                            {product.category || "Urun"}
                           </p>
                           <p className="store-product-title mt-1 text-[var(--store-ink)]">
                             {product.name}
