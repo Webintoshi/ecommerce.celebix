@@ -1,0 +1,68 @@
+{
+  "name": "Butik Waya",
+  "slug": "butik-waya",
+  "status": "draft",
+  "theme": {
+    "key": "editorial",
+    "label": "Editorial",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Ordu'nun bir numaralı kadın giyim markası",
+    "supportEmail": "destek@butikwaya.com",
+    "supportPhone": "+905322542633",
+    "senderEmail": "noreply@celebix.site",
+    "smsSenderTitle": "BUTIKWAYA",
+    "defaultProductBrand": "Butik Waya"
+  },
+  "domains": {
+    "storefront": "celebix.site",
+    "admin": "admin.celebix.site"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-17T11:40:43.668Z",
+    "envTemplatePath": "stores/butik-waya/admin.env.example",
+    "coolifyProjectName": "Butik Waya",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Butik Waya admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.celebix.site",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Butik Waya websitesi",
+    "deploymentBranch": "deploy/storefront/butik-waya",
+    "runtimeUrl": "https://celebix.site",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}

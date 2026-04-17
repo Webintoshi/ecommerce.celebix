@@ -1,5 +1,12 @@
 [
   {
+    "slug": "butik-waya",
+    "name": "Butik Waya",
+    "domain": "celebix.site",
+    "theme": "editorial",
+    "status": "draft"
+  },
+  {
     "slug": "deri-kordon",
     "name": "Deri Kordon",
     "domain": "derycraft.com",
