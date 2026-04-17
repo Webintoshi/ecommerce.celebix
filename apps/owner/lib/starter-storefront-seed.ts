@@ -137,117 +137,115 @@ function buildFallbackSourceCategories() {
 }
 
 function buildFallbackSourceProducts(store: StoreConfig) {
-  return [
+  const publishedAt = new Date().toISOString();
+  const collections = [
     {
-      id: "starter-product-1",
-      name: `${store.name} Minimal Kartlik`,
-      slug: "minimal-kartlik",
-      short_description: "Gundelik kullanim icin ince profil kartlik.",
-      description: "Hazir starter magazada kullanilan premium demo kartlik urunudur.",
-      images: ["/placeholders/promo-banner-1.svg"],
-      images_v2: [{ url: "/placeholders/promo-banner-1.svg", alt: `${store.name} Minimal Kartlik`, is_primary: true, sort_order: 0 }],
       category: "cuzdan-kartlik",
       subcategory: "cuzdan-kartlik",
-      tags: ["kartlik", "minimal"],
-      is_featured: true,
-      is_bestseller: true,
-      is_active: true,
-      rating: 5,
-      review_count: 0,
-      status: "published",
-      published_at: new Date().toISOString(),
-      tax_rate: 10,
-      brand: store.name,
-      country_of_origin: "Turkiye",
-      variants: [
-        {
-          id: "starter-variant-1",
-          name: "Taba",
-          sku: "STARTER-1-TABA",
-          price: 1290,
-          stock: 12,
-          weight: "1",
-          unit: "adet",
-          images: ["/placeholders/promo-banner-1.svg"],
-          attributes: [
-            { attributeId: "color", attributeName: "Renk", valueId: "taba", value: "Taba", displayOrder: 0 },
-          ],
-        },
+      image: "/placeholders/promo-banner-1.svg",
+      tags: ["kartlik", "minimal", "deri"],
+      products: [
+        { slug: "minimal-kartlik", name: "Minimal Kartlik", color: "Taba", price: 1290, stock: 12 },
+        { slug: "cift-gozlu-kartlik", name: "Cift Gozlu Kartlik", color: "Siyah", price: 1390, stock: 9 },
+        { slug: "ince-cuzdan", name: "Ince Cuzdan", color: "Kahve", price: 1490, stock: 7 },
+        { slug: "gunluk-kartlik", name: "Gunluk Kartlik", color: "Lacivert", price: 1590, stock: 10 },
       ],
     },
     {
-      id: "starter-product-2",
-      name: `${store.name} Apple Watch Kayisi`,
-      slug: "apple-watch-kayisi",
-      short_description: "Apple Watch uyumlu premium deri kayis.",
-      description: "Starter vitrinde otomatik gelen premium kayis ornegidir.",
-      images: ["/placeholders/promo-banner-2.svg"],
-      images_v2: [{ url: "/placeholders/promo-banner-2.svg", alt: `${store.name} Apple Watch Kayisi`, is_primary: true, sort_order: 0 }],
       category: "apple-watch-saat-kayislari",
       subcategory: "apple-watch-saat-kayislari",
-      tags: ["apple watch", "kayis"],
-      is_featured: true,
-      is_active: true,
-      rating: 5,
-      review_count: 0,
-      status: "published",
-      published_at: new Date().toISOString(),
-      tax_rate: 10,
-      brand: store.name,
-      country_of_origin: "Turkiye",
-      variants: [
-        {
-          id: "starter-variant-2",
-          name: "Siyah",
-          sku: "STARTER-2-SIYAH",
-          price: 1790,
-          stock: 8,
-          weight: "1",
-          unit: "adet",
-          images: ["/placeholders/promo-banner-2.svg"],
-          attributes: [
-            { attributeId: "color", attributeName: "Renk", valueId: "siyah", value: "Siyah", displayOrder: 0 },
-          ],
-        },
+      image: "/placeholders/promo-banner-2.svg",
+      tags: ["apple watch", "kayis", "deri"],
+      products: [
+        { slug: "apple-watch-kayisi-klasik", name: "Apple Watch Kayisi Klasik", color: "Siyah", price: 1790, stock: 8 },
+        { slug: "apple-watch-kayisi-vintage", name: "Apple Watch Kayisi Vintage", color: "Taba", price: 1890, stock: 6 },
+        { slug: "apple-watch-kayisi-premium", name: "Apple Watch Kayisi Premium", color: "Kahve", price: 1990, stock: 5 },
+        { slug: "apple-watch-kayisi-slim", name: "Apple Watch Kayisi Slim", color: "Krem", price: 1690, stock: 11 },
       ],
     },
     {
-      id: "starter-product-3",
-      name: `${store.name} Organizer Canta`,
-      slug: "organizer-canta",
-      short_description: "Masaustu ve gunluk tasima icin organizer model.",
-      description: "Starter magazaya dolu gorunmesi icin eklenen premium organizer ornegidir.",
-      images: ["/placeholders/promo-banner-3.svg"],
-      images_v2: [{ url: "/placeholders/promo-banner-3.svg", alt: `${store.name} Organizer Canta`, is_primary: true, sort_order: 0 }],
-      category: "canta-organizer",
-      subcategory: "canta-organizer",
-      tags: ["organizer", "canta"],
-      is_featured: false,
-      is_active: true,
-      rating: 4.8,
-      review_count: 0,
-      status: "published",
-      published_at: new Date().toISOString(),
-      tax_rate: 10,
-      brand: store.name,
-      country_of_origin: "Turkiye",
-      variants: [
-        {
-          id: "starter-variant-3",
-          name: "Kahve",
-          sku: "STARTER-3-KAHVE",
-          price: 2390,
-          stock: 5,
-          weight: "1",
-          unit: "adet",
-          images: ["/placeholders/promo-banner-3.svg"],
-          attributes: [
-            { attributeId: "color", attributeName: "Renk", valueId: "kahve", value: "Kahve", displayOrder: 0 },
-          ],
-        },
+      category: "saat-kayislari",
+      subcategory: "saat-kayislari",
+      image: "/placeholders/promo-banner-3.svg",
+      tags: ["saat", "kayis", "premium"],
+      products: [
+        { slug: "deri-saat-kayisi-klasik", name: "Deri Saat Kayisi Klasik", color: "Siyah", price: 1590, stock: 10 },
+        { slug: "deri-saat-kayisi-vintage", name: "Deri Saat Kayisi Vintage", color: "Taba", price: 1690, stock: 8 },
+        { slug: "deri-saat-kayisi-tekstur", name: "Deri Saat Kayisi Tekstur", color: "Kahve", price: 1790, stock: 6 },
+        { slug: "deri-saat-kayisi-gunluk", name: "Deri Saat Kayisi Gunluk", color: "Bordo", price: 1490, stock: 12 },
       ],
     },
-  ] satisfies JsonRecord[];
+    {
+      category: "canta-organizer",
+      subcategory: "canta-organizer",
+      image: "/placeholders/promo-banner-1.svg",
+      tags: ["organizer", "canta", "gundelik"],
+      products: [
+        { slug: "organizer-canta", name: "Organizer Canta", color: "Kahve", price: 2390, stock: 5 },
+        { slug: "tablet-organizer", name: "Tablet Organizer", color: "Siyah", price: 2290, stock: 7 },
+        { slug: "seyahat-cantasi", name: "Seyahat Cantasi", color: "Taba", price: 2590, stock: 4 },
+        { slug: "masaustu-organizer", name: "Masaustu Organizer", color: "Lacivert", price: 1990, stock: 9 },
+      ],
+    },
+  ] as const;
+
+  return collections.flatMap((collection, collectionIndex) =>
+    collection.products.map((product, productIndex) => {
+      const itemIndex = collectionIndex * 4 + productIndex + 1;
+      const productName = `${store.name} ${product.name}`;
+
+      return {
+        id: `starter-product-${itemIndex}`,
+        name: productName,
+        slug: product.slug,
+        short_description: `${product.name} icin hazir demo vitrin urunu.`,
+        description: `${store.name} ilk kurulumunda kullanilan ${product.name.toLowerCase()} demo urunudur.`,
+        images: [collection.image],
+        images_v2: [
+          {
+            url: collection.image,
+            alt: productName,
+            is_primary: true,
+            sort_order: 0,
+          },
+        ],
+        category: collection.category,
+        subcategory: collection.subcategory,
+        tags: [...collection.tags],
+        is_featured: true,
+        is_bestseller: productIndex === 0,
+        is_active: true,
+        rating: 5,
+        review_count: 0,
+        status: "published",
+        published_at: publishedAt,
+        tax_rate: 10,
+        brand: store.name,
+        country_of_origin: "Turkiye",
+        variants: [
+          {
+            id: `starter-variant-${itemIndex}`,
+            name: product.color,
+            sku: `STARTER-${itemIndex}-${product.color.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`,
+            price: product.price,
+            stock: product.stock,
+            weight: "1",
+            unit: "adet",
+            images: [collection.image],
+            attributes: [
+              {
+                attributeId: "color",
+                attributeName: "Renk",
+                valueId: product.color.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/g, "-"),
+                value: product.color,
+                displayOrder: 0,
+              },
+            ],
+          },
+        ],
+      } satisfies JsonRecord;
+    }),
+  );
 }
 
 function normalizeSourceUrl(value: string): string {
@@ -321,6 +319,21 @@ function buildStoreInfoValue(store: StoreConfig) {
       headingFontFamily: "\"Times New Roman\", serif",
       bodyFontFamily: "system-ui, sans-serif",
     },
+  };
+}
+
+function buildHomepageCurationValue(categories: JsonRecord[]) {
+  const availableCategorySlugs = categories
+    .map((category) => stringOrNull(category.slug))
+    .filter((slug): slug is string => Boolean(slug));
+
+  const featuredCategorySlugs = PREFERRED_CATEGORY_SLUGS
+    .filter((slug) => availableCategorySlugs.includes(slug))
+    .slice(0, 4);
+
+  return {
+    featuredCategorySlugs,
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -837,6 +850,7 @@ export async function seedStarterStorefrontContent(
     { key: "announcement_bar", value: buildAnnouncementBarValue(store) },
     { key: "marquee_settings", value: buildMarqueeSettingsValue(store) },
     { key: "seo_settings", value: buildSeoSettingsValue(store) },
+    { key: "homepage_curation", value: buildHomepageCurationValue(mappedCategories) },
     { key: "hero_banners", value: heroBanners },
     { key: "promo_banners", value: promoBanners },
     { key: "variant_attributes_registry", value: buildVariantRegistry(sourceProducts) },
