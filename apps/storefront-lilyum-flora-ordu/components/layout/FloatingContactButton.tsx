@@ -25,10 +25,11 @@ const POSITION_CLASSES = {
 } as const;
 
 const CHANNEL_STYLES: Record<FloatingContactChannelType, string> = {
-  whatsapp: "bg-[#25D366] text-white hover:bg-[#1faa52]",
+  whatsapp:
+    "border border-[rgba(37,211,102,0.22)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(241,252,245,0.98)_100%)] text-[#14803d] hover:border-[rgba(37,211,102,0.34)]",
   instagram:
-    "bg-[linear-gradient(135deg,#F58529,#FEDA77,#DD2A7B,#8134AF,#515BD4)] text-white hover:brightness-95",
-  form: "bg-neutral-900 text-white hover:bg-neutral-800",
+    "border border-[rgba(221,42,123,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(252,243,248,0.98)_100%)] text-[#9d174d] hover:border-[rgba(221,42,123,0.28)]",
+  form: "border border-[rgba(80,94,113,0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.98)_100%)] text-[var(--store-ink)] hover:border-[rgba(218,99,13,0.22)]",
 };
 
 export function FloatingContactButton() {
@@ -74,13 +75,17 @@ export function FloatingContactButton() {
                     href={channel.resolvedHref}
                     target={external ? "_blank" : undefined}
                     rel={external ? "noreferrer noopener" : undefined}
-                    className={`group inline-flex min-w-[220px] items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all ${CHANNEL_STYLES[channel.type]}`}
+                    className={`group inline-flex min-w-[214px] items-center justify-between gap-3 rounded-[24px] px-4 py-3 text-sm font-semibold shadow-[0_20px_42px_-32px_rgba(80,94,113,0.38)] backdrop-blur-xl transition-all hover:-translate-y-0.5 ${CHANNEL_STYLES[channel.type]}`}
                   >
                     <span className="inline-flex items-center gap-2">
-                      {getChannelIcon(channel.type)}
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/88 text-current shadow-[0_10px_24px_-18px_rgba(80,94,113,0.35)]">
+                        {getChannelIcon(channel.type)}
+                      </span>
                       {label}
                     </span>
-                    <ExternalLink className="h-4 w-4 opacity-80 transition group-hover:translate-x-0.5" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/78 text-current shadow-[0_10px_24px_-20px_rgba(80,94,113,0.32)] transition group-hover:translate-x-0.5">
+                      <ExternalLink className="h-3.5 w-3.5 opacity-80" />
+                    </span>
                   </a>
                 );
               })
@@ -90,12 +95,14 @@ export function FloatingContactButton() {
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-neutral-800"
+          className="inline-flex items-center gap-2.5 rounded-[24px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.96)_100%)] px-3.5 py-3 text-[13px] font-semibold tracking-[0.02em] text-[var(--store-ink)] shadow-[0_24px_48px_-30px_rgba(80,94,113,0.40)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[rgba(218,99,13,0.20)]"
           aria-expanded={isOpen}
           aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
         >
-          {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
-          <span className="hidden sm:inline">{isOpen ? "Kapat" : "Iletisim"}</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(218,99,13,0.10)] text-[var(--store-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+            {isOpen ? <X className="h-4.5 w-4.5" /> : <MessageCircle className="h-4.5 w-4.5" />}
+          </span>
+          <span>{isOpen ? "Kapat" : "Iletisim"}</span>
         </button>
       </div>
     </div>
