@@ -164,6 +164,7 @@ export interface HomepageCurationSettings {
 
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
 const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
 
 function normalizeHomepageCategoryKey(value: string) {
     return value
@@ -188,23 +189,27 @@ function normalizeHomepageFeaturedProductIdsByCategory(
             .filter(Boolean),
     );
 
-    return Object.entries(record).reduce<Record<string, string[]>>((result, [rawKey, rawValue]) => {
-        const normalizedKey = normalizeHomepageCategoryKey(rawKey);
-        if (!normalizedKey || !allowedCategories.has(normalizedKey)) {
+    let remainingCapacity = MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL;
+
+    return featuredCategorySlugs.reduce<Record<string, string[]>>((result, slug) => {
+        const normalizedKey = normalizeHomepageCategoryKey(slug);
+        if (!normalizedKey || !allowedCategories.has(normalizedKey) || remainingCapacity <= 0) {
             return result;
         }
 
+        const rawValue = record[slug] ?? record[normalizedKey];
         const normalizedIds = Array.isArray(rawValue)
             ? rawValue
                 .filter((entry): entry is string => typeof entry === "string")
                 .map((entry) => entry.trim())
                 .filter(Boolean)
                 .filter((entry, index, source) => source.indexOf(entry) === index)
-                .slice(0, MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY)
+                .slice(0, Math.min(MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY, remainingCapacity))
             : [];
 
         if (normalizedIds.length > 0) {
             result[normalizedKey] = normalizedIds;
+            remainingCapacity -= normalizedIds.length;
         }
 
         return result;
