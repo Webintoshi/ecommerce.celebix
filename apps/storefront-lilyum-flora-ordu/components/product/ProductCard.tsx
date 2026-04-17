@@ -18,6 +18,7 @@ interface ProductCardProps {
   product: Product;
   index?: number;
   viewMode?: "grid" | "list";
+  compactTitle?: boolean;
 }
 
 function getResolvedProductImages(product: Product) {
@@ -125,7 +126,11 @@ function getDiscountPercentage(originalPrice?: number, displayPrice?: number) {
   return Math.round(((originalPrice - displayPrice) / originalPrice) * 100);
 }
 
-export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  viewMode = "grid",
+  compactTitle = false,
+}: ProductCardProps) {
   const { locale } = useStorefrontRoute();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const productImages = getResolvedProductImages(product);
@@ -249,7 +254,13 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-muted)]">
             {categoryLabel}
           </p>
-          <h3 className="store-product-title mt-3 min-h-[3.6rem] line-clamp-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)]">
+          <h3
+            className={`store-product-title mt-3 line-clamp-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)] ${
+              compactTitle
+                ? "min-h-[2.7rem] text-[13px] leading-[1.35rem]"
+                : "min-h-[3.6rem]"
+            }`}
+          >
             {product.name}
           </h3>
 

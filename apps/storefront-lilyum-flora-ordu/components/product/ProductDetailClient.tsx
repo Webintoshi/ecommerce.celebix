@@ -8,10 +8,6 @@ import {
   Heart,
   Share2,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Flower2,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -343,7 +339,7 @@ export function ProductDetailClient({
             </div>
 
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
                   {product.category}
                 </span>
@@ -351,6 +347,16 @@ export function ProductDetailClient({
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
                     Seçili
+                  </span>
+                )}
+                {discountPercent > 0 && (
+                  <span className="rounded-full border border-[rgba(218,99,13,0.18)] bg-[rgba(218,99,13,0.08)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--store-accent)]">
+                    %{discountPercent} indirim
+                  </span>
+                )}
+                {product.new && (
+                  <span className="rounded-full border border-[var(--store-border)] bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-600">
+                    Yeni
                   </span>
                 )}
               </div>
@@ -386,19 +392,6 @@ export function ProductDetailClient({
                 <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
                   {formatPrice(displayPrice)}
                 </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {discountPercent > 0 && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} İndirim
-                  </span>
-                )}
-                {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    Yeni
-                  </span>
-                )}
               </div>
 
               <VariantSelectorV2
@@ -517,90 +510,6 @@ export function ProductDetailClient({
                     label: "Ürün Detayları",
                     content: <ProductFeatures product={product} />,
                   },
-                  {
-                    id: "specs",
-                    label: "Teslimat ve Sunum",
-                    content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Sunum
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Ürün görselleriyle net bir sunum verilir
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Flower2 className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Stil
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Premium floral vitrinde sakin ürün hiyerarşisi
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Hazırlama
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Teslimat bilgisi aktif stok ve seçimlere göre güncellenir
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Güven
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Sipariş akışı ve ürün seçimi mevcut commerce kurallarıyla korunur
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    id: "shipping",
-                    label: "Sipariş Bilgilendirme",
-                    content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Teslimat
-                          </h4>
-                          <p>
-                            Teslimat ve hazırlama akışı mevcut stok, varyant ve mağaza ayarlarına göre çalışır.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade ve Destek
-                          </h4>
-                          <p>
-                            Sipariş sonrası destek ve politika sayfaları mevcut akışta korunur.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Seçimler
-                          </h4>
-                          <p>
-                            Kişiselleştirme veya ek seçenekler varsa fiyat durumu bu blokta yansıtılır.
-                          </p>
-                        </div>
-                      </div>
-                    ),
-                  },
                 ].map((item) => {
                   const isOpen = openAccordions.has(item.id);
                   return (
@@ -687,7 +596,12 @@ export function ProductDetailClient({
             <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
               <Suspense fallback={null}>
                 {relatedProducts.map((p, index) => (
-                  <ProductCard key={p.id} product={p} index={index} />
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    index={index}
+                    compactTitle
+                  />
                 ))}
               </Suspense>
             </div>
