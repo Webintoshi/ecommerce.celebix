@@ -6,6 +6,10 @@ import { getPublishedManagedContentPage } from "@/lib/content-pages";
 
 export const dynamic = "force-dynamic";
 
+const CONTACT_PAGE_PHONE = "0545 628 41 52";
+const CONTACT_PAGE_ADDRESS =
+  "Kar\u015f\u0131yaka Mah. K\u0131br\u0131s Cd. No:49A Alt\u0131nordu/Ordu (Alt\u0131n \u00c7ar\u015f\u0131 i\u00e7erisinde), Ordu 52200";
+
 export async function generateMetadata() {
   const locale = await getRequestLocale();
   const profile = await getStorefrontProfile();
@@ -24,12 +28,14 @@ export async function generateMetadata() {
 export default async function ContactPage() {
   const profile = await getStorefrontProfile();
   const managedPage = await getPublishedManagedContentPage("iletisim");
+  const contactPhoneLink = CONTACT_PAGE_PHONE.replace(/\s+/g, "");
+  const contactMapSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(CONTACT_PAGE_ADDRESS)}`;
 
   const cards = [
     {
       title: "Adres",
-      value: profile.address,
-      href: profile.mapSearchUrl,
+      value: CONTACT_PAGE_ADDRESS,
+      href: contactMapSearchUrl,
       icon: MapPin,
       linkLabel: "Haritada Ac",
     },
@@ -42,8 +48,8 @@ export default async function ContactPage() {
     },
     {
       title: "Telefon",
-      value: profile.phone,
-      href: `tel:${profile.phoneLink}`,
+      value: CONTACT_PAGE_PHONE,
+      href: `tel:${contactPhoneLink}`,
       icon: Phone,
       linkLabel: "Hemen Ara",
     },
