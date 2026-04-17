@@ -89,6 +89,7 @@ function buildProductGroups(
     return {
       id: category.id,
       title: category.name,
+      isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
     };
@@ -146,7 +147,10 @@ export function ProductShowcaseSections({
 
   const effectiveGroups = fallbackGroups.map((group, index) => ({
     ...group,
-    title: groupCopy?.[index]?.title || group.title,
+    title:
+      (group as { isCategoryDriven?: boolean }).isCategoryDriven
+        ? group.title
+        : groupCopy?.[index]?.title || group.title,
     subtitle: groupCopy?.[index]?.subtitle || "Se\u00e7ili Grup",
   }));
 
