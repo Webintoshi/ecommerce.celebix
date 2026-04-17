@@ -94,7 +94,6 @@ function ProductCardBadges({ product, hasDiscount }: { product: Product; hasDisc
   const badges = [
     product.new ? { label: "Yeni", tone: "solid" as const } : null,
     product.isBestseller ? { label: "\u00c7ok Satan", tone: "soft" as const } : null,
-    product.featured ? { label: "Se\u00e7ili", tone: "outline" as const } : null,
     hasDiscount ? { label: "\u0130ndirim", tone: "soft" as const } : null,
   ].filter(Boolean) as Array<{ label: string; tone: "soft" | "solid" | "outline" }>;
 
