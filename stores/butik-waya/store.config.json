@@ -1,0 +1,68 @@
+{
+  "name": "BUTİK WAYA",
+  "slug": "butik-waya",
+  "status": "draft",
+  "theme": {
+    "key": "editorial",
+    "label": "Editorial",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Ordu'nun bir numaralı kadın giyim markası.",
+    "supportEmail": "bilgi@butikwaya.com",
+    "supportPhone": "+905322542633",
+    "senderEmail": "noreply@waya.celebix.co",
+    "smsSenderTitle": "BUTIKWAYA",
+    "defaultProductBrand": "BUTİK WAYA"
+  },
+  "domains": {
+    "storefront": "waya.celebix.co",
+    "admin": "admin.waya.celebix.co"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-17T09:09:48.083Z",
+    "envTemplatePath": "stores/butik-waya/admin.env.example",
+    "coolifyProjectName": "BUTİK WAYA",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "BUTİK WAYA admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.waya.celebix.co",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "BUTİK WAYA websitesi",
+    "deploymentBranch": "deploy/storefront/butik-waya",
+    "runtimeUrl": "https://waya.celebix.co",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
