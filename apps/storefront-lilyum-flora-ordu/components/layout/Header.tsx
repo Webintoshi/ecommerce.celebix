@@ -188,14 +188,14 @@ export function Header() {
             aria-label={logoAlt}
           >
             {logoSrc ? (
-              <div className="relative h-8 w-[126px] sm:h-9 sm:w-[144px] lg:h-10 lg:w-[170px]">
+              <div className="relative h-10 w-[148px] sm:h-11 sm:w-[172px] lg:h-[52px] lg:w-[220px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 126px, (max-width: 1024px) 144px, 170px"
+                  sizes="(max-width: 640px) 148px, (max-width: 1024px) 172px, 220px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
