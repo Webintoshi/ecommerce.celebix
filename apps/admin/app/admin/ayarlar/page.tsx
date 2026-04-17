@@ -12,6 +12,7 @@ import {
   ImageIcon,
   Brain,
   ArrowRight,
+  LayoutGrid,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -64,6 +65,13 @@ const SETTINGS_SECTIONS = [
     icon: ImageIcon,
     href: "/admin/ayarlar/hero-banner",
     tone: "from-[#fff3ec] to-white text-[#d55e2d] border-[#f1c5b2]",
+  },
+  {
+    title: "Ana Sayfa Vitrini",
+    description: "One cikan kategorileri ve vitrinde yer alacak urunleri kontrol edin.",
+    icon: LayoutGrid,
+    href: "/admin/ayarlar/ana-sayfa-vitrini",
+    tone: "from-[#fff6ef] to-white text-[#c7651c] border-[#efcfb1]",
   },
   {
     title: "Yapay Zeka",

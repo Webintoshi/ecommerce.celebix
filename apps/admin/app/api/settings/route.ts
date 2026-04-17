@@ -10,6 +10,7 @@ import {
     getAIProviderSettings,
     getAllSettings,
     getAnnouncementBarSettings,
+    getHomepageCurationSettings,
     getMarqueeSettings,
     getNotificationSettings,
     getPaymentMethods,
@@ -21,6 +22,7 @@ import {
     getTranslationSettings,
     setAIProviderSettings,
     setAnnouncementBarSettings,
+    setHomepageCurationSettings,
     setMarqueeSettings,
     setNotificationSettings,
     setPaymentMethods,
@@ -181,6 +183,11 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "homepage-curation") {
+            const homepageCuration = await getHomepageCurationSettings();
+            return NextResponse.json({ success: true, homepageCuration });
+        }
+
         if (type === "seo") {
             const settings = await getSeoSettings();
             return NextResponse.json({
@@ -270,6 +277,7 @@ export async function POST(request: NextRequest) {
             seoSettings,
             announcementSettings,
             marqueeSettings,
+            homepageCuration,
             aiSettings,
             translationSettings,
         } = body;
@@ -319,6 +327,15 @@ export async function POST(request: NextRequest) {
                 floatingContact: normalizeFloatingContactSettings(storeInfo.floatingContact),
             });
             return NextResponse.json({ success: true, message: "Store info updated" });
+        }
+
+        if (type === "homepage-curation" && homepageCuration !== undefined) {
+            const settings = await setHomepageCurationSettings(homepageCuration);
+            return NextResponse.json({
+                success: true,
+                message: "Homepage curation updated",
+                homepageCuration: settings.value,
+            });
         }
 
         if (type === "seo" && seoSettings !== undefined) {
