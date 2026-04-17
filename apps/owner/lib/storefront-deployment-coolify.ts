@@ -11,7 +11,7 @@ import {
   getStorefrontDeploymentBlueprint,
   type StorefrontDeploymentBlueprint,
 } from "@/lib/storefront-deployment";
-import { prepareCoolifyLiteralEnvValue } from "@/lib/coolify-env";
+import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 
 interface CoolifyProject {
@@ -507,12 +507,12 @@ async function syncApplicationEnv(
   const payload = {
     data: Object.entries(envEntries).map(
       ([key, value]) => {
-        const preparedValue = prepareCoolifyLiteralEnvValue(value);
+        const preparedValue = prepareCoolifyEnvValue(value);
 
         return {
           key,
           value: preparedValue.value,
-          is_literal: true,
+          is_literal: preparedValue.isLiteral,
           is_build_time: true,
           is_runtime: true,
           is_multiline: preparedValue.isMultiline,
