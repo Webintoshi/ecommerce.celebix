@@ -28,10 +28,11 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
+    "projectRef": "coolify:butik-waya:pls4mksmtcldq5bqxmqx240k",
+    "url": "https://supabasekong-butik-waya.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store"
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-butik-waya.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
     "provisioning": "pending-owner-env"
@@ -45,17 +46,27 @@
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.celebix.site",
     "adminDeploymentStatus": "pending-owner-env",
+    "organizationSlug": "butik-waya",
     "supabaseProvider": "self_hosted_coolify",
-    "supabaseProvisioning": "pending-owner-env"
+    "supabaseProjectName": "butik-waya-db",
+    "supabaseResourceId": "pls4mksmtcldq5bqxmqx240k",
+    "supabaseDashboardUrl": "https://supabasekong-butik-waya.46.225.183.57.sslip.io/project/default",
+    "lastProvisionError": "Self-hosted pg-meta hazir olmadi. Self-hosted pg-meta erisilemedi. studio-url -> fetch failed | runtime-internal-api -> fetch failed | public-url -> HTTP 503: no available server | public-url-8000 -> fetch failed | host-header-studio-http:46.225.183.57 -> HTTP 404: 404 page not found | host-header-http:46.225.183.57 -> HTTP 404: 404 page not found",
+    "supabaseProvisioning": "failed"
   },
   "storefront": {
-    "status": "not_started",
-    "repoSyncStatus": "pending",
+    "appDir": "apps/storefront-butik-waya",
+    "status": "scaffolded",
+    "lastScaffoldedAt": "2026-04-17T12:33:37.974Z",
+    "repoSyncStatus": "failed",
+    "repoSyncedAt": "2026-04-17T12:33:39.976Z",
+    "lastRepoSyncError": "GitHub API hatasi (403): {\n  \"documentation_url\": \"https://docs.github.com/free-pro-team@latest/rest/overview/rate-limits-for-the-rest-api#about-secondary-rate-limits\",\n  \"message\": \"You have exceeded a secondary rate limit. Please wait a few minutes before you try again. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) If you reach out to GitHub Support for help, please include the request ID DFB2:224662:1F90A6:1CD45D:69E228B8.\"\n}",
     "deploymentProvider": "coolify",
     "deploymentName": "Butik Waya websitesi",
     "deploymentBranch": "deploy/storefront/butik-waya",
     "runtimeUrl": "https://celebix.site",
-    "deploymentStatus": "pending-owner-env"
+    "deploymentStatus": "pending-repo-sync",
+    "lastDeploymentError": "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
   },
   "features": [
     "catalog",
