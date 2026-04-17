@@ -1,20 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Instagram, Mail, Phone, Youtube } from "lucide-react";
+import { Instagram, Mail, Phone, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
-import {
-  type StorefrontLocale,
-  buildLocalizedPath,
-  getLocalizedCopy,
-} from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type FooterCategory = {
@@ -23,25 +19,11 @@ type FooterCategory = {
   slug: string;
 };
 
-const LOCALE_SWITCH_OPTIONS: Array<{
-  locale: StorefrontLocale;
-  label: string;
-}> = [
-  { locale: "tr", label: "TR" },
-  { locale: "en", label: "EN" },
-  { locale: "de", label: "DE" },
-  { locale: "ru", label: "RU" },
-  { locale: "ar", label: "AR" },
-  { locale: "ka", label: "KA" },
-];
-
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
-  const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
-  const { locale, internalPathname } = useStorefrontRoute();
-  const localeMenuRef = useRef<HTMLDivElement | null>(null);
+  const { locale } = useStorefrontRoute();
   const currentYear = new Date().getFullYear();
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
@@ -99,17 +81,6 @@ export function Footer() {
       isMounted = false;
     };
   }, [locale]);
-
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!localeMenuRef.current?.contains(event.target as Node)) {
-        setIsLocaleMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, []);
 
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
@@ -239,57 +210,6 @@ export function Footer() {
                   </ul>
                 </div>
               ) : null}
-
-              <div className="rounded-[26px] border border-[var(--store-border)] bg-[var(--store-surface-alt)] p-4 sm:p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-accent)]">
-                  Dil
-                </p>
-                <div ref={localeMenuRef} className="relative mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                    className="flex w-full min-w-[132px] items-center justify-between gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 text-left text-[var(--store-ink)] shadow-[0_10px_24px_rgba(80,94,113,0.08)] transition hover:border-[var(--store-accent)]"
-                    aria-expanded={isLocaleMenuOpen}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">
-                        {LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale)?.label || "TR"}
-                      </span>
-                      <span className="text-xs uppercase text-[var(--store-muted)]">{locale}</span>
-                    </span>
-                    <ChevronDown
-                      className={`h-4 w-4 text-[var(--store-ink-soft)] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {isLocaleMenuOpen ? (
-                    <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden rounded-[24px] border border-[var(--store-border)] bg-white p-2 shadow-[0_24px_70px_rgba(80,94,113,0.16)]">
-                      <div className="space-y-1">
-                        {LOCALE_SWITCH_OPTIONS.map((option) => {
-                          const isActive = option.locale === locale;
-                          return (
-                            <Link
-                              key={option.locale}
-                              href={buildLocalizedPath(internalPathname, option.locale)}
-                              hrefLang={option.locale}
-                              onClick={() => setIsLocaleMenuOpen(false)}
-                              className={`flex items-center justify-between rounded-[18px] px-3 py-2 transition ${
-                                isActive
-                                  ? "bg-[var(--store-surface-alt)] text-[var(--store-ink)]"
-                                  : "text-[var(--store-ink-soft)] hover:bg-[var(--store-surface-alt)] hover:text-[var(--store-accent)]"
-                              }`}
-                            >
-                              <span className="text-sm font-medium">{option.label}</span>
-                              <span className="text-xs uppercase">{option.locale}</span>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
             </div>
           </div>
         </div>
