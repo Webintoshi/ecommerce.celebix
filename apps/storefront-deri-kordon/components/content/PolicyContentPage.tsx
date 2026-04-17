@@ -1,5 +1,6 @@
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import type { PublishedPolicyPage } from "@/lib/policy-pages";
+import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
 
 interface PolicyContentPageProps {
   page: PublishedPolicyPage;
@@ -7,10 +8,7 @@ interface PolicyContentPageProps {
 
 export async function PolicyContentPage({ page }: PolicyContentPageProps) {
   const profile = await getStorefrontProfile();
-  const sections = page.content
-    .split(/\n{2,}/)
-    .map((section) => section.trim())
-    .filter(Boolean);
+  const contentHtml = normalizeProductDescriptionHtml(page.content);
   const formattedDate = new Intl.DateTimeFormat("tr-TR", {
     year: "numeric",
     month: "long",
@@ -32,13 +30,10 @@ export async function PolicyContentPage({ page }: PolicyContentPageProps) {
 
       <section className="mx-auto max-w-4xl px-6 py-12 lg:py-16">
         <article className="rounded-lg border border-neutral-200 bg-white p-8">
-          <div className="space-y-6">
-            {sections.map((section) => (
-              <p key={section} className="whitespace-pre-wrap text-sm leading-7 text-neutral-600">
-                {section}
-              </p>
-            ))}
-          </div>
+          <div
+            className="text-sm leading-7 text-neutral-600 [&_a]:font-medium [&_a]:text-neutral-900 [&_a]:underline [&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-neutral-300 [&_blockquote]:pl-4 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-neutral-900 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-neutral-900 [&_h4]:mt-5 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:text-neutral-900 [&_li]:ml-5 [&_li]:pl-1 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:space-y-3 [&_ol]:pl-5 [&_p]:mb-5 [&_strong]:font-semibold [&_ul]:my-5 [&_ul]:list-disc [&_ul]:space-y-3 [&_ul]:pl-5"
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
 
           <div className="mt-10 border-t border-neutral-100 pt-6 text-xs text-neutral-400">
             <p>Son güncelleme: {formattedDate}</p>
