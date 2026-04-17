@@ -159,9 +159,9 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link
         href={productHref}
-        className="group grid gap-5 rounded-[28px] border border-[var(--store-border)] bg-white p-4 shadow-[var(--store-shadow-soft)] transition hover:border-[var(--store-accent)] hover:shadow-[0_24px_55px_rgba(80,94,113,0.14)] sm:grid-cols-[160px_minmax(0,1fr)]"
+        className="group grid gap-5 transition sm:grid-cols-[180px_minmax(0,1fr)]"
       >
-        <div className="relative aspect-[4/5] overflow-hidden rounded-[22px] bg-[var(--store-surface-alt)]">
+        <div className="relative aspect-[4/5] overflow-hidden rounded-[26px] bg-[var(--store-surface-alt)]">
           <ProductCardBadges product={product} hasDiscount={hasDiscount} />
           {primaryImage ? (
             <Image
@@ -178,7 +178,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           )}
         </div>
 
-        <div className="flex min-w-0 flex-col justify-between">
+        <div className="flex min-w-0 flex-col justify-between py-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
               {categoryLabel}
@@ -218,22 +218,23 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         type="button"
         onClick={handleWishlist}
         aria-label={isWishlisted ? "Favorilerden kald\u0131r" : "Favorilere ekle"}
-        className="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border-strong)] bg-white/95 text-[var(--store-ink)] shadow-[0_14px_30px_rgba(80,94,113,0.12)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+        className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[var(--store-ink)] shadow-[0_18px_34px_rgba(80,94,113,0.14)] backdrop-blur-sm transition hover:text-[var(--store-accent)] sm:right-4 sm:top-4"
       >
         <Heart className={`h-5 w-5 ${isWishlisted ? "fill-[var(--store-accent)] text-[var(--store-accent)]" : ""}`} />
       </button>
 
       <Link
         href={productHref}
-        className="block rounded-[32px] bg-white px-4 pb-5 pt-4 shadow-[0_16px_40px_rgba(80,94,113,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(80,94,113,0.12)]"
+        className="block transition duration-300 hover:-translate-y-1"
       >
-        <div className="relative mb-5 aspect-square overflow-hidden rounded-[28px] bg-white">
+        <div className="relative mb-4 aspect-[4/5] overflow-hidden rounded-[30px] bg-[var(--store-surface-alt)]">
+          <ProductCardBadges product={product} hasDiscount={hasDiscount} />
           {primaryImage ? (
             <Image
               src={primaryImage}
               alt={product.name}
               fill
-              className="object-contain p-4 transition duration-500 group-hover:scale-[1.03] sm:p-5"
+              className="object-cover transition duration-700 group-hover:scale-[1.04]"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               unoptimized={usesProxiedPrimaryImage}
             />
@@ -244,26 +245,34 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           )}
         </div>
 
-        <h3 className="store-product-title mx-auto min-h-[3.6rem] max-w-[18ch] line-clamp-2 text-center text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)]">
-          {product.name}
-        </h3>
+        <div className="px-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-muted)]">
+            {categoryLabel}
+          </p>
+          <h3 className="store-product-title mt-3 min-h-[3.6rem] line-clamp-2 text-[var(--store-ink)] transition group-hover:text-[var(--store-accent)]">
+            {product.name}
+          </h3>
 
-        <div className="mt-4 flex min-h-[44px] items-end justify-center gap-2.5">
-          {discountPercentage ? (
-            <span className="inline-flex h-8 min-w-[54px] items-center justify-center rounded-full bg-[var(--store-accent)] px-3 text-sm font-semibold text-white">
-              %{discountPercentage}
-            </span>
-          ) : null}
+          <ProductCardRating product={product} />
+          <ProductCardSwatches product={product} />
 
-          <div className="flex items-end gap-2">
-            {originalPrice ? (
-              <span className="pb-0.5 text-sm text-[var(--store-muted)] line-through">
-                {formatPrice(originalPrice)}
+          <div className="mt-4 flex min-h-[44px] items-end gap-2.5">
+            {discountPercentage ? (
+              <span className="inline-flex h-8 min-w-[54px] items-center justify-center rounded-full bg-[var(--store-accent)] px-3 text-sm font-semibold text-white">
+                %{discountPercentage}
               </span>
             ) : null}
-            <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.03em] text-[var(--store-ink)]">
-              {typeof displayPrice === "number" ? formatPrice(displayPrice) : "Bilgi al"}
-            </p>
+
+            <div className="flex items-end gap-2">
+              {originalPrice ? (
+                <span className="pb-1 text-sm text-[var(--store-muted)] line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+              <p className="text-[1.8rem] font-semibold leading-none tracking-[-0.03em] text-[var(--store-ink)]">
+                {typeof displayPrice === "number" ? formatPrice(displayPrice) : "Bilgi al"}
+              </p>
+            </div>
           </div>
         </div>
       </Link>
