@@ -227,13 +227,13 @@ export function Footer() {
             href={CELEBIX_SIGNATURE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center rounded-full border border-[var(--store-border)] bg-white px-3 py-2 transition hover:border-[var(--store-accent)] hover:shadow-[0_12px_28px_-24px_rgba(80,94,113,0.35)]"
+            className="group inline-flex items-center rounded-full border border-[var(--store-border)] bg-white px-4 py-3 sm:px-5 sm:py-3.5 transition hover:border-[var(--store-accent)] hover:shadow-[0_16px_32px_-24px_rgba(80,94,113,0.35)]"
             aria-label="Celebix"
           >
             <img
               src={CELEBIX_SIGNATURE_LOGO}
               alt="Celebix"
-              className="h-4 w-auto opacity-80 transition group-hover:opacity-100"
+              className="h-6 w-auto opacity-90 transition group-hover:opacity-100 sm:h-7"
             />
           </a>
         </div>
