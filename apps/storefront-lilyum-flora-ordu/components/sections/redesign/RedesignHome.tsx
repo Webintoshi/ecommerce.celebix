@@ -1,7 +1,6 @@
 import { HeroSection } from "./ExistingSections";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
 import { StoreLocationsSection } from "./StoreLocationsSection";
-import { TestimonialsSection } from "./TestimonialsSection";
 import { TrustStrip } from "./TrustStrip";
 import type { HomepageData } from "@/lib/homepage";
 
@@ -20,8 +19,6 @@ interface RedesignHomeProps {
     storesHeading?: string;
     storesDescription?: string;
     storesLinkLabel?: string;
-    testimonialsHeading?: string;
-    testimonialsCountLabel?: string;
   };
 }
 
@@ -47,12 +44,8 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         description={uiCopy?.storesDescription}
         linkLabel={uiCopy?.storesLinkLabel}
         storesHref={storesHref}
-        heroBanners={data.heroBanners}
-      />
-      <TestimonialsSection
-        heading={uiCopy?.testimonialsHeading}
-        countLabel={uiCopy?.testimonialsCountLabel}
-        items={data.testimonials}
+        testimonials={data.testimonials}
+        products={(data.allProducts as Record<string, unknown>[]) || []}
       />
     </main>
   );

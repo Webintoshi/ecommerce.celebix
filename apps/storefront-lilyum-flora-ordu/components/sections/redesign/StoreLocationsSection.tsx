@@ -2,11 +2,34 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Clock3, ExternalLink, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
-import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
-import { useStoreInfo } from "@/lib/store-info-context";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { Check, Star } from "lucide-react";
+import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import type { HomepageTestimonial } from "@/lib/homepage";
 import { SectionHeader } from "./SectionHeader";
+import { cn } from "@/lib/utils";
+
+interface ProductLike {
+  id?: string;
+  slug?: string;
+  name?: string;
+  category?: string;
+  images?: string[];
+  images_v2?: Array<string | { url?: string }>;
+}
+
+interface ReviewShowcaseItem {
+  id: string;
+  reviewerName: string;
+  rating: number;
+  body: string;
+  title?: string | null;
+  productName: string;
+  productCategory?: string;
+  productHref?: string;
+  productImage?: string;
+}
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -14,57 +37,180 @@ interface StoreLocationsSectionProps {
   description?: string;
   linkLabel?: string;
   storesHref: string;
-  heroBanners?: Array<{ desktop?: string; mobile?: string; alt?: string }>;
-  promoBanners?: Array<{ image?: string; mobileImage?: string; title?: string }>;
+  testimonials?: HomepageTestimonial[];
+  products?: Array<Record<string, unknown>>;
 }
 
-function buildGalleryImages({
-  heroBanners,
-  promoBanners,
-  storeName,
-}: Pick<StoreLocationsSectionProps, "heroBanners" | "promoBanners"> & { storeName: string }) {
-  const realImages = [
-    ...(heroBanners || []).flatMap((banner, index) =>
-      [banner.desktop, banner.mobile]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `hero-${index}-${imageIndex}`,
-          src: resolveStorefrontAssetUrl(image) || image,
-          alt: banner.alt || `${storeName} vitrin görünümü`,
-        })),
-    ),
-    ...(promoBanners || []).flatMap((banner, index) =>
-      [banner.image, banner.mobileImage]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `promo-${index}-${imageIndex}`,
-          src: resolveStorefrontAssetUrl(image) || image,
-          alt: banner.title || `${storeName} kampanya görseli`,
-        })),
-    ),
-  ].slice(0, 3);
+function getResolvedProductImages(product: ProductLike) {
+  const legacyImagesV2 = Array.isArray(product.images_v2)
+    ? (product.images_v2 ?? [])
+        .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
+        .filter((image) => image.length > 0)
+    : [];
 
-  return realImages;
+  return (Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2)
+    .map((image) => resolveStorefrontAssetUrl(image))
+    .filter((image) => image.length > 0);
+}
+
+function normalizeShowcaseItems(
+  testimonials: HomepageTestimonial[] = [],
+  products: Array<Record<string, unknown>> = [],
+  locale: Parameters<typeof buildLocalizedPath>[1],
+): ReviewShowcaseItem[] {
+  const productPool = products
+    .map((product) => product as ProductLike)
+    .filter((product) => product.slug && product.name)
+    .map((product) => {
+      const images = getResolvedProductImages(product);
+      return {
+        ...product,
+        primaryImage: images[0],
+      };
+    })
+    .filter((product) => product.primaryImage)
+    .slice(0, 8);
+
+  if (productPool.length === 0) {
+    return [];
+  }
+
+  return testimonials
+    .filter((item) => item.body && item.name)
+    .slice(0, 3)
+    .map((item, index) => {
+      const linkedProduct = productPool[index % productPool.length];
+
+      return {
+        id: item.id,
+        reviewerName: item.name,
+        rating: Math.max(1, Math.min(5, item.rating || 5)),
+        body: item.body,
+        title: item.title || null,
+        productName: linkedProduct.name || "Se\u00e7ilen \u00fcr\u00fcn",
+        productCategory: linkedProduct.category,
+        productHref: linkedProduct.slug ? buildLocalizedPath(`/urunler/${linkedProduct.slug}`, locale) : undefined,
+        productImage: linkedProduct.primaryImage,
+      };
+    });
+}
+
+function ReviewCard({
+  item,
+  featured = false,
+}: {
+  item: ReviewShowcaseItem;
+  featured?: boolean;
+}) {
+  const bodyClassName = featured ? "line-clamp-5" : "line-clamp-4";
+  const imageSizes = featured ? "(max-width: 1024px) 100vw, 42vw" : "(max-width: 1024px) 100vw, 24vw";
+  const usesProxiedImage = item.productImage ? isProxiedStorefrontAssetUrl(item.productImage) : false;
+
+  return (
+    <article
+      className={cn(
+        "overflow-hidden rounded-[30px] border border-[var(--store-border)] bg-white shadow-[var(--store-shadow-soft)]",
+        featured ? "lg:grid lg:grid-cols-[0.9fr_1.1fr]" : "h-full",
+      )}
+    >
+      <div className={cn("relative overflow-hidden bg-[var(--store-surface-alt)]", featured ? "aspect-[4/5] lg:aspect-auto" : "aspect-[16/11]")}>
+        {item.productHref ? (
+          <Link href={item.productHref} className="absolute inset-0">
+            {item.productImage ? (
+              <Image
+                src={item.productImage}
+                alt={item.productName}
+                fill
+                className="object-cover"
+                sizes={imageSizes}
+                unoptimized={usesProxiedImage}
+              />
+            ) : null}
+          </Link>
+        ) : item.productImage ? (
+          <Image
+            src={item.productImage}
+            alt={item.productName}
+            fill
+            className="object-cover"
+            sizes={imageSizes}
+            unoptimized={usesProxiedImage}
+          />
+        ) : null}
+      </div>
+
+      <div className="flex h-full flex-col justify-between p-5 sm:p-6">
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-accent)]">
+              {"Sat\u0131n alan notu"}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Star
+                  key={`${item.id}-${index}`}
+                  className={cn(
+                    "h-4 w-4",
+                    index < item.rating
+                      ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
+                      : "fill-[var(--store-surface-alt)] text-[var(--store-surface-alt)]",
+                  )}
+                />
+              ))}
+            </span>
+          </div>
+
+          <div className="mt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+              {item.productCategory || "\u00c7i\u00e7ek se\u00e7imi"}
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+              {item.productName}
+            </h3>
+            {item.title ? (
+              <p className="mt-4 text-sm font-semibold text-[var(--store-ink)]">{item.title}</p>
+            ) : null}
+            <p className={cn("mt-3 text-sm leading-7 text-[var(--store-ink-soft)]", bodyClassName)}>{item.body}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-3 border-t border-[var(--store-border)] pt-4">
+          <div>
+            <p className="text-sm font-semibold text-[var(--store-ink)]">{item.reviewerName}</p>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--store-muted)]">
+              <Check className="h-3 w-3" />
+              {"Do\u011frulanm\u0131\u015f yorum"}
+            </span>
+          </div>
+
+          {item.productHref ? (
+            <Link href={item.productHref} className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]">
+              {"\u00dcr\u00fcn\u00fc incele"}
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Mağaza",
-  heading = "Teslimat ve iletişim",
-  description,
-  linkLabel = "İletişime Git",
+  eyebrow = "Yorumlar",
+  heading = "Se\u00e7ilen \u00e7i\u00e7ekler i\u00e7in m\u00fc\u015fteri notlar\u0131",
+  description = "Ger\u00e7ek yorumlar\u0131 \u00fcr\u00fcn g\u00f6rselleriyle birlikte, daha ticari ve daha g\u00fcven veren bir vitrinde sunuyoruz.",
+  linkLabel = "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
   storesHref,
-  heroBanners = [],
-  promoBanners = [],
+  testimonials = [],
+  products = [],
 }: StoreLocationsSectionProps) {
-  const { storeInfo } = useStoreInfo();
-  const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi eklendiğinde burada görünür.";
-  const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
-  const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
-  const mapUrl = storeInfo?.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
-    : storesHref;
+  const { locale } = useStorefrontRoute();
+  const showcaseItems = normalizeShowcaseItems(testimonials, products, locale);
+
+  if (showcaseItems.length === 0) {
+    return null;
+  }
+
+  const [featuredItem, ...secondaryItems] = showcaseItems;
 
   return (
     <section className="section-shell">
@@ -80,98 +226,16 @@ export function StoreLocationsSection({
           }
         />
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="soft-panel overflow-hidden p-5 sm:p-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              {galleryImages.length > 0 ? (
-                galleryImages.map((image, index) => (
-                  <div key={image.id} className={`relative overflow-hidden rounded-[24px] ${index === 0 ? "sm:col-span-2" : ""}`}>
-                    <div className={`relative ${index === 0 ? "aspect-[16/12]" : "aspect-[4/5]"}`}>
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        priority={index === 0}
-                        sizes={index === 0 ? "(max-width: 640px) 100vw, 40vw" : "(max-width: 640px) 100vw, 20vw"}
-                        className="object-cover"
-                        unoptimized={image.src.startsWith("http")}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-[28px] bg-[linear-gradient(135deg,#f7ebe8_0%,#f1dfdb_100%)] p-8 sm:col-span-3">
-                  <p className="section-eyebrow">Hazır Alan</p>
-                  <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
-                    Mağaza görselleri geldikçe burası dolar
-                  </h3>
-                </div>
-              )}
+        <div className={cn("mt-8 grid gap-5", secondaryItems.length > 0 && "lg:grid-cols-[1.08fr_0.92fr]")}>
+          <ReviewCard item={featuredItem} featured />
+
+          {secondaryItems.length > 0 ? (
+            <div className="grid gap-5">
+              {secondaryItems.map((item) => (
+                <ReviewCard key={item.id} item={item} />
+              ))}
             </div>
-          </div>
-
-          <div className="grid gap-4">
-            <article className="soft-panel p-6 sm:p-7">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="section-eyebrow">İletişim</p>
-                  <h3 className="mt-3 font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
-                    {storeName}
-                  </h3>
-                </div>
-                <a
-                  href={mapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
-                >
-                  Harita
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
-
-              <div className="mt-6 grid gap-4 text-sm text-[var(--store-ink-soft)]">
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-1 h-4 w-4 text-[var(--store-accent)]" />
-                  <p className="leading-7">{address}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-[var(--store-accent)]" />
-                  <a href={`tel:${phone}`} className="hover:text-[var(--store-accent)]">
-                    {phone}
-                  </a>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-[var(--store-accent)]" />
-                  <a href={`mailto:${email}`} className="hover:text-[var(--store-accent)]">
-                    {email}
-                  </a>
-                </div>
-              </div>
-            </article>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
-                <Clock3 className="h-5 w-5 text-[var(--store-accent)]" />
-                <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
-                  Hızlı Geri Dönüş
-                </h4>
-                <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
-                  Sipariş ve teslimat soruları için ulaşım bilgileri net tutulur.
-                </p>
-              </article>
-
-              <article className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[var(--store-shadow-soft)]">
-                <ShieldCheck className="h-5 w-5 text-[var(--store-accent)]" />
-                <h4 className="mt-4 text-lg font-semibold text-[var(--store-ink)]">
-                  Güven Veren Sunum
-                </h4>
-                <p className="mt-2 text-sm leading-7 text-[var(--store-ink-soft)]">
-                  Adres, telefon ve destek bilgileri tek ritimde sunulur.
-                </p>
-              </article>
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </section>

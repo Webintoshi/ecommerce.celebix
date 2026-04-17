@@ -9,18 +9,19 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Bugünün çiçek seçimleri",
-  viewAllLabel: "Tümünü Gör",
+  categoriesHeading: "Bug\u00fcn\u00fcn \u00e7i\u00e7ek se\u00e7imleri",
+  viewAllLabel: "T\u00fcm\u00fcn\u00fc G\u00f6r",
   productGroups: [
-    { title: "Çok Sevilenler", subtitle: "Güncel Vitrin" },
-    { title: "Premium Aranjmanlar", subtitle: "Editör Seçimi" },
-    { title: "Yeni Seçkiler", subtitle: "Sezona Uygun" },
-    { title: "Hediye Seçimleri", subtitle: "Kolay Keşif" },
+    { title: "\u00c7ok Sevilenler", subtitle: "G\u00fcncel Vitrin" },
+    { title: "Premium Aranjmanlar", subtitle: "Edit\u00f6r Se\u00e7imi" },
+    { title: "Yeni Se\u00e7kiler", subtitle: "Sezona Uygun" },
+    { title: "Hediye Se\u00e7imleri", subtitle: "Kolay Ke\u015fif" },
   ],
-  storesEyebrow: "Mağaza",
-  storesHeading: "Teslimat ve iletişim",
-  storesLinkLabel: "İletişime Git",
-  testimonialsHeading: "Müşteri Yorumları",
+  storesEyebrow: "Yorumlar",
+  storesHeading: "Se\u00e7ilen \u00e7i\u00e7ekler i\u00e7in m\u00fc\u015fteri notlar\u0131",
+  storesDescription:
+    "\u00dcr\u00fcn g\u00f6rselleriyle e\u015fle\u015fen ger\u00e7ek yorumlar anasayfada daha g\u00fc\u00e7l\u00fc bir sosyal kan\u0131t olu\u015fturur.",
+  storesLinkLabel: "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -63,15 +64,10 @@ export default async function Home() {
     ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
-  const localizedProductsUrl = new URL(
-    buildLocalizedPath("/urunler", locale),
-    requestOrigin,
-  ).toString();
-  const storesHref = buildLocalizedPath("/iletisim", locale);
+  const localizedProductsUrl = new URL(buildLocalizedPath("/urunler", locale), requestOrigin).toString();
+  const storesHref = buildLocalizedPath("/urunler", locale);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
-  const logoUrl = hasRealLogo
-    ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
-    : "";
+  const logoUrl = hasRealLogo ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl) : "";
 
   return (
     <>
