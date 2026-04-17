@@ -12,6 +12,7 @@ import { useStorefrontRoute } from "@/lib/storefront-route-context";
 type ShowcaseProduct = Product & {
   category?: string | null;
   subcategory?: string | null;
+  is_featured?: boolean;
 };
 
 interface ProductShowcaseSectionsProps {
@@ -39,6 +40,10 @@ function humanizeCategory(value?: string | null) {
     .join(" ");
 }
 
+function isHomepageFeatured(product: ShowcaseProduct) {
+  return Boolean(product.featured ?? product.is_featured);
+}
+
 function buildProductGroups(categories: HomepageCategory[], products: ShowcaseProduct[]) {
   const usedProductIds = new Set<string>();
 
@@ -54,7 +59,12 @@ function buildProductGroups(categories: HomepageCategory[], products: ShowcasePr
       );
     });
 
-    const selectedProducts = categoryProducts.slice(0, 4);
+    const prioritizedProducts = [
+      ...categoryProducts.filter((product) => isHomepageFeatured(product)),
+      ...categoryProducts.filter((product) => !isHomepageFeatured(product)),
+    ];
+
+    const selectedProducts = prioritizedProducts.slice(0, 4);
     selectedProducts.forEach((product) => usedProductIds.add(product.id));
 
     return {

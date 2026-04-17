@@ -110,6 +110,7 @@ export const SETTING_KEYS = {
     SHIPPING_OPTIONS: "shipping_options",
     SHIPPING_INTEGRATIONS: "shipping_integrations",
     STORE_INFO: "store_info",
+    HOMEPAGE_CURATION: "homepage_curation",
     SEO_SETTINGS: "seo_settings",
     EMAIL_SETTINGS: "email_settings",
     NOTIFICATION_SETTINGS: "notification_settings",
@@ -153,6 +154,42 @@ export interface StoreInfo {
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
 export type { ProductListingOrderSettings };
+
+export interface HomepageCurationSettings {
+    featuredCategorySlugs: string[];
+    updatedAt?: string;
+}
+
+const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
+
+export function normalizeHomepageCurationSettings(value: unknown): HomepageCurationSettings {
+    const record =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+
+    const featuredCategorySlugs = Array.isArray(record.featuredCategorySlugs)
+        ? record.featuredCategorySlugs
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .filter((entry, index, source) => source.indexOf(entry) === index)
+            .slice(0, MAX_HOMEPAGE_FEATURED_CATEGORIES)
+        : [];
+
+    return {
+        featuredCategorySlugs,
+        updatedAt:
+            typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
+                ? record.updatedAt
+                : undefined,
+    };
+}
+
+export async function getHomepageCurationSettings(): Promise<HomepageCurationSettings> {
+    const data = await getSetting(SETTING_KEYS.HOMEPAGE_CURATION);
+    return normalizeHomepageCurationSettings(data);
+}
 
 /**
  * Get payment methods

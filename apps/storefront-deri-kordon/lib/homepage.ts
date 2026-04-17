@@ -1,5 +1,8 @@
 import { createServerClient } from "@/lib/supabase";
-import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+  getHomepageCurationSettings,
+  getProductListingOrderPositions,
+} from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
   getVariantAttributeRegistry,
@@ -209,6 +212,50 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+  return fetchHomepageCategoriesWithCuration(supabase, []);
+}
+
+async function fetchHomepageCategoriesWithCuration(
+  supabase: ReturnType<typeof createServerClient>,
+  featuredCategorySlugs: string[],
+) {
+  const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
+
+  if (featuredSlugs.length > 0) {
+    const curatedQuery = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("*")
+        .in("slug", featuredSlugs)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
+
+    if (curatedQuery.error) {
+      throw curatedQuery.error;
+    }
+
+    if ((curatedQuery.data?.length ?? 0) > 0) {
+      const curatedOrder = new Map(featuredSlugs.map((slug, index) => [slug, index]));
+      return (curatedQuery.data ?? []).sort((left, right) => {
+        const leftPriority = curatedOrder.get(left.slug) ?? 99;
+        const rightPriority = curatedOrder.get(right.slug) ?? 99;
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        return String(left.name || "").localeCompare(String(right.name || ""), "tr");
+      });
+    }
+  }
+
   const orderedSlugs = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
   const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
@@ -230,6 +277,16 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
   }
 
   return data ?? [];
+}
+
+function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T) {
+  return {
+    ...product,
+    featured:
+      typeof product.featured === "boolean"
+        ? product.featured
+        : Boolean(product.is_featured),
+  };
 }
 
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
@@ -328,7 +385,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
 
   const [
     heroBannersData,
-    categoriesData,
+    homepageCuration,
     promoBannersData,
     allProductsData,
     attributeRegistry,
@@ -339,7 +396,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       .select("value")
       .eq("key", "hero_banners")
       .maybeSingle(),
-    fetchHomepageCategories(supabase),
+    getHomepageCurationSettings(),
     supabase
       .from("settings")
       .select("value")
@@ -350,29 +407,51 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     getProductListingOrderPositions(),
   ]);
 
+  const categoriesData =
+    homepageCuration.featuredCategorySlugs.length > 0
+      ? await fetchHomepageCategoriesWithCuration(
+          supabase,
+          homepageCuration.featuredCategorySlugs,
+        )
+      : await fetchHomepageCategories(supabase);
+
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categoriesBySlug = new Map(
-    (categoriesData || []).map((category) => [category.slug, category]),
+  const categoryOrder = new Map(
+    (
+      homepageCuration.featuredCategorySlugs.length > 0
+        ? homepageCuration.featuredCategorySlugs
+        : HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug)
+    ).map((slug, index) => [slug, index]),
   );
+  const categoryBase = (categoriesData || [])
+    .filter((category) => category.slug && category.name)
+    .sort((left, right) => {
+      const leftPriority = categoryOrder.get(left.slug) ?? 99;
+      const rightPriority = categoryOrder.get(right.slug) ?? 99;
 
-  const categoryBase = HOMEPAGE_CATEGORY_ORDER.map((entry) => {
-    const category = categoriesBySlug.get(entry.slug);
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
 
-    if (!category) {
-      return null;
-    }
+      const leftSort = typeof left.sort_order === "number" ? left.sort_order : 999;
+      const rightSort = typeof right.sort_order === "number" ? right.sort_order : 999;
 
-    return {
+      if (leftSort !== rightSort) {
+        return leftSort - rightSort;
+      }
+
+      return String(left.name).localeCompare(String(right.name), "tr");
+    })
+    .map((category) => ({
       id: category.id,
-      name: category.name || entry.name,
+      name: category.name,
       slug: category.slug,
       description: category.description || null,
       image: category.image,
       productCount: typeof category.product_count === "number" ? category.product_count : 0,
       seo_title: category.seo_title || null,
       seo_description: category.seo_description || null,
-    };
-  }).filter((category): category is HomepageCategory & Record<string, unknown> => Boolean(category));
+    }));
 
   const translatedCategories = await Promise.all(
     categoryBase.map(async (category) => {
@@ -404,8 +483,16 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   return {
     heroBanners: translatedHeroBanners,
     categories: translatedCategories,
-    products: hydrateHomepageProducts(translatedProducts || [], attributeRegistry),
+    products: hydrateHomepageProducts(
+      (translatedProducts || []).map((product) => withHomepageFeaturedFlag(product)),
+      attributeRegistry,
+    ),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: hydrateHomepageProducts(translatedShowcaseProducts || [], attributeRegistry),
+    allProducts: hydrateHomepageProducts(
+      (translatedShowcaseProducts || []).map((product) =>
+        withHomepageFeaturedFlag(product),
+      ),
+      attributeRegistry,
+    ),
   };
 }
