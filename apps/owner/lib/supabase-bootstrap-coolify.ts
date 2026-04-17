@@ -732,8 +732,6 @@ async function restartService(serviceUuid: string): Promise<void> {
 async function syncSupabaseServiceRouting(
   serviceUuid: string,
   store: StoreConfig,
-  projectUuid: string,
-  environmentUuid: string,
 ): Promise<boolean> {
   const publicUrl = await buildSupabasePublicUrl(store);
   const studioUrl = await buildSupabaseStudioUrl(store);
@@ -753,10 +751,6 @@ async function syncSupabaseServiceRouting(
     body: JSON.stringify({
       name: buildSupabaseServiceName(store),
       description: `Self-hosted Supabase for ${store.slug}`,
-      project_uuid: projectUuid,
-      environment_uuid: environmentUuid,
-      server_uuid: getCoolifyServerUuid(),
-      destination_uuid: getCoolifyDestinationUuid(),
       instant_deploy: true,
       urls: [
         {
@@ -789,8 +783,6 @@ async function ensureSupabaseService(store: StoreConfig, projectUuid: string, en
     const routingUpdated = await syncSupabaseServiceRouting(
       serviceUuid,
       store,
-      projectUuid,
-      environmentUuid,
     );
 
     if (routingUpdated) {
