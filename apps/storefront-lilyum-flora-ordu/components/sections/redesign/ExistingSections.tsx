@@ -31,7 +31,7 @@ function HeroMedia({
   href?: string;
 }) {
   const media = (
-    <div className="relative aspect-[5/6] sm:aspect-[16/9] lg:aspect-[16/6.2]">
+    <div className="relative aspect-[5/6] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
       <div className="absolute inset-0 hidden md:block">
         <Image
           src={desktop}
@@ -39,7 +39,7 @@ function HeroMedia({
           fill
           priority
           className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 92vw"
+          sizes="100vw"
         />
       </div>
       <div className="absolute inset-0 md:hidden">
@@ -84,23 +84,23 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!hasSlides) {
     return (
-      <section className="section-shell pt-6 sm:pt-8">
-        <div className="container-premium">
-          <div className="overflow-hidden rounded-[40px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f6f6f6_100%)] p-3 shadow-[var(--store-shadow-soft)] sm:p-4 lg:p-5">
-            <div className="overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-white">
-              <div className="relative aspect-[5/6] sm:aspect-[16/9] lg:aspect-[16/6.2]">
-                <div className="absolute inset-y-0 left-0 w-[44%] bg-[#505E71]" />
-                <div className="absolute inset-y-0 right-0 w-[56%] bg-[#F6F6F6]" />
-                <div className="absolute inset-y-[14%] left-[5%] w-[22%] rounded-[30px] bg-white/95" />
-                <div className="absolute bottom-[14%] left-[30%] h-[48%] w-[16%] rounded-[30px] bg-[#DA630D]" />
-                <div className="absolute right-[8%] top-[14%] h-[50%] w-[24%] rounded-[32px] bg-[#505E71]/14" />
-                <div className="absolute bottom-[12%] right-[20%] h-[36%] w-[14%] rounded-[30px] bg-[#DA630D]/18" />
-                <div className="absolute right-[12%] top-[18%] h-20 w-20 rounded-full bg-white sm:h-28 sm:w-28" />
-                <div className="absolute bottom-[14%] left-[16%] h-16 w-16 rounded-full bg-[#F6F6F6] sm:h-24 sm:w-24" />
-              </div>
-            </div>
+      <section className="pt-4 sm:pt-5">
+        <div className="relative w-full overflow-hidden bg-[linear-gradient(90deg,#f6f6f6_0%,#ffffff_22%,#eef2f5_100%)]">
+          <div className="relative aspect-[5/6] sm:aspect-[16/8.4] lg:aspect-[16/5.3] xl:aspect-[16/5]">
+            <div className="absolute inset-y-0 left-0 w-[44%] bg-[#505E71]" />
+            <div className="absolute inset-y-0 right-0 w-[56%] bg-[#F6F6F6]" />
+            <div className="absolute inset-y-[14%] left-[5%] w-[22%] rounded-[30px] bg-white/95" />
+            <div className="absolute bottom-[14%] left-[30%] h-[48%] w-[16%] rounded-[30px] bg-[#DA630D]" />
+            <div className="absolute right-[8%] top-[14%] h-[50%] w-[24%] rounded-[32px] bg-[#505E71]/14" />
+            <div className="absolute bottom-[12%] right-[20%] h-[36%] w-[14%] rounded-[30px] bg-[#DA630D]/18" />
+            <div className="absolute right-[12%] top-[18%] h-20 w-20 rounded-full bg-white sm:h-28 sm:w-28" />
+            <div className="absolute bottom-[14%] left-[16%] h-16 w-16 rounded-full bg-[#F6F6F6] sm:h-24 sm:w-24" />
+          </div>
+        </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-3">
+        <div className="section-shell pt-4">
+          <div className="container-premium">
+            <div className="flex items-center justify-between gap-3 rounded-[26px] border border-[var(--store-border)] bg-white px-4 py-3 shadow-[var(--store-shadow-soft)]">
               <div className="flex gap-2">
                 <span className="h-2.5 w-8 rounded-full bg-[#DA630D]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[var(--store-border-strong)]" />
@@ -119,20 +119,20 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const currentSlideHref = slide.buttonLink || slide.link;
 
   return (
-    <section className="section-shell pt-6 sm:pt-8">
-      <div className="container-premium">
-        <div className="overflow-hidden rounded-[40px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f6f6f6_100%)] p-3 shadow-[var(--store-shadow-soft)] sm:p-4 lg:p-5">
-          <div className="overflow-hidden rounded-[32px] border border-[var(--store-border)] bg-white">
-            <HeroMedia
-              desktop={slide.desktop}
-              mobile={slide.mobile}
-              alt={currentSlideLabel}
-              href={currentSlideHref}
-            />
-          </div>
+    <section className="pt-4 sm:pt-5">
+      <div className="relative w-full overflow-hidden bg-[var(--store-surface-alt)]">
+        <HeroMedia
+          desktop={slide.desktop}
+          mobile={slide.mobile}
+          alt={currentSlideLabel}
+          href={currentSlideHref}
+        />
+      </div>
 
-          {slides.length > 1 ? (
-            <div className="mt-4 flex flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-5">
+      {slides.length > 1 ? (
+        <div className="section-shell pt-4">
+          <div className="container-premium">
+            <div className="flex flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 shadow-[var(--store-shadow-soft)] lg:flex-row lg:items-center lg:justify-between lg:px-5">
               <div className="-mx-1 flex flex-1 gap-3 overflow-x-auto px-1 scrollbar-hide">
                 {slides.map((item, index) => {
                   const previewLabel = item.alt || item.title || `${SITE_NAME} ${index + 1}`;
@@ -200,9 +200,9 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                 </div>
               </div>
             </div>
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
