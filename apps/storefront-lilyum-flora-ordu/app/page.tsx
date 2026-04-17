@@ -19,8 +19,7 @@ const HOME_UI_COPY = {
   ],
   storesEyebrow: "M\u00fc\u015fteri Yorumlar\u0131",
   storesHeading: "Teslim edilen secimlerden notlar",
-  storesDescription:
-    "Onayli yorumlari, secilen urunle birlikte daha sakin ve daha guven veren bir akista sunuyoruz.",
+  storesDescription: "",
   storesLinkLabel: "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
 };
 

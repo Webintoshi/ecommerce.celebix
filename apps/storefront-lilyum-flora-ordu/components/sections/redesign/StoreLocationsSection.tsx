@@ -99,7 +99,7 @@ function ReviewCard({
 }: {
   item: ReviewShowcaseItem;
 }) {
-  const bodyClassName = "line-clamp-5";
+  const bodyClassName = "line-clamp-4";
   const imageSizes = "(max-width: 1024px) 100vw, 20vw";
   const usesProxiedImage = item.productImage ? isProxiedStorefrontAssetUrl(item.productImage) : false;
 
@@ -124,10 +124,10 @@ function ReviewCard({
         </span>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 flex min-h-[200px] flex-1 flex-col">
         <span className="text-5xl leading-none text-[rgba(218,99,13,0.18)]">“</span>
         {item.title ? (
-          <p className="mt-4 text-[15px] font-semibold tracking-[-0.02em] text-[var(--store-ink)]">
+          <p className="mt-4 line-clamp-2 text-[15px] font-semibold tracking-[-0.02em] text-[var(--store-ink)]">
             {item.title}
           </p>
         ) : null}
@@ -204,7 +204,7 @@ function ReviewCard({
 export function StoreLocationsSection({
   eyebrow = "M\u00fc\u015fteri Yorumlar\u0131",
   heading = "Teslim edilen secimlerden notlar",
-  description = "Onayli yorumlari, secilen urunle birlikte daha sakin ve daha guven veren bir akista sunuyoruz.",
+  description = "",
   linkLabel = "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
   storesHref,
   testimonials = [],
@@ -227,9 +227,11 @@ export function StoreLocationsSection({
               <h2 className="mt-4 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
                 {heading}
               </h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--store-ink-soft)] sm:text-[15px]">
-                {description}
-              </p>
+              {description ? (
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--store-ink-soft)] sm:text-[15px]">
+                  {description}
+                </p>
+              ) : null}
             </div>
 
             <Link href={storesHref} className="cta-secondary self-start lg:self-auto">
