@@ -22,8 +22,10 @@ import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authorit
 import {
   listCleanupRuns,
   listUnresolvedCleanupSlugs,
+  readDomainMigrationSummary,
   readProvisioningSummary,
   type CleanupRunSummary,
+  type DomainMigrationSummary as LifecycleDomainMigrationSummary,
   type ProvisioningState,
   type ProvisioningStepSummary,
 } from "@/lib/store-lifecycle";
@@ -263,6 +265,10 @@ export interface StoreProvisioningSummary {
   steps: ProvisioningStepSummary[];
 }
 
+export interface StoreDomainMigrationSummary extends LifecycleDomainMigrationSummary {
+  hasHistory: boolean;
+}
+
 export interface CleanupRunOverview {
   id: string;
   slug: string;
@@ -303,6 +309,7 @@ export interface DashboardStoreSummary {
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
   provisioning: StoreProvisioningSummary;
+  domainMigration: StoreDomainMigrationSummary;
 }
 
 export interface AffiliateSummary {
@@ -874,6 +881,24 @@ function buildProvisioningSummary(metadata: Record<string, unknown> | null | und
     blockingStepCount: blockingSteps.length,
     pendingStepCount: pendingSteps.length,
     steps,
+  };
+}
+
+function buildDomainMigrationSummary(
+  metadata: Record<string, unknown> | null | undefined,
+): StoreDomainMigrationSummary {
+  const rawDomainMigration = readDomainMigrationSummary(metadata);
+  const hasHistory = Boolean(
+    rawDomainMigration.startedAt ||
+      rawDomainMigration.completedAt ||
+      rawDomainMigration.lastError ||
+      rawDomainMigration.previousStorefrontDomain ||
+      rawDomainMigration.storefrontDomain,
+  );
+
+  return {
+    ...rawDomainMigration,
+    hasHistory,
   };
 }
 
@@ -1859,6 +1884,7 @@ async function buildDashboardStoreSummaries(
         : metric;
       const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
       const provisioning = buildProvisioningSummary(store.metadata);
+      const domainMigration = buildDomainMigrationSummary(store.metadata);
 
       return {
         id: store.id,
@@ -1891,6 +1917,7 @@ async function buildDashboardStoreSummaries(
           storefrontStatus: store.storefront_status
         }),
         provisioning,
+        domainMigration,
         health: buildStoreHealth(
           store,
           metricsRow?.last_synced_at ?? null,

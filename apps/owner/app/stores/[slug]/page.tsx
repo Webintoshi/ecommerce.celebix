@@ -548,6 +548,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               slug={store.slug}
               storefrontDomain={store.storefrontDomain}
               adminDomain={store.adminDomain}
+              domainMigration={store.domainMigration}
             />
           </div>
 

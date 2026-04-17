@@ -5,6 +5,8 @@ import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 export type ProvisioningState = "ready" | "running" | "pending_repair";
 export type ProvisioningStepStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 export type CleanupRunStatus = "resolved" | "orphaned";
+export type DomainMigrationState = "idle" | "running" | "completed" | "failed" | "rolled_back";
+export type DomainMigrationRollbackState = "not_needed" | "running" | "completed" | "failed";
 
 export type ProvisioningStepKey =
   | "owner_supabase_auth"
@@ -61,6 +63,23 @@ export interface CleanupRunSummary {
   createdAt: string;
   updatedAt: string;
   targets: CleanupTargetSummary[];
+}
+
+export interface DomainMigrationSummary {
+  state: DomainMigrationState;
+  previousStorefrontDomain: string | null;
+  previousAdminDomain: string | null;
+  storefrontDomain: string | null;
+  adminDomain: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  lastError: string | null;
+  authoritySyncMessage: string | null;
+  adminDeploymentStatus: string | null;
+  storefrontDeploymentStatus: string | null;
+  rollbackState: DomainMigrationRollbackState;
+  rollbackCompletedAt: string | null;
+  rollbackError: string | null;
 }
 
 const STEP_LABELS: Record<ProvisioningStepKey, string> = {
@@ -120,6 +139,25 @@ function normalizeProvisioningStepStatus(value: unknown): ProvisioningStepStatus
 
 function normalizeCleanupRunStatus(value: unknown): CleanupRunStatus {
   return value === "resolved" || value === "orphaned" ? value : "orphaned";
+}
+
+function normalizeDomainMigrationState(value: unknown): DomainMigrationState {
+  return value === "idle" ||
+    value === "running" ||
+    value === "completed" ||
+    value === "failed" ||
+    value === "rolled_back"
+    ? value
+    : "idle";
+}
+
+function normalizeDomainMigrationRollbackState(value: unknown): DomainMigrationRollbackState {
+  return value === "not_needed" ||
+    value === "running" ||
+    value === "completed" ||
+    value === "failed"
+    ? value
+    : "not_needed";
 }
 
 function isMissingCleanupRunsTableError(error: unknown): boolean {
@@ -219,6 +257,103 @@ export function readProvisioningSummary(metadata: Record<string, unknown> | null
   };
 }
 
+function createDefaultDomainMigrationSummary(): DomainMigrationSummary {
+  return {
+    state: "idle",
+    previousStorefrontDomain: null,
+    previousAdminDomain: null,
+    storefrontDomain: null,
+    adminDomain: null,
+    startedAt: null,
+    completedAt: null,
+    lastError: null,
+    authoritySyncMessage: null,
+    adminDeploymentStatus: null,
+    storefrontDeploymentStatus: null,
+    rollbackState: "not_needed",
+    rollbackCompletedAt: null,
+    rollbackError: null,
+  };
+}
+
+export function readDomainMigrationSummary(
+  metadata: Record<string, unknown> | null | undefined,
+): DomainMigrationSummary {
+  const root = asRecord(metadata);
+  const migration = asRecord(root.domainMigration);
+  const fallback = createDefaultDomainMigrationSummary();
+
+  return {
+    state: normalizeDomainMigrationState(migration.state),
+    previousStorefrontDomain:
+      readOptionalString(migration.previousStorefrontDomain) ?? fallback.previousStorefrontDomain,
+    previousAdminDomain:
+      readOptionalString(migration.previousAdminDomain) ?? fallback.previousAdminDomain,
+    storefrontDomain: readOptionalString(migration.storefrontDomain) ?? fallback.storefrontDomain,
+    adminDomain: readOptionalString(migration.adminDomain) ?? fallback.adminDomain,
+    startedAt: readOptionalString(migration.startedAt) ?? fallback.startedAt,
+    completedAt: readOptionalString(migration.completedAt) ?? fallback.completedAt,
+    lastError: readOptionalString(migration.lastError) ?? fallback.lastError,
+    authoritySyncMessage:
+      readOptionalString(migration.authoritySyncMessage) ?? fallback.authoritySyncMessage,
+    adminDeploymentStatus:
+      readOptionalString(migration.adminDeploymentStatus) ?? fallback.adminDeploymentStatus,
+    storefrontDeploymentStatus:
+      readOptionalString(migration.storefrontDeploymentStatus) ?? fallback.storefrontDeploymentStatus,
+    rollbackState: normalizeDomainMigrationRollbackState(migration.rollbackState),
+    rollbackCompletedAt:
+      readOptionalString(migration.rollbackCompletedAt) ?? fallback.rollbackCompletedAt,
+    rollbackError: readOptionalString(migration.rollbackError) ?? fallback.rollbackError,
+  };
+}
+
+function mergeDomainMigrationSummary(
+  current: DomainMigrationSummary,
+  input: Partial<DomainMigrationSummary>,
+): DomainMigrationSummary {
+  return {
+    state: input.state ?? current.state,
+    previousStorefrontDomain:
+      input.previousStorefrontDomain !== undefined
+        ? input.previousStorefrontDomain
+        : current.previousStorefrontDomain,
+    previousAdminDomain:
+      input.previousAdminDomain !== undefined
+        ? input.previousAdminDomain
+        : current.previousAdminDomain,
+    storefrontDomain:
+      input.storefrontDomain !== undefined ? input.storefrontDomain : current.storefrontDomain,
+    adminDomain:
+      input.adminDomain !== undefined ? input.adminDomain : current.adminDomain,
+    startedAt:
+      input.startedAt !== undefined ? input.startedAt : current.startedAt,
+    completedAt:
+      input.completedAt !== undefined ? input.completedAt : current.completedAt,
+    lastError:
+      input.lastError !== undefined ? input.lastError : current.lastError,
+    authoritySyncMessage:
+      input.authoritySyncMessage !== undefined
+        ? input.authoritySyncMessage
+        : current.authoritySyncMessage,
+    adminDeploymentStatus:
+      input.adminDeploymentStatus !== undefined
+        ? input.adminDeploymentStatus
+        : current.adminDeploymentStatus,
+    storefrontDeploymentStatus:
+      input.storefrontDeploymentStatus !== undefined
+        ? input.storefrontDeploymentStatus
+        : current.storefrontDeploymentStatus,
+    rollbackState:
+      input.rollbackState !== undefined ? input.rollbackState : current.rollbackState,
+    rollbackCompletedAt:
+      input.rollbackCompletedAt !== undefined
+        ? input.rollbackCompletedAt
+        : current.rollbackCompletedAt,
+    rollbackError:
+      input.rollbackError !== undefined ? input.rollbackError : current.rollbackError,
+  };
+}
+
 export function mergeProvisioningSummary(
   current: ProvisioningSummary,
   input: Partial<ProvisioningSummary>,
@@ -265,6 +400,32 @@ async function readOwnerStoreMetadata(slug: string): Promise<Record<string, unkn
   }
 
   return asRecord(data.metadata);
+}
+
+export async function persistDomainMigrationSummary(
+  slug: string,
+  input: Partial<DomainMigrationSummary>,
+): Promise<DomainMigrationSummary> {
+  const serviceClient = createOwnerServiceClient();
+  const metadata = await readOwnerStoreMetadata(slug);
+  const nextDomainMigration = mergeDomainMigrationSummary(
+    readDomainMigrationSummary(metadata),
+    input,
+  );
+  const nextMetadata = {
+    ...metadata,
+    domainMigration: nextDomainMigration,
+  };
+  const { error } = await serviceClient
+    .from("owner_stores")
+    .update({ metadata: nextMetadata })
+    .eq("slug", slug);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return nextDomainMigration;
 }
 
 export async function persistProvisioningSummary(

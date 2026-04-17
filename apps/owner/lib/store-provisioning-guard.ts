@@ -48,9 +48,14 @@ function formatWindowMinutes(windowMs: number) {
   return Math.max(1, Math.ceil(windowMs / 60000));
 }
 
-function buildBusyMessage(slug: string, mode: "create" | "repair", windowMs: number) {
+function buildBusyMessage(
+  slug: string,
+  mode: "create" | "repair",
+  windowMs: number,
+  actionLabel?: string,
+) {
   const minutes = formatWindowMinutes(windowMs);
-  const action = mode === "repair" ? "repair" : "provisioning";
+  const action = actionLabel?.trim() || (mode === "repair" ? "repair" : "provisioning");
   return `${slug} icin ${action} akisi zaten calisiyor. Yaklasik ${minutes} dakika sonra tekrar deneyin.`;
 }
 
@@ -79,12 +84,13 @@ function tryAcquireLocalWindow(
 export async function reserveStoreProvisioningWindow(input: {
   slug: string;
   mode: "create" | "repair";
+  actionLabel?: string;
 }): Promise<StoreProvisioningWindowHandle> {
   const windowMs = getProvisioningWindowMs();
   const redisLock = await tryAcquireRedisLock(`store-provisioning:${input.slug}`, windowMs);
 
   if (redisLock === false) {
-    throw new RedisLockError(buildBusyMessage(input.slug, input.mode, windowMs));
+    throw new RedisLockError(buildBusyMessage(input.slug, input.mode, windowMs, input.actionLabel));
   }
 
   if (redisLock) {
@@ -97,7 +103,7 @@ export async function reserveStoreProvisioningWindow(input: {
   const localWindow = tryAcquireLocalWindow(input.slug, windowMs);
 
   if (!localWindow) {
-    throw new RedisLockError(buildBusyMessage(input.slug, input.mode, windowMs));
+    throw new RedisLockError(buildBusyMessage(input.slug, input.mode, windowMs, input.actionLabel));
   }
 
   return localWindow;

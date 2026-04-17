@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { isRedisLockError } from "@/lib/redis";
 import { migrateStoreDomain } from "@/lib/store-domain-migration";
 
 interface RouteContext {
@@ -32,7 +33,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       {
         error: error instanceof Error ? error.message : "Domain migration basarisiz oldu.",
       },
-      { status: 400 },
+      { status: isRedisLockError(error) ? 409 : 400 },
     );
   }
 }

@@ -22,12 +22,28 @@ interface DomainMigrationPayload {
     runtimeUrl: string;
     message: string | null;
   };
+  domainMigration?: {
+    state: string;
+    rollbackState: string;
+    completedAt: string | null;
+    lastError: string | null;
+  };
+}
+
+interface DomainMigrationStatusSnapshot {
+  hasHistory: boolean;
+  state: string;
+  rollbackState: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  lastError: string | null;
 }
 
 interface MigrateStoreDomainFormProps {
   slug: string;
   storefrontDomain: string;
   adminDomain: string;
+  domainMigration: DomainMigrationStatusSnapshot;
 }
 
 function normalizeInputDomain(value: string): string {
@@ -58,6 +74,7 @@ export function MigrateStoreDomainForm({
   slug,
   storefrontDomain,
   adminDomain,
+  domainMigration,
 }: MigrateStoreDomainFormProps) {
   const router = useRouter();
   const [domain, setDomain] = useState(storefrontDomain);
@@ -159,6 +176,22 @@ export function MigrateStoreDomainForm({
           Destek ve noreply e-postalari eski domainin varsayilan formundaysa yeni domaine otomatik tasinir.
         </p>
       </div>
+
+      {domainMigration.hasHistory ? (
+        <div className="inline-card field-full">
+          <div className="meta-pairs">
+            <span>Son migration state: <strong>{domainMigration.state}</strong></span>
+            <span>Rollback: <strong>{domainMigration.rollbackState}</strong></span>
+            <span>Baslangic: <strong>{domainMigration.startedAt || "-"}</strong></span>
+            <span>Tamamlama: <strong>{domainMigration.completedAt || "-"}</strong></span>
+          </div>
+          {domainMigration.lastError ? (
+            <p className="form-error" style={{ marginTop: 12 }}>
+              Son migration notu: {domainMigration.lastError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
