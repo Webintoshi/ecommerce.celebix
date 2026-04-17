@@ -56,8 +56,8 @@
   },
   "storefront": {
     "appDir": "apps/storefront-butik-waya",
-    "status": "scaffolded",
-    "lastScaffoldedAt": "2026-04-17T12:33:37.974Z",
+    "status": "active",
+    "lastScaffoldedAt": "2026-04-17T20:10:43.786Z",
     "repoSyncStatus": "failed",
     "repoSyncedAt": "2026-04-17T12:33:39.433Z",
     "lastRepoSyncError": "GitHub API hatasi (403): {\n  \"documentation_url\": \"https://docs.github.com/free-pro-team@latest/rest/overview/rate-limits-for-the-rest-api#about-secondary-rate-limits\",\n  \"message\": \"You have exceeded a secondary rate limit. Please wait a few minutes before you try again. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) If you reach out to GitHub Support for help, please include the request ID DFB2:224662:1FE295:1D1FBD:69E228C1.\"\n}",
@@ -65,8 +65,10 @@
     "deploymentName": "Butik Waya websitesi",
     "deploymentBranch": "deploy/storefront/butik-waya",
     "runtimeUrl": "https://celebix.site",
-    "deploymentStatus": "pending-repo-sync",
-    "lastDeploymentError": "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
+    "resourceId": "l50xux8twafpwmqv21bnqwp9",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-04-17T20:10:43.788Z",
+    "deployedAt": "2026-04-17T20:10:43.786Z"
   },
   "features": [
     "catalog",
