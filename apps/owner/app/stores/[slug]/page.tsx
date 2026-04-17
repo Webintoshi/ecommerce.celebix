@@ -7,7 +7,7 @@ import { MigrateStoreDomainForm } from "@/components/MigrateStoreDomainForm";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
 import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDeploymentAuthorityButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
-import { RepairProjectButton } from "@/components/RepairProjectButton";
+import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
@@ -104,9 +104,6 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const createdAt = formatDateTime(store.createdAt);
   const updatedAt = formatDateTime(store.updatedAt);
   const provisioning = store.provisioning;
-  const pendingProvisioningSteps = provisioning.steps.filter(
-    (step) => step.status === "failed" || step.status === "pending",
-  );
   const subscription = store.management.subscription;
   const subscriptionStatusClass =
     subscription.status === "active" ? "pill-success" : "pill-accent";
@@ -399,46 +396,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </div>
 
-      <div className="card section-tight">
-        <div className="section-head">
-          <div>
-            <div className="card-title">Provisioning Lifecycle</div>
-            <p className="section-copy">
-              Owner panel create ve repair akisinin hangi adimda oldugunu bu bloktan izle.
-            </p>
-          </div>
-          {superAdmin ? <RepairProjectButton slug={store.slug} /> : null}
-        </div>
-        <div className="meta-pairs">
-          <span>State: <strong>{provisioning.state}</strong></span>
-          <span>Last Run: <strong>{formatDateTime(provisioning.lastRunAt)}</strong></span>
-          <span>Blocking Step: <strong>{provisioning.blockingStepCount}</strong></span>
-          <span>Failed Step: <strong>{provisioning.failedStepCount}</strong></span>
-          <span>Pending Step: <strong>{provisioning.pendingStepCount}</strong></span>
-        </div>
-        {provisioning.lastError ? (
-          <p className="card-note">Son hata: {provisioning.lastError}</p>
-        ) : (
-          <p className="card-note">Provisioning metadata owner authority icinde senkron tutuluyor.</p>
-        )}
-        {pendingProvisioningSteps.length > 0 ? (
-          <div className="stack-list stack-top-md">
-            {pendingProvisioningSteps.map((step) => (
-              <div key={step.key} className="inline-card">
-                <div>
-                  <strong>{step.key}</strong>
-                  <p>{step.message || step.status}</p>
-                </div>
-                <div className="actions compact-actions">
-                  <span className={`pill ${step.status === "failed" ? "pill-accent" : "pill-success"}`}>
-                    {step.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <ProvisioningLifecycleCard
+        slug={store.slug}
+        storeName={store.name}
+        provisioning={provisioning}
+        superAdmin={superAdmin}
+      />
 
       <div className="card section-tight">
         <div className="card-title">Storefront Deployment Blueprint</div>
