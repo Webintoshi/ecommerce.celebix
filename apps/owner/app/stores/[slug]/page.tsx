@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import { MigrateStoreDomainForm } from "@/components/MigrateStoreDomainForm";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
 import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDeploymentAuthorityButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
@@ -538,6 +539,18 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {/* Forms - Only for Super Admin */}
       {superAdmin ? (
         <>
+          <div className="card section-tight">
+            <div className="card-title">Demo Domain'den Custom Domain'e Gecis</div>
+            <p className="section-copy">
+              Demo subdomain ile kurulan magazayi owner panelden kontrollu sekilde gercek domaine tasir.
+            </p>
+            <MigrateStoreDomainForm
+              slug={store.slug}
+              storefrontDomain={store.storefrontDomain}
+              adminDomain={store.adminDomain}
+            />
+          </div>
+
           <div className="card section-tight">
             <div className="card-title">Proje Profilini Guncelle</div>
             <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>

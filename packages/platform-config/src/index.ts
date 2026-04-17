@@ -149,6 +149,12 @@ export interface CreateStoreResult {
   envTemplatePath: string;
 }
 
+export interface StoreDomainMigrationInput {
+  storefrontDomain: string;
+  adminDomain?: string;
+  refreshDerivedBrandingEmails?: boolean;
+}
+
 export interface StoreSupabaseUpdateInput {
   projectRef: string;
   url: string;
@@ -448,6 +454,18 @@ function buildRegistryEntry(config: StoreConfig): StoreRegistryEntry {
     theme: config.theme.key,
     status: config.status
   };
+}
+
+function upsertStoreRegistryEntry(config: StoreConfig): void {
+  const registryPath = path.join(getRepoRoot(), "stores", "registry.json");
+  const currentRegistry = getStores();
+  const nextEntry = buildRegistryEntry(config);
+  const nextRegistry = currentRegistry
+    .filter((entry) => entry.slug !== config.slug)
+    .concat(nextEntry)
+    .sort((left, right) => left.name.localeCompare(right.name, "tr"));
+
+  writeJsonFile(registryPath, nextRegistry);
 }
 
 function buildAdminEnvTemplate(config: StoreConfig): string {
@@ -802,7 +820,80 @@ export function updateStoreConfig(slug: string, updater: (current: StoreConfig) 
   const current = requireStoreConfig(slug);
   const next = normalizeStoreConfig(updater(current));
   writeJsonFile(getStoreConfigPath(slug), next);
+  upsertStoreRegistryEntry(next);
   return next;
+}
+
+function shouldRefreshDerivedAddress(
+  currentValue: string | null | undefined,
+  previousDomain: string,
+  localPart: string,
+): boolean {
+  if (!currentValue?.trim()) {
+    return true;
+  }
+
+  return currentValue.trim().toLocaleLowerCase("tr") === `${localPart}@${previousDomain}`;
+}
+
+function writeAdminEnvTemplateForStore(config: StoreConfig): void {
+  const envTemplatePath = path.join(getStoreDirectory(config.slug), "admin.env.example");
+  fs.writeFileSync(envTemplatePath, buildAdminEnvTemplate(config), "utf8");
+}
+
+export function updateStoreDomains(slug: string, input: StoreDomainMigrationInput): StoreConfig {
+  const storefrontDomain = ensureDomain(input.storefrontDomain);
+  const adminDomain = ensureDomain(input.adminDomain?.trim() || `admin.${storefrontDomain}`);
+  const refreshDerivedBrandingEmails = input.refreshDerivedBrandingEmails !== false;
+
+  const nextConfig = updateStoreConfig(slug, (current) => {
+    const previousStorefrontDomain = current.domains.storefront;
+    const supportEmail =
+      refreshDerivedBrandingEmails &&
+      shouldRefreshDerivedAddress(current.branding?.supportEmail, previousStorefrontDomain, "destek")
+        ? `destek@${storefrontDomain}`
+        : current.branding?.supportEmail;
+    const senderEmail =
+      refreshDerivedBrandingEmails &&
+      shouldRefreshDerivedAddress(current.branding?.senderEmail, previousStorefrontDomain, "noreply")
+        ? `noreply@${storefrontDomain}`
+        : current.branding?.senderEmail;
+
+    return {
+      ...current,
+      branding: {
+        ...(current.branding ?? {}),
+        supportEmail,
+        senderEmail,
+      },
+      domains: {
+        storefront: storefrontDomain,
+        admin: adminDomain,
+      },
+      bootstrap: current.bootstrap
+        ? {
+            ...current.bootstrap,
+            adminDeploymentRuntimeUrl: `https://${adminDomain}`,
+          }
+        : current.bootstrap,
+      storefront: current.storefront
+        ? {
+            ...current.storefront,
+            runtimeUrl: `https://${storefrontDomain}`,
+          }
+        : current.storefront,
+    };
+  });
+
+  writeAdminEnvTemplateForStore(nextConfig);
+  upsertStoreAdminEnvLocal(nextConfig.slug, {
+    NEXT_PUBLIC_STORE_DOMAIN: nextConfig.domains.storefront,
+    NEXT_PUBLIC_ADMIN_DOMAIN: nextConfig.domains.admin,
+    NEXT_PUBLIC_SITE_URL: `https://${nextConfig.domains.storefront}`,
+    NEXT_PUBLIC_ADMIN_URL: `https://${nextConfig.domains.admin}`,
+  });
+
+  return nextConfig;
 }
 
 export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpdateInput): StoreConfig {

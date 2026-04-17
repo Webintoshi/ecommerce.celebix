@@ -171,7 +171,8 @@ export function CreateStoreForm({
           required
         />
         <small className="muted">
-          Bu alan storefront ve admin domaini icindir. Self-hosted Supabase ayri stock-host ile uretilir.
+          Bu alan storefront ve admin domaini icindir. Demo kurulum icin `waya.celebix.co` gibi bir subdomain
+          girebilir, musteri onayindan sonra owner panelden gercek domaine gecirebilirsin.
         </small>
       </label>
 
