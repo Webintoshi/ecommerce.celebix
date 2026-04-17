@@ -158,6 +158,8 @@ const DEFAULT_HOMEPAGE_CURATION: HomepageCurationState = {
   featuredProductIdsByCategory: {},
   enforceFeaturedProductCaps: false,
 };
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
 
 function normalizeCategoryKey(value?: string | null) {
   return String(value || "").trim().toLocaleLowerCase("tr-TR");
@@ -176,22 +178,26 @@ function normalizeFeaturedProductIdsByCategory(
     featuredCategorySlugs.map((entry) => normalizeCategoryKey(entry)).filter(Boolean),
   );
 
-  return Object.entries(record).reduce<Record<string, string[]>>((result, [key, rawValue]) => {
-    const normalizedKey = normalizeCategoryKey(key);
-    if (!normalizedKey || !allowedCategorySlugs.has(normalizedKey)) {
+  let remainingCapacity = MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL;
+
+  return featuredCategorySlugs.reduce<Record<string, string[]>>((result, slug) => {
+    const normalizedKey = normalizeCategoryKey(slug);
+    if (!normalizedKey || !allowedCategorySlugs.has(normalizedKey) || remainingCapacity <= 0) {
       return result;
     }
 
+    const rawValue = record[slug] ?? record[normalizedKey];
     const normalizedIds = Array.isArray(rawValue)
       ? rawValue
           .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
           .map((entry) => entry.trim())
           .filter((entry, index, source) => source.indexOf(entry) === index)
-          .slice(0, 4)
+          .slice(0, Math.min(MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY, remainingCapacity))
       : [];
 
     if (normalizedIds.length > 0) {
       result[normalizedKey] = normalizedIds;
+      remainingCapacity -= normalizedIds.length;
     }
 
     return result;
@@ -291,6 +297,10 @@ export default function ProductsPageClient({
 
   const getHomepageFeaturedState = useCallback(
     (product: AdminProductListItem) => {
+      const totalFeaturedProductCount = Object.values(
+        homepageCuration.featuredProductIdsByCategory,
+      ).reduce((sum, ids) => sum + ids.length, 0);
+
       if (!homepageCuration.enforceFeaturedProductCaps) {
         return {
           disabled: false,
@@ -298,6 +308,7 @@ export default function ProductsPageClient({
           homepageCategorySlug: null as string | null,
           featured: Boolean(product.featured),
           featuredProductIds: [] as string[],
+          totalFeaturedProductCount,
         };
       }
 
@@ -308,6 +319,7 @@ export default function ProductsPageClient({
           homepageCategorySlug: null,
           featured: false,
           featuredProductIds: [] as string[],
+          totalFeaturedProductCount,
         };
       }
 
@@ -319,18 +331,32 @@ export default function ProductsPageClient({
           homepageCategorySlug: null,
           featured: false,
           featuredProductIds: [] as string[],
+          totalFeaturedProductCount,
         };
       }
 
       const featuredProductIds =
         homepageCuration.featuredProductIdsByCategory[homepageCategorySlug] || [];
+      const isFeatured = featuredProductIds.includes(product.id);
+
+      if (!isFeatured && totalFeaturedProductCount >= MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL) {
+        return {
+          disabled: true,
+          reason: "Ana sayfa vitrini icin toplam en fazla 16 urun yildizlanabilir.",
+          homepageCategorySlug,
+          featured: false,
+          featuredProductIds,
+          totalFeaturedProductCount,
+        };
+      }
 
       return {
         disabled: false,
         reason: null as string | null,
         homepageCategorySlug,
-        featured: featuredProductIds.includes(product.id),
+        featured: isFeatured,
         featuredProductIds,
+        totalFeaturedProductCount,
       };
     },
     [
@@ -599,9 +625,16 @@ export default function ProductsPageClient({
         const previousHomepageCuration = homepageCuration;
         const previousProductIds =
           homepageCuration.featuredProductIdsByCategory[homepageCategorySlug] || [];
+        const totalFeaturedProductCount = Object.values(
+          homepageCuration.featuredProductIdsByCategory,
+        ).reduce((sum, ids) => sum + ids.length, 0);
 
-        if (nextFeatured && previousProductIds.length >= 4) {
+        if (nextFeatured && previousProductIds.length >= MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY) {
           throw new Error("Her ana sayfa kategorisinde en fazla 4 urun yildizlanabilir.");
+        }
+
+        if (nextFeatured && totalFeaturedProductCount >= MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL) {
+          throw new Error("Ana sayfa vitrini icin toplam en fazla 16 urun yildizlanabilir.");
         }
 
         const nextProductIds = nextFeatured

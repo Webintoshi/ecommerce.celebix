@@ -58,6 +58,7 @@ const SECTION_CLASSNAME =
   "rounded-[28px] border border-[#eadfd4] bg-gradient-to-br from-white via-[#fffdfa] to-[#f9f3ed] p-5 shadow-[0_22px_50px_rgba(86,55,24,0.08)] md:p-6";
 
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
 
 interface HomepageCurationState {
   featuredCategorySlugs: string[];
@@ -76,22 +77,26 @@ function normalizeHomepageFeaturedProductIdsByCategory(
 
   const allowedSlugs = new Set(featuredCategorySlugs);
 
-  return Object.entries(record).reduce<Record<string, string[]>>((result, [key, rawValue]) => {
-    const normalizedKey = key.trim();
-    if (!normalizedKey || !allowedSlugs.has(normalizedKey)) {
+  let remainingCapacity = MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL;
+
+  return featuredCategorySlugs.reduce<Record<string, string[]>>((result, slug) => {
+    const normalizedKey = slug.trim();
+    if (!normalizedKey || !allowedSlugs.has(normalizedKey) || remainingCapacity <= 0) {
       return result;
     }
 
+    const rawValue = record[slug] ?? record[normalizedKey];
     const normalizedIds = Array.isArray(rawValue)
       ? rawValue
           .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
           .map((entry) => entry.trim())
           .filter((entry, index, source) => source.indexOf(entry) === index)
-          .slice(0, 4)
+          .slice(0, Math.min(4, remainingCapacity))
       : [];
 
     if (normalizedIds.length > 0) {
       result[normalizedKey] = normalizedIds;
+      remainingCapacity -= normalizedIds.length;
     }
 
     return result;
