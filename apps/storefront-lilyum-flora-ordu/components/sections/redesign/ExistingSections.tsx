@@ -127,6 +127,48 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
           alt={currentSlideLabel}
           href={currentSlideHref}
         />
+
+        <div className="pointer-events-none absolute inset-[22px] hidden rounded-[32px] border border-white/35 lg:block xl:inset-[28px] xl:rounded-[38px]" />
+
+        {slides.length > 1 ? (
+          <div className="absolute bottom-6 right-6 hidden items-center gap-3 rounded-full border border-white/70 bg-[rgba(246,246,246,0.92)] px-3 py-3 shadow-[0_18px_40px_rgba(80,94,113,0.16)] lg:flex">
+            <div className="flex items-center gap-2 px-2">
+              {slides.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setCurrent(index)}
+                  className={cn(
+                    "h-2 rounded-full transition-all",
+                    index === current ? "w-8 bg-[var(--store-accent)]" : "w-2 bg-[var(--store-border-strong)]",
+                  )}
+                  aria-label={`Slide ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            <div className="h-9 w-px bg-[var(--store-border)]" />
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                aria-label="Onceki banner"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrent((current + 1) % slides.length)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                aria-label="Sonraki banner"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {slides.length > 1 ? (
@@ -168,7 +210,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
               </div>
             </div>
 
-            <div className="hidden flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 shadow-[var(--store-shadow-soft)] sm:flex lg:flex-row lg:items-center lg:justify-between lg:px-5">
+            <div className="hidden flex-col gap-4 rounded-[28px] border border-[var(--store-border)] bg-white px-4 py-4 shadow-[var(--store-shadow-soft)] sm:flex lg:px-5">
               <div className="-mx-1 flex flex-1 gap-3 overflow-x-auto px-1 scrollbar-hide">
                 {slides.map((item, index) => {
                   const previewLabel = item.alt || item.title || `${SITE_NAME} ${index + 1}`;
@@ -200,7 +242,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                 })}
               </div>
 
-              <div className="flex items-center justify-between gap-4 lg:min-w-[188px] lg:justify-end">
+              <div className="flex items-center justify-between gap-4 lg:hidden">
                 <div className="flex items-center gap-2">
                   {slides.map((item, index) => (
                     <button
