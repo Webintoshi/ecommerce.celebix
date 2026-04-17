@@ -29,6 +29,7 @@ interface CoolifyService {
   service_uuid?: string;
   resource_uuid?: string;
   name?: string;
+  domains?: string[];
 }
 
 interface CoolifyEnvironmentVariable {
@@ -56,6 +57,7 @@ interface SupabaseRuntimeConnection {
   publicKey: string;
   publicUrl: string;
   publicUrl8000: string | null;
+  studioUrl: string | null;
   internalApiUrl: string | null;
   serviceKey: string;
   adminUser: string;
@@ -66,7 +68,7 @@ const COOLIFY_API_PREFIX = "/api/v1";
 const ENV_POLL_DELAY_MS = 5000;
 const ENV_POLL_ATTEMPTS = 24;
 const PG_META_POLL_DELAY_MS = 5000;
-const PG_META_POLL_ATTEMPTS = 8;
+const PG_META_POLL_ATTEMPTS = 12;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const SELF_HOSTED_PG_META_REF = "default";
 const CORE_BOOTSTRAP_SQL_FILES = [
@@ -393,6 +395,7 @@ async function seedSelfHostedStoreSettings(
     .join(",\n");
 
   await runSelfHostedPgMetaQuery(
+    runtime.studioUrl,
     runtime.publicUrl,
     runtime.publicUrl8000,
     runtime.internalApiUrl,
@@ -533,6 +536,31 @@ async function buildSupabasePublicUrl(store: StoreConfig): Promise<string> {
   return `https://supabasekong-${hostLabel}.${publicIp}.sslip.io`;
 }
 
+async function buildSupabaseStudioUrl(store: StoreConfig): Promise<string> {
+  const publicIp = await resolveCoolifyPublicIp();
+  const hostLabel = pickSupabaseHostLabel(store);
+  return `https://supabasestudio-${hostLabel}.${publicIp}.sslip.io:3000`;
+}
+
+function deriveSupabaseStudioUrl(publicUrl: string | null): string | null {
+  if (!publicUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(publicUrl);
+    const studioHost = parsed.hostname.replace(/^supabasekong-/i, "supabasestudio-");
+
+    if (studioHost === parsed.hostname) {
+      return null;
+    }
+
+    return `${parsed.protocol}//${studioHost}:3000`;
+  } catch {
+    return null;
+  }
+}
+
 async function listCoolifyRoutingIps(): Promise<string[]> {
   const candidates = new Set<string>();
   const explicitIp = getCoolifyServerPublicIp();
@@ -665,6 +693,7 @@ async function ensureEnvironment(projectUuid: string): Promise<CoolifyEnvironmen
 
 async function createSupabaseService(store: StoreConfig, projectUuid: string, environmentUuid: string): Promise<CoolifyService> {
   const publicUrl = await buildSupabasePublicUrl(store);
+  const studioUrl = await buildSupabaseStudioUrl(store);
 
   return coolifyFetch<CoolifyService>("/services", {
     method: "POST",
@@ -682,10 +711,68 @@ async function createSupabaseService(store: StoreConfig, projectUuid: string, en
           name: "supabase-kong",
           url: publicUrl,
         },
+        {
+          name: "supabase-studio",
+          url: studioUrl,
+        },
       ],
       force_domain_override: true,
     }),
   });
+}
+
+async function getService(serviceUuid: string): Promise<CoolifyService> {
+  return coolifyFetch<CoolifyService>(`/services/${serviceUuid}`);
+}
+
+async function restartService(serviceUuid: string): Promise<void> {
+  await coolifyFetch<unknown>(`/services/${serviceUuid}/restart`);
+}
+
+async function syncSupabaseServiceRouting(
+  serviceUuid: string,
+  store: StoreConfig,
+  projectUuid: string,
+  environmentUuid: string,
+): Promise<boolean> {
+  const publicUrl = await buildSupabasePublicUrl(store);
+  const studioUrl = await buildSupabaseStudioUrl(store);
+  const service = await getService(serviceUuid);
+  const configuredDomains = new Set(
+    (service.domains ?? []).map((domain) => domain.trim()).filter(Boolean),
+  );
+  const desiredDomains = [publicUrl, studioUrl];
+  const needsUpdate = desiredDomains.some((domain) => !configuredDomains.has(domain));
+
+  if (!needsUpdate) {
+    return false;
+  }
+
+  await coolifyFetch<CoolifyService>(`/services/${serviceUuid}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: buildSupabaseServiceName(store),
+      description: `Self-hosted Supabase for ${store.slug}`,
+      project_uuid: projectUuid,
+      environment_uuid: environmentUuid,
+      server_uuid: getCoolifyServerUuid(),
+      destination_uuid: getCoolifyDestinationUuid(),
+      instant_deploy: true,
+      urls: [
+        {
+          name: "supabase-kong",
+          url: publicUrl,
+        },
+        {
+          name: "supabase-studio",
+          url: studioUrl,
+        },
+      ],
+      force_domain_override: true,
+    }),
+  });
+
+  return true;
 }
 
 async function listServices(): Promise<CoolifyService[]> {
@@ -698,6 +785,22 @@ async function ensureSupabaseService(store: StoreConfig, projectUuid: string, en
   const existing = (await listServices()).find((service) => service.name === targetName);
 
   if (existing) {
+    const serviceUuid = resolveIdentifier(existing);
+    const routingUpdated = await syncSupabaseServiceRouting(
+      serviceUuid,
+      store,
+      projectUuid,
+      environmentUuid,
+    );
+
+    if (routingUpdated) {
+      try {
+        await restartService(serviceUuid);
+      } catch {
+        // Route sync is best-effort; pg-meta polling will surface any remaining issue.
+      }
+    }
+
     return existing;
   }
 
@@ -738,6 +841,7 @@ function appendPgMetaTarget(
 }
 
 async function buildPgMetaTargets(
+  studioUrl: string | null,
   publicUrl: string,
   publicUrl8000: string | null,
   internalApiUrl: string | null,
@@ -746,7 +850,13 @@ async function buildPgMetaTargets(
   const seen = new Set<string>();
   const normalizedPublicUrl = publicUrl.replace(/\/+$/, "");
   const publicHost = new URL(normalizedPublicUrl).host;
+  const normalizedStudioUrl = studioUrl?.replace(/\/+$/, "") || null;
+  const studioHost = normalizedStudioUrl ? new URL(normalizedStudioUrl).host : null;
 
+  appendPgMetaTarget(targets, seen, {
+    baseUrl: normalizedStudioUrl,
+    label: "studio-url",
+  });
   appendPgMetaTarget(targets, seen, {
     baseUrl: internalApiUrl,
     label: "runtime-internal-api",
@@ -761,6 +871,15 @@ async function buildPgMetaTargets(
   });
 
   for (const ip of await listCoolifyRoutingIps()) {
+    appendPgMetaTarget(targets, seen, studioHost ? {
+      baseUrl: `http://${ip}`,
+      label: `host-header-studio-http:${ip}`,
+      extraHeaders: {
+        Host: studioHost,
+        "X-Forwarded-Host": studioHost,
+        "X-Forwarded-Proto": "https",
+      },
+    } : null);
     appendPgMetaTarget(targets, seen, {
       baseUrl: `http://${ip}`,
       label: `host-header-http:${ip}`,
@@ -776,6 +895,7 @@ async function buildPgMetaTargets(
 }
 
 async function runSelfHostedPgMetaQuery(
+  studioUrl: string | null,
   publicUrl: string,
   publicUrl8000: string | null,
   internalApiUrl: string | null,
@@ -784,7 +904,7 @@ async function runSelfHostedPgMetaQuery(
   query: string,
 ) {
   const failures: string[] = [];
-  const targets = await buildPgMetaTargets(publicUrl, publicUrl8000, internalApiUrl);
+  const targets = await buildPgMetaTargets(studioUrl, publicUrl, publicUrl8000, internalApiUrl);
 
   for (const target of targets) {
     try {
@@ -852,6 +972,11 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<SupabaseRunt
       ]);
       const publicUrl8000 =
         findEnvValue(variables, ["SERVICE_URL_SUPABASEKONG_8000"])?.replace(/\/+$/, "") || null;
+      const studioUrl =
+        findEnvValue(variables, [
+          "SERVICE_URL_SUPABASESTUDIO_3000",
+          "SERVICE_URL_SUPABASESTUDIO",
+        ])?.replace(/\/+$/, "") || deriveSupabaseStudioUrl(publicUrl);
       const internalApiUrl =
         findEnvValue(variables, ["API_EXTERNAL_URL"])?.replace(/\/+$/, "") || null;
       const adminUser = findEnvValue(variables, ["SERVICE_USER_ADMIN"]);
@@ -862,6 +987,7 @@ async function waitForSupabaseRuntime(serviceUuid: string): Promise<SupabaseRunt
           publicKey,
           publicUrl,
           publicUrl8000,
+          studioUrl,
           internalApiUrl,
           serviceKey,
           adminUser,
@@ -886,6 +1012,7 @@ async function ensureSelfHostedStoreSchema(
   adminPassword: string,
 ): Promise<void> {
   const productsExists = await runSelfHostedPgMetaQuery(
+    runtime.studioUrl,
     runtime.publicUrl,
     runtime.publicUrl8000,
     runtime.internalApiUrl,
@@ -900,6 +1027,7 @@ async function ensureSelfHostedStoreSchema(
 
   for (const query of queries) {
     await runSelfHostedPgMetaQuery(
+      runtime.studioUrl,
       runtime.publicUrl,
       runtime.publicUrl8000,
       runtime.internalApiUrl,
@@ -920,6 +1048,7 @@ async function waitForSelfHostedPgMetaRuntime(
   for (let attempt = 0; attempt < PG_META_POLL_ATTEMPTS; attempt += 1) {
     try {
       await runSelfHostedPgMetaQuery(
+        runtime.studioUrl,
         runtime.publicUrl,
         runtime.publicUrl8000,
         runtime.internalApiUrl,
