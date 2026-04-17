@@ -23,7 +23,9 @@ import {
   Save,
   FolderTree,
   BadgeCheck,
+  Star,
 } from "lucide-react";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import {
   SUPPORTED_IMAGE_ACCEPT,
   SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
@@ -55,6 +57,33 @@ const INPUT_CLASSNAME =
 const SECTION_CLASSNAME =
   "rounded-[28px] border border-[#eadfd4] bg-gradient-to-br from-white via-[#fffdfa] to-[#f9f3ed] p-5 shadow-[0_22px_50px_rgba(86,55,24,0.08)] md:p-6";
 
+const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
+
+function normalizeHomepageFeaturedCategorySlugs(value: unknown): string[] {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const slugs = Array.isArray(record.featuredCategorySlugs)
+    ? record.featuredCategorySlugs.filter(
+        (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+      )
+    : [];
+
+  return slugs
+    .map((entry) => entry.trim())
+    .filter((entry, index, source) => source.indexOf(entry) === index)
+    .slice(0, MAX_HOMEPAGE_FEATURED_CATEGORIES);
+}
+
+function flattenCategoryTree(categories: CategoryInfo[]): CategoryInfo[] {
+  return categories.flatMap((category) => [
+    category,
+    ...flattenCategoryTree(category.children || []),
+  ]);
+}
+
 export default function CategoryManager() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +108,8 @@ export default function CategoryManager() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [featuredCategorySlugs, setFeaturedCategorySlugs] = useState<string[]>([]);
+  const [featuredSavingSlug, setFeaturedSavingSlug] = useState<string | null>(null);
 
   const showToast = (type: Toast["type"], message: string) => {
     const id = Date.now().toString();
@@ -89,9 +120,18 @@ export default function CategoryManager() {
   const loadCategories = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchCategories({ fresh: true });
+      const [data, homepageCuration] = await Promise.all([
+        fetchCategories({ fresh: true }),
+        fetchAdminJson<{ homepageCuration?: { featuredCategorySlugs?: string[] } }>(
+          "/api/settings?type=homepage-curation",
+          { timeoutMs: 10000 },
+        ),
+      ]);
       setCategories(data);
       setImageErrors({});
+      setFeaturedCategorySlugs(
+        normalizeHomepageFeaturedCategorySlugs(homepageCuration.homepageCuration),
+      );
     } catch (error) {
       console.error("Failed to load categories:", error);
       showToast("error", "Koleksiyonlar yüklenirken bir hata oluştu");
@@ -115,6 +155,10 @@ export default function CategoryManager() {
   };
 
   const tree = buildTree(categories);
+  const orderedCategories = flattenCategoryTree(tree);
+  const categoryOrderMap = new Map(
+    orderedCategories.map((category, index) => [category.slug, index]),
+  );
 
   const filteredTree = searchQuery
     ? tree.filter(
@@ -123,6 +167,20 @@ export default function CategoryManager() {
           cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : tree;
+
+  const sortHomepageFeaturedSlugs = (slugs: string[]) =>
+    [...new Set(slugs)]
+      .sort((left, right) => {
+        const leftPriority = categoryOrderMap.get(left) ?? Number.MAX_SAFE_INTEGER;
+        const rightPriority = categoryOrderMap.get(right) ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        return left.localeCompare(right, "tr");
+      })
+      .slice(0, MAX_HOMEPAGE_FEATURED_CATEGORIES);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -303,11 +361,67 @@ export default function CategoryManager() {
   const childCollections = categories.filter((category) => category.parent_id).length;
   const rootCollections = tree.length;
   const filteredResults = filteredTree.length;
+  const homepageFeaturedCount = featuredCategorySlugs.length;
+
+  const handleHomepageFeatureToggle = async (category: CategoryInfo) => {
+    const isFeatured = featuredCategorySlugs.includes(category.slug);
+
+    if (!isFeatured && category.is_active === false) {
+      showToast("error", "Pasif koleksiyonlar ana sayfa vitrini icin secilemez.");
+      return;
+    }
+
+    if (!isFeatured && homepageFeaturedCount >= MAX_HOMEPAGE_FEATURED_CATEGORIES) {
+      showToast("error", "Ana sayfada en fazla 4 koleksiyon yildizlanabilir.");
+      return;
+    }
+
+    const previousSlugs = featuredCategorySlugs;
+    const nextSlugs = isFeatured
+      ? featuredCategorySlugs.filter((entry) => entry !== category.slug)
+      : sortHomepageFeaturedSlugs([...featuredCategorySlugs, category.slug]);
+
+    setFeaturedSavingSlug(category.slug);
+    setFeaturedCategorySlugs(nextSlugs);
+
+    try {
+      await fetchAdminJson("/api/settings", {
+        timeoutMs: 10000,
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "homepage-curation",
+            homepageCuration: {
+              featuredCategorySlugs: nextSlugs,
+            },
+          }),
+        },
+      });
+
+      showToast(
+        "success",
+        isFeatured
+          ? `${category.name} ana sayfa vitrinden kaldirildi`
+          : `${category.name} ana sayfa vitrini icin yildizlandi`,
+      );
+    } catch (error) {
+      console.error("Failed to update homepage curation:", error);
+      setFeaturedCategorySlugs(previousSlugs);
+      showToast("error", "Ana sayfa vitrini guncellenemedi");
+    } finally {
+      setFeaturedSavingSlug(null);
+    }
+  };
 
   const renderCategoryRow = (category: CategoryInfo, level: number = 0) => {
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedIds.has(category.id);
     const shouldRenderImage = Boolean(category.image) && !imageErrors[category.id];
+    const isHomepageFeatured = featuredCategorySlugs.includes(category.slug);
+    const isHomepageFeatureSaving = featuredSavingSlug === category.slug;
 
     return (
       <div key={category.id} className="space-y-3">
@@ -391,6 +505,12 @@ export default function CategoryManager() {
                       Seviye {level + 1}
                     </span>
                   )}
+                  {isHomepageFeatured && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                      <Star className="h-3 w-3 fill-current" />
+                      Ana sayfa vitrini
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-sm text-[#776557]">
@@ -409,6 +529,30 @@ export default function CategoryManager() {
             </div>
 
             <div className="flex items-center gap-2 self-end lg:self-center">
+              <button
+                type="button"
+                onClick={() => void handleHomepageFeatureToggle(category)}
+                disabled={isHomepageFeatureSaving}
+                aria-label={
+                  isHomepageFeatured
+                    ? `${category.name} koleksiyonunu ana sayfa vitrinden kaldir`
+                    : `${category.name} koleksiyonunu ana sayfa vitrini icin yildizla`
+                }
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 ${
+                  isHomepageFeatured
+                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    : "border-[#ead9cb] bg-white text-[#654c3c] hover:border-[#FE6100]/30 hover:text-[#FE6100]"
+                } ${isHomepageFeatureSaving ? "cursor-wait opacity-70" : ""}`}
+              >
+                {isHomepageFeatureSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Star className={`h-4 w-4 ${isHomepageFeatured ? "fill-current" : ""}`} />
+                )}
+                <span className="hidden sm:inline">
+                  {isHomepageFeatured ? "Vitrinde" : "Yildizla"}
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={() => handleEdit(category)}

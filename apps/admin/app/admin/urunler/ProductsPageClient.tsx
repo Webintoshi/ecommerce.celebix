@@ -167,6 +167,7 @@ export default function ProductsPageClient({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialError);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [togglingFeaturedProductIds, setTogglingFeaturedProductIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"manual" | "name" | "price" | "stock">("manual");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [reorderMode, setReorderMode] = useState(false);
@@ -384,6 +385,59 @@ export default function ProductsPageClient({
         console.error("Failed to delete product:", error);
         alert("Ürün silinirken bir hata oluştu");
       }
+    }
+  };
+
+  const handleToggleFeatured = async (product: AdminProductListItem) => {
+    const nextFeatured = !product.featured;
+
+    setTogglingFeaturedProductIds((current) => [...current, product.id]);
+    setProducts((current) =>
+      current.map((entry) =>
+        entry.id === product.id ? { ...entry, featured: nextFeatured } : entry,
+      ),
+    );
+    setNotice(null);
+
+    try {
+      await fetchAdminJson("/api/products", {
+        timeoutMs: 12000,
+        init: {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: product.id,
+            is_featured: nextFeatured,
+          }),
+        },
+      });
+
+      setNotice({
+        tone: "success",
+        text: nextFeatured
+          ? `${product.name} ana sayfa vitrini icin yildizlandi.`
+          : `${product.name} vitrindeki one cikma listesinden kaldirildi.`,
+      });
+    } catch (error) {
+      console.error("Failed to toggle featured product:", error);
+      setProducts((current) =>
+        current.map((entry) =>
+          entry.id === product.id ? { ...entry, featured: product.featured } : entry,
+        ),
+      );
+      setNotice({
+        tone: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Ürün yıldızı güncellenemedi.",
+      });
+    } finally {
+      setTogglingFeaturedProductIds((current) =>
+        current.filter((entry) => entry !== product.id),
+      );
     }
   };
 
@@ -1106,6 +1160,7 @@ export default function ProductsPageClient({
                     const primaryVariant = getPrimaryVariant(product);
                     const stockMeta = getStockMeta(primaryVariant.stock);
                     const StockIcon = stockMeta.icon;
+                    const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
 
                     return (
                       <article
@@ -1152,6 +1207,25 @@ export default function ProductsPageClient({
                           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
 
                           <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleToggleFeatured(product)}
+                              disabled={isFeaturedUpdating}
+                              aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                              className={cn(
+                                "inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white/90 text-stone-600 backdrop-blur-sm transition-all hover:text-[#C94E00]",
+                                product.featured
+                                  ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                                  : "border-stone-200 hover:bg-white",
+                                isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                              )}
+                            >
+                              {isFeaturedUpdating ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                              )}
+                            </button>
                             {product.featured ? (
                               <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/60 bg-white/90 px-3 py-1 text-xs font-medium text-amber-800 backdrop-blur-sm">
                                 <Star className="h-3 w-3 fill-current" />
@@ -1328,6 +1402,7 @@ export default function ProductsPageClient({
                         const primaryVariant = getPrimaryVariant(product);
                         const stockMeta = getStockMeta(primaryVariant.stock);
                         const StockIcon = stockMeta.icon;
+                        const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
 
                         return (
                           <article
@@ -1429,6 +1504,26 @@ export default function ProductsPageClient({
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
                                   type="button"
+                                  onClick={() => void handleToggleFeatured(product)}
+                                  disabled={isFeaturedUpdating}
+                                  aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                                  className={cn(
+                                    "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
+                                    product.featured
+                                      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                      : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
+                                    isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                                    SURFACE_FOCUS_RING,
+                                  )}
+                                >
+                                  {isFeaturedUpdating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void handleManualReorder(product.id, "up")}
                                   disabled={!reorderMode || sortBy !== "manual" || reorderingProductId !== null || sortedProducts[0]?.id === product.id}
                                   aria-label={`${product.name} ürününü yukarı taşı`}
@@ -1513,6 +1608,7 @@ export default function ProductsPageClient({
                             const primaryVariant = getPrimaryVariant(product);
                             const stockMeta = getStockMeta(primaryVariant.stock);
                             const StockIcon = stockMeta.icon;
+                            const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
 
                             return (
                               <tr
@@ -1640,6 +1736,26 @@ export default function ProductsPageClient({
                                 </td>
                                 <td className="px-4 py-4 text-right align-top">
                                   <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleToggleFeatured(product)}
+                                      disabled={isFeaturedUpdating}
+                                      aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                                      className={cn(
+                                        "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
+                                        product.featured
+                                          ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                          : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
+                                        isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                                        SURFACE_FOCUS_RING,
+                                      )}
+                                    >
+                                      {isFeaturedUpdating ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Star className={cn("h-4 w-4", product.featured ? "fill-current" : "")} />
+                                      )}
+                                    </button>
                                     <Link
                                       href={buildStorefrontProductUrl(product.slug)}
                                       target="_blank"
