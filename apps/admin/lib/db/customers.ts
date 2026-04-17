@@ -112,6 +112,39 @@ function buildAddressRow(customerId: string, address: CustomerAddressInput, inde
   };
 }
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || "");
+  }
+
+  return String(error || "");
+}
+
+function isMissingSchemaError(error: unknown): boolean {
+  const message = toErrorMessage(error).toLowerCase();
+
+  return (
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("relation") ||
+    message.includes("column")
+  );
+}
+
+async function runOptionalCustomerCleanup(
+  action: () => Promise<{ error: unknown }>,
+) {
+  const { error } = await action();
+
+  if (error && !isMissingSchemaError(error)) {
+    throw error;
+  }
+}
+
 // =====================================================
 // CUSTOMER QUERIES & MUTATIONS
 // =====================================================
@@ -283,6 +316,58 @@ export async function replaceCustomerAddresses(customerId: string, addresses: Cu
  */
 export async function deleteCustomer(id: string) {
   const serverClient = createServerClient();
+
+  // Keep historical records but detach them from the customer before delete.
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("orders")
+      .update({ customer_id: null })
+      .eq("customer_id", id),
+  );
+
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("abandoned_carts")
+      .update({ customer_id: null })
+      .eq("customer_id", id),
+  );
+
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("product_reviews")
+      .update({ customer_id: null })
+      .eq("customer_id", id),
+  );
+
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("lucky_wheel_spins")
+      .update({ customer_id: null })
+      .eq("customer_id", id),
+  );
+
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("customer_preferred_products")
+      .delete()
+      .eq("customer_id", id),
+  );
+
+  await runOptionalCustomerCleanup(() =>
+    serverClient
+      .from("customer_addresses")
+      .delete()
+      .eq("customer_id", id),
+  );
+
+  const { error: addressesError } = await serverClient
+    .from("addresses")
+    .delete()
+    .eq("customer_id", id);
+
+  if (addressesError && !isMissingSchemaError(addressesError)) {
+    throw addressesError;
+  }
 
   const { error } = await serverClient
     .from("customers")
