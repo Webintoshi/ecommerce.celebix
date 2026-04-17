@@ -13,7 +13,10 @@ import {
 } from "@/lib/control-plane";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
-import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
+import {
+  getStoreAdminDeploymentBlueprint,
+  prepareStoreAdminDeployment,
+} from "@/lib/admin-deployment";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
 import {
   releaseGeneratedDeploymentWindow,
@@ -33,7 +36,10 @@ import {
   upsertProvisioningStep,
   hasUnresolvedCleanupRun,
 } from "@/lib/store-lifecycle";
-import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
+import {
+  getStorefrontDeploymentBlueprint,
+  prepareStorefrontDeployment,
+} from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import {
   isGitHubRepoSyncConfigured,
@@ -286,6 +292,7 @@ class ProvisioningTracker {
   }
 
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
+    this.summary = await reconcileProvisioningSummaryWithLiveState(this.slug, this.summary);
     const blockers = getProvisioningBlockers(this.summary);
     const state: ProvisioningState = blockers.length > 0 ? "pending_repair" : "ready";
     this.summary = await persistProvisioningSummary(this.slug, {
@@ -465,6 +472,122 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
 function getPreflightBlockers(summary: ProvisioningSummary): ProvisioningStepSummary[] {
   const preflightKeys = new Set(PREFLIGHT_STEP_KEYS);
   return getProvisioningBlockers(summary).filter((step) => preflightKeys.has(step.key));
+}
+
+function updateSummaryStep(
+  steps: ProvisioningStepSummary[],
+  key: ProvisioningStepKey,
+  patch: Partial<ProvisioningStepSummary>,
+): { steps: ProvisioningStepSummary[]; changed: boolean } {
+  let changed = false;
+  const nextSteps = steps.map((step) => {
+    if (step.key !== key) {
+      return step;
+    }
+
+    const nextStep: ProvisioningStepSummary = {
+      ...step,
+      ...patch,
+      updatedAt: patch.updatedAt ?? step.updatedAt ?? new Date().toISOString(),
+    };
+
+    if (JSON.stringify(nextStep) !== JSON.stringify(step)) {
+      changed = true;
+    }
+
+    return nextStep;
+  });
+
+  return { steps: nextSteps, changed };
+}
+
+async function reconcileProvisioningSummaryWithLiveState(
+  slug: string,
+  summary: ProvisioningSummary,
+): Promise<ProvisioningSummary> {
+  const store = repairStoreConfig(slug);
+  let nextSummary = summary;
+  let changed = false;
+  const now = new Date().toISOString();
+
+  const markCompleted = (
+    key: ProvisioningStepKey,
+    message: string,
+  ) => {
+    const current = nextSummary.steps.find((step) => step.key === key);
+
+    if (!current || current.status === "completed") {
+      return;
+    }
+
+    const result = updateSummaryStep(nextSummary.steps, key, {
+      status: "completed",
+      blocking: false,
+      message,
+      updatedAt: now,
+    });
+
+    nextSummary = {
+      ...nextSummary,
+      steps: result.steps,
+    };
+    changed = changed || result.changed;
+  };
+
+  if (
+    store.supabase.projectRef &&
+    store.supabase.projectRef !== "pending-owner-bootstrap" &&
+    store.supabase.url &&
+    store.supabase.url !== "configure-in-env"
+  ) {
+    markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
+  }
+
+  if (store.r2?.bucketName && store.r2?.publicUrl) {
+    markCompleted("r2_provision", "R2 authority canli durumda hazir.");
+  }
+
+  if (store.storefront?.appDir?.trim()) {
+    markCompleted("storefront_scaffold", "Storefront app dizini olusturulmus durumda.");
+  }
+
+  try {
+    const adminBlueprint = await getStoreAdminDeploymentBlueprint(slug);
+
+    if (adminBlueprint.status !== "pending-owner-env") {
+      markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
+    }
+
+    if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
+      markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+    }
+  } catch {
+    // Keep existing provisioning summary when admin runtime cannot be checked.
+  }
+
+  try {
+    const storefrontBlueprint = await getStorefrontDeploymentBlueprint(slug);
+
+    if (storefrontBlueprint.status !== "pending-owner-env") {
+      markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
+    }
+
+    if (storefrontBlueprint.repoSynced) {
+      markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
+    }
+
+    if (storefrontBlueprint.status === "configured" && storefrontBlueprint.runtimeConsistent) {
+      markCompleted("storefront_deploy", "Storefront runtime canli ve tutarli cevap veriyor.");
+    }
+  } catch {
+    // Keep existing provisioning summary when storefront runtime cannot be checked.
+  }
+
+  if (!changed) {
+    return summary;
+  }
+
+  return nextSummary;
 }
 
 export async function runStoreProvisioningWorkflow(
