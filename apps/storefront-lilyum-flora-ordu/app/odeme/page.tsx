@@ -45,6 +45,12 @@ type AppliedCoupon = {
 const STORE_COUNTRY = "T\u00fcrkiye";
 const STORE_CITY = "Ordu";
 const STORE_DISTRICT = "Alt\u0131nordu";
+const CHECKOUT_FIELD_CLASS =
+  "w-full h-11 px-4 rounded-[18px] border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300";
+const CHECKOUT_FIELD_WITH_ICON_CLASS =
+  "w-full h-11 pl-12 pr-12 rounded-[18px] border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300";
+const CHECKOUT_LOCKED_SELECT_CLASS =
+  "w-full h-11 px-4 rounded-[18px] border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -440,15 +446,15 @@ export default function CheckoutPage() {
 
       {/* Header Removed as requested */}
 
-      <main className="container mx-auto max-w-[1200px] px-4 md:px-8 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <main className="container mx-auto max-w-[1200px] px-4 md:px-8 py-6 md:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
           {/* Left Column (Forms) */}
-          <div className="lg:col-span-8 space-y-8">
+          <div className="lg:col-span-8 space-y-6">
 
             {/* Breadcrumbs - Moved here since header is gone */}
             {/* Keeping it subtle as a navigation aid */}
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-2.5 mb-1">
               <div onClick={() => currentStep === 2 && setCurrentStep(1)} className={cn("flex items-center gap-2 cursor-pointer transition-colors", currentStep === 1 ? "text-primary font-bold" : "text-gray-500 font-medium")}>
                 <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs", currentStep === 1 ? "bg-primary text-white" : "bg-emerald-100 text-emerald-600")}>
                   {currentStep > 1 ? <Check className="h-4 w-4" /> : "1"}
@@ -471,11 +477,11 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-[1.5rem] shadow-sm p-8"
+                  className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[0_20px_50px_-40px_rgba(80,94,113,0.28)] sm:p-6 md:p-7"
                 >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-700">
-                      <Truck className="h-6 w-6" />
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-[18px] bg-[rgba(218,99,13,0.08)] flex items-center justify-center text-[var(--store-accent)]">
+                      <Truck className="h-5 w-5" />
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">Teslimat Bilgileri</h2>
@@ -483,8 +489,8 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-5">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-600">Ad</label>
                         <input
@@ -500,7 +506,7 @@ export default function CheckoutPage() {
                             );
                           }}
                           placeholder="Adınız"
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                          className={CHECKOUT_FIELD_CLASS}
                         />
                       </div>
                       <div className="space-y-2">
@@ -518,7 +524,7 @@ export default function CheckoutPage() {
                             );
                           }}
                           placeholder="Soyadınız"
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                          className={CHECKOUT_FIELD_CLASS}
                         />
                       </div>
                     </div>
@@ -539,26 +545,26 @@ export default function CheckoutPage() {
                         }}
                         placeholder="ornek@email.com"
                         disabled={!!user}
-                        className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300 disabled:bg-gray-50 disabled:text-gray-500"
+                        className={`${CHECKOUT_FIELD_CLASS} disabled:bg-gray-50 disabled:text-gray-500`}
                       />
                     </div>
 
                     {/* Account Creation - Only for non-logged in users */}
                     {!user && (
-                      <div className="space-y-4">
-                        <label className="flex items-start gap-3 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 cursor-pointer hover:bg-emerald-50 transition-colors">
+                      <div className="space-y-3">
+                        <label className="flex items-start gap-3 rounded-[20px] border border-[rgba(218,99,13,0.12)] bg-[rgba(246,246,246,0.96)] p-3.5 cursor-pointer transition-colors hover:bg-white">
                           <input
                             type="checkbox"
                             checked={createAccount}
                             onChange={(e) => setCreateAccount(e.target.checked)}
-                            className="mt-0.5 w-5 h-5 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500 cursor-pointer"
+                            className="mt-0.5 w-5 h-5 text-primary border-[var(--store-border)] rounded focus:ring-primary cursor-pointer"
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <UserPlus className="w-4 h-4 text-emerald-600" />
+                              <UserPlus className="w-4 h-4 text-[var(--store-accent)]" />
                               <span className="font-semibold text-gray-900">Hesap Oluştur</span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="mt-1 text-[13px] leading-5 text-gray-600">
                               Sonraki alışverişlerinizde hızlı checkout için şifrenizi belirleyin
                             </p>
                           </div>
@@ -571,7 +577,7 @@ export default function CheckoutPage() {
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
-                              className="space-y-4 overflow-hidden"
+                              className="space-y-3 overflow-hidden"
                             >
                               <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-600">Şifre Oluştur</label>
@@ -583,7 +589,7 @@ export default function CheckoutPage() {
                                     onChange={(e) => setAccountPassword(e.target.value)}
                                     placeholder="En az 6 karakter"
                                     minLength={6}
-                                    className="w-full h-12 pl-12 pr-12 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                                    className={CHECKOUT_FIELD_WITH_ICON_CLASS}
                                   />
                                   <button
                                     type="button"
@@ -603,11 +609,11 @@ export default function CheckoutPage() {
                                     value={accountPasswordConfirm}
                                     onChange={(e) => setAccountPasswordConfirm(e.target.value)}
                                     placeholder="Şifrenizi tekrar girin"
-                                    className="w-full h-12 pl-12 pr-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                                    className={`${CHECKOUT_FIELD_WITH_ICON_CLASS} pr-4`}
                                   />
                                 </div>
                               </div>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-[11px] leading-5 text-gray-500">
                                 Hesap oluşturarak{" "}
                                 <Link href="/kullanim-kosullari" className="text-primary hover:underline" target="_blank">
                                   Kullanım Koşulları
@@ -639,7 +645,7 @@ export default function CheckoutPage() {
                           );
                         }}
                         placeholder="05XX XXX XX XX"
-                        className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                        className={CHECKOUT_FIELD_CLASS}
                       />
                     </div>
 
@@ -650,17 +656,17 @@ export default function CheckoutPage() {
                         value={shippingInfo.address}
                         onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
                         placeholder="Sokak, Mahalle, Bina No"
-                        className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                        className={CHECKOUT_FIELD_CLASS}
                       />
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid md:grid-cols-3 gap-4">
                       <div className="space-y-2 relative">
                         <label className="text-sm font-medium text-gray-600">{"\u015eehir"}</label>
                         <select
                           value={shippingInfo.city}
                           disabled
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed"
+                          className={CHECKOUT_LOCKED_SELECT_CLASS}
                         >
                           <option value={STORE_CITY}>{STORE_CITY}</option>
                         </select>
@@ -673,7 +679,7 @@ export default function CheckoutPage() {
                         <select
                           value={shippingInfo.district}
                           disabled
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed"
+                          className={CHECKOUT_LOCKED_SELECT_CLASS}
                         >
                           <option value={STORE_DISTRICT}>{STORE_DISTRICT}</option>
                         </select>
@@ -687,13 +693,13 @@ export default function CheckoutPage() {
                           type="text"
                           value={shippingInfo.postalCode}
                           onChange={(e) => setShippingInfo({ ...shippingInfo, postalCode: e.target.value })}
-                          className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
+                          className={CHECKOUT_FIELD_CLASS}
                           placeholder="34000"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+                    <div className="space-y-2.5 rounded-[22px] border border-gray-200 bg-gray-50/60 p-3.5">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-gray-900">Teslimat Yöntemi</p>
@@ -706,7 +712,7 @@ export default function CheckoutPage() {
                       </div>
 
                       {shippingRates.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                           {shippingRates.map((rate) => {
                             const ratePrice = getResolvedShippingPrice(rate, subtotal);
                             const isSelected = selectedShippingMethod === rate.id;
@@ -715,7 +721,7 @@ export default function CheckoutPage() {
                               <label
                                 key={rate.id}
                                 className={cn(
-                                  "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-all",
+                                  "flex cursor-pointer items-start gap-3 rounded-[18px] border px-3.5 py-2.5 transition-all",
                                   isSelected
                                     ? "border-primary bg-white shadow-sm"
                                     : "border-gray-200 bg-white hover:border-gray-300"
@@ -757,7 +763,7 @@ export default function CheckoutPage() {
 
                     <button
                       onClick={handleNextStep}
-                      className="w-full bg-primary text-white font-bold h-14 rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg shadow-primary/20"
+                      className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-primary font-bold text-white transition-colors hover:bg-red-800 shadow-[0_18px_34px_-24px_rgba(218,99,13,0.45)]"
                     >
                       Ödemeye Geç <ChevronRight className="h-4 w-4" />
                     </button>
@@ -769,25 +775,25 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-white rounded-[1.5rem] shadow-sm p-8"
+                  className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[0_20px_50px_-40px_rgba(80,94,113,0.28)] sm:p-6 md:p-7"
                 >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-                      <CreditCard className="h-6 w-6" />
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-[18px] bg-[rgba(218,99,13,0.08)] flex items-center justify-center text-[var(--store-accent)]">
+                      <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">Ödeme Bilgileri</h2>
                       <p className="text-sm text-gray-500">Güvenli ödeme işlemi</p>
                     </div>
-                    <div className="ml-auto flex items-center gap-1 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full">
+                    <div className="ml-auto flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.08)] px-3 py-1.5 text-[11px] font-bold text-[var(--store-accent)]">
                       <Lock className="h-3 w-3" /> SSL Güvenli
                     </div>
                   </div>
 
                   {/* VISUAL CREDIT CARD WRAPPER */}
-                  <div className="mb-8">
+                  <div className="mb-6">
                     {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
-                      <div className="w-full max-w-md mx-auto aspect-[1.586] rounded-2xl p-6 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-500/20 mb-8 transform transition-transform hover:scale-[1.02] duration-500">
+                      <div className="relative mx-auto mb-6 w-full max-w-sm aspect-[1.586] overflow-hidden rounded-[22px] p-5 text-white shadow-2xl shadow-indigo-500/20 transition-transform duration-500 hover:scale-[1.02] md:p-6">
                         {/* Gradient Background */}
                         <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] via-[#8b5cf6] to-[#ec4899]" />
 
@@ -821,13 +827,13 @@ export default function CheckoutPage() {
                   </div>
 
                   {/* Payment Method Selection */}
-                  <div className="grid grid-cols-1 gap-4 mb-8">
+                  <div className="mb-6 grid grid-cols-1 gap-3">
                     {paymentGateways.map(gateway => (
                       <label
                         key={gateway.id}
                         onClick={() => setSelectedPaymentMethod(gateway.id)}
                         className={cn(
-                          "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                          "flex items-center gap-3 p-3.5 rounded-[18px] border-2 cursor-pointer transition-all",
                           selectedPaymentMethod === gateway.id ? "border-primary bg-primary/5" : "border-gray-100 hover:border-gray-200"
                         )}
                       >
@@ -848,7 +854,7 @@ export default function CheckoutPage() {
 
                   {/* Selected Gateway Details */}
                   {paymentGateways.find(g => g.id === selectedPaymentMethod)?.gateway === 'bank_transfer' && (
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-3 rounded-[20px] border border-gray-200 bg-gray-50 p-4 animate-in fade-in slide-in-from-top-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-medium">Banka</span>
                         <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.bankName}</span>
@@ -872,22 +878,22 @@ export default function CheckoutPage() {
                   )}
 
                   {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && selectedPaymentMethod && (
-                    <div className="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm font-medium text-center animate-in fade-in">
+                    <div className="rounded-[18px] bg-blue-50 p-3.5 text-center text-sm font-medium text-blue-700 animate-in fade-in">
                       Ödeme butonuna tıkladıktan sonra güvenli 3D Secure ekranına yönlendirileceksiniz.
                     </div>
                   )}
 
-                  <div className="flex items-center gap-4 mt-8">
+                  <div className="mt-6 flex items-center gap-3">
                     <button
                       onClick={() => setCurrentStep(1)}
-                      className="flex-1 h-14 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                      className="flex-1 h-12 rounded-[18px] border border-gray-200 font-bold text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       Geri
                     </button>
                     <button
                       onClick={handleCompleteOrder}
                       disabled={isSubmitting}
-                      className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
+                      className="flex-[2] h-12 rounded-[18px] bg-primary font-bold text-white transition-colors hover:bg-red-800 flex items-center justify-center gap-2 disabled:opacity-70 shadow-[0_18px_34px_-24px_rgba(218,99,13,0.45)]"
                     >
                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lock className="h-4 w-4" />}
                       {formatPrice(finalTotal)} Öde
@@ -903,12 +909,12 @@ export default function CheckoutPage() {
 
           {/* Right Column (Summary) */}
           <div className="lg:col-span-4 relative">
-            <div className="sticky top-8 space-y-6">
+            <div className="sticky top-6 space-y-5">
 
               <h2 className="text-lg font-bold text-gray-900">Sipariş Özeti</h2>
 
-              <div className="bg-white rounded-[1.5rem] shadow-sm p-6">
-                <div className="space-y-6">
+              <div className="rounded-[28px] border border-[var(--store-border)] bg-white p-5 shadow-[0_20px_50px_-40px_rgba(80,94,113,0.28)]">
+                <div className="space-y-5">
                   {/* Items */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {items.map(item => (
