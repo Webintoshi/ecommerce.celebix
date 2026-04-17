@@ -103,6 +103,7 @@ function buildProductGroups(
             : index === 2
               ? "Editorden"
               : "Kesfet",
+      isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
     };
@@ -217,7 +218,10 @@ export function ProductShowcaseSections({
 
   const effectiveGroups = fallbackGroups.map((group, index) => ({
     ...group,
-    title: groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
+    title:
+      (group as { isCategoryDriven?: boolean }).isCategoryDriven
+        ? group.title || humanizeCategory(group.link)
+        : groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
     subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
   }));
 
