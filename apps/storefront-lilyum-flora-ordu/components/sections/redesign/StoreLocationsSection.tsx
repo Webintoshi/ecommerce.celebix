@@ -143,7 +143,7 @@ function ReviewCard({
         <div>
           <div className="flex items-center justify-between gap-3">
             <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-accent)]">
-              {"Sat\u0131n alan notu"}
+              {"M\u00fc\u015fteri yorumu"}
             </span>
             <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -161,12 +161,20 @@ function ReviewCard({
           </div>
 
           <div className="mt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-              {item.productCategory || "\u00c7i\u00e7ek se\u00e7imi"}
-            </p>
-            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+                {"Alan ki\u015fi"}
+              </p>
+              <span className="rounded-full bg-[var(--store-surface-alt)] px-3 py-1 text-xs font-medium text-[var(--store-ink-soft)]">
+                {item.reviewerName}
+              </span>
+            </div>
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
               {item.productName}
             </h3>
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+              {item.productCategory || "Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}
+            </p>
             {item.title ? (
               <p className="mt-4 text-sm font-semibold text-[var(--store-ink)]">{item.title}</p>
             ) : null}
@@ -175,8 +183,9 @@ function ReviewCard({
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3 border-t border-[var(--store-border)] pt-4">
-          <div>
-            <p className="text-sm font-semibold text-[var(--store-ink)]">{item.reviewerName}</p>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-[var(--store-ink)]">{"Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}</p>
+            <p className="text-sm text-[var(--store-ink-soft)]">{item.productName}</p>
             <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--store-muted)]">
               <Check className="h-3 w-3" />
               {"Do\u011frulanm\u0131\u015f yorum"}
@@ -195,9 +204,9 @@ function ReviewCard({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Yorumlar",
-  heading = "Se\u00e7ilen \u00e7i\u00e7ekler i\u00e7in m\u00fc\u015fteri notlar\u0131",
-  description = "Ger\u00e7ek yorumlar\u0131 \u00fcr\u00fcn g\u00f6rselleriyle birlikte, daha ticari ve daha g\u00fcven veren bir vitrinde sunuyoruz.",
+  eyebrow = "M\u00fc\u015fteri Yorumlar\u0131",
+  heading = "Teslim edilen \u00e7i\u00e7ekler i\u00e7in gelen yorumlar",
+  description = "Onayl\u0131 yorumlar\u0131, yorum sahibinin ald\u0131\u011f\u0131 \u00fcr\u00fcnle birlikte footer \u00f6ncesinde net bir sosyal kan\u0131t alan\u0131 olarak sunuyoruz.",
   linkLabel = "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
   storesHref,
   testimonials = [],

@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { Product } from "@/types/product";
@@ -24,7 +23,6 @@ interface ProductShowcaseSectionsProps {
     subtitle: string;
   }>;
   viewAllLabel?: string;
-  insetSection?: ReactNode;
 }
 
 function normalizeKey(value?: string | null) {
@@ -83,7 +81,6 @@ export function ProductShowcaseSections({
   allProducts,
   groupCopy,
   viewAllLabel = "T\u00fcm\u00fcn\u00fc G\u00f6r",
-  insetSection,
 }: ProductShowcaseSectionsProps) {
   const { locale } = useStorefrontRoute();
 
@@ -116,64 +113,50 @@ export function ProductShowcaseSections({
     subtitle: groupCopy?.[index]?.subtitle || "Se\u00e7ili Grup",
   }));
 
-  const premiumGroupIndex = effectiveGroups.findIndex(
-    (group) => normalizeKey(group.title) === "premium-aranjmanlar",
-  );
-  const insetIndex =
-    effectiveGroups.length > 0
-      ? premiumGroupIndex >= 0
-        ? premiumGroupIndex
-        : Math.min(1, effectiveGroups.length - 1)
-      : -1;
-
   return (
     <>
       {effectiveGroups.map((group, index) => (
-        <div key={group.id}>
-          <section className={index === 0 ? "section-shell pt-0" : "section-shell"}>
-            <div className="container-premium">
-              <SectionHeader
-                eyebrow={group.subtitle}
-                title={group.title}
-                action={
-                  <Link
-                    href={buildLocalizedPath(
-                      group.link.startsWith("/") ? group.link : ROUTES.products,
-                      locale,
-                    )}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-accent)] transition hover:text-[var(--store-accent-strong)]"
-                  >
-                    {viewAllLabel}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                }
-              />
+        <section key={group.id} className={index === 0 ? "section-shell pt-0" : "section-shell"}>
+          <div className="container-premium">
+            <SectionHeader
+              eyebrow={group.subtitle}
+              title={group.title}
+              action={
+                <Link
+                  href={buildLocalizedPath(
+                    group.link.startsWith("/") ? group.link : ROUTES.products,
+                    locale,
+                  )}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-accent)] transition hover:text-[var(--store-accent-strong)]"
+                >
+                  {viewAllLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              }
+            />
 
-              {index === 0 ? (
-                <div className="mb-5 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
-                    <Sparkles className="h-3.5 w-3.5 text-[var(--store-accent)]" />
-                    {"\u00dcr\u00fcn odakl\u0131 se\u00e7im"}
-                  </span>
-                  <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
-                    {"Mobilde kolay tarama"}
-                  </span>
-                  <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
-                    {"G\u00fcncel kategori ak\u0131\u015f\u0131"}
-                  </span>
-                </div>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-                {group.products.slice(0, 4).map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
+            {index === 0 ? (
+              <div className="mb-5 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--store-accent)]" />
+                  {"\u00dcr\u00fcn odakl\u0131 se\u00e7im"}
+                </span>
+                <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
+                  {"Mobilde kolay tarama"}
+                </span>
+                <span className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--store-ink-soft)]">
+                  {"G\u00fcncel kategori ak\u0131\u015f\u0131"}
+                </span>
               </div>
-            </div>
-          </section>
+            ) : null}
 
-          {insetSection && index === insetIndex ? insetSection : null}
-        </div>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+              {group.products.slice(0, 4).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
       ))}
     </>
   );

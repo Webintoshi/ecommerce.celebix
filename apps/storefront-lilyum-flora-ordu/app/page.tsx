@@ -17,10 +17,10 @@ const HOME_UI_COPY = {
     { title: "Yeni Se\u00e7kiler", subtitle: "Sezona Uygun" },
     { title: "Hediye Se\u00e7imleri", subtitle: "Kolay Ke\u015fif" },
   ],
-  storesEyebrow: "Yorumlar",
-  storesHeading: "Se\u00e7ilen \u00e7i\u00e7ekler i\u00e7in m\u00fc\u015fteri notlar\u0131",
+  storesEyebrow: "M\u00fc\u015fteri Yorumlar\u0131",
+  storesHeading: "Teslim edilen \u00e7i\u00e7ekler i\u00e7in gelen yorumlar",
   storesDescription:
-    "\u00dcr\u00fcn g\u00f6rselleriyle e\u015fle\u015fen ger\u00e7ek yorumlar anasayfada daha g\u00fc\u00e7l\u00fc bir sosyal kan\u0131t olu\u015fturur.",
+    "Onayl\u0131 yorumlar\u0131, yorum sahibinin ald\u0131\u011f\u0131 \u00fcr\u00fcnle birlikte footer \u00f6ncesinde net bir sosyal kan\u0131t alan\u0131 olarak sunuyoruz.",
   storesLinkLabel: "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
 };
 
