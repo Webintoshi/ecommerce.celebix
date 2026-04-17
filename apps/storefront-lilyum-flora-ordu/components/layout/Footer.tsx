@@ -80,6 +80,7 @@ export function Footer() {
           }));
 
         setCategoryLinks(topLevelCategories);
+
         if (policyResponse.ok) {
           const payload = (await policyResponse.json()) as { pages?: PolicyFooterLink[] };
           setPolicyLinks(Array.isArray(payload.pages) ? payload.pages : []);
@@ -114,190 +115,196 @@ export function Footer() {
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
     { name: copy.footerContact, href: "/iletisim" },
-    { name: "Tüm Ürünler", href: "/urunler" },
+    { name: "T\u00fcm \u00dcr\u00fcnler", href: "/urunler" },
     { name: "SSS", href: "/sss" },
   ];
 
   return (
-    <footer className="border-t border-[var(--store-border)] bg-[var(--store-ink)] text-white">
-      <div className="container-premium py-14 sm:py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-8">
-          <div className="space-y-6">
-            <div>
-              <Link href={buildLocalizedPath("/", locale)} className="inline-block">
+    <footer className="border-t border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f6f6f6_48%,#edf1f5_100%)] text-[var(--store-ink)]">
+      <div className="container-premium py-10 sm:py-12">
+        <div className="rounded-[38px] border border-[var(--store-border)] bg-white/88 p-6 shadow-[0_24px_60px_rgba(80,94,113,0.08)] backdrop-blur-sm sm:p-8 lg:p-10">
+          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.8fr_0.8fr_0.9fr] lg:gap-10">
+            <div className="rounded-[30px] border border-[var(--store-border)] bg-[linear-gradient(180deg,#ffffff_0%,#f9fafb_100%)] p-6 sm:p-7">
+              <Link href={buildLocalizedPath("/", locale)} className="inline-flex items-center">
                 {logoSrc ? (
-                  <div className="relative h-10 w-[156px]">
+                  <div className="relative h-12 w-[176px]">
                     <Image
                       src={logoSrc}
                       alt={logoAlt}
                       fill
-                      className="object-contain object-left brightness-0 invert"
-                      sizes="156px"
+                      className="object-contain object-left"
+                      sizes="176px"
                       unoptimized={usesProxiedLogo}
                     />
                   </div>
                 ) : (
-                  <p className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.05em] text-white">
+                  <p className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
                     {logoAlt}
                   </p>
                 )}
               </Link>
-            </div>
 
-            <div className="grid gap-3 text-sm text-white/78">
-              <a href={`tel:${contactPhone}`} className="inline-flex items-center gap-2 hover:text-white">
-                <Phone className="h-4 w-4 text-[var(--store-blush)]" />
-                {contactPhone}
-              </a>
-              <a href={`mailto:${contactEmail}`} className="inline-flex items-center gap-2 hover:text-white">
-                <Mail className="h-4 w-4 text-[var(--store-blush)]" />
-                {contactEmail}
-              </a>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <a
-                href={instagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/6 text-white/78 transition hover:border-white/28 hover:bg-white/10 hover:text-white"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a
-                href={youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/6 text-white/78 transition hover:border-white/28 hover:bg-white/10 hover:text-white"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
-              {copy.aboutHeading}
-            </p>
-            <ul className="mt-5 space-y-3">
-              {aboutLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-white/72 transition hover:text-white"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
-              {copy.categoriesHeading}
-            </p>
-            <ul className="mt-5 space-y-3">
-              {categoryLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    href={buildLocalizedPath(`/${link.slug}`, locale)}
-                    className="text-sm text-white/72 transition hover:text-white"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-8">
-            {policyLinks.length > 0 ? (
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
-                  {copy.policiesHeading}
-                </p>
-                <ul className="mt-5 space-y-3">
-                  {policyLinks.map((link) => (
-                    <li key={link.slug}>
-                      <Link
-                        href={buildLocalizedPath(link.href, locale)}
-                        className="text-sm text-white/72 transition hover:text-white"
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-blush)]">
-                Dil
-              </p>
-              <div ref={localeMenuRef} className="relative mt-4 w-fit">
-                <button
-                  type="button"
-                  onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-full border border-white/14 bg-white/8 px-4 py-3 text-left text-white transition hover:border-white/28"
-                  aria-expanded={isLocaleMenuOpen}
-                  aria-haspopup="listbox"
+              <div className="mt-6 grid gap-3 text-sm text-[var(--store-ink-soft)]">
+                <a
+                  href={`tel:${contactPhone}`}
+                  className="inline-flex items-center gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 transition hover:border-[var(--store-accent)] hover:text-[var(--store-ink)]"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">
-                      {LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale)?.label || "TR"}
-                    </span>
-                    <span className="text-xs uppercase text-white/72">{locale}</span>
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
+                  <Phone className="h-4 w-4 text-[var(--store-accent)]" />
+                  {contactPhone}
+                </a>
+                <a
+                  href={`mailto:${contactEmail}`}
+                  className="inline-flex items-center gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 transition hover:border-[var(--store-accent)] hover:text-[var(--store-ink)]"
+                >
+                  <Mail className="h-4 w-4 text-[var(--store-accent)]" />
+                  {contactEmail}
+                </a>
+              </div>
 
-                {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-[24px] border border-white/12 bg-[#445163] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.3)]">
-                    <div className="space-y-1">
-                      {LOCALE_SWITCH_OPTIONS.map((option) => {
-                        const isActive = option.locale === locale;
-                        return (
-                          <Link
-                            key={option.locale}
-                            href={buildLocalizedPath(internalPathname, option.locale)}
-                            hrefLang={option.locale}
-                            onClick={() => setIsLocaleMenuOpen(false)}
-                            className={`flex items-center justify-between rounded-[18px] px-3 py-2 transition ${
-                              isActive
-                                ? "bg-white text-[var(--store-ink)]"
-                                : "text-white/82 hover:bg-white/10 hover:text-white"
-                            }`}
-                          >
-                            <span className="text-sm font-medium">{option.label}</span>
-                            <span className="text-xs uppercase">{option.locale}</span>
-                          </Link>
-                        );
-                      })}
+              <div className="mt-6 flex items-center gap-3">
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="h-4 w-4" />
+                </a>
+                <a
+                  href={youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--store-border)] bg-white text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]"
+                  aria-label="YouTube"
+                >
+                  <Youtube className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+
+            <div className="lg:pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-accent)]">
+                {copy.aboutHeading}
+              </p>
+              <ul className="mt-5 space-y-3.5">
+                {aboutLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={buildLocalizedPath(link.href, locale)}
+                      className="text-[15px] text-[var(--store-ink-soft)] transition hover:text-[var(--store-accent)]"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="lg:pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-accent)]">
+                {copy.categoriesHeading}
+              </p>
+              <ul className="mt-5 space-y-3.5">
+                {categoryLinks.map((link) => (
+                  <li key={link.id}>
+                    <Link
+                      href={buildLocalizedPath(`/${link.slug}`, locale)}
+                      className="text-[15px] text-[var(--store-ink-soft)] transition hover:text-[var(--store-accent)]"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-6 lg:pt-3">
+              {policyLinks.length > 0 ? (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-accent)]">
+                    {copy.policiesHeading}
+                  </p>
+                  <ul className="mt-5 space-y-3.5">
+                    {policyLinks.map((link) => (
+                      <li key={link.slug}>
+                        <Link
+                          href={buildLocalizedPath(link.href, locale)}
+                          className="text-[15px] text-[var(--store-ink-soft)] transition hover:text-[var(--store-accent)]"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="rounded-[26px] border border-[var(--store-border)] bg-[var(--store-surface-alt)] p-4 sm:p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--store-accent)]">
+                  Dil
+                </p>
+                <div ref={localeMenuRef} className="relative mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsLocaleMenuOpen((current) => !current)}
+                    className="flex w-full min-w-[132px] items-center justify-between gap-3 rounded-full border border-[var(--store-border)] bg-white px-4 py-3 text-left text-[var(--store-ink)] shadow-[0_10px_24px_rgba(80,94,113,0.08)] transition hover:border-[var(--store-accent)]"
+                    aria-expanded={isLocaleMenuOpen}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">
+                        {LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale)?.label || "TR"}
+                      </span>
+                      <span className="text-xs uppercase text-[var(--store-muted)]">{locale}</span>
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-[var(--store-ink-soft)] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {isLocaleMenuOpen ? (
+                    <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden rounded-[24px] border border-[var(--store-border)] bg-white p-2 shadow-[0_24px_70px_rgba(80,94,113,0.16)]">
+                      <div className="space-y-1">
+                        {LOCALE_SWITCH_OPTIONS.map((option) => {
+                          const isActive = option.locale === locale;
+                          return (
+                            <Link
+                              key={option.locale}
+                              href={buildLocalizedPath(internalPathname, option.locale)}
+                              hrefLang={option.locale}
+                              onClick={() => setIsLocaleMenuOpen(false)}
+                              className={`flex items-center justify-between rounded-[18px] px-3 py-2 transition ${
+                                isActive
+                                  ? "bg-[var(--store-surface-alt)] text-[var(--store-ink)]"
+                                  : "text-[var(--store-ink-soft)] hover:bg-[var(--store-surface-alt)] hover:text-[var(--store-accent)]"
+                              }`}
+                            >
+                              <span className="text-sm font-medium">{option.label}</span>
+                              <span className="text-xs uppercase">{option.locale}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10">
+      <div className="border-t border-[var(--store-border)] bg-white/55">
         <div className="container-premium flex flex-col items-center justify-between gap-3 py-5 text-center sm:flex-row sm:text-left">
-          <p className="text-xs text-white/55">
+          <p className="text-xs text-[var(--store-ink-soft)]">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-white/45 transition hover:text-white/72"
+            className="text-[10px] uppercase tracking-[0.2em] text-[var(--store-muted)] transition hover:text-[var(--store-accent)]"
           >
             Powered by Celebix
           </a>
