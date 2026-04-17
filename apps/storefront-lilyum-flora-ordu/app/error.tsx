@@ -43,11 +43,11 @@ export default function Error({
           </div>
 
           <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
-            Bir Hata Olustu
+            Bir Hata Oluştu
           </h1>
           <p className="mb-8 text-lg text-gray-600">
-            Uzgunuz, bir seyler ters gitti. Lutfen sayfayi yenilemeyi deneyin veya
-            ana sayfaya donun.
+            Üzgünüz, bir şeyler ters gitti. Lütfen sayfayı yenilemeyi deneyin veya
+            ana sayfaya dönün.
           </p>
 
           {process.env.NODE_ENV === "development" ? (
@@ -69,7 +69,7 @@ export default function Error({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
             >
               <Home className="h-5 w-5" />
-              Ana Sayfaya Don
+              Ana Sayfaya Dön
             </Link>
           </div>
 

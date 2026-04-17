@@ -89,8 +89,8 @@ export default function CollectionProductsClient({
       {visibleProducts.length === 0 ? (
         <div className="mt-6">
           <EmptyResultsState
-            title={"Bu koleksiyonda henuz urun bulunamadi"}
-            body={"Bu kategoriye yeni urunler eklendikce vitrin otomatik olarak guncellenir."}
+            title={"Bu koleksiyonda henüz ürün bulunamadı"}
+            body={"Bu kategoriye yeni ürünler eklendikçe vitrin otomatik olarak güncellenir."}
             actionLabel={copy.productsTitle || "T\u00fcm \u00dcr\u00fcnler"}
             actionHref={buildLocalizedPath("/urunler", locale)}
           />

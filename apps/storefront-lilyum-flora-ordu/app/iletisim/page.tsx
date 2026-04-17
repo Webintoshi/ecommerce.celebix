@@ -18,10 +18,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/iletisim",
-    title: managedPage?.seoTitle || `Iletisim | ${profile.name}`,
+    title: managedPage?.seoTitle || `İletişim | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} ile destek, teklif, toptan satis ve proje talepleri icin iletisime gecin.`,
+      `${profile.name} ile destek, teklif, toptan satış ve proje talepleri için iletişime geçin.`,
   });
 }
 
@@ -37,14 +37,14 @@ export default async function ContactPage() {
       value: CONTACT_PAGE_ADDRESS,
       href: contactMapSearchUrl,
       icon: MapPin,
-      linkLabel: "Haritada Ac",
+      linkLabel: "Haritada Aç",
     },
     {
       title: "E-posta",
       value: profile.email,
       href: `mailto:${profile.email}`,
       icon: Mail,
-      linkLabel: "Mail Gonder",
+      linkLabel: "Mail Gönder",
     },
     {
       title: "Telefon",
@@ -61,14 +61,14 @@ export default async function ContactPage() {
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-              Iletisim
+              İletişim
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-              {profile.name} ile baglanti kurun
+              {profile.name} ile bağlantı kurun
             </h1>
             <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
               {managedPage?.plainText ||
-                "Iletisim kartlari genel ayarlardan, govde icerigi ise admin panelindeki Iletisim sayfasindan yonetilir."}
+                "İletişim kartları genel ayarlardan, gövde içeriği ise admin panelindeki İletişim sayfasından yönetilir."}
             </p>
           </div>
         </div>

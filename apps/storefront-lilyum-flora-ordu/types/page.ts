@@ -74,18 +74,18 @@ function calculatePageScore(page: StaticPage): { score: number; issues: string[]
   const desc = page.seo_description || "";
 
   if (!title) {
-    issues.push("Meta baslik eksik");
+    issues.push("Meta başlık eksik");
     score -= 25;
   } else if (title.length < 30 || title.length > 60) {
-    issues.push("Meta baslik uzunlugu ideal degil");
+    issues.push("Meta başlık uzunluğu ideal değil");
     score -= 10;
   }
 
   if (!desc) {
-    issues.push("Meta aciklama eksik");
+    issues.push("Meta açıklama eksik");
     score -= 25;
   } else if (desc.length < 120 || desc.length > 160) {
-    issues.push("Meta aciklama uzunlugu ideal degil");
+    issues.push("Meta açıklama uzunluğu ideal değil");
     score -= 10;
   }
 
@@ -133,7 +133,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     slug: "",
     schema_type: "WebSite",
     icon: "Home",
-    seo_title: `${STOREFRONT_RUNTIME.name} | Premium Magaza Deneyimi`,
+    seo_title: `${STOREFRONT_RUNTIME.name} | Premium Mağaza Deneyimi`,
     seo_description:
       "Adminden yonetilen urunler, kategoriler ve bannerlarla otomatik olarak guncellenen premium storefront deneyimi.",
     seo_keywords: ["premium storefront", "e-ticaret", "urun vitrini", "celebix"],
@@ -143,13 +143,13 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     sort_order: 1,
   },
   {
-    name: "Urunler",
+    name: "Ürünler",
     slug: "urunler",
     schema_type: "CollectionPage",
     icon: "Package",
-    seo_title: `Tum Urunler | ${STOREFRONT_RUNTIME.name}`,
+    seo_title: `Tüm Ürünler | ${STOREFRONT_RUNTIME.name}`,
     seo_description:
-      "Yayindaki urunleri, secili koleksiyonlari ve admin panelinden yonetilen premium vitrin bloklarini kesfedin.",
+      "Yayındaki ürünleri, seçili koleksiyonları ve admin panelinden yönetilen premium vitrin bloklarını keşfedin.",
     seo_keywords: ["tum urunler", "koleksiyonlar", "premium vitrin"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["CollectionPage"] },
@@ -157,11 +157,11 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     sort_order: 2,
   },
   {
-    name: "Iletisim",
+    name: "İletişim",
     slug: "iletisim",
     schema_type: "ContactPage",
     icon: "Mail",
-    seo_title: `Iletisim | ${STOREFRONT_RUNTIME.name}`,
+    seo_title: `İletişim | ${STOREFRONT_RUNTIME.name}`,
     seo_description:
       "Destek, toptan satis ve proje talepleriniz icin markayla ayni gun baglanti kurun.",
     seo_keywords: ["iletisim", "destek", "teklif", "toptan satis"],
@@ -171,14 +171,14 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     sort_order: 3,
   },
   {
-    name: "Hakkimizda",
+    name: "Hakkımızda",
     slug: "hakkimizda",
     schema_type: "AboutPage",
     icon: "Info",
-    seo_title: `Hakkimizda | ${STOREFRONT_RUNTIME.name}`,
+    seo_title: `Hakkımızda | ${STOREFRONT_RUNTIME.name}`,
     seo_description:
       "Marka profili, vitrin mantigi ve kurumsal iletisim detaylari bu sayfada sunulur.",
-    seo_keywords: ["hakkimizda", "marka profili", "kurumsal magaza"],
+    seo_keywords: ["hakkımızda", "marka profili", "kurumsal mağaza"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["AboutPage"] },
     is_active: true,
@@ -189,10 +189,10 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     slug: "sss",
     schema_type: "FAQPage",
     icon: "HelpCircle",
-    seo_title: `Sikca Sorulan Sorular | ${STOREFRONT_RUNTIME.name}`,
+    seo_title: `Sıkça Sorulan Sorular | ${STOREFRONT_RUNTIME.name}`,
     seo_description:
-      "Siparis, kargo, iade ve kurumsal sureclerle ilgili en cok sorulan sorularin toplandigi yardim merkezi.",
-    seo_keywords: ["sss", "yardim merkezi", "siparis", "kargo", "iade"],
+      "Sipariş, kargo, iade ve kurumsal süreçlerle ilgili en çok sorulan soruların toplandığı yardım merkezi.",
+    seo_keywords: ["sss", "yardım merkezi", "sipariş", "kargo", "iade"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["FAQPage"] },
     is_active: true,

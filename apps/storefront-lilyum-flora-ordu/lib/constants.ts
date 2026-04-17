@@ -11,7 +11,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Magaza adresi owner panel veya storefront ayarlariyla guncellenir.",
+  address: "Mağaza adresi owner panel veya storefront ayarlarıyla güncellenir.",
 };
 
 export const SOCIAL_LINKS = {
@@ -28,13 +28,13 @@ export const SHIPPING_METHODS = [
   {
     id: "standard",
     name: "Standart Kargo",
-    description: "2-4 is gunu icinde teslimat",
+    description: "2-4 iş günü içinde teslimat",
     cost: 29.9,
   },
   {
     id: "express",
-    name: "Hizli Kargo",
-    description: "1-2 is gunu icinde teslimat",
+    name: "Hızlı Kargo",
+    description: "1-2 iş günü içinde teslimat",
     cost: 49.9,
   },
 ];
@@ -144,62 +144,62 @@ export const ROUTES = {
 export const PRODUCT_BADGES = {
   vegan: { label: "Vegan", color: "bg-primary/10 text-primary" },
   glutenFree: { label: "Glutensiz", color: "bg-primary/10 text-primary" },
-  sugarFree: { label: "Sekersiz", color: "bg-primary/10 text-primary" },
-  highProtein: { label: "Yuksek Protein", color: "bg-primary/10 text-primary" },
+  sugarFree: { label: "Şekersiz", color: "bg-primary/10 text-primary" },
+  highProtein: { label: "Yüksek Protein", color: "bg-primary/10 text-primary" },
   new: { label: "Yeni", color: "bg-primary/10 text-primary" },
-  discount: { label: "Indirim", color: "bg-primary/10 text-primary" },
+  discount: { label: "İndirim", color: "bg-primary/10 text-primary" },
 };
 
 export const NAV_LINKS = [
   { name: "Ana Sayfa", href: ROUTES.home },
-  { name: "Urunler", href: ROUTES.products },
+  { name: "Ürünler", href: ROUTES.products },
   { name: "Blog", href: ROUTES.blog },
-  { name: "Iletisim", href: ROUTES.contact },
+  { name: "İletişim", href: ROUTES.contact },
   { name: "SSS", href: "/sss" },
 ];
 
 export const FOOTER_LINKS = {
   discover: [
-    { name: "Tum Urunler", href: ROUTES.products },
-    { name: "One Cikanlar", href: `${ROUTES.products}?sort=featured` },
+    { name: "Tüm Ürünler", href: ROUTES.products },
+    { name: "Öne Çıkanlar", href: `${ROUTES.products}?sort=featured` },
     { name: "Yeni Gelenler", href: `${ROUTES.products}?sort=newest` },
   ],
   company: [
     { name: "Ana Sayfa", href: ROUTES.home },
     { name: "Blog", href: ROUTES.blog },
-    { name: "Iletisim", href: ROUTES.contact },
+    { name: "İletişim", href: ROUTES.contact },
     { name: "SSS", href: "/sss" },
   ],
   policies: [
-    { name: "Gizlilik Sozlesmesi", href: "/gizlilik" },
-    { name: "Iade Sozlesmesi", href: "/iade" },
-    { name: "Hizmet Sartlari", href: "/sartlar" },
-    { name: "Kargo Politikasi", href: "/kargo" },
+    { name: "Gizlilik Sözleşmesi", href: "/gizlilik" },
+    { name: "İade Sözleşmesi", href: "/iade" },
+    { name: "Hizmet Şartları", href: "/sartlar" },
+    { name: "Kargo Politikası", href: "/kargo" },
   ],
 };
 
 export const TESTIMONIALS = [
   {
     id: "1",
-    name: "Magaza Yorumu",
+    name: "Mağaza Yorumu",
     role: "Placeholder",
-    text: "Bu alan gercek musteri yorumlariyla doldurulmak uzere storefront base icine birakildi.",
+    text: "Bu alan gerçek müşteri yorumlarıyla doldurulmak üzere storefront base içine bırakıldı.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "2",
-    name: "Editor Notu",
+    name: "Editör Notu",
     role: "Placeholder",
-    text: "Yeni magazada urunler, kategori yapisi ve marka dili netlestikce bu yorum bloklari guncellenebilir.",
+    text: "Yeni mağazada ürünler, kategori yapısı ve marka dili netleştikçe bu yorum blokları güncellenebilir.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "3",
-    name: "Polish Alani",
+    name: "Polish Alanı",
     role: "Placeholder",
-    text: "Agent veya tasarimci sadece bu base ustune marka polish uygulayarak hizli sekilde canli storefront uretebilir.",
+    text: "Agent veya tasarımcı sadece bu base üstüne marka polish uygulayarak hızlı şekilde canlı storefront üretebilir.",
     rating: 5,
     image: "/placeholder.svg",
   },

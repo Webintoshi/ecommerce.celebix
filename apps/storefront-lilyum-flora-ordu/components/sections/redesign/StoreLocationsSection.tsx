@@ -86,7 +86,7 @@ function normalizeShowcaseItems(
         rating: Math.max(1, Math.min(5, item.rating || 5)),
         body: item.body,
         title: item.title || null,
-        productName: linkedProduct.name || "Se\u00e7ilen \u00fcr\u00fcn",
+        productName: linkedProduct.name || "Seçilen ürün",
         productCategory: linkedProduct.category,
         productHref: linkedProduct.slug ? buildLocalizedPath(`/urunler/${linkedProduct.slug}`, locale) : undefined,
         productImage: linkedProduct.primaryImage,
@@ -107,7 +107,7 @@ function ReviewCard({
     <article className="flex h-full flex-col rounded-[32px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.94)_100%)] p-5 shadow-[0_28px_70px_-52px_rgba(80,94,113,0.40)] sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.08)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-accent)]">
-          {"M\u00fc\u015fteri yorumu"}
+          {"Müşteri yorumu"}
         </span>
         <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
           {Array.from({ length: 5 }).map((_, index) => (
@@ -167,7 +167,7 @@ function ReviewCard({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-                {"Alan ki\u015fi"}
+                {"Alan kişi"}
               </p>
               <span className="rounded-full bg-[var(--store-surface-alt)] px-2.5 py-1 text-[11px] font-medium text-[var(--store-ink-soft)]">
                 {item.reviewerName}
@@ -178,21 +178,21 @@ function ReviewCard({
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-[var(--store-muted)]">
               <Check className="h-3.5 w-3.5 text-[var(--store-accent)]" />
-              <span>{"Do\u011frulanm\u0131\u015f yorum"}</span>
+              <span>{"Doğrulanmış yorum"}</span>
             </div>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-[rgba(80,94,113,0.08)] pt-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-            {item.productCategory || "Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}
+            {item.productCategory || "Aldığı ürün"}
           </p>
           {item.productHref ? (
             <Link
               href={item.productHref}
               className="rounded-full border border-[rgba(80,94,113,0.10)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--store-ink-soft)] transition hover:border-[rgba(218,99,13,0.24)] hover:text-[var(--store-accent)]"
             >
-              {"\u00dcr\u00fcn\u00fc incele"}
+              {"Ürünü incele"}
             </Link>
           ) : null}
         </div>
@@ -202,10 +202,10 @@ function ReviewCard({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "M\u00fc\u015fteri Yorumlar\u0131",
-  heading = "Teslim edilen secimlerden notlar",
+  eyebrow = "Müşteri Yorumları",
+  heading = "Teslim edilen seçimlerden notlar",
   description = "",
-  linkLabel = "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
+  linkLabel = "Tüm ürünleri gör",
   storesHref,
   testimonials = [],
   products = [],

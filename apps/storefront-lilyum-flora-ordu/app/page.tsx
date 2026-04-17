@@ -9,18 +9,18 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Bug\u00fcn\u00fcn \u00e7i\u00e7ek se\u00e7imleri",
-  viewAllLabel: "T\u00fcm\u00fcn\u00fc G\u00f6r",
+  categoriesHeading: "Bugünün çiçek seçimleri",
+  viewAllLabel: "Tümünü Gör",
   productGroups: [
-    { title: "\u00c7ok Sevilenler", subtitle: "G\u00fcncel Vitrin" },
-    { title: "Premium Aranjmanlar", subtitle: "Edit\u00f6r Se\u00e7imi" },
-    { title: "Yeni Se\u00e7kiler", subtitle: "Sezona Uygun" },
-    { title: "Hediye Se\u00e7imleri", subtitle: "Kolay Ke\u015fif" },
+    { title: "Çok Sevilenler", subtitle: "Güncel Vitrin" },
+    { title: "Premium Aranjmanlar", subtitle: "Editör Seçimi" },
+    { title: "Yeni Seçkiler", subtitle: "Sezona Uygun" },
+    { title: "Hediye Seçimleri", subtitle: "Kolay Keşif" },
   ],
-  storesEyebrow: "M\u00fc\u015fteri Yorumlar\u0131",
-  storesHeading: "Teslim edilen secimlerden notlar",
+  storesEyebrow: "Müşteri Yorumları",
+  storesHeading: "Teslim edilen seçimlerden notlar",
   storesDescription: "",
-  storesLinkLabel: "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
+  storesLinkLabel: "Tüm ürünleri gör",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -60,7 +60,7 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
+    ? `${siteName} mağazasının adres, iletişim ve ürün vitrini tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
   const localizedProductsUrl = new URL(buildLocalizedPath("/urunler", locale), requestOrigin).toString();

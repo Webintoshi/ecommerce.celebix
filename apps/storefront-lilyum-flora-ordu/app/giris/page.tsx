@@ -51,7 +51,7 @@ export default function LoginPage() {
       if (authError.message.includes("Invalid login credentials")) {
         setError("E-posta adresi veya sifre hatali");
       } else if (authError.message.includes("Email not confirmed")) {
-        setError("Hesabiniz aktiflestirilemedi. Lutfen tekrar deneyin.");
+        setError("Hesabınız aktifleştirilemedi. Lütfen tekrar deneyin.");
       } else {
         setError(authError.message);
       }
@@ -93,11 +93,11 @@ export default function LoginPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Giris Yap
+              Giriş Yap
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
-            Hesabiniza giris yapin
+            Hesabınıza giriş yapın
           </p>
 
           {error && (
@@ -128,7 +128,7 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Sifre
+                Şifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -156,7 +156,7 @@ export default function LoginPage() {
                 href="/sifremi-unuttum"
                 className="text-sm text-primary hover:underline font-medium"
               >
-                Sifremi Unuttum
+                Şifremi Unuttum
               </Link>
             </div>
 
@@ -177,11 +177,11 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Giris Yapiliyor...
+                  Giriş Yapılıyor...
                 </>
               ) : (
                 <>
-                  Giris Yap
+                  Giriş Yap
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -190,9 +190,9 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <div className="mt-6 text-center text-gray-600">
-            Hesabiniz yok mu?{" "}
+            Hesabınız yok mu?{" "}
             <Link href="/kayit" className="text-primary font-bold hover:underline">
-              Kayit Ol
+              Kayıt Ol
             </Link>
           </div>
         </motion.div>
@@ -208,7 +208,7 @@ export default function LoginPage() {
             href="/" 
             className="text-sm text-gray-500 hover:text-primary transition-colors"
           >
-            Ana Sayfaya Don
+            Ana Sayfaya Dön
           </Link>
         </motion.div>
       </div>

@@ -78,7 +78,7 @@ export function ProductsPageClient({
             <div className="relative max-w-2xl">
               <p className="section-eyebrow">{"T\u00fcm \u00dcr\u00fcnler"}</p>
               <h1 className="section-title mt-4 text-[var(--store-ink)]">
-                {"Lilyum Flora Ordu vitrininin t\u00fcm urunlerini kesfedin"}
+                {"Lilyum Flora Ordu vitrininin tüm ürünlerini keşfedin"}
               </h1>
               <p className="mt-5 text-sm font-semibold text-[var(--store-accent)]">
                 {`${sortedProducts.length} \u00fcr\u00fcn g\u00f6r\u00fcnt\u00fcleniyor`}
@@ -102,8 +102,8 @@ export function ProductsPageClient({
           {visibleProducts.length === 0 ? (
             <div className="mt-6">
               <EmptyResultsState
-                title={"Vitrinde henuz urun bulunamadi"}
-                body={"Yeni koleksiyonlar geldikce bu alan otomatik olarak guncellenir."}
+                title={"Vitrinde henüz ürün bulunamadı"}
+                body={"Yeni koleksiyonlar geldikçe bu alan otomatik olarak güncellenir."}
                 actionLabel={"T\u00fcm \u00dcr\u00fcnler"}
                 actionHref={buildLocalizedPath(ROUTES.products, locale)}
               />
