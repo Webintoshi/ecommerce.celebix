@@ -333,6 +333,7 @@ function buildHomepageCurationValue(categories: JsonRecord[]) {
 
   return {
     featuredCategorySlugs,
+    enforceFeaturedProductCaps: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -799,7 +800,7 @@ export async function seedStarterStorefrontContent(
             PREFERRED_CATEGORY_SLUGS.includes(subcategory as (typeof PREFERRED_CATEGORY_SLUGS)[number])),
       );
     })
-    .slice(0, 10);
+    .slice(0, 16);
 
   if (mappedCategories.length === 0 || sourceProducts.length === 0) {
     throw new Error("Starter source magazadan yeterli kategori veya urun okunamadi.");
