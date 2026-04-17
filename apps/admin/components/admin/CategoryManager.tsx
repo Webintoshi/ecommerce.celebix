@@ -59,6 +59,11 @@ const SECTION_CLASSNAME =
 
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
 
+interface HomepageCurationState {
+  featuredCategorySlugs: string[];
+  enforceFeaturedProductCaps: boolean;
+}
+
 function normalizeHomepageFeaturedCategorySlugs(value: unknown): string[] {
   const record =
     value && typeof value === "object" && !Array.isArray(value)
@@ -109,6 +114,10 @@ export default function CategoryManager() {
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [featuredCategorySlugs, setFeaturedCategorySlugs] = useState<string[]>([]);
+  const [homepageCuration, setHomepageCuration] = useState<HomepageCurationState>({
+    featuredCategorySlugs: [],
+    enforceFeaturedProductCaps: false,
+  });
   const [featuredSavingSlug, setFeaturedSavingSlug] = useState<string | null>(null);
 
   const showToast = (type: Toast["type"], message: string) => {
@@ -120,18 +129,30 @@ export default function CategoryManager() {
   const loadCategories = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, homepageCuration] = await Promise.all([
+      const [data, homepageCurationResponse] = await Promise.all([
         fetchCategories({ fresh: true }),
-        fetchAdminJson<{ homepageCuration?: { featuredCategorySlugs?: string[] } }>(
+        fetchAdminJson<{
+          homepageCuration?: {
+            featuredCategorySlugs?: string[];
+            enforceFeaturedProductCaps?: boolean;
+          };
+        }>(
           "/api/settings?type=homepage-curation",
           { timeoutMs: 10000 },
         ),
       ]);
+      const normalizedFeaturedCategorySlugs = normalizeHomepageFeaturedCategorySlugs(
+        homepageCurationResponse.homepageCuration,
+      );
       setCategories(data);
       setImageErrors({});
-      setFeaturedCategorySlugs(
-        normalizeHomepageFeaturedCategorySlugs(homepageCuration.homepageCuration),
-      );
+      setFeaturedCategorySlugs(normalizedFeaturedCategorySlugs);
+      setHomepageCuration({
+        featuredCategorySlugs: normalizedFeaturedCategorySlugs,
+        enforceFeaturedProductCaps: Boolean(
+          homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
+        ),
+      });
     } catch (error) {
       console.error("Failed to load categories:", error);
       showToast("error", "Koleksiyonlar yüklenirken bir hata oluştu");
@@ -396,10 +417,16 @@ export default function CategoryManager() {
             type: "homepage-curation",
             homepageCuration: {
               featuredCategorySlugs: nextSlugs,
+              enforceFeaturedProductCaps: homepageCuration.enforceFeaturedProductCaps,
             },
           }),
         },
       });
+
+      setHomepageCuration((current) => ({
+        ...current,
+        featuredCategorySlugs: nextSlugs,
+      }));
 
       showToast(
         "success",
@@ -410,6 +437,10 @@ export default function CategoryManager() {
     } catch (error) {
       console.error("Failed to update homepage curation:", error);
       setFeaturedCategorySlugs(previousSlugs);
+      setHomepageCuration((current) => ({
+        ...current,
+        featuredCategorySlugs: previousSlugs,
+      }));
       showToast("error", "Ana sayfa vitrini guncellenemedi");
     } finally {
       setFeaturedSavingSlug(null);

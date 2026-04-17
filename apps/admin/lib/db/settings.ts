@@ -187,6 +187,7 @@ export type { ProductListingOrderSettings };
 
 export interface HomepageCurationSettings {
     featuredCategorySlugs: string[];
+    enforceFeaturedProductCaps: boolean;
     updatedAt?: string;
 }
 
@@ -209,6 +210,7 @@ export function normalizeHomepageCurationSettings(value: unknown): HomepageCurat
 
     return {
         featuredCategorySlugs,
+        enforceFeaturedProductCaps: Boolean(record.enforceFeaturedProductCaps),
         updatedAt:
             typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
                 ? record.updatedAt

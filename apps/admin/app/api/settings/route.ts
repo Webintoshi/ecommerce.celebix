@@ -330,7 +330,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (type === "homepage-curation" && homepageCuration !== undefined) {
-            const settings = await setHomepageCurationSettings(homepageCuration);
+            const settings = await setHomepageCurationSettings({
+                ...(await getHomepageCurationSettings()),
+                ...(homepageCuration as Record<string, unknown>),
+            });
             return NextResponse.json({
                 success: true,
                 message: "Homepage curation updated",

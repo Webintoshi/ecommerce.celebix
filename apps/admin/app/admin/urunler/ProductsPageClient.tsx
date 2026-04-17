@@ -147,6 +147,20 @@ type ProductLoadOptions = {
   categoryFilter?: string;
 };
 
+type HomepageCurationState = {
+  featuredCategorySlugs: string[];
+  enforceFeaturedProductCaps: boolean;
+};
+
+const DEFAULT_HOMEPAGE_CURATION: HomepageCurationState = {
+  featuredCategorySlugs: [],
+  enforceFeaturedProductCaps: false,
+};
+
+function normalizeCategoryKey(value?: string | null) {
+  return String(value || "").trim().toLocaleLowerCase("tr-TR");
+}
+
 export default function ProductsPageClient({
   initialProducts = [],
   initialCategories = [],
@@ -160,6 +174,7 @@ export default function ProductsPageClient({
 }: ProductsPageClientProps) {
   const [products, setProducts] = useState<AdminProductListItem[]>(initialProducts);
   const [categories, setCategories] = useState<CategoryInfo[]>(initialCategories);
+  const [homepageCuration, setHomepageCuration] = useState<HomepageCurationState>(DEFAULT_HOMEPAGE_CURATION);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -216,6 +231,62 @@ export default function ProductsPageClient({
   const getCategoryColor = (slug: string) =>
     categoryFilters.find((category) => category.value === slug)?.color ||
     "border-stone-200 bg-stone-100 text-stone-700";
+
+  const resolveHomepageCategorySlugForProduct = useCallback(
+    (product: Pick<AdminProductListItem, "category" | "subcategory">) => {
+      const featuredCategorySlugs = homepageCuration.featuredCategorySlugs.map((entry) =>
+        normalizeCategoryKey(entry),
+      );
+      const primaryCategory = normalizeCategoryKey(product.category);
+      if (primaryCategory && featuredCategorySlugs.includes(primaryCategory)) {
+        return primaryCategory;
+      }
+
+      const secondaryCategory = normalizeCategoryKey(product.subcategory);
+      if (secondaryCategory && featuredCategorySlugs.includes(secondaryCategory)) {
+        return secondaryCategory;
+      }
+
+      return null;
+    },
+    [homepageCuration.featuredCategorySlugs],
+  );
+
+  const getHomepageFeaturedState = useCallback(
+    (product: AdminProductListItem) => {
+      if (!homepageCuration.enforceFeaturedProductCaps) {
+        return {
+          disabled: false,
+          reason: null as string | null,
+          homepageCategorySlug: null as string | null,
+        };
+      }
+
+      if (homepageCuration.featuredCategorySlugs.length === 0) {
+        return {
+          disabled: true,
+          reason: "Once koleksiyonlardan en az 1 ana sayfa kategorisi yildizlayin.",
+          homepageCategorySlug: null,
+        };
+      }
+
+      const homepageCategorySlug = resolveHomepageCategorySlugForProduct(product);
+      if (!homepageCategorySlug) {
+        return {
+          disabled: true,
+          reason: "Sadece ana sayfa icin secilen kategorilerdeki urunler yildizlanabilir.",
+          homepageCategorySlug: null,
+        };
+      }
+
+      return {
+        disabled: false,
+        reason: null as string | null,
+        homepageCategorySlug,
+      };
+    },
+    [homepageCuration.enforceFeaturedProductCaps, homepageCuration.featuredCategorySlugs.length, resolveHomepageCategorySlugForProduct],
+  );
 
   const loadProducts = useCallback(
     async (page: number = pagedPageRef.current, options?: ProductLoadOptions) => {
@@ -284,13 +355,55 @@ export default function ProductsPageClient({
 
   const loadCategories = async () => {
     try {
-      const data = await fetchCategories();
+      const [data, homepageCurationResponse] = await Promise.all([
+        fetchCategories(),
+        fetchAdminJson<{
+          homepageCuration?: {
+            featuredCategorySlugs?: string[];
+            enforceFeaturedProductCaps?: boolean;
+          };
+        }>("/api/settings?type=homepage-curation", { timeoutMs: 10000 }),
+      ]);
       setCategories(data);
+      setHomepageCuration({
+        featuredCategorySlugs: Array.isArray(homepageCurationResponse.homepageCuration?.featuredCategorySlugs)
+          ? homepageCurationResponse.homepageCuration.featuredCategorySlugs.filter(
+              (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+            )
+          : [],
+        enforceFeaturedProductCaps: Boolean(
+          homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
+        ),
+      });
     } catch (error) {
       console.error("Failed to load categories:", error);
       setErrorMessage((current) => current || "Kategori verileri şu anda getirilemedi.");
     }
   };
+
+  const loadHomepageCuration = useCallback(async () => {
+    try {
+      const homepageCurationResponse = await fetchAdminJson<{
+        homepageCuration?: {
+          featuredCategorySlugs?: string[];
+          enforceFeaturedProductCaps?: boolean;
+        };
+      }>("/api/settings?type=homepage-curation", { timeoutMs: 10000 });
+
+      setHomepageCuration({
+        featuredCategorySlugs: Array.isArray(homepageCurationResponse.homepageCuration?.featuredCategorySlugs)
+          ? homepageCurationResponse.homepageCuration.featuredCategorySlugs.filter(
+              (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+            )
+          : [],
+        enforceFeaturedProductCaps: Boolean(
+          homepageCurationResponse.homepageCuration?.enforceFeaturedProductCaps,
+        ),
+      });
+    } catch (error) {
+      console.error("Failed to load homepage curation:", error);
+    }
+  }, []);
 
   useEffect(() => {
     if (hasLoadedInitialDataRef.current) {
@@ -305,6 +418,10 @@ export default function ProductsPageClient({
       void loadCategories();
     }
   }, [initialCategories.length, initialProducts.length, loadProducts]);
+
+  useEffect(() => {
+    void loadHomepageCuration();
+  }, [loadHomepageCuration]);
 
   useEffect(() => {
     if (!hasMountedFiltersRef.current) {
@@ -390,6 +507,15 @@ export default function ProductsPageClient({
 
   const handleToggleFeatured = async (product: AdminProductListItem) => {
     const nextFeatured = !product.featured;
+    const homepageFeaturedState = getHomepageFeaturedState(product);
+
+    if (nextFeatured && homepageFeaturedState.disabled) {
+      setNotice({
+        tone: "error",
+        text: homepageFeaturedState.reason || "Bu urun ana sayfa vitrini icin secilemez.",
+      });
+      return;
+    }
 
     setTogglingFeaturedProductIds((current) => [...current, product.id]);
     setProducts((current) =>
@@ -1210,14 +1336,22 @@ export default function ProductsPageClient({
                             <button
                               type="button"
                               onClick={() => void handleToggleFeatured(product)}
-                              disabled={isFeaturedUpdating}
-                              aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                              disabled={isFeaturedUpdating || isFeatureActionBlocked}
+                              aria-label={`${product.name} ürünü için öne çıkma yıldızını değiştir`}
+                              title={
+                                isFeatureActionBlocked
+                                  ? homepageFeaturedState.reason || undefined
+                                  : product.featured
+                                    ? "Ürünü ana sayfa vitrinden kaldır"
+                                    : "Ürünü ana sayfa vitrini için yıldızla"
+                              }
                               className={cn(
                                 "inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white/90 text-stone-600 backdrop-blur-sm transition-all hover:text-[#C94E00]",
                                 product.featured
                                   ? "border-amber-200 text-amber-700 hover:bg-amber-50"
                                   : "border-stone-200 hover:bg-white",
                                 isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                                isFeatureActionBlocked ? "cursor-not-allowed opacity-50 hover:text-stone-500 hover:bg-white" : "",
                               )}
                             >
                               {isFeaturedUpdating ? (
@@ -1403,6 +1537,8 @@ export default function ProductsPageClient({
                         const stockMeta = getStockMeta(primaryVariant.stock);
                         const StockIcon = stockMeta.icon;
                         const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
+                        const homepageFeaturedState = getHomepageFeaturedState(product);
+                        const isFeatureActionBlocked = !product.featured && homepageFeaturedState.disabled;
 
                         return (
                           <article
@@ -1505,14 +1641,22 @@ export default function ProductsPageClient({
                                 <button
                                   type="button"
                                   onClick={() => void handleToggleFeatured(product)}
-                                  disabled={isFeaturedUpdating}
-                                  aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                                  disabled={isFeaturedUpdating || isFeatureActionBlocked}
+                                  aria-label={`${product.name} ürünü için öne çıkma yıldızını değiştir`}
+                                  title={
+                                    isFeatureActionBlocked
+                                      ? homepageFeaturedState.reason || undefined
+                                      : product.featured
+                                        ? "Ürünü ana sayfa vitrinden kaldır"
+                                        : "Ürünü ana sayfa vitrini için yıldızla"
+                                  }
                                   className={cn(
                                     "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
                                     product.featured
                                       ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                       : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
                                     isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                                    isFeatureActionBlocked ? "cursor-not-allowed opacity-50 hover:bg-white hover:text-stone-500" : "",
                                     SURFACE_FOCUS_RING,
                                   )}
                                 >
@@ -1609,6 +1753,8 @@ export default function ProductsPageClient({
                             const stockMeta = getStockMeta(primaryVariant.stock);
                             const StockIcon = stockMeta.icon;
                             const isFeaturedUpdating = togglingFeaturedProductIds.includes(product.id);
+                            const homepageFeaturedState = getHomepageFeaturedState(product);
+                            const isFeatureActionBlocked = !product.featured && homepageFeaturedState.disabled;
 
                             return (
                               <tr
@@ -1739,14 +1885,22 @@ export default function ProductsPageClient({
                                     <button
                                       type="button"
                                       onClick={() => void handleToggleFeatured(product)}
-                                      disabled={isFeaturedUpdating}
-                                      aria-label={`${product.name} urunu icin one cikma yildizini degistir`}
+                                      disabled={isFeaturedUpdating || isFeatureActionBlocked}
+                                      aria-label={`${product.name} ürünü için öne çıkma yıldızını değiştir`}
+                                      title={
+                                        isFeatureActionBlocked
+                                          ? homepageFeaturedState.reason || undefined
+                                          : product.featured
+                                            ? "Ürünü ana sayfa vitrinden kaldır"
+                                            : "Ürünü ana sayfa vitrini için yıldızla"
+                                      }
                                       className={cn(
                                         "inline-flex h-10 w-10 items-center justify-center rounded-2xl border bg-white transition-all",
                                         product.featured
                                           ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                           : "border-stone-200 text-stone-500 hover:text-[#C94E00]",
                                         isFeaturedUpdating ? "cursor-wait opacity-70" : "",
+                                        isFeatureActionBlocked ? "cursor-not-allowed opacity-50 hover:bg-white hover:text-stone-500" : "",
                                         SURFACE_FOCUS_RING,
                                       )}
                                     >

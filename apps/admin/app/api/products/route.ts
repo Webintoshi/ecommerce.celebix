@@ -10,7 +10,10 @@ import {
     syncProductTagSuggestions,
     validateAndNormalizeProductTags,
 } from "@/lib/product-tags";
-import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+    getHomepageCurationSettings,
+    getProductListingOrderPositions,
+} from "@/lib/db/settings";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 import { buildGeneratedSku } from "@/lib/sku";
@@ -116,6 +119,8 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
     "shopify_metadata",
 ]);
 
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
+
 const ALLOWED_TAX_RATES = new Set([0, 1, 8, 10, 20]);
 
 function normalizeTaxRate(value: unknown): number {
@@ -131,6 +136,32 @@ function normalizeTaxRate(value: unknown): number {
     }
 
     return 0;
+}
+
+function normalizeCategoryKey(value: unknown): string | null {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.trim().toLocaleLowerCase("tr-TR");
+    return normalized || null;
+}
+
+function resolveHomepageFeaturedCategorySlug(
+    product: { category?: unknown; subcategory?: unknown },
+    featuredCategorySlugs: string[],
+): string | null {
+    const category = normalizeCategoryKey(product.category);
+    if (category && featuredCategorySlugs.includes(category)) {
+        return category;
+    }
+
+    const subcategory = normalizeCategoryKey(product.subcategory);
+    if (subcategory && featuredCategorySlugs.includes(subcategory)) {
+        return subcategory;
+    }
+
+    return null;
 }
 
 function getMissingTableColumn(error: unknown, tableName: string): string | null {
@@ -965,7 +996,7 @@ export async function PUT(request: NextRequest) {
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
         const { data: existingProduct } = await supabase
             .from("products")
-            .select("images,tags,slug,name,category,subcategory,shopify_metadata,shopify_metafields")
+            .select("images,tags,slug,name,category,subcategory,is_featured,shopify_metadata,shopify_metafields")
             .eq("id", id)
             .single();
 
@@ -1075,6 +1106,71 @@ export async function PUT(request: NextRequest) {
                 subcategoryImageUrl: primaryCategoryImage,
             }
         );
+
+        const homepageCuration = await getHomepageCurationSettings();
+        const nextIsHomepageFeatured =
+            updates.is_featured !== undefined
+                ? Boolean(updates.is_featured)
+                : Boolean(existingProduct?.is_featured);
+
+        if (homepageCuration.enforceFeaturedProductCaps && nextIsHomepageFeatured) {
+            const featuredCategorySlugs = homepageCuration.featuredCategorySlugs
+                .map((entry) => normalizeCategoryKey(entry))
+                .filter((entry): entry is string => Boolean(entry))
+                .slice(0, 4);
+
+            if (featuredCategorySlugs.length === 0) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Urun yildizi icin once en az bir ana sayfa kategorisi secmelisiniz.",
+                    },
+                    { status: 422 },
+                );
+            }
+
+            const homepageCategorySlug = resolveHomepageFeaturedCategorySlug(
+                {
+                    category: effectiveCategory,
+                    subcategory: resolvedSubcategory,
+                },
+                featuredCategorySlugs,
+            );
+
+            if (!homepageCategorySlug) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Yalnizca ana sayfa icin yildizlanan kategorilerdeki urunler one cikarilabilir.",
+                    },
+                    { status: 422 },
+                );
+            }
+
+            const { data: featuredProducts, error: featuredProductsError } = await supabase
+                .from("products")
+                .select("id, category, subcategory")
+                .eq("is_featured", true)
+                .neq("id", id);
+
+            if (featuredProductsError) {
+                throw new Error(`Homepage featured urun sayaci okunamadi: ${featuredProductsError.message}`);
+            }
+
+            const featuredProductCountForCategory = (featuredProducts || []).filter((product) =>
+                resolveHomepageFeaturedCategorySlug(product, featuredCategorySlugs) === homepageCategorySlug,
+            ).length;
+
+            if (featuredProductCountForCategory >= MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Her ana sayfa kategorisinde en fazla 4 urun yildizlanabilir.",
+                    },
+                    { status: 422 },
+                );
+            }
+        }
 
         const updateData: Record<string, unknown> = {};
         
