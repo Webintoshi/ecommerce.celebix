@@ -78,6 +78,7 @@ export interface HomepageCategory {
 export interface HomepageData {
   heroBanners: HomepageHeroBanner[];
   categories: HomepageCategory[];
+  featuredCategories: HomepageCategory[];
   products: Record<string, unknown>[];
   promoBanners: Record<string, unknown>[];
   allProducts: Record<string, unknown>[];
@@ -215,7 +216,27 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
-  return fetchHomepageCategoriesWithCuration(supabase, []);
+  const result = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .is("parent_id", null)
+      .order("created_at", { ascending: false })
+      .order("name", { ascending: true })
+      .limit(6);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data ?? [];
 }
 
 async function fetchHomepageCategoriesWithCuration(
@@ -399,26 +420,38 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     getProductListingOrderPositions(),
   ]);
 
-  const categoriesData =
+  const [categoriesData, featuredCategoriesData] = await Promise.all([
+    fetchHomepageCategories(supabase),
     homepageCuration.featuredCategorySlugs.length > 0
-      ? await fetchHomepageCategoriesWithCuration(
-          supabase,
-          homepageCuration.featuredCategorySlugs,
-        )
-      : await fetchHomepageCategories(supabase);
+      ? fetchHomepageCategoriesWithCuration(supabase, homepageCuration.featuredCategorySlugs)
+      : fetchHomepageCategoriesWithCuration(supabase, []),
+  ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categoryOrder =
+  const featuredCategoryOrder =
     homepageCuration.featuredCategorySlugs.length > 0
       ? new Map(homepageCuration.featuredCategorySlugs.map((slug, index) => [slug, index]))
       : null;
 
   const categoryBase = (categoriesData || [])
     .filter((category) => category.slug && category.name)
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description || null,
+      image: category.image,
+      productCount: typeof category.product_count === "number" ? category.product_count : 0,
+      seo_title: category.seo_title || null,
+      seo_description: category.seo_description || null,
+    }));
+
+  const featuredCategoryBase = (featuredCategoriesData || [])
+    .filter((category) => category.slug && category.name)
     .sort((left, right) => {
-      if (categoryOrder) {
-        const leftPriority = categoryOrder.get(left.slug) ?? 99;
-        const rightPriority = categoryOrder.get(right.slug) ?? 99;
+      if (featuredCategoryOrder) {
+        const leftPriority = featuredCategoryOrder.get(left.slug) ?? 99;
+        const rightPriority = featuredCategoryOrder.get(right.slug) ?? 99;
 
         if (leftPriority !== rightPriority) {
           return leftPriority - rightPriority;
@@ -458,6 +491,19 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       } satisfies HomepageCategory;
     }),
   );
+  const translatedFeaturedCategories = await Promise.all(
+    featuredCategoryBase.map(async (category) => {
+      const translated = await translateCategoryRecord(category, locale);
+      return {
+        id: translated.id,
+        name: translated.name || category.name,
+        slug: translated.slug,
+        description: translated.description || null,
+        image: translated.image,
+        productCount: translated.productCount,
+      } satisfies HomepageCategory;
+    }),
+  );
 
   const orderedShowcaseProducts = sortProductsByListingOrder(
     (allProductsData || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>,
@@ -475,6 +521,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   return {
     heroBanners: translatedHeroBanners,
     categories: translatedCategories,
+    featuredCategories: translatedFeaturedCategories,
     products: hydrateHomepageProducts(
       (translatedProducts || []).map((product) => withHomepageFeaturedFlag(product)),
       attributeRegistry,
