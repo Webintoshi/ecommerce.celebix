@@ -38,6 +38,22 @@ function normalizeInputDomain(value: string): string {
     .toLocaleLowerCase("tr");
 }
 
+function resolveAdminPreviewDomain(storefrontDomain: string): string {
+  const normalizedDomain = normalizeInputDomain(storefrontDomain);
+  const demoRoot = "celebix.co";
+  const demoSuffix = `.${demoRoot}`;
+
+  if (normalizedDomain.endsWith(demoSuffix)) {
+    const prefix = normalizedDomain.slice(0, -demoSuffix.length);
+
+    if (prefix && !prefix.includes(".")) {
+      return `admin-${prefix}.${demoRoot}`;
+    }
+  }
+
+  return normalizedDomain ? `admin.${normalizedDomain}` : "";
+}
+
 export function MigrateStoreDomainForm({
   slug,
   storefrontDomain,
@@ -51,7 +67,7 @@ export function MigrateStoreDomainForm({
   const [isPending, startTransition] = useTransition();
 
   const normalizedDomain = useMemo(() => normalizeInputDomain(domain), [domain]);
-  const previewAdminDomain = normalizedDomain ? `admin.${normalizedDomain}` : "";
+  const previewAdminDomain = useMemo(() => resolveAdminPreviewDomain(normalizedDomain), [normalizedDomain]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -128,7 +144,7 @@ export function MigrateStoreDomainForm({
         <span>Yeni admin domain</span>
         <input value={previewAdminDomain} disabled placeholder="admin.wayabutik.com" />
         <small className="muted">
-          Admin domain otomatik olarak `admin.&lt;domain&gt;` formatinda uretilir.
+          {"`celebix.co` demo domainlerinde admin host `admin-<slug>.celebix.co`, custom domainlerde `admin.<domain>` olur."}
         </small>
       </label>
 

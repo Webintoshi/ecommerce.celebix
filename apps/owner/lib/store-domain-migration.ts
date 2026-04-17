@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  getStoreAdminDomainForStorefrontDomain,
   requireStoreConfig,
   updateStoreDomains,
 } from "@celebix/platform-config";
@@ -74,13 +75,16 @@ export async function migrateStoreDomain(
   const previousStorefrontDomain = currentStore.domains.storefront;
   const previousAdminDomain = currentStore.domains.admin;
   const normalizedRequestedDomain = normalizeRequestedDomain(input.storefrontDomain);
-  const requestedAdminDomain = `admin.${normalizedRequestedDomain}`;
+  const requestedAdminDomain = getStoreAdminDomainForStorefrontDomain(normalizedRequestedDomain);
 
   if (!normalizedRequestedDomain) {
     throw new Error("Yeni storefront domain zorunludur.");
   }
 
-  if (normalizedRequestedDomain === previousStorefrontDomain) {
+  if (
+    normalizedRequestedDomain === previousStorefrontDomain &&
+    requestedAdminDomain === previousAdminDomain
+  ) {
     throw new Error("Yeni domain mevcut storefront domain ile ayni.");
   }
 

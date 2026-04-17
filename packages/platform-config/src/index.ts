@@ -218,6 +218,30 @@ export interface RemoveStoreArtifactsResult {
   skippedPaths: string[];
 }
 
+function getDemoDomainRoot(): string {
+  return ensureDomain(process.env.OWNER_DEMO_DOMAIN_ROOT?.trim() || "celebix.co");
+}
+
+function resolveAdminDomain(storefrontDomain: string): string {
+  const normalizedStorefrontDomain = ensureDomain(storefrontDomain);
+  const demoRoot = getDemoDomainRoot();
+  const demoSuffix = `.${demoRoot}`;
+
+  if (normalizedStorefrontDomain.endsWith(demoSuffix)) {
+    const prefix = normalizedStorefrontDomain.slice(0, -demoSuffix.length);
+
+    if (prefix && !prefix.includes(".")) {
+      return `admin-${prefix}.${demoRoot}`;
+    }
+  }
+
+  return `admin.${normalizedStorefrontDomain}`;
+}
+
+export function getStoreAdminDomainForStorefrontDomain(storefrontDomain: string): string {
+  return resolveAdminDomain(storefrontDomain);
+}
+
 function findRepoRoot(startDirectory = process.cwd()): string {
   const attempted = new Set<string>();
   const candidates = [
@@ -402,11 +426,11 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       senderEmail: `noreply@${input.domain}`,
       smsSenderTitle: input.slug.replace(/-/g, "").slice(0, 11).toUpperCase(),
       defaultProductBrand: input.name
-    },
-    domains: {
-      storefront: input.domain,
-      admin: `admin.${input.domain}`
-    },
+      },
+      domains: {
+        storefront: input.domain,
+        admin: resolveAdminDomain(input.domain)
+      },
     owner: {
       createdBy: "owner-panel",
       notes: "Merkezi owner panel uzerinden olusturuldu."
@@ -843,7 +867,7 @@ function writeAdminEnvTemplateForStore(config: StoreConfig): void {
 
 export function updateStoreDomains(slug: string, input: StoreDomainMigrationInput): StoreConfig {
   const storefrontDomain = ensureDomain(input.storefrontDomain);
-  const adminDomain = ensureDomain(input.adminDomain?.trim() || `admin.${storefrontDomain}`);
+  const adminDomain = ensureDomain(input.adminDomain?.trim() || resolveAdminDomain(storefrontDomain));
   const refreshDerivedBrandingEmails = input.refreshDerivedBrandingEmails !== false;
 
   const nextConfig = updateStoreConfig(slug, (current) => {

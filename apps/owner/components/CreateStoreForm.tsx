@@ -172,7 +172,8 @@ export function CreateStoreForm({
         />
         <small className="muted">
           Bu alan storefront ve admin domaini icindir. Demo kurulum icin `waya.celebix.co` gibi bir subdomain
-          girebilir, musteri onayindan sonra owner panelden gercek domaine gecirebilirsin.
+          girebilir, bu durumda admin host otomatik `admin-waya.celebix.co` olur. Musteri onayindan sonra owner
+          panelden gercek domaine gecirebilirsin.
         </small>
       </label>
 
