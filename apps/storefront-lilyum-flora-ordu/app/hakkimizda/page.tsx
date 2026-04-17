@@ -26,6 +26,11 @@ export default async function AboutPage() {
   const locale = await getRequestLocale();
   const profile = await getStorefrontProfile();
   const managedPage = await getPublishedManagedContentPage("hakkimizda");
+  const hasManagedContent = Boolean(managedPage?.contentHtml);
+  const heroDescription =
+    managedPage?.seoDescription ||
+    profile.tagline ||
+    `${profile.name} marka hikayesi, cicek tasarim anlayisi ve kurumsal detaylari.`;
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
@@ -38,7 +43,9 @@ export default async function AboutPage() {
             {profile.name}
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText || profile.tagline}
+            {hasManagedContent
+              ? heroDescription
+              : managedPage?.plainText || heroDescription}
           </p>
         </div>
       </section>
