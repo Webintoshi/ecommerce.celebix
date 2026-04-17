@@ -7,7 +7,6 @@ import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/as
 import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { HomepageTestimonial } from "@/lib/homepage";
-import { SectionHeader } from "./SectionHeader";
 import { cn } from "@/lib/utils";
 
 interface ProductLike {
@@ -97,26 +96,63 @@ function normalizeShowcaseItems(
 
 function ReviewCard({
   item,
-  featured = false,
 }: {
   item: ReviewShowcaseItem;
-  featured?: boolean;
 }) {
-  const bodyClassName = featured ? "line-clamp-5" : "line-clamp-4";
-  const imageSizes = featured ? "(max-width: 1024px) 100vw, 42vw" : "(max-width: 1024px) 100vw, 24vw";
+  const bodyClassName = "line-clamp-5";
+  const imageSizes = "(max-width: 1024px) 100vw, 20vw";
   const usesProxiedImage = item.productImage ? isProxiedStorefrontAssetUrl(item.productImage) : false;
 
   return (
-    <article
-      className={cn(
-        "overflow-hidden rounded-[30px] border border-[var(--store-border)] bg-white shadow-[var(--store-shadow-soft)]",
-        featured ? "lg:grid lg:grid-cols-[0.9fr_1.1fr]" : "h-full",
-      )}
-    >
-      <div className={cn("relative overflow-hidden bg-[var(--store-surface-alt)]", featured ? "aspect-[4/5] lg:aspect-auto" : "aspect-[16/11]")}>
-        {item.productHref ? (
-          <Link href={item.productHref} className="absolute inset-0">
-            {item.productImage ? (
+    <article className="flex h-full flex-col rounded-[32px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,246,246,0.94)_100%)] p-5 shadow-[0_28px_70px_-52px_rgba(80,94,113,0.40)] sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.08)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--store-accent)]">
+          {"M\u00fc\u015fteri yorumu"}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Star
+              key={`${item.id}-${index}`}
+              className={cn(
+                "h-3.5 w-3.5",
+                index < item.rating
+                  ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
+                  : "fill-[rgba(80,94,113,0.10)] text-[rgba(80,94,113,0.10)]",
+              )}
+            />
+          ))}
+        </span>
+      </div>
+
+      <div className="mt-6">
+        <span className="text-5xl leading-none text-[rgba(218,99,13,0.18)]">“</span>
+        {item.title ? (
+          <p className="mt-4 text-[15px] font-semibold tracking-[-0.02em] text-[var(--store-ink)]">
+            {item.title}
+          </p>
+        ) : null}
+        <p className={cn("mt-3 text-[15px] leading-8 text-[var(--store-ink-soft)]", bodyClassName)}>
+          {item.body}
+        </p>
+      </div>
+
+      <div className="mt-7 rounded-[26px] bg-white/92 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_12px_28px_-24px_rgba(80,94,113,0.26)]">
+        <div className="flex items-center gap-3">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[20px] bg-[var(--store-surface-alt)]">
+            {item.productHref ? (
+              <Link href={item.productHref} className="absolute inset-0">
+                {item.productImage ? (
+                  <Image
+                    src={item.productImage}
+                    alt={item.productName}
+                    fill
+                    className="object-cover"
+                    sizes={imageSizes}
+                    unoptimized={usesProxiedImage}
+                  />
+                ) : null}
+              </Link>
+            ) : item.productImage ? (
               <Image
                 src={item.productImage}
                 alt={item.productName}
@@ -126,74 +162,36 @@ function ReviewCard({
                 unoptimized={usesProxiedImage}
               />
             ) : null}
-          </Link>
-        ) : item.productImage ? (
-          <Image
-            src={item.productImage}
-            alt={item.productName}
-            fill
-            className="object-cover"
-            sizes={imageSizes}
-            unoptimized={usesProxiedImage}
-          />
-        ) : null}
-      </div>
-
-      <div className="flex h-full flex-col justify-between p-5 sm:p-6">
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(218,99,13,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-accent)]">
-              {"M\u00fc\u015fteri yorumu"}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[var(--store-accent)]">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Star
-                  key={`${item.id}-${index}`}
-                  className={cn(
-                    "h-4 w-4",
-                    index < item.rating
-                      ? "fill-[var(--store-accent)] text-[var(--store-accent)]"
-                      : "fill-[var(--store-surface-alt)] text-[var(--store-surface-alt)]",
-                  )}
-                />
-              ))}
-            </span>
           </div>
 
-          <div className="mt-4">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
                 {"Alan ki\u015fi"}
               </p>
-              <span className="rounded-full bg-[var(--store-surface-alt)] px-3 py-1 text-xs font-medium text-[var(--store-ink-soft)]">
+              <span className="rounded-full bg-[var(--store-surface-alt)] px-2.5 py-1 text-[11px] font-medium text-[var(--store-ink-soft)]">
                 {item.reviewerName}
               </span>
             </div>
-            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--store-ink)]">
+            <p className="mt-3 line-clamp-2 text-lg font-semibold tracking-[-0.03em] text-[var(--store-ink)]">
               {item.productName}
-            </h3>
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
-              {item.productCategory || "Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}
             </p>
-            {item.title ? (
-              <p className="mt-4 text-sm font-semibold text-[var(--store-ink)]">{item.title}</p>
-            ) : null}
-            <p className={cn("mt-3 text-sm leading-7 text-[var(--store-ink-soft)]", bodyClassName)}>{item.body}</p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-[var(--store-muted)]">
+              <Check className="h-3.5 w-3.5 text-[var(--store-accent)]" />
+              <span>{"Do\u011frulanm\u0131\u015f yorum"}</span>
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-[var(--store-border)] pt-4">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-[var(--store-ink)]">{"Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}</p>
-            <p className="text-sm text-[var(--store-ink-soft)]">{item.productName}</p>
-            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--store-muted)]">
-              <Check className="h-3 w-3" />
-              {"Do\u011frulanm\u0131\u015f yorum"}
-            </span>
-          </div>
-
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-[rgba(80,94,113,0.08)] pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--store-muted)]">
+            {item.productCategory || "Ald\u0131\u011f\u0131 \u00fcr\u00fcn"}
+          </p>
           {item.productHref ? (
-            <Link href={item.productHref} className="rounded-full border border-[var(--store-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--store-ink-soft)] transition hover:border-[var(--store-accent)] hover:text-[var(--store-accent)]">
+            <Link
+              href={item.productHref}
+              className="rounded-full border border-[rgba(80,94,113,0.10)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--store-ink-soft)] transition hover:border-[rgba(218,99,13,0.24)] hover:text-[var(--store-accent)]"
+            >
               {"\u00dcr\u00fcn\u00fc incele"}
             </Link>
           ) : null}
@@ -205,8 +203,8 @@ function ReviewCard({
 
 export function StoreLocationsSection({
   eyebrow = "M\u00fc\u015fteri Yorumlar\u0131",
-  heading = "Teslim edilen \u00e7i\u00e7ekler i\u00e7in gelen yorumlar",
-  description = "Onayl\u0131 yorumlar\u0131, yorum sahibinin ald\u0131\u011f\u0131 \u00fcr\u00fcnle birlikte footer \u00f6ncesinde net bir sosyal kan\u0131t alan\u0131 olarak sunuyoruz.",
+  heading = "Teslim edilen secimlerden notlar",
+  description = "Onayli yorumlari, secilen urunle birlikte daha sakin ve daha guven veren bir akista sunuyoruz.",
   linkLabel = "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
   storesHref,
   testimonials = [],
@@ -219,32 +217,31 @@ export function StoreLocationsSection({
     return null;
   }
 
-  const [featuredItem, ...secondaryItems] = showcaseItems;
-
   return (
     <section className="section-shell">
       <div className="container-premium">
-        <SectionHeader
-          eyebrow={eyebrow}
-          title={heading}
-          description={description}
-          action={
-            <Link href={storesHref} className="cta-secondary">
+        <div className="overflow-hidden rounded-[40px] border border-[rgba(80,94,113,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(238,242,245,0.62)_100%)] px-5 py-6 shadow-[0_36px_90px_-58px_rgba(80,94,113,0.34)] sm:px-7 sm:py-7 lg:px-10 lg:py-10">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="section-eyebrow">{eyebrow}</p>
+              <h2 className="mt-4 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.05em] text-[var(--store-ink)]">
+                {heading}
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--store-ink-soft)] sm:text-[15px]">
+                {description}
+              </p>
+            </div>
+
+            <Link href={storesHref} className="cta-secondary self-start lg:self-auto">
               {linkLabel}
             </Link>
-          }
-        />
+          </div>
 
-        <div className={cn("mt-8 grid gap-5", secondaryItems.length > 0 && "lg:grid-cols-[1.08fr_0.92fr]")}>
-          <ReviewCard item={featuredItem} featured />
-
-          {secondaryItems.length > 0 ? (
-            <div className="grid gap-5">
-              {secondaryItems.map((item) => (
-                <ReviewCard key={item.id} item={item} />
-              ))}
-            </div>
-          ) : null}
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {showcaseItems.map((item) => (
+              <ReviewCard key={item.id} item={item} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

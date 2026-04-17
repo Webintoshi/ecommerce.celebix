@@ -18,9 +18,9 @@ const HOME_UI_COPY = {
     { title: "Hediye Se\u00e7imleri", subtitle: "Kolay Ke\u015fif" },
   ],
   storesEyebrow: "M\u00fc\u015fteri Yorumlar\u0131",
-  storesHeading: "Teslim edilen \u00e7i\u00e7ekler i\u00e7in gelen yorumlar",
+  storesHeading: "Teslim edilen secimlerden notlar",
   storesDescription:
-    "Onayl\u0131 yorumlar\u0131, yorum sahibinin ald\u0131\u011f\u0131 \u00fcr\u00fcnle birlikte footer \u00f6ncesinde net bir sosyal kan\u0131t alan\u0131 olarak sunuyoruz.",
+    "Onayli yorumlari, secilen urunle birlikte daha sakin ve daha guven veren bir akista sunuyoruz.",
   storesLinkLabel: "T\u00fcm \u00fcr\u00fcnleri g\u00f6r",
 };
 
