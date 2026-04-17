@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 
 interface AnnouncementSettings {
   message: string;
@@ -77,32 +77,29 @@ export function AnnouncementBar() {
   const textColor = getAnnouncementTextColor(backgroundColor);
   const isDarkTheme = textColor === "#FFFFFF";
   const buttonClass = isDarkTheme
-    ? "border-white/20 bg-white/10 text-white hover:bg-white/16"
-    : "border-[#0B1120]/12 bg-[#0B1120]/6 text-[#0B1120] hover:bg-[#0B1120]/10";
+    ? "border-white/18 bg-white/12 text-white hover:bg-white/18"
+    : "border-[#0B1120]/10 bg-white/72 text-[#0B1120] hover:bg-white/88";
   const closeButtonClass = isDarkTheme
-    ? "text-white/65 hover:text-white hover:bg-white/10"
-    : "text-[#0B1120]/60 hover:text-[#0B1120] hover:bg-[#0B1120]/8";
+    ? "text-white/58 hover:text-white hover:bg-white/10"
+    : "text-[#0B1120]/52 hover:text-[#0B1120] hover:bg-white/70";
 
   return (
-    <div className="relative border-b border-black/5" style={{ backgroundColor }}>
+    <div className="relative border-b border-black/6 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)]" style={{ backgroundColor }}>
       <div className="container-premium py-1.5 sm:py-2">
-        <div className="flex items-center justify-center gap-2 pr-10 text-center sm:gap-3 sm:pr-0">
+        <div className="flex min-h-[34px] items-center justify-center gap-2 pr-10 text-center sm:gap-3 sm:pr-14">
           <p
-            className="hidden text-[10px] font-semibold uppercase tracking-[0.24em] sm:block"
-            style={{ color: textColor, opacity: 0.72 }}
+            className="max-w-3xl text-[11px] font-medium tracking-[0.01em] sm:text-[13px]"
+            style={{ color: textColor }}
           >
-            {"G\u00fcncel Duyuru"}
-          </p>
-          <p className="max-w-3xl text-[11px] font-medium sm:text-[13px]" style={{ color: textColor }}>
             {settings.message}
           </p>
           {settings.link && settings.linkText ? (
             <Link
               href={settings.link}
-              className={`hidden items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition sm:inline-flex ${buttonClass}`}
+              className={`hidden items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-semibold shadow-[0_12px_28px_-22px_rgba(11,17,32,0.5)] transition sm:inline-flex ${buttonClass}`}
             >
               {settings.linkText}
-              <span aria-hidden="true">/</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           ) : null}
         </div>
@@ -111,10 +108,10 @@ export function AnnouncementBar() {
       <button
         type="button"
         onClick={() => setIsVisible(false)}
-        className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition sm:right-5 ${closeButtonClass}`}
+        className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition sm:right-5 ${closeButtonClass}`}
         aria-label="Kapat"
       >
-        <X className="h-3 w-3" />
+        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   );
