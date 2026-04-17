@@ -46,9 +46,9 @@ const STORE_COUNTRY = "T\u00fcrkiye";
 const STORE_CITY = "Ordu";
 const STORE_DISTRICT = "Alt\u0131nordu";
 const CHECKOUT_FIELD_CLASS =
-  "w-full h-11 px-4 rounded-[18px] border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300";
+  "w-full h-11 px-4 rounded-[18px] border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 transition-colors focus:outline-none focus:border-[var(--store-accent)] focus:ring-1 focus:ring-[rgba(218,99,13,0.22)]";
 const CHECKOUT_FIELD_WITH_ICON_CLASS =
-  "w-full h-11 pl-12 pr-12 rounded-[18px] border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300";
+  "w-full h-11 pl-12 pr-12 rounded-[18px] border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 transition-colors focus:outline-none focus:border-[var(--store-accent)] focus:ring-1 focus:ring-[rgba(218,99,13,0.22)]";
 const CHECKOUT_LOCKED_SELECT_CLASS =
   "w-full h-11 px-4 rounded-[18px] border border-gray-200 bg-gray-50 text-gray-900 appearance-none cursor-not-allowed";
 
@@ -557,7 +557,7 @@ export default function CheckoutPage() {
                             type="checkbox"
                             checked={createAccount}
                             onChange={(e) => setCreateAccount(e.target.checked)}
-                            className="mt-0.5 w-5 h-5 text-primary border-[var(--store-border)] rounded focus:ring-primary cursor-pointer"
+                            className="mt-0.5 h-5 w-5 cursor-pointer rounded border-[var(--store-border)] text-[var(--store-accent)] accent-[var(--store-accent)] focus:ring-[rgba(218,99,13,0.22)]"
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -660,7 +660,7 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2 relative">
                         <label className="text-sm font-medium text-gray-600">{"\u015eehir"}</label>
                         <select
@@ -686,16 +686,6 @@ export default function CheckoutPage() {
                         <div className="absolute right-4 bottom-3.5 pointer-events-none text-gray-400">
                           <ChevronRight className="h-4 w-4 rotate-90" />
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Posta Kodu</label>
-                        <input
-                          type="text"
-                          value={shippingInfo.postalCode}
-                          onChange={(e) => setShippingInfo({ ...shippingInfo, postalCode: e.target.value })}
-                          className={CHECKOUT_FIELD_CLASS}
-                          placeholder="34000"
-                        />
                       </div>
                     </div>
 
@@ -723,8 +713,8 @@ export default function CheckoutPage() {
                                 className={cn(
                                   "flex cursor-pointer items-start gap-3 rounded-[18px] border px-3.5 py-2.5 transition-all",
                                   isSelected
-                                    ? "border-primary bg-white shadow-sm"
-                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                    ? "border-[var(--store-accent)] bg-[rgba(218,99,13,0.04)] shadow-sm"
+                                    : "border-gray-200 bg-white hover:border-[rgba(218,99,13,0.22)]"
                                 )}
                               >
                                 <input
@@ -733,7 +723,7 @@ export default function CheckoutPage() {
                                   value={rate.id}
                                   checked={isSelected}
                                   onChange={() => setSelectedShippingMethod(rate.id)}
-                                  className="mt-1 h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                                  className="mt-1 h-4 w-4 border-[var(--store-border)] text-[var(--store-accent)] accent-[var(--store-accent)] focus:ring-[rgba(218,99,13,0.22)]"
                                 />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
