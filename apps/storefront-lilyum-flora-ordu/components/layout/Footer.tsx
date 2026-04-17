@@ -19,6 +19,9 @@ type FooterCategory = {
   slug: string;
 };
 
+const CELEBIX_SIGNATURE_URL = "https://celebix.co/tr";
+const CELEBIX_SIGNATURE_LOGO = "https://celebix.co/Logo/koyu%20logo.svg";
+
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
@@ -221,12 +224,17 @@ export function Footer() {
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
-            href="https://celebix.co"
+            href={CELEBIX_SIGNATURE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-[var(--store-muted)] transition hover:text-[var(--store-accent)]"
+            className="group inline-flex items-center rounded-full border border-[var(--store-border)] bg-white px-3 py-2 transition hover:border-[var(--store-accent)] hover:shadow-[0_12px_28px_-24px_rgba(80,94,113,0.35)]"
+            aria-label="Celebix"
           >
-            Powered by Celebix
+            <img
+              src={CELEBIX_SIGNATURE_LOGO}
+              alt="Celebix"
+              className="h-4 w-auto opacity-80 transition group-hover:opacity-100"
+            />
           </a>
         </div>
       </div>
