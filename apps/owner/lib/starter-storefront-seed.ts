@@ -322,7 +322,14 @@ function buildStoreInfoValue(store: StoreConfig) {
   };
 }
 
-function buildHomepageCurationValue(categories: JsonRecord[]) {
+function buildHomepageCurationValue(
+  categories: JsonRecord[],
+  products: Array<{
+    id: unknown;
+    category?: string | null;
+    subcategory?: string | null;
+  }>,
+) {
   const availableCategorySlugs = categories
     .map((category) => stringOrNull(category.slug))
     .filter((slug): slug is string => Boolean(slug));
@@ -330,9 +337,26 @@ function buildHomepageCurationValue(categories: JsonRecord[]) {
   const featuredCategorySlugs = PREFERRED_CATEGORY_SLUGS
     .filter((slug) => availableCategorySlugs.includes(slug))
     .slice(0, 4);
+  const featuredProductIdsByCategory = featuredCategorySlugs.reduce<Record<string, string[]>>(
+    (result, categorySlug) => {
+      const productIds = products
+        .filter((product) => product.category === categorySlug || product.subcategory === categorySlug)
+        .map((product) => stringOrNull(product.id))
+        .filter((productId): productId is string => Boolean(productId))
+        .slice(0, 4);
+
+      if (productIds.length > 0) {
+        result[categorySlug] = productIds;
+      }
+
+      return result;
+    },
+    {},
+  );
 
   return {
     featuredCategorySlugs,
+    featuredProductIdsByCategory,
     enforceFeaturedProductCaps: true,
     updatedAt: new Date().toISOString(),
   };
@@ -851,7 +875,7 @@ export async function seedStarterStorefrontContent(
     { key: "announcement_bar", value: buildAnnouncementBarValue(store) },
     { key: "marquee_settings", value: buildMarqueeSettingsValue(store) },
     { key: "seo_settings", value: buildSeoSettingsValue(store) },
-    { key: "homepage_curation", value: buildHomepageCurationValue(mappedCategories) },
+    { key: "homepage_curation", value: buildHomepageCurationValue(mappedCategories, mappedProducts) },
     { key: "hero_banners", value: heroBanners },
     { key: "promo_banners", value: promoBanners },
     { key: "variant_attributes_registry", value: buildVariantRegistry(sourceProducts) },

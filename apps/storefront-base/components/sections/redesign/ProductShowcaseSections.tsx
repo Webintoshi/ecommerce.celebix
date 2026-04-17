@@ -8,6 +8,7 @@ import type { HomepageCategory } from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import type { HomepageCurationSettings } from "@/lib/db/settings";
 
 type ShowcaseProduct = Product & {
   category?: string | null;
@@ -18,6 +19,7 @@ type ShowcaseProduct = Product & {
 interface ProductShowcaseSectionsProps {
   categories?: HomepageCategory[];
   allProducts: ShowcaseProduct[];
+  homepageCuration?: HomepageCurationSettings;
   groupCopy?: Array<{
     title: string;
     subtitle: string;
@@ -40,11 +42,23 @@ function humanizeCategory(value?: string | null) {
     .join(" ");
 }
 
-function isHomepageFeatured(product: ShowcaseProduct) {
-  return Boolean(product.featured ?? product.is_featured);
+function resolveHomepageCuratedProductIds(
+  categorySlug: string,
+  homepageCuration?: HomepageCurationSettings,
+) {
+  const categoryKey = normalizeKey(categorySlug);
+  if (!categoryKey) {
+    return [];
+  }
+
+  return (homepageCuration?.featuredProductIdsByCategory?.[categoryKey] || []).filter(Boolean);
 }
 
-function buildProductGroups(categories: HomepageCategory[], products: ShowcaseProduct[]) {
+function buildProductGroups(
+  categories: HomepageCategory[],
+  products: ShowcaseProduct[],
+  homepageCuration?: HomepageCurationSettings,
+) {
   const usedProductIds = new Set<string>();
   const groups = categories.slice(0, 4).map((category, index) => {
     const categoryKey = normalizeKey(category.slug);
@@ -58,12 +72,24 @@ function buildProductGroups(categories: HomepageCategory[], products: ShowcasePr
       );
     });
 
-    const prioritizedProducts = [
-      ...categoryProducts.filter((product) => isHomepageFeatured(product)),
-      ...categoryProducts.filter((product) => !isHomepageFeatured(product)),
-    ];
+    const explicitFeaturedProductIds = resolveHomepageCuratedProductIds(
+      category.slug,
+      homepageCuration,
+    );
+    const explicitFeaturedProducts = explicitFeaturedProductIds
+      .map((productId) =>
+        categoryProducts.find((product) => product.id === productId && !usedProductIds.has(product.id)),
+      )
+      .filter((product): product is ShowcaseProduct => Boolean(product));
+    const explicitFeaturedProductIdSet = new Set(
+      explicitFeaturedProducts.map((product) => product.id),
+    );
 
-    const selectedProducts = prioritizedProducts.slice(0, 4);
+    const remainingProducts = categoryProducts.filter(
+      (product) => !explicitFeaturedProductIdSet.has(product.id),
+    );
+
+    const selectedProducts = [...explicitFeaturedProducts, ...remainingProducts].slice(0, 4);
     selectedProducts.forEach((product) => usedProductIds.add(product.id));
 
     return {
@@ -158,6 +184,7 @@ function EmptyShowcaseState() {
 export function ProductShowcaseSections({
   categories = [],
   allProducts,
+  homepageCuration,
   groupCopy,
   viewAllLabel = "Tumunu Gor",
 }: ProductShowcaseSectionsProps) {
@@ -167,7 +194,7 @@ export function ProductShowcaseSections({
     return <EmptyShowcaseState />;
   }
 
-  const groups = buildProductGroups(categories, allProducts);
+  const groups = buildProductGroups(categories, allProducts, homepageCuration);
   const fallbackGroups =
     groups.length > 0
       ? groups

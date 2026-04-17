@@ -3,6 +3,7 @@ import {
   getHomepageCurationSettings,
   getProductListingOrderPositions,
 } from "@/lib/db/settings";
+import type { HomepageCurationSettings } from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
   getVariantAttributeRegistry,
@@ -81,6 +82,7 @@ export interface HomepageData {
   promoBanners: Record<string, unknown>[];
   allProducts: Record<string, unknown>[];
   testimonials: HomepageTestimonial[];
+  homepageCuration: HomepageCurationSettings;
 }
 
 export interface HomepageTestimonial {
@@ -563,5 +565,6 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       attributeRegistry,
     ),
     testimonials: testimonialsData,
+    homepageCuration,
   };
 }

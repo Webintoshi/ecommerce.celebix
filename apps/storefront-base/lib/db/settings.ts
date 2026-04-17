@@ -157,11 +157,59 @@ export type { ProductListingOrderSettings };
 
 export interface HomepageCurationSettings {
     featuredCategorySlugs: string[];
+    featuredProductIdsByCategory: Record<string, string[]>;
     enforceFeaturedProductCaps: boolean;
     updatedAt?: string;
 }
 
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
+
+function normalizeHomepageCategoryKey(value: string) {
+    return value
+        .trim()
+        .toLocaleLowerCase("tr-TR")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function normalizeHomepageFeaturedProductIdsByCategory(
+    value: unknown,
+    featuredCategorySlugs: string[],
+) {
+    const record =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+
+    const allowedCategories = new Set(
+        featuredCategorySlugs
+            .map((entry) => normalizeHomepageCategoryKey(entry))
+            .filter(Boolean),
+    );
+
+    return Object.entries(record).reduce<Record<string, string[]>>((result, [rawKey, rawValue]) => {
+        const normalizedKey = normalizeHomepageCategoryKey(rawKey);
+        if (!normalizedKey || !allowedCategories.has(normalizedKey)) {
+            return result;
+        }
+
+        const normalizedIds = Array.isArray(rawValue)
+            ? rawValue
+                .filter((entry): entry is string => typeof entry === "string")
+                .map((entry) => entry.trim())
+                .filter(Boolean)
+                .filter((entry, index, source) => source.indexOf(entry) === index)
+                .slice(0, MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY)
+            : [];
+
+        if (normalizedIds.length > 0) {
+            result[normalizedKey] = normalizedIds;
+        }
+
+        return result;
+    }, {});
+}
 
 export function normalizeHomepageCurationSettings(value: unknown): HomepageCurationSettings {
     const record =
@@ -180,6 +228,10 @@ export function normalizeHomepageCurationSettings(value: unknown): HomepageCurat
 
     return {
         featuredCategorySlugs,
+        featuredProductIdsByCategory: normalizeHomepageFeaturedProductIdsByCategory(
+            record.featuredProductIdsByCategory,
+            featuredCategorySlugs,
+        ),
         enforceFeaturedProductCaps: Boolean(record.enforceFeaturedProductCaps),
         updatedAt:
             typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
