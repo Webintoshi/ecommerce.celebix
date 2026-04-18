@@ -28,14 +28,18 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
-    "provider": "managed",
-    "storage": "separate-project-per-store"
+    "projectRef": "coolify:ezmeo:lo8lrri8yhg6usy05jzdk6c6",
+    "url": "https://supabasekong-ezmeo.46.225.183.57.sslip.io",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-ezmeo.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
-    "provisioning": "pending-owner-env",
-    "provisionedAt": "2026-04-18T04:30:31.333921+00:00"
+    "bucketName": "ezmeo-assets",
+    "publicUrl": "https://pub-245578082b99402d9e1093b849089bb2.r2.dev",
+    "managedDomain": "pub-245578082b99402d9e1093b849089bb2.r2.dev",
+    "provisionedAt": "2026-04-18T04:53:03.611Z",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-04-18T04:30:31.121Z",
@@ -46,23 +50,33 @@
     "adminDeploymentName": "Ezmeo admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.ezmeo.com",
-    "adminDeploymentStatus": "pending-owner-env",
-    "supabaseProvider": "managed",
-    "supabaseProjectName": "Ezmeo",
-    "provisionedAt": "2026-04-18T04:30:31.333921+00:00",
-    "supabaseProvisioning": "pending-owner-env"
+    "adminDeploymentResourceId": "vwj8hducldwzc5p1d8fpefwx",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-04-18T04:55:46.446Z",
+    "adminDeploymentDeployedAt": "2026-04-18T04:55:46.446Z",
+    "organizationSlug": "ezmeo",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProjectName": "ezmeo-db",
+    "supabaseResourceId": "lo8lrri8yhg6usy05jzdk6c6",
+    "supabaseDashboardUrl": "https://supabasekong-ezmeo.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-18T04:52:54.902Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
     "appDir": "apps/storefront-ezmeo",
-    "status": "scaffolded",
-    "lastScaffoldedAt": "2026-04-18T04:37:21.240Z",
-    "repoSyncStatus": "pending",
+    "status": "active",
+    "lastScaffoldedAt": "2026-04-18T05:00:32.758Z",
+    "repoSyncStatus": "synced",
+    "repoSyncedAt": "2026-04-18T04:55:48.316Z",
+    "repoCommitSha": "2768315330b6aa4c0735d35a01d0d569bbb9427c",
     "deploymentProvider": "coolify",
     "deploymentName": "Ezmeo websitesi",
     "deploymentBranch": "deploy/storefront/ezmeo",
     "runtimeUrl": "https://ezmeo.com",
-    "deploymentStatus": "pending-owner-env",
-    "lastDeploymentError": "Storefront env authority henuz eksiksiz degil."
+    "resourceId": "g18rdeg64zm5fauq7fro6i2u",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-04-18T05:00:32.760Z",
+    "deployedAt": "2026-04-18T05:00:32.757Z"
   },
   "features": [
     "catalog",
