@@ -54,7 +54,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link href={productHref} className="group block">
         <div className="grid gap-5 sm:grid-cols-[200px_1fr] sm:items-start">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-[1.65rem] bg-[#ECE8E3]">
+          <div className="relative aspect-[4/5] overflow-hidden bg-[#ECE8E3]">
             {primaryImage ? (
               <>
                 <Image
@@ -85,7 +85,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
           <div className="py-1">
             <div className="flex items-start justify-between gap-4 border-b border-[#E6E0DA] pb-3">
-              <h3 className="line-clamp-2 max-w-[22ch] text-[0.92rem] leading-[1.35] tracking-[-0.01em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640]">
+              <h3 className="line-clamp-2 max-w-[22ch] text-[14px] leading-[22px] tracking-[-0.01em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640]">
                 {product.name}
               </h3>
 
@@ -111,7 +111,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   return (
     <Link href={productHref} className="group block">
       <article className="h-full">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-[1.85rem] bg-[#ECE8E3]">
+        <div className="relative aspect-[4/5] overflow-hidden bg-[#ECE8E3]">
           {primaryImage ? (
             <>
               <Image
@@ -144,7 +144,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
         <div className="pt-3">
           <div className="flex items-start justify-between gap-4 border-b border-[#E6E0DA] pb-3">
-            <h3 className="line-clamp-2 max-w-[18ch] text-[0.88rem] leading-[1.35] tracking-[-0.008em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[0.92rem]">
+            <h3 className="line-clamp-2 max-w-[18ch] text-[14px] leading-[22px] tracking-[-0.008em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640]">
               {product.name}
             </h3>
 
