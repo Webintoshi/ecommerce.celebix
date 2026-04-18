@@ -106,14 +106,14 @@ export function CategoriesSection({
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {displayCategories.map((category, index) => (
             <Link key={category.id} href={category.link} className="group block">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[1.9rem] border border-[rgba(26,26,26,0.08)] bg-[#ECE8E3]">
+              <div className="relative aspect-[16/10] overflow-hidden rounded-[1.9rem] border border-[rgba(26,26,26,0.08)] bg-[#ECE8E3]">
                 {category.image && !imageErrors[category.id] ? (
                   <Image
                     src={category.image}
                     alt={category.name}
                     fill
                     className="object-cover transition duration-700 group-hover:scale-[1.03]"
-                    sizes="(max-width: 768px) 50vw, (max-width: 1280px) 50vw, 24vw"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 24vw"
                     unoptimized={category.usesProxiedImage}
                     onError={() =>
                       setImageErrors((current) => ({
