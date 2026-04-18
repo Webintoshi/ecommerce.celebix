@@ -148,7 +148,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           <div className="flex flex-1 flex-col justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">{productLabel}</p>
-              <h3 className="mt-3 font-serif text-[2.2rem] leading-[0.92] tracking-[-0.045em] text-[#1A1A1A]">
+              <h3 className="mt-3 font-serif text-[2.2rem] leading-[0.92] tracking-[-0.045em] text-[#000000]">
                 {product.name}
               </h3>
               {product.shortDescription ? (
@@ -165,7 +165,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 <div className="flex flex-col">
                   <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">Fiyat</span>
                   <div className="mt-2 flex items-baseline gap-3">
-                    <span className="text-[1.15rem] font-semibold text-[#1A1A1A]">
+                    <span className="text-[1.15rem] font-semibold text-[#000000]">
                       {formatPrice(displayPrice)}
                     </span>
                     {originalPrice ? (
@@ -227,7 +227,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               {productLabel}
             </span>
             {product.new ? (
-              <span className="rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#1A1A1A]">
+              <span className="rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#000000]">
                 Yeni sezon
               </span>
             ) : null}
@@ -238,7 +238,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             ) : null}
           </div>
 
-          <h3 className="mt-4 font-serif text-[2rem] leading-[0.92] tracking-[-0.045em] text-[#1A1A1A]">
+          <h3 className="mt-4 font-serif text-[2rem] leading-[0.92] tracking-[-0.045em] text-[#000000]">
             {product.name}
           </h3>
 
@@ -256,7 +256,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">Fiyat</span>
                 <div className="mt-2 flex items-baseline gap-3">
-                  <span className="text-[1.15rem] font-semibold text-[#1A1A1A]">
+                  <span className="text-[1.15rem] font-semibold text-[#000000]">
                     {formatPrice(displayPrice)}
                   </span>
                   {originalPrice ? (

@@ -96,7 +96,7 @@ export function TestimonialsSection({
         <div className="mb-8 grid gap-5 lg:grid-cols-[0.85fr_1fr] lg:items-end">
           <div>
             <p className="editorial-kicker">Musteri notlari</p>
-            <h2 className="mt-4 font-serif text-3xl leading-[0.96] tracking-[-0.04em] text-[#1A1A1A] sm:text-4xl lg:text-[3.1rem]">
+            <h2 className="mt-4 font-serif text-3xl leading-[0.96] tracking-[-0.04em] text-[#000000] sm:text-4xl lg:text-[3.1rem]">
               {heading}
             </h2>
           </div>
@@ -118,7 +118,7 @@ export function TestimonialsSection({
                 <button
                   type="button"
                   onClick={prevSlide}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#1A1A1A] transition-colors hover:bg-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#000000] transition-colors hover:bg-white"
                   aria-label="Onceki"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -126,7 +126,7 @@ export function TestimonialsSection({
                 <button
                   type="button"
                   onClick={nextSlide}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#1A1A1A] transition-colors hover:bg-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#000000] transition-colors hover:bg-white"
                   aria-label="Sonraki"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function TestimonialsSection({
               </div>
 
               <div>
-                <h3 className="font-serif text-[1.45rem] leading-none tracking-[-0.03em] text-[#1A1A1A]">
+                <h3 className="font-serif text-[1.45rem] leading-none tracking-[-0.03em] text-[#000000]">
                   {activeTestimonial.name}
                 </h3>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -200,8 +200,8 @@ export function TestimonialsSection({
                     className={cn(
                       "rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors",
                       isActive
-                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#1A1A1A]"
-                        : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#7E746B] hover:border-[rgba(26,26,26,0.16)] hover:text-[#1A1A1A]",
+                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#000000]"
+                        : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#7E746B] hover:border-[rgba(26,26,26,0.16)] hover:text-[#000000]",
                     )}
                   >
                     {review.name}

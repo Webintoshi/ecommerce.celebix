@@ -125,7 +125,7 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-white/10 bg-[#1A1A1A]/98 backdrop-blur-md transition-all duration-300 ${
+      className={`sticky top-0 z-50 border-b border-white/10 bg-[#000000]/98 backdrop-blur-md transition-all duration-300 ${
         isScrolled ? "shadow-[0_20px_60px_-36px_rgba(0,0,0,0.78)]" : ""
       }`}
     >
@@ -170,7 +170,7 @@ export function Header() {
                     <Link
                       key={category.id}
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="group relative inline-flex shrink-0 whitespace-nowrap py-2 text-[10.25px] font-semibold uppercase tracking-[0.15em] text-white/72 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                      className="group relative inline-flex shrink-0 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                     </Link>
@@ -181,7 +181,7 @@ export function Header() {
                   <div key={category.id} className="group relative shrink-0">
                     <Link
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="relative inline-flex items-center gap-1 whitespace-nowrap py-2 text-[10.25px] font-semibold uppercase tracking-[0.15em] text-white/72 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                      className="relative inline-flex items-center gap-1 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -194,7 +194,7 @@ export function Header() {
                             <Link
                               key={subcategory.id}
                               href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                              className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#1A1A1A] transition-colors hover:bg-white hover:text-black"
+                              className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#000000] transition-colors hover:bg-white hover:text-black"
                             >
                               {subcategory.name}
                             </Link>
@@ -232,7 +232,7 @@ export function Header() {
               >
                 <ShoppingBag className="h-4.5 w-4.5 text-white/82" />
                 {cartItemCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F5F5F5] text-[9px] text-[#1A1A1A]">
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F5F5F5] text-[9px] text-[#000000]">
                     {cartItemCount}
                   </span>
                 ) : null}
@@ -242,7 +242,7 @@ export function Header() {
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-white/8 bg-[#1A1A1A] lg:hidden">
+        <div className="border-t border-white/8 bg-[#000000] lg:hidden">
           <div className="container-premium px-0">
           <div className="px-1 py-5">
             <nav className="space-y-5">

@@ -137,11 +137,11 @@ export function CategoriesSection({
                   <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
                     {index === 0 ? "One cikan kategori" : "Kategori"}
                   </p>
-                  <h3 className="mt-2 font-serif text-[2rem] leading-[0.92] tracking-[-0.04em] text-[#1A1A1A]">
+                  <h3 className="mt-2 font-serif text-[2rem] leading-[0.92] tracking-[-0.04em] text-[#000000]">
                     {category.name}
                   </h3>
                 </div>
-                <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(26,26,26,0.1)] bg-white/72 text-[#1A1A1A] transition-transform duration-300 group-hover:-translate-y-0.5">
+                <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(26,26,26,0.1)] bg-white/72 text-[#000000] transition-transform duration-300 group-hover:-translate-y-0.5">
                   <ArrowUpRight className="h-4 w-4" />
                 </span>
               </div>

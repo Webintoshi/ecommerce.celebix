@@ -3,14 +3,14 @@
 :root {
   --background: #f5f5f5f5;
   --background-alt: #ffffff;
-  --foreground: #1a1a1a;
+  --foreground: #000000;
   --foreground-soft: #69635e;
 
   /* Brand Palette */
-  --primary: #1a1a1a;
+  --primary: #000000;
   --primary-foreground: #f5f5f5;
   --secondary: #ebe7e1;
-  --secondary-foreground: #1a1a1a;
+  --secondary-foreground: #000000;
   --accent: #7d756d;
   --accent-foreground: #ffffff;
   --accent-soft: #dfdbd6;
@@ -23,9 +23,9 @@
 
   /* shadcn/ui required variables */
   --card: #ffffff;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
+  --popover-foreground: #000000;
   --destructive: #c85b4c;
   --destructive-foreground: #ffffff;
   --border: rgba(26, 26, 26, 0.1);
@@ -100,14 +100,14 @@
 
   --store-font-heading: var(--font-editorial-heading), "Times New Roman", serif;
   --store-font-body: var(--font-editorial-body), "Segoe UI", sans-serif;
-  --store-font-menu: var(--store-font-body);
+  --store-font-menu: var(--store-font-heading);
   --store-font-product-title: var(--store-font-heading);
   --store-font-heading-weight: 600;
   --store-font-body-weight: 500;
-  --store-font-menu-weight: 700;
+  --store-font-menu-weight: 600;
   --store-font-product-title-weight: 600;
   --store-font-base-size: 16px;
-  --store-font-menu-size: 11.5px;
+  --store-font-menu-size: 14px;
   --store-font-product-card-size: 17px;
   --store-font-product-page-size: 52px;
   --store-font-heading-scale: 1.08;
@@ -141,7 +141,7 @@ body {
 }
 
 body::selection {
-  background: rgba(26, 26, 26, 0.12);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 h1,
@@ -291,8 +291,8 @@ textarea {
   font-family: var(--store-font-menu);
   font-size: var(--store-font-menu-size);
   font-weight: var(--store-font-menu-weight);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-transform: none;
 }
 
 .store-product-title {

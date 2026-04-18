@@ -130,7 +130,7 @@ export function StoreLocationsSection({
                     </div>
                     <a
                       href={card.actionHref}
-                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#1d1715] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#1d1715] hover:border-[#000000] hover:text-[#000000]"
                     >
                       {card.icon}
                       <span>{card.actionLabel}</span>
@@ -166,7 +166,7 @@ export function StoreLocationsSection({
             <div className="mt-8">
               <Link
                 href={storesHref}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white hover:bg-[#2A2A2A]"
+                className="inline-flex items-center gap-2 rounded-full bg-[#000000] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white hover:bg-[#181818]"
               >
                 <span>{linkLabel}</span>
                 <ExternalLink className="size-4" />

@@ -15,8 +15,8 @@ interface PremiumProductCardProps {
 // Renk isimlerini hex kodlarıyla eşleştiren harita
 const COLOR_MAP: Record<string, string> = {
   // Temel renkler
-  "siyah": "#1A1A1A",
-  "black": "#1A1A1A",
+  "siyah": "#000000",
+  "black": "#000000",
   "beyaz": "#FFFFFF",
   "white": "#FFFFFF",
   "kahverengi": "#8B4513",
