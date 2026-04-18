@@ -332,6 +332,11 @@ function isRetryableStarterTargetError(error: unknown): boolean {
     "socket hang up",
     "network",
     "failed to fetch",
+    "schema cache",
+    "could not find the table",
+    "relation",
+    "does not exist",
+    "pgrst",
   ].some((fragment) => message.includes(fragment));
 }
 

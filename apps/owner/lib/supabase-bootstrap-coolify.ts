@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
+import { createClient } from "@supabase/supabase-js";
 import {
   getRepoRoot,
   normalizeStoreSeoSettings,
@@ -69,6 +70,8 @@ const ENV_POLL_DELAY_MS = 5000;
 const ENV_POLL_ATTEMPTS = 24;
 const PG_META_POLL_DELAY_MS = 5000;
 const PG_META_POLL_ATTEMPTS = 24;
+const DATA_API_POLL_DELAY_MS = 5000;
+const DATA_API_POLL_ATTEMPTS = 24;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const SELF_HOSTED_PG_META_REF = "default";
 const CORE_BOOTSTRAP_SQL_FILES = [
@@ -785,11 +788,11 @@ async function ensureSupabaseService(store: StoreConfig, projectUuid: string, en
       store,
     );
 
-    if (routingUpdated) {
+    if (routingUpdated || store.bootstrap?.supabaseProvisioning !== "configured") {
       try {
         await restartService(serviceUuid);
       } catch {
-        // Route sync is best-effort; pg-meta polling will surface any remaining issue.
+        // Restart is best-effort; runtime and data-api polling will surface any remaining issue.
       }
     }
 
@@ -1081,6 +1084,94 @@ async function waitForSelfHostedPgMetaRuntime(
   );
 }
 
+function formatSelfHostedDataApiError(error: unknown, fallback: string): string {
+  if (!error || typeof error !== "object" || Array.isArray(error)) {
+    return fallback;
+  }
+
+  const record = error as Record<string, unknown>;
+  const parts = [
+    typeof record.message === "string" ? sanitizeErrorMessage(record.message) : null,
+    typeof record.details === "string" ? sanitizeErrorMessage(record.details) : null,
+    typeof record.hint === "string" ? sanitizeErrorMessage(record.hint) : null,
+    typeof record.code === "string" ? sanitizeErrorMessage(record.code) : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(" | ") : fallback;
+}
+
+function isRetryableSelfHostedDataApiError(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return [
+    "no available server",
+    "fetch failed",
+    "econnrefused",
+    "connection refused",
+    "connection terminated",
+    "timeout",
+    "timed out",
+    "temporarily unavailable",
+    "socket hang up",
+    "network",
+    "failed to fetch",
+    "schema cache",
+    "could not find the table",
+    "relation",
+    "does not exist",
+    "pgrst",
+  ].some((fragment) => normalized.includes(fragment));
+}
+
+async function waitForSelfHostedDataApiRuntime(
+  runtime: SupabaseRuntimeConnection,
+  serviceUuid: string,
+): Promise<void> {
+  const supabase = createClient(runtime.publicUrl, runtime.serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  let lastError: Error | null = null;
+  let restartAttempted = false;
+
+  for (let attempt = 0; attempt < DATA_API_POLL_ATTEMPTS; attempt += 1) {
+    const [categories, products, settings] = await Promise.all([
+      supabase.from("categories").select("id", { count: "exact", head: true }),
+      supabase.from("products").select("id", { count: "exact", head: true }),
+      supabase.from("settings").select("key", { count: "exact", head: true }),
+    ]);
+
+    const firstError = categories.error ?? products.error ?? settings.error;
+
+    if (!firstError) {
+      return;
+    }
+
+    const message = formatSelfHostedDataApiError(
+      firstError,
+      "Self-hosted data API hazir degil.",
+    );
+    lastError = new Error(`Self-hosted data API hazir degil. ${message}`);
+
+    if (!restartAttempted && isRetryableSelfHostedDataApiError(message)) {
+      restartAttempted = true;
+      try {
+        await restartService(serviceUuid);
+      } catch {
+        // Restart is best-effort; continued polling will surface persistent failures.
+      }
+    }
+
+    await sleep(DATA_API_POLL_DELAY_MS);
+  }
+
+  throw new Error(
+    `Self-hosted data API hazir olmadi. ${lastError?.message ?? "Bilinmeyen REST katmani hatasi."}`,
+  );
+}
+
 function buildProjectReference(store: StoreConfig, serviceUuid: string): string {
   return `coolify:${store.slug}:${serviceUuid}`;
 }
@@ -1207,6 +1298,7 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     await waitForSelfHostedPgMetaRuntime(runtime, runtime.adminUser, runtime.adminPassword);
     await ensureSelfHostedStoreSchema(runtime, runtime.adminUser, runtime.adminPassword);
     await seedSelfHostedStoreSettings(store, runtime, runtime.adminUser, runtime.adminPassword);
+    await waitForSelfHostedDataApiRuntime(runtime, serviceUuid);
     const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, resolvedProjectUrl);
     const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
       ...legacyAdminAuthEntries,
