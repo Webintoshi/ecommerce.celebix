@@ -8,22 +8,22 @@ import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin"
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
-  categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
-  viewAllLabel: "Tumunu Gor",
+  categoriesEyebrow: "The Waya Edit",
+  categoriesHeading: "Sezonun one cikan siluetleri",
+  viewAllLabel: "Tum koleksiyonu ac",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+    { title: "Gunun Seckisi", subtitle: "Editoryal Seri" },
+    { title: "Imza Parcalar", subtitle: "Butik Waya Codes" },
+    { title: "Yeni Gelenler", subtitle: "Bu Hafta" },
+    { title: "Tamamlayici Dokunuslar", subtitle: "Stil Notu" },
   ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  storesEyebrow: "Waya Studio",
+  storesHeading: "Butik deneyimi ekrandan tasan bir servis diline cevirin",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Adres, iletisim ve gorsel varliklariniz burada yalnizca bilgi olarak degil, markanizin yavas luks ritmini anlatan bir konukseverlik katmani olarak kullanilir.",
+  storesLinkLabel: "Waya detaylarini incele",
+  testimonialsHeading: "Waya Kadinlarindan Notlar",
+  testimonialsCountLabel: "Gercek yorumlar geldikce bu alan editoryal bir misafir defteri gibi guncellenir",
 };
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Script from "next/script";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 import "@/app/styles/redesign.scss";
 import { CartProvider } from "@/lib/cart-context";
@@ -26,6 +27,20 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const editorialHeading = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-editorial-heading",
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+const editorialBody = Manrope({
+  subsets: ["latin"],
+  variable: "--font-editorial-body",
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
@@ -46,7 +61,13 @@ export default async function RootLayout({
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      className={`scroll-smooth ${editorialHeading.variable} ${editorialBody.variable}`}
+      style={typographyStyle}
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -61,7 +82,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased bg-[#F8F8F8F8]" suppressHydrationWarning>
+      <body className="font-sans antialiased bg-transparent text-foreground" suppressHydrationWarning>
         {gtmId ? (
           <noscript>
             <iframe

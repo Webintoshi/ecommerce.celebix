@@ -92,11 +92,16 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-neutral-50 py-16 lg:py-20">
+    <section className="bg-[#1d1715] py-16 text-white lg:py-20">
       <div className="container-premium">
-        <div className="mb-10 text-center">
-          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
-          <p className="text-sm text-neutral-500">{countLabel}</p>
+        <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1fr] lg:items-end">
+          <div>
+            <p className="editorial-kicker text-[#d8b69b] before:bg-[#d8b69b]/45">Client Notes</p>
+            <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#fff7f1] sm:text-5xl">
+              {heading}
+            </h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-8 text-white/65 sm:text-base">{countLabel}</p>
         </div>
 
         <div
@@ -115,53 +120,58 @@ export function TestimonialsSection({
                   className="grid w-full flex-shrink-0 grid-cols-1 gap-6 lg:grid-cols-2"
                 >
                   {testimonials.slice(slideIndex * 2, slideIndex * 2 + 2).map((review) => (
-                    <div key={review.id} className="flex overflow-hidden bg-white shadow-sm">
-                      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
-                        {review.image ? (
-                          <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                            <Image
-                              src={review.image}
-                              alt={review.name}
-                              fill
-                              className="object-cover"
-                              sizes="80px"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
-                            {getInitials(review.name)}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-                        <div className="mb-3 flex items-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <Star
-                              key={`${review.id}-${index}`}
-                              className={cn(
-                                "h-3.5 w-3.5",
-                                index < review.rating
-                                  ? "fill-[#8A6B37] text-[#8A6B37]"
-                                  : "fill-neutral-200 text-neutral-200",
-                              )}
-                            />
-                          ))}
+                    <div
+                      key={review.id}
+                      className="rounded-[2rem] border border-white/10 bg-white/6 p-6 shadow-[0_30px_90px_-60px_rgba(0,0,0,0.8)] backdrop-blur"
+                    >
+                      <div className="flex items-start gap-5">
+                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/8">
+                          {review.image ? (
+                            <div className="relative h-full w-full">
+                              <Image
+                                src={review.image}
+                                alt={review.name}
+                                fill
+                                className="object-cover"
+                                sizes="64px"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-[0.24em] text-[#d8b69b]">
+                              {getInitials(review.name)}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="text-sm font-semibold uppercase text-neutral-900">
-                            {review.name}
-                          </span>
-                          {review.verified ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-                              <Check className="h-3 w-3" />
-                              Dogrulanmis
+                        <div className="flex-1">
+                          <div className="mb-3 flex items-center gap-0.5">
+                            {Array.from({ length: 5 }).map((_, index) => (
+                              <Star
+                                key={`${review.id}-${index}`}
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  index < review.rating
+                                    ? "fill-[#d8b69b] text-[#d8b69b]"
+                                    : "fill-white/10 text-white/10",
+                                )}
+                              />
+                            ))}
+                          </div>
+
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[#fff7f1]">
+                              {review.name}
                             </span>
-                          ) : null}
-                        </div>
+                            {review.verified ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-white/55">
+                                <Check className="h-3 w-3" />
+                                Dogrulanmis yorum
+                              </span>
+                            ) : null}
+                          </div>
 
-                        <p className="text-sm leading-relaxed text-neutral-600">{review.text}</p>
+                          <p className="text-sm leading-8 text-white/72">{review.text}</p>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -175,7 +185,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
+                className="absolute left-0 top-1/2 flex h-11 w-11 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white/72 transition-all hover:bg-white/14 hover:text-white lg:-translate-x-6"
                 aria-label="Onceki"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -184,7 +194,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
+                className="absolute right-0 top-1/2 flex h-11 w-11 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white/72 transition-all hover:bg-white/14 hover:text-white lg:translate-x-6"
                 aria-label="Sonraki"
               >
                 <ChevronRight className="h-5 w-5" />

@@ -133,33 +133,33 @@ function buildProductGroups(
 function EmptyShowcaseState() {
   const cards = [
     {
-      title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
+      title: "Look'lar icin hazir",
+      text: "Adminde yayina giren ilk urunler bu alanda otomatik olarak editoryal bir sirayla gorunur.",
     },
     {
-      title: "Manuel Sirayi Kullan",
-      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
+      title: "Kategori akisi korunur",
+      text: "Koleksiyon yapisi bozulmadan, her blok ilgili kategoriyle birlikte vitrine tasinir.",
     },
     {
-      title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
+      title: "Butik hissi yerlesik gelir",
+      text: "Urun sayisi arttikca storefront ekstra kurgu gerektirmeden premium bir akisa oturur.",
     },
   ];
 
   return (
-    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
+    <section className="py-16 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.1)] bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8d644d]">
             <Sparkles className="h-3.5 w-3.5" />
             Vitrin Hazir
           </span>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
+          <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.04em] text-[#1d1715] sm:text-5xl">
+            Urunler geldikce Waya vitrini kendi ritmini bulacak
           </h2>
-          <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Ekstra frontend eforu gerektirmeden admin panelindeki urun ve kategori
-            girdileri, baslangic temasinin section duzenini otomatik doldurur.
+          <p className="editorial-copy mt-4 text-sm sm:text-base">
+            Kategori ve urun akisi tamamlandiginda bu alan otomatik olarak editoryal secimlere,
+            capsule koleksiyonlara ve sezon notlarina donusur.
           </p>
         </div>
 
@@ -167,13 +167,15 @@ function EmptyShowcaseState() {
           {cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              className="rounded-[2rem] border border-[rgba(35,24,21,0.08)] bg-[rgba(255,250,244,0.88)] p-6 shadow-[0_24px_70px_-50px_rgba(27,18,14,0.55)]"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                Otomatik
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d644d]">
+                Automatic
               </p>
-              <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
+              <h3 className="mt-4 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1d1715]">
+                {card.title}
+              </h3>
+              <p className="mt-4 text-sm leading-7 text-[#5f524a]">{card.text}</p>
             </div>
           ))}
         </div>
@@ -227,32 +229,35 @@ export function ProductShowcaseSections({
 
   return (
     <>
-      {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
+      {effectiveGroups.map((group, index) => (
+        <section key={group.id} className={`py-16 lg:py-20 ${index % 2 === 1 ? "bg-white/40" : ""}`}>
           <div className="container-premium">
-            <div className="mb-12 flex items-end justify-between gap-6">
+            <div className="mb-10 grid gap-6 lg:grid-cols-[0.7fr_1fr_auto] lg:items-end">
               <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  {group.subtitle}
-                </span>
-                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+                <span className="editorial-kicker">{group.subtitle}</span>
+                <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1d1715] sm:text-5xl">
                   {group.title}
                 </h2>
               </div>
+
+              <p className="editorial-copy max-w-2xl text-sm sm:text-base">
+                Waya gardirobunun bu bolumu, kolay tasinan ana parcalar ile daha iddiali dokulari
+                ayni editoryal hikayede bulusturuyor.
+              </p>
 
               <Link
                 href={buildLocalizedPath(
                   group.link.startsWith("/") ? group.link : ROUTES.products,
                   locale,
                 )}
-                className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
+                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.12)] bg-white/70 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#1d1715] backdrop-blur hover:border-[#b9785a] hover:text-[#b9785a]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+            <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
               {group.products.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

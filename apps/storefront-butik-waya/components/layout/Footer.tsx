@@ -5,8 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, Instagram, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
-import { useStoreInfo } from "@/lib/store-info-context";
-import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
@@ -15,6 +13,8 @@ import {
   buildLocalizedPath,
   getLocalizedCopy,
 } from "@/lib/i18n";
+import { useStoreInfo } from "@/lib/store-info-context";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type FooterCategory = {
@@ -121,10 +121,32 @@ export function Footer() {
   ];
 
   return (
-    <footer className="bg-[#0B1120] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-          <div className="lg:col-span-1">
+    <footer className="mt-20 bg-[#1b1412] text-white">
+      <div className="border-b border-white/10">
+        <div className="container-premium grid gap-6 py-8 lg:grid-cols-[1.3fr_0.7fr_0.7fr] lg:items-center">
+          <div>
+            <p className="editorial-kicker text-[#d8b69b] before:bg-[#d8b69b]/45">Butik Waya Journal</p>
+            <h2 className="mt-4 max-w-2xl font-serif text-3xl leading-[0.95] tracking-[-0.04em] text-[#fff7f1] sm:text-4xl">
+              Zamansiz gorunumleri, sinirli secimleri ve Waya ritmini once burada gorun.
+            </h2>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/12 bg-white/5 p-5">
+            <p className="text-[11px] uppercase tracking-[0.26em] text-white/55">Concierge</p>
+            <p className="mt-3 text-lg font-semibold text-white">{contactPhone}</p>
+            <p className="mt-1 text-sm text-white/65">{contactEmail}</p>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/12 bg-[#b9785a] p-5 text-[#fff7f1]">
+            <p className="text-[11px] uppercase tracking-[0.26em] text-white/70">Delivery Note</p>
+            <p className="mt-3 text-sm leading-7 text-white/90">
+              Hazir kombinler, yeni sezon secimleri ve kampanya notlari ilk once bu vitrinde yer alir.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-premium py-14 lg:py-16">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-[1.3fr_0.8fr_0.8fr_0.9fr] lg:gap-8">
+          <div>
             <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
@@ -138,24 +160,29 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
+                <span className="font-serif text-3xl tracking-[-0.04em]">{logoAlt}</span>
               )}
             </Link>
 
-            <div className="mb-6 space-y-2">
-              <p className="text-sm text-gray-300">{contactPhone}</p>
-              <p className="break-all text-sm text-gray-300">{contactEmail}</p>
+            <p className="max-w-sm text-sm leading-7 text-white/68">
+              Butik Waya, gunluk gardiropta yumusak luks ve cizgisel denge arayan kadinlar icin
+              hazirlanan editoryal bir storefront deneyimi sunar.
+            </p>
+
+            <div className="mb-6 mt-6 space-y-2">
+              <p className="text-sm text-white/78">{contactPhone}</p>
+              <p className="break-all text-sm text-white/62">{contactEmail}</p>
             </div>
 
             <div className="mb-6">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-white/42">
                 Language
               </p>
               <div ref={localeMenuRef} className="relative w-fit">
                 <button
                   type="button"
                   onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-full border border-white/18 bg-white/8 px-4 py-3 text-left text-white transition hover:border-white/40"
                   aria-expanded={isLocaleMenuOpen}
                   aria-haspopup="listbox"
                 >
@@ -164,12 +191,12 @@ export function Footer() {
                     <span className="text-sm">{locale.toUpperCase()}</span>
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 text-white/70 transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-3xl border border-white/10 bg-[#271d1a] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                     <div className="space-y-1">
                       {LOCALE_SWITCH_OPTIONS.map((option) => {
                         const isActive = option.locale === locale;
@@ -181,7 +208,7 @@ export function Footer() {
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
                               isActive
-                                ? "bg-white text-[#0B1120]"
+                                ? "bg-white text-[#1b1412]"
                                 : "text-white/88 hover:bg-white/10 hover:text-white"
                             }`}
                           >
@@ -201,7 +228,7 @@ export function Footer() {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/16 text-white/60 transition-all hover:border-white/40 hover:text-white"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -210,7 +237,7 @@ export function Footer() {
                 href={youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/16 text-white/60 transition-all hover:border-white/40 hover:text-white"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -219,7 +246,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.22em] text-white/90">
               {copy.aboutHeading}
             </p>
             <ul className="space-y-3">
@@ -227,7 +254,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-white/58 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -237,7 +264,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.22em] text-white/90">
               {copy.categoriesHeading}
             </p>
             <ul className="space-y-3">
@@ -245,7 +272,7 @@ export function Footer() {
                 <li key={link.id}>
                   <Link
                     href={buildLocalizedPath(`/${link.slug}`, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-white/58 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -255,37 +282,37 @@ export function Footer() {
           </div>
 
           {policyLinks.length > 0 ? (
-          <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.policiesHeading}
-            </p>
-            <ul className="space-y-3">
-              {policyLinks.map((link) => (
-                <li key={link.slug}>
-                  <Link
-                    href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div>
+              <p className="mb-5 text-sm font-semibold uppercase tracking-[0.22em] text-white/90">
+                {copy.policiesHeading}
+              </p>
+              <ul className="space-y-3">
+                {policyLinks.map((link) => (
+                  <li key={link.slug}>
+                    <Link
+                      href={buildLocalizedPath(link.href, locale)}
+                      className="text-sm text-white/58 transition-colors hover:text-white"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       </div>
 
-      <div className="border-t border-gray-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
-          <p className="text-xs text-gray-500">
+      <div className="border-t border-white/10">
+        <div className="container-premium flex flex-col items-center justify-between gap-4 py-6 lg:flex-row">
+          <p className="text-xs text-white/42">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+            className="text-[10px] uppercase tracking-[0.2em] text-white/46 transition-colors hover:text-white"
           >
             Powered by Celebix
           </a>

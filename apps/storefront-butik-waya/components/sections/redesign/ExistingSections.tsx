@@ -1,13 +1,24 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Leaf,
+  Mail,
+  Send,
+  Shield,
+  Sparkles,
+  Truck,
+  Award,
+  Heart,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES, SITE_NAME } from "@/lib/constants";
-import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {
   items: { id: string; text: string; icon: string; badge?: string }[];
@@ -25,7 +36,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
   sparkle: Sparkles,
 };
 
-// Types from PremiumHome
 interface HeroSlide {
   id: number;
   desktop: string;
@@ -41,81 +51,76 @@ interface HeroSlide {
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const [current, setCurrent] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  useEffect(() => {
-    if (slides && slides.length > 0) {
+    if (slides.length > 0) {
       setIsLoaded(true);
     }
   }, [slides]);
 
   useEffect(() => {
-    if (!slides || slides.length <= 1) return;
+    if (slides.length <= 1) return;
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length);
-    }, 5000);
+    }, 5600);
     return () => clearInterval(interval);
   }, [slides]);
 
-  if (!isLoaded || !slides || slides.length === 0) {
+  if (!isLoaded || slides.length === 0) {
     return (
-      <section className="relative overflow-hidden bg-[#F4ECE5]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(123,17,19,0.14),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(31,41,55,0.14),_transparent_35%)]" />
-        <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="max-w-2xl">
-              <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
-                Premium Starter Theme
+      <section className="container-premium pt-6">
+        <div className="relative overflow-hidden rounded-[2.4rem] border border-[rgba(29,23,21,0.08)] bg-[#16110f] text-white shadow-[0_40px_120px_-70px_rgba(19,13,11,0.95)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,174,137,0.25),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(255,255,255,0.08),transparent_20%)]" />
+          <div className="relative grid gap-8 px-6 py-10 sm:px-8 sm:py-12 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:py-14">
+            <div className="flex min-h-[420px] flex-col justify-end">
+              <span className="inline-flex w-fit rounded-full border border-white/14 bg-white/8 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/72">
+                Butik Waya Atelier
               </span>
-              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
-                {SITE_NAME}
+              <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[0.84] tracking-[-0.07em] text-[#fff8f2] sm:text-6xl lg:text-[6rem]">
+                Modern tailoring, soft power, city evening.
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
-                Magaza ayarlarinizi, hero bannerlarinizi, kategorilerinizi ve urunlerinizi
-                adminden girdiginizde bu alan otomatik olarak gercek vitrininize donusur.
+              <p className="mt-6 max-w-2xl text-sm leading-8 text-white/68 sm:text-base">
+                Balmain ve Zara benzeri premium moda storefront taktiklerinden gelen kontrollu
+                kontrasti kullaniyoruz: koyu zemin, kirik beyaz tipografi ve camel vurgular.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#fff8f2] px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-[#16110f] transition hover:bg-[#d6ae89]"
                 >
-                  Koleksiyonu Incele
+                  Koleksiyonu ac
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href={ROUTES.contact}
-                  className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
+                  className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/8 px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:border-white/34 hover:bg-white/12"
                 >
-                  Iletisim Bilgilerini Tamamla
+                  Stil yardimi al
                 </Link>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               {[
-                { title: "Hero Bannerlar", text: "Adminden eklenen ilk bannerlar burada tam ekran mercek alir." },
-                { title: "Kategori Vitrini", text: "Aktif kategoriler, sira ayarina gore anasayfaya tasinir." },
-                { title: "Urun Gruplari", text: "Yayinlanan urunler kategori bazli bloklarda otomatik sergilenir." },
-                { title: "Musteri Guveni", text: "Onayli yorumlar ve magaza bilgileri sayfaya otomatik baglanir." },
+                {
+                  label: "Palette",
+                  text: "Black ink, ivory silk, camel highlight.",
+                },
+                {
+                  label: "Structure",
+                  text: "Oversized serif headline and restrained navigation rhythm.",
+                },
+                {
+                  label: "Merch",
+                  text: "Look-first hierarchy, then category and product sequencing.",
+                },
               ].map((item) => (
                 <div
-                  key={item.title}
-                  className="rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)] backdrop-blur"
+                  key={item.label}
+                  className="rounded-[1.8rem] border border-white/10 bg-white/7 p-5 backdrop-blur"
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                    Hazir
-                  </p>
-                  <h2 className="mt-3 text-xl font-semibold text-[#18110B]">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{item.text}</p>
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-[#d6ae89]">{item.label}</p>
+                  <p className="mt-4 text-sm leading-7 text-white/70">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -128,104 +133,128 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const slide = slides[current];
 
   return (
-    <section className="relative w-full overflow-hidden">
-      {/* Aspect Ratio Container - Mobile: 3/4, Desktop: 16/9 */}
-      <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px]">
-        <div
-          className="absolute inset-0 transition-opacity duration-700"
-        >
-          <div className="absolute inset-0 hidden md:block">
-            <Image
-              src={slide.desktop}
-              alt={slide.alt}
-              fill
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
-          </div>
-          <div className="absolute inset-0 block md:hidden">
-            <Image
-              src={slide.mobile || slide.desktop}
-              alt={slide.alt}
-              fill
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent md:from-black/60 md:via-black/30" />
-        </div>
-
-      <div className="absolute inset-0 z-10 flex items-center">
-        <div className="container mx-auto px-4 sm:px-6">
-        <div className="max-w-lg sm:max-w-xl md:max-w-2xl">
-            <div
-              className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]"
-            >
-              {slide.title && (
-                <span
-                  className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs sm:text-sm font-medium rounded-full mb-4 sm:mb-6"
-                >
-                  {slide.title}
-                </span>
-              )}
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight">
-                {slide.alt}
-              </h2>
-              {slide.subtitle && (
-                <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 max-w-md">
-                  {slide.subtitle}
-                </p>
-              )}
-              {slide.buttonText && (
-                <Link
-                  href={slide.buttonLink || ROUTES.products}
-                  className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-white text-gray-900 text-sm sm:text-base font-bold rounded-full hover:bg-gray-100 transition-all hover:scale-105 active:scale-95"
-                >
-                  {slide.buttonText}
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                </Link>
-              )}
+    <section className="container-premium pt-6">
+      <div className="relative overflow-hidden rounded-[2.4rem] border border-[rgba(29,23,21,0.08)] shadow-[0_40px_120px_-70px_rgba(19,13,11,0.95)]">
+        <div className="relative aspect-[4/5] max-h-[920px] w-full sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9]">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 hidden md:block">
+              <Image
+                src={slide.desktop}
+                alt={slide.alt}
+                fill
+                className="object-cover"
+                priority
+                sizes="100vw"
+              />
             </div>
-        </div>
-      </div>
-      </div>
+            <div className="absolute inset-0 block md:hidden">
+              <Image
+                src={slide.mobile || slide.desktop}
+                alt={slide.alt}
+                fill
+                className="object-cover"
+                priority
+                sizes="100vw"
+              />
+            </div>
 
-      {slides.length > 1 && (
-        <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-          {slides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrent(idx)}
-              className={cn(
-                "w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all",
-                idx === current ? "bg-white w-6 sm:w-8" : "bg-white/50 hover:bg-white/80"
-              )}
-              aria-label={`Slide ${idx + 1}`}
-            />
-          ))}
-        </div>
-      )}
+            <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(12,9,8,0.84)_0%,rgba(12,9,8,0.5)_40%,rgba(12,9,8,0.12)_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,174,137,0.24),transparent_30%)]" />
+          </div>
 
-      {slides.length > 1 && (
-        <>
-          <button
-            onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-            className="hidden sm:flex absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Önceki slide"
-          >
-            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
-          <button
-            onClick={() => setCurrent((current + 1) % slides.length)}
-            className="hidden sm:flex absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Sonraki slide"
-          >
-            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
-        </>
-      )}
+          <div className="absolute inset-0 z-10 flex items-end md:items-center">
+            <div className="w-full px-5 pb-5 sm:px-8 sm:pb-8 lg:px-12">
+              <div className="grid gap-5 lg:grid-cols-[0.95fr_0.42fr] lg:items-end">
+                <div className="rounded-[2rem] border border-white/12 bg-black/18 p-6 backdrop-blur-sm sm:p-8">
+                  <span className="inline-flex rounded-full border border-white/14 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/76">
+                    {slide.title || "Waya Signature"}
+                  </span>
+                  <h2 className="mt-5 max-w-4xl font-serif text-4xl leading-[0.86] tracking-[-0.06em] text-[#fff8f2] sm:text-5xl lg:text-7xl">
+                    {slide.alt}
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm leading-8 text-white/72 sm:text-base">
+                    {slide.subtitle ||
+                      "Keskin ama bagirmayan bir moda vitrini: dar renk paleti, yuksek kontrast ve buyuk editoryal tipografi."}
+                  </p>
+
+                  <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                    <Link
+                      href={slide.buttonLink || ROUTES.products}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#fff8f2] px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-[#16110f] transition hover:bg-[#d6ae89]"
+                    >
+                      {slide.buttonText || "Yeni sezonu ac"}
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href={ROUTES.products}
+                      className="inline-flex items-center justify-center rounded-full border border-white/16 bg-white/8 px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:border-white/34 hover:bg-white/12"
+                    >
+                      Imza parcalari gor
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="hidden gap-4 lg:grid">
+                  {[
+                    {
+                      title: "01",
+                      text: "Monochrome field with camel accent.",
+                    },
+                    {
+                      title: "02",
+                      text: "Campaign-first composition before product density.",
+                    },
+                    {
+                      title: "03",
+                      text: "Editorial typography with dense negative space.",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.title}
+                      className="rounded-[1.75rem] border border-white/10 bg-white/8 p-5 backdrop-blur"
+                    >
+                      <p className="text-[11px] uppercase tracking-[0.26em] text-[#d6ae89]">{item.title}</p>
+                      <p className="mt-3 text-sm leading-7 text-white/70">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {slides.length > 1 ? (
+            <>
+              <div className="absolute bottom-5 left-5 z-20 flex gap-2 sm:bottom-7 sm:left-8 lg:left-12">
+                {slides.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrent(idx)}
+                    className={cn(
+                      "h-2.5 rounded-full transition-all",
+                      idx === current ? "w-10 bg-[#fff8f2]" : "w-2.5 bg-white/45 hover:bg-white/78",
+                    )}
+                    aria-label={`Slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+                className="absolute left-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/14 bg-black/20 text-white backdrop-blur transition-all hover:bg-black/32 sm:flex lg:left-8"
+                aria-label="Onceki slide"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setCurrent((current + 1) % slides.length)}
+                className="absolute right-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/14 bg-black/20 text-white backdrop-blur transition-all hover:bg-black/32 sm:flex lg:right-8"
+                aria-label="Sonraki slide"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -249,7 +278,8 @@ export function MarqueeSection() {
         setLoading(false);
       }
     }
-    fetchMarqueeSettings();
+
+    void fetchMarqueeSettings();
   }, []);
 
   if (loading || !settings?.enabled || !settings.items?.length) {
@@ -263,20 +293,20 @@ export function MarqueeSection() {
   }[settings.speed || "normal"] || "animate-marquee";
 
   return (
-    <div className="bg-primary text-white py-2.5 sm:py-3 overflow-hidden">
-      <div className={`flex ${speedClass} whitespace-nowrap`}>
+    <div className="overflow-hidden bg-primary py-2.5 text-white sm:py-3">
+      <div className={`flex whitespace-nowrap ${speedClass}`}>
         {[...settings.items, ...settings.items].map((item, idx) => {
           const Icon = ICON_MAP[item.icon] || Leaf;
           return (
-            <div key={`${item.id}-${idx}`} className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6">
-              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/90 flex-shrink-0" />
-              <span className="text-xs sm:text-sm font-medium">{item.text}</span>
-              {item.badge && (
-                <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded-full text-[10px] sm:text-xs font-bold">
+            <div key={`${item.id}-${idx}`} className="flex items-center gap-2 px-4 sm:px-6">
+              <Icon className="h-4 w-4 flex-shrink-0 text-white/90" />
+              <span className="text-xs sm:text-sm">{item.text}</span>
+              {item.badge ? (
+                <span className="rounded-full bg-white/16 px-2 py-0.5 text-[10px] font-bold sm:text-xs">
                   {item.badge}
                 </span>
-              )}
-              <span className="text-white/40 mx-1 sm:mx-2">•</span>
+              ) : null}
+              <span className="mx-2 text-white/35">•</span>
             </div>
           );
         })}
@@ -303,108 +333,73 @@ export function Newsletter() {
   };
 
   return (
-    <section className="py-16 sm:py-20 md:py-28 bg-[#7B1113] relative overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Gradient Orbs */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#F3E0E1]/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#F3E0E1]/10 rounded-full blur-3xl" />
-        
-        {/* Pattern Overlay */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-      </div>
-
-      <div className="container mx-auto px-4 sm:px-6 relative z-10">
-        <div className="max-w-2xl mx-auto">
+    <section className="relative overflow-hidden bg-[#181311] py-16 sm:py-20 md:py-24">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,174,137,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_20%)]" />
+      <div className="container mx-auto relative z-10 px-4 sm:px-6">
+        <div className="mx-auto max-w-2xl">
           {subscribed ? (
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 sm:p-12 text-center opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              {/* Success Icon */}
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F3E0E1] flex items-center justify-center">
-                <Check className="w-10 h-10 text-[#7B1113]" />
+            <div className="rounded-[2rem] border border-white/14 bg-white/8 p-8 text-center text-white backdrop-blur sm:p-12">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#fff8f2]">
+                <Check className="h-10 w-10 text-[#181311]" />
               </div>
-              
-              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                Aramıza Hoş Geldiniz! 🎉
+              <h3 className="text-2xl font-semibold text-white sm:text-3xl">
+                Waya listesine kaydoldunuz.
               </h3>
-              <p className="text-white/80 text-base sm:text-lg mb-4">
-                %10 indirim kodunuz e-posta adresinize gönderildi.
+              <p className="mt-3 text-base text-white/72 sm:text-lg">
+                Yeni sezon dususleri ve ozel kampanya notlari artik ilk size ulasacak.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3E0E1]/20 text-white text-sm">
-                <Sparkles className="w-4 h-4" />
-                İlk siparişinizde geçerli
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm text-white">
+                <Sparkles className="h-4 w-4" />
+                Ozel edit erisimi
               </div>
             </div>
           ) : (
-            <div className="text-center opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-sm font-medium mb-6 opacity-0 animate-[fadeIn_0.4s_ease-out_forwards]" style={{ animationDelay: '0.1s' }}>
-                <Mail className="w-4 h-4" />
-                E-Bülten
+            <div className="text-center text-white">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/8 px-4 py-2 text-sm font-medium">
+                <Mail className="h-4 w-4" />
+                Waya Notes
               </div>
 
-              {/* Title */}
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
-                Özel Fırsatları
-                <span className="block mt-1 text-[#F3E0E1]">Kaçırma</span>
+              <h2 className="font-serif text-4xl leading-[0.9] tracking-[-0.05em] text-[#fff8f2] sm:text-5xl md:text-6xl">
+                Sezon dususlerini ilk once goren listede olun.
               </h2>
 
-              {/* Description */}
-              <p className="text-white/80 text-base sm:text-lg mb-8 max-w-lg mx-auto">
-                İlk siparişinde <span className="text-white font-bold bg-white/20 px-2 py-0.5 rounded">%10 indirim</span> kazanmak için e-bültene abone ol
+              <p className="mx-auto mt-5 max-w-xl text-base text-white/72 sm:text-lg">
+                Drop bildirimleri, sinirli look secimleri ve kampanya notlari tek bir sakin luks
+                bultende bulussun.
               </p>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <form onSubmit={handleSubmit} className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="E-posta adresin"
+                    placeholder="E-posta adresiniz"
                     required
-                    className="w-full px-5 sm:px-6 py-4 bg-white/10 border border-white/30 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#F3E0E1]/50 focus:border-[#F3E0E1] transition-all backdrop-blur-sm"
+                    className="w-full rounded-full border border-white/22 bg-white/10 px-5 py-4 text-base text-white placeholder:text-white/45 backdrop-blur-sm transition-all focus:border-[#d6ae89] focus:outline-none focus:ring-2 focus:ring-[#d6ae89]/30"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-8 py-4 bg-white text-[#7B1113] text-base font-bold rounded-xl hover:bg-[#F3E0E1] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#fff8f2] px-8 py-4 text-base font-bold text-[#181311] transition-all hover:bg-[#d6ae89] disabled:opacity-50"
                 >
                   {loading ? (
-                    <div className="w-5 h-5 border-2 border-[#7B1113] border-t-transparent rounded-full animate-spin" />
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#181311] border-t-transparent" />
                   ) : (
                     <>
-                      Abone Ol
-                      <Send className="w-4 h-4" />
+                      Katil
+                      <Send className="h-4 w-4" />
                     </>
                   )}
                 </button>
               </form>
 
-              {/* Trust Note */}
-              <p className="text-white/60 text-xs sm:text-sm mt-6 flex items-center justify-center gap-2">
-                <Shield className="w-4 h-4" />
-                Dilediğin zaman abonelikten çıkabilirsin. Spam yok.
+              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-white/58 sm:text-sm">
+                <Shield className="h-4 w-4" />
+                Yalnizca yeni sezon ve ozel drop notlari.
               </p>
-
-              {/* Decorative Elements */}
-              <div className="flex items-center justify-center gap-4 mt-8">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full bg-[#F3E0E1]/30 border-2 border-[#7B1113] flex items-center justify-center"
-                    >
-                      <span className="text-white text-xs">👤</span>
-                    </div>
-                  ))}
-                </div>
-                <span className="text-white/60 text-sm">
-                  <span className="text-white font-semibold">5.000+</span> kişi katıldı
-                </span>
-              </div>
             </div>
           )}
         </div>
