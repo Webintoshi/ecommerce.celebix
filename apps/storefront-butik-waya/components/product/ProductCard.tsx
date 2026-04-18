@@ -75,8 +75,8 @@ export function ProductCard({
 
   const titleClassName = cn(
     "line-clamp-2 text-[#171311] transition-colors duration-300 group-hover:text-[#4a403a]",
-    "text-[13px] font-medium uppercase leading-[1.45] tracking-[0.12em] sm:text-[14px]",
-    isFeatured && "text-[14px] tracking-[0.14em] sm:text-[15px]",
+    "text-[14px] font-medium uppercase leading-[1.45] tracking-[0.12em]",
+    isFeatured && "text-[14px] tracking-[0.14em]",
     viewMode === "list" && "max-w-[30ch]",
   );
 
