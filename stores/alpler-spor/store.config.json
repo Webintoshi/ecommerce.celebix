@@ -1,0 +1,73 @@
+{
+  "name": "Alpler Spor",
+  "slug": "alpler-spor",
+  "status": "draft",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Ordu'nun bir numaralı websitesi.",
+    "supportEmail": "destek@alplerspor.com",
+    "supportPhone": "+90 541 296 57 76",
+    "senderEmail": "noreply@alplerspor.com",
+    "smsSenderTitle": "ALPLERSPOR",
+    "defaultProductBrand": "Alpler Spor"
+  },
+  "domains": {
+    "storefront": "alplerspor.com",
+    "admin": "admin.alplerspor.com"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "managed",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env",
+    "provisionedAt": "2026-04-18T07:50:11.204596+00:00"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-18T07:50:10.529Z",
+    "envTemplatePath": "stores/alpler-spor/admin.env.example",
+    "adminEnvLocalPath": "stores/alpler-spor/admin.env.local",
+    "coolifyProjectName": "Alpler Spor",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Alpler Spor admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.alplerspor.com",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "managed",
+    "supabaseProjectName": "Alpler Spor",
+    "provisionedAt": "2026-04-18T07:50:11.204596+00:00",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "lastScaffoldedAt": "2026-04-18T07:50:11.204596+00:00",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Alpler Spor websitesi",
+    "deploymentBranch": "deploy/storefront/alpler-spor",
+    "runtimeUrl": "https://alplerspor.com",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
