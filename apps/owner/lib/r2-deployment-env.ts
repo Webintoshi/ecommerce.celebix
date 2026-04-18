@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { StoreConfig } from "@celebix/platform-config";
+import { discoverExistingR2Authority } from "@/lib/r2-bootstrap";
 
 const PLACEHOLDER_PREFIX = "your-r2-";
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
@@ -56,8 +57,8 @@ export async function resolveR2DeploymentEnv(
   store: StoreConfig,
   currentEnv: Record<string, string> = {},
 ): Promise<Record<string, string>> {
-  const bucketName = store.r2?.bucketName?.trim() || sanitizeR2Value(currentEnv.R2_BUCKET_NAME);
-  const publicUrl = store.r2?.publicUrl?.trim() || sanitizeR2Value(currentEnv.R2_PUBLIC_URL);
+  let bucketName = store.r2?.bucketName?.trim() || sanitizeR2Value(currentEnv.R2_BUCKET_NAME);
+  let publicUrl = store.r2?.publicUrl?.trim() || sanitizeR2Value(currentEnv.R2_PUBLIC_URL);
   const accountId =
     sanitizeR2Value(currentEnv.CLOUDFLARE_ACCOUNT_ID) ||
     sanitizeR2Value(currentEnv.R2_ACCOUNT_ID) ||
@@ -74,6 +75,15 @@ export async function resolveR2DeploymentEnv(
       accessKeyId = accessKeyId || tokenId;
       secretAccessKey =
         secretAccessKey || crypto.createHash("sha256").update(apiToken).digest("hex");
+    }
+  }
+
+  if ((!bucketName || !publicUrl) && accountId && apiToken) {
+    const discoveredAuthority = await discoverExistingR2Authority(store).catch(() => null);
+
+    if (discoveredAuthority) {
+      bucketName = bucketName || discoveredAuthority.bucketName;
+      publicUrl = publicUrl || discoveredAuthority.publicUrl;
     }
   }
 

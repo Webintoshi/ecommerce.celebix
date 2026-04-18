@@ -196,6 +196,84 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   };
 }
 
+function mergeRecoveredAuthorityIntoExistingConfig(
+  existing: StoreConfig,
+  recovered: StoreConfig,
+): StoreConfig {
+  return {
+    ...existing,
+    name: recovered.name,
+    slug: recovered.slug,
+    status: recovered.status,
+    theme: {
+      ...existing.theme,
+      key: recovered.theme.key || existing.theme.key,
+      label: recovered.theme.label || existing.theme.label,
+    },
+    branding: {
+      ...(existing.branding ?? {}),
+      supportEmail: recovered.branding?.supportEmail ?? existing.branding?.supportEmail,
+      supportPhone: recovered.branding?.supportPhone ?? existing.branding?.supportPhone,
+      tagline: recovered.branding?.tagline ?? existing.branding?.tagline,
+      senderEmail: existing.branding?.senderEmail ?? recovered.branding?.senderEmail,
+      smsSenderTitle: existing.branding?.smsSenderTitle ?? recovered.branding?.smsSenderTitle,
+      defaultProductBrand:
+        existing.branding?.defaultProductBrand ?? recovered.branding?.defaultProductBrand,
+    },
+    domains: recovered.domains,
+    owner: existing.owner ?? recovered.owner,
+    supabase: {
+      ...existing.supabase,
+      ...recovered.supabase,
+      dashboardUrl: recovered.supabase.dashboardUrl ?? existing.supabase.dashboardUrl,
+    },
+    r2: {
+      ...(existing.r2 ?? {}),
+      ...(recovered.r2 ?? {}),
+      bucketName: recovered.r2?.bucketName ?? existing.r2?.bucketName,
+      publicUrl: recovered.r2?.publicUrl ?? existing.r2?.publicUrl,
+      managedDomain: recovered.r2?.managedDomain ?? existing.r2?.managedDomain,
+      provisionedAt: recovered.r2?.provisionedAt ?? existing.r2?.provisionedAt,
+      lastProvisionError: recovered.r2?.lastProvisionError ?? existing.r2?.lastProvisionError,
+      provisioning: recovered.r2?.provisioning ?? existing.r2?.provisioning,
+    },
+    bootstrap: recovered.bootstrap
+      ? {
+          ...(existing.bootstrap ?? {}),
+          ...recovered.bootstrap,
+          createdAt: existing.bootstrap?.createdAt ?? recovered.bootstrap.createdAt,
+          envTemplatePath:
+            existing.bootstrap?.envTemplatePath ?? recovered.bootstrap.envTemplatePath,
+          adminEnvLocalPath:
+            existing.bootstrap?.adminEnvLocalPath ?? recovered.bootstrap.adminEnvLocalPath,
+          coolifyProjectName:
+            existing.bootstrap?.coolifyProjectName ?? recovered.bootstrap.coolifyProjectName,
+          adminDeploymentLastError:
+            recovered.bootstrap.adminDeploymentLastError ??
+            existing.bootstrap?.adminDeploymentLastError,
+          lastProvisionError:
+            recovered.bootstrap.lastProvisionError ?? existing.bootstrap?.lastProvisionError,
+        }
+      : existing.bootstrap,
+    storefront: recovered.storefront
+      ? {
+          ...(existing.storefront ?? {}),
+          ...recovered.storefront,
+          appDir: recovered.storefront.appDir ?? existing.storefront?.appDir,
+          lastScaffoldedAt:
+            recovered.storefront.lastScaffoldedAt ?? existing.storefront?.lastScaffoldedAt,
+          lastScaffoldError:
+            recovered.storefront.lastScaffoldError ?? existing.storefront?.lastScaffoldError,
+          lastRepoSyncError:
+            recovered.storefront.lastRepoSyncError ?? existing.storefront?.lastRepoSyncError,
+          lastDeploymentError:
+            recovered.storefront.lastDeploymentError ?? existing.storefront?.lastDeploymentError,
+        }
+      : existing.storefront,
+    features: existing.features.length > 0 ? existing.features : recovered.features,
+  };
+}
+
 function ensureRegistryEntry(config: StoreConfig): void {
   const repoRoot = getRepoRoot();
   const registryPath = path.join(repoRoot, "stores", "registry.json");
@@ -237,12 +315,6 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
 }
 
 export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise<StoreConfig> {
-  const existing = getStoreConfig(slug);
-
-  if (existing) {
-    return existing;
-  }
-
   const serviceClient = createOwnerServiceClient();
   const { data, error } = await serviceClient
     .from("owner_stores")
@@ -260,7 +332,11 @@ export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise
     throw new Error(`"${slug}" icin owner authority kaydi bulunamadi.`);
   }
 
-  const config = buildRecoveredStoreConfig(data);
+  const existing = getStoreConfig(slug);
+  const recovered = buildRecoveredStoreConfig(data);
+  const config = existing
+    ? mergeRecoveredAuthorityIntoExistingConfig(existing, recovered)
+    : recovered;
   const repoRoot = getRepoRoot();
   const storeDirectory = path.join(repoRoot, "stores", slug);
   const configPath = path.join(storeDirectory, "store.config.json");

@@ -35,7 +35,10 @@
     "dashboardUrl": "https://supabasekong-butik-waya.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
-    "provisioning": "pending-owner-env"
+    "bucketName": "butik-waya-assets",
+    "publicUrl": "https://pub-7bbd3daf4c9c422496fee6cf89f7003b.r2.dev",
+    "managedDomain": "pub-7bbd3daf4c9c422496fee6cf89f7003b.r2.dev",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-04-17T11:40:43.668Z",

@@ -44,6 +44,12 @@ interface R2ProvisioningResult {
   adminEnvLocalPath: string;
 }
 
+export interface ExistingR2Authority {
+  bucketName: string;
+  publicUrl: string;
+  managedDomain: string;
+}
+
 function getCloudflareApiToken(): string {
   const token = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
@@ -125,15 +131,20 @@ function createR2S3Client(tokenId: string): S3Client {
   });
 }
 
-async function ensureBucketExists(bucketName: string, tokenId: string): Promise<void> {
+async function bucketExists(bucketName: string, tokenId: string): Promise<boolean> {
   const client = createR2S3Client(tokenId);
   const buckets = await client.send(new ListBucketsCommand({}));
-  const exists = (buckets.Buckets ?? []).some((bucket) => bucket.Name === bucketName);
+  return (buckets.Buckets ?? []).some((bucket) => bucket.Name === bucketName);
+}
+
+async function ensureBucketExists(bucketName: string, tokenId: string): Promise<void> {
+  const exists = await bucketExists(bucketName, tokenId);
 
   if (exists) {
     return;
   }
 
+  const client = createR2S3Client(tokenId);
   await client.send(new CreateBucketCommand({ Bucket: bucketName }));
 }
 
@@ -154,6 +165,25 @@ async function ensureManagedDomain(bucketName: string): Promise<CloudflareManage
       body: JSON.stringify({ enabled: true })
     }
   );
+}
+
+export async function discoverExistingR2Authority(
+  store: StoreConfig,
+): Promise<ExistingR2Authority | null> {
+  const token = await verifyCloudflareToken();
+  const bucketName = store.r2?.bucketName?.trim() || buildBucketName(store);
+
+  if (!(await bucketExists(bucketName, token.id))) {
+    return null;
+  }
+
+  const managedDomain = await ensureManagedDomain(bucketName);
+
+  return {
+    bucketName,
+    publicUrl: `https://${managedDomain.domain}`,
+    managedDomain: managedDomain.domain,
+  };
 }
 
 export async function getR2BootstrapStatus(): Promise<R2BootstrapStatus> {
