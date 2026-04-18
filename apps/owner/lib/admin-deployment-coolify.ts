@@ -60,6 +60,7 @@ interface AdminDeploymentProvisioningOptions {
 const COOLIFY_API_PREFIX = "/api/v1";
 const ADMIN_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const ADMIN_DEPLOYMENT_POLL_ATTEMPTS = 48;
+const ADMIN_DEPLOYMENT_RETRY_DELAY_MS = 8000;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
 const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
@@ -557,6 +558,7 @@ export async function provisionAdminDeploymentForStore(
   const deploymentMarker = `admin-${Date.now()}`;
   let blueprint = await getStoreAdminDeploymentBlueprint(slug, { deploymentMarker });
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
+  let currentApplicationUuid = blueprint.resourceId ?? null;
   const hasCoolifyAuthority = Boolean(
     process.env.COOLIFY_API_URL?.trim() &&
     process.env.COOLIFY_API_TOKEN?.trim()
@@ -627,6 +629,7 @@ export async function provisionAdminDeploymentForStore(
     const environmentUuid = resolveIdentifier(environment);
     let ensuredApplication = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
     let applicationUuid = resolveIdentifier(ensuredApplication.application);
+    currentApplicationUuid = applicationUuid;
     await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
       throw new Error(
         `Admin deployment env senkronu basarisiz: ${
@@ -707,6 +710,7 @@ export async function provisionAdminDeploymentForStore(
           }`,
         );
       });
+      currentApplicationUuid = applicationUuid;
 
       try {
         runtimeBlueprint = await waitForAdminRuntime(store, deploymentMarker);
@@ -765,8 +769,43 @@ export async function provisionAdminDeploymentForStore(
       externallyManaged: false
     };
   } catch (error) {
+    if (shouldWaitForRuntime && currentApplicationUuid) {
+      await sleep(ADMIN_DEPLOYMENT_RETRY_DELAY_MS);
+
+      try {
+        await startApplication(currentApplicationUuid);
+        const retryBlueprint = await waitForAdminRuntime(store, deploymentMarker);
+
+        if (retryBlueprint.runtimeConsistent) {
+          const deploymentStatus = "configured";
+          const deployedAt = new Date().toISOString();
+
+          updateStoreAdminDeploymentConfig(slug, {
+            deploymentStatus,
+            deploymentName: blueprint.appName,
+            runtimeUrl: blueprint.runtimeUrl,
+            resourceId: currentApplicationUuid,
+            deployedAt,
+            lastError: "Admin deployment ilk denemede sapti; owner otomatik retry ile toparladi."
+          });
+
+          return {
+            appName: blueprint.appName,
+            resourceId: currentApplicationUuid,
+            runtimeUrl: blueprint.runtimeUrl,
+            status: deploymentStatus,
+            runtimeConsistent: true,
+            message: "Admin deployment ilk denemede sapti; owner otomatik retry ile toparladi.",
+            externallyManaged: false
+          };
+        }
+      } catch {
+        // Retry also failed; normal recovery and failure handling below will decide the outcome.
+      }
+    }
+
     const recoveredDeployment = await reconcileConfiguredAdminRuntime(slug, {
-      resourceId: blueprint.resourceId,
+      resourceId: currentApplicationUuid ?? blueprint.resourceId,
       message: "Admin runtime gecikmeli olarak healthy bulundu; owner failed durumunu temizledi.",
     }).catch(() => null);
 
@@ -778,7 +817,7 @@ export async function provisionAdminDeploymentForStore(
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: blueprint.resourceId ?? undefined,
+      resourceId: currentApplicationUuid ?? blueprint.resourceId ?? undefined,
       lastError: error instanceof Error ? error.message : "Admin deployment otomasyonu basarisiz oldu."
     });
 

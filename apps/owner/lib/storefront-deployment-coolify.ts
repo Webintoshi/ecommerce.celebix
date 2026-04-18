@@ -81,6 +81,7 @@ interface EnsuredStorefrontApplication {
 const COOLIFY_API_PREFIX = "/api/v1";
 const STOREFRONT_DEPLOYMENT_POLL_DELAY_MS = 5000;
 const STOREFRONT_DEPLOYMENT_POLL_ATTEMPTS = 60;
+const STOREFRONT_DEPLOYMENT_RETRY_DELAY_MS = 8000;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const APPLICATION_DELETE_POLL_DELAY_MS = 2000;
 const APPLICATION_DELETE_POLL_ATTEMPTS = 15;
@@ -1082,6 +1083,46 @@ export async function provisionStorefrontDeploymentForStore(
       repoSynced: runtimeBlueprint.repoSynced,
     };
   } catch (error) {
+    if (shouldWaitForRuntime && currentApplicationUuid) {
+      await sleep(STOREFRONT_DEPLOYMENT_RETRY_DELAY_MS);
+
+      try {
+        currentDeploymentUuid = await startApplication(currentApplicationUuid);
+        const retryBlueprint = await waitForStorefrontRuntime(store);
+
+        if (retryBlueprint.runtimeConsistent) {
+          const deploymentStatus = "configured";
+          const deployedAt = new Date().toISOString();
+
+          updateStoreStorefrontConfig(slug, {
+            appDir: store.storefront?.appDir ?? "",
+            status: "active",
+            lastScaffoldError: store.storefront?.lastScaffoldError,
+          });
+          updateStoreStorefrontDeploymentConfig(slug, {
+            deploymentStatus,
+            deploymentName: blueprint.appName,
+            runtimeUrl: blueprint.runtimeUrl,
+            resourceId: currentApplicationUuid ?? undefined,
+            deployedAt,
+            lastError: "Storefront deployment ilk denemede sapti; owner otomatik retry ile toparladi.",
+          });
+
+          return {
+            appName: blueprint.appName,
+            resourceId: currentApplicationUuid,
+            runtimeUrl: blueprint.runtimeUrl,
+            status: deploymentStatus,
+            runtimeConsistent: true,
+            message: "Storefront deployment ilk denemede sapti; owner otomatik retry ile toparladi.",
+            repoSynced: retryBlueprint.repoSynced,
+          };
+        }
+      } catch {
+        // Retry also failed; normal recovery and failure handling below will decide the outcome.
+      }
+    }
+
     const recoveredDeployment = await reconcileConfiguredStorefrontRuntime(slug, {
       resourceId: currentApplicationUuid ?? blueprint.resourceId,
       message: "Storefront runtime gecikmeli olarak healthy bulundu; owner failed durumunu temizledi.",
