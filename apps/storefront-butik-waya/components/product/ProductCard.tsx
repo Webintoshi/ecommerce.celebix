@@ -70,25 +70,36 @@ function ProductCardSwatches({ product }: { product: Product }) {
 
 function ProductCardRating({ product }: { product: Product }) {
   const rating = Number(product.rating || 0);
+  const reviewCount = Number(product.reviewCount || 0);
 
-  if (!Number.isFinite(rating) || rating <= 0) {
-    return null;
+  if (!Number.isFinite(reviewCount) || reviewCount <= 0) {
+    return (
+      <div className="mt-3 text-[11px] tracking-[0.04em] text-[#9A928A]">
+        Henüz yorum yok
+      </div>
+    );
   }
 
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-3 flex items-center gap-1 text-[#7D756D]">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <Star
-          key={`${product.id}-rating-${index}`}
-          className={`h-3.5 w-3.5 ${
-            index < filledStars ? "fill-current text-current" : "fill-[#E2DDD8] text-[#E2DDD8]"
-          }`}
-        />
-      ))}
-      <span className="ml-1 text-[10px] tracking-[0.12em] text-[#8A827B]">
-        {product.reviewCount || 0} yorum
+    <div className="mt-3 flex items-center gap-2 text-[#7D756D]">
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Star
+            key={`${product.id}-rating-${index}`}
+            className={`h-3.25 w-3.25 ${
+              index < filledStars ? "fill-current text-current" : "fill-[#E2DDD8] text-[#E2DDD8]"
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-[11px] font-medium tracking-[0.01em] text-[#171311]">
+        {rating.toFixed(1)}
+      </span>
+      <span className="h-1 w-1 rounded-full bg-[#CFC7C0]" />
+      <span className="text-[11px] tracking-[0.04em] text-[#8A827B]">
+        {reviewCount} yorum
       </span>
     </div>
   );
@@ -145,18 +156,18 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           </div>
 
           <div className="flex flex-1 flex-col justify-between py-2">
-            <div>
-              <h3 className="max-w-[18ch] font-serif text-[1.55rem] leading-[1.04] tracking-[-0.035em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.85rem]">
+            <div className="space-y-3">
+              <h3 className="line-clamp-2 max-w-[18ch] font-serif text-[1.35rem] leading-[1.02] tracking-[-0.03em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.6rem]">
                 {product.name}
               </h3>
 
               {typeof displayPrice === "number" ? (
-                <div className="mt-3 flex items-baseline gap-3">
-                  <span className="text-[1.05rem] font-semibold tracking-[-0.01em] text-[#171311]">
+                <div className="flex items-end gap-2.5">
+                  <span className="text-[1.02rem] font-medium tracking-[-0.02em] text-[#171311] sm:text-[1.08rem]">
                     {formatPrice(displayPrice)}
                   </span>
                   {originalPrice ? (
-                    <span className="text-sm text-[#9A928A] line-through">
+                    <span className="text-[13px] text-[#A1978E] line-through">
                       {formatPrice(originalPrice)}
                     </span>
                   ) : null}
@@ -206,18 +217,18 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           )}
         </div>
 
-        <div className="pt-4">
-          <h3 className="max-w-[18ch] font-serif text-[1.15rem] leading-[1.08] tracking-[-0.028em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.28rem]">
+        <div className="space-y-3 pt-4">
+          <h3 className="line-clamp-2 min-h-[2.2em] max-w-[18ch] font-serif text-[1.02rem] leading-[1.1] tracking-[-0.022em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.1rem]">
             {product.name}
           </h3>
 
           {typeof displayPrice === "number" ? (
-            <div className="mt-2.5 flex items-baseline gap-2.5">
-              <span className="text-[0.98rem] font-semibold tracking-[-0.01em] text-[#171311]">
+            <div className="flex items-end gap-2">
+              <span className="text-[0.96rem] font-medium tracking-[-0.02em] text-[#171311] sm:text-[1rem]">
                 {formatPrice(displayPrice)}
               </span>
               {originalPrice ? (
-                <span className="text-sm text-[#9A928A] line-through">
+                <span className="text-[12px] text-[#A1978E] line-through">
                   {formatPrice(originalPrice)}
                 </span>
               ) : null}
