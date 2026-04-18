@@ -97,12 +97,12 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Gunun favorileri"
+          ? "Cok satanlar"
           : index === 1
-            ? "Kahvalti cizgisi"
+            ? "Kahvalti seckisi"
             : index === 2
-              ? "Temiz tercih"
-              : "Secki",
+              ? "Temiz receteler"
+              : "Secili kavanozlar",
       isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
@@ -139,10 +139,11 @@ function EmptyShowcaseState() {
             <Sparkles className="h-3.5 w-3.5" />
             Ezmeo vitrini
           </span>
-          <h2 className="mt-5 text-[var(--foreground)]">Ilk urunler geldikce secki burada canlanacak.</h2>
+          <h2 className="mt-5 text-[var(--foreground)]">
+            Ilk urunler geldikce secki burada canlanacak.
+          </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--muted-foreground)] md:text-base">
-            Bu alan yayinlanan urunleri dogrudan koleksiyon bloklarina tasir. Gercek veri geldigi
-            anda vitrinin sesi urun odakli sekilde netlesir.
+            Bu alan yayinlanan urunleri dogrudan koleksiyon bloklarina tasir. Gercek veri geldigi anda vitrin urun merkezli sekilde dolar.
           </p>
         </div>
       </div>
@@ -171,14 +172,14 @@ export function ProductShowcaseSections({
           {
             id: "latest",
             title: "Yeni secilenler",
-            subtitle: "Canli akıs",
+            subtitle: "Canli akis",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
           {
             id: "featured",
             title: "Cok satan ezmeler",
-            subtitle: "Editoryal tercih",
+            subtitle: "Editor seckisi",
             link: ROUTES.products,
             products: allProducts.slice(4, 8),
           },
@@ -198,37 +199,33 @@ export function ProductShowcaseSections({
       {effectiveGroups.map((group, index) => (
         <section key={group.id} className="pt-14 lg:pt-18">
           <div className="container-premium">
-            <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
-              <div className="mb-8 flex flex-col gap-5 border-b border-[var(--border)] pb-6 md:flex-row md:items-end md:justify-between">
-                <div className="max-w-2xl">
-                  <p className="editorial-kicker">
-                    {group.subtitle}
-                  </p>
-                  <h2 className="mt-4 text-[var(--foreground)]">{group.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[var(--muted-foreground)] md:text-base">
-                    {index === 0
-                      ? "Urun kartlari daha sakin bir duzende, daha kuvvetli gorsel oranlarla ve daha temiz fiyat hiyerarsisi ile sunulur."
-                      : "Kalabaligi azaltan ama secimi hizlandiran editorial bir koleksiyon akisina donusur."}
-                  </p>
-                </div>
-
-                <Link
-                  href={buildLocalizedPath(
-                    group.link.startsWith("/") ? group.link : ROUTES.products,
-                    locale,
-                  )}
-                  className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
-                >
-                  {viewAllLabel}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+            <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <p className="editorial-kicker">{group.subtitle}</p>
+                <h2 className="mt-4 text-[var(--foreground)]">{group.title}</h2>
+                <p className="mt-3 text-sm leading-7 text-[var(--muted-foreground)] md:text-base">
+                  {index === 0
+                    ? "Urun kartlari daha net fiyat hiyerarsisi, daha sakin badge dili ve daha guclu image oranlari ile sunulur."
+                    : "Koleksiyon bloklari urunu one cikarir; fiyat ve varyant bilgisi karar vermeyi hizlandirir."}
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                {group.products.slice(0, 4).map((product, productIndex) => (
-                  <ProductCard key={product.id} product={product} index={productIndex} />
-                ))}
-              </div>
+              <Link
+                href={buildLocalizedPath(
+                  group.link.startsWith("/") ? group.link : ROUTES.products,
+                  locale,
+                )}
+                className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
+              >
+                {viewAllLabel}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {group.products.slice(0, 4).map((product, productIndex) => (
+                <ProductCard key={product.id} product={product} index={productIndex} />
+              ))}
             </div>
           </div>
         </section>

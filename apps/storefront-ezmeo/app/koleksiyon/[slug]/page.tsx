@@ -447,7 +447,7 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-[var(--border)] bg-[rgba(255,250,244,0.68)] backdrop-blur" aria-label="Breadcrumb">
+      <nav className="border-b border-[var(--border)] bg-[rgba(251,248,243,0.94)]" aria-label="Breadcrumb">
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
             <li>
@@ -477,23 +477,23 @@ export default async function CollectionPage({
 
       <section className="pt-4 md:pt-6">
         <div className="container-premium">
-          <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
-            <div className="grid gap-6 lg:grid-cols-[0.98fr_1.02fr] lg:items-end">
+          <div className="surface-card overflow-hidden px-5 py-5 md:px-7 md:py-6 lg:px-8">
+            <div className="grid gap-4 md:grid-cols-[1fr_18rem] md:items-end lg:grid-cols-[1fr_22rem]">
               <div>
                 <p className="editorial-kicker">{category.name}</p>
                 <h1 className="mt-5 text-[var(--foreground)]">{category.name}</h1>
                 <p className="mt-4 max-w-2xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
                   {category.description ||
-                    `${category.name} koleksiyonundaki yayinli urunleri, daha sakin bir premium akista kesfedin.`}
+                    `${category.name} koleksiyonundaki yayinli urunleri daha hizli ve daha net bir katalog akisiyla kesfedin.`}
                 </p>
-                <div className="mt-6 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   <span className="chip">{products.length} urun</span>
-                  <span className="chip">Editorial grid</span>
-                  <span className="chip">Mobil ve desktop uyumlu</span>
+                  <span className="chip">Kategori odakli grid</span>
+                  <span className="chip">Mobil-first akis</span>
                 </div>
               </div>
 
-              <div className="relative min-h-[18rem] overflow-hidden rounded-[2rem] bg-[var(--background-strong)] md:min-h-[22rem]">
+              <div className="relative min-h-[12rem] overflow-hidden rounded-[1.7rem] bg-[var(--background-strong)] md:min-h-[14rem]">
                 <Image
                   src={categoryImage}
                   alt={category.name}
@@ -502,10 +502,10 @@ export default async function CollectionPage({
                   sizes="(max-width: 1024px) 100vw, 54vw"
                   unoptimized={usesProxiedCategoryImage}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(28,16,10,0.62)] via-[rgba(28,16,10,0.16)] to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(32,22,17,0.38)] via-[rgba(32,22,17,0.08)] to-transparent" />
                 <div className="absolute bottom-0 left-0 p-5">
-                  <div className="rounded-[1.5rem] bg-[rgba(255,250,244,0.8)] px-4 py-3 text-sm font-medium text-[var(--foreground)] backdrop-blur">
-                    {category.seo_description || "Urunu merkeze alan sakin koleksiyon vitrini"}
+                  <div className="rounded-[1.2rem] bg-[rgba(255,253,249,0.9)] px-4 py-3 text-sm font-medium text-[var(--foreground)]">
+                    {category.seo_description || "Secili urunler, daha sade bir koleksiyon girisi"}
                   </div>
                 </div>
               </div>
@@ -514,7 +514,7 @@ export default async function CollectionPage({
         </div>
       </section>
 
-      <main className="container-premium pt-10 md:pt-12">
+      <main className="container-premium pt-8 md:pt-10">
         <CollectionProductsClient products={products} />
       </main>
 

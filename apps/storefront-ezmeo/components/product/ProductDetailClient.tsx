@@ -2,20 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  ChevronDown,
-  ChevronRight,
-  Heart,
-  Minus,
-  Package,
-  Plus,
-  Share2,
-  ShieldCheck,
-  ShoppingCart,
-  Sparkles,
-  Star,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Heart, Minus, Package, Plus, Share2, ShieldCheck, ShoppingCart, Sparkles, Star } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
@@ -23,16 +10,10 @@ import { PersonalizationPreview } from "@/components/product/PersonalizationPrev
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
-import {
-  DynamicCustomizationForm,
-  type CustomizationSelectionState,
-} from "@/components/product/dynamic-customization-form";
+import { DynamicCustomizationForm, type CustomizationSelectionState } from "@/components/product/dynamic-customization-form";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
-import {
-  CustomizationSchema,
-  CustomizationStep,
-} from "@/types/product-customization";
+import { CustomizationSchema, CustomizationStep } from "@/types/product-customization";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 
@@ -46,9 +27,7 @@ type ResolvedCustomizationSchema = CustomizationSchema & {
   steps: CustomizationStep[];
 };
 
-function createEmptyCustomizationState(
-  basePrice: number,
-): CustomizationSelectionState {
+function createEmptyCustomizationState(basePrice: number): CustomizationSelectionState {
   return {
     payload: null,
     extraPrice: 0,
@@ -59,12 +38,9 @@ function createEmptyCustomizationState(
 }
 
 async function fetchAssignedSchema(productId: string) {
-  const response = await fetch(
-    "/api/customization/schema?productId=" + encodeURIComponent(productId),
-    {
-      cache: "no-store",
-    },
-  );
+  const response = await fetch(`/api/customization/schema?productId=${encodeURIComponent(productId)}`, {
+    cache: "no-store",
+  });
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
@@ -96,32 +72,25 @@ function formatVariantWeight(value: unknown, unit?: string) {
     return raw;
   }
 
-  if (unit) {
-    return `${raw} ${unit}`;
-  }
-
-  return `${raw} g`;
+  return unit ? `${raw} ${unit}` : `${raw} g`;
 }
 
 function buildUsageNote(product: Product) {
   if (product.category === "findik-ezmesi") {
-    return "Kahvalti, tatli katmanlari ve kasik aralari icin daha yumusak bir profil sunar.";
+    return "Kahvalti ve tatli kullanimlari icin daha yumusak bir profil sunar.";
   }
   if (product.category === "fistik-ezmesi") {
-    return "Kahvalti tabaklari, bowl karisimlari ve gun ici kasik ritmi icin guclu bir secimdir.";
+    return "Kahvalti tabaklari, bowl karisimlari ve kasik anlari icin daha guclu bir secimdir.";
   }
   if (product.category === "kuruyemis") {
-    return "Ara ogun, kahvalti ve tarif tamamlayici kullanimlar icin dengeli bir secimdir.";
+    return "Ara ogun ve tarif tamamlayici kullanimlarda dengeli bir pantry secimi sunar.";
   }
 
   return "Gunluk ritme kolayca giren, sade ve premium bir kullanim hissi hedefler.";
 }
 
 function buildStorageNote(product: Product) {
-  return (
-    product.nutritionSettings?.storageConditions ||
-    "Serin ve kuru yerde muhafaza etmeniz, acildiktan sonra temiz ve kuru kasik kullanmaniz onerilir."
-  );
+  return product.nutritionSettings?.storageConditions || "Serin ve kuru yerde muhafaza etmeniz, acildiktan sonra temiz ve kuru kasik kullanmaniz onerilir.";
 }
 
 interface ProductDetailClientProps {
@@ -139,33 +108,19 @@ export function ProductDetailClient({
 }: ProductDetailClientProps) {
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>(
-    initialRelatedProducts,
-  );
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>(initialRelatedProducts);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
-
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
-    new Set(["story"]),
-  );
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set(["story"]));
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [activeSchema, setActiveSchema] =
-    useState<ResolvedCustomizationSchema | null>(null);
+  const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
-  const [customizationState, setCustomizationState] =
-    useState<CustomizationSelectionState>(
-      createEmptyCustomizationState(
-        initialProduct?.variants?.[initialVariantIndex]?.price ||
-          initialProduct?.variants?.[0]?.price ||
-          0,
-      ),
-    );
-  const [customizationValidationNonce, setCustomizationValidationNonce] =
-    useState(0);
-
+  const [customizationState, setCustomizationState] = useState<CustomizationSelectionState>(
+    createEmptyCustomizationState(initialProduct?.variants?.[initialVariantIndex]?.price || initialProduct?.variants?.[0]?.price || 0),
+  );
+  const [customizationValidationNonce, setCustomizationValidationNonce] = useState(0);
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
-
   const { addToCart } = useCart();
   const { locale } = useStorefrontRoute();
 
@@ -204,15 +159,11 @@ export function ProductDetailClient({
   useEffect(() => {
     if (product?.category) {
       setIsLoadingRelated(true);
-      fetch(
-        `/api/products?category=${product.category}&limit=8&locale=${locale}`,
-      )
+      fetch(`/api/products?category=${product.category}&limit=8&locale=${locale}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.products) {
-            const filtered = data.products.filter(
-              (p: Product) => p.slug !== slug,
-            );
+            const filtered = data.products.filter((p: Product) => p.slug !== slug);
             setRelatedProducts(filtered.slice(0, 4));
           }
         })
@@ -245,7 +196,7 @@ export function ProductDetailClient({
       }
     };
 
-    loadActiveSchema();
+    void loadActiveSchema();
     return () => {
       mounted = false;
     };
@@ -265,11 +216,8 @@ export function ProductDetailClient({
     }
 
     const baseImages = product.images || [];
-
     if (variant?.images && variant.images.length > 0) {
-      const variantImages = variant.images.filter(
-        (img: string) => img && img.length > 0,
-      );
+      const variantImages = variant.images.filter((img: string) => img && img.length > 0);
       if (variantImages.length > 0) {
         const combined = [...variantImages];
         baseImages.forEach((img: string) => {
@@ -288,8 +236,8 @@ export function ProductDetailClient({
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-48 animate-pulse rounded-3xl bg-[rgba(42,28,20,0.08)]" />
-          <div className="mx-auto h-4 w-32 animate-pulse rounded-full bg-[rgba(42,28,20,0.08)]" />
+          <div className="mx-auto mb-4 h-12 w-48 animate-pulse rounded-3xl bg-[rgba(36,25,21,0.08)]" />
+          <div className="mx-auto h-4 w-32 animate-pulse rounded-full bg-[rgba(36,25,21,0.08)]" />
         </div>
       </div>
     );
@@ -330,22 +278,26 @@ export function ProductDetailClient({
     variants.length > 1 ? `${variants.length} varyant` : null,
   ].filter(Boolean) as string[];
   const detailNotes = [
-    {
-      label: "Kategori",
-      value: humanizeValue(product.category) || "Secili koleksiyon",
-    },
-    {
-      label: "Alt profil",
-      value: humanizeValue(product.subcategory) || "Editor secimi",
-    },
+    { label: "Tat profili", value: buildUsageNote(product) },
     {
       label: "Gramaj",
-      value: availableWeights.join(" · ") || formatVariantWeight(variant.weight, variant.unit) || "Secili kavanoz",
+      value: availableWeights.join(" / ") || formatVariantWeight(variant.weight, variant.unit) || "Secili kavanoz",
     },
+    { label: "Saklama", value: buildStorageNote(product) },
+  ];
+  const stockTone = isOutOfStock
+    ? "text-[var(--muted-foreground)]"
+    : variant.stock <= 5
+      ? "text-[var(--hazelnut)]"
+      : "text-[var(--accent)]";
+  const stockLabel = isOutOfStock ? "Tukendi" : variant.stock <= 5 ? `Son ${variant.stock} adet` : "Stokta var";
+  const purchaseHighlights = [
     {
-      label: "Kullanim notu",
-      value: buildUsageNote(product),
+      label: "Secili varyant",
+      value: formatVariantWeight(variant.weight, variant.unit) || humanizeValue(product.subcategory) || "Premium kavanoz",
     },
+    { label: "Stok", value: stockLabel },
+    { label: "Teslimat", value: "Kargo secenekleri odemede hesaplanir." },
   ];
 
   const handleAddToCart = () => {
@@ -366,9 +318,7 @@ export function ProductDetailClient({
   };
 
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) =>
-      Math.max(1, Math.min(variant.stock || 10, prev + delta)),
-    );
+    setQuantity((prev) => Math.max(1, Math.min(variant.stock || 10, prev + delta)));
   };
 
   const toggleWishlist = () => {
@@ -382,7 +332,7 @@ export function ProductDetailClient({
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
+      void navigator.share({
         title: product.name,
         text: product.shortDescription,
         url: window.location.href,
@@ -390,23 +340,12 @@ export function ProductDetailClient({
       return;
     }
 
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
   };
 
-  const stockTone = isOutOfStock
-    ? "text-[var(--muted-foreground)]"
-    : variant.stock <= 5
-      ? "text-[var(--hazelnut)]"
-      : "text-[var(--accent)]";
-  const stockLabel = isOutOfStock
-    ? "Tukendi"
-    : variant.stock <= 5
-      ? `Son ${variant.stock} adet`
-      : "Stokta var";
-
   return (
-    <div className="pb-10">
-      <div className="border-b border-[var(--border)] bg-[rgba(255,250,244,0.68)] backdrop-blur">
+    <div className="pb-28 lg:pb-10">
+      <div className="border-b border-[var(--border)] bg-[rgba(251,248,243,0.95)]">
         <div className="container-premium">
           <div className="flex flex-wrap items-center gap-3 py-4 text-sm text-[var(--muted-foreground)]">
             <Link
@@ -416,15 +355,12 @@ export function ProductDetailClient({
               <ArrowLeft className="h-4 w-4" />
               Tum urunlere don
             </Link>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto hidden items-center gap-2 md:flex">
               <Link href={buildLocalizedPath("/", locale)} className="hover:text-[var(--foreground)]">
                 Ana sayfa
               </Link>
               <ChevronRight className="h-4 w-4" />
-              <Link
-                href={buildLocalizedPath("/urunler", locale)}
-                className="hover:text-[var(--foreground)]"
-              >
+              <Link href={buildLocalizedPath("/urunler", locale)} className="hover:text-[var(--foreground)]">
                 Urunler
               </Link>
               <ChevronRight className="h-4 w-4" />
@@ -437,7 +373,7 @@ export function ProductDetailClient({
       <section className="pt-4 md:pt-6">
         <div className="container-premium">
           <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8">
-            <div className="surface-card overflow-hidden p-4 md:p-5 lg:sticky lg:top-28 lg:self-start">
+            <div className="overflow-hidden rounded-[1.9rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-[var(--shadow-md)] lg:sticky lg:top-28 lg:self-start">
               <ImageGallery
                 key={`${product.id}-${selectedVariant}`}
                 images={displayImages}
@@ -453,7 +389,6 @@ export function ProductDetailClient({
               </div>
 
               <h1 className="mt-5 text-[var(--foreground)]">{product.name}</h1>
-
               <p className="mt-4 max-w-3xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
                 {descriptor || "Ezmeo vitrininin sakin ama premium urun diliyle sunulan secili kavanozlarindan biri."}
               </p>
@@ -466,7 +401,7 @@ export function ProductDetailClient({
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
                           ? "fill-[var(--hazelnut)] text-[var(--hazelnut)]"
-                          : "fill-[rgba(42,28,20,0.1)] text-[rgba(42,28,20,0.1)]"
+                          : "fill-[rgba(36,25,21,0.1)] text-[rgba(36,25,21,0.1)]"
                       }`}
                     />
                   ))}
@@ -501,7 +436,18 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="mt-8 border-t border-[var(--border)] pt-6">
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                {purchaseHighlights.map((item) => (
+                  <div key={item.label} className="rounded-[1.35rem] border border-[var(--border)] bg-[var(--muted)] px-4 py-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[var(--foreground)]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-7 rounded-[1.6rem] border border-[var(--border)] bg-[var(--muted)] p-4">
                 <VariantSelectorV2
                   variants={variants}
                   selectedIndex={selectedVariant}
@@ -514,10 +460,7 @@ export function ProductDetailClient({
                   Ekstra secenekler yukleniyor...
                 </div>
               ) : activeSchema ? (
-                <div
-                  ref={extrasSectionRef}
-                  className="mt-6 rounded-[1.75rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-5"
-                >
+                <div ref={extrasSectionRef} className="mt-6 rounded-[1.6rem] border border-[var(--border)] bg-[var(--muted)] p-5">
                   <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--muted-foreground)]">
                     <Sparkles className="h-4 w-4" />
                     Kisisellestirme
@@ -534,12 +477,9 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
                 {detailNotes.map((note) => (
-                  <div
-                    key={note.label}
-                    className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4"
-                  >
+                  <div key={note.label} className="rounded-[1.4rem] border border-[var(--border)] bg-[var(--card)] p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                       {note.label}
                     </p>
@@ -548,17 +488,17 @@ export function ProductDetailClient({
                 ))}
               </div>
 
-              <div className="mt-7 border-y border-[var(--border)] py-5">
+              <div className="mt-7 rounded-[1.7rem] border border-[var(--border)] bg-[var(--card)] p-4 md:p-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]">
                       Adet
                     </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)]">
+                    <div className="flex items-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--muted)]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(42,28,20,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(36,25,21,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
                         type="button"
                       >
                         <Minus className="h-4 w-4" />
@@ -569,7 +509,7 @@ export function ProductDetailClient({
                       <button
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(42,28,20,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(36,25,21,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
                         type="button"
                       >
                         <Plus className="h-4 w-4" />
@@ -582,8 +522,8 @@ export function ProductDetailClient({
                     disabled={isOutOfStock || isSchemaLoading}
                     className={`flex min-w-[230px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] transition-all ${
                       isOutOfStock || isSchemaLoading
-                        ? "cursor-not-allowed bg-[rgba(42,28,20,0.1)] text-[var(--muted-foreground)]"
-                        : "bg-[var(--cocoa)] text-white hover:-translate-y-0.5 hover:bg-[#1c100a]"
+                        ? "cursor-not-allowed bg-[rgba(36,25,21,0.1)] text-[var(--muted-foreground)]"
+                        : "bg-[var(--primary)] text-white hover:-translate-y-0.5 hover:bg-[#761015]"
                     }`}
                     type="button"
                   >
@@ -595,8 +535,8 @@ export function ProductDetailClient({
                     onClick={toggleWishlist}
                     className={`flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] transition-all ${
                       isWishlisted
-                        ? "bg-[rgba(144,21,20,0.08)] text-[var(--primary)]"
-                        : "bg-[rgba(255,250,244,0.72)] text-[var(--foreground)] hover:bg-[rgba(42,28,20,0.05)]"
+                        ? "bg-[rgba(143,17,22,0.08)] text-[var(--primary)]"
+                        : "bg-[var(--muted)] text-[var(--foreground)] hover:bg-[rgba(36,25,21,0.05)]"
                     }`}
                     type="button"
                   >
@@ -604,7 +544,7 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] text-[var(--foreground)] transition hover:bg-[rgba(42,28,20,0.05)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)] transition hover:bg-[rgba(36,25,21,0.05)]"
                     type="button"
                   >
                     <Share2 className="h-5 w-5" />
@@ -630,16 +570,16 @@ export function ProductDetailClient({
                     label: "Urun notlari",
                     content: (
                       <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--muted)] p-4">
                           <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                             <Package className="h-4 w-4" />
                             Gramajlar
                           </p>
                           <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
-                            {availableWeights.join(" · ") || "Secili gramaj yakinda netlesir."}
+                            {availableWeights.join(" / ") || "Secili gramaj yakinda netlesir."}
                           </p>
                         </div>
-                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--muted)] p-4">
                           <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                             <ShieldCheck className="h-4 w-4" />
                             Saklama
@@ -656,7 +596,7 @@ export function ProductDetailClient({
                     label: "Teslimat ve destek",
                     content: (
                       <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--muted)] p-4">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                             Teslimat
                           </p>
@@ -664,7 +604,7 @@ export function ProductDetailClient({
                             Kargo secenekleri ve ucretlendirme, sepet ve odeme adiminda secili varyanta gore hesaplanir.
                           </p>
                         </div>
-                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--muted)] p-4">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                             Destek
                           </p>
@@ -738,7 +678,9 @@ export function ProductDetailClient({
             <div className="mb-8 flex flex-col gap-4 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="editorial-kicker">Benzer urunler</p>
-                <h2 className="mt-4 text-[var(--foreground)]">Ayni ritimde iyi duran diger kavanozlar</h2>
+                <h2 className="mt-4 text-[var(--foreground)]">
+                  Ayni ritimde iyi duran diger kavanozlar
+                </h2>
               </div>
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
@@ -750,16 +692,16 @@ export function ProductDetailClient({
             </div>
 
             {isLoadingRelated ? (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
                   <div
                     key={i}
-                    className="aspect-[4/5] animate-pulse rounded-[1.75rem] bg-[rgba(42,28,20,0.08)]"
+                    className="aspect-[1/1.08] animate-pulse rounded-[1.7rem] bg-[rgba(36,25,21,0.08)]"
                   />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Suspense fallback={null}>
                   {relatedProducts.map((p, index) => (
                     <ProductCard key={p.id} product={p} index={index} />
@@ -770,6 +712,38 @@ export function ProductDetailClient({
           </div>
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[rgba(255,253,249,0.98)] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-18px_44px_-30px_rgba(36,25,21,0.28)] lg:hidden">
+        <div className="mx-auto flex w-full max-w-[88rem] items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+              {formatVariantWeight(variant.weight, variant.unit) || "Secili varyant"}
+            </p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="truncate text-lg font-semibold text-[var(--foreground)]">
+                {formatPrice(displayPrice)}
+              </span>
+              {displayOriginalPrice !== undefined ? (
+                <span className="text-sm text-[var(--muted-foreground)] line-through">
+                  {formatPrice(displayOriginalPrice)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            onClick={handleAddToCart}
+            disabled={isOutOfStock || isSchemaLoading}
+            className={`inline-flex min-h-12 min-w-[11rem] items-center justify-center rounded-full px-5 text-sm font-semibold uppercase tracking-[0.16em] transition-all ${
+              isOutOfStock || isSchemaLoading
+                ? "cursor-not-allowed bg-[rgba(36,25,21,0.1)] text-[var(--muted-foreground)]"
+                : "bg-[var(--primary)] text-white"
+            }`}
+            type="button"
+          >
+            {isSchemaLoading ? "Yukleniyor" : isOutOfStock ? "Tukendi" : "Sepete ekle"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
