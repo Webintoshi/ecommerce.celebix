@@ -67,7 +67,7 @@ export default async function SEOHubPage() {
         }}
       />
 
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-white">
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white">
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />

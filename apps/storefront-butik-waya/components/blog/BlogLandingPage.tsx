@@ -91,7 +91,7 @@ export function BlogLandingPage({
     : `${profile.name} tarafinda yayinlanan blog yazilari, koleksiyon hikayeleri ve karar surecini kolaylastiran editor notlari burada toplanir.`;
 
   return (
-    <div className="min-h-screen bg-[#F6F1EB] text-[#222222]">
+    <div className="min-h-screen bg-white text-[#222222]">
       <section className="relative overflow-hidden border-b border-black/5 bg-[linear-gradient(180deg,#F8F1E8_0%,#F6F1EB_100%)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(138,104,71,0.16),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(30,20,14,0.09),_transparent_34%)]" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-12 px-6 py-16 lg:px-8 lg:py-20">

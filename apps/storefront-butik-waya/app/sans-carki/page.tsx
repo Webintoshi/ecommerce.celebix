@@ -170,7 +170,7 @@ export default function LuckyWheelPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
           <p className="text-gray-600">Şans çarkı yükleniyor...</p>
@@ -181,7 +181,7 @@ export default function LuckyWheelPage() {
 
   if (!config) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="max-w-md rounded-3xl bg-white p-8 text-center shadow-xl">
           <div className="mb-4 text-6xl">🎡</div>
           <h1 className="mb-2 text-2xl font-bold text-gray-900">Şans Çarkı</h1>
@@ -192,7 +192,7 @@ export default function LuckyWheelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 px-4 py-8">
+    <div className="min-h-screen bg-white px-4 py-8">
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-4xl font-bold text-gray-900">{config.name}</h1>

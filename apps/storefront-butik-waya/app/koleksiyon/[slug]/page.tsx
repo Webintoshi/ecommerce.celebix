@@ -410,7 +410,7 @@ export default async function CollectionPage({
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
-    <div className="min-h-screen bg-[#fbf8f4]">
+    <div className="min-h-screen bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -430,7 +430,7 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-[rgba(32,20,16,0.08)] bg-transparent" aria-label="Breadcrumb">
+      <nav className="bg-transparent" aria-label="Breadcrumb">
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
@@ -470,7 +470,7 @@ export default async function CollectionPage({
             </h2>
             <div className="max-w-3xl space-y-4">
               {category.faq.map((item, index) => (
-                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
+                <details key={index} className="rounded-2xl border border-neutral-200 bg-white p-5">
                   <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}
                   </summary>

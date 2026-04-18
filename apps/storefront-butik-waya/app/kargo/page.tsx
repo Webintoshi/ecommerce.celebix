@@ -40,7 +40,7 @@ export default async function ShippingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-white">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
@@ -76,7 +76,7 @@ export default async function ShippingPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <article className="rounded-[32px] border border-black/5 bg-[#FBF8F4] p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.35)]">
+          <article className="rounded-[32px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.35)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#222222]">
               Operasyon Notlari
             </p>

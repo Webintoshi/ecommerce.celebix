@@ -16,7 +16,7 @@ export default function NotFound() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
         <div className="mx-auto max-w-2xl text-center">
           <div className="mb-8">

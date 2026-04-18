@@ -187,7 +187,7 @@ export default async function OrderSuccessPage({
   const paymentBanner = getPaymentBanner(resolvedSearchParams.payment);
 
   return (
-    <div className="min-h-screen bg-[#faf8f4] pb-20 pt-8">
+    <div className="min-h-screen bg-white pb-20 pt-8">
       <OrderSuccessToast />
       <div className="mx-auto flex max-w-[1120px] flex-col gap-8 px-4 md:px-6">
         {paymentBanner && (

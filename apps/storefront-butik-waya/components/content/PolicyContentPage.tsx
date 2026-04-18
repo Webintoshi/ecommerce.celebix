@@ -16,7 +16,7 @@ export async function PolicyContentPage({ page }: PolicyContentPageProps) {
   }).format(new Date(page.updatedAt));
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-white">
       <section className="mx-auto max-w-4xl px-6 py-8 lg:py-10">
         <article className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_20px_50px_-42px_rgba(41,24,15,0.35)] sm:p-8">
           <div

@@ -33,7 +33,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
         <div className="max-w-2xl text-center">
           <div className="mb-8">

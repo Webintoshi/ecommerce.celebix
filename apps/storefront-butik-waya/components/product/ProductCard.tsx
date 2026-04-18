@@ -74,8 +74,7 @@ export function ProductCard({
   };
 
   const titleClassName = cn(
-    "store-product-title text-[#222222] transition-colors duration-300 group-hover:text-[#222222]",
-    viewMode === "list" ? "line-clamp-2 max-w-[32ch]" : "truncate",
+    "store-product-title truncate leading-[1.15] text-[#222222] transition-colors duration-300 group-hover:text-[#222222]",
   );
 
   const priceMarkup =
@@ -116,7 +115,7 @@ export function ProductCard({
   const imageMarkup = (
     <div
       className={cn(
-        "relative overflow-hidden bg-[#f3ede7]",
+        "relative overflow-hidden bg-white",
         viewMode === "grid" && isFeatured && "min-h-[24rem] sm:min-h-[30rem]",
       )}
     >
@@ -181,7 +180,7 @@ export function ProductCard({
           {imageMarkup}
 
           <div className="flex min-h-full flex-col justify-end pt-1 sm:pb-2">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
               <Link href={productHref} className="min-w-0">
                 <p className={titleClassName}>{product.name}</p>
               </Link>
@@ -197,7 +196,7 @@ export function ProductCard({
     <article className="group flex h-full flex-col">
       {imageMarkup}
 
-      <div className="flex flex-1 items-start justify-between gap-4 pt-3">
+      <div className="flex flex-1 items-baseline justify-between gap-4 pt-3">
         <Link href={productHref} className="min-w-0 flex-1">
           <p className={titleClassName}>{product.name}</p>
         </Link>

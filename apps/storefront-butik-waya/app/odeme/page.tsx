@@ -422,7 +422,7 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Sepetiniz Boş</h1>
           <Link href="/urunler" className="text-primary hover:underline underline-offset-4">Alışverişe Devam Et</Link>
@@ -432,7 +432,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] font-sans pb-20">
+    <div className="min-h-screen bg-white font-sans pb-20">
 
       {/* Header Removed as requested */}
 

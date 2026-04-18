@@ -229,7 +229,7 @@ export function ProductShowcaseSections({
   return (
     <>
       {effectiveGroups.map((group, index) => (
-        <section key={group.id} className={`py-16 lg:py-20 ${index % 2 === 1 ? "bg-white/40" : ""}`}>
+        <section key={group.id} className="py-16 lg:py-20">
           <div className="container-premium">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <SectionHeading label={group.title} />

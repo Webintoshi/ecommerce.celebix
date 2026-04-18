@@ -383,7 +383,7 @@ export function ProductListingExperience({
 
         <div className="min-w-0">
           <div>
-            <div className="flex flex-col gap-4 border-b border-[rgba(32,20,16,0.08)] pb-4">
+            <div className="flex flex-col gap-4 pb-4">
               <div
                 className={cn(
                   "flex flex-col gap-4",

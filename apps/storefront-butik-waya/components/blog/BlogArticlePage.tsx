@@ -45,7 +45,7 @@ export function BlogArticlePage({
   const category = BLOG_CATEGORIES.find((item) => item.id === post.category);
 
   return (
-    <div className="min-h-screen bg-[#F6F1EB] text-[#222222]">
+    <div className="min-h-screen bg-white text-[#222222]">
       <div className="border-b border-black/5 bg-white/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-medium text-[#222222] transition-colors hover:text-[#222222]">

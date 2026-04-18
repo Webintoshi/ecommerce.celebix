@@ -198,7 +198,7 @@ export default function AccountPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="text-gray-600 font-medium">Yükleniyor...</span>
@@ -214,7 +214,7 @@ export default function AccountPage() {
   const displayName = customer ? `${customer.first_name} ${customer.last_name}` : user.email?.split("@")[0];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-primary text-white py-8">
         <div className="container mx-auto px-4">

@@ -32,10 +32,10 @@ export function FilterDrawer({
     <Sheet open={isOpen} onOpenChange={(open) => (open ? undefined : onClose())}>
       <SheetContent
         side="left"
-        className="w-full max-w-[26rem] border-none bg-[#fbf8f4] p-0"
+        className="w-full max-w-[26rem] border-none bg-white p-0"
       >
         <div className="flex h-full flex-col">
-          <SheetHeader className="sticky top-0 z-10 mb-0 border-b border-[rgba(32,20,16,0.08)] bg-[#fbf8f4] px-5 py-4">
+          <SheetHeader className="sticky top-0 z-10 mb-0 border-b border-[rgba(32,20,16,0.08)] bg-white px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <SheetTitle className="mt-2 font-serif text-[1.55rem] tracking-[-0.04em] text-[#222222]">
@@ -70,7 +70,7 @@ export function FilterDrawer({
             />
           </div>
 
-          <div className="border-t border-[rgba(32,20,16,0.08)] bg-[#fbf8f4] p-5">
+          <div className="border-t border-[rgba(32,20,16,0.08)] bg-white p-5">
             <button
               type="button"
               onClick={onClose}
