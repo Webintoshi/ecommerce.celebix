@@ -6,6 +6,7 @@ import {
   type StoreConfig,
 } from "@celebix/platform-config";
 import {
+  ensureOwnerStoreAuthorityForSlug,
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
   updateOwnerStoreR2Authority,
@@ -599,9 +600,13 @@ export async function runStoreProvisioningWorkflow(
   });
 
   try {
+    if (getStoreConfig(input.slug)) {
+      repairStoreConfig(input.slug);
+      await ensureOwnerStoreAuthorityForSlug(input.slug);
+    }
+
     await ensureStoreConfigFromOwnerAuthority(input.slug);
     repairStoreConfig(input.slug);
-    await syncOwnerStoresAndMetrics();
 
     const tracker = await initializeTracker(input.slug, input.mode);
     await runPreflights(input, tracker);

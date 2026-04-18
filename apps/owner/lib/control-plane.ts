@@ -1656,6 +1656,60 @@ function buildOwnerStoreRow(
   };
 }
 
+export async function ensureOwnerStoreAuthorityForSlug(slug: string): Promise<void> {
+  await ensureTrackedStoreConfigsNormalized();
+
+  const store = getStoreConfig(slug);
+
+  if (!store) {
+    throw new Error(`"${slug}" icin tracked store config bulunamadi.`);
+  }
+
+  const serviceClient = createOwnerServiceClient();
+  const { data: existingRowData, error: existingRowError } = await serviceClient
+    .from("owner_stores")
+    .select("id, metadata, r2_bucket_name, r2_public_url, r2_managed_domain")
+    .eq("slug", slug)
+    .maybeSingle<{
+      id: string;
+      metadata: Record<string, unknown> | null;
+      r2_bucket_name: string | null;
+      r2_public_url: string | null;
+      r2_managed_domain: string | null;
+    }>();
+
+  if (existingRowError) {
+    throw new Error(existingRowError.message);
+  }
+
+  const existingAuthority: OwnerStoreAuthorityFields | null = existingRowData
+    ? {
+        metadata: existingRowData.metadata ?? null,
+        r2_bucket_name: existingRowData.r2_bucket_name ?? null,
+        r2_public_url: existingRowData.r2_public_url ?? null,
+        r2_managed_domain: existingRowData.r2_managed_domain ?? null,
+      }
+    : null;
+
+  const secretUrl =
+    existingRowData?.id
+      ? (await getStoreSupabaseSecretByStoreId(existingRowData.id).catch(() => null))?.supabase_url?.trim() ||
+        null
+      : null;
+
+  const { error: upsertStoreError } = await serviceClient
+    .from("owner_stores")
+    .upsert(buildOwnerStoreRow(store, existingAuthority, { supabaseUrl: secretUrl }), {
+      onConflict: "slug",
+    });
+
+  if (upsertStoreError) {
+    throw new Error(upsertStoreError.message);
+  }
+
+  clearDashboardStoreSummaryCaches();
+}
+
 export async function updateOwnerStoreR2Authority(
   slug: string,
   input: {
