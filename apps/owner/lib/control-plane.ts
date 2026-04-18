@@ -20,6 +20,7 @@ import {
 } from "@celebix/platform-config";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import {
+  createDefaultProvisioningSteps,
   listCleanupRuns,
   listUnresolvedCleanupSlugs,
   readDomainMigrationSummary,
@@ -882,6 +883,206 @@ function buildProvisioningSummary(metadata: Record<string, unknown> | null | und
     pendingStepCount: pendingSteps.length,
     steps,
   };
+}
+
+function upsertProvisioningDisplayStep(
+  steps: ProvisioningStepSummary[],
+  key: ProvisioningStepSummary["key"],
+  patch: Partial<ProvisioningStepSummary>,
+): ProvisioningStepSummary[] {
+  return steps.map((step) =>
+    step.key === key
+      ? {
+          ...step,
+          ...patch,
+        }
+      : step,
+  );
+}
+
+function normalizeProvisioningSummaryForDisplay(
+  summary: StoreProvisioningSummary,
+  input: {
+    health: StoreHealthSummary;
+    storefrontStatus: StorefrontStatus;
+    storefrontAppDir: string | null;
+    storefrontDeploymentStatus: string | null;
+    storefrontRepoSyncStatus: string | null;
+    metrics: {
+      productCount: number;
+      orderCount: number;
+      customerCount: number;
+    };
+  },
+): StoreProvisioningSummary {
+  const hasStorefrontBlueprint =
+    input.storefrontDeploymentStatus === "prepared" || input.storefrontDeploymentStatus === "configured";
+  const hasStorefrontRepoSync =
+    input.storefrontRepoSyncStatus === "synced" ||
+    (input.storefrontStatus === "active" && Boolean(input.storefrontAppDir?.trim()));
+  const starterSeedReady =
+    input.metrics.productCount > 0 || input.metrics.orderCount > 0 || input.metrics.customerCount > 0;
+  const fullyLiveReady =
+    input.health.supabaseReady &&
+    input.health.r2Ready &&
+    input.health.adminDeploymentReady &&
+    input.health.adminRuntimeConsistent &&
+    input.storefrontStatus === "active";
+
+  let nextSteps = summary.steps.length > 0 ? [...summary.steps] : createDefaultProvisioningSteps();
+
+  const markCompleted = (key: ProvisioningStepSummary["key"], message: string) => {
+    nextSteps = upsertProvisioningDisplayStep(nextSteps, key, {
+      status: "completed",
+      blocking: false,
+      message,
+    });
+  };
+
+  if (fullyLiveReady) {
+    const foundationalKeys: ProvisioningStepSummary["key"][] = [
+      "owner_supabase_auth",
+      "cleanup_guard",
+      "deployment_branch_preflight",
+      "supabase_preflight",
+      "r2_preflight",
+      "coolify_preflight",
+      "github_preflight",
+      "starter_source_preflight",
+      "generated_apps_toggle",
+      "authority_repo_sync",
+      "management_profile",
+    ];
+
+    foundationalKeys.forEach((key) => {
+      markCompleted(key, "Canli store durumu bu temel owner adimlarinin tamamlandigini dogruluyor.");
+    });
+  }
+
+  if (input.health.supabaseReady) {
+    markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
+  }
+
+  if (starterSeedReady) {
+    markCompleted("starter_seed", "Starter icerik canli metriklerde gorunuyor.");
+  }
+
+  if (input.health.r2Ready) {
+    markCompleted("r2_provision", "R2 authority canli durumda hazir.");
+  }
+
+  if (input.health.adminDeploymentReady) {
+    markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
+  }
+
+  if (input.health.adminDeploymentReady && input.health.adminRuntimeConsistent) {
+    markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+  }
+
+  if (input.storefrontAppDir?.trim()) {
+    markCompleted("storefront_scaffold", "Storefront app dizini olusturulmus durumda.");
+  }
+
+  if (hasStorefrontBlueprint) {
+    markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
+  }
+
+  if (hasStorefrontRepoSync) {
+    markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
+  }
+
+  if (input.storefrontStatus === "active") {
+    markCompleted("storefront_deploy", "Storefront runtime canli durumda.");
+  }
+
+  const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;
+  const blockingStepCount = nextSteps.filter((step) => step.status === "failed" && step.blocking).length;
+  const pendingStepCount = nextSteps.filter(
+    (step) => step.status === "pending" || step.status === "running",
+  ).length;
+  const nextState = fullyLiveReady ? "ready" : summary.state;
+  const nextLastError = fullyLiveReady ? null : summary.lastError;
+
+  return {
+    ...summary,
+    state: nextState,
+    lastError: nextLastError,
+    failedStepCount,
+    blockingStepCount,
+    pendingStepCount,
+    steps: nextSteps,
+  };
+}
+
+function normalizeOwnerStoreStatusForDisplay(
+  status: OwnerStoreStatus,
+  provisioning: StoreProvisioningSummary,
+  health: StoreHealthSummary,
+  storefrontStatus: StorefrontStatus,
+): OwnerStoreStatus {
+  if (
+    provisioning.state === "ready" &&
+    storefrontStatus === "active" &&
+    health.supabaseReady &&
+    health.r2Ready &&
+    health.adminDeploymentReady &&
+    health.adminRuntimeConsistent
+  ) {
+    return "active";
+  }
+
+  return status;
+}
+
+function normalizeBootstrapRecordForDisplay(
+  bootstrap: Record<string, unknown> | null | undefined,
+  health: StoreHealthSummary,
+): Record<string, unknown> | null {
+  const current = asRecord(bootstrap);
+
+  if (Object.keys(current).length === 0) {
+    return null;
+  }
+
+  const next = { ...current };
+
+  if (health.supabaseReady) {
+    next.supabaseProvisioning = "configured";
+    next.lastProvisionError = null;
+  }
+
+  if (health.adminDeploymentReady && health.adminRuntimeConsistent) {
+    next.adminDeploymentStatus = "configured";
+    next.adminDeploymentLastError = null;
+  }
+
+  return next;
+}
+
+function normalizeStorefrontRecordForDisplay(
+  storefront: Record<string, unknown> | null | undefined,
+  storefrontStatus: StorefrontStatus,
+): Record<string, unknown> | null {
+  const current = asRecord(storefront);
+
+  if (Object.keys(current).length === 0) {
+    return null;
+  }
+
+  const next = { ...current };
+
+  if (readOptionalString(next.repoSyncStatus) === "failed" && storefrontStatus === "active") {
+    next.repoSyncStatus = "synced";
+    next.lastRepoSyncError = null;
+  }
+
+  if (storefrontStatus === "active") {
+    next.status = "active";
+    next.deploymentStatus = "configured";
+    next.lastDeploymentError = null;
+  }
+
+  return next;
 }
 
 function buildDomainMigrationSummary(
@@ -1835,6 +2036,12 @@ async function buildDashboardStoreSummaries(
       const metric = accessible.metricsMap.get(store.id);
       const storeConfig = await getAuthoritativeStoreConfig(store.slug);
       const summaryMode = mode === "summary";
+      const storedBootstrap = asRecord(store.metadata?.bootstrap);
+      const shouldProbeAdminRuntimeInSummary =
+        summaryMode &&
+        store.storefront_status === "active" &&
+        readOptionalString(storedBootstrap.adminDeploymentStatus) !== "configured" &&
+        Boolean(readOptionalString(store.admin_domain));
       const shouldRefreshMetrics = Boolean(!summaryMode && storeConfig && isSuspiciousZeroMetrics(metric, store));
       const [connectionReadiness, storeAdminCount, adminRuntimeHealth, storeAdmins, refreshedMetrics] =
         summaryMode
@@ -1843,7 +2050,9 @@ async function buildDashboardStoreSummaries(
                 ? readStoreConnectionReadiness(storeConfig, store.id).catch(() => getEmptyConnectionReadiness())
                 : Promise.resolve(getEmptyConnectionReadiness()),
               storeConfig ? countStoreAdminsForConfig(storeConfig, store.id).catch(() => 0) : Promise.resolve(0),
-              Promise.resolve(deriveStoredAdminRuntimeHealth(store)),
+              shouldProbeAdminRuntimeInSummary
+                ? readAdminRuntimeHealth(store)
+                : Promise.resolve(deriveStoredAdminRuntimeHealth(store)),
               Promise.resolve<StoreAdminSummary[]>([]),
               Promise.resolve<StoreMetricsSnapshot | null>(null)
             ])
@@ -1883,14 +2092,38 @@ async function buildDashboardStoreSummaries(
           }
         : metric;
       const consistency = buildStoreConsistency(store, storeConfig, connectionReadiness, adminRuntimeHealth);
-      const provisioning = buildProvisioningSummary(store.metadata);
+      const health = buildStoreHealth(
+        store,
+        metricsRow?.last_synced_at ?? null,
+        resolvedStoreAdminCount,
+        connectionReadiness,
+        adminRuntimeHealth
+      );
+      const provisioning = normalizeProvisioningSummaryForDisplay(buildProvisioningSummary(store.metadata), {
+        health,
+        storefrontStatus: store.storefront_status,
+        storefrontAppDir: store.storefront_app_dir,
+        storefrontDeploymentStatus: readOptionalString(storeConfig?.storefront?.deploymentStatus),
+        storefrontRepoSyncStatus: readOptionalString(storeConfig?.storefront?.repoSyncStatus),
+        metrics: {
+          productCount: metricsRow?.product_count ?? 0,
+          orderCount: metricsRow?.order_count ?? 0,
+          customerCount: metricsRow?.customer_count ?? 0,
+        },
+      });
       const domainMigration = buildDomainMigrationSummary(store.metadata);
+      const normalizedStatus = normalizeOwnerStoreStatusForDisplay(
+        store.status,
+        provisioning,
+        health,
+        store.storefront_status,
+      );
 
       return {
         id: store.id,
         slug: store.slug,
         name: store.name,
-        status: store.status,
+        status: normalizedStatus,
         themeKey: store.theme_key,
         themeLabel: store.theme_label ?? store.theme_key,
         storefrontDomain: store.storefront_domain,
@@ -1913,18 +2146,12 @@ async function buildDashboardStoreSummaries(
         affiliateCount: accessible.affiliateCountMap.get(store.id) ?? 0,
         storeAdminCount: resolvedStoreAdminCount,
         management: parseStoreManagementProfile(store.metadata, {
-          storeStatus: store.status,
+          storeStatus: normalizedStatus,
           storefrontStatus: store.storefront_status
         }),
         provisioning,
         domainMigration,
-        health: buildStoreHealth(
-          store,
-          metricsRow?.last_synced_at ?? null,
-          resolvedStoreAdminCount,
-          connectionReadiness,
-          adminRuntimeHealth
-        ),
+        health,
         consistency
       };
     })
@@ -2638,6 +2865,26 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
           adminRuntimeHealth
         )
       : current.health;
+  const provisioning = normalizeProvisioningSummaryForDisplay(current.provisioning, {
+    health,
+    storefrontStatus: current.storefrontStatus,
+    storefrontAppDir: current.storefrontAppDir,
+    storefrontDeploymentStatus: readOptionalString(storefrontConfig?.deploymentStatus),
+    storefrontRepoSyncStatus: readOptionalString(storefrontConfig?.repoSyncStatus),
+    metrics: {
+      productCount: resolvedMetrics?.productCount ?? current.productCount,
+      orderCount: resolvedMetrics?.orderCount ?? current.orderCount,
+      customerCount: resolvedMetrics?.customerCount ?? current.customerCount,
+    },
+  });
+  const normalizedStatus = normalizeOwnerStoreStatusForDisplay(
+    current.status,
+    provisioning,
+    health,
+    current.storefrontStatus,
+  );
+  const normalizedBootstrap = normalizeBootstrapRecordForDisplay(detailBootstrap, health);
+  const normalizedStorefront = normalizeStorefrontRecordForDisplay(storefrontConfig, current.storefrontStatus);
 
   const resolvedSupabaseUrl =
     connectionReadiness?.secretSupabaseUrl ??
@@ -2648,6 +2895,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
 
   return {
     ...current,
+    status: normalizedStatus,
     productCount: resolvedMetrics?.productCount ?? current.productCount,
     orderCount: resolvedMetrics?.orderCount ?? current.orderCount,
     customerCount: resolvedMetrics?.customerCount ?? current.customerCount,
@@ -2670,8 +2918,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     r2BucketName: storeRow.r2_bucket_name ?? storeConfig?.r2?.bucketName ?? null,
     r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
     r2ManagedDomain: storeRow.r2_managed_domain ?? storeConfig?.r2?.managedDomain ?? null,
-    bootstrap: Object.keys(detailBootstrap).length > 0 ? detailBootstrap : null,
-    storefront: storefrontConfig,
+    bootstrap: normalizedBootstrap,
+    storefront: normalizedStorefront,
     features: storeConfig?.features?.length ? storeConfig.features : metadataFeatures,
     createdAt: storeRow.created_at,
     updatedAt: storeRow.updated_at,
@@ -2682,7 +2930,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
       commissionRate: access.commission_rate
     })),
     storeAdmins: resolvedStoreAdmins,
-    recentActivity
+    recentActivity,
+    provisioning
   };
 }
 
