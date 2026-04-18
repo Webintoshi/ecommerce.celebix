@@ -1,5 +1,12 @@
 [
   {
+    "slug": "butik-waya",
+    "name": "Butik Waya",
+    "domain": "celebix.site",
+    "theme": "editorial",
+    "status": "draft"
+  },
+  {
     "slug": "deri-kordon",
     "name": "Deri Kordon",
     "domain": "derycraft.com",
@@ -7,17 +14,17 @@
     "status": "active"
   },
   {
-    "slug": "lilyum-flora",
-    "name": "Lilyum Flora",
-    "domain": "lilyumflora.net",
-    "theme": "atelier",
+    "slug": "ezmeo",
+    "name": "Ezmeo",
+    "domain": "ezmeo.com",
+    "theme": "leather",
     "status": "draft"
   },
   {
-    "slug": "test1",
-    "name": "test1",
-    "domain": "test1.46.225.183.57.sslip.io",
-    "theme": "atelier",
+    "slug": "lilyum-flora-ordu",
+    "name": "Lilyum Flora Ordu",
+    "domain": "lilyumflora.net",
+    "theme": "leather",
     "status": "active"
   }
 ]
