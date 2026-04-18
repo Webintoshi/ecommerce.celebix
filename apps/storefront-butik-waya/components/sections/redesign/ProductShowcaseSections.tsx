@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
-import type { Product } from "@/types/product";
+import { SectionHeading } from "./SectionHeading";
 import { ProductCard } from "@/components/product/ProductCard";
-import type { HomepageCategory } from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
+import type { HomepageCurationSettings } from "@/lib/db/settings";
+import type { HomepageCategory } from "@/lib/homepage";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import type { HomepageCurationSettings } from "@/lib/db/settings";
+import type { Product } from "@/types/product";
 
 type ShowcaseProduct = Product & {
   category?: string | null;
@@ -78,7 +79,9 @@ function buildProductGroups(
     );
     const explicitFeaturedProducts = explicitFeaturedProductIds
       .map((productId) =>
-        categoryProducts.find((product) => product.id === productId && !usedProductIds.has(product.id)),
+        categoryProducts.find(
+          (product) => product.id === productId && !usedProductIds.has(product.id),
+        ),
       )
       .filter((product): product is ShowcaseProduct => Boolean(product));
     const explicitFeaturedProductIdSet = new Set(
@@ -97,9 +100,9 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Seçili koleksiyon"
+          ? "Seçili Koleksiyon"
           : index === 1
-            ? "Öne çıkanlar"
+            ? "Öne Çıkanlar"
             : index === 2
               ? "Editörden"
               : "Keşfet",
@@ -228,20 +231,15 @@ export function ProductShowcaseSections({
       {effectiveGroups.map((group, index) => (
         <section key={group.id} className={`py-16 lg:py-20 ${index % 2 === 1 ? "bg-white/40" : ""}`}>
           <div className="container-premium">
-            <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <span className="editorial-kicker">{group.subtitle}</span>
-                <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1d1715] sm:text-5xl">
-                  {group.title}
-                </h2>
-              </div>
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <SectionHeading label={group.title} />
 
               <Link
                 href={buildLocalizedPath(
                   group.link.startsWith("/") ? group.link : ROUTES.products,
                   locale,
                 )}
-                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#000000] backdrop-blur hover:border-[#000000] hover:text-[#000000]"
+                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#000000] backdrop-blur hover:border-[#000000] hover:text-[#000000]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

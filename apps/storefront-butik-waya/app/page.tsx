@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
-import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
+import { getHomepageData } from "@/lib/homepage";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
@@ -9,7 +9,7 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Seçki",
-  categoriesHeading: "Sezonun öne çıkan siluetleri",
+  categoriesHeading: "Kategoriler",
   viewAllLabel: "Tümünü gör",
   productGroups: [
     { title: "Günün seçkisi", subtitle: "Seçki" },
@@ -22,7 +22,7 @@ const HOME_UI_COPY = {
   storesDescription:
     "Adres, iletişim ve görsel varlıklarınız burada yalnızca bilgi olarak değil, markanızın yavaş lüks ritmini anlatan bir konukseverlik katmanı olarak kullanılır.",
   storesLinkLabel: "Waya detaylarını incele",
-  testimonialsHeading: "Butik Waya kadınlarından notlar",
+  testimonialsHeading: "Müşteri Notları",
   testimonialsCountLabel: "",
 };
 
@@ -72,9 +72,7 @@ export default async function Home() {
   ).toString();
   const storesHref = buildLocalizedPath("/magazalarimiz", locale);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
-  const logoUrl = hasRealLogo
-    ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
-    : "";
+  const logoUrl = hasRealLogo ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl) : "";
 
   return (
     <>

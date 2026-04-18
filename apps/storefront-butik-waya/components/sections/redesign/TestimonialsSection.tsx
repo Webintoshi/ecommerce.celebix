@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
-import type { HomepageTestimonial } from "@/lib/homepage";
+import { SectionHeading } from "./SectionHeading";
 import { TESTIMONIALS } from "@/lib/constants";
+import type { HomepageTestimonial } from "@/lib/homepage";
 import { cn } from "@/lib/utils";
 
 const AUTO_PLAY_INTERVAL = 6800;
@@ -52,7 +53,7 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
 }
 
 export function TestimonialsSection({
-  heading = "Müşteri notları",
+  heading = "Müşteri Notları",
   countLabel = "",
   items,
 }: {
@@ -94,12 +95,7 @@ export function TestimonialsSection({
     <section className="py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-8">
-          <div>
-            <p className="editorial-kicker">Müşteri notları</p>
-            <h2 className="mt-4 font-serif text-3xl leading-[0.96] tracking-[-0.04em] text-[#000000] sm:text-4xl lg:text-[3.1rem]">
-              {heading}
-            </h2>
-          </div>
+          <SectionHeading label={heading} />
           {countLabel ? (
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6E6761] sm:text-base">{countLabel}</p>
           ) : null}

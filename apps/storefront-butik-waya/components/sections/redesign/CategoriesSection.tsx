@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
+import { SectionHeading } from "./SectionHeading";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 
 interface HomepageCategory {
@@ -50,7 +51,6 @@ function getCategoryPriority(category: HomepageCategory) {
 
 export function CategoriesSection({
   initialCategories = [],
-  eyebrow = "Koleksiyonlar",
   heading = "Kategoriler",
 }: CategoriesSectionProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -94,17 +94,10 @@ export function CategoriesSection({
   return (
     <section className="py-20 lg:py-28">
       <div className="container-premium">
-        <div className="mb-12">
-          <div>
-            <p className="editorial-kicker">{eyebrow}</p>
-            <h2 className="mt-5 max-w-xl font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1d1715] lg:text-6xl">
-              {heading}
-            </h2>
-          </div>
-        </div>
+        <SectionHeading label={heading} className="mb-10" />
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {displayCategories.map((category, index) => (
+          {displayCategories.map((category) => (
             <Link key={category.id} href={category.link} className="group block">
               <div className="relative aspect-[16/10] overflow-hidden rounded-[1.9rem] border border-[rgba(26,26,26,0.08)] bg-[#ECE8E3]">
                 {category.image && !imageErrors[category.id] ? (
@@ -128,14 +121,9 @@ export function CategoriesSection({
               </div>
 
               <div className="mt-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
-                    {index === 0 ? "Öne çıkan kategori" : "Kategori"}
-                  </p>
-                  <h3 className="mt-2 font-serif text-[2rem] leading-[0.92] tracking-[-0.04em] text-[#000000]">
-                    {category.name}
-                  </h3>
-                </div>
+                <h3 className="font-serif text-[1.8rem] leading-[0.92] tracking-[-0.04em] text-[#000000]">
+                  {category.name}
+                </h3>
                 <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(26,26,26,0.1)] bg-white/72 text-[#000000] transition-transform duration-300 group-hover:-translate-y-0.5">
                   <ArrowUpRight className="h-4 w-4" />
                 </span>
