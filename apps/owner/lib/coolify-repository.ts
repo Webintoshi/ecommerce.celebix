@@ -16,17 +16,17 @@ export function normalizeCoolifyRepository(value: string): string {
   const sshGithubMatch = normalized.match(/^git@github\.com:([^/]+\/[^/.]+)(?:\.git)?$/i);
 
   if (sshGithubMatch?.[1]) {
-    return `https://github.com/${sshGithubMatch[1]}`;
+    return sshGithubMatch[1];
   }
 
   if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/.test(normalized)) {
-    return `https://github.com/${normalized.replace(/\.git$/i, "")}`;
+    return normalized.replace(/\.git$/i, "");
   }
 
   const match = normalized.match(/github\.com[/:]([^/]+\/[^/.]+)(?:\.git)?$/i);
 
   if (match?.[1]) {
-    return `https://github.com/${match[1]}`;
+    return match[1];
   }
 
   if (/^https?:\/\//i.test(normalized)) {
