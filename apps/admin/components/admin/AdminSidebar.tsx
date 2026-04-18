@@ -59,9 +59,9 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Tag,
     href: "/admin/urunler",
     submenu: [
-      { title: "Tüm Ürünler", href: "/admin/urunler" },
-      { title: "Yeni Ürün Ekle", href: "/admin/urunler/yeni" },
-      { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Ürün Yönetimi", href: "/admin/urunler" },
+      { title: "Koleksiyon Yönetimi", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Marka Yönetimi", href: "/admin/urunler/markalar" },
       { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
       { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
       { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
