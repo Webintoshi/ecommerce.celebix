@@ -31,13 +31,13 @@ export default async function AboutPage() {
     <div className="min-h-screen bg-[#F8F8F8]">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
             Hakkimizda
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#222222] sm:text-5xl">
             {profile.name}
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#222222]">
             {managedPage?.plainText || profile.tagline}
           </p>
         </div>
@@ -48,11 +48,11 @@ export default async function AboutPage() {
           <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
             {managedPage?.contentHtml ? (
               <div
-                className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
+                className="prose prose-neutral max-w-none text-[#222222] [&_a]:text-[#222222] [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#222222] [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#222222] [&_ol]:pl-6 [&_p]:text-[#222222] [&_ul]:pl-6"
                 dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
               />
             ) : (
-              <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
+              <div className="space-y-5 text-sm leading-7 text-[#222222]">
                 <p>
                   Bu alan admin panelindeki <strong>Hakkimizda</strong> sayfasindan yonetilir.
                   Icerik girildiginde magaza hikayeniz, uretim anlayisiniz ve kurumsal anlatiminiz
@@ -77,7 +77,7 @@ export default async function AboutPage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={buildLocalizedPath("/iletisim", locale)}
-                className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
+                className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#222222] transition hover:bg-[#F4ECE5]"
               >
                 Iletisim sayfasina git
               </Link>

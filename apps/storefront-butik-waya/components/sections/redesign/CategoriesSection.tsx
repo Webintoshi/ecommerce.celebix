@@ -118,7 +118,7 @@ export function CategoriesSection({
                 ) : (
                   <div className="absolute inset-0 bg-[linear-gradient(135deg,#ECE8E3,#D9D3CC)]" />
                 )}
-                <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/78 text-[#000000] shadow-[0_12px_34px_-24px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:-translate-y-0.5">
+                <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/78 text-[#222222] shadow-[0_12px_34px_-24px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:-translate-y-0.5">
                   <ArrowUpRight className="h-4 w-4" />
                 </span>
               </div>

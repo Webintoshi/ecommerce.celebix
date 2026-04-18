@@ -239,7 +239,7 @@ export function ProductShowcaseSections({
                   group.link.startsWith("/") ? group.link : ROUTES.products,
                   locale,
                 )}
-                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#000000] backdrop-blur hover:border-[#000000] hover:text-[#000000]"
+                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#222222] backdrop-blur hover:border-[#222222] hover:text-[#222222]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

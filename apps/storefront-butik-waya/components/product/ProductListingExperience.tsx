@@ -370,15 +370,15 @@ export function ProductListingExperience({
                   className={cn(
                     "inline-flex items-center gap-2 whitespace-nowrap py-1 text-[12px] uppercase tracking-[0.18em] transition-colors",
                     isSelected
-                      ? "text-[#201410] underline decoration-[rgba(32,20,16,0.26)] underline-offset-[0.45rem]"
-                      : "text-[#8a7b71] hover:text-[#201410]",
+                      ? "text-[#222222] underline decoration-[rgba(34,34,34,0.26)] underline-offset-[0.45rem]"
+                      : "text-[#222222] hover:text-[#222222]",
                   )}
                 >
                   <span>{option.label}</span>
                   <span
                     className={cn(
                       "text-[10px]",
-                      isSelected ? "text-[#6d5b51]" : "text-[#a08f84]",
+                      isSelected ? "text-[#222222]" : "text-[#222222]",
                     )}
                   >
                     {option.count}
@@ -405,28 +405,35 @@ export function ProductListingExperience({
         <div className="min-w-0">
           <div>
             <div className="flex flex-col gap-4 border-b border-[rgba(32,20,16,0.08)] pb-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <div className="flex items-end gap-3">
-                    <span className="font-serif text-[2.4rem] leading-none tracking-[-0.06em] text-[#201410]">
-                      {filteredProducts.length}
-                    </span>
-                    <span className="pb-1 text-[11px] uppercase tracking-[0.22em] text-[#6d5b51]">
-                      urun
-                    </span>
+              <div
+                className={cn(
+                  "flex flex-col gap-4",
+                  minimalCopy ? "sm:items-end" : "sm:flex-row sm:items-end sm:justify-between",
+                )}
+              >
+                {!minimalCopy ? (
+                  <div>
+                    <div className="flex items-end gap-3">
+                      <span className="font-serif text-[2.4rem] leading-none tracking-[-0.06em] text-[#222222]">
+                        {filteredProducts.length}
+                      </span>
+                      <span className="pb-1 text-[11px] uppercase tracking-[0.22em] text-[#222222]">
+                        urun
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="flex flex-col gap-3 sm:items-end">
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem] lg:hidden"
+                    className="inline-flex items-center justify-center gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem] lg:hidden"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                     Filtrele
                     {activeFilterCount > 0 ? (
-                      <span className="text-[10px] text-[#6d5b51]">
+                      <span className="text-[10px] text-[#222222]">
                         {activeFilterCount}
                       </span>
                     ) : null}
@@ -434,7 +441,7 @@ export function ProductListingExperience({
 
                   <label className="relative block min-w-[13rem]">
                     {!minimalCopy ? (
-                      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+                      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#222222]">
                         Siralama
                       </span>
                     ) : (
@@ -444,14 +451,14 @@ export function ProductListingExperience({
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as ListingSortValue)}
                       aria-label="Urunleri sirala"
-                      className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#201410] outline-none transition-colors focus:border-[#201410]"
+                      className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#222222] outline-none transition-colors focus:border-[#222222]"
                     >
                       <option value="recommended">Onerilen</option>
                       <option value="price-asc">Fiyat artan</option>
                       <option value="price-desc">Fiyat azalan</option>
                       <option value="name-asc">Isim A-Z</option>
                     </select>
-                    <ChevronDown className="pointer-events-none absolute bottom-3 right-0 h-4 w-4 text-[#6d5b51]" />
+                    <ChevronDown className="pointer-events-none absolute bottom-3 right-0 h-4 w-4 text-[#222222]" />
                   </label>
                 </div>
               </div>
@@ -466,13 +473,13 @@ export function ProductListingExperience({
 
             {visibleProducts.length === 0 ? (
               <div className="py-16 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center text-[#6d5b51]">
-                  <Package className="h-6 w-6 text-[#6d5b51]" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center text-[#222222]">
+                  <Package className="h-6 w-6 text-[#222222]" />
                 </div>
-                <h3 className="mt-5 font-serif text-3xl tracking-[-0.04em] text-[#201410]">
+                <h3 className="mt-5 font-serif text-3xl tracking-[-0.04em] text-[#222222]">
                   {isFilteredEmpty ? "Filtrelere uygun urun yok" : emptyTitle}
                 </h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#6d5b51]">
+                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#222222]">
                   {isFilteredEmpty
                     ? "Secimi genisletmek icin aktif filtreleri sifirlayin ya da farkli bir kategori secin."
                     : emptyDescription}
@@ -481,14 +488,14 @@ export function ProductListingExperience({
                   <button
                     type="button"
                     onClick={() => handleFilterChange(createListingFilterState(metadata.priceBounds))}
-                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem]"
+                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem]"
                   >
                     Filtreleri sifirla
                   </button>
                 ) : (
                   <Link
                     href={buildLocalizedPath("/urunler", locale)}
-                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem]"
+                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem]"
                   >
                     Tum urunlere don
                   </Link>
@@ -518,14 +525,14 @@ export function ProductListingExperience({
 
                 <div ref={loadMoreRef} className="flex min-h-16 items-center justify-center pt-8">
                   {hasMore ? (
-                    <div className="flex items-center gap-3 text-[#6d5b51]">
+                    <div className="flex items-center gap-3 text-[#222222]">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="text-[11px] uppercase tracking-[0.18em]">
                         Vitrin genisliyor
                       </span>
                     </div>
                   ) : (
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#8a7b71]">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#222222]">
                       Tum urunler goruntulendi
                     </p>
                   )}

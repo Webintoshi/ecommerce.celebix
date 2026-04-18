@@ -353,7 +353,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 onClick={() => scrollThumbnails('up')}
                 disabled={!canScrollUp}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
-                  canScrollUp ? 'opacity-100 hover:border-[#171311] hover:text-[#171311]' : 'cursor-not-allowed opacity-30'
+                  canScrollUp ? 'opacity-100 hover:border-[#222222] hover:text-[#222222]' : 'cursor-not-allowed opacity-30'
                 }`}
               >
                 <ChevronLeft className="w-4 h-4 -rotate-90" />
@@ -362,7 +362,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 onClick={() => scrollThumbnails('down')}
                 disabled={!canScrollDown}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
-                  canScrollDown ? 'opacity-100 hover:border-[#171311] hover:text-[#171311]' : 'cursor-not-allowed opacity-30'
+                  canScrollDown ? 'opacity-100 hover:border-[#222222] hover:text-[#222222]' : 'cursor-not-allowed opacity-30'
                 }`}
               >
                 <ChevronRight className="w-4 h-4 -rotate-90" />

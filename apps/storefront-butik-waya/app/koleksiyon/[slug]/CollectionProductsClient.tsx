@@ -16,6 +16,7 @@ export default function CollectionProductsClient({
       emptyTitle="Koleksiyon hazirlaniyor"
       emptyDescription="Bu kategori icin yayinlanan urunler geldigi anda soldaki filtre akisi ve premium grid burada otomatik olarak dolacak."
       chipMode="subcategories"
+      minimalCopy
     />
   );
 }

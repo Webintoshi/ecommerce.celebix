@@ -74,10 +74,8 @@ export function ProductCard({
   };
 
   const titleClassName = cn(
-    "text-[#171311] transition-colors duration-300 group-hover:text-[#4a403a]",
-    "text-[14px] font-normal leading-[1.35] tracking-[-0.01em]",
+    "store-product-title text-[#222222] transition-colors duration-300 group-hover:text-[#222222]",
     viewMode === "list" ? "line-clamp-2 max-w-[32ch]" : "truncate",
-    isFeatured && "text-[14px]",
   );
 
   const priceMarkup =
@@ -85,14 +83,14 @@ export function ProductCard({
       <div className="shrink-0 text-right">
         <div
           className={cn(
-            "text-[14px] font-normal leading-none tracking-[-0.01em] text-[#171311] tabular-nums",
+            "text-[14px] font-normal leading-none tracking-[-0.01em] text-[#222222] tabular-nums",
             isFeatured && "text-[14px]",
           )}
         >
           {formatPrice(displayPrice)}
         </div>
         {originalPrice ? (
-          <div className="mt-1 text-[11px] leading-none tracking-[-0.01em] text-[#9e9087] line-through tabular-nums">
+          <div className="mt-1 text-[11px] leading-none tracking-[-0.01em] text-[#222222] line-through tabular-nums">
             {formatPrice(originalPrice)}
           </div>
         ) : null}
@@ -104,12 +102,12 @@ export function ProductCard({
       type="button"
       onClick={handleWishlistToggle}
       aria-label={isWishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
-      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[rgba(255,255,255,0.88)] text-[#171311] shadow-[0_10px_24px_-18px_rgba(23,19,17,0.5)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
+      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[rgba(255,255,255,0.88)] text-[#222222] shadow-[0_10px_24px_-18px_rgba(23,19,17,0.5)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
     >
       <Heart
         className={cn(
           "h-4 w-4 transition-all duration-300",
-          isWishlisted ? "fill-[#171311] text-[#171311]" : "text-[#171311]/78",
+          isWishlisted ? "fill-[#222222] text-[#222222]" : "text-[#222222]",
         )}
       />
     </button>
@@ -185,7 +183,7 @@ export function ProductCard({
           <div className="flex min-h-full flex-col justify-end pt-1 sm:pb-2">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
               <Link href={productHref} className="min-w-0">
-                <h3 className={titleClassName}>{product.name}</h3>
+                <p className={titleClassName}>{product.name}</p>
               </Link>
               {priceMarkup}
             </div>
@@ -201,7 +199,7 @@ export function ProductCard({
 
       <div className="flex flex-1 items-start justify-between gap-4 pt-3">
         <Link href={productHref} className="min-w-0 flex-1">
-          <h3 className={titleClassName}>{product.name}</h3>
+          <p className={titleClassName}>{product.name}</p>
         </Link>
         {priceMarkup}
       </div>

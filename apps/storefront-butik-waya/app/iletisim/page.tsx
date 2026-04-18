@@ -54,13 +54,13 @@ export default async function ContactPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
               Iletisim
             </p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#222222] sm:text-5xl">
               {profile.name} ile baglanti kurun
             </h1>
-            <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
+            <p className="mt-5 text-base leading-8 text-[#222222]">
               {managedPage?.plainText ||
                 "Iletisim kartlari genel ayarlardan, govde icerigi ise admin panelindeki Iletisim sayfasindan yonetilir."}
             </p>
@@ -72,7 +72,7 @@ export default async function ContactPage() {
         {managedPage?.contentHtml ? (
           <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
             <div
-              className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
+              className="prose prose-neutral max-w-none text-[#222222] [&_a]:text-[#222222] [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#222222] [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#222222] [&_ol]:pl-6 [&_p]:text-[#222222] [&_ul]:pl-6"
               dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
             />
           </article>
@@ -90,13 +90,13 @@ export default async function ContactPage() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#222222]">
                   {card.title}
                 </p>
-                <p className="mt-3 text-base leading-7 text-[#221813]">{card.value}</p>
+                <p className="mt-3 text-base leading-7 text-[#222222]">{card.value}</p>
                 <a
                   href={card.href}
-                  className="mt-5 inline-flex items-center rounded-full border border-[#C7A985] px-4 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
+                  className="mt-5 inline-flex items-center rounded-full border border-[#C7A985] px-4 py-2 text-sm font-medium text-[#222222] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
                 >
                   {card.linkLabel}
                 </a>

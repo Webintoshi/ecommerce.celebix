@@ -130,8 +130,8 @@ export function Header() {
       }`}
     >
       <div className="container-premium">
-        <div className="grid h-[66px] grid-cols-[auto_1fr_auto] items-center gap-3 lg:h-[74px] lg:gap-6">
-          <div className="flex items-center gap-3">
+        <div className="grid h-[66px] grid-cols-[auto_1fr_auto] items-center gap-3 lg:h-[74px] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+          <div className="flex items-center gap-3 lg:hidden">
             <button
               className="-ml-2 rounded-full p-2 text-white lg:hidden"
               onClick={() => setIsMenuOpen((open) => !open)}
@@ -161,83 +161,106 @@ export function Header() {
             </Link>
           </div>
 
-            <nav className="hidden min-w-0 items-center justify-center gap-4 px-4 lg:flex xl:gap-6 xl:px-8">
-              {headerCategories.map((category) => {
-                const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+          <nav className="hidden min-w-0 items-center justify-start gap-4 pr-6 lg:flex xl:gap-6 xl:pr-8">
+            {headerCategories.map((category) => {
+              const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
-                if (category.children.length === 0) {
-                  return (
-                    <Link
-                      key={category.id}
-                      href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="group relative inline-flex shrink-0 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
-                    >
-                      {localizedCategoryName}
-                    </Link>
-                  );
-                }
-
+              if (category.children.length === 0) {
                 return (
-                  <div key={category.id} className="group relative shrink-0">
-                    <Link
-                      href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="relative inline-flex items-center gap-1 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
-                    >
-                      {localizedCategoryName}
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Link>
+                  <Link
+                    key={category.id}
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="group relative inline-flex shrink-0 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                  >
+                    {localizedCategoryName}
+                  </Link>
+                );
+              }
 
-                    <div className="pointer-events-none absolute left-1/2 top-full z-30 w-64 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                      <div className="rounded-[1.65rem] border border-[rgba(26,26,26,0.08)] bg-[#F5F5F5] p-3 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.4)]">
-                        <div className="space-y-1">
-                          {category.children.map((subcategory) => (
-                            <Link
-                              key={subcategory.id}
-                              href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                              className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#000000] transition-colors hover:bg-white hover:text-black"
-                            >
-                              {subcategory.name}
-                            </Link>
-                          ))}
-                        </div>
+              return (
+                <div key={category.id} className="group relative shrink-0">
+                  <Link
+                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    className="relative inline-flex items-center gap-1 whitespace-nowrap py-2 font-serif text-[0.96rem] font-semibold tracking-[0.015em] text-white/78 after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-white/90 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                  >
+                    {localizedCategoryName}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Link>
+
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-64 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                    <div className="rounded-[1.65rem] border border-[rgba(26,26,26,0.08)] bg-[#F5F5F5] p-3 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.4)]">
+                      <div className="space-y-1">
+                        {category.children.map((subcategory) => (
+                          <Link
+                            key={subcategory.id}
+                            href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                            className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#222222] transition-colors hover:bg-white hover:text-[#222222]"
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </nav>
+                </div>
+              );
+            })}
+          </nav>
 
-            <div className="flex items-center justify-end gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
-                aria-label={copy.searchLabel}
-                onClick={() => setIsSearchOpen(true)}
-              >
-                <Search className="h-4.5 w-4.5 text-white/82" />
-              </button>
+          <Link
+            href={buildLocalizedPath(ROUTES.home, locale)}
+            className="mx-auto hidden flex-shrink-0 lg:flex"
+            aria-label={logoAlt}
+          >
+            {logoSrc ? (
+              <div className="relative h-9 w-[128px]">
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  fill
+                  className="object-contain object-center"
+                  sizes="128px"
+                  unoptimized={usesProxiedLogo}
+                />
+              </div>
+            ) : (
+              <span className="font-serif text-[1.32rem] font-semibold tracking-[-0.04em] text-[#F5F5F5]">
+                {logoAlt}
+              </span>
+            )}
+          </Link>
 
-              <Link
-                href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
-                className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 sm:flex"
-              >
-                <User className="h-4.5 w-4.5 text-white/82" />
-              </Link>
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
+              aria-label={copy.searchLabel}
+              onClick={() => setIsSearchOpen(true)}
+            >
+              <Search className="h-4.5 w-4.5 text-white/82" />
+            </button>
 
-              <button
-                type="button"
-                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
-                aria-label={copy.cartLabel}
-                onClick={() => setIsCartOpen(true)}
-              >
-                <ShoppingBag className="h-4.5 w-4.5 text-white/82" />
-                {cartItemCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F5F5F5] text-[9px] text-[#000000]">
-                    {cartItemCount}
-                  </span>
-                ) : null}
-              </button>
-            </div>
+            <Link
+              href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 sm:flex"
+            >
+              <User className="h-4.5 w-4.5 text-white/82" />
+            </Link>
+
+            <button
+              type="button"
+              className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
+              aria-label={copy.cartLabel}
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingBag className="h-4.5 w-4.5 text-white/82" />
+              {cartItemCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F5F5F5] text-[9px] text-[#222222]">
+                  {cartItemCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
         </div>
       </div>
 

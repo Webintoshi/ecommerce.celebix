@@ -299,7 +299,7 @@ export function ProductDetailClient({
     if (Number(variant.stock) <= 5) {
       return { text: `Son ${variant.stock} adet`, color: "text-amber-700" };
     }
-    return { text: "Stokta", color: "text-[#171311]" };
+    return { text: "Stokta", color: "text-[#222222]" };
   };
 
   const stockStatus = getStockStatus();
@@ -364,7 +364,7 @@ export function ProductDetailClient({
           <div className="flex flex-wrap items-center gap-3 py-4 text-[11px] uppercase tracking-[0.18em] text-[#7A736D]">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="flex items-center gap-2 transition-colors hover:text-[#171311]"
+              className="flex items-center gap-2 transition-colors hover:text-[#222222]"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Ürünlere dön</span>
@@ -373,19 +373,19 @@ export function ProductDetailClient({
             <div className="ml-auto hidden items-center gap-2 text-[#9A928A] md:flex">
               <Link
                 href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-[#171311]"
+                className="transition-colors hover:text-[#222222]"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="h-4 w-4" />
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-[#171311]"
+                className="transition-colors hover:text-[#222222]"
               >
                 Ürünler
               </Link>
               <ChevronRight className="h-4 w-4" />
-              <span className="max-w-[180px] truncate text-[#171311]">{product.name}</span>
+              <span className="max-w-[180px] truncate text-[#222222]">{product.name}</span>
             </div>
           </div>
         </div>
@@ -411,12 +411,12 @@ export function ProductDetailClient({
                     </span>
                   ) : null}
                   {product.featured ? (
-                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#171311]">
+                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#222222]">
                       Öne çıkan
                     </span>
                   ) : null}
                   {product.new ? (
-                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-[#F1ECE7] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#171311]">
+                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-[#F1ECE7] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#222222]">
                       Yeni sezon
                     </span>
                   ) : null}
@@ -428,7 +428,7 @@ export function ProductDetailClient({
                 </div>
 
                 <div className="space-y-4">
-                  <h1 className="font-serif text-[2.7rem] leading-[0.94] tracking-[-0.055em] text-[#171311] sm:text-[3.05rem] lg:text-[4.35rem]">
+                  <h1 className="font-serif text-[2.7rem] leading-[0.94] tracking-[-0.055em] text-[#222222] sm:text-[3.05rem] lg:text-[4.35rem]">
                     {product.name}
                   </h1>
 
@@ -440,7 +440,7 @@ export function ProductDetailClient({
                             key={i}
                             className={`h-4 w-4 ${
                               i < Math.floor(product.rating || 0)
-                                ? "fill-[#171311] text-[#171311]"
+                                ? "fill-[#222222] text-[#222222]"
                                 : "fill-[#DED7D1] text-[#DED7D1]"
                             }`}
                           />
@@ -460,7 +460,7 @@ export function ProductDetailClient({
                         {formatPrice(displayOriginalPrice)}
                       </span>
                     ) : null}
-                    <span className="text-[2rem] leading-none tracking-[-0.04em] text-[#171311] lg:text-[2.45rem]">
+                    <span className="text-[2rem] leading-none tracking-[-0.04em] text-[#222222] lg:text-[2.45rem]">
                       {formatPrice(displayPrice)}
                     </span>
                   </div>
@@ -535,9 +535,9 @@ export function ProductDetailClient({
                         disabled={quantity <= 1}
                         className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-[#171311]" />
+                        <Minus className="h-4 w-4 stroke-[1.5] text-[#222222]" />
                       </button>
-                      <span className="w-10 text-center text-base font-medium text-[#171311]">
+                      <span className="w-10 text-center text-base font-medium text-[#222222]">
                         {quantity}
                       </span>
                       <button
@@ -545,7 +545,7 @@ export function ProductDetailClient({
                         disabled={quantity >= (variant.stock || 10)}
                         className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-[#171311]" />
+                        <Plus className="h-4 w-4 stroke-[1.5] text-[#222222]" />
                       </button>
                     </div>
 
@@ -569,7 +569,7 @@ export function ProductDetailClient({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={toggleWishlist}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#171311] transition-all hover:bg-white"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-all hover:bg-white"
                       >
                         <Heart
                           className={`h-4.5 w-4.5 stroke-[1.5] ${
@@ -579,7 +579,7 @@ export function ProductDetailClient({
                       </button>
                       <button
                         onClick={handleShare}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#171311] transition-colors hover:bg-white"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
                       >
                         <Share2 className="h-4.5 w-4.5 stroke-[1.5]" />
                       </button>
@@ -591,13 +591,13 @@ export function ProductDetailClient({
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Stok
                       </p>
-                      <p className="mt-2 text-sm text-[#171311]">{stockStatus.text}</p>
+                      <p className="mt-2 text-sm text-[#222222]">{stockStatus.text}</p>
                     </div>
                     <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Ürün kodu
                       </p>
-                      <p className="mt-2 text-sm text-[#171311]">
+                      <p className="mt-2 text-sm text-[#222222]">
                         {productCode || "Butik Waya seçkisi"}
                       </p>
                     </div>
@@ -605,7 +605,7 @@ export function ProductDetailClient({
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Yorumlar
                       </p>
-                      <p className="mt-2 text-sm text-[#171311]">
+                      <p className="mt-2 text-sm text-[#222222]">
                         {hasReviews
                           ? `${product.reviewCount || 0} değerlendirme`
                           : "İlk yorumu siz bırakın"}
@@ -629,7 +629,7 @@ export function ProductDetailClient({
                     <div key={item.id}>
                       <button
                         onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-[11px] font-medium uppercase tracking-[0.2em] text-[#171311]"
+                        className="flex w-full items-center justify-between py-4 text-[11px] font-medium uppercase tracking-[0.2em] text-[#222222]"
                       >
                         {item.label}
                         <ChevronDown
@@ -658,7 +658,7 @@ export function ProductDetailClient({
 
               {productCode ? (
                 <p className="text-[11px] uppercase tracking-[0.18em] text-[#9A928A]">
-                  Ürün kodu: <span className="font-mono text-[#171311]">{productCode}</span>
+                  Ürün kodu: <span className="font-mono text-[#222222]">{productCode}</span>
                 </p>
               ) : null}
             </div>
@@ -685,7 +685,7 @@ export function ProductDetailClient({
             <SectionHeading label="Benzer Ürünler" />
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-[#171311] transition-colors hover:text-[#5E5751] sm:flex"
+              className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-[#222222] transition-colors hover:text-[#222222] sm:flex"
             >
               Tümünü gör
               <ChevronRight className="h-5 w-5" />

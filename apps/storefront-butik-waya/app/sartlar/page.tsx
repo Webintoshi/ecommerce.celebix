@@ -48,13 +48,13 @@ export default async function TermsPage() {
     <div className="min-h-screen bg-[#F8F8F8]">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
             Hukuki Cerceve
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#222222] sm:text-5xl">
             Kullanim sartlari sade, acik ve operasyonla uyumlu
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#222222]">
             {profile.name} icin yayinlanan storefront, siparis ve destek akislarinin temel kosullarini
             bu sayfada toplar.
           </p>
@@ -73,8 +73,8 @@ export default async function TermsPage() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h2 className="mt-5 text-2xl font-semibold text-[#18110B]">{section.title}</h2>
-                <p className="mt-4 text-sm leading-7 text-[#5F5147]">{section.text}</p>
+                <h2 className="mt-5 text-2xl font-semibold text-[#222222]">{section.title}</h2>
+                <p className="mt-4 text-sm leading-7 text-[#222222]">{section.text}</p>
               </article>
             );
           })}

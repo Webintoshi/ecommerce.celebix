@@ -97,7 +97,7 @@ export function TestimonialsSection({
         <div className="mb-8">
           <SectionHeading label={heading} />
           {countLabel ? (
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6E6761] sm:text-base">{countLabel}</p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#222222] sm:text-base">{countLabel}</p>
           ) : null}
         </div>
 
@@ -112,7 +112,7 @@ export function TestimonialsSection({
                 <button
                   type="button"
                   onClick={prevSlide}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#000000] transition-colors hover:bg-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
                   aria-label="Önceki"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -120,7 +120,7 @@ export function TestimonialsSection({
                 <button
                   type="button"
                   onClick={nextSlide}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#000000] transition-colors hover:bg-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
                   aria-label="Sonraki"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -129,7 +129,7 @@ export function TestimonialsSection({
             ) : null}
           </div>
 
-          <blockquote className="mt-6 max-w-4xl font-serif text-[1.55rem] leading-[1.18] tracking-[-0.025em] text-[#1F1A18] sm:text-[1.8rem] lg:text-[2rem]">
+          <blockquote className="mt-6 max-w-4xl font-serif text-[1.55rem] leading-[1.18] tracking-[-0.025em] text-[#222222] sm:text-[1.8rem] lg:text-[2rem]">
             {activeTestimonial.text}
           </blockquote>
 
@@ -147,14 +147,14 @@ export function TestimonialsSection({
                     />
                   </div>
                 ) : (
-                  <span className="text-sm font-semibold tracking-[0.16em] text-[#8B8178]">
+                  <span className="text-sm font-semibold tracking-[0.16em] text-[#222222]">
                     {getInitials(activeTestimonial.name)}
                   </span>
                 )}
               </div>
 
               <div>
-                <h3 className="font-serif text-[1.45rem] leading-none tracking-[-0.03em] text-[#000000]">
+                <h3 className="font-serif text-[1.45rem] leading-none tracking-[-0.03em] text-[#222222]">
                   {activeTestimonial.name}
                 </h3>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -173,7 +173,7 @@ export function TestimonialsSection({
                   </div>
 
                   {activeTestimonial.verified ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#6E6761]">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#222222]">
                       <Check className="h-3.5 w-3.5" />
                       Doğrulanmış müşteri
                     </span>
@@ -194,8 +194,8 @@ export function TestimonialsSection({
                     className={cn(
                       "rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors",
                       isActive
-                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#000000]"
-                        : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#7E746B] hover:border-[rgba(26,26,26,0.16)] hover:text-[#000000]",
+                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#222222]"
+                        : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#222222] hover:border-[rgba(26,26,26,0.16)] hover:text-[#222222]",
                     )}
                   >
                     {review.name}

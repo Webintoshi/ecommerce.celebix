@@ -123,38 +123,38 @@ export function StoreLocationsSection({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.26em] text-[#6f6a65]">{card.badge}</p>
-                      <h3 className="mt-3 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1d1715]">
+                      <p className="text-[11px] uppercase tracking-[0.26em] text-[#222222]">{card.badge}</p>
+                      <h3 className="mt-3 font-serif text-3xl leading-none tracking-[-0.04em] text-[#222222]">
                         {card.name}
                       </h3>
                     </div>
                     <a
                       href={card.actionHref}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#1d1715] hover:border-[#000000] hover:text-[#000000]"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#222222] hover:border-[#222222] hover:text-[#222222]"
                     >
                       {card.icon}
                       <span>{card.actionLabel}</span>
                     </a>
                   </div>
 
-                  <p className="mt-4 text-sm leading-7 text-[#5f524a]">{card.summary}</p>
+                  <p className="mt-4 text-sm leading-7 text-[#222222]">{card.summary}</p>
 
-                  <div className="mt-5 space-y-3 text-sm text-[#5f524a]">
+                  <div className="mt-5 space-y-3 text-sm text-[#222222]">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.08)] bg-white px-3 py-2">
-                      <Clock3 className="size-4 text-[#6f6a65]" />
+                      <Clock3 className="size-4 text-[#222222]" />
                       <span>{card.hours}</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <MapPin className="mt-1 size-4 text-[#6f6a65]" />
+                      <MapPin className="mt-1 size-4 text-[#222222]" />
                       <p className="leading-6">{card.address}</p>
                     </div>
                     <div className="flex flex-wrap gap-5">
                       <span className="inline-flex items-center gap-2">
-                        <Phone className="size-4 text-[#6f6a65]" />
+                        <Phone className="size-4 text-[#222222]" />
                         {phone}
                       </span>
                       <span className="inline-flex items-center gap-2">
-                        <Mail className="size-4 text-[#6f6a65]" />
+                        <Mail className="size-4 text-[#222222]" />
                         {email}
                       </span>
                     </div>

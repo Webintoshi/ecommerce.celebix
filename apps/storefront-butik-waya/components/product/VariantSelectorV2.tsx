@@ -140,7 +140,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                           ? "border-[#171311] bg-[#171311] text-white"
                           : isOutOfStock
                             ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                            : "border-gray-300 bg-white text-[#171311] hover:border-[#171311]",
+                            : "border-gray-300 bg-white text-[#222222] hover:border-[#222222]",
                       )}
                     >
                       {isSelected ? <Check className="mr-1 inline h-4 w-4" /> : null}

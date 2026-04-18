@@ -73,10 +73,10 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
         onClick={() => setIsOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-3 py-1 text-left"
       >
-        <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">{title}</span>
+        <span className="text-[11px] uppercase tracking-[0.24em] text-[#222222]">{title}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-[#6d5b51] transition-transform duration-300",
+            "h-4 w-4 text-[#222222] transition-transform duration-300",
             isOpen && "rotate-180",
           )}
         />
@@ -101,11 +101,11 @@ function FilterOptionRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 text-sm text-[#201410]">
+    <label className="flex cursor-pointer items-center gap-3 text-sm text-[#222222]">
       <Checkbox
         checked={checked}
         onCheckedChange={(value) => onCheckedChange(Boolean(value))}
-        className="h-4 w-4 rounded-none border-[#cdbfb2] data-[state=checked]:border-[#201410] data-[state=checked]:bg-[#201410]"
+        className="h-4 w-4 rounded-none border-[#cdbfb2] data-[state=checked]:border-[#222222] data-[state=checked]:bg-[#222222]"
       />
       {colorCode ? (
         <span
@@ -115,7 +115,7 @@ function FilterOptionRow({
       ) : null}
       <span className="flex-1 truncate">{label}</span>
       {count > 0 ? (
-        <span className="text-xs tracking-[0.08em] text-[#8a7b71]">{count}</span>
+        <span className="text-xs tracking-[0.08em] text-[#222222]">{count}</span>
       ) : null}
     </label>
   );
@@ -260,7 +260,7 @@ export function ActiveFilters({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!minimalCopy ? (
-          <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+          <span className="text-[11px] uppercase tracking-[0.24em] text-[#222222]">
             Aktif filtreler
           </span>
         ) : (
@@ -269,7 +269,7 @@ export function ActiveFilters({
         <button
           type="button"
           onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
-          className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
+          className="text-xs uppercase tracking-[0.18em] text-[#222222] underline underline-offset-4"
         >
           Sifirla
         </button>
@@ -281,7 +281,7 @@ export function ActiveFilters({
             key={chip.key}
             type="button"
             onClick={chip.onRemove}
-            className="inline-flex items-center gap-1.5 py-1 text-[12px] uppercase tracking-[0.14em] text-[#201410] underline decoration-[rgba(32,20,16,0.22)] underline-offset-[0.4rem] transition-colors hover:text-[#6d5b51]"
+            className="inline-flex items-center gap-1.5 py-1 text-[12px] uppercase tracking-[0.14em] text-[#222222] underline decoration-[rgba(34,34,34,0.22)] underline-offset-[0.4rem] transition-colors hover:text-[#222222]"
           >
             <span>{chip.label}</span>
             <X className="h-3.5 w-3.5" />
@@ -340,7 +340,7 @@ export function FilterSidebar({
           <button
             type="button"
             onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
-            className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
+            className="text-xs uppercase tracking-[0.18em] text-[#222222] underline underline-offset-4"
           >
             Temizle
           </button>

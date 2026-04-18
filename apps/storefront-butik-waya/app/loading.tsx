@@ -7,13 +7,13 @@ export default function Loading() {
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#7B1113]/8">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#7B1113]/20 border-t-[#7B1113]" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#222222]">
           Premium Storefront
         </p>
-        <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#18110B]">
+        <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#222222]">
           {STOREFRONT_RUNTIME.name}
         </h2>
-        <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
+        <p className="mt-3 text-sm leading-7 text-[#222222]">
           Sayfa hazirlaniyor. Admin panelinden gelen icerikler ve vitrin bloklari yukleniyor.
         </p>
       </div>

@@ -43,13 +43,13 @@ export default async function ShippingPage() {
     <div className="min-h-screen bg-[#F8F8F8]">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
             Lojistik Akisi
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#222222] sm:text-5xl">
             Kargo ve teslimat sureci net, premium ve guvenli
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#222222]">
             {profile.name} siparislerinde teslimat akislarini, iletisim noktasini ve operasyon
             guvencelerini bu sayfadan yonetebilirsiniz.
           </p>
@@ -68,8 +68,8 @@ export default async function ShippingPage() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h2 className="mt-5 text-2xl font-semibold text-[#18110B]">{card.title}</h2>
-                <p className="mt-4 text-sm leading-7 text-[#5F5147]">{card.text}</p>
+                <h2 className="mt-5 text-2xl font-semibold text-[#222222]">{card.title}</h2>
+                <p className="mt-4 text-sm leading-7 text-[#222222]">{card.text}</p>
               </article>
             );
           })}
@@ -77,10 +77,10 @@ export default async function ShippingPage() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <article className="rounded-[32px] border border-black/5 bg-[#FBF8F4] p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.35)]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#222222]">
               Operasyon Notlari
             </p>
-            <ul className="mt-4 space-y-4 text-sm leading-7 text-[#5F5147]">
+            <ul className="mt-4 space-y-4 text-sm leading-7 text-[#222222]">
               <li>Siparis onayi alinan urunler operasyon durumuna gore hazirlanir ve sevk edilir.</li>
               <li>Teslimat hizi; lokasyon, kargo firmasi yogunlugu ve resmi tatil takvimine bagli olarak degisebilir.</li>
               <li>Adres eksikligi veya teslimat istisnalarinda musteriyle dogrudan baglanti kurulur.</li>

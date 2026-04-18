@@ -458,28 +458,7 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <section className="border-b border-[rgba(32,20,16,0.08)] bg-transparent">
-        <div className="container-premium py-8 md:py-10">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Koleksiyon</p>
-              <h1 className="mt-4 font-serif text-5xl leading-[0.9] tracking-[-0.06em] text-[#201410] sm:text-6xl">
-                {category.name}
-              </h1>
-              {category.description ? (
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6d5b51] md:text-base">
-                  {category.description}
-                </p>
-              ) : null}
-            </div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6d5b51]">
-              {products.length} urun
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <main className="container-premium py-10 md:py-12">
+      <main className="container-premium py-8 md:py-10">
         <CollectionProductsClient products={products} />
       </main>
 

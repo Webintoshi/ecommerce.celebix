@@ -278,7 +278,7 @@ export function ProductReviewsSection({
                 key={value}
                 className={`h-4 w-4 ${
                   value <= Math.round(summary.rating)
-                    ? "fill-[#171311] text-[#171311]"
+                    ? "fill-[#222222] text-[#222222]"
                     : "fill-neutral-200 text-neutral-200"
                 }`}
               />
@@ -319,7 +319,7 @@ export function ProductReviewsSection({
                         key={value}
                         className={`h-4 w-4 ${
                           value <= review.rating
-                            ? "fill-[#171311] text-[#171311]"
+                            ? "fill-[#222222] text-[#222222]"
                             : "fill-neutral-200 text-neutral-200"
                         }`}
                       />
@@ -393,7 +393,7 @@ export function ProductReviewsSection({
                   >
                     <Star
                       className={`h-6 w-6 ${
-                        value <= rating ? "fill-[#171311] text-[#171311]" : "fill-neutral-200 text-neutral-200"
+                        value <= rating ? "fill-[#222222] text-[#222222]" : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
                   </button>
