@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath } from "@/lib/i18n";
@@ -43,7 +43,7 @@ function ProductCardSwatches({ product }: { product: Product }) {
   }
 
   return (
-    <div className="mt-4 flex items-center gap-2">
+    <div className="mt-3 flex items-center gap-2">
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
@@ -78,7 +78,7 @@ function ProductCardRating({ product }: { product: Product }) {
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-4 flex items-center gap-1 text-[#7D756D]">
+    <div className="mt-3 flex items-center gap-1 text-[#7D756D]">
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={`${product.id}-rating-${index}`}
@@ -87,7 +87,7 @@ function ProductCardRating({ product }: { product: Product }) {
           }`}
         />
       ))}
-      <span className="ml-1 text-[11px] uppercase tracking-[0.18em] text-[#7A736D]">
+      <span className="ml-1 text-[10px] tracking-[0.12em] text-[#8A827B]">
         {product.reviewCount || 0} yorum
       </span>
     </div>
@@ -110,13 +110,12 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       ? displayVariant.originalPrice
       : undefined;
   const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
-  const productLabel = product.category || product.subcategory || "Secili urun";
 
   if (viewMode === "list") {
     return (
       <Link href={productHref} className="group block">
-        <div className="grid gap-5 rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[rgba(255,255,255,0.9)] p-4 shadow-[0_24px_70px_-54px_rgba(0,0,0,0.26)] sm:grid-cols-[200px_1fr] sm:p-5">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-[1.55rem] bg-[#ECE8E3]">
+        <div className="grid gap-5 sm:grid-cols-[200px_1fr] sm:items-start">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-[1.65rem] bg-[#ECE8E3]">
             {primaryImage ? (
               <>
                 <Image
@@ -145,42 +144,28 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
 
-          <div className="flex flex-1 flex-col justify-between">
+          <div className="flex flex-1 flex-col justify-between py-2">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">{productLabel}</p>
-              <h3 className="mt-3 font-serif text-[2.2rem] leading-[0.92] tracking-[-0.045em] text-[#000000]">
+              <h3 className="max-w-[18ch] font-serif text-[1.55rem] leading-[1.04] tracking-[-0.035em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.85rem]">
                 {product.name}
               </h3>
-              {product.shortDescription ? (
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-[#655E58] line-clamp-2">
-                  {product.shortDescription}
-                </p>
+
+              {typeof displayPrice === "number" ? (
+                <div className="mt-3 flex items-baseline gap-3">
+                  <span className="text-[1.05rem] font-semibold tracking-[-0.01em] text-[#171311]">
+                    {formatPrice(displayPrice)}
+                  </span>
+                  {originalPrice ? (
+                    <span className="text-sm text-[#9A928A] line-through">
+                      {formatPrice(originalPrice)}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
+
               <ProductCardRating product={product} />
               <ProductCardSwatches product={product} />
             </div>
-
-            {typeof displayPrice === "number" ? (
-              <div className="mt-6 flex items-end justify-between gap-4 border-t border-[rgba(26,26,26,0.08)] pt-5">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">Fiyat</span>
-                  <div className="mt-2 flex items-baseline gap-3">
-                    <span className="text-[1.15rem] font-semibold text-[#000000]">
-                      {formatPrice(displayPrice)}
-                    </span>
-                    {originalPrice ? (
-                      <span className="text-sm text-[#9A928A] line-through">
-                        {formatPrice(originalPrice)}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#6B645E]">
-                  Urunu incele
-                  <ArrowUpRight className="h-4 w-4" />
-                </span>
-              </div>
-            ) : null}
           </div>
         </div>
       </Link>
@@ -189,8 +174,8 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
   return (
     <Link href={productHref} className="group block">
-      <article className="h-full overflow-hidden rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[rgba(255,255,255,0.92)] shadow-[0_26px_70px_-54px_rgba(0,0,0,0.24)]">
-        <div className="relative aspect-[4/5] overflow-hidden bg-[#ECE8E3]">
+      <article className="h-full">
+        <div className="relative aspect-[4/5] overflow-hidden rounded-[1.85rem] bg-[#ECE8E3]">
           {primaryImage ? (
             <>
               <Image
@@ -221,57 +206,26 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           )}
         </div>
 
-        <div className="flex h-full flex-col p-5 sm:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
-              {productLabel}
-            </span>
-            {product.new ? (
-              <span className="rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#000000]">
-                Yeni sezon
-              </span>
-            ) : null}
-            {originalPrice ? (
-              <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#6B645E]">
-                Fiyat avantaji
-              </span>
-            ) : null}
-          </div>
-
-          <h3 className="mt-4 font-serif text-[2rem] leading-[0.92] tracking-[-0.045em] text-[#000000]">
+        <div className="pt-4">
+          <h3 className="max-w-[18ch] font-serif text-[1.15rem] leading-[1.08] tracking-[-0.028em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.28rem]">
             {product.name}
           </h3>
 
-          {product.shortDescription ? (
-            <p className="mt-3 line-clamp-2 text-sm leading-7 text-[#655E58]">
-              {product.shortDescription}
-            </p>
+          {typeof displayPrice === "number" ? (
+            <div className="mt-2.5 flex items-baseline gap-2.5">
+              <span className="text-[0.98rem] font-semibold tracking-[-0.01em] text-[#171311]">
+                {formatPrice(displayPrice)}
+              </span>
+              {originalPrice ? (
+                <span className="text-sm text-[#9A928A] line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+            </div>
           ) : null}
 
           <ProductCardRating product={product} />
           <ProductCardSwatches product={product} />
-
-          {typeof displayPrice === "number" ? (
-            <div className="mt-6 flex items-end justify-between gap-4 border-t border-[rgba(26,26,26,0.08)] pt-5">
-              <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">Fiyat</span>
-                <div className="mt-2 flex items-baseline gap-3">
-                  <span className="text-[1.15rem] font-semibold text-[#000000]">
-                    {formatPrice(displayPrice)}
-                  </span>
-                  {originalPrice ? (
-                    <span className="text-sm text-[#9A928A] line-through">
-                      {formatPrice(originalPrice)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#6B645E] transition-transform duration-300 group-hover:translate-x-1">
-                Urunu incele
-                <ArrowUpRight className="h-4 w-4" />
-              </span>
-            </div>
-          ) : null}
         </div>
       </article>
     </Link>
