@@ -23,7 +23,6 @@ import {
 } from "./FilterSidebar";
 import { FilterDrawer } from "./FilterDrawer";
 
-type ListingSortValue = "" | "price-asc" | "price-desc" | "name-asc";
 type ChipMode = "categories" | "subcategories";
 
 interface ProductListingExperienceProps {
@@ -174,21 +173,6 @@ function buildListingMetadata(products: Product[]): ListingFilterMetadata {
   };
 }
 
-function sortProducts(products: Product[], sortBy: ListingSortValue) {
-  const nextProducts = [...products];
-
-  switch (sortBy) {
-    case "price-asc":
-      return nextProducts.sort((left, right) => getProductPrice(left) - getProductPrice(right));
-    case "price-desc":
-      return nextProducts.sort((left, right) => getProductPrice(right) - getProductPrice(left));
-    case "name-asc":
-      return nextProducts.sort((left, right) => left.name.localeCompare(right.name, "tr"));
-    default:
-      return products;
-  }
-}
-
 function getTopChipFacet(metadata: ListingFilterMetadata, chipMode: ChipMode) {
   if (chipMode === "subcategories" && metadata.subcategories) {
     return metadata.subcategories;
@@ -209,7 +193,6 @@ export function ProductListingExperience({
   minimalCopy = false,
 }: ProductListingExperienceProps) {
   const { locale } = useStorefrontRoute();
-  const [sortBy, setSortBy] = React.useState<ListingSortValue>("");
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [displayCount, setDisplayCount] = React.useState(ITEMS_PER_LOAD);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -292,15 +275,11 @@ export function ProductListingExperience({
     });
   }, [filters, products]);
 
-  const sortedProducts = React.useMemo(
-    () => sortProducts(filteredProducts, sortBy),
-    [filteredProducts, sortBy],
-  );
   const visibleProducts = React.useMemo(
-    () => sortedProducts.slice(0, displayCount),
-    [displayCount, sortedProducts],
+    () => filteredProducts.slice(0, displayCount),
+    [displayCount, filteredProducts],
   );
-  const hasMore = displayCount < sortedProducts.length;
+  const hasMore = displayCount < filteredProducts.length;
   const activeFilterCount = React.useMemo(
     () => getActiveFilterCount(filters, metadata),
     [filters, metadata],
@@ -313,7 +292,7 @@ export function ProductListingExperience({
 
   React.useEffect(() => {
     setDisplayCount(ITEMS_PER_LOAD);
-  }, [filters, sortBy, products]);
+  }, [filters, products]);
 
   React.useEffect(() => {
     if (!loadMoreRef.current) {
@@ -325,7 +304,7 @@ export function ProductListingExperience({
         if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
           setIsLoadingMore(true);
           window.setTimeout(() => {
-            setDisplayCount((value) => Math.min(value + ITEMS_PER_LOAD, sortedProducts.length));
+            setDisplayCount((value) => Math.min(value + ITEMS_PER_LOAD, filteredProducts.length));
             setIsLoadingMore(false);
           }, 260);
         }
@@ -335,7 +314,7 @@ export function ProductListingExperience({
 
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, sortedProducts.length]);
+  }, [filteredProducts.length, hasMore, isLoadingMore]);
 
   return (
     <div className="space-y-6">
