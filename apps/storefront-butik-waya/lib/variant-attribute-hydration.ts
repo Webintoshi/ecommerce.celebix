@@ -1,5 +1,6 @@
 import { getSetting } from "@/lib/db/settings";
 import { createServerClient } from "@/lib/supabase";
+import { normalizeVariantAttributeEntries } from "@/lib/variant-selection";
 import { createClient } from "@supabase/supabase-js";
 
 type JsonObject = Record<string, unknown>;
@@ -8,8 +9,8 @@ type HydratableVariant = {
   name?: string | null;
   group_name?: string | null;
   groupName?: string | null;
-  attributes?: unknown[];
-  raw_attributes?: unknown[];
+  attributes?: unknown;
+  raw_attributes?: unknown;
 };
 
 type RegistryValue = {
@@ -334,13 +335,19 @@ export async function getVariantAttributeRegistry(): Promise<RegistryAttribute[]
   return privilegedRegistry ?? [];
 }
 
-export function hydrateVariantAttributes(rawAttributes: unknown[], registry: RegistryAttribute[]): JsonObject[] {
-  if (!Array.isArray(rawAttributes) || rawAttributes.length === 0 || registry.length === 0) {
+export function hydrateVariantAttributes(rawAttributes: unknown, registry: RegistryAttribute[]): JsonObject[] {
+  const normalizedAttributes = normalizeVariantAttributeEntries(rawAttributes) as JsonObject[];
+
+  if (normalizedAttributes.length === 0) {
     return [];
   }
 
+  if (registry.length === 0) {
+    return dedupeAttributes(normalizedAttributes);
+  }
+
   const indexes = createRegistryIndexes(registry);
-  const hydrated = rawAttributes
+  const hydrated = normalizedAttributes
     .map((attribute) => {
       const entry = attribute && typeof attribute === "object" ? (attribute as JsonObject) : null;
       if (!entry) {
@@ -409,11 +416,11 @@ export function hydrateProductVariantSnapshots<T extends HydratableVariant>(
   }
 
   return variants.map((variant) => {
-    const rawAttributes = Array.isArray(variant.raw_attributes)
-      ? variant.raw_attributes
-      : Array.isArray(variant.attributes)
-        ? variant.attributes
-        : [];
+    const directRawAttributes = normalizeVariantAttributeEntries(variant.raw_attributes);
+    const rawAttributes =
+      directRawAttributes.length > 0
+        ? directRawAttributes
+        : normalizeVariantAttributeEntries(variant.attributes);
 
     let attributes = hydrateVariantAttributes(rawAttributes, registry);
 

@@ -1,7 +1,7 @@
 type VariantRecord = {
   stock?: number | null;
-  attributes?: Array<Record<string, unknown>>;
-  raw_attributes?: Array<Record<string, unknown>>;
+  attributes?: unknown;
+  raw_attributes?: unknown;
 };
 
 export type OrderedVariantAttributeValue = {
@@ -81,30 +81,117 @@ function hasDisplayableValue(attribute: Record<string, unknown>) {
   return Boolean(toOptionalString(attribute.value));
 }
 
-function getVariantAttributes(variant: VariantRecord) {
-  if (Array.isArray(variant.attributes)) {
-    const normalizedAttributes = variant.attributes.filter(
-      (attribute): attribute is Record<string, unknown> =>
-        Boolean(attribute) &&
-        typeof attribute === "object" &&
-        hasDisplayableValue(attribute as Record<string, unknown>),
-    );
+function normalizeAttributeRecord(
+  attribute: Record<string, unknown>,
+  fallbackKey?: string,
+): Record<string, unknown> | null {
+  const nestedAttribute =
+    attribute.attribute && typeof attribute.attribute === "object"
+      ? (attribute.attribute as Record<string, unknown>)
+      : null;
+  const name =
+    toOptionalString(attribute.attributeName) ||
+    toOptionalString(attribute.attribute_name) ||
+    toOptionalString(attribute.name) ||
+    toOptionalString(attribute.key) ||
+    toOptionalString(attribute.code) ||
+    toOptionalString(attribute.linked_to) ||
+    toOptionalString(nestedAttribute?.name) ||
+    fallbackKey ||
+    "Seçenek";
+  const value =
+    toOptionalString(attribute.value) ||
+    toOptionalString(attribute.label) ||
+    toOptionalString(attribute.displayValue) ||
+    toOptionalString(attribute.text);
 
-    if (normalizedAttributes.length > 0) {
-      return normalizedAttributes;
-    }
+  if (!value) {
+    return null;
   }
 
-  if (Array.isArray(variant.raw_attributes)) {
-    return variant.raw_attributes.filter(
-      (attribute): attribute is Record<string, unknown> =>
-        Boolean(attribute) &&
-        typeof attribute === "object" &&
-        hasDisplayableValue(attribute as Record<string, unknown>),
-    );
+  const attributeId =
+    toOptionalString(attribute.attributeId) ||
+    toOptionalString(attribute.attribute_id) ||
+    toOptionalString(nestedAttribute?.id) ||
+    name;
+  const valueId =
+    toOptionalString(attribute.valueId) ||
+    toOptionalString(attribute.attribute_value_id) ||
+    toOptionalString(attribute.id) ||
+    `${attributeId}-${value}`;
+  const colorCode =
+    toOptionalString(attribute.color_code) || toOptionalString(attribute.colorCode);
+  const imageUrl =
+    toOptionalString(attribute.image_url) || toOptionalString(attribute.imageUrl);
+
+  return {
+    ...attribute,
+    id: valueId,
+    valueId: valueId,
+    attribute_value_id: valueId,
+    attributeId,
+    attribute_id: attributeId,
+    attributeName: name,
+    attribute_name: name,
+    name,
+    linked_to: toOptionalString(attribute.linked_to) || name,
+    value,
+    color_code: colorCode,
+    colorCode,
+    image_url: imageUrl,
+    imageUrl,
+    attribute:
+      nestedAttribute || {
+        id: attributeId,
+        name,
+      },
+  };
+}
+
+export function normalizeVariantAttributeEntries(attributes: unknown): Record<string, unknown>[] {
+  if (Array.isArray(attributes)) {
+    return attributes
+      .map((attribute) => {
+        if (!attribute || typeof attribute !== "object") {
+          return null;
+        }
+
+        return normalizeAttributeRecord(attribute as Record<string, unknown>);
+      })
+      .filter((attribute): attribute is Record<string, unknown> => Boolean(attribute));
+  }
+
+  if (attributes && typeof attributes === "object") {
+    return Object.entries(attributes as Record<string, unknown>)
+      .map(([key, value]) => {
+        const normalizedValue = toOptionalString(value);
+        if (!normalizedValue) {
+          return null;
+        }
+
+        return normalizeAttributeRecord(
+          {
+            key,
+            name: key,
+            attributeName: key,
+            value: normalizedValue,
+          },
+          key,
+        );
+      })
+      .filter((attribute): attribute is Record<string, unknown> => Boolean(attribute));
   }
 
   return [];
+}
+
+function getVariantAttributes(variant: VariantRecord) {
+  const normalizedAttributes = normalizeVariantAttributeEntries(variant.attributes);
+  if (normalizedAttributes.length > 0) {
+    return normalizedAttributes.filter(hasDisplayableValue);
+  }
+
+  return normalizeVariantAttributeEntries(variant.raw_attributes).filter(hasDisplayableValue);
 }
 
 export function getOrderedVariantAttributeGroups(

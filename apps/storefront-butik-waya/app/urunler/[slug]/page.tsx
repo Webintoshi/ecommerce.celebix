@@ -4,7 +4,10 @@ import { ProductDetailClient } from "@/components/product/ProductDetailClient";
 import { getProductBySlug } from "@/lib/products";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
-import { findPreferredVariantIndex } from "@/lib/variant-selection";
+import {
+  findPreferredVariantIndex,
+  normalizeVariantAttributeEntries,
+} from "@/lib/variant-selection";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { getRequestLocale } from "@/lib/request-locale";
@@ -36,19 +39,6 @@ function toOptionalString(value: unknown): string | null {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function hasDisplayableAttributeEntries(attributes: unknown): attributes is Record<string, unknown>[] {
-  return (
-    Array.isArray(attributes) &&
-    attributes.some((attribute) => {
-      if (!attribute || typeof attribute !== "object") {
-        return false;
-      }
-
-      return Boolean(toOptionalString((attribute as Record<string, unknown>).value));
-    })
-  );
 }
 
 function getLinkedVariantAttributes(linkedAttributes: unknown): Record<string, unknown>[] {
@@ -90,20 +80,19 @@ function getLinkedVariantAttributes(linkedAttributes: unknown): Record<string, u
 }
 
 function getVariantAttributeSource(variant: Record<string, unknown>): Record<string, unknown>[] {
-  if (hasDisplayableAttributeEntries(variant.raw_attributes)) {
-    return variant.raw_attributes;
+  const rawAttributes = normalizeVariantAttributeEntries(variant.raw_attributes);
+  if (rawAttributes.length > 0) {
+    return rawAttributes;
   }
 
-  const linkedAttributes = getLinkedVariantAttributes(variant.linked_attributes);
+  const linkedAttributes = normalizeVariantAttributeEntries(
+    getLinkedVariantAttributes(variant.linked_attributes),
+  );
   if (linkedAttributes.length > 0) {
     return linkedAttributes;
   }
 
-  if (hasDisplayableAttributeEntries(variant.attributes)) {
-    return variant.attributes;
-  }
-
-  return [];
+  return normalizeVariantAttributeEntries(variant.attributes);
 }
 
 async function fetchProductVariants(supabase: any, productId: string) {

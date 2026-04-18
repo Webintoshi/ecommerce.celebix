@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
-import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
+import {
+  getOrderedVariantAttributeGroups,
+  normalizeVariantAttributeEntries,
+} from "@/lib/variant-selection";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -21,29 +24,13 @@ function getAttributeId(attribute: any) {
 }
 
 function getVariantAttributes(variant: any) {
-  const directAttributes = Array.isArray(variant?.attributes)
-    ? variant.attributes.filter(
-        (attribute: any) =>
-          attribute &&
-          typeof attribute === "object" &&
-          typeof attribute.value === "string" &&
-          attribute.value.trim().length > 0,
-      )
-    : [];
+  const directAttributes = normalizeVariantAttributeEntries(variant?.attributes);
 
   if (directAttributes.length > 0) {
     return directAttributes;
   }
 
-  return Array.isArray(variant?.raw_attributes)
-    ? variant.raw_attributes.filter(
-        (attribute: any) =>
-          attribute &&
-          typeof attribute === "object" &&
-          typeof attribute.value === "string" &&
-          attribute.value.trim().length > 0,
-      )
-    : [];
+  return normalizeVariantAttributeEntries(variant?.raw_attributes);
 }
 
 function hasStock(variant: any) {
