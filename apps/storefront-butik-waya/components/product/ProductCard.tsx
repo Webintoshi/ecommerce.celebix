@@ -74,10 +74,10 @@ export function ProductCard({
   };
 
   const titleClassName = cn(
-    "line-clamp-2 text-[#171311] transition-colors duration-300 group-hover:text-[#4a403a]",
-    "text-[14px] font-medium uppercase leading-[1.45] tracking-[0.12em]",
-    isFeatured && "text-[14px] tracking-[0.14em]",
-    viewMode === "list" && "max-w-[30ch]",
+    "text-[#171311] transition-colors duration-300 group-hover:text-[#4a403a]",
+    "text-[14px] font-normal leading-[1.35] tracking-[-0.01em]",
+    viewMode === "list" ? "line-clamp-2 max-w-[32ch]" : "truncate",
+    isFeatured && "text-[14px]",
   );
 
   const priceMarkup =
@@ -85,14 +85,14 @@ export function ProductCard({
       <div className="shrink-0 text-right">
         <div
           className={cn(
-            "text-[12px] font-medium leading-none tracking-[0.08em] text-[#171311] sm:text-[13px]",
-            isFeatured && "sm:text-[14px]",
+            "text-[14px] font-normal leading-none tracking-[-0.01em] text-[#171311] tabular-nums",
+            isFeatured && "text-[14px]",
           )}
         >
           {formatPrice(displayPrice)}
         </div>
         {originalPrice ? (
-          <div className="mt-1 text-[10px] leading-none tracking-[0.08em] text-[#9e9087] line-through">
+          <div className="mt-1 text-[11px] leading-none tracking-[-0.01em] text-[#9e9087] line-through tabular-nums">
             {formatPrice(originalPrice)}
           </div>
         ) : null}
@@ -104,7 +104,7 @@ export function ProductCard({
       type="button"
       onClick={handleWishlistToggle}
       aria-label={isWishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
-      className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-[rgba(251,248,244,0.86)] text-[#171311] shadow-[0_10px_30px_-18px_rgba(23,19,17,0.7)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
+      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[rgba(255,255,255,0.88)] text-[#171311] shadow-[0_10px_24px_-18px_rgba(23,19,17,0.5)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
     >
       <Heart
         className={cn(
@@ -199,7 +199,7 @@ export function ProductCard({
     <article className="group flex h-full flex-col">
       {imageMarkup}
 
-      <div className="flex flex-1 items-end justify-between gap-4 pt-4">
+      <div className="flex flex-1 items-start justify-between gap-4 pt-3">
         <Link href={productHref} className="min-w-0 flex-1">
           <h3 className={titleClassName}>{product.name}</h3>
         </Link>
