@@ -9,10 +9,16 @@ import {
     deleteOrder,
     getOrderStats
 } from "@/lib/db/orders";
+import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 
 // GET /api/orders - Get orders or order stats
 export async function GET(request: NextRequest) {
     try {
+        const { response } = await requireAdminApiAuth();
+        if (response) {
+            return response;
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         const orderNumber = searchParams.get("orderNumber");
@@ -84,6 +90,11 @@ export async function POST(request: NextRequest) {
 // PATCH /api/orders - Update order status
 export async function PATCH(request: NextRequest) {
     try {
+        const { response } = await requireAdminApiAuth();
+        if (response) {
+            return response;
+        }
+
         const body = await request.json();
         const { id, status, paymentStatus } = body;
 
@@ -115,6 +126,11 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/orders - Delete an order
 export async function DELETE(request: NextRequest) {
     try {
+        const { response } = await requireAdminApiAuth();
+        if (response) {
+            return response;
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
 

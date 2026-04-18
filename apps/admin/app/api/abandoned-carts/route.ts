@@ -7,6 +7,7 @@ import {
   syncAbandonedCartStatuses,
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
+import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 
 function getDb() {
   return createServerClient();
@@ -50,6 +51,11 @@ function applyFilters(
 
 export async function GET(request: NextRequest) {
   try {
+    const { response } = await requireAdminApiAuth();
+    if (response) {
+      return response;
+    }
+
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -134,6 +140,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const { response } = await requireAdminApiAuth();
+    if (response) {
+      return response;
+    }
+
     const supabase = getDb();
     const body = await request.json();
     const { id, session_id, customer_id, email, status, recovered } = body;
@@ -239,6 +250,13 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const sessionId = searchParams.get("session_id");
+
+    if (id) {
+      const { response } = await requireAdminApiAuth();
+      if (response) {
+        return response;
+      }
+    }
 
     if (!id && !sessionId) {
       return NextResponse.json({ error: "Cart lookup required" }, { status: 400 });

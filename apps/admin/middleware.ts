@@ -49,6 +49,28 @@ function isProtectedApi(request: NextRequest) {
     return pathname !== "/api/customers/create-from-auth";
   }
 
+  if (pathname === "/api/orders") {
+    return request.method !== "POST";
+  }
+
+  if (pathname === "/api/abandoned-carts") {
+    if (request.method === "GET" || request.method === "PATCH") {
+      return true;
+    }
+
+    if (request.method === "DELETE") {
+      return request.nextUrl.searchParams.has("id");
+    }
+  }
+
+  if (pathname === "/api/lucky-wheel/admin") {
+    return true;
+  }
+
+  if (pathname === "/api/migrate") {
+    return true;
+  }
+
   if (pathname === "/api/products" || pathname === "/api/categories") {
     return request.method !== "GET";
   }
