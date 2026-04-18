@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next dev --port 3400",
     "build": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next build",
-    "start": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 next start --port 3400",
+    "start": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=1 node ./scripts/start.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
