@@ -63,11 +63,7 @@ export function TestimonialsSection({
   const testimonials = useMemo(() => normalizeTestimonials(items), [items]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-
   const activeTestimonial = testimonials[currentIndex] || testimonials[0];
-  const slideLabel = `${String(currentIndex + 1).padStart(2, "0")} / ${String(
-    testimonials.length,
-  ).padStart(2, "0")}`;
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % testimonials.length);
@@ -95,72 +91,85 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="py-20 lg:py-28">
+    <section className="py-16 lg:py-20">
       <div className="container-premium">
-        <div className="mb-12 grid gap-6 lg:grid-cols-[0.8fr_1fr] lg:items-end">
+        <div className="mb-8 grid gap-5 lg:grid-cols-[0.85fr_1fr] lg:items-end">
           <div>
-            <p className="editorial-kicker">Women of Waya</p>
-            <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1A1A1A] sm:text-5xl">
+            <p className="editorial-kicker">Musteri notlari</p>
+            <h2 className="mt-4 font-serif text-3xl leading-[0.96] tracking-[-0.04em] text-[#1A1A1A] sm:text-4xl lg:text-[3.1rem]">
               {heading}
             </h2>
           </div>
-          <p className="max-w-2xl text-sm leading-8 text-[#6E6761] sm:text-base">{countLabel}</p>
+          <p className="max-w-2xl text-sm leading-7 text-[#6E6761] sm:text-base">{countLabel}</p>
         </div>
 
         <div
-          className="relative overflow-hidden rounded-[2.75rem] border border-[rgba(26,26,26,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(245,239,234,0.96))] p-6 shadow-[0_30px_90px_-64px_rgba(0,0,0,0.18)] sm:p-8 lg:p-10"
+          className="mx-auto max-w-5xl rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(246,240,235,0.9))] p-6 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.18)] sm:p-8"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <div className="absolute -left-10 top-8 h-40 w-40 rounded-full bg-[#EEE1D7]/70 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-[#F7F0EA]/90 blur-3xl" />
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8B8178]">
+              Nazik geri bildirimler
+            </p>
 
-          <div className="relative grid gap-8 lg:grid-cols-[0.42fr_0.58fr] lg:gap-12">
-            <div className="space-y-5">
-              <div className="relative overflow-hidden rounded-[2.35rem] bg-[#EFE5DD]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.42),transparent_56%)]" />
-                <div className="relative aspect-[4/5]">
-                  {activeTestimonial.image ? (
+            {testimonials.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={prevSlide}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#1A1A1A] transition-colors hover:bg-white"
+                  aria-label="Onceki"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={nextSlide}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#1A1A1A] transition-colors hover:bg-white"
+                  aria-label="Sonraki"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <blockquote className="mt-6 max-w-4xl font-serif text-[1.55rem] leading-[1.18] tracking-[-0.025em] text-[#1F1A18] sm:text-[1.8rem] lg:text-[2rem]">
+            {activeTestimonial.text}
+          </blockquote>
+
+          <div className="mt-8 flex flex-col gap-5 border-t border-[rgba(26,26,26,0.08)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EFE5DD]">
+                {activeTestimonial.image ? (
+                  <div className="relative h-full w-full">
                     <Image
                       src={activeTestimonial.image}
                       alt={activeTestimonial.name}
                       fill
                       className="object-cover"
-                      sizes="(max-width: 1024px) 100vw, 34vw"
+                      sizes="56px"
                     />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(180deg,#F4ECE5,#E7DBD1)]">
-                      <span className="font-serif text-[3.4rem] tracking-[0.12em] text-[#9C8D82]">
-                        {getInitials(activeTestimonial.name)}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <span className="text-sm font-semibold tracking-[0.16em] text-[#8B8178]">
+                    {getInitials(activeTestimonial.name)}
+                  </span>
+                )}
               </div>
 
-              <div className="rounded-[1.9rem] border border-[rgba(26,26,26,0.08)] bg-white/76 p-5">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-[#8B8178]">
-                  Yorum sahibi
-                </p>
-                <div className="mt-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-serif text-[2rem] leading-[0.94] tracking-[-0.04em] text-[#1A1A1A]">
-                      {activeTestimonial.name}
-                    </h3>
-                    {activeTestimonial.verified ? (
-                      <p className="mt-3 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#6E6761]">
-                        <Check className="h-3.5 w-3.5" />
-                        Dogrulanmis musteri
-                      </p>
-                    ) : null}
-                  </div>
-
+              <div>
+                <h3 className="font-serif text-[1.45rem] leading-none tracking-[-0.03em] text-[#1A1A1A]">
+                  {activeTestimonial.name}
+                </h3>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-1">
                     {Array.from({ length: 5 }).map((_, index) => (
                       <Star
                         key={`${activeTestimonial.id}-${index}`}
                         className={cn(
-                          "h-4 w-4",
+                          "h-3.5 w-3.5",
                           index < activeTestimonial.rating
                             ? "fill-[#B7A296] text-[#B7A296]"
                             : "fill-[#E8DED7] text-[#E8DED7]",
@@ -168,101 +177,37 @@ export function TestimonialsSection({
                       />
                     ))}
                   </div>
+
+                  {activeTestimonial.verified ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#6E6761]">
+                      <Check className="h-3.5 w-3.5" />
+                      Dogrulanmis musteri
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col justify-between gap-8">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.24em] text-[#8B8178]">
-                  Nazik geri bildirimler
-                </p>
-                <span className="mt-4 block font-serif text-[5rem] leading-none text-[#DDD1C8] sm:text-[6rem]">
-                  &ldquo;
-                </span>
-                <blockquote className="-mt-3 max-w-4xl font-serif text-[2rem] leading-[1.12] tracking-[-0.03em] text-[#1F1A18] sm:text-[2.35rem] lg:text-[2.95rem]">
-                  {activeTestimonial.text}
-                </blockquote>
-              </div>
+            <div className="flex flex-wrap gap-2 sm:max-w-[48%] sm:justify-end">
+              {testimonials.map((review, index) => {
+                const isActive = index === currentIndex;
 
-              <div className="flex flex-col gap-5 border-t border-[rgba(26,26,26,0.08)] pt-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#8B8178]">
-                      Secili yorum
-                    </p>
-                    <p className="mt-2 text-sm text-[#6E6761]">{slideLabel}</p>
-                  </div>
-
-                  {testimonials.length > 1 ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={prevSlide}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/84 text-[#1A1A1A] transition-colors hover:bg-white"
-                        aria-label="Onceki"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={nextSlide}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/84 text-[#1A1A1A] transition-colors hover:bg-white"
-                        aria-label="Sonraki"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="flex gap-3 overflow-x-auto pb-1">
-                  {testimonials.map((review, index) => {
-                    const isActive = index === currentIndex;
-
-                    return (
-                      <button
-                        key={review.id}
-                        type="button"
-                        onClick={() => setCurrentIndex(index)}
-                        className={cn(
-                          "flex min-w-[220px] items-center gap-3 rounded-[1.4rem] border px-4 py-3 text-left transition-all",
-                          isActive
-                            ? "border-[rgba(183,162,150,0.38)] bg-[#F4EAE3] shadow-[0_16px_40px_-28px_rgba(0,0,0,0.24)]"
-                            : "border-[rgba(26,26,26,0.08)] bg-white/68 hover:bg-white/86",
-                        )}
-                      >
-                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EFE5DD]">
-                          {review.image ? (
-                            <div className="relative h-full w-full">
-                              <Image
-                                src={review.image}
-                                alt={review.name}
-                                fill
-                                className="object-cover"
-                                sizes="44px"
-                              />
-                            </div>
-                          ) : (
-                            <span className="text-sm font-semibold tracking-[0.18em] text-[#8B8178]">
-                              {getInitials(review.name)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-[#1F1A18]">
-                            {review.name}
-                          </p>
-                          <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-[#8B8178]">
-                            {review.verified ? "Dogrulanmis yorum" : "Yorum"}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                return (
+                  <button
+                    key={review.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(index)}
+                    className={cn(
+                      "rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors",
+                      isActive
+                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#1A1A1A]"
+                        : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#7E746B] hover:border-[rgba(26,26,26,0.16)] hover:text-[#1A1A1A]",
+                    )}
+                  >
+                    {review.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
