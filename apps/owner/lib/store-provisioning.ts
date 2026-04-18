@@ -358,6 +358,10 @@ async function runWorkflowStep(
   tracker: ProvisioningTracker,
   key: ProvisioningStepKey,
   action: () => Promise<string>,
+  options?: {
+    blockingOnFailure?: boolean;
+    continueOnFailure?: boolean;
+  },
 ): Promise<boolean> {
   if (!tracker.shouldRunStep(key)) {
     return true;
@@ -369,8 +373,8 @@ async function runWorkflowStep(
     await tracker.complete(key, await action());
     return true;
   } catch (error) {
-    await tracker.fail(key, error);
-    return false;
+    await tracker.fail(key, error, options?.blockingOnFailure ?? true);
+    return options?.continueOnFailure ?? false;
   }
 }
 
@@ -762,7 +766,17 @@ export async function runStoreProvisioningWorkflow(
   ];
 
   for (const [key, action] of workflow) {
-    const succeeded = await runWorkflowStep(tracker, key, action);
+    const succeeded = await runWorkflowStep(
+      tracker,
+      key,
+      action,
+      key === "starter_seed"
+        ? {
+            blockingOnFailure: false,
+            continueOnFailure: true,
+          }
+        : undefined,
+    );
 
     if (!succeeded) {
       break;

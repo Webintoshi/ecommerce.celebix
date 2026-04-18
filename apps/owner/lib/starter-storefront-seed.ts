@@ -23,6 +23,8 @@ interface SeedResult {
 }
 
 const STARTER_SOURCE_URL = process.env.OWNER_STARTER_THEME_SOURCE_URL?.trim() || "https://derycraft.com";
+const STARTER_TARGET_RETRY_ATTEMPTS = 4;
+const STARTER_TARGET_RETRY_DELAY_MS = 5000;
 const PREFERRED_CATEGORY_SLUGS = [
   "cuzdan-kartlik",
   "apple-watch-saat-kayislari",
@@ -284,6 +286,73 @@ function arrayOfRecords(value: unknown): JsonRecord[] {
 
 function recordOrEmpty(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatSupabaseError(error: unknown, fallback: string): string {
+  const record = recordOrEmpty(error);
+  const message = typeof record.message === "string" && record.message.trim().length > 0
+    ? record.message.trim()
+    : null;
+  const details = typeof record.details === "string" && record.details.trim().length > 0
+    ? record.details.trim()
+    : null;
+  const hint = typeof record.hint === "string" && record.hint.trim().length > 0
+    ? record.hint.trim()
+    : null;
+  const code = typeof record.code === "string" && record.code.trim().length > 0
+    ? record.code.trim()
+    : null;
+  const parts = [message, details, hint, code].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(" | ") : fallback;
+}
+
+function isRetryableStarterTargetError(error: unknown): boolean {
+  const message = error instanceof Error
+    ? error.message.toLowerCase()
+    : formatSupabaseError(error, "").toLowerCase();
+
+  if (!message) {
+    return false;
+  }
+
+  return [
+    "no available server",
+    "fetch failed",
+    "econnrefused",
+    "connection refused",
+    "connection terminated",
+    "timeout",
+    "timed out",
+    "temporarily unavailable",
+    "socket hang up",
+    "network",
+    "failed to fetch",
+  ].some((fragment) => message.includes(fragment));
+}
+
+async function withStarterTargetRetry<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= STARTER_TARGET_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableStarterTargetError(error) || attempt === STARTER_TARGET_RETRY_ATTEMPTS) {
+        throw error;
+      }
+
+      await sleep(STARTER_TARGET_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Starter target retry siniri asildi.");
 }
 
 async function fetchJson(url: string): Promise<JsonRecord> {
@@ -741,15 +810,21 @@ async function hasCatalogContent(target: ReturnType<typeof createClient<any>>) {
   ]);
 
   if (categories.error) {
-    throw new Error(`Starter content kontrolu basarisiz: ${categories.error.message}`);
+    throw new Error(
+      `Starter content kontrolu basarisiz: ${formatSupabaseError(categories.error, "categories tablosu okunamadi.")}`,
+    );
   }
 
   if (products.error) {
-    throw new Error(`Starter content kontrolu basarisiz: ${products.error.message}`);
+    throw new Error(
+      `Starter content kontrolu basarisiz: ${formatSupabaseError(products.error, "products tablosu okunamadi.")}`,
+    );
   }
 
   if (blogPosts.error) {
-    throw new Error(`Starter content kontrolu basarisiz: ${blogPosts.error.message}`);
+    throw new Error(
+      `Starter content kontrolu basarisiz: ${formatSupabaseError(blogPosts.error, "blog_posts tablosu okunamadi.")}`,
+    );
   }
 
   return (categories.count ?? 0) > 0 || (products.count ?? 0) > 0 || (blogPosts.count ?? 0) > 0;
@@ -772,169 +847,175 @@ export async function seedStarterStorefrontContent(
     },
   });
 
-  const paymentGatewayWarning = await ensureStorePaymentGateways(target, store);
+  return withStarterTargetRetry(async () => {
+    const paymentGatewayWarning = await ensureStorePaymentGateways(target, store);
 
-  if (!options?.force) {
-    const contentExists = await hasCatalogContent(target);
+    if (!options?.force) {
+      const contentExists = await hasCatalogContent(target);
 
-    if (contentExists) {
-      return {
-        status: "skipped",
-        message: paymentGatewayWarning
-          ? `Starter storefront content atlandi; store zaten kategori veya urun iceriyor. Not: ${paymentGatewayWarning}`
-          : "Starter storefront content atlandi; payment gateway sablonlari guncellendi ve store zaten kategori veya urun iceriyor.",
-      };
+      if (contentExists) {
+        return {
+          status: "skipped",
+          message: paymentGatewayWarning
+            ? `Starter storefront content atlandi; store zaten kategori veya urun iceriyor. Not: ${paymentGatewayWarning}`
+            : "Starter storefront content atlandi; payment gateway sablonlari guncellendi ve store zaten kategori veya urun iceriyor.",
+        } satisfies SeedResult;
+      }
     }
-  }
 
-  const sourceBase = normalizeSourceUrl(options?.sourceStorefrontUrl || STARTER_SOURCE_URL);
-  let homepagePayload: JsonRecord;
-  let categoriesPayload: JsonRecord;
-  let productsPayload: JsonRecord;
+    const sourceBase = normalizeSourceUrl(options?.sourceStorefrontUrl || STARTER_SOURCE_URL);
+    let homepagePayload: JsonRecord;
+    let categoriesPayload: JsonRecord;
+    let productsPayload: JsonRecord;
 
-  try {
-    [homepagePayload, categoriesPayload, productsPayload] = await Promise.all([
-      fetchJson(`${sourceBase}/api/homepage`),
-      fetchJson(`${sourceBase}/api/categories`),
-      fetchJson(`${sourceBase}/api/products?limit=12`),
-    ]);
-  } catch {
-    homepagePayload = {};
-    categoriesPayload = { categories: buildFallbackSourceCategories() };
-    productsPayload = { products: buildFallbackSourceProducts(store) };
-  }
+    try {
+      [homepagePayload, categoriesPayload, productsPayload] = await Promise.all([
+        fetchJson(`${sourceBase}/api/homepage`),
+        fetchJson(`${sourceBase}/api/categories`),
+        fetchJson(`${sourceBase}/api/products?limit=12`),
+      ]);
+    } catch {
+      homepagePayload = {};
+      categoriesPayload = { categories: buildFallbackSourceCategories() };
+      productsPayload = { products: buildFallbackSourceProducts(store) };
+    }
 
-  const sourceCategories = arrayOfRecords(categoriesPayload.categories)
-    .filter((category) => {
-      const slug = stringOrNull(category.slug);
-      return Boolean(slug && PREFERRED_CATEGORY_SLUGS.includes(slug as (typeof PREFERRED_CATEGORY_SLUGS)[number]));
-    })
-    .sort((left, right) => {
-      const leftSlug = stringOrFallback(left.slug, "");
-      const rightSlug = stringOrFallback(right.slug, "");
-      return PREFERRED_CATEGORY_SLUGS.indexOf(leftSlug as (typeof PREFERRED_CATEGORY_SLUGS)[number]) -
-        PREFERRED_CATEGORY_SLUGS.indexOf(rightSlug as (typeof PREFERRED_CATEGORY_SLUGS)[number]);
+    const sourceCategories = arrayOfRecords(categoriesPayload.categories)
+      .filter((category) => {
+        const slug = stringOrNull(category.slug);
+        return Boolean(slug && PREFERRED_CATEGORY_SLUGS.includes(slug as (typeof PREFERRED_CATEGORY_SLUGS)[number]));
+      })
+      .sort((left, right) => {
+        const leftSlug = stringOrFallback(left.slug, "");
+        const rightSlug = stringOrFallback(right.slug, "");
+        return PREFERRED_CATEGORY_SLUGS.indexOf(leftSlug as (typeof PREFERRED_CATEGORY_SLUGS)[number]) -
+          PREFERRED_CATEGORY_SLUGS.indexOf(rightSlug as (typeof PREFERRED_CATEGORY_SLUGS)[number]);
+      });
+
+    const mappedCategories = sourceCategories.map(mapCategory);
+    const sourceProducts = arrayOfRecords(productsPayload.products)
+      .filter((product) => {
+        const category = stringOrNull(product.category);
+        const subcategory = stringOrNull(product.subcategory);
+        return Boolean(
+          (category &&
+            PREFERRED_CATEGORY_SLUGS.includes(category as (typeof PREFERRED_CATEGORY_SLUGS)[number])) ||
+            (subcategory &&
+              PREFERRED_CATEGORY_SLUGS.includes(subcategory as (typeof PREFERRED_CATEGORY_SLUGS)[number])),
+        );
+      })
+      .slice(0, 16);
+
+    if (mappedCategories.length === 0 || sourceProducts.length === 0) {
+      throw new Error("Starter source magazadan yeterli kategori veya urun okunamadi.");
+    }
+
+    const mappedProducts = sourceProducts.map((product) => mapProduct(product, store));
+    const mappedVariants = mapVariants(sourceProducts);
+    const mappedReviews = buildReviewRows(sourceProducts);
+    const heroBanners = buildHeroBanners(store, homepagePayload.heroBanners);
+    const promoBanners =
+      arrayOfRecords(homepagePayload.promoBanners).length > 0
+        ? arrayOfRecords(homepagePayload.promoBanners).map((banner) => ({
+            ...banner,
+            image: normalizeApiAssetPath(banner.image),
+            mobileImage: normalizeApiAssetPath(banner.mobileImage),
+            desktop: normalizeApiAssetPath(banner.desktop),
+            mobile: normalizeApiAssetPath(banner.mobile),
+          }))
+        : buildPromoBanners(mappedCategories);
+
+    const ratingByProductId = new Map<unknown, number[]>();
+    const reviewCountByProductId = new Map<unknown, number>();
+
+    for (const review of mappedReviews) {
+      reviewCountByProductId.set(review.product_id, (reviewCountByProductId.get(review.product_id) ?? 0) + 1);
+      const ratings = ratingByProductId.get(review.product_id) ?? [];
+      ratings.push(review.rating);
+      ratingByProductId.set(review.product_id, ratings);
+    }
+
+    const productsWithRatings = mappedProducts.map((product) => {
+      const ratings = ratingByProductId.get(product.id) ?? [];
+      const reviewCount = reviewCountByProductId.get(product.id) ?? 0;
+      const rating =
+        ratings.length > 0 ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : product.rating;
+
+      return {
+        ...product,
+        rating,
+        review_count: reviewCount,
+      };
     });
 
-  const mappedCategories = sourceCategories.map(mapCategory);
-  const sourceProducts = arrayOfRecords(productsPayload.products)
-    .filter((product) => {
-      const category = stringOrNull(product.category);
-      const subcategory = stringOrNull(product.subcategory);
-      return Boolean(
-        (category &&
-          PREFERRED_CATEGORY_SLUGS.includes(category as (typeof PREFERRED_CATEGORY_SLUGS)[number])) ||
-          (subcategory &&
-            PREFERRED_CATEGORY_SLUGS.includes(subcategory as (typeof PREFERRED_CATEGORY_SLUGS)[number])),
-      );
-    })
-    .slice(0, 16);
+    const blogPosts = buildBlogPosts(store, mappedCategories, productsWithRatings);
+    const productIds = productsWithRatings.map((product) => product.id);
+    const settingsPayload = [
+      { key: "store_info", value: buildStoreInfoValue(store) },
+      { key: "announcement_bar", value: buildAnnouncementBarValue(store) },
+      { key: "marquee_settings", value: buildMarqueeSettingsValue(store) },
+      { key: "seo_settings", value: buildSeoSettingsValue(store) },
+      { key: "homepage_curation", value: buildHomepageCurationValue(mappedCategories, mappedProducts) },
+      { key: "hero_banners", value: heroBanners },
+      { key: "promo_banners", value: promoBanners },
+      { key: "variant_attributes_registry", value: buildVariantRegistry(sourceProducts) },
+    ];
 
-  if (mappedCategories.length === 0 || sourceProducts.length === 0) {
-    throw new Error("Starter source magazadan yeterli kategori veya urun okunamadi.");
-  }
+    const { error: categoriesError } = await target.from("categories").upsert(mappedCategories, { onConflict: "id" });
+    if (categoriesError) {
+      throw new Error(`Starter categories seed failed: ${formatSupabaseError(categoriesError, "categories yazilamadi.")}`);
+    }
 
-  const mappedProducts = sourceProducts.map((product) => mapProduct(product, store));
-  const mappedVariants = mapVariants(sourceProducts);
-  const mappedReviews = buildReviewRows(sourceProducts);
-  const heroBanners = buildHeroBanners(store, homepagePayload.heroBanners);
-  const promoBanners =
-    arrayOfRecords(homepagePayload.promoBanners).length > 0
-      ? arrayOfRecords(homepagePayload.promoBanners).map((banner) => ({
-          ...banner,
-          image: normalizeApiAssetPath(banner.image),
-          mobileImage: normalizeApiAssetPath(banner.mobileImage),
-          desktop: normalizeApiAssetPath(banner.desktop),
-          mobile: normalizeApiAssetPath(banner.mobile),
-        }))
-      : buildPromoBanners(mappedCategories);
+    const { error: productsError } = await target.from("products").upsert(productsWithRatings, { onConflict: "id" });
+    if (productsError) {
+      throw new Error(`Starter products seed failed: ${formatSupabaseError(productsError, "products yazilamadi.")}`);
+    }
 
-  const ratingByProductId = new Map<unknown, number[]>();
-  const reviewCountByProductId = new Map<unknown, number>();
+    if (productIds.length > 0) {
+      const { error: variantsDeleteError } = await target.from("product_variants").delete().in("product_id", productIds);
+      if (variantsDeleteError) {
+        throw new Error(
+          `Starter variants cleanup failed: ${formatSupabaseError(variantsDeleteError, "product_variants temizlenemedi.")}`,
+        );
+      }
+    }
 
-  for (const review of mappedReviews) {
-    reviewCountByProductId.set(review.product_id, (reviewCountByProductId.get(review.product_id) ?? 0) + 1);
-    const ratings = ratingByProductId.get(review.product_id) ?? [];
-    ratings.push(review.rating);
-    ratingByProductId.set(review.product_id, ratings);
-  }
+    if (mappedVariants.length > 0) {
+      const { error: variantsInsertError } = await target.from("product_variants").insert(mappedVariants);
+      if (variantsInsertError) {
+        throw new Error(
+          `Starter variants seed failed: ${formatSupabaseError(variantsInsertError, "product_variants yazilamadi.")}`,
+        );
+      }
+    }
 
-  const productsWithRatings = mappedProducts.map((product) => {
-    const ratings = ratingByProductId.get(product.id) ?? [];
-    const reviewCount = reviewCountByProductId.get(product.id) ?? 0;
-    const rating =
-      ratings.length > 0 ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : product.rating;
+    const { error: reviewsError } = await target.from("product_reviews").upsert(mappedReviews, { onConflict: "id" });
+    if (reviewsError) {
+      throw new Error(`Starter reviews seed failed: ${formatSupabaseError(reviewsError, "product_reviews yazilamadi.")}`);
+    }
+
+    const { error: settingsError } = await target.from("settings").upsert(settingsPayload, { onConflict: "key" });
+    if (settingsError) {
+      throw new Error(`Starter settings seed failed: ${formatSupabaseError(settingsError, "settings yazilamadi.")}`);
+    }
+
+    const { error: blogError } = await target.from("blog_posts").upsert(blogPosts, { onConflict: "id" });
+    if (blogError) {
+      throw new Error(`Starter blog seed failed: ${formatSupabaseError(blogError, "blog_posts yazilamadi.")}`);
+    }
 
     return {
-      ...product,
-      rating,
-      review_count: reviewCount,
-    };
+      status: "seeded",
+      message: paymentGatewayWarning
+        ? `Starter storefront content basariyla yazildi. Not: ${paymentGatewayWarning}`
+        : "Starter storefront content basariyla yazildi.",
+      counts: {
+        categories: mappedCategories.length,
+        products: productsWithRatings.length,
+        variants: mappedVariants.length,
+        reviews: mappedReviews.length,
+        blogPosts: blogPosts.length,
+      },
+    } satisfies SeedResult;
   });
-
-  const blogPosts = buildBlogPosts(store, mappedCategories, productsWithRatings);
-  const productIds = productsWithRatings.map((product) => product.id);
-  const settingsPayload = [
-    { key: "store_info", value: buildStoreInfoValue(store) },
-    { key: "announcement_bar", value: buildAnnouncementBarValue(store) },
-    { key: "marquee_settings", value: buildMarqueeSettingsValue(store) },
-    { key: "seo_settings", value: buildSeoSettingsValue(store) },
-    { key: "homepage_curation", value: buildHomepageCurationValue(mappedCategories, mappedProducts) },
-    { key: "hero_banners", value: heroBanners },
-    { key: "promo_banners", value: promoBanners },
-    { key: "variant_attributes_registry", value: buildVariantRegistry(sourceProducts) },
-  ];
-
-  const { error: categoriesError } = await target.from("categories").upsert(mappedCategories, { onConflict: "id" });
-  if (categoriesError) {
-    throw new Error(`Starter categories seed failed: ${categoriesError.message}`);
-  }
-
-  const { error: productsError } = await target.from("products").upsert(productsWithRatings, { onConflict: "id" });
-  if (productsError) {
-    throw new Error(`Starter products seed failed: ${productsError.message}`);
-  }
-
-  if (productIds.length > 0) {
-    const { error: variantsDeleteError } = await target.from("product_variants").delete().in("product_id", productIds);
-    if (variantsDeleteError) {
-      throw new Error(`Starter variants cleanup failed: ${variantsDeleteError.message}`);
-    }
-  }
-
-  if (mappedVariants.length > 0) {
-    const { error: variantsInsertError } = await target.from("product_variants").insert(mappedVariants);
-    if (variantsInsertError) {
-      throw new Error(`Starter variants seed failed: ${variantsInsertError.message}`);
-    }
-  }
-
-  const { error: reviewsError } = await target.from("product_reviews").upsert(mappedReviews, { onConflict: "id" });
-  if (reviewsError) {
-    throw new Error(`Starter reviews seed failed: ${reviewsError.message}`);
-  }
-
-  const { error: settingsError } = await target.from("settings").upsert(settingsPayload, { onConflict: "key" });
-  if (settingsError) {
-    throw new Error(`Starter settings seed failed: ${settingsError.message}`);
-  }
-
-  const { error: blogError } = await target.from("blog_posts").upsert(blogPosts, { onConflict: "id" });
-  if (blogError) {
-    throw new Error(`Starter blog seed failed: ${blogError.message}`);
-  }
-
-  return {
-    status: "seeded",
-    message: paymentGatewayWarning
-      ? `Starter storefront content basariyla yazildi. Not: ${paymentGatewayWarning}`
-      : "Starter storefront content basariyla yazildi.",
-    counts: {
-      categories: mappedCategories.length,
-      products: productsWithRatings.length,
-      variants: mappedVariants.length,
-      reviews: mappedReviews.length,
-      blogPosts: blogPosts.length,
-    },
-  };
 }
