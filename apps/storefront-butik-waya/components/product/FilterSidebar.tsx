@@ -335,26 +335,7 @@ export function FilterSidebar({
         className,
       )}
     >
-      {!minimalCopy ? (
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Filtre paneli</p>
-            <h2 className="mt-2 font-serif text-[1.6rem] leading-none tracking-[-0.04em] text-[#201410]">
-              Secimi daralt
-            </h2>
-          </div>
-
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
-              className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
-            >
-              Temizle
-            </button>
-          ) : null}
-        </div>
-      ) : hasActiveFilters ? (
+      {hasActiveFilters ? (
         <div className="mb-4 flex justify-end">
           <button
             type="button"

@@ -407,12 +407,7 @@ export function ProductListingExperience({
             <div className="flex flex-col gap-4 border-b border-[rgba(32,20,16,0.08)] pb-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  {!minimalCopy ? (
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
-                      Secili vitrin
-                    </p>
-                  ) : null}
-                  <div className={cn("flex items-end gap-3", minimalCopy ? "" : "mt-2")}>
+                  <div className="flex items-end gap-3">
                     <span className="font-serif text-[2.4rem] leading-none tracking-[-0.06em] text-[#201410]">
                       {filteredProducts.length}
                     </span>
