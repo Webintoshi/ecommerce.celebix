@@ -108,7 +108,7 @@
   --store-font-product-title-weight: 600;
   --store-font-base-size: 16px;
   --store-font-menu-size: 14px;
-  --store-font-product-card-size: 17px;
+  --store-font-product-card-size: 14px;
   --store-font-product-page-size: 52px;
   --store-font-heading-scale: 1.08;
   --store-font-heading-tracking: -0.03em;
@@ -299,7 +299,7 @@ textarea {
   font-family: var(--store-font-product-title);
   font-size: var(--store-font-product-card-size);
   font-weight: var(--store-font-product-title-weight);
-  line-height: 1.3;
+  line-height: 22px;
   letter-spacing: 0.02em;
 }
 
