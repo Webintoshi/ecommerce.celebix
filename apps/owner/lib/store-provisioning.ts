@@ -540,6 +540,7 @@ async function reconcileProvisioningSummaryWithLiveState(
   };
 
   if (
+    store.bootstrap?.supabaseProvisioning === "configured" &&
     store.supabase.projectRef &&
     store.supabase.projectRef !== "pending-owner-bootstrap" &&
     store.supabase.url &&
@@ -548,7 +549,7 @@ async function reconcileProvisioningSummaryWithLiveState(
     markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
   }
 
-  if (store.r2?.bucketName && store.r2?.publicUrl) {
+  if (store.r2?.provisioning === "configured" && store.r2?.bucketName && store.r2?.publicUrl) {
     markCompleted("r2_provision", "R2 authority canli durumda hazir.");
   }
 
