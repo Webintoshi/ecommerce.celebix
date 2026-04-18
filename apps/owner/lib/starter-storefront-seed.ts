@@ -23,7 +23,7 @@ interface SeedResult {
 }
 
 const STARTER_SOURCE_URL = process.env.OWNER_STARTER_THEME_SOURCE_URL?.trim() || "https://derycraft.com";
-const STARTER_TARGET_RETRY_ATTEMPTS = 4;
+const STARTER_TARGET_RETRY_ATTEMPTS = 8;
 const STARTER_TARGET_RETRY_DELAY_MS = 5000;
 const PREFERRED_CATEGORY_SLUGS = [
   "cuzdan-kartlik",

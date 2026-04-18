@@ -415,21 +415,35 @@ export async function getStorefrontDeploymentBlueprint(
   let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed";
   let runtimeConsistent = false;
   let runtimeMessage: string | null = null;
+  let runtimeConfigured = false;
 
   if (!requiredEnvReady) {
     status = "pending-owner-env";
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
-  } else if (!packageJsonPath || !repoSynced) {
-    status = "pending-repo-sync";
-    runtimeMessage = isGitHubRepoSyncConfigured()
-      ? "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
-      : "Storefront app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
   } else {
-    status = "prepared";
     const runtime = await readRuntimeConsistency(store, runtimeUrl);
+    runtimeConfigured = runtime.configured;
     runtimeConsistent = runtime.consistent;
     runtimeMessage = runtime.message;
-    status = runtime.configured && runtime.consistent ? "configured" : "prepared";
+    const runtimeHealthy = runtime.configured && runtime.consistent;
+    const hasTrackedSource = Boolean(packageJsonPath) || repoSynced;
+
+    if (runtimeHealthy) {
+      status = "configured";
+
+      if (!hasTrackedSource) {
+        runtimeMessage = isGitHubRepoSyncConfigured()
+          ? "Storefront runtime canli, ancak app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
+          : "Storefront runtime canli, ancak app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
+      }
+    } else if (!hasTrackedSource) {
+      status = "pending-repo-sync";
+      runtimeMessage = isGitHubRepoSyncConfigured()
+        ? "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
+        : "Storefront app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
+    } else {
+      status = "prepared";
+    }
   }
 
   return {
@@ -443,12 +457,12 @@ export async function getStorefrontDeploymentBlueprint(
     buildCommand: `npm run build --workspace ${workspace}`,
     startCommand: `npm run start --workspace ${workspace}`,
     appDirectory,
-    envLocalPath: appDirectory ? path.posix.join(relativeAppDir || "", ".env.local") : null,
-    envTemplatePath: appDirectory ? path.posix.join(relativeAppDir || "", ".env.example") : null,
+    envLocalPath: relativeAppDir ? path.posix.join(relativeAppDir, ".env.local") : null,
+    envTemplatePath: relativeAppDir ? path.posix.join(relativeAppDir, ".env.example") : null,
     envEntries,
     status,
     repoSynced,
-    runtimeConsistent,
+    runtimeConsistent: runtimeConfigured && runtimeConsistent,
     runtimeMessage,
   };
 }
