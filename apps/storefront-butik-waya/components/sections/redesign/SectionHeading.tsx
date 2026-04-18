@@ -13,9 +13,9 @@ export function SectionHeading({ label, className }: SectionHeadingProps) {
   }
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}>
-      <span aria-hidden className="h-px w-10 bg-[rgba(26,26,26,0.16)]" />
-      <h2 className="text-[0.78rem] font-semibold uppercase tracking-[0.26em] text-[#1d1715] sm:text-[0.82rem]">
+    <div className={cn("flex flex-wrap items-center gap-x-5 gap-y-3", className)}>
+      <span aria-hidden className="h-px w-10 bg-[rgba(26,26,26,0.16)] sm:w-12" />
+      <h2 className="font-serif text-[2rem] leading-[0.94] tracking-[-0.045em] text-[#1d1715] sm:text-[2.45rem] lg:text-[3.2rem]">
         {label}
       </h2>
     </div>
