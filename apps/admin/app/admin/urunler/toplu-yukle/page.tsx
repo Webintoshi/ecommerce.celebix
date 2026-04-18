@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  Globe2,
   Loader2,
   Upload,
   XCircle,
@@ -27,6 +28,8 @@ interface ImportRunResult {
   errors: string[];
 }
 
+type ImportSourceMode = "csv" | "feed";
+
 const STEPS = [
   { id: 1, label: "Platform Seçimi" },
   { id: 2, label: "Dosya Yükleme" },
@@ -36,10 +39,13 @@ const STEPS = [
 
 export default function BulkUploadPage() {
   const providers = useMemo(() => getBulkImportProviders(), []);
+  const [sourceMode, setSourceMode] = useState<ImportSourceMode>("csv");
   const [selectedProvider, setSelectedProvider] = useState<BulkImportProvider>("woocommerce");
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [feedAnalyzing, setFeedAnalyzing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [progressText, setProgressText] = useState("");
   const [parseResult, setParseResult] = useState<BulkImportParseResult | null>(null);
@@ -47,11 +53,22 @@ export default function BulkUploadPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedProviderMeta = providers.find((provider) => provider.id === selectedProvider);
+  const isFeedMode = sourceMode === "feed";
   const readyProductCount = parseResult?.products.length ?? 0;
+  const selectedFeedLabel = feedUrl.trim() || "Henüz feed URL girilmedi";
+  const selectedSourceLabel = isFeedMode ? "Feed URL (XML)" : `CSV / ${selectedProviderMeta?.label ?? "-"}`;
   const selectedFileLabel = file ? file.name : "Henüz dosya seçilmedi";
+  const selectedAssetLabel = isFeedMode ? selectedFeedLabel : selectedFileLabel;
   const currentStepLabel = STEPS.find((step) => step.id === currentStep)?.label ?? "Hazırlık";
 
+  const resetImportState = () => {
+    setParseResult(null);
+    setImportResult(null);
+    setProgressText("");
+  };
+
   const handleDownloadTemplate = () => {
+    if (isFeedMode) return;
     const template = buildTemplateCsv(selectedProvider);
     const blob = new Blob(["\uFEFF" + template], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -65,8 +82,7 @@ export default function BulkUploadPage() {
   const handleAnalyzeFile = async () => {
     if (!file) return;
     setAnalyzing(true);
-    setParseResult(null);
-    setImportResult(null);
+    resetImportState();
 
     try {
       const content = await file.text();
@@ -85,6 +101,42 @@ export default function BulkUploadPage() {
       setCurrentStep(3);
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeFeed = async () => {
+    if (!feedUrl.trim()) return;
+    setFeedAnalyzing(true);
+    resetImportState();
+
+    try {
+      const response = await fetch("/api/admin/products/feed-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: feedUrl.trim() }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success || !data?.parseResult) {
+        throw new Error(data?.error ?? "Feed analizi tamamlanamadı.");
+      }
+
+      setParseResult(data.parseResult as BulkImportParseResult);
+      setCurrentStep(3);
+    } catch (error) {
+      setParseResult({
+        headers: [],
+        products: [],
+        errors: [
+          `Feed analiz edilemedi: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        ],
+        warnings: [],
+        skippedRows: 0,
+        totalRows: 0,
+      });
+      setCurrentStep(3);
+    } finally {
+      setFeedAnalyzing(false);
     }
   };
 
@@ -144,7 +196,7 @@ export default function BulkUploadPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-[#7b685b]">
                   <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
-                    Aktif platform: {selectedProviderMeta?.label ?? "-"}
+                    Aktif kaynak: {selectedSourceLabel}
                   </span>
                   <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
                     Adım: {currentStep}. {currentStepLabel}
@@ -159,22 +211,24 @@ export default function BulkUploadPage() {
                 >
                   Ürünlere Dön
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
-                >
-                  <Download className="h-4 w-4" />
-                  Şablonu İndir
-                </button>
+                {!isFeedMode ? (
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <Download className="h-4 w-4" />
+                    Şablonu İndir
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
 
           <div className="grid gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-4">
             {[
-              { label: "Seçili platform", value: selectedProviderMeta?.label ?? "-" },
-              { label: "Seçilen dosya", value: selectedFileLabel },
+              { label: "Seçili kaynak", value: selectedSourceLabel },
+              { label: "Seçilen varlık", value: selectedAssetLabel },
               { label: "Hazır ürün", value: String(readyProductCount) },
               { label: "Aktarım durumu", value: importResult ? "Tamamlandı" : importing ? "Sürüyor" : "Hazır" },
             ].map((metric) => (
@@ -242,44 +296,110 @@ export default function BulkUploadPage() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">1. aşama</p>
-              <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Platform seçimi</h2>
+              <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Kaynak ve platform seçimi</h2>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {providers.map((provider) => {
-            const selected = provider.id === selectedProvider;
-            return (
-              <button
-                key={provider.id}
-                type="button"
-                onClick={() => {
-                  setSelectedProvider(provider.id);
-                  setCurrentStep(2);
-                }}
-                className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 ${
-                  selected
-                    ? "border-[#FE6100]/30 bg-gradient-to-br from-[#fff1e6] to-white shadow-[0_18px_35px_rgba(254,97,0,0.12)]"
-                    : "border-[#eadccd] bg-white/85 hover:border-[#FE6100]/18 hover:bg-white"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-[#2f241d]">{provider.label}</div>
-                    <p className="mt-2 text-sm leading-6 text-[#7b685b]">{provider.description}</p>
+          <div className="mb-5 grid gap-3 md:grid-cols-2">
+            {[
+              {
+                id: "csv" as const,
+                title: "CSV Dosyası",
+                description:
+                  "WooCommerce, Shopify ve benzeri CSV export dosyalarını mevcut parser ile içe aktar.",
+                icon: FileSpreadsheet,
+              },
+              {
+                id: "feed" as const,
+                title: "Feed URL (XML)",
+                description:
+                  "Google Merchant / Atom benzeri XML feed URL'sini analiz et, varyantlara ayır ve içe aktar.",
+                icon: Globe2,
+              },
+            ].map((source) => {
+              const selected = sourceMode === source.id;
+              return (
+                <button
+                  key={source.id}
+                  type="button"
+                  onClick={() => {
+                    setSourceMode(source.id);
+                    resetImportState();
+                    setCurrentStep(2);
+                  }}
+                  className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 ${
+                    selected
+                      ? "border-[#FE6100]/30 bg-gradient-to-br from-[#fff1e6] to-white shadow-[0_18px_35px_rgba(254,97,0,0.12)]"
+                      : "border-[#eadccd] bg-white/85 hover:border-[#FE6100]/18 hover:bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 font-semibold text-[#2f241d]">
+                        <source.icon className="h-4 w-4 text-[#FE6100]" />
+                        <span>{source.title}</span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#7b685b]">{source.description}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                        selected ? "bg-[#FE6100] text-white" : "bg-[#f5ede6] text-[#8d796a]"
+                      }`}
+                    >
+                      {selected ? "Seçili" : "Hazır"}
+                    </span>
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
-                      selected ? "bg-[#FE6100] text-white" : "bg-[#f5ede6] text-[#8d796a]"
+                </button>
+              );
+            })}
+          </div>
+
+          {!isFeedMode ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {providers.map((provider) => {
+                const selected = provider.id === selectedProvider;
+                return (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedProvider(provider.id);
+                      setCurrentStep(2);
+                    }}
+                    className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 ${
+                      selected
+                        ? "border-[#FE6100]/30 bg-gradient-to-br from-[#fff1e6] to-white shadow-[0_18px_35px_rgba(254,97,0,0.12)]"
+                        : "border-[#eadccd] bg-white/85 hover:border-[#FE6100]/18 hover:bg-white"
                     }`}
                   >
-                    {selected ? "Seçili" : "Hazır"}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-          </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-[#2f241d]">{provider.label}</div>
+                        <p className="mt-2 text-sm leading-6 text-[#7b685b]">{provider.description}</p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                          selected ? "bg-[#FE6100] text-white" : "bg-[#f5ede6] text-[#8d796a]"
+                        }`}
+                      >
+                        {selected ? "Seçili" : "Hazır"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-[24px] border border-[#eadccd] bg-white/85 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-[#2f241d]">Feed modu aktif</p>
+              <p className="mt-2 text-sm leading-6 text-[#7b685b]">
+                Google Merchant / Atom feed içindeki satırlar{" "}
+                <code className="rounded bg-[#f8efe6] px-1 py-0.5 text-[#8a4b22]">item_group_id</code>{" "}
+                bazlı gruplanır, çoklu görseller tek üründe birleşir ve varyant özellikleri
+                otomatik çıkarılır.
+              </p>
+            </div>
+          )}
         </section>
 
         <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
@@ -294,85 +414,145 @@ export default function BulkUploadPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
-            >
-              <Download className="h-4 w-4" />
-              {selectedProviderMeta?.label} şablonunu indir
-            </button>
+            {!isFeedMode ? (
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+              >
+                <Download className="h-4 w-4" />
+                {selectedProviderMeta?.label} şablonunu indir
+              </button>
+            ) : null}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
-            <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
-              <div className="flex flex-col items-center justify-center text-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
-                  <FileSpreadsheet className="h-10 w-10 text-[#FE6100]" />
-                </div>
-                <p className="mt-5 text-lg font-semibold text-[#2f241d]">
-                  {selectedProviderMeta?.label} için CSV dosyasını seçin
-                </p>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[#7b685b]">
-                  UTF-8 CSV önerilir. Ayraç olarak virgül, noktalı virgül veya tab desteklenir.
-                </p>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={(event) => {
-                    const nextFile = event.target.files?.[0] ?? null;
-                    setFile(nextFile);
-                    setParseResult(null);
-                    setImportResult(null);
-                    if (nextFile) setCurrentStep(2);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-5 inline-flex items-center rounded-2xl bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(47,36,29,0.18)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
-                >
-                  Dosya Seç
-                </button>
-
-                {file ? (
-                  <div className="mt-4 w-full max-w-md rounded-[22px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
-                    <div className="font-semibold text-[#2f241d]">{file.name}</div>
-                    <div className="mt-1 text-xs text-[#8d796a]">{(file.size / 1024).toFixed(2)} KB</div>
+            {!isFeedMode ? (
+              <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+                    <FileSpreadsheet className="h-10 w-10 text-[#FE6100]" />
                   </div>
-                ) : null}
+                  <p className="mt-5 text-lg font-semibold text-[#2f241d]">
+                    {selectedProviderMeta?.label} için CSV dosyasını seçin
+                  </p>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-[#7b685b]">
+                    UTF-8 CSV önerilir. Ayraç olarak virgül, noktalı virgül veya tab desteklenir.
+                  </p>
 
-                <button
-                  type="button"
-                  onClick={handleAnalyzeFile}
-                  disabled={!file || analyzing}
-                  className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
-                </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const nextFile = event.target.files?.[0] ?? null;
+                      setFile(nextFile);
+                      resetImportState();
+                      if (nextFile) setCurrentStep(2);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-5 inline-flex items-center rounded-2xl bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(47,36,29,0.18)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    Dosya Seç
+                  </button>
+
+                  {file ? (
+                    <div className="mt-4 w-full max-w-md rounded-[22px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
+                      <div className="font-semibold text-[#2f241d]">{file.name}</div>
+                      <div className="mt-1 text-xs text-[#8d796a]">{(file.size / 1024).toFixed(2)} KB</div>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeFile}
+                    disabled={!file || analyzing}
+                    className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
+                      <Globe2 className="h-7 w-7 text-[#FE6100]" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-[#2f241d]">Feed URL ile ürünleri analiz et</p>
+                      <p className="mt-1 text-sm leading-6 text-[#7b685b]">
+                        XML feed sunucu tarafında çekilir, önizleme hazırlanır ve mevcut toplu
+                        aktarım akışıyla ürüne dönüşür.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="feed-url" className="text-sm font-semibold text-[#2f241d]">
+                      Feed URL
+                    </label>
+                    <input
+                      id="feed-url"
+                      type="url"
+                      value={feedUrl}
+                      onChange={(event) => {
+                        setFeedUrl(event.target.value);
+                        resetImportState();
+                        setCurrentStep(2);
+                      }}
+                      placeholder="https://www.example.com/XMLExport/feed.xml"
+                      className="w-full rounded-2xl border border-[#e3d4c7] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#9d816d] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                    />
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#ead9cb] bg-white/90 p-4 text-sm leading-6 text-[#7b685b] shadow-sm">
+                    Feed varyantları{" "}
+                    <code className="rounded bg-[#f8efe6] px-1 py-0.5 text-[#8a4b22]">item_group_id</code>{" "}
+                    ve ek varyant alanlarıyla gruplanır. Çoklu görseller otomatik dedupe edilir.
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeFeed}
+                    disabled={!feedUrl.trim() || feedAnalyzing}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {feedAnalyzing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Globe2 className="h-4 w-4" />
+                    )}
+                    {feedAnalyzing ? "Feed analiz ediliyor..." : "Feed'i Analiz Et"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               {[
-                { title: "Seçili sağlayıcı", value: selectedProviderMeta?.label ?? "-" },
-                { title: "Beklenen format", value: "CSV / UTF-8" },
-                { title: "Desteklenen ayraçlar", value: "Virgül, noktalı virgül, tab" },
+                { title: "Seçili kaynak", value: selectedSourceLabel },
+                { title: "Beklenen format", value: isFeedMode ? "XML / Atom / Google Merchant" : "CSV / UTF-8" },
+                { title: "Seçilen varlık", value: selectedAssetLabel },
               ].map((item) => (
                 <div key={item.title} className="rounded-[24px] border border-[#eadccd] bg-white/85 p-4 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{item.title}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#2f241d]">{item.value}</p>
+                  <p className="mt-2 break-words text-sm font-semibold text-[#2f241d]">{item.value}</p>
                 </div>
               ))}
 
               <div className="rounded-[24px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff3e9] to-white p-4 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Hazırlık notu</p>
                 <p className="mt-2 text-sm leading-6 text-[#7b685b]">
-                  Şablon dosyasını kullanmanız sütun eşleşmesini hızlandırır ve önizleme aşamasında daha temiz sonuç verir.
+                  {isFeedMode
+                    ? "Feed URL admin sunucusu üzerinden okunur. Böylece CORS, encoding ve XML ayrıştırma sorunları tarayıcıya bırakılmaz."
+                    : "Şablon dosyasını kullanmanız sütun eşleşmesini hızlandırır ve önizleme aşamasında daha temiz sonuç verir."}
                 </p>
               </div>
             </div>
@@ -493,7 +673,7 @@ export default function BulkUploadPage() {
                     }}
                     className="rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
                   >
-                    Dosyayı Güncelle
+                    {isFeedMode ? "Feed'i Güncelle" : "Dosyayı Güncelle"}
                   </button>
                 </div>
               </>

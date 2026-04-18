@@ -47,6 +47,7 @@
     "critters": "^0.0.23",
     "cross-env": "^10.1.0",
     "date-fns": "^4.1.0",
+    "fast-xml-parser": "^5.5.8",
     "framer-motion": "^12.29.0",
     "gray-matter": "^4.0.3",
     "iyzipay": "github:iyzico/iyzipay-node#v2.0.67",
