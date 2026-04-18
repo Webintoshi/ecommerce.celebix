@@ -123,7 +123,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                     Son Eklenen Urun
                   </p>
-                  <p className="truncate text-sm font-bold text-gray-900">
+                  <p className="truncate text-[14px] font-bold text-gray-900">
                     {lastAddedItem.product.name}
                   </p>
                   <p className="text-xs font-medium text-emerald-600">
@@ -209,7 +209,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                         <div className="mb-1 flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <h6
-                              className="m-0 overflow-hidden font-sans text-[13px] font-medium leading-[1.2] text-gray-900"
+                              className="m-0 overflow-hidden font-sans text-[14px] font-medium leading-[1.2] text-gray-900"
                               style={{
                                 fontFamily: "var(--store-font-body)",
                                 display: "-webkit-box",

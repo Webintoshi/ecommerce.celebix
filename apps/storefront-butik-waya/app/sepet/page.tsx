@@ -84,7 +84,7 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <Link
                       href={`/urunler/${item.product.slug}`}
-                      className="font-semibold text-primary hover:underline block mb-2"
+                      className="block mb-2 text-[14px] font-semibold text-primary hover:underline"
                     >
                       {item.product.name}
                     </Link>
