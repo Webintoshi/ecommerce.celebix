@@ -97,12 +97,12 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Secili Koleksiyon"
+          ? "Seçili koleksiyon"
           : index === 1
-            ? "One Cikanlar"
+            ? "Öne çıkanlar"
             : index === 2
-              ? "Editorden"
-              : "Kesfet",
+              ? "Editörden"
+              : "Keşfet",
       isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
@@ -133,16 +133,16 @@ function buildProductGroups(
 function EmptyShowcaseState() {
   const cards = [
     {
-      title: "Look'lar icin hazir",
-      text: "Adminde yayina giren ilk urunler bu alanda otomatik olarak editoryal bir sirayla gorunur.",
+      title: "Vitrin hazır",
+      text: "Yayına giren ürünler burada otomatik olarak görünür.",
     },
     {
-      title: "Kategori akisi korunur",
-      text: "Koleksiyon yapisi bozulmadan, her blok ilgili kategoriyle birlikte vitrine tasinir.",
+      title: "Kategori akışı korunur",
+      text: "Bloklar ilgili kategoriyle birlikte vitrine taşınır.",
     },
     {
-      title: "Butik hissi yerlesik gelir",
-      text: "Urun sayisi arttikca storefront ekstra kurgu gerektirmeden premium bir akisa oturur.",
+      title: "Butik hissi korunur",
+      text: "Ürün sayısı arttıkça düzen aynı çizgide kalır.",
     },
   ];
 
@@ -152,15 +152,11 @@ function EmptyShowcaseState() {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#6f6a65]">
             <Sparkles className="h-3.5 w-3.5" />
-            Vitrin Hazir
+            Vitrin hazır
           </span>
           <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.04em] text-[#1d1715] sm:text-5xl">
-            Urunler geldikce Waya vitrini kendi ritmini bulacak
+            Ürünler geldikçe vitrin şekillenecek
           </h2>
-          <p className="editorial-copy mt-4 text-sm sm:text-base">
-            Kategori ve urun akisi tamamlandiginda bu alan otomatik olarak editoryal secimlere,
-            capsule koleksiyonlara ve sezon notlarina donusur.
-          </p>
         </div>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -170,7 +166,7 @@ function EmptyShowcaseState() {
               className="rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[rgba(255,255,255,0.9)] p-6 shadow-[0_24px_70px_-50px_rgba(0,0,0,0.24)]"
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6f6a65]">
-                Automatic
+                Otomatik
               </p>
               <h3 className="mt-4 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1d1715]">
                 {card.title}
@@ -189,7 +185,7 @@ export function ProductShowcaseSections({
   allProducts,
   homepageCuration,
   groupCopy,
-  viewAllLabel = "Tumunu Gor",
+  viewAllLabel = "Tümünü gör",
 }: ProductShowcaseSectionsProps) {
   const { locale } = useStorefrontRoute();
 
@@ -204,15 +200,15 @@ export function ProductShowcaseSections({
       : [
           {
             id: "latest",
-            title: "Yeni Gelenler",
-            subtitle: "Canli Secki",
+            title: "Yeni gelenler",
+            subtitle: "Seçki",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
           {
             id: "featured",
-            title: "One Cikanlar",
-            subtitle: "Editor Secimi",
+            title: "Öne çıkanlar",
+            subtitle: "Editör seçimi",
             link: ROUTES.products,
             products: allProducts.slice(4, 8),
           },
@@ -232,18 +228,13 @@ export function ProductShowcaseSections({
       {effectiveGroups.map((group, index) => (
         <section key={group.id} className={`py-16 lg:py-20 ${index % 2 === 1 ? "bg-white/40" : ""}`}>
           <div className="container-premium">
-            <div className="mb-10 grid gap-6 lg:grid-cols-[0.7fr_1fr_auto] lg:items-end">
+            <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <span className="editorial-kicker">{group.subtitle}</span>
                 <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1d1715] sm:text-5xl">
                   {group.title}
                 </h2>
               </div>
-
-              <p className="editorial-copy max-w-2xl text-sm sm:text-base">
-                Waya gardirobunun bu bolumu, kolay tasinan ana parcalar ile daha iddiali dokulari
-                ayni editoryal hikayede bulusturuyor.
-              </p>
 
               <Link
                 href={buildLocalizedPath(

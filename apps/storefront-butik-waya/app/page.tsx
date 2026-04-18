@@ -8,22 +8,22 @@ import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin"
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
-  categoriesEyebrow: "The Waya Edit",
-  categoriesHeading: "Sezonun one cikan siluetleri",
-  viewAllLabel: "Tum koleksiyonu ac",
+  categoriesEyebrow: "Seçki",
+  categoriesHeading: "Sezonun öne çıkan siluetleri",
+  viewAllLabel: "Tümünü gör",
   productGroups: [
-    { title: "Gunun Seckisi", subtitle: "Editoryal Seri" },
-    { title: "Imza Parcalar", subtitle: "Butik Waya Codes" },
-    { title: "Yeni Gelenler", subtitle: "Bu Hafta" },
-    { title: "Tamamlayici Dokunuslar", subtitle: "Stil Notu" },
+    { title: "Günün seçkisi", subtitle: "Seçki" },
+    { title: "İmza parçalar", subtitle: "Butik Waya" },
+    { title: "Yeni gelenler", subtitle: "Bu hafta" },
+    { title: "Tamamlayıcı dokunuşlar", subtitle: "Stil notu" },
   ],
   storesEyebrow: "Waya Studio",
-  storesHeading: "Butik deneyimi ekrandan tasan bir servis diline cevirin",
+  storesHeading: "Butik deneyimi ekrandan taşan bir servis diline çevirin",
   storesDescription:
-    "Adres, iletisim ve gorsel varliklariniz burada yalnizca bilgi olarak degil, markanizin yavas luks ritmini anlatan bir konukseverlik katmani olarak kullanilir.",
-  storesLinkLabel: "Waya detaylarini incele",
-  testimonialsHeading: "Waya Kadinlarindan Notlar",
-  testimonialsCountLabel: "Gercek yorumlar geldikce bu alan editoryal bir misafir defteri gibi guncellenir",
+    "Adres, iletişim ve görsel varlıklarınız burada yalnızca bilgi olarak değil, markanızın yavaş lüks ritmini anlatan bir konukseverlik katmanı olarak kullanılır.",
+  storesLinkLabel: "Waya detaylarını incele",
+  testimonialsHeading: "Butik Waya kadınlarından notlar",
+  testimonialsCountLabel: "",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -63,7 +63,7 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
+    ? `${siteName} mağazasının adres, iletişim ve ürün vitrini tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
   const localizedProductsUrl = new URL(

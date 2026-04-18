@@ -52,8 +52,8 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
 }
 
 export function TestimonialsSection({
-  heading = "Musteri notlari",
-  countLabel = "Dogrulanmis yorumlar geldikce bu alan otomatik olarak guncellenir",
+  heading = "Müşteri notları",
+  countLabel = "",
   items,
 }: {
   heading?: string;
@@ -93,14 +93,16 @@ export function TestimonialsSection({
   return (
     <section className="py-16 lg:py-20">
       <div className="container-premium">
-        <div className="mb-8 grid gap-5 lg:grid-cols-[0.85fr_1fr] lg:items-end">
+        <div className="mb-8">
           <div>
-            <p className="editorial-kicker">Musteri notlari</p>
+            <p className="editorial-kicker">Müşteri notları</p>
             <h2 className="mt-4 font-serif text-3xl leading-[0.96] tracking-[-0.04em] text-[#000000] sm:text-4xl lg:text-[3.1rem]">
               {heading}
             </h2>
           </div>
-          <p className="max-w-2xl text-sm leading-7 text-[#6E6761] sm:text-base">{countLabel}</p>
+          {countLabel ? (
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6E6761] sm:text-base">{countLabel}</p>
+          ) : null}
         </div>
 
         <div
@@ -108,18 +110,14 @@ export function TestimonialsSection({
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <div className="flex items-start justify-between gap-4">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8B8178]">
-              Nazik geri bildirimler
-            </p>
-
+          <div className={`flex items-start gap-4 ${testimonials.length > 1 ? "justify-end" : "justify-start"}`}>
             {testimonials.length > 1 ? (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={prevSlide}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#000000] transition-colors hover:bg-white"
-                  aria-label="Onceki"
+                  aria-label="Önceki"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -181,7 +179,7 @@ export function TestimonialsSection({
                   {activeTestimonial.verified ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#6E6761]">
                       <Check className="h-3.5 w-3.5" />
-                      Dogrulanmis musteri
+                      Doğrulanmış müşteri
                     </span>
                   ) : null}
                 </div>

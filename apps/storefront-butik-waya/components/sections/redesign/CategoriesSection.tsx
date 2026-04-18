@@ -94,18 +94,13 @@ export function CategoriesSection({
   return (
     <section className="py-20 lg:py-28">
       <div className="container-premium">
-        <div className="mb-12 grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+        <div className="mb-12">
           <div>
             <p className="editorial-kicker">{eyebrow}</p>
             <h2 className="mt-5 max-w-xl font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1d1715] lg:text-6xl">
               {heading}
             </h2>
           </div>
-          <p className="editorial-copy max-w-2xl text-sm sm:text-base">
-            Kategori akisi, butun sayfayi kalabaliklastirmadan secili bolumleri one cikariyor.
-            Gorseller ilk bakista koleksiyon duygusunu kuruyor, isimler ise sakin ve net bir
-            hiyerarsiyle alt satirda devam ediyor.
-          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -135,7 +130,7 @@ export function CategoriesSection({
               <div className="mt-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
-                    {index === 0 ? "One cikan kategori" : "Kategori"}
+                    {index === 0 ? "Öne çıkan kategori" : "Kategori"}
                   </p>
                   <h3 className="mt-2 font-serif text-[2rem] leading-[0.92] tracking-[-0.04em] text-[#000000]">
                     {category.name}
