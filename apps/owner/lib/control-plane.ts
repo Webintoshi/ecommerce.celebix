@@ -175,6 +175,19 @@ interface AdminRuntimeHealth {
   adminRuntimeUrl: string | null;
 }
 
+interface StoreFinalReadinessSummary {
+  adminRuntimeOk: boolean | null;
+  storefrontRuntimeOk: boolean | null;
+  homepageOk: boolean | null;
+  categoriesOk: boolean | null;
+  productsOk: boolean | null;
+  starterSeedOk: boolean | null;
+  settingsOk: boolean | null;
+  blogPostsOk: boolean | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+}
+
 type DashboardStoreBuildMode = "summary" | "detail";
 
 interface CachedValue<T> {
@@ -219,6 +232,15 @@ export interface StoreHealthSummary {
   supabaseReady: boolean;
   r2Ready: boolean;
   storefrontReady: boolean;
+  storefrontRuntimeConsistent: boolean;
+  storefrontDataReady: boolean;
+  homepageOk: boolean;
+  categoriesOk: boolean;
+  productsOk: boolean;
+  starterSeedReady: boolean;
+  settingsOk: boolean;
+  blogPostsOk: boolean;
+  storefrontDataMessage: string | null;
   adminCoverage: boolean;
   secretCoverage: boolean;
   secretAuthorityReady: boolean;
@@ -921,13 +943,11 @@ function normalizeProvisioningSummaryForDisplay(
     input.storefrontRepoSyncStatus === "synced" ||
     (input.storefrontStatus === "active" && Boolean(input.storefrontAppDir?.trim()));
   const starterSeedReady =
-    input.metrics.productCount > 0 || input.metrics.orderCount > 0 || input.metrics.customerCount > 0;
-  const fullyLiveReady =
-    input.health.supabaseReady &&
-    input.health.r2Ready &&
-    input.health.adminDeploymentReady &&
-    input.health.adminRuntimeConsistent &&
-    input.storefrontStatus === "active";
+    input.health.starterSeedReady ||
+    input.metrics.productCount > 0 ||
+    input.metrics.orderCount > 0 ||
+    input.metrics.customerCount > 0;
+  const fullyLiveReady = isStoreFullyReady(input.health);
 
   let nextSteps = summary.steps.length > 0 ? [...summary.steps] : createDefaultProvisioningSteps();
 
@@ -991,7 +1011,7 @@ function normalizeProvisioningSummaryForDisplay(
     markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
   }
 
-  if (input.storefrontStatus === "active") {
+  if (input.health.storefrontRuntimeConsistent) {
     markCompleted("storefront_deploy", "Storefront runtime canli durumda.");
   }
 
@@ -1020,14 +1040,7 @@ function normalizeOwnerStoreStatusForDisplay(
   health: StoreHealthSummary,
   storefrontStatus: StorefrontStatus,
 ): OwnerStoreStatus {
-  if (
-    provisioning.state === "ready" &&
-    storefrontStatus === "active" &&
-    health.supabaseReady &&
-    health.r2Ready &&
-    health.adminDeploymentReady &&
-    health.adminRuntimeConsistent
-  ) {
+  if (provisioning.state === "ready" && storefrontStatus === "active" && isStoreFullyReady(health)) {
     return "active";
   }
 
@@ -1045,15 +1058,35 @@ function normalizeBootstrapRecordForDisplay(
   }
 
   const next = { ...current };
+  const currentFinalReadiness = asRecord(next.finalReadiness);
+  const fullyReady = isStoreFullyReady(health);
+
+  next.finalReadiness = {
+    ...currentFinalReadiness,
+    adminRuntimeOk: health.adminRuntimeConsistent,
+    storefrontRuntimeOk: health.storefrontRuntimeConsistent,
+    homepageOk: health.homepageOk,
+    categoriesOk: health.categoriesOk,
+    productsOk: health.productsOk,
+    starterSeedOk: health.starterSeedReady,
+    settingsOk: health.settingsOk,
+    blogPostsOk: health.blogPostsOk,
+    lastCheckedAt: new Date().toISOString(),
+    lastError: health.storefrontDataMessage,
+  };
 
   if (health.supabaseReady) {
     next.supabaseProvisioning = "configured";
-    next.lastProvisionError = null;
+    next.lastProvisionError = fullyReady ? null : next.lastProvisionError ?? null;
   }
 
   if (health.adminDeploymentReady && health.adminRuntimeConsistent) {
     next.adminDeploymentStatus = "configured";
-    next.adminDeploymentLastError = null;
+    next.adminDeploymentLastError = fullyReady ? null : next.adminDeploymentLastError ?? null;
+  }
+
+  if (fullyReady) {
+    next.firstReadyAt = readOptionalString(next.firstReadyAt) ?? new Date().toISOString();
   }
 
   return next;
@@ -1062,6 +1095,7 @@ function normalizeBootstrapRecordForDisplay(
 function normalizeStorefrontRecordForDisplay(
   storefront: Record<string, unknown> | null | undefined,
   storefrontStatus: StorefrontStatus,
+  health: StoreHealthSummary,
 ): Record<string, unknown> | null {
   const current = asRecord(storefront);
 
@@ -1070,6 +1104,7 @@ function normalizeStorefrontRecordForDisplay(
   }
 
   const next = { ...current };
+  const fullyReady = isStoreFullyReady(health);
 
   if (readOptionalString(next.repoSyncStatus) === "failed" && storefrontStatus === "active") {
     next.repoSyncStatus = "synced";
@@ -1078,8 +1113,8 @@ function normalizeStorefrontRecordForDisplay(
 
   if (storefrontStatus === "active") {
     next.status = "active";
-    next.deploymentStatus = "configured";
-    next.lastDeploymentError = null;
+    next.deploymentStatus = health.storefrontRuntimeConsistent ? "configured" : next.deploymentStatus ?? "failed";
+    next.lastDeploymentError = fullyReady ? null : next.lastDeploymentError ?? null;
   }
 
   return next;
@@ -1733,6 +1768,142 @@ export async function updateOwnerStoreR2Authority(
   }
 }
 
+function readBooleanFlag(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function readStoreFinalReadiness(
+  metadata: Record<string, unknown> | null | undefined,
+): StoreFinalReadinessSummary {
+  const bootstrap = asRecord(asRecord(metadata).bootstrap);
+  const finalReadiness = asRecord(bootstrap.finalReadiness);
+
+  return {
+    adminRuntimeOk: readBooleanFlag(finalReadiness.adminRuntimeOk),
+    storefrontRuntimeOk: readBooleanFlag(finalReadiness.storefrontRuntimeOk),
+    homepageOk: readBooleanFlag(finalReadiness.homepageOk),
+    categoriesOk: readBooleanFlag(finalReadiness.categoriesOk),
+    productsOk: readBooleanFlag(finalReadiness.productsOk),
+    starterSeedOk: readBooleanFlag(finalReadiness.starterSeedOk),
+    settingsOk: readBooleanFlag(finalReadiness.settingsOk),
+    blogPostsOk: readBooleanFlag(finalReadiness.blogPostsOk),
+    lastCheckedAt: readOptionalString(finalReadiness.lastCheckedAt),
+    lastError: readOptionalString(finalReadiness.lastError),
+  };
+}
+
+function isStoreFullyReady(health: StoreHealthSummary): boolean {
+  return (
+    health.supabaseReady &&
+    health.r2Ready &&
+    health.adminDeploymentReady &&
+    health.adminRuntimeConsistent &&
+    health.storefrontRuntimeConsistent &&
+    health.storefrontDataReady &&
+    health.starterSeedReady
+  );
+}
+
+export async function updateOwnerStoreBootstrapHealthAuthority(
+  slug: string,
+  input: {
+    finalReadiness: {
+      adminRuntimeOk: boolean;
+      storefrontRuntimeOk: boolean;
+      homepageOk: boolean;
+      categoriesOk: boolean;
+      productsOk: boolean;
+      starterSeedOk: boolean;
+      settingsOk: boolean;
+      blogPostsOk: boolean;
+      lastCheckedAt?: string;
+      lastError?: string | null;
+    };
+    firstReadyAt?: string | null;
+  },
+): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("metadata")
+    .eq("slug", slug)
+    .maybeSingle<{ metadata: Record<string, unknown> | null }>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return;
+  }
+
+  const metadata = asRecord(data.metadata);
+  const bootstrap = asRecord(metadata.bootstrap);
+  const storefront = asRecord(metadata.storefront);
+  const currentFinalReadiness = asRecord(bootstrap.finalReadiness);
+  const fullyReady =
+    input.finalReadiness.adminRuntimeOk &&
+    input.finalReadiness.storefrontRuntimeOk &&
+    input.finalReadiness.homepageOk &&
+    input.finalReadiness.categoriesOk &&
+    input.finalReadiness.productsOk &&
+    input.finalReadiness.starterSeedOk &&
+    input.finalReadiness.settingsOk &&
+    input.finalReadiness.blogPostsOk;
+  const firstReadyAt =
+    fullyReady
+      ? readOptionalString(bootstrap.firstReadyAt) ?? input.firstReadyAt ?? new Date().toISOString()
+      : readOptionalString(bootstrap.firstReadyAt) ?? null;
+
+  const nextMetadata = {
+    ...metadata,
+    bootstrap: {
+      ...bootstrap,
+      finalReadiness: {
+        ...currentFinalReadiness,
+        adminRuntimeOk: input.finalReadiness.adminRuntimeOk,
+        storefrontRuntimeOk: input.finalReadiness.storefrontRuntimeOk,
+        homepageOk: input.finalReadiness.homepageOk,
+        categoriesOk: input.finalReadiness.categoriesOk,
+        productsOk: input.finalReadiness.productsOk,
+        starterSeedOk: input.finalReadiness.starterSeedOk,
+        settingsOk: input.finalReadiness.settingsOk,
+        blogPostsOk: input.finalReadiness.blogPostsOk,
+        lastCheckedAt: input.finalReadiness.lastCheckedAt ?? new Date().toISOString(),
+        lastError: input.finalReadiness.lastError ?? null,
+      },
+      firstReadyAt,
+      lastProvisionError: fullyReady ? null : bootstrap.lastProvisionError ?? null,
+      adminDeploymentLastError: fullyReady ? null : bootstrap.adminDeploymentLastError ?? null,
+      supabaseProvisioning: fullyReady
+        ? "configured"
+        : readOptionalString(bootstrap.supabaseProvisioning) ?? "pending-owner-env",
+      adminDeploymentStatus: fullyReady
+        ? "configured"
+        : readOptionalString(bootstrap.adminDeploymentStatus) ?? "pending-owner-env",
+    },
+    storefront: {
+      ...storefront,
+      status: fullyReady ? "active" : (readOptionalString(storefront.status) ?? storefront.status ?? null),
+      deploymentStatus: fullyReady
+        ? "configured"
+        : readOptionalString(storefront.deploymentStatus) ?? storefront.deploymentStatus ?? null,
+      lastDeploymentError: fullyReady ? null : storefront.lastDeploymentError ?? null,
+    },
+  };
+
+  const { error: updateError } = await serviceClient
+    .from("owner_stores")
+    .update({
+      metadata: nextMetadata,
+    })
+    .eq("slug", slug);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
 function buildStoreHealth(
   store: OwnerStoreRow,
   lastSyncedAt: string | null,
@@ -1740,9 +1911,18 @@ function buildStoreHealth(
   connectionReadiness: StoreConnectionReadiness,
   adminRuntimeHealth: AdminRuntimeHealth
 ): StoreHealthSummary {
+  const finalReadiness = readStoreFinalReadiness(store.metadata);
   const supabaseReady = Boolean(store.supabase_project_ref && store.supabase_url);
   const r2Ready = Boolean(store.r2_bucket_name && store.r2_public_url);
-  const storefrontReady = store.storefront_status === "active";
+  const storefrontRuntimeConsistent = finalReadiness.storefrontRuntimeOk ?? (store.storefront_status === "active");
+  const homepageOk = finalReadiness.homepageOk ?? storefrontRuntimeConsistent;
+  const categoriesOk = finalReadiness.categoriesOk ?? storefrontRuntimeConsistent;
+  const productsOk = finalReadiness.productsOk ?? storefrontRuntimeConsistent;
+  const storefrontDataReady = homepageOk && categoriesOk && productsOk;
+  const starterSeedReady = finalReadiness.starterSeedOk ?? storefrontDataReady;
+  const settingsOk = finalReadiness.settingsOk ?? storefrontDataReady;
+  const blogPostsOk = finalReadiness.blogPostsOk ?? storefrontDataReady;
+  const storefrontReady = storefrontRuntimeConsistent && storefrontDataReady;
   const adminCoverage = storeAdminCount > 0;
   const secretCoverage = connectionReadiness.secretCoverage;
   const secretAuthorityReady = connectionReadiness.secretAuthorityReady;
@@ -1756,6 +1936,9 @@ function buildStoreHealth(
     supabaseReady,
     r2Ready,
     storefrontReady,
+    storefrontRuntimeConsistent,
+    storefrontDataReady,
+    starterSeedReady,
     adminCoverage,
     secretCoverage,
     secretAuthorityReady,
@@ -1765,7 +1948,14 @@ function buildStoreHealth(
 
   let label: HealthLabel = "hazir";
 
-  if (!supabaseReady || !adminDeploymentReady || !adminRuntimeConsistent) {
+  if (
+    !supabaseReady ||
+    !adminDeploymentReady ||
+    !adminRuntimeConsistent ||
+    !storefrontRuntimeConsistent ||
+    !storefrontDataReady ||
+    !starterSeedReady
+  ) {
     label = "kritik";
   } else if (!r2Ready || !storefrontReady) {
     label = "kurulum";
@@ -1781,6 +1971,15 @@ function buildStoreHealth(
     supabaseReady,
     r2Ready,
     storefrontReady,
+    storefrontRuntimeConsistent,
+    storefrontDataReady,
+    homepageOk,
+    categoriesOk,
+    productsOk,
+    starterSeedReady,
+    settingsOk,
+    blogPostsOk,
+    storefrontDataMessage: finalReadiness.lastError,
     adminCoverage,
     secretCoverage,
     secretAuthorityReady,
@@ -2938,7 +3137,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     current.storefrontStatus,
   );
   const normalizedBootstrap = normalizeBootstrapRecordForDisplay(detailBootstrap, health);
-  const normalizedStorefront = normalizeStorefrontRecordForDisplay(storefrontConfig, current.storefrontStatus);
+  const normalizedStorefront = normalizeStorefrontRecordForDisplay(storefrontConfig, current.storefrontStatus, health);
 
   const resolvedSupabaseUrl =
     connectionReadiness?.secretSupabaseUrl ??

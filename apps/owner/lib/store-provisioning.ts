@@ -9,6 +9,7 @@ import {
   ensureOwnerStoreAuthorityForSlug,
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
+  updateOwnerStoreBootstrapHealthAuthority,
   updateOwnerStoreR2Authority,
   updateStoreManagementProfile,
 } from "@/lib/control-plane";
@@ -48,7 +49,11 @@ import {
   syncStorefrontRepoForStore,
   validateGitHubRepoSyncReadiness,
 } from "@/lib/storefront-repo-sync";
-import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
+import {
+  inspectStarterStorefrontContentHealth,
+  seedStarterStorefrontContent,
+} from "@/lib/starter-storefront-seed";
+import { readStorefrontRuntimeReadiness } from "@/lib/storefront-runtime-readiness";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import { validateConfiguredStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
@@ -514,6 +519,15 @@ async function reconcileProvisioningSummaryWithLiveState(
   let nextSummary = summary;
   let changed = false;
   const now = new Date().toISOString();
+  let adminRuntimeOk = false;
+  let storefrontRuntimeOk = false;
+  let homepageOk = false;
+  let categoriesOk = false;
+  let productsOk = false;
+  let starterSeedOk = false;
+  let settingsOk = false;
+  let blogPostsOk = false;
+  let readinessError: string | null = null;
 
   const markCompleted = (
     key: ProvisioningStepKey,
@@ -534,6 +548,26 @@ async function reconcileProvisioningSummaryWithLiveState(
 
     nextSummary = {
       ...nextSummary,
+      steps: result.steps,
+    };
+    changed = changed || result.changed;
+  };
+
+  const markFailed = (
+    key: ProvisioningStepKey,
+    message: string,
+    blocking = true,
+  ) => {
+    const result = updateSummaryStep(nextSummary.steps, key, {
+      status: "failed",
+      blocking,
+      message,
+      updatedAt: now,
+    });
+
+    nextSummary = {
+      ...nextSummary,
+      lastError: message,
       steps: result.steps,
     };
     changed = changed || result.changed;
@@ -565,6 +599,7 @@ async function reconcileProvisioningSummaryWithLiveState(
     }
 
     if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
+      adminRuntimeOk = true;
       markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
     }
   } catch {
@@ -583,11 +618,92 @@ async function reconcileProvisioningSummaryWithLiveState(
     }
 
     if (storefrontBlueprint.status === "configured" && storefrontBlueprint.runtimeConsistent) {
+      storefrontRuntimeOk = true;
       markCompleted("storefront_deploy", "Storefront runtime canli ve tutarli cevap veriyor.");
     }
   } catch {
     // Keep existing provisioning summary when storefront runtime cannot be checked.
   }
+
+  if (storefrontRuntimeOk) {
+    const storefrontReadiness = await readStorefrontRuntimeReadiness(store.domains.storefront).catch((error) => ({
+      checkedAt: now,
+      storefrontRuntimeOk: false,
+      homepageOk: false,
+      categoriesOk: false,
+      productsOk: false,
+      dataApisOk: false,
+      lastError: error instanceof Error ? error.message : "Storefront smoke kontrolu yapilamadi.",
+    }));
+
+    storefrontRuntimeOk = storefrontReadiness.storefrontRuntimeOk;
+    homepageOk = storefrontReadiness.homepageOk;
+    categoriesOk = storefrontReadiness.categoriesOk;
+    productsOk = storefrontReadiness.productsOk;
+
+    if (storefrontReadiness.storefrontRuntimeOk && storefrontReadiness.dataApisOk) {
+      markCompleted("storefront_deploy", "Storefront runtime ve veri API smoke kontrolleri saglikli.");
+    } else {
+      const storefrontError =
+        storefrontReadiness.lastError ||
+        "Storefront veri API smoke kontrolleri basarisiz oldu.";
+      readinessError = readinessError ?? storefrontError;
+      markFailed("storefront_deploy", `Storefront smoke basarisiz: ${storefrontError}`);
+    }
+  }
+
+  const canVerifyStarterContent =
+    store.bootstrap?.supabaseProvisioning === "configured" &&
+    Boolean(store.supabase.projectRef && store.supabase.projectRef !== "pending-owner-bootstrap") &&
+    Boolean(store.supabase.url && store.supabase.url !== "configure-in-env");
+
+  if (canVerifyStarterContent) {
+    try {
+      const starterHealth = await inspectStarterStorefrontContentHealth(store);
+      starterSeedOk = starterHealth.ready;
+      settingsOk = starterHealth.settingsOk;
+      blogPostsOk = starterHealth.blogPostsOk;
+
+      if (starterHealth.ready) {
+        markCompleted("starter_seed", "Starter icerik cekirdek katalog ve ayar tablolarinda hazir.");
+      } else {
+        const starterError = "Starter content kontrolu basarisiz: cekirdek katalog tablolarinda eksik veri var.";
+        readinessError = readinessError ?? starterError;
+        markFailed("starter_seed", starterError);
+      }
+    } catch (error) {
+      const starterError =
+        error instanceof Error ? error.message : "Starter content kontrolu basarisiz oldu.";
+      readinessError = readinessError ?? starterError;
+      markFailed("starter_seed", starterError);
+    }
+  }
+
+  await updateOwnerStoreBootstrapHealthAuthority(slug, {
+    finalReadiness: {
+      adminRuntimeOk,
+      storefrontRuntimeOk,
+      homepageOk,
+      categoriesOk,
+      productsOk,
+      starterSeedOk,
+      settingsOk,
+      blogPostsOk,
+      lastCheckedAt: now,
+      lastError: readinessError,
+    },
+    firstReadyAt:
+      adminRuntimeOk &&
+      storefrontRuntimeOk &&
+      homepageOk &&
+      categoriesOk &&
+      productsOk &&
+      starterSeedOk &&
+      settingsOk &&
+      blogPostsOk
+        ? now
+        : null,
+  }).catch(() => undefined);
 
   if (!changed) {
     return summary;

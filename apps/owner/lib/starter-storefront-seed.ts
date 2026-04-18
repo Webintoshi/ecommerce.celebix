@@ -22,6 +22,22 @@ interface SeedResult {
   };
 }
 
+export interface StarterStorefrontContentHealth {
+  checkedAt: string;
+  categoriesOk: boolean;
+  productsOk: boolean;
+  settingsOk: boolean;
+  blogPostsOk: boolean;
+  ready: boolean;
+  counts: {
+    categories: number;
+    products: number;
+    settings: number;
+    blogPosts: number;
+  };
+  lastError: string | null;
+}
+
 const STARTER_SOURCE_URL = process.env.OWNER_STARTER_THEME_SOURCE_URL?.trim() || "https://derycraft.com";
 const STARTER_TARGET_RETRY_ATTEMPTS = 8;
 const STARTER_TARGET_RETRY_DELAY_MS = 5000;
@@ -808,9 +824,17 @@ async function ensureStorePaymentGateways(
 }
 
 async function hasCatalogContent(target: ReturnType<typeof createClient<any>>) {
-  const [categories, products, blogPosts] = await Promise.all([
+  const health = await readStarterStorefrontContentHealth(target);
+  return health.counts.categories > 0 || health.counts.products > 0 || health.counts.blogPosts > 0;
+}
+
+async function readStarterStorefrontContentHealth(
+  target: ReturnType<typeof createClient<any>>,
+): Promise<StarterStorefrontContentHealth> {
+  const [categories, products, settings, blogPosts] = await Promise.all([
     target.from("categories").select("id", { count: "exact", head: true }),
     target.from("products").select("id", { count: "exact", head: true }),
+    target.from("settings").select("key", { count: "exact", head: true }),
     target.from("blog_posts").select("id", { count: "exact", head: true }),
   ]);
 
@@ -826,13 +850,58 @@ async function hasCatalogContent(target: ReturnType<typeof createClient<any>>) {
     );
   }
 
+  if (settings.error) {
+    throw new Error(
+      `Starter content kontrolu basarisiz: ${formatSupabaseError(settings.error, "settings tablosu okunamadi.")}`,
+    );
+  }
+
   if (blogPosts.error) {
     throw new Error(
       `Starter content kontrolu basarisiz: ${formatSupabaseError(blogPosts.error, "blog_posts tablosu okunamadi.")}`,
     );
   }
 
-  return (categories.count ?? 0) > 0 || (products.count ?? 0) > 0 || (blogPosts.count ?? 0) > 0;
+  const checkedAt = new Date().toISOString();
+  const categoryCount = categories.count ?? 0;
+  const productCount = products.count ?? 0;
+  const settingsCount = settings.count ?? 0;
+  const blogPostCount = blogPosts.count ?? 0;
+
+  return {
+    checkedAt,
+    categoriesOk: categoryCount > 0,
+    productsOk: productCount > 0,
+    settingsOk: settingsCount > 0,
+    blogPostsOk: blogPostCount > 0,
+    ready: categoryCount > 0 && productCount > 0 && settingsCount > 0 && blogPostCount > 0,
+    counts: {
+      categories: categoryCount,
+      products: productCount,
+      settings: settingsCount,
+      blogPosts: blogPostCount,
+    },
+    lastError: null,
+  };
+}
+
+export async function inspectStarterStorefrontContentHealth(
+  store: StoreConfig,
+): Promise<StarterStorefrontContentHealth> {
+  const secrets = await getStoreSupabaseSecret(store.slug);
+
+  if (!secrets?.supabase_url || !secrets.supabase_service_role_key) {
+    throw new Error(`Starter content kontrolu icin store secrets eksik: ${store.slug}`);
+  }
+
+  const target = createClient(secrets.supabase_url, secrets.supabase_service_role_key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return withStarterTargetRetry(async () => readStarterStorefrontContentHealth(target));
 }
 
 export async function seedStarterStorefrontContent(

@@ -48,6 +48,10 @@ interface OwnerStoreMetadataRow {
   metadata: Record<string, unknown> | null;
 }
 
+interface OwnerStoreBootstrapRow extends OwnerStoreMetadataRow {
+  created_at: string;
+}
+
 interface PgMetaTarget {
   baseUrl: string | null;
   extraHeaders?: Record<string, string>;
@@ -74,6 +78,7 @@ const DATA_API_POLL_DELAY_MS = 5000;
 const DATA_API_POLL_ATTEMPTS = 24;
 const COOLIFY_API_TIMEOUT_MS = 15000;
 const SELF_HOSTED_PG_META_REF = "default";
+const DISPOSABLE_STORE_RECREATE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const CORE_BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "schema.sql"],
   ["apps", "admin", "supabase", "migrations", "003_add_auth_integration.sql"],
@@ -169,6 +174,10 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function readOptionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function buildHeaders(): HeadersInit {
@@ -777,6 +786,154 @@ async function listServices(): Promise<CoolifyService[]> {
   return normalizeArrayPayload<CoolifyService>(payload);
 }
 
+async function deleteService(serviceUuid: string): Promise<void> {
+  await coolifyFetch<unknown>(`/services/${serviceUuid}`, { method: "DELETE" });
+}
+
+async function waitForServiceDeletion(identifier: string): Promise<void> {
+  for (let attempt = 0; attempt < ENV_POLL_ATTEMPTS; attempt += 1) {
+    const services = await listServices();
+    const stillExists = services.some((service) => {
+      const serviceIdentifier =
+        service.uuid ||
+        service.service_uuid ||
+        service.resource_uuid ||
+        service.name ||
+        "";
+      return serviceIdentifier === identifier || service.name === identifier;
+    });
+
+    if (!stillExists) {
+      return;
+    }
+
+    await sleep(ENV_POLL_DELAY_MS);
+  }
+
+  throw new Error(`Coolify self-hosted Supabase service silindikten sonra kaldirilmadi: ${identifier}`);
+}
+
+async function recreateSupabaseService(
+  store: StoreConfig,
+  projectUuid: string,
+  environmentUuid: string,
+  existingServiceUuid: string | null,
+  existingServiceName: string,
+): Promise<CoolifyService> {
+  if (existingServiceUuid) {
+    await deleteService(existingServiceUuid);
+    await waitForServiceDeletion(existingServiceUuid);
+  } else {
+    await waitForServiceDeletion(existingServiceName).catch(() => undefined);
+  }
+
+  return createSupabaseService(store, projectUuid, environmentUuid);
+}
+
+async function readOwnerStoreBootstrapRow(slug: string): Promise<OwnerStoreBootstrapRow | null> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("id, created_at, metadata")
+    .eq("slug", slug)
+    .maybeSingle<OwnerStoreBootstrapRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? null;
+}
+
+function shouldAllowDisposableStoreRecreate(
+  store: StoreConfig,
+  ownerRow: OwnerStoreBootstrapRow | null,
+): boolean {
+  if (store.slug === "alpler-spor") {
+    return true;
+  }
+
+  if (!ownerRow) {
+    return false;
+  }
+
+  const bootstrap = asRecord(asRecord(ownerRow.metadata).bootstrap);
+  const firstReadyAt = readOptionalString(bootstrap.firstReadyAt);
+
+  if (firstReadyAt) {
+    return false;
+  }
+
+  const createdAt = readOptionalString(ownerRow.created_at);
+
+  if (!createdAt) {
+    return false;
+  }
+
+  return Date.now() - new Date(createdAt).getTime() <= DISPOSABLE_STORE_RECREATE_WINDOW_MS;
+}
+
+async function updateSupabaseRecoveryState(input: {
+  slug: string;
+  mode: "standard" | "recreate";
+  attemptCount: number;
+  lastError?: string | null;
+  recreateAttempted?: boolean;
+  recreatedAt?: string | null;
+}): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("metadata")
+    .eq("slug", input.slug)
+    .maybeSingle<{ metadata: Record<string, unknown> | null }>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return;
+  }
+
+  const metadata = asRecord(data.metadata);
+  const bootstrap = asRecord(metadata.bootstrap);
+  const currentRecovery = asRecord(bootstrap.supabaseRecovery);
+  const nextMetadata = {
+    ...metadata,
+    bootstrap: {
+      ...bootstrap,
+      supabaseRecovery: {
+        ...currentRecovery,
+        attemptCount: Math.max(
+          input.attemptCount,
+          typeof currentRecovery.attemptCount === "number" ? currentRecovery.attemptCount : 0,
+        ),
+        lastMode: input.mode,
+        lastError: input.lastError ?? null,
+        lastAttemptAt: new Date().toISOString(),
+        recreateAttempted:
+          input.recreateAttempted ?? (typeof currentRecovery.recreateAttempted === "boolean" ? currentRecovery.recreateAttempted : false),
+        recreatedAt:
+          input.recreatedAt ??
+          readOptionalString(currentRecovery.recreatedAt) ??
+          null,
+      },
+    },
+  };
+
+  const { error: updateError } = await serviceClient
+    .from("owner_stores")
+    .update({
+      metadata: nextMetadata,
+    })
+    .eq("slug", input.slug);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
 async function ensureSupabaseService(store: StoreConfig, projectUuid: string, environmentUuid: string): Promise<CoolifyService> {
   const targetName = buildSupabaseServiceName(store);
   const existing = (await listServices()).find((service) => service.name === targetName);
@@ -1286,68 +1443,29 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
   const targetPublicUrl = await buildSupabasePublicUrl(store);
   const targetDashboardUrl = buildSupabaseDashboardUrl(targetPublicUrl);
   const targetServiceName = buildSupabaseServiceName(store);
-  let serviceUuid: string | null = null;
-  let runtime: SupabaseRuntimeConnection | null = null;
+  const ownerRow = await readOwnerStoreBootstrapRow(store.slug).catch(() => null);
+  const existingRecovery = asRecord(asRecord(ownerRow?.metadata).bootstrap).supabaseRecovery;
+  let attemptCount =
+    typeof existingRecovery === "object" &&
+    existingRecovery &&
+    typeof asRecord(existingRecovery).attemptCount === "number"
+      ? (asRecord(existingRecovery).attemptCount as number)
+      : 0;
+  let recreateAttempted =
+    typeof existingRecovery === "object" &&
+    existingRecovery &&
+    typeof asRecord(existingRecovery).recreateAttempted === "boolean"
+      ? Boolean(asRecord(existingRecovery).recreateAttempted)
+      : false;
+  const allowDisposableRecreate = shouldAllowDisposableStoreRecreate(store, ownerRow);
 
-  try {
-    const service = await ensureSupabaseService(store, projectUuid, environmentUuid);
-    serviceUuid = resolveIdentifier(service);
-    runtime = await waitForSupabaseRuntime(serviceUuid);
-    const resolvedProjectUrl = runtime.publicUrl || targetPublicUrl;
-    const resolvedDashboardUrl = buildSupabaseDashboardUrl(resolvedProjectUrl);
-    await waitForSelfHostedPgMetaRuntime(runtime, runtime.adminUser, runtime.adminPassword);
-    await ensureSelfHostedStoreSchema(runtime, runtime.adminUser, runtime.adminPassword);
-    await seedSelfHostedStoreSettings(store, runtime, runtime.adminUser, runtime.adminPassword);
-    await waitForSelfHostedDataApiRuntime(runtime, serviceUuid);
-    const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, resolvedProjectUrl);
-    const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
-      ...legacyAdminAuthEntries,
-      ...buildAdminEnvEntries(store, resolvedProjectUrl, runtime.publicKey, runtime.serviceKey),
-      ...getSharedRedisEnvEntries(),
-    });
-    await upsertStoreSupabaseSecret({
-      slug: store.slug,
-      supabaseUrl: resolvedProjectUrl,
-      supabaseServiceRoleKey: runtime.serviceKey,
-      supabaseAnonKey: runtime.publicKey,
-      supabaseLegacyUrl: legacyAdminAuthEntries.SUPABASE_LEGACY_URL ?? null,
-      supabaseLegacyAnonKey: legacyAdminAuthEntries.SUPABASE_LEGACY_ANON_KEY ?? null,
-    });
-
-    updateStoreSupabaseConfig(store.slug, {
-      projectRef: buildProjectReference(store, serviceUuid),
-      url: resolvedProjectUrl,
-      provider: "self_hosted_coolify",
-      organizationSlug: organization.slug,
-      provisioningStatus: "configured",
-      dashboardUrl: resolvedDashboardUrl,
-      projectName: service.name || buildSupabaseServiceName(store),
-      resourceId: serviceUuid,
-      adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
-    });
-    await syncOwnerStoreSupabaseAuthority({
-      slug: store.slug,
-      projectRef: buildProjectReference(store, serviceUuid),
-      projectUrl: resolvedProjectUrl,
-      organizationSlug: organization.slug,
-      provisioningStatus: "configured",
-      projectName: service.name || targetServiceName,
-      resourceId: serviceUuid,
-      dashboardUrl: resolvedDashboardUrl,
-      adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
-    }).catch(() => undefined);
-
-    return {
-      provider: "self_hosted_coolify",
-      organization,
-      projectRef: buildProjectReference(store, serviceUuid),
-      projectUrl: resolvedProjectUrl,
-      adminEnvLocalPath,
-      dashboardUrl: resolvedDashboardUrl,
-      projectName: service.name || targetServiceName,
-      resourceId: serviceUuid,
-    };
-  } catch (error) {
+  const persistFailure = async (
+    error: unknown,
+    mode: "standard" | "recreate",
+    serviceUuid: string | null,
+    runtime: SupabaseRuntimeConnection | null,
+    recreatedAt?: string | null,
+  ): Promise<never> => {
     const failedProjectRef = serviceUuid
       ? buildProjectReference(store, serviceUuid)
       : store.supabase.projectRef || "pending-owner-bootstrap";
@@ -1381,7 +1499,136 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
       dashboardUrl: failedDashboardUrl,
       lastProvisionError: failedMessage,
     }).catch(() => undefined);
+    await updateSupabaseRecoveryState({
+      slug: store.slug,
+      mode,
+      attemptCount,
+      lastError: failedMessage,
+      recreateAttempted,
+      recreatedAt: recreatedAt ?? null,
+    }).catch(() => undefined);
 
-    throw error;
+    throw error instanceof Error ? error : new Error(failedMessage);
+  };
+
+  const executeProvisionAttempt = async (
+    mode: "standard" | "recreate",
+    recreatedAt?: string | null,
+  ): Promise<SupabaseProvisioningResult> => {
+    let serviceUuid: string | null = null;
+    let runtime: SupabaseRuntimeConnection | null = null;
+
+    try {
+      const service =
+        mode === "recreate"
+          ? await (async () => {
+              const existingService = (await listServices()).find((entry) => entry.name === targetServiceName);
+              return recreateSupabaseService(
+                store,
+                projectUuid,
+                environmentUuid,
+                existingService ? resolveIdentifier(existingService) : null,
+                targetServiceName,
+              );
+            })()
+          : await ensureSupabaseService(store, projectUuid, environmentUuid);
+      serviceUuid = resolveIdentifier(service);
+      runtime = await waitForSupabaseRuntime(serviceUuid);
+      const resolvedProjectUrl = runtime.publicUrl || targetPublicUrl;
+      const resolvedDashboardUrl = buildSupabaseDashboardUrl(resolvedProjectUrl);
+      await waitForSelfHostedPgMetaRuntime(runtime, runtime.adminUser, runtime.adminPassword);
+      await ensureSelfHostedStoreSchema(runtime, runtime.adminUser, runtime.adminPassword);
+      await seedSelfHostedStoreSettings(store, runtime, runtime.adminUser, runtime.adminPassword);
+      await waitForSelfHostedDataApiRuntime(runtime, serviceUuid);
+      const legacyAdminAuthEntries = buildLegacyAdminAuthEnvEntries(store, resolvedProjectUrl);
+      const adminEnvLocalPath = upsertStoreAdminEnvLocal(store.slug, {
+        ...legacyAdminAuthEntries,
+        ...buildAdminEnvEntries(store, resolvedProjectUrl, runtime.publicKey, runtime.serviceKey),
+        ...getSharedRedisEnvEntries(),
+      });
+      await upsertStoreSupabaseSecret({
+        slug: store.slug,
+        supabaseUrl: resolvedProjectUrl,
+        supabaseServiceRoleKey: runtime.serviceKey,
+        supabaseAnonKey: runtime.publicKey,
+        supabaseLegacyUrl: legacyAdminAuthEntries.SUPABASE_LEGACY_URL ?? null,
+        supabaseLegacyAnonKey: legacyAdminAuthEntries.SUPABASE_LEGACY_ANON_KEY ?? null,
+      });
+
+      updateStoreSupabaseConfig(store.slug, {
+        projectRef: buildProjectReference(store, serviceUuid),
+        url: resolvedProjectUrl,
+        provider: "self_hosted_coolify",
+        organizationSlug: organization.slug,
+        provisioningStatus: "configured",
+        dashboardUrl: resolvedDashboardUrl,
+        projectName: service.name || buildSupabaseServiceName(store),
+        resourceId: serviceUuid,
+        adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
+      });
+      await syncOwnerStoreSupabaseAuthority({
+        slug: store.slug,
+        projectRef: buildProjectReference(store, serviceUuid),
+        projectUrl: resolvedProjectUrl,
+        organizationSlug: organization.slug,
+        provisioningStatus: "configured",
+        projectName: service.name || targetServiceName,
+        resourceId: serviceUuid,
+        dashboardUrl: resolvedDashboardUrl,
+        adminEnvLocalPath: path.relative(getRepoRoot(), adminEnvLocalPath).replace(/\\/g, "/"),
+      }).catch(() => undefined);
+      await updateSupabaseRecoveryState({
+        slug: store.slug,
+        mode,
+        attemptCount,
+        lastError: null,
+        recreateAttempted,
+        recreatedAt: recreatedAt ?? null,
+      }).catch(() => undefined);
+
+      return {
+        provider: "self_hosted_coolify",
+        organization,
+        projectRef: buildProjectReference(store, serviceUuid),
+        projectUrl: resolvedProjectUrl,
+        adminEnvLocalPath,
+        dashboardUrl: resolvedDashboardUrl,
+        projectName: service.name || targetServiceName,
+        resourceId: serviceUuid,
+      };
+    } catch (error) {
+      return persistFailure(error, mode, serviceUuid, runtime, recreatedAt);
+    }
+  };
+
+  attemptCount += 1;
+  await updateSupabaseRecoveryState({
+    slug: store.slug,
+    mode: "standard",
+    attemptCount,
+    lastError: null,
+    recreateAttempted,
+  }).catch(() => undefined);
+
+  try {
+    return await executeProvisionAttempt("standard");
+  } catch (error) {
+    if (!allowDisposableRecreate || recreateAttempted) {
+      throw error;
+    }
+
+    recreateAttempted = true;
+    attemptCount += 1;
+    const recreatedAt = new Date().toISOString();
+    await updateSupabaseRecoveryState({
+      slug: store.slug,
+      mode: "recreate",
+      attemptCount,
+      lastError: error instanceof Error ? error.message : "Self-hosted Supabase recreate baslatildi.",
+      recreateAttempted: true,
+      recreatedAt,
+    }).catch(() => undefined);
+
+    return executeProvisionAttempt("recreate", recreatedAt);
   }
 }
