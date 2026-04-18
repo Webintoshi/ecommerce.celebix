@@ -1,0 +1,73 @@
+{
+  "name": "Ezmeo",
+  "slug": "ezmeo",
+  "status": "draft",
+  "theme": {
+    "key": "leather",
+    "label": "Leather",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Türkiye'nin bir numaraı ezme markası.",
+    "supportEmail": "destek@ezmeo.com",
+    "supportPhone": "+905302099628",
+    "senderEmail": "noreply@ezmeo.com",
+    "smsSenderTitle": "EZMEO",
+    "defaultProductBrand": "Ezmeo"
+  },
+  "domains": {
+    "storefront": "ezmeo.com",
+    "admin": "admin.ezmeo.com"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "managed",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env",
+    "provisionedAt": "2026-04-18T04:30:31.333921+00:00"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-18T04:30:31.121Z",
+    "envTemplatePath": "stores/ezmeo/admin.env.example",
+    "adminEnvLocalPath": "stores/ezmeo/admin.env.local",
+    "coolifyProjectName": "Ezmeo",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Ezmeo admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.ezmeo.com",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "managed",
+    "supabaseProjectName": "Ezmeo",
+    "provisionedAt": "2026-04-18T04:30:31.333921+00:00",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "lastScaffoldedAt": "2026-04-18T04:30:31.333921+00:00",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Ezmeo websitesi",
+    "deploymentBranch": "deploy/storefront/ezmeo",
+    "runtimeUrl": "https://ezmeo.com",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}

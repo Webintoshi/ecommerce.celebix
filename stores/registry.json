@@ -14,6 +14,13 @@
     "status": "active"
   },
   {
+    "slug": "ezmeo",
+    "name": "Ezmeo",
+    "domain": "ezmeo.com",
+    "theme": "leather",
+    "status": "draft"
+  },
+  {
     "slug": "lilyum-flora-ordu",
     "name": "Lilyum Flora Ordu",
     "domain": "lilyumflora.net",
