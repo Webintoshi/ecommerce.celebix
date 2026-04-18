@@ -374,15 +374,15 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
   if (!settings.translateUi || !shouldTranslateLocale(settings, locale)) {
     return {
       categoriesEyebrow: "Koleksiyonlar",
-      categoriesHeading: "Kategoriler",
-      viewAllLabel: "Tümünü Gör",
-      testimonialsHeading: "Müşteri Yorumları",
-      testimonialsCountLabel: "1581 değerlendirmeden",
+      categoriesHeading: "Fistik, findik ve badem etrafinda kurulan secili koleksiyonlar",
+      viewAllLabel: "Tumunu kesfet",
+      testimonialsHeading: "Gercek musteri notlari",
+      testimonialsCountLabel: "Onayli degerlendirmeler geldikce bu alan guncellenir",
       productGroups: [
-        { title: "Çok Satanlar", subtitle: "Seçili Koleksiyon" },
-        { title: "Apple Watch Kayışları", subtitle: "Öne Çıkanlar" },
-        { title: "Aksesuarlar", subtitle: "Tamamlayıcılar" },
-        { title: "Deri Saat Kayışları", subtitle: "Klasik Seçim" },
+        { title: "Cok satan ezmeler", subtitle: "Gunun favorileri" },
+        { title: "Kahvalti seckisi", subtitle: "Sabah ritmi" },
+        { title: "Sekersiz cizgi", subtitle: "Temiz tercih" },
+        { title: "Yeni favoriler", subtitle: "Canli secim" },
       ],
     };
   }
@@ -396,10 +396,10 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
   ] = await translateTexts(
     [
       "Koleksiyonlar",
-      "Kategoriler",
-      "Tümünü Gör",
-      "Müşteri Yorumları",
-      "1581 değerlendirmeden",
+      "Fistik, findik ve badem etrafinda kurulan secili koleksiyonlar",
+      "Tumunu kesfet",
+      "Gercek musteri notlari",
+      "Onayli degerlendirmeler geldikce bu alan guncellenir",
     ],
     {
       locale,
@@ -409,14 +409,14 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
 
   const groupRows = await translateTexts(
     [
-      "Çok Satanlar",
-      "Seçili Koleksiyon",
-      "Apple Watch Kayışları",
-      "Öne Çıkanlar",
-      "Aksesuarlar",
-      "Tamamlayıcılar",
-      "Deri Saat Kayışları",
-      "Klasik Seçim",
+      "Cok satan ezmeler",
+      "Gunun favorileri",
+      "Kahvalti seckisi",
+      "Sabah ritmi",
+      "Sekersiz cizgi",
+      "Temiz tercih",
+      "Yeni favoriler",
+      "Canli secim",
     ],
     {
       locale,

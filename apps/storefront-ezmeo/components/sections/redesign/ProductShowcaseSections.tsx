@@ -97,12 +97,12 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Secili Koleksiyon"
+          ? "Gunun favorileri"
           : index === 1
-            ? "One Cikanlar"
+            ? "Kahvalti cizgisi"
             : index === 2
-              ? "Editorden"
-              : "Kesfet",
+              ? "Temiz tercih"
+              : "Secki",
       isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
@@ -131,51 +131,19 @@ function buildProductGroups(
 }
 
 function EmptyShowcaseState() {
-  const cards = [
-    {
-      title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
-    },
-    {
-      title: "Manuel Sirayi Kullan",
-      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
-    },
-    {
-      title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
-    },
-  ];
-
   return (
-    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
+    <section className="pt-14 lg:pt-18">
       <div className="container-premium">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
+        <div className="surface-card px-6 py-12 text-center md:px-10">
+          <span className="editorial-kicker">
             <Sparkles className="h-3.5 w-3.5" />
-            Vitrin Hazir
+            Ezmeo vitrini
           </span>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Ekstra frontend eforu gerektirmeden admin panelindeki urun ve kategori
-            girdileri, baslangic temasinin section duzenini otomatik doldurur.
+          <h2 className="mt-5 text-[var(--foreground)]">Ilk urunler geldikce secki burada canlanacak.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--muted-foreground)] md:text-base">
+            Bu alan yayinlanan urunleri dogrudan koleksiyon bloklarina tasir. Gercek veri geldigi
+            anda vitrinin sesi urun odakli sekilde netlesir.
           </p>
-        </div>
-
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {cards.map((card) => (
-            <div
-              key={card.title}
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                Otomatik
-              </p>
-              <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -187,7 +155,7 @@ export function ProductShowcaseSections({
   allProducts,
   homepageCuration,
   groupCopy,
-  viewAllLabel = "Tumunu Gor",
+  viewAllLabel = "Tumunu kesfet",
 }: ProductShowcaseSectionsProps) {
   const { locale } = useStorefrontRoute();
 
@@ -202,15 +170,15 @@ export function ProductShowcaseSections({
       : [
           {
             id: "latest",
-            title: "Yeni Gelenler",
-            subtitle: "Canli Secki",
+            title: "Yeni secilenler",
+            subtitle: "Canli akıs",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
           {
             id: "featured",
-            title: "One Cikanlar",
-            subtitle: "Editor Secimi",
+            title: "Cok satan ezmeler",
+            subtitle: "Editoryal tercih",
             link: ROUTES.products,
             products: allProducts.slice(4, 8),
           },
@@ -227,35 +195,40 @@ export function ProductShowcaseSections({
 
   return (
     <>
-      {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
+      {effectiveGroups.map((group, index) => (
+        <section key={group.id} className="pt-14 lg:pt-18">
           <div className="container-premium">
-            <div className="mb-12 flex items-end justify-between gap-6">
-              <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-                  {group.subtitle}
-                </span>
-                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
-                  {group.title}
-                </h2>
+            <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+              <div className="mb-8 flex flex-col gap-5 border-b border-[var(--border)] pb-6 md:flex-row md:items-end md:justify-between">
+                <div className="max-w-2xl">
+                  <p className="editorial-kicker">
+                    {group.subtitle}
+                  </p>
+                  <h2 className="mt-4 text-[var(--foreground)]">{group.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-[var(--muted-foreground)] md:text-base">
+                    {index === 0
+                      ? "Urun kartlari daha sakin bir duzende, daha kuvvetli gorsel oranlarla ve daha temiz fiyat hiyerarsisi ile sunulur."
+                      : "Kalabaligi azaltan ama secimi hizlandiran editorial bir koleksiyon akisina donusur."}
+                  </p>
+                </div>
+
+                <Link
+                  href={buildLocalizedPath(
+                    group.link.startsWith("/") ? group.link : ROUTES.products,
+                    locale,
+                  )}
+                  className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
+                >
+                  {viewAllLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
 
-              <Link
-                href={buildLocalizedPath(
-                  group.link.startsWith("/") ? group.link : ROUTES.products,
-                  locale,
-                )}
-                className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
-              >
-                {viewAllLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
-              {group.products.slice(0, 4).map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {group.products.slice(0, 4).map((product, productIndex) => (
+                  <ProductCard key={product.id} product={product} index={productIndex} />
+                ))}
+              </div>
             </div>
           </div>
         </section>

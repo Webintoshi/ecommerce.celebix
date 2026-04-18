@@ -68,21 +68,21 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
   switch (locale) {
     case "en":
       return {
-        siteTitle: `${name} | Premium Storefront`,
+        siteTitle: `${name} | Premium Nut Butter Store`,
         siteDescription:
-          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
-        homeTitle: `${name} | Premium Storefront`,
+          "Premium pistachio, hazelnut, almond, and curated spread collections presented with a warmer editorial storefront.",
+        homeTitle: `${name} | Premium Nut Butter Store`,
         homeDescription:
-          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+          "Premium pistachio, hazelnut, almond, and curated spread collections presented with a warmer editorial storefront.",
         productsTitle: `All Products | ${name}`,
         productsDescription:
-          "Discover all published products, curated collections, and merchandising blocks managed from your admin panel.",
+          "Browse premium spreads, curated jars, and cleaner product storytelling in one storefront.",
         contactTitle: `Contact | ${name}`,
         contactDescription:
-          "Get in touch for support, wholesale inquiries, and custom project requests.",
-        corporateTitle: `Corporate Products | ${name}`,
+          "Reach out for product questions, support, and wholesale requests.",
+        corporateTitle: `Brand Story | ${name}`,
         corporateDescription:
-          "Showcase premium corporate gifting, branded product sets, and admin-managed presentation pages.",
+          "Discover the brand world, product approach, and editorial merchandising language behind the store.",
         missingProductTitle: `Product Not Found | ${name}`,
         missingProductDescription: "The product you are looking for could not be found.",
         missingCategoryTitle: `Category Not Found | ${name}`,
@@ -91,21 +91,21 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       };
     default:
       return {
-        siteTitle: `${name} | Premium Magaza Deneyimi`,
+        siteTitle: `${name} | Premium Ezme Vitrini`,
         siteDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
-        homeTitle: `${name} | Premium Magaza Deneyimi`,
+          "Fistik, findik, badem ve benzeri premium ezmeleri daha sakin, daha editorial ve daha guven veren bir storefront deneyimiyle sunar.",
+        homeTitle: `${name} | Premium Ezme Vitrini`,
         homeDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+          "Fistik, findik, badem ve benzeri premium ezmeleri daha sakin, daha editorial ve daha guven veren bir storefront deneyimiyle sunar.",
         productsTitle: `Tum Urunler | ${name}`,
         productsDescription:
-          "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
+          "Yayindaki premium ezmeleri, secili kavanozlari ve koleksiyonlari tek bir editorial akista kesfedin.",
         contactTitle: `Iletisim | ${name}`,
         contactDescription:
-          "Destek, toptan satis ve ozel proje talepleriniz icin bizimle iletisime gecin.",
-        corporateTitle: `Kurumsal Urunler | ${name}`,
+          "Destek, toptan satis ve urun secimi sorulariniz icin bizimle iletisime gecin.",
+        corporateTitle: `Marka Hikayesi | ${name}`,
         corporateDescription:
-          "Markanizi premium urunler, ozel hediye setleri ve admin yonetimli kurumsal vitrinle guclendirin.",
+          "Ezmeo'nun urun dili, premium vitrin yorumu ve secili koleksiyon mantigini kesfedin.",
         missingProductTitle: `Urun Bulunamadi | ${name}`,
         missingProductDescription: "Aradiginiz urun bulunamadi.",
         missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
@@ -121,7 +121,7 @@ const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnTy
     searchLabel: "Ara",
     cartLabel: "Sepeti ac",
     categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Taniyin",
+    aboutHeading: "Marka ve Yardim",
     policiesHeading: "Politikalar",
     footerHome: "Ana Sayfa",
     footerAbout: "Hakkimizda",
@@ -142,7 +142,7 @@ const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnTy
     searchLabel: "Search",
     cartLabel: "Open cart",
     categoriesHeading: "Categories",
-    aboutHeading: "Discover Us",
+    aboutHeading: "Brand & Help",
     policiesHeading: "Policies",
     footerHome: "Home",
     footerAbout: "About",

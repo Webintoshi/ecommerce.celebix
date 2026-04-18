@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ArrowUpRight, Dot, X } from "lucide-react";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface AnnouncementSettings {
   message: string;
@@ -13,11 +15,11 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Ilk siparisinizde %10 indirim!",
-  link: "/kampanyalar",
-  linkText: "Hemen Kesfet",
+  message: "Sekersiz, balli ve hurmali secenekler ayni vitrinde.",
+  link: "/urunler",
+  linkText: "Koleksiyonu kesfet",
   enabled: true,
-  backgroundColor: "#7B1113",
+  backgroundColor: "#261710",
 };
 
 function normalizeAnnouncementColor(value?: string) {
@@ -44,6 +46,7 @@ function getAnnouncementTextColor(hexColor: string) {
 }
 
 export function AnnouncementBar() {
+  const { locale } = useStorefrontRoute();
   const [settings, setSettings] = useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isVisible, setIsVisible] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -76,15 +79,15 @@ export function AnnouncementBar() {
   const backgroundColor = normalizeAnnouncementColor(settings.backgroundColor);
   const textColor = getAnnouncementTextColor(backgroundColor);
   const isDarkTheme = textColor === "#FFFFFF";
-  const buttonClass = isDarkTheme
-    ? "bg-white/12 hover:bg-white/20 text-white"
-    : "bg-[#0B1120]/10 hover:bg-[#0B1120]/15 text-[#0B1120]";
   const closeButtonClass = isDarkTheme
-    ? "text-white/70 hover:text-white hover:bg-white/10"
-    : "text-[#0B1120]/70 hover:text-[#0B1120] hover:bg-[#0B1120]/8";
+    ? "text-white/65 hover:text-white hover:bg-white/10"
+    : "text-[#0B1120]/60 hover:text-[#0B1120] hover:bg-[#0B1120]/8";
   const shimmerOverlay = isDarkTheme
     ? "linear-gradient(45deg,transparent 25%,rgba(255,255,255,0.08) 50%,transparent 75%,transparent 100%)"
     : "linear-gradient(45deg,transparent 25%,rgba(11,17,32,0.05) 50%,transparent 75%,transparent 100%)";
+  const resolvedLink = settings.link.startsWith("/")
+    ? buildLocalizedPath(settings.link, locale)
+    : settings.link;
 
   return (
     <div className="relative" style={{ backgroundColor }}>
@@ -93,23 +96,24 @@ export function AnnouncementBar() {
         style={{ backgroundImage: shimmerOverlay }}
       />
 
-      <div className="container mx-auto px-4 py-2.5 relative">
-        <div className="flex items-center justify-center">
-          <p className="text-xs sm:text-sm text-center font-medium tracking-wide" style={{ color: textColor }}>
-            <span className="relative">
-              <span className="relative z-10">{settings.message}</span>
-              <span
-                className="absolute inset-0 blur-sm scale-110 animate-pulse"
-                style={{ backgroundColor: isDarkTheme ? "rgba(255,255,255,0.18)" : "rgba(11,17,32,0.08)" }}
-              />
-            </span>
+      <div className="container-premium relative px-2 py-2.5">
+        <div className="flex items-center justify-center gap-2 pr-10 text-center">
+          <div
+            className="hidden items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.26em] sm:flex"
+            style={{ color: textColor }}
+          >
+            <Dot className="h-4 w-4" />
+            Ezmeo
+          </div>
+          <p className="text-xs font-medium tracking-[0.08em] sm:text-sm" style={{ color: textColor }}>
+            {settings.message}
             {settings.link && settings.linkText ? (
               <Link
-                href={settings.link}
-                className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
+                href={resolvedLink}
+                className="ml-2 inline-flex items-center gap-1 rounded-full border border-white/16 bg-white/10 px-3 py-1 font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-white/16"
               >
                 {settings.linkText}
-                <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             ) : null}
           </p>

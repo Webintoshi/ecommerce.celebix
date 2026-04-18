@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
@@ -22,6 +23,7 @@ import {
   sortProductsByListingOrder,
 } from "@celebix/platform-config";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +72,11 @@ interface DBProduct {
   shopify_metadata?: Record<string, unknown> | null;
   variants: DBVariant[] | null;
 }
+
+type CollectionProductVariant = ProductVariant & {
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
+};
 
 function buildAbsoluteUrl(path: string, locale: StorefrontLocale, origin: string) {
   return new URL(buildLocalizedPath(path, locale), origin).toString();
@@ -138,7 +145,7 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
 function transformVariant(
   variant: DBVariant,
   rules: ProductDiscountRule[] = [],
-): ProductVariant {
+): CollectionProductVariant {
   const pricing = resolveVariantDisplayPricing(
     {
       price: Number(variant.price || 0),
@@ -351,6 +358,12 @@ function generateOrganizationSchema(origin: string) {
   };
 }
 
+const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  "fistik-ezmesi": "/fistik_ezmesi_kategori_gorsel.webp",
+  "findik-ezmesi": "/Findik_Ezmeleri_Kategorisi.webp",
+  "badem-ezmesi": "/fistik_ezmesi_kategori_gorsel.webp",
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -408,9 +421,13 @@ export default async function CollectionPage({
   const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin);
   const faqSchema = generateFaqSchema(category.faq);
   const organizationSchema = generateOrganizationSchema(requestOrigin);
+  const categoryImage = resolveStorefrontAssetUrl(
+    category.image || CATEGORY_FALLBACK_IMAGES[category.slug] || "/fistik_ezmesi_kategori_gorsel.webp",
+  );
+  const usesProxiedCategoryImage = isProxiedStorefrontAssetUrl(categoryImage);
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="pb-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -430,13 +447,13 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
+      <nav className="border-b border-[var(--border)] bg-[rgba(255,250,244,0.68)] backdrop-blur" aria-label="Breadcrumb">
         <div className="container-premium py-3">
-          <ol className="flex items-center gap-2 text-sm text-neutral-500">
+          <ol className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
             <li>
               <Link
                 href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-neutral-900"
+                className="transition-colors hover:text-[var(--foreground)]"
               >
                 {copy.breadcrumbHome}
               </Link>
@@ -445,50 +462,82 @@ export default async function CollectionPage({
             <li>
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-neutral-900"
+                className="transition-colors hover:text-[var(--foreground)]"
               >
                 {copy.breadcrumbProducts}
               </Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li className="font-medium text-neutral-900" aria-current="page">
+            <li className="font-medium text-[var(--foreground)]" aria-current="page">
               {category.name}
             </li>
           </ol>
         </div>
       </nav>
 
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{category.name}</h1>
-          {category.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
-            </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
+      <section className="pt-4 md:pt-6">
+        <div className="container-premium">
+          <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+            <div className="grid gap-6 lg:grid-cols-[0.98fr_1.02fr] lg:items-end">
+              <div>
+                <p className="editorial-kicker">{category.name}</p>
+                <h1 className="mt-5 text-[var(--foreground)]">{category.name}</h1>
+                <p className="mt-4 max-w-2xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
+                  {category.description ||
+                    `${category.name} koleksiyonundaki yayinli urunleri, daha sakin bir premium akista kesfedin.`}
+                </p>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <span className="chip">{products.length} urun</span>
+                  <span className="chip">Editorial grid</span>
+                  <span className="chip">Mobil ve desktop uyumlu</span>
+                </div>
+              </div>
+
+              <div className="relative min-h-[18rem] overflow-hidden rounded-[2rem] bg-[var(--background-strong)] md:min-h-[22rem]">
+                <Image
+                  src={categoryImage}
+                  alt={category.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 54vw"
+                  unoptimized={usesProxiedCategoryImage}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(28,16,10,0.62)] via-[rgba(28,16,10,0.16)] to-transparent" />
+                <div className="absolute bottom-0 left-0 p-5">
+                  <div className="rounded-[1.5rem] bg-[rgba(255,250,244,0.8)] px-4 py-3 text-sm font-medium text-[var(--foreground)] backdrop-blur">
+                    {category.seo_description || "Urunu merkeze alan sakin koleksiyon vitrini"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <main className="container-premium py-10 md:py-12">
+      <main className="container-premium pt-10 md:pt-12">
         <CollectionProductsClient products={products} />
       </main>
 
       {category.faq && category.faq.length > 0 ? (
-        <section className="mt-2 border-t border-neutral-200 bg-white">
-          <div className="container-premium py-12">
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
+        <section className="pt-10">
+          <div className="container-premium">
+            <div className="surface-card px-5 py-6 md:px-7 md:py-8 lg:px-8">
+              <h2 className="mb-6 text-[var(--foreground)]">
               {copy.faqHeading}
-            </h2>
-            <div className="max-w-3xl space-y-4">
-              {category.faq.map((item, index) => (
-                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
-                  <summary className="cursor-pointer list-none font-medium text-neutral-900">
-                    {item.question}
-                  </summary>
-                  <p className="mt-3 leading-relaxed text-neutral-600">{item.answer}</p>
-                </details>
-              ))}
+              </h2>
+              <div className="max-w-3xl space-y-4">
+                {category.faq.map((item, index) => (
+                  <details
+                    key={index}
+                    className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.78)] p-5"
+                  >
+                    <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
+                      {item.question}
+                    </summary>
+                    <p className="mt-3 leading-7 text-[var(--muted-foreground)]">{item.answer}</p>
+                  </details>
+                ))}
+              </div>
             </div>
           </div>
         </section>

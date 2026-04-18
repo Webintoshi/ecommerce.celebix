@@ -27,7 +27,7 @@ interface RedesignHomeProps {
 
 export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeProps) {
   return (
-    <main className="min-h-screen bg-[#F8F8F8F8]">
+    <main className="pb-10">
       <HeroSection slides={data.heroBanners || []} />
       <CategoriesSection
         initialCategories={(data.categories as never[]) || []}

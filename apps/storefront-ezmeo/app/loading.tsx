@@ -2,19 +2,19 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] px-6">
-      <div className="w-full max-w-md rounded-[32px] border border-black/5 bg-white p-10 text-center shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#7B1113]/8">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#7B1113]/20 border-t-[#7B1113]" />
+    <div className="flex min-h-screen items-center justify-center px-6">
+      <div className="surface-card w-full max-w-md p-10 text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(144,21,20,0.08)]">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[rgba(144,21,20,0.16)] border-t-[var(--primary)]" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
-          Premium Storefront
+        <p className="editorial-kicker">
+          Ezmeo hazirlaniyor
         </p>
-        <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#18110B]">
+        <h2 className="mt-5 text-3xl text-[var(--foreground)]">
           {STOREFRONT_RUNTIME.name}
         </h2>
-        <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
-          Sayfa hazirlaniyor. Admin panelinden gelen icerikler ve vitrin bloklari yukleniyor.
+        <p className="mt-3 text-sm leading-7 text-[var(--muted-foreground)]">
+          Secili urunler, koleksiyonlar ve gorseller yukleniyor.
         </p>
       </div>
     </div>

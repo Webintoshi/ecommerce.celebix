@@ -9,21 +9,21 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
-  viewAllLabel: "Tumunu Gor",
+  categoriesHeading: "Fistik, findik ve badem etrafinda kurulan secili koleksiyonlar",
+  viewAllLabel: "Tumunu kesfet",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+    { title: "Cok satan ezmeler", subtitle: "Gunun favorileri" },
+    { title: "Kahvalti seckisi", subtitle: "Sabah ritmi" },
+    { title: "Sekersiz cizgi", subtitle: "Temiz tercih" },
+    { title: "Yeni favoriler", subtitle: "Canli secim" },
   ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  storesEyebrow: "Ezmeo standardi",
+  storesHeading: "Dogal his, rafine sunum, net urun odagi.",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Ezmeo vitrini, yuksek sesli kampanya hissi yerine urunun kivami, etiketi ve premium gunluk kullanim duygusu uzerinden kurulur.",
+  storesLinkLabel: "Markayi tani",
+  testimonialsHeading: "Gercek musteri notlari",
+  testimonialsCountLabel: "Onayli degerlendirmeler geldikce bu alan guncellenir",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -63,14 +63,14 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
+    ? `${siteName} icin premium ezme koleksiyonlari, iletisim ve marka vitrini tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/magazalarimiz", locale);
+  const storesHref = buildLocalizedPath("/hakkimizda", locale);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME, SITE_LOGO_PATH } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
@@ -52,6 +52,11 @@ export function Header() {
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const editorialLinks = [
+    { label: "Urunler", href: ROUTES.products },
+    { label: "Hakkimizda", href: ROUTES.about },
+    { label: "Iletisim", href: ROUTES.contact },
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -127,14 +132,14 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
-          : "bg-[#F8F8F8F8]"
+          ? "border-b border-[var(--border)] bg-[rgba(243,236,226,0.82)] backdrop-blur-xl"
+          : "bg-transparent"
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center justify-between lg:h-20">
+        <div className="flex h-18 items-center justify-between gap-4 py-3 lg:h-24">
           <button
-            className="-ml-2 p-2 lg:hidden"
+            className="-ml-2 rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.75)] p-2 lg:hidden"
             onClick={() => setIsMenuOpen((open) => !open)}
             aria-label={copy.menuLabel}
             type="button"
@@ -142,27 +147,34 @@ export function Header() {
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link href={buildLocalizedPath(ROUTES.home, locale)} className="flex-shrink-0" aria-label={logoAlt}>
+          <Link
+            href={buildLocalizedPath(ROUTES.home, locale)}
+            className="flex flex-shrink-0 items-center gap-3"
+            aria-label={logoAlt}
+          >
             {logoSrc ? (
-              <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
+              <div className="relative h-9 w-[126px] sm:h-10 sm:w-[140px] lg:h-10 lg:w-[146px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 104px, (max-width: 1024px) 118px, 128px"
+                  sizes="(max-width: 640px) 126px, (max-width: 1024px) 140px, 146px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
+              <span className="font-serif text-xl text-[var(--foreground)] lg:text-2xl">
                 {logoAlt}
               </span>
             )}
+            <span className="hidden text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)] xl:block">
+              Premium ezmeler
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
+          <nav className="hidden items-center gap-5 lg:flex xl:gap-6">
             {headerCategories.map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
@@ -171,7 +183,7 @@ export function Header() {
                   <Link
                     key={category.id}
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text group relative text-[var(--foreground)]/88 after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-[var(--cocoa)] after:transition-all after:duration-300 after:content-[''] hover:text-[var(--foreground)] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                   </Link>
@@ -182,22 +194,26 @@ export function Header() {
                 <div key={category.id} className="group relative">
                   <Link
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[var(--foreground)]/88 after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-[var(--cocoa)] after:transition-all after:duration-300 after:content-[''] hover:text-[var(--foreground)] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                     <ChevronDown className="h-4 w-4" />
                   </Link>
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                    <div className="surface-card rounded-[2rem] p-4">
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                        Koleksiyon
+                      </p>
                       <div className="space-y-1">
                         {category.children.map((subcategory) => (
                           <Link
                             key={subcategory.id}
                             href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                            className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
+                            className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[rgba(255,255,255,0.72)] hover:text-[var(--foreground)]"
                           >
                             {subcategory.name}
+                            <ArrowUpRight className="h-4 w-4" />
                           </Link>
                         ))}
                       </div>
@@ -206,31 +222,46 @@ export function Header() {
                 </div>
               );
             })}
+
+            <div className="hidden items-center gap-5 xl:flex">
+              {editorialLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={buildLocalizedPath(item.href, locale)}
+                  className="store-nav-text text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              className="p-2"
+              className="rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.75)] p-2.5"
               aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
             >
-              <Search className="h-5 w-5 text-neutral-600" />
+              <Search className="h-5 w-5 text-[var(--foreground)]" />
             </button>
 
-            <Link href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)} className="hidden p-2 sm:block">
-              <User className="h-5 w-5 text-neutral-600" />
+            <Link
+              href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
+              className="hidden rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.75)] p-2.5 sm:block"
+            >
+              <User className="h-5 w-5 text-[var(--foreground)]" />
             </Link>
 
             <button
               type="button"
-              className="relative p-2"
+              className="relative rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.75)] p-2.5"
               aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5 text-neutral-600" />
+              <ShoppingBag className="h-5 w-5 text-[var(--foreground)]" />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] text-[10px] text-white">
                   {cartItemCount}
                 </span>
               ) : null}
@@ -240,25 +271,34 @@ export function Header() {
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
-          <nav className="container-premium space-y-4 py-4">
+        <div className="border-t border-[var(--border)] bg-[rgba(246,239,229,0.96)] backdrop-blur-xl lg:hidden">
+          <nav className="container-premium space-y-6 py-6">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                Ezmeo
+              </p>
+              <p className="max-w-xs text-sm leading-7 text-[var(--muted-foreground)]">
+                Findik, fistik ve badem etrafinda kurulan editorial bir premium ezme vitrini.
+              </p>
+            </div>
+
             {headerCategories.map((category) => (
               <div key={category.id} className="space-y-2">
                 <Link
                   href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  className="store-nav-text block text-[var(--foreground)] transition-all duration-300 hover:pl-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {getLocalizedCategoryLabel(category.slug, category.name, locale)}
                 </Link>
 
                 {category.children.length > 0 ? (
-                  <div className="space-y-2 border-l border-neutral-200 pl-4">
+                  <div className="space-y-2 border-l border-[var(--border)] pl-4">
                     {category.children.map((subcategory) => (
                       <Link
                         key={subcategory.id}
                         href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                        className="store-nav-text block text-sm text-[var(--muted-foreground)] transition-all duration-300 hover:pl-2 hover:text-[var(--foreground)]"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {subcategory.name}
@@ -268,6 +308,20 @@ export function Header() {
                 ) : null}
               </div>
             ))}
+
+            <div className="grid gap-3 border-t border-[var(--border)] pt-4">
+              {editorialLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={buildLocalizedPath(item.href, locale)}
+                  className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[rgba(255,250,244,0.72)] px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              ))}
+            </div>
           </nav>
         </div>
       ) : null}

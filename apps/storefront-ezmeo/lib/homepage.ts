@@ -66,6 +66,21 @@ export interface HomepageHeroBanner {
   buttonLink?: string;
 }
 
+export interface HomepagePromoBanner {
+  id: string | number;
+  image: string;
+  mobileImage?: string;
+  title: string;
+  subtitle: string;
+  buttonText: string;
+  buttonLink: string;
+  order: number;
+  badge?: string;
+  color?: string;
+  discount?: string;
+  endDate?: string;
+}
+
 export interface HomepageCategory {
   id: string;
   name: string;
@@ -80,7 +95,7 @@ export interface HomepageData {
   categories: HomepageCategory[];
   featuredCategories: HomepageCategory[];
   products: Record<string, unknown>[];
-  promoBanners: Record<string, unknown>[];
+  promoBanners: HomepagePromoBanner[];
   allProducts: Record<string, unknown>[];
   testimonials: HomepageTestimonial[];
   homepageCuration: HomepageCurationSettings;
@@ -115,13 +130,17 @@ function hydrateHomepageProducts(
 }
 
 const HOMEPAGE_CATEGORY_ORDER = [
-  { slug: "cuzdan-kartlik", name: "Cüzdan & Kartlık" },
-  { slug: "apple-watch-saat-kayislari", name: "Apple Watch Kayışları" },
-  { slug: "saat-kayislari", name: "Deri Saat Kayışları" },
-  { slug: "canta-organizer", name: "Çanta & Organizer" },
-  { slug: "aksesuar", name: "Aksesuar" },
-  { slug: "gunluk-yasam", name: "Günlük Yaşam" },
+  { slug: "fistik-ezmesi", name: "Fistik Ezmeleri" },
+  { slug: "findik-ezmesi", name: "Findik Ezmeleri" },
+  { slug: "badem-ezmesi", name: "Badem Ezmeleri" },
+  { slug: "kuruyemis", name: "Kuruyemis" },
+  { slug: "sekersiz", name: "Sekersiz Secimler" },
+  { slug: "kahvaltilik", name: "Kahvaltiliklar" },
 ] as const;
+
+function isDefined<T>(value: T | null | undefined): value is T {
+  return value != null;
+}
 
 function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
   const rawSlides = Array.isArray(payload)
@@ -133,7 +152,7 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         : [];
 
   return rawSlides
-    .map((slide, index) => {
+    .map((slide, index): HomepageHeroBanner | null => {
       const desktop =
         slide.desktop ||
         slide.desktopImage ||
@@ -159,6 +178,7 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
       const title = slide.overlay?.title || slide.title || "";
       const subtitle = slide.overlay?.subtitle || slide.subtitle || "";
       const rawId = slide.id;
+      const link = slide.link || slide.overlay?.ctaLink || undefined;
 
       return {
         id:
@@ -168,17 +188,17 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         desktop,
         mobile: mobile || desktop,
         alt: slide.alt || title || `Hero Banner ${index + 1}`,
-        link: slide.link || slide.overlay?.ctaLink || undefined,
+        ...(link ? { link } : {}),
         title,
         subtitle,
         buttonText: slide.overlay?.ctaText || slide.buttonText || "",
         buttonLink: slide.overlay?.ctaLink || slide.buttonLink || slide.link || "",
       };
     })
-    .filter((slide): slide is HomepageHeroBanner => Boolean(slide));
+    .filter(isDefined);
 }
 
-function normalizePromoBanners(payload: unknown) {
+function normalizePromoBanners(payload: unknown): HomepagePromoBanner[] {
   const rawBanners = Array.isArray(payload)
     ? (payload as RawPromoBanner[])
     : Array.isArray((payload as { banners?: unknown[] } | null)?.banners)
@@ -188,7 +208,7 @@ function normalizePromoBanners(payload: unknown) {
         : [];
 
   return rawBanners
-    .map((banner, index) => {
+    .map((banner, index): HomepagePromoBanner | null => {
       const image =
         banner.image ||
         banner.desktop ||
@@ -221,7 +241,7 @@ function normalizePromoBanners(payload: unknown) {
         endDate: banner.endDate,
       };
     })
-    .filter((banner): banner is NonNullable<typeof banner> => Boolean(banner));
+    .filter(isDefined);
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {

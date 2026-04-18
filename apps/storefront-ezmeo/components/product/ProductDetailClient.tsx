@@ -1,21 +1,20 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ShoppingCart,
-  Star,
-  Heart,
-  Share2,
-  Minus,
-  Plus,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Hammer,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
+  Heart,
+  Minus,
+  Package,
+  Plus,
+  Share2,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+  Star,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
@@ -69,10 +68,60 @@ async function fetchAssignedSchema(productId: string) {
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
+    throw new Error(payload?.error || "Ekstra semasi yuklenemedi");
   }
 
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
+}
+
+function humanizeValue(value?: string | null) {
+  return String(value || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatVariantWeight(value: unknown, unit?: string) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (/[a-zA-Z]/.test(raw)) {
+    return raw;
+  }
+
+  if (unit) {
+    return `${raw} ${unit}`;
+  }
+
+  return `${raw} g`;
+}
+
+function buildUsageNote(product: Product) {
+  if (product.category === "findik-ezmesi") {
+    return "Kahvalti, tatli katmanlari ve kasik aralari icin daha yumusak bir profil sunar.";
+  }
+  if (product.category === "fistik-ezmesi") {
+    return "Kahvalti tabaklari, bowl karisimlari ve gun ici kasik ritmi icin guclu bir secimdir.";
+  }
+  if (product.category === "kuruyemis") {
+    return "Ara ogun, kahvalti ve tarif tamamlayici kullanimlar icin dengeli bir secimdir.";
+  }
+
+  return "Gunluk ritme kolayca giren, sade ve premium bir kullanim hissi hedefler.";
+}
+
+function buildStorageNote(product: Product) {
+  return (
+    product.nutritionSettings?.storageConditions ||
+    "Serin ve kuru yerde muhafaza etmeniz, acildiktan sonra temiz ve kuru kasik kullanmaniz onerilir."
+  );
 }
 
 interface ProductDetailClientProps {
@@ -97,7 +146,9 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
+    new Set(["story"]),
+  );
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
@@ -120,8 +171,11 @@ export function ProductDetailClient({
 
   const toggleAccordion = (id: string) => {
     const next = new Set(openAccordions);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
     setOpenAccordions(next);
   };
 
@@ -137,7 +191,7 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
+    setOpenAccordions(new Set(["story"]));
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -167,7 +221,9 @@ export function ProductDetailClient({
   }, [locale, product?.category, slug]);
 
   useEffect(() => {
-    if (!product?.id) return;
+    if (!product?.id) {
+      return;
+    }
 
     let mounted = true;
     const loadActiveSchema = async () => {
@@ -179,9 +235,13 @@ export function ProductDetailClient({
         }
       } catch (error) {
         console.error("Schema assignment load error:", error);
-        if (mounted) setActiveSchema(null);
+        if (mounted) {
+          setActiveSchema(null);
+        }
       } finally {
-        if (mounted) setIsSchemaLoading(false);
+        if (mounted) {
+          setIsSchemaLoading(false);
+        }
       }
     };
 
@@ -199,7 +259,11 @@ export function ProductDetailClient({
     setCustomizationValidationNonce(0);
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
-  const displayImages = React.useMemo(() => {
+  const displayImages = useMemo(() => {
+    if (!product) {
+      return [];
+    }
+
     const baseImages = product.images || [];
 
     if (variant?.images && variant.images.length > 0) {
@@ -209,21 +273,23 @@ export function ProductDetailClient({
       if (variantImages.length > 0) {
         const combined = [...variantImages];
         baseImages.forEach((img: string) => {
-          if (!combined.includes(img)) combined.push(img);
+          if (!combined.includes(img)) {
+            combined.push(img);
+          }
         });
         return combined;
       }
     }
 
     return baseImages;
-  }, [product?.images, variant?.images]);
+  }, [product, variant?.images]);
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
-        <div className="animate-pulse text-center">
-          <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
-          <div className="h-4 w-32 rounded bg-neutral-200" />
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-48 animate-pulse rounded-3xl bg-[rgba(42,28,20,0.08)]" />
+          <div className="mx-auto h-4 w-32 animate-pulse rounded-full bg-[rgba(42,28,20,0.08)]" />
         </div>
       </div>
     );
@@ -231,9 +297,9 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
-        <div className="text-center">
-          <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="surface-card p-10 text-center">
+          <p className="text-[var(--muted-foreground)]">Urun bilgisi yuklenemedi.</p>
         </div>
       </div>
     );
@@ -242,11 +308,50 @@ export function ProductDetailClient({
   const discountPercent = variant.originalPrice
     ? Math.round((1 - variant.price / variant.originalPrice) * 100)
     : 0;
-
   const isOutOfStock = variant.stock <= 0;
+  const displayPrice = activeSchema ? customizationState.finalPrice : variant.price;
+  const displayOriginalPrice =
+    variant.originalPrice !== undefined
+      ? variant.originalPrice + (activeSchema ? customizationState.extraPrice : 0)
+      : undefined;
+  const availableWeights = Array.from(
+    new Set(
+      variants
+        .map((item) => formatVariantWeight(item.weight, item.unit))
+        .filter((item): item is string => Boolean(item)),
+    ),
+  );
+  const descriptor = product.shortDescription || humanizeValue(product.subcategory);
+  const editorialTags = [
+    product.sugarFree ? "Sekersiz" : null,
+    product.vegan ? "Vegan" : null,
+    product.glutenFree ? "Glutensiz" : null,
+    product.highProtein ? "Yuksek protein" : null,
+    variants.length > 1 ? `${variants.length} varyant` : null,
+  ].filter(Boolean) as string[];
+  const detailNotes = [
+    {
+      label: "Kategori",
+      value: humanizeValue(product.category) || "Secili koleksiyon",
+    },
+    {
+      label: "Alt profil",
+      value: humanizeValue(product.subcategory) || "Editor secimi",
+    },
+    {
+      label: "Gramaj",
+      value: availableWeights.join(" · ") || formatVariantWeight(variant.weight, variant.unit) || "Secili kavanoz",
+    },
+    {
+      label: "Kullanim notu",
+      value: buildUsageNote(product),
+    },
+  ];
 
   const handleAddToCart = () => {
-    if (isOutOfStock || isSchemaLoading) return;
+    if (isOutOfStock || isSchemaLoading) {
+      return;
+    }
 
     if (activeSchema && !customizationState.isValid) {
       setCustomizationValidationNonce((prev) => prev + 1);
@@ -282,68 +387,57 @@ export function ProductDetailClient({
         text: product.shortDescription,
         url: window.location.href,
       });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+      return;
     }
+
+    navigator.clipboard.writeText(window.location.href);
   };
 
-  const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
-    if (variant.stock <= 5) {
-      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
-    }
-    return { text: "Stokta var", color: "text-neutral-500" };
-  };
-
-  const stockStatus = getStockStatus();
-  const displayPrice = activeSchema
-    ? customizationState.finalPrice
-    : variant.price;
-  const displayOriginalPrice =
-    variant.originalPrice !== undefined
-      ? variant.originalPrice +
-        (activeSchema ? customizationState.extraPrice : 0)
-      : undefined;
+  const stockTone = isOutOfStock
+    ? "text-[var(--muted-foreground)]"
+    : variant.stock <= 5
+      ? "text-[var(--hazelnut)]"
+      : "text-[var(--accent)]";
+  const stockLabel = isOutOfStock
+    ? "Tukendi"
+    : variant.stock <= 5
+      ? `Son ${variant.stock} adet`
+      : "Stokta var";
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+    <div className="pb-10">
+      <div className="border-b border-[var(--border)] bg-[rgba(255,250,244,0.68)] backdrop-blur">
         <div className="container-premium">
-          <div className="flex items-center gap-3 py-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 py-4 text-sm text-[var(--muted-foreground)]">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
+              className="inline-flex items-center gap-2 transition-colors hover:text-[var(--foreground)]"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <ArrowLeft className="h-4 w-4" />
+              Tum urunlere don
             </Link>
-            <div className="ml-auto flex items-center gap-2 text-neutral-400">
-              <Link
-                href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-neutral-600"
-              >
-                Ana Sayfa
+            <div className="ml-auto flex items-center gap-2">
+              <Link href={buildLocalizedPath("/", locale)} className="hover:text-[var(--foreground)]">
+                Ana sayfa
               </Link>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-neutral-600"
+                className="hover:text-[var(--foreground)]"
               >
-                Ürünler
+                Urunler
               </Link>
-              <ChevronRight className="w-4 h-4" />
-              <span className="max-w-[150px] truncate font-medium text-neutral-900">
-                {product.name}
-              </span>
+              <ChevronRight className="h-4 w-4" />
+              <span className="max-w-[180px] truncate text-[var(--foreground)]">{product.name}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <section className="py-8 lg:py-12">
+      <section className="pt-4 md:pt-6">
         <div className="container-premium">
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
-            <div className="lg:sticky lg:top-28 lg:self-start">
+          <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8">
+            <div className="surface-card overflow-hidden p-4 md:p-5 lg:sticky lg:top-28 lg:self-start">
               <ImageGallery
                 key={`${product.id}-${selectedVariant}`}
                 images={displayImages}
@@ -351,90 +445,82 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                  {product.category}
-                </span>
-                <span className="h-px w-8 bg-neutral-300" />
-                {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Öne Çıkan
-                  </span>
-                )}
+            <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="chip">{humanizeValue(product.category)}</span>
+                {product.new ? <span className="chip">Yeni</span> : null}
+                {discountPercent > 0 ? <span className="chip">%{discountPercent} indirim</span> : null}
               </div>
 
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
-                {product.name}
-              </h1>
+              <h1 className="mt-5 text-[var(--foreground)]">{product.name}</h1>
 
-              <div className="flex items-center gap-3">
+              <p className="mt-4 max-w-3xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
+                {descriptor || "Ezmeo vitrininin sakin ama premium urun diliyle sunulan secili kavanozlarindan biri."}
+              </p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-0.5">
-                  {[...Array(5)].map((_, i) => (
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
-                          : "fill-neutral-200 text-neutral-200"
+                          ? "fill-[var(--hazelnut)] text-[var(--hazelnut)]"
+                          : "fill-[rgba(42,28,20,0.1)] text-[rgba(42,28,20,0.1)]"
                       }`}
                     />
                   ))}
                 </div>
-                <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} değerlendirme)
+                <span className="text-sm text-[var(--muted-foreground)]">
+                  {product.reviewCount || 0} degerlendirme
                 </span>
+                <span className={`text-sm font-medium ${stockTone}`}>{stockLabel}</span>
               </div>
 
-              <div className="flex items-center gap-3">
-                {displayOriginalPrice !== undefined && (
-                  <span className="text-sm text-neutral-400 line-through lg:text-base">
+              <div className="mt-6 flex flex-wrap items-end gap-3">
+                {displayOriginalPrice !== undefined ? (
+                  <span className="text-base text-[var(--muted-foreground)] line-through">
                     {formatPrice(displayOriginalPrice)}
                   </span>
-                )}
-                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
+                ) : null}
+                <span className="text-4xl font-semibold tracking-[-0.04em] text-[var(--foreground)] md:text-5xl">
                   {formatPrice(displayPrice)}
                 </span>
+                {activeSchema && customizationState.extraPrice > 0 ? (
+                  <span className="chip">+{formatPrice(customizationState.extraPrice)} ekstra</span>
+                ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {discountPercent > 0 && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} İndirim
-                  </span>
-                )}
-                {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    Yeni
-                  </span>
-                )}
-                {product.vegan && (
-                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
-                    Vegan
-                  </span>
-                )}
-              </div>
+              {editorialTags.length > 0 ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {editorialTags.map((tag) => (
+                    <span key={tag} className="chip">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
-              <VariantSelectorV2
-                variants={variants}
-                selectedIndex={selectedVariant}
-                onSelect={setSelectedVariant}
-              />
+              <div className="mt-8 border-t border-[var(--border)] pt-6">
+                <VariantSelectorV2
+                  variants={variants}
+                  selectedIndex={selectedVariant}
+                  onSelect={setSelectedVariant}
+                />
+              </div>
 
               {isSchemaLoading ? (
-                <div className="py-3 text-sm text-neutral-500">
-                  Ekstra seçenekler yükleniyor...
+                <div className="mt-5 text-sm text-[var(--muted-foreground)]">
+                  Ekstra secenekler yukleniyor...
                 </div>
               ) : activeSchema ? (
                 <div
                   ref={extrasSectionRef}
-                  className="space-y-3 border-b border-neutral-200 pb-5"
+                  className="mt-6 rounded-[1.75rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-5"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Kişiselleştirme
-                    </span>
-                    <span className="h-px w-8 bg-neutral-300" />
+                  <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--muted-foreground)]">
+                    <Sparkles className="h-4 w-4" />
+                    Kisisellestirme
                   </div>
                   <DynamicCustomizationForm
                     schemaId={activeSchema.id}
@@ -448,96 +534,80 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="space-y-5 border-y border-neutral-200 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isOutOfStock
-                          ? "bg-neutral-300"
-                          : variant.stock <= 5
-                            ? "bg-amber-500"
-                            : "bg-green-500"
-                      }`}
-                    />
-                    <span className={`text-sm ${stockStatus.color}`}>
-                      {stockStatus.text}
-                    </span>
-                  </div>
-                  {activeSchema && customizationState.extraPrice > 0 && (
-                    <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {detailNotes.map((note) => (
+                  <div
+                    key={note.label}
+                    className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                      {note.label}
                     </p>
-                  )}
-                </div>
+                    <p className="mt-2 text-sm leading-7 text-[var(--foreground)]">{note.value}</p>
+                  </div>
+                ))}
+              </div>
 
+              <div className="mt-7 border-y border-[var(--border)] py-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]">
                       Adet
                     </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
+                    <div className="flex items-center overflow-hidden rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(42,28,20,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
+                        type="button"
                       >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Minus className="h-4 w-4" />
                       </button>
-                      <span className="w-10 text-center text-base font-medium text-neutral-900">
+                      <span className="w-12 text-center text-base font-semibold text-[var(--foreground)]">
                         {quantity}
                       </span>
                       <button
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center text-[var(--foreground)] transition-colors hover:bg-[rgba(42,28,20,0.05)] disabled:cursor-not-allowed disabled:opacity-30"
+                        type="button"
                       >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Plus className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
+
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
-                    className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300
-                      flex items-center justify-center gap-2
-                      ${
-                        isOutOfStock || isSchemaLoading
-                          ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
-                      }
-                    `}
+                    className={`flex min-w-[230px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] transition-all ${
+                      isOutOfStock || isSchemaLoading
+                        ? "cursor-not-allowed bg-[rgba(42,28,20,0.1)] text-[var(--muted-foreground)]"
+                        : "bg-[var(--cocoa)] text-white hover:-translate-y-0.5 hover:bg-[#1c100a]"
+                    }`}
+                    type="button"
                   >
-                    <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                    {isSchemaLoading
-                      ? "Yükleniyor"
-                      : isOutOfStock
-                        ? "Tükendi"
-                        : "Sepete Ekle"}
+                    <ShoppingCart className="h-5 w-5" />
+                    {isSchemaLoading ? "Yukleniyor" : isOutOfStock ? "Tukendi" : "Sepete ekle"}
                   </button>
+
                   <button
                     onClick={toggleWishlist}
-                    className={`
-                      flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
-                      ${
-                        isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
-                      }
-                    `}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] transition-all ${
+                      isWishlisted
+                        ? "bg-[rgba(144,21,20,0.08)] text-[var(--primary)]"
+                        : "bg-[rgba(255,250,244,0.72)] text-[var(--foreground)] hover:bg-[rgba(42,28,20,0.05)]"
+                    }`}
+                    type="button"
                   >
-                    <Heart
-                      className={`h-5 w-5 stroke-[1.5] ${
-                        isWishlisted ? "fill-current" : ""
-                      }`}
-                    />
+                    <Heart className={`h-5 w-5 ${isWishlisted ? "fill-current" : ""}`} />
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] text-[var(--foreground)] transition hover:bg-[rgba(42,28,20,0.05)]"
+                    type="button"
                   >
-                    <Share2 className="h-5 w-5 stroke-[1.5]" />
+                    <Share2 className="h-5 w-5" />
                   </button>
                 </div>
               </div>
@@ -548,96 +618,58 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              <div className="border-t border-neutral-200 pt-1">
+              <div className="mt-6 border-t border-[var(--border)]">
                 {[
                   {
-                    id: "features",
-                    label: "Ürün Detayları",
+                    id: "story",
+                    label: "Urun hikayesi",
                     content: <ProductFeatures product={product} />,
                   },
                   {
-                    id: "specs",
-                    label: "Özellikler",
+                    id: "details",
+                    label: "Urun notlari",
                     content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
-                            </p>
-                          </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                            <Package className="h-4 w-4" />
+                            Gramajlar
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
+                            {availableWeights.join(" · ") || "Secili gramaj yakinda netlesir."}
+                          </p>
                         </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
-                            </p>
-                          </div>
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                            <ShieldCheck className="h-4 w-4" />
+                            Saklama
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
+                            {buildStorageNote(product)}
+                          </p>
                         </div>
                       </div>
                     ),
                   },
                   {
                     id: "shipping",
-                    label: "Kargo & İade",
+                    label: "Teslimat ve destek",
                     content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
-                          </h4>
-                          <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                            Teslimat
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
+                            Kargo secenekleri ve ucretlendirme, sepet ve odeme adiminda secili varyanta gore hesaplanir.
                           </p>
                         </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
-                          </h4>
-                          <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
+                        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.72)] p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                            Destek
                           </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
-                          </h4>
-                          <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
+                          <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
+                            Urun secimi, stok ve siparis sorularinda iletisim sayfasindan destek alinabilir.
                           </p>
                         </div>
                       </div>
@@ -645,21 +677,23 @@ export function ProductDetailClient({
                   },
                 ].map((item) => {
                   const isOpen = openAccordions.has(item.id);
+
                   return (
-                    <div key={item.id} className="border-b border-neutral-200">
+                    <div key={item.id} className="border-b border-[var(--border)]">
                       <button
                         onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
+                        className="flex w-full items-center justify-between py-5 text-left text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]"
+                        type="button"
                       >
                         {item.label}
                         <ChevronDown
-                          className={`h-4 w-4 text-neutral-500 transition-transform ${
+                          className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${
                             isOpen ? "rotate-180" : ""
                           }`}
                         />
                       </button>
                       <AnimatePresence initial={false}>
-                        {isOpen && (
+                        {isOpen ? (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
@@ -669,74 +703,71 @@ export function ProductDetailClient({
                           >
                             <div className="pb-5">{item.content}</div>
                           </motion.div>
-                        )}
+                        ) : null}
                       </AnimatePresence>
                     </div>
                   );
                 })}
               </div>
 
-              {product.sku && (
-                <p className="text-xs text-neutral-400">
-                  ÜRÜN KODU: <span className="font-mono">{product.sku}</span>
-                </p>
-              )}
+              <p className="mt-5 text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                Urun kodu: <span className="font-mono">{variant.sku || product.sku || "belirtilmedi"}</span>
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="container-premium py-4 lg:py-6">
-        <ProductReviewsSection
-          productId={product.id}
-          productName={product.name}
-          activeVariantId={variant?.id}
-          initialRating={product.rating}
-          initialReviewCount={product.reviewCount}
-        />
-      </div>
-
-      <section
-        className="border-t border-neutral-200 py-16 lg:py-20"
-        style={{ backgroundColor: "#f8f8f8f8" }}
-      >
+      <section className="pt-10">
         <div className="container-premium">
-          <div className="mb-10 flex items-center justify-between">
-            <div>
-              <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
-              </span>
-              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Ürünler
-              </h2>
-            </div>
-            <Link
-              href={buildLocalizedPath("/urunler", locale)}
-              className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
-            >
-              Tümünü Gör
-              <ChevronRight className="w-5 h-5" />
-            </Link>
+          <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+            <ProductReviewsSection
+              productId={product.id}
+              productName={product.name}
+              activeVariantId={variant?.id}
+              initialRating={product.rating}
+              initialReviewCount={product.reviewCount}
+            />
           </div>
+        </div>
+      </section>
 
-          {isLoadingRelated ? (
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-square rounded-2xl bg-neutral-100 animate-pulse"
-                />
-              ))}
+      <section className="pt-10">
+        <div className="container-premium">
+          <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+            <div className="mb-8 flex flex-col gap-4 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="editorial-kicker">Benzer urunler</p>
+                <h2 className="mt-4 text-[var(--foreground)]">Ayni ritimde iyi duran diger kavanozlar</h2>
+              </div>
+              <Link
+                href={buildLocalizedPath("/urunler", locale)}
+                className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]"
+              >
+                Tumunu gor
+                <ChevronRight className="h-4 w-4" />
+              </Link>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
-              <Suspense fallback={null}>
-                {relatedProducts.map((p, index) => (
-                  <ProductCard key={p.id} product={p} index={index} />
+
+            {isLoadingRelated ? (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-[4/5] animate-pulse rounded-[1.75rem] bg-[rgba(42,28,20,0.08)]"
+                  />
                 ))}
-              </Suspense>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <Suspense fallback={null}>
+                  {relatedProducts.map((p, index) => (
+                    <ProductCard key={p.id} product={p} index={index} />
+                  ))}
+                </Suspense>
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Script from "next/script";
+import { Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
 import "@/app/styles/redesign.scss";
 import { CartProvider } from "@/lib/cart-context";
@@ -26,6 +27,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--ezmeo-font-body",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const displayFont = Newsreader({
+  subsets: ["latin"],
+  variable: "--ezmeo-font-display",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+});
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
@@ -44,14 +60,33 @@ export default async function RootLayout({
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
+  const providerStoreInfo = initialStoreInfo
+    ? {
+        ...initialStoreInfo,
+        timezone: initialStoreInfo.timezone || "Europe/Istanbul",
+      }
+    : null;
+  const themeTypographyStyle = {
+    ...typographyStyle,
+    "--store-font-heading": "var(--ezmeo-font-display)",
+    "--store-font-body": "var(--ezmeo-font-body)",
+    "--store-font-menu": "var(--ezmeo-font-body)",
+    "--store-font-product-title": "var(--ezmeo-font-body)",
+  } as CSSProperties;
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning className="scroll-smooth" style={typographyStyle}>
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      className={`${bodyFont.variable} ${displayFont.variable} scroll-smooth`}
+      style={themeTypographyStyle}
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preload" href={typographyStylesheetUrl} as="style" />
-        <link rel="stylesheet" href={typographyStylesheetUrl} />
+        {typographyStylesheetUrl ? <link rel="preload" href={typographyStylesheetUrl} as="style" /> : null}
+        {typographyStylesheetUrl ? <link rel="stylesheet" href={typographyStylesheetUrl} /> : null}
         {gtmId ? (
           <Script
             strategy="lazyOnload"
@@ -61,7 +96,7 @@ export default async function RootLayout({
           />
         ) : null}
       </head>
-      <body className="font-sans antialiased bg-[#F8F8F8F8]" suppressHydrationWarning>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         {gtmId ? (
           <noscript>
             <iframe
@@ -75,7 +110,7 @@ export default async function RootLayout({
         <PromotionalBannersPreload />
         <StorefrontRouteProvider initialLocale={locale} initialInternalPathname={pathname}>
           <TrackingProvider>
-            <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
+            <StoreInfoProvider initialStoreInfo={providerStoreInfo}>
               <AuthProvider>
                 <CartProvider>
                   <WishlistProvider>

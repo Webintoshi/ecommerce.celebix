@@ -74,11 +74,11 @@ export default function CollectionProductsClient({
 
   if (products.length === 0) {
     return (
-      <div className="rounded-3xl border border-neutral-200 bg-white px-6 py-16 text-center">
-        <p className="text-lg text-neutral-600">{copy.missingCategoryDescription}</p>
+      <div className="surface-card px-6 py-16 text-center">
+        <p className="text-lg text-[var(--muted-foreground)]">{copy.missingCategoryDescription}</p>
         <Link
           href={buildLocalizedPath("/urunler", locale)}
-          className="mt-5 inline-flex rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          className="btn-primary mt-5"
         >
           {copy.productsTitle}
         </Link>
@@ -88,7 +88,7 @@ export default function CollectionProductsClient({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-6 lg:grid-cols-3 lg:gap-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {displayedProducts.map((product, index) => (
           <ProductCard key={product.id} product={product} index={index} />
         ))}
@@ -96,13 +96,13 @@ export default function CollectionProductsClient({
 
       <div ref={loadMoreRef} className="mt-10 flex items-center justify-center py-8">
         {isLoading && (
-          <div className="flex items-center gap-2 text-neutral-500">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] px-4 py-3 text-[var(--muted-foreground)]">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[rgba(42,28,20,0.14)] border-t-[var(--foreground)]" />
             <span className="text-sm">Yukleniyor...</span>
           </div>
         )}
         {!hasMore && displayedProducts.length > 0 && (
-          <p className="text-sm text-neutral-400">
+          <p className="rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
             Tum urunler goruntulendi ({products.length} urun)
           </p>
         )}

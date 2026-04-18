@@ -2,124 +2,183 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Package } from "lucide-react";
+import { ArrowRight, Loader2, Package } from "lucide-react";
+import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
+  categoryCounts?: Record<string, number>;
 }
 
 const ITEMS_PER_LOAD = 12;
 
-function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
+function humanizeCategory(value: string) {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function ProductsPageContent({ initialProducts, categoryCounts }: ProductsPageClientProps) {
+  const { locale } = useStorefrontRoute();
   const [displayCount, setDisplayCount] = React.useState(ITEMS_PER_LOAD);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
-  const sortedProducts = React.useMemo(() => initialProducts, [initialProducts]);
+  const categoryHighlights = React.useMemo(
+    () =>
+      Object.entries(categoryCounts || {})
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 4),
+    [categoryCounts],
+  );
 
   React.useEffect(() => {
-    if (!loadMoreRef.current) return;
+    if (!loadMoreRef.current) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          displayCount < sortedProducts.length &&
-          !isLoadingMore
-        ) {
+        if (entries[0].isIntersecting && displayCount < initialProducts.length && !isLoadingMore) {
           setIsLoadingMore(true);
-          setTimeout(() => {
-            setDisplayCount((prev) =>
-              Math.min(prev + ITEMS_PER_LOAD, sortedProducts.length),
-            );
+          window.setTimeout(() => {
+            setDisplayCount((prev) => Math.min(prev + ITEMS_PER_LOAD, initialProducts.length));
             setIsLoadingMore(false);
-          }, 300);
+          }, 280);
         }
       },
-      { rootMargin: "200px" },
+      { rootMargin: "240px" },
     );
 
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [displayCount, sortedProducts.length, isLoadingMore]);
+  }, [displayCount, initialProducts.length, isLoadingMore]);
 
-  const visibleProducts = sortedProducts.slice(0, displayCount);
-  const hasMore = displayCount < sortedProducts.length;
+  const visibleProducts = initialProducts.slice(0, displayCount);
+  const hasMore = displayCount < initialProducts.length;
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <section className="container-premium py-8 sm:py-12">
-        {visibleProducts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-[28px] border border-neutral-200 bg-white py-20 text-center shadow-[0_18px_48px_-36px_rgba(42,28,15,0.18)]"
-          >
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100">
-              <Package className="h-8 w-8 text-neutral-400" />
-            </div>
-            <h3 className="mb-2 text-xl font-medium text-neutral-900">
-              Ürün vitrini hazır
-            </h3>
-            <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
-              Adminde yayınlanan ilk ürünler geldiği anda bu alan premium ürün
-              kartlarıyla otomatik dolar.
-            </p>
-          </motion.div>
-        ) : (
-          <>
-            <motion.div
-              layout
-              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"
-            >
-              <AnimatePresence mode="popLayout">
-                {visibleProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                  >
-                    <ProductCard product={product} index={index} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
+    <div className="pb-8">
+      <section className="pt-4 md:pt-6">
+        <div className="container-premium">
+          <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+              <div>
+                <p className="editorial-kicker">Tum urunler</p>
+                <h1 className="mt-5 max-w-4xl text-[var(--foreground)]">
+                  Premium ezmeleri daha sakin, daha net bir vitrin akisiyla kesfet.
+                </h1>
+                <p className="mt-4 max-w-3xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
+                  Liste, hizli indirim duygusu yerine urun gorseline, acik fiyata ve secimi kolaylastiran
+                  hiyerarsiye yaslanir. Mobilde de ayni editorial tempo korunur.
+                </p>
+              </div>
 
-            <div ref={loadMoreRef} className="mt-12 flex justify-center">
-              {hasMore ? (
-                <div className="flex items-center gap-2 text-neutral-500">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Daha fazla ürün yükleniyor...</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {categoryHighlights.map(([key, count]) => (
+                  <Link
+                    key={key}
+                    href={buildLocalizedPath(`/${key}`, locale)}
+                    className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,244,0.76)] p-4 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                      Koleksiyon
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+                      {humanizeCategory(key)}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">{count} urun</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pt-10">
+        <div className="container-premium">
+          {visibleProducts.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="surface-card py-18 text-center"
+            >
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(42,28,20,0.06)]">
+                <Package className="h-8 w-8 text-[var(--muted-foreground)]" />
+              </div>
+              <h3 className="mb-2 text-2xl text-[var(--foreground)]">Vitrin hazirlaniyor</h3>
+              <p className="mx-auto max-w-lg text-sm leading-7 text-[var(--muted-foreground)]">
+                Yayinlanan ilk urunler geldiginde bu alan editorial kartlarla otomatik dolar.
+              </p>
+            </motion.div>
+          ) : (
+            <>
+              <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                <AnimatePresence mode="popLayout">
+                  {visibleProducts.map((product, index) => (
+                    <motion.div
+                      key={product.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ delay: Math.min(index * 0.03, 0.24) }}
+                    >
+                      <ProductCard product={product} index={index} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+
+              <div ref={loadMoreRef} className="mt-10 flex justify-center">
+                {hasMore ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] px-4 py-3 text-[var(--muted-foreground)]">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm font-medium">Daha fazla urun yukleniyor...</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {!hasMore && visibleProducts.length > 0 ? (
+                <div className="mt-10 flex justify-center">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(255,250,244,0.72)] px-4 py-3 text-sm font-medium text-[var(--muted-foreground)]">
+                    {initialProducts.length} urunun tamami listelendi
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
                 </div>
               ) : null}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </section>
     </div>
   );
 }
 
-export function ProductsPageClient({ initialProducts }: ProductsPageClientProps) {
+export function ProductsPageClient({ initialProducts, categoryCounts }: ProductsPageClientProps) {
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#F8F8F8]">
-          <section className="pt-20 pb-10 sm:pt-28 sm:pb-12">
-            <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-              <div className="mx-auto mb-6 h-4 w-32 animate-pulse rounded bg-neutral-200" />
-              <div className="mx-auto mb-4 h-12 w-64 animate-pulse rounded bg-neutral-200" />
-              <div className="mx-auto h-6 w-96 max-w-full animate-pulse rounded bg-neutral-200" />
+        <div className="pb-8">
+          <section className="pt-4 md:pt-6">
+            <div className="container-premium">
+              <div className="surface-card px-5 py-10 md:px-7 lg:px-8">
+                <div className="h-4 w-28 animate-pulse rounded-full bg-[rgba(42,28,20,0.08)]" />
+                <div className="mt-5 h-16 w-full max-w-3xl animate-pulse rounded-3xl bg-[rgba(42,28,20,0.08)]" />
+                <div className="mt-4 h-6 w-full max-w-2xl animate-pulse rounded-2xl bg-[rgba(42,28,20,0.08)]" />
+              </div>
             </div>
           </section>
-          <div className="container-premium py-8 sm:py-12">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          <div className="container-premium pt-10">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {[...Array(9)].map((_, index) => (
                 <ProductCardSkeleton key={index} />
               ))}
@@ -128,7 +187,7 @@ export function ProductsPageClient({ initialProducts }: ProductsPageClientProps)
         </div>
       }
     >
-      <ProductsPageContent initialProducts={initialProducts} />
+      <ProductsPageContent initialProducts={initialProducts} categoryCounts={categoryCounts} />
     </React.Suspense>
   );
 }

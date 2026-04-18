@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Instagram, Youtube } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Instagram, Phone, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
@@ -115,16 +115,64 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
+    { name: "Blog", href: "/blog" },
+    { name: "SSS", href: "/sss" },
     { name: copy.footerContact, href: "/iletisim" },
   ];
+  const policyFallbackLinks: PolicyFooterLink[] = [
+    { slug: "gizlilik", label: copy.footerPrivacy, href: "/gizlilik" },
+    { slug: "kvkk", label: copy.footerKvkk, href: "/kvkk" },
+    {
+      slug: "mesafeli-satis-sozlesmesi",
+      label: copy.footerDistanceSales,
+      href: "/mesafeli-satis-sozlesmesi",
+    },
+    { slug: "iade", label: copy.footerReturns, href: "/iade" },
+  ];
+  const resolvedPolicyLinks = policyLinks.length > 0 ? policyLinks : policyFallbackLinks;
 
   return (
-    <footer className="bg-[#0B1120] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-          <div className="lg:col-span-1">
+    <footer className="mt-20 bg-[var(--cocoa)] text-white">
+      <div className="container-premium py-16 lg:py-20">
+        <div className="mb-12 grid gap-8 border-b border-white/10 pb-12 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
+          <div className="max-w-3xl">
+            <span className="editorial-kicker border-white/12 bg-white/6 text-white/72">
+              Ezmeo pantry
+            </span>
+            <h2 className="mt-5 max-w-3xl text-4xl text-white sm:text-5xl">
+              Rafine ama sicak bir ezme vitrini. Urun ne kadar iyiyse, sunum da o kadar sakin.
+            </h2>
+            <p className="mt-5 max-w-2xl text-base leading-8 text-white/68">
+              Ezmeo; findik, fistik, badem ve benzeri premium ezmeleri daha iyi tipografi, daha net
+              urun kadrajlari ve daha dusuk gurultu ile sunar.
+            </p>
+          </div>
+
+          <div className="surface-card rounded-[2rem] bg-white/6 p-6 text-white backdrop-blur">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
+              Iletisim
+            </p>
+            <div className="mt-4 space-y-3 text-sm text-white/78">
+              <a href={`tel:${contactPhone}`} className="flex items-center gap-3 hover:text-white">
+                <Phone className="h-4 w-4" />
+                {contactPhone}
+              </a>
+              <a href={`mailto:${contactEmail}`} className="break-all hover:text-white">
+                {contactEmail}
+              </a>
+            </div>
+            <Link
+              href={buildLocalizedPath("/iletisim", locale)}
+              className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-white/16"
+            >
+              Temasa gec
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-[1.2fr_0.9fr_0.9fr_1fr] lg:gap-8">
+          <div>
             <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
@@ -142,20 +190,23 @@ export function Footer() {
               )}
             </Link>
 
-            <div className="mb-6 space-y-2">
-              <p className="text-sm text-gray-300">{contactPhone}</p>
-              <p className="break-all text-sm text-gray-300">{contactEmail}</p>
+            <div className="mb-6 max-w-sm space-y-3">
+              <p className="text-sm leading-7 text-white/64">{STOREFRONT_RUNTIME.tagline}</p>
+              <div className="text-sm text-white/72">
+                <p>{contactPhone}</p>
+                <p className="break-all">{contactEmail}</p>
+              </div>
             </div>
 
             <div className="mb-6">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-white/52">
                 Language
               </p>
               <div ref={localeMenuRef} className="relative w-fit">
                 <button
                   type="button"
                   onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-full border border-white/14 bg-white/10 px-4 py-3 text-left text-white transition hover:border-white/26 hover:bg-white/14"
                   aria-expanded={isLocaleMenuOpen}
                   aria-haspopup="listbox"
                 >
@@ -164,12 +215,12 @@ export function Footer() {
                     <span className="text-sm">{locale.toUpperCase()}</span>
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 text-white/70 transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-2xl border border-white/10 bg-[#17100b] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                     <div className="space-y-1">
                       {LOCALE_SWITCH_OPTIONS.map((option) => {
                         const isActive = option.locale === locale;
@@ -201,7 +252,7 @@ export function Footer() {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 text-white/62 transition-all hover:border-white/40 hover:text-white"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -210,7 +261,7 @@ export function Footer() {
                 href={youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/14 text-white/62 transition-all hover:border-white/40 hover:text-white"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -219,7 +270,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/76">
               {copy.aboutHeading}
             </p>
             <ul className="space-y-3">
@@ -227,7 +278,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-white/62 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -237,7 +288,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/76">
               {copy.categoriesHeading}
             </p>
             <ul className="space-y-3">
@@ -245,7 +296,7 @@ export function Footer() {
                 <li key={link.id}>
                   <Link
                     href={buildLocalizedPath(`/${link.slug}`, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-white/62 transition-colors hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -254,17 +305,16 @@ export function Footer() {
             </ul>
           </div>
 
-          {policyLinks.length > 0 ? (
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/76">
               {copy.policiesHeading}
             </p>
             <ul className="space-y-3">
-              {policyLinks.map((link) => (
+              {resolvedPolicyLinks.map((link) => (
                 <li key={link.slug}>
                   <Link
                     href={buildLocalizedPath(link.href, locale)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-white/62 transition-colors hover:text-white"
                   >
                     {link.label}
                   </Link>
@@ -272,20 +322,19 @@ export function Footer() {
               ))}
             </ul>
           </div>
-          ) : null}
         </div>
       </div>
 
-      <div className="border-t border-gray-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
-          <p className="text-xs text-gray-500">
+      <div className="border-t border-white/10">
+        <div className="container-premium flex flex-col items-center justify-between gap-4 py-6 lg:flex-row">
+          <p className="text-xs text-white/48">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+            className="text-[10px] uppercase tracking-[0.2em] text-white/48 transition-colors hover:text-white"
           >
             Powered by Celebix
           </a>

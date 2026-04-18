@@ -1,10 +1,10 @@
 const DEFAULT_SITE_URL = "https://store.celebix.co";
-const DEFAULT_STORE_NAME = "Premium Storefront";
-const DEFAULT_TAGLINE = "Adminden yonetilen premium magaza deneyimi.";
+const DEFAULT_STORE_NAME = "Ezmeo";
+const DEFAULT_TAGLINE = "Dogal, premium ve gunluk ritme uyumlu ezme secimi.";
 const DEFAULT_DESCRIPTION =
-  "Celebix ile yonetilen premium e-ticaret deneyimi. Urunlerinizi, kategorilerinizi ve iceriklerinizi adminden yonetin; storefront otomatik olarak guncellensin.";
-const DEFAULT_SUPPORT_EMAIL = "destek@store.celebix.co";
-const DEFAULT_SUPPORT_PHONE = "+90 532 000 00 00";
+  "Ezmeo; fistik, findik, badem ve benzeri premium ezmeleri daha sakin bir editorial vitrinle sunar.";
+const DEFAULT_SUPPORT_EMAIL = "destek@ezmeo.com";
+const DEFAULT_SUPPORT_PHONE = "+905302099628";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
 
 function normalizeUrl(value: string | undefined, fallback: string): string {
@@ -46,7 +46,7 @@ export const STOREFRONT_RUNTIME = {
     process.env.NEXT_PUBLIC_STORE_TWITTER || "https://twitter.com/celebixco",
   shippingMessage:
     process.env.NEXT_PUBLIC_FREE_SHIPPING_TEXT ||
-    "Ilk koleksiyonunuz birkac ayar sonra burada canlanir",
+    "Ezmeo koleksiyonunda secili kavanozlar sizi bekliyor.",
   gtmId: process.env.NEXT_PUBLIC_GTM_ID || "",
 } as const;
 

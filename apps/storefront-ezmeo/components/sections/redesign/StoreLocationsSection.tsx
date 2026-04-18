@@ -2,9 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowUpRight, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -19,184 +22,166 @@ interface StoreLocationsSectionProps {
 function buildGalleryImages({
   heroBanners,
   promoBanners,
-  storeName,
-}: Pick<StoreLocationsSectionProps, "heroBanners" | "promoBanners"> & { storeName: string }) {
+}: Pick<StoreLocationsSectionProps, "heroBanners" | "promoBanners">) {
   const realImages = [
-    ...(heroBanners || []).flatMap((banner, index) =>
-      [banner.desktop, banner.mobile]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `hero-${index}-${imageIndex}`,
-          src: image,
-          alt: banner.alt || `${storeName} vitrin gorunumu`,
-          city: "Vitrin",
-        })),
-    ),
-    ...(promoBanners || []).flatMap((banner, index) =>
-      [banner.image, banner.mobileImage]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `promo-${index}-${imageIndex}`,
-          src: image,
-          alt: banner.title || `${storeName} koleksiyon gorseli`,
-          city: "Koleksiyon",
-        })),
-    ),
-  ].slice(0, 4);
+    ...(heroBanners || []).flatMap((banner) => [banner.desktop, banner.mobile]),
+    ...(promoBanners || []).flatMap((banner) => [banner.image, banner.mobileImage]),
+  ]
+    .filter((image): image is string => Boolean(image))
+    .map((image) => resolveStorefrontAssetUrl(image))
+    .filter(Boolean)
+    .slice(0, 3);
 
   if (realImages.length > 0) {
     return realImages;
   }
 
   return [
-    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak gorunum 1`, city: "Studio" },
-    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak gorunum 2`, city: "Showroom" },
-    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak gorunum 3`, city: "Atolye" },
-    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak gorunum 4`, city: "Marka" },
+    "/fistik_ezmesi_kategori_gorsel.webp",
+    "/Findik_Ezmeleri_Kategorisi.webp",
+    "/hero-banner-fistik-ezmeleri.jpg",
   ];
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Magaza Deneyimi",
-  heading = "Markanizi fiziksel temas noktalariyla guclendirin",
-  description = "Genel ayarlara girdiginiz iletisim ve adres verileri, bu alanda otomatik olarak premium bir sunuma donusur.",
-  linkLabel = "Magaza detaylarini gor",
+  eyebrow = "Ezmeo standardi",
+  heading = "Dogal his, rafine sunum, net urun odagi.",
+  description = "Bu vitrin, yuksek sesli kampanya alanlari yerine urunun rengi, kivami ve etiket karakteri etrafinda sakin bir premium duygu kurar.",
+  linkLabel = "Markayi tani",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
+  const { locale } = useStorefrontRoute();
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi admin genel ayarlarda tanimlandiginda burada otomatik gorunur.";
+  const address =
+    storeInfo?.address || "Adres bilginiz eklendiginde burada iletisim notu olarak gorunur.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
-  const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
-  const mapUrl = storeInfo?.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
-    : storesHref;
+  const galleryImages = buildGalleryImages({ heroBanners, promoBanners });
 
-  const cards = [
+  const brandCards = [
     {
-      id: "main",
-      badge: "Magaza & Deneyim",
-      name: `${storeName} Studio`,
-      summary:
-        storeInfo?.address
-          ? `${storeName} icin girdiginiz adres ve iletisim bilgileri burada premium bir vitrinde gosterilir.`
-          : `${storeName} icin adres ve iletisim bilgilerini adminden tamamladiginizda bu alan tam magaza deneyimine donusur.`,
-      hours: "Pzt - Cmt / 10:00 - 19:00",
-      address,
-      actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Harita" : "Detaylari Ac",
-      icon: <MapPin className="size-4" />,
+      title: "Urun once gelir",
+      text: "Kartlar, koleksiyon bloklari ve PDP hiyerarsisi urunu one cikarir; gereksiz gorsel kalabalik geri cekilir.",
     },
     {
-      id: "support",
-      badge: "Iletisim",
-      name: "Destek ve Teklif Hatti",
-      summary:
-        "Kurumsal talepler, teslimat sorulari ve musteri destek akislari ayarlardan gelen telefon ve e-posta ile otomatik guncellenir.",
-      hours: "Hafta ici hizli geri donus",
-      address: `${phone} • ${email}`,
-      actionHref: `mailto:${email}`,
-      actionLabel: "E-Posta",
-      icon: <Mail className="size-4" />,
+      title: "Lezzet kadar güven",
+      text: "Icerik odakli metinler, sakin tonlar ve net fiyat hiyerarsisi daha premium bir ilk izlenim kurar.",
+    },
+    {
+      title: "Mobilde de rafine",
+      text: "Dokunmatik akista hizli tarama, buyuk gorsel kadrajlar ve net CTA ritmi korunur.",
     },
   ];
 
   return (
-    <section className="bg-white py-16 sm:py-20">
-      <div className="mx-auto max-w-[1500px] px-5 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            {eyebrow}
-          </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            {heading}
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-[#69584A] sm:text-[15px]">
-            {description}
-          </p>
-        </div>
+    <section className="pt-14 lg:pt-18">
+      <div className="container-premium">
+        <div className="surface-card overflow-hidden px-5 py-6 md:px-7 md:py-8 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+            <div>
+              <p className="editorial-kicker">{eyebrow}</p>
+              <h2 className="mt-5 max-w-3xl text-[var(--foreground)]">{heading}</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-8 text-[var(--muted-foreground)] md:text-base">
+                {description}
+              </p>
 
-        <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 lg:grid-cols-4 lg:gap-4">
-          {galleryImages.map((image, index) => (
-            <div key={image.id} className="group relative overflow-hidden bg-[#E7DED3]">
-              <div className="relative aspect-[5/5.8]">
-                <Image
-                  src={image.src}
-                  alt={image.alt}
-                  fill
-                  priority={index < 2}
-                  sizes="(min-width: 1280px) 24vw, (min-width: 768px) 25vw, 50vw"
-                  className="object-cover transition duration-700 group-hover:scale-[1.02]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/0 to-transparent" />
-                <div className="absolute bottom-3 left-3 rounded-full bg-white/88 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-[#4F3A27] backdrop-blur">
-                  {image.city}
-                </div>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                {brandCards.map((card) => (
+                  <article
+                    key={card.title}
+                    className="rounded-[1.75rem] border border-[var(--border)] bg-[rgba(255,250,244,0.76)] p-5"
+                  >
+                    <p className="text-lg font-semibold tracking-[-0.03em] text-[var(--foreground)]">
+                      {card.title}
+                    </p>
+                    <p className="mt-3 text-sm leading-7 text-[var(--muted-foreground)]">
+                      {card.text}
+                    </p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link href={storesHref} className="btn-primary">
+                  {linkLabel}
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+                <Link href={buildLocalizedPath("/iletisim", locale)} className="btn-secondary">
+                  Destek al
+                </Link>
               </div>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {cards.map((card) => (
-            <article
-              key={card.id}
-              className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
-                    {card.badge}
+            <div className="grid gap-4">
+              <div className="grid grid-cols-[1.2fr_0.8fr] gap-4">
+                {galleryImages.slice(0, 2).map((image, index) => (
+                  <div
+                    key={image}
+                    className={`relative overflow-hidden rounded-[1.75rem] bg-[var(--background-strong)] ${
+                      index === 0 ? "min-h-[22rem]" : "min-h-[22rem]"
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${storeName} vitrin gorseli ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 26vw"
+                      unoptimized={isProxiedStorefrontAssetUrl(image)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-[1.75rem] bg-[rgba(38,23,16,0.94)] p-6 text-white">
+                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/58">
+                    <ShieldCheck className="h-4 w-4" />
+                    Ezmeo sozu
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{card.name}</h3>
+                  <p className="mt-4 text-xl leading-snug">
+                    Daha premium görünmek icin bagirmaya degil, daha iyi oranlara ve daha iyi bosluga ihtiyac var.
+                  </p>
                 </div>
 
-                <a
-                  href={card.actionHref}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
-                >
-                  {card.icon}
-                  <span>{card.actionLabel}</span>
-                </a>
-              </div>
-
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{card.summary}</p>
-
-              <div className="mt-5 space-y-3 text-sm text-[#4D3C2F]">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
-                  <Clock3 className="size-4 text-[#8C6D4C]" />
-                  <span>{card.hours}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-1 size-4 text-[#8C6D4C]" />
-                  <p className="text-sm leading-6 text-[#6A5A4E]">{card.address}</p>
-                </div>
-                <div className="flex flex-wrap gap-5 text-[#6A5A4E]">
-                  <span className="inline-flex items-center gap-2">
-                    <Phone className="size-4 text-[#8C6D4C]" />
-                    {phone}
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <Mail className="size-4 text-[#8C6D4C]" />
-                    {email}
-                  </span>
+                <div className="rounded-[1.75rem] border border-[var(--border)] bg-[rgba(255,250,244,0.76)] p-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                    Iletisim
+                  </p>
+                  <div className="mt-4 space-y-4 text-sm text-[var(--foreground)]">
+                    <div className="flex items-start gap-3">
+                      <Phone className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
+                      <span>{phone}</span>
+                    </div>
+                    <div className="flex items-start gap-3 break-all">
+                      <Mail className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
+                      <span>{email}</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
+                      <span className="text-[var(--muted-foreground)]">{address}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </article>
-          ))}
-        </div>
 
-        <div className="mt-8 flex justify-center">
-          <Link
-            href={storesHref}
-            className="inline-flex items-center gap-2 rounded-full border border-[#B99874] bg-white px-5 py-3 text-sm font-medium text-[#3F2E22] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
-          >
-            <span>{linkLabel}</span>
-            <ExternalLink className="size-4" />
-          </Link>
+              {galleryImages[2] ? (
+                <div className="relative min-h-[13rem] overflow-hidden rounded-[1.75rem] bg-[var(--background-strong)]">
+                  <Image
+                    src={galleryImages[2]}
+                    alt={`${storeName} detay gorseli`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 36vw"
+                    unoptimized={isProxiedStorefrontAssetUrl(galleryImages[2])}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </section>
