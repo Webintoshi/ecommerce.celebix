@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createStore } from "@celebix/platform-config";
-import { listDashboardStores, recordOwnerAuditLog } from "@/lib/control-plane";
+import {
+  ensureOwnerStoreAuthorityForSlug,
+  listDashboardStores,
+  recordOwnerAuditLog,
+} from "@/lib/control-plane";
 import { validateNewStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { isRedisLockError } from "@/lib/redis";
@@ -119,13 +123,7 @@ export async function POST(request: Request) {
       storefrontDeploymentName: body.storefrontDeploymentName,
     });
 
-    const workflow = await runStoreProvisioningWorkflow({
-      auth,
-      slug: created.store.slug,
-      mode: "create",
-      packageStartDate: body.packageStartDate,
-      packageDurationMonths: parseDuration(body.packageDurationMonths),
-    });
+    await ensureOwnerStoreAuthorityForSlug(created.store.slug);
 
     await recordOwnerAuditLog({
       actorId: auth.user.id,
@@ -135,20 +133,44 @@ export async function POST(request: Request) {
       details: {
         name: created.store.name,
         domain: created.store.domains.storefront,
-        provisioningState: workflow.provisioningState,
-        blockers: workflow.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
+        provisioningState: "running",
       },
+    });
+
+    const packageDurationMonths = parseDuration(body.packageDurationMonths);
+
+    queueMicrotask(() => {
+      void runStoreProvisioningWorkflow({
+        auth,
+        slug: created.store.slug,
+        mode: "create",
+        packageStartDate: body.packageStartDate,
+        packageDurationMonths,
+      }).catch(async (error) => {
+        try {
+          await recordOwnerAuditLog({
+            actorId: auth.user.id,
+            action: "store_provisioning_enqueue_failed",
+            targetType: "store",
+            targetId: created.store.slug,
+            details: {
+              message: error instanceof Error ? error.message : "Store provisioning baslatilamadi.",
+            },
+          });
+        } catch {
+          // Ignore audit follow-up failures for detached provisioning runs.
+        }
+      });
     });
 
     return NextResponse.json(
       {
         ...created,
-        store: workflow.store,
-        provisioningState: workflow.provisioningState,
-        steps: workflow.steps,
-        blockers: workflow.blockers,
+        provisioningState: "running",
+        steps: [],
+        blockers: [],
       },
-      { status: workflow.provisioningState === "ready" ? 201 : 202 },
+      { status: 202 },
     );
   } catch (error) {
     if (isRedisLockError(error)) {

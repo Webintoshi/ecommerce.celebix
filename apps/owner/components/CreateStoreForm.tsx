@@ -134,13 +134,6 @@ export function CreateStoreForm({
         return;
       }
 
-      if (payload.provisioningState && payload.provisioningState !== "ready") {
-        setProvisioningState(payload.provisioningState);
-        setSteps(payload.steps ?? []);
-        setCreatedSlug(payload.store.slug);
-        return;
-      }
-
       router.push(`/stores/${payload.store.slug}`);
       router.refresh();
     });
