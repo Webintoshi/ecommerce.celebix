@@ -31,6 +31,7 @@ interface ProductListingExperienceProps {
   emptyTitle: string;
   emptyDescription: string;
   chipMode?: ChipMode;
+  minimalCopy?: boolean;
 }
 
 const ITEMS_PER_LOAD = 12;
@@ -205,6 +206,7 @@ export function ProductListingExperience({
   emptyTitle,
   emptyDescription,
   chipMode = "categories",
+  minimalCopy = false,
 }: ProductListingExperienceProps) {
   const { locale } = useStorefrontRoute();
   const [sortBy, setSortBy] = React.useState<ListingSortValue>("recommended");
@@ -395,6 +397,7 @@ export function ProductListingExperience({
               filters={filters}
               metadata={metadata}
               onFilterChange={handleFilterChange}
+              minimalCopy={minimalCopy}
             />
           </div>
         </div>
@@ -404,8 +407,12 @@ export function ProductListingExperience({
             <div className="flex flex-col gap-4 border-b border-[rgba(32,20,16,0.08)] pb-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Secili vitrin</p>
-                  <div className="mt-2 flex items-end gap-3">
+                  {!minimalCopy ? (
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+                      Secili vitrin
+                    </p>
+                  ) : null}
+                  <div className={cn("flex items-end gap-3", minimalCopy ? "" : "mt-2")}>
                     <span className="font-serif text-[2.4rem] leading-none tracking-[-0.06em] text-[#201410]">
                       {filteredProducts.length}
                     </span>
@@ -422,7 +429,7 @@ export function ProductListingExperience({
                     className="inline-flex items-center justify-center gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem] lg:hidden"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
-                    Filtreler
+                    Filtrele
                     {activeFilterCount > 0 ? (
                       <span className="text-[10px] text-[#6d5b51]">
                         {activeFilterCount}
@@ -431,12 +438,17 @@ export function ProductListingExperience({
                   </button>
 
                   <label className="relative block min-w-[13rem]">
-                    <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
-                      Siralama
-                    </span>
+                    {!minimalCopy ? (
+                      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+                        Siralama
+                      </span>
+                    ) : (
+                      <span className="sr-only">Siralama</span>
+                    )}
                     <select
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as ListingSortValue)}
+                      aria-label="Urunleri sirala"
                       className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#201410] outline-none transition-colors focus:border-[#201410]"
                     >
                       <option value="recommended">Onerilen</option>
@@ -453,6 +465,7 @@ export function ProductListingExperience({
                 filters={filters}
                 metadata={metadata}
                 onFilterChange={handleFilterChange}
+                minimalCopy={minimalCopy}
               />
             </div>
 
@@ -534,6 +547,7 @@ export function ProductListingExperience({
         filters={filters}
         metadata={metadata}
         onFilterChange={handleFilterChange}
+        minimalCopy={minimalCopy}
       />
     </div>
   );

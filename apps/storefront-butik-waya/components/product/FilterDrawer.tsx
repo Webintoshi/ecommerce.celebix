@@ -15,6 +15,7 @@ interface FilterDrawerProps {
   filters: ListingFilterState;
   metadata: ListingFilterMetadata;
   onFilterChange: (filters: Partial<ListingFilterState>) => void;
+  minimalCopy?: boolean;
 }
 
 export function FilterDrawer({
@@ -23,6 +24,7 @@ export function FilterDrawer({
   filters,
   metadata,
   onFilterChange,
+  minimalCopy = false,
 }: FilterDrawerProps) {
   const activeFilterCount = getActiveFilterCount(filters, metadata);
 
@@ -36,9 +38,8 @@ export function FilterDrawer({
           <SheetHeader className="sticky top-0 z-10 mb-0 border-b border-[rgba(32,20,16,0.08)] bg-[#fbf8f4] px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Filtreler</p>
                 <SheetTitle className="mt-2 font-serif text-[1.55rem] tracking-[-0.04em] text-[#201410]">
-                  Mobil secim
+                  {minimalCopy ? "Filtreler" : "Mobil secim"}
                 </SheetTitle>
               </div>
               <div className="flex items-center gap-3">
@@ -64,6 +65,7 @@ export function FilterDrawer({
               filters={filters}
               metadata={metadata}
               onFilterChange={onFilterChange}
+              minimalCopy={minimalCopy}
               className="border-none bg-transparent p-0 shadow-none"
             />
           </div>

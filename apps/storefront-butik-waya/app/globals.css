@@ -322,8 +322,8 @@ a {
 
 .container-premium {
   margin-inline: auto;
-  width: min(100%, 1440px);
-  padding-inline: clamp(1.25rem, 3vw, 2.75rem);
+  width: min(100%, 1680px);
+  padding-inline: clamp(1.25rem, 3vw, 4rem);
 }
 
 .editorial-shell {

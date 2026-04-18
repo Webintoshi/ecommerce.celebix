@@ -40,6 +40,7 @@ interface FilterSidebarProps {
   filters: ListingFilterState;
   metadata: ListingFilterMetadata;
   onFilterChange: (filters: Partial<ListingFilterState>) => void;
+  minimalCopy?: boolean;
   className?: string;
 }
 
@@ -47,6 +48,7 @@ interface ActiveFiltersProps {
   filters: ListingFilterState;
   metadata: ListingFilterMetadata;
   onFilterChange: (filters: Partial<ListingFilterState>) => void;
+  minimalCopy?: boolean;
 }
 
 type ActiveFilterChip = {
@@ -167,6 +169,7 @@ export function ActiveFilters({
   filters,
   metadata,
   onFilterChange,
+  minimalCopy = false,
 }: ActiveFiltersProps) {
   const categoryLabels = buildOptionLabelLookup(metadata.categories);
   const subcategoryLabels = buildOptionLabelLookup(metadata.subcategories);
@@ -256,9 +259,13 @@ export function ActiveFilters({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
-          Aktif filtreler
-        </span>
+        {!minimalCopy ? (
+          <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+            Aktif filtreler
+          </span>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
@@ -289,6 +296,7 @@ export function FilterSidebar({
   filters,
   metadata,
   onFilterChange,
+  minimalCopy = false,
   className,
 }: FilterSidebarProps) {
   const hasActiveFilters = hasActiveListingFilters(filters, metadata);
@@ -327,15 +335,27 @@ export function FilterSidebar({
         className,
       )}
     >
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Filtre paneli</p>
-          <h2 className="mt-2 font-serif text-[1.6rem] leading-none tracking-[-0.04em] text-[#201410]">
-            Secimi daralt
-          </h2>
-        </div>
+      {!minimalCopy ? (
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Filtre paneli</p>
+            <h2 className="mt-2 font-serif text-[1.6rem] leading-none tracking-[-0.04em] text-[#201410]">
+              Secimi daralt
+            </h2>
+          </div>
 
-        {hasActiveFilters ? (
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
+              className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
+            >
+              Temizle
+            </button>
+          ) : null}
+        </div>
+      ) : hasActiveFilters ? (
+        <div className="mb-4 flex justify-end">
           <button
             type="button"
             onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
@@ -343,8 +363,8 @@ export function FilterSidebar({
           >
             Temizle
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div className="space-y-5">
         {metadata.categories && metadata.categories.options.length > 1 ? (
