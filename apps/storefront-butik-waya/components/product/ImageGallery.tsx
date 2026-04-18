@@ -50,7 +50,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   if (displayImages.length === 0) {
     return (
-      <div className="relative aspect-square flex flex-col items-center justify-center bg-[#F8F8F8]">
+      <div className="relative aspect-[4/5] flex flex-col items-center justify-center rounded-[2rem] bg-[#ECE8E3]">
         <svg className="w-20 h-20 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
           <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2"/>
@@ -183,7 +183,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95"
           onClick={() => setIsLightboxOpen(false)}
         >
           <button
@@ -193,7 +193,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               e.stopPropagation();
               setIsLightboxOpen(false);
             }}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center z-10"
+            className="absolute right-4 top-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-white/10 backdrop-blur"
           >
             <X className="w-6 h-6 text-white" />
           </button>
@@ -207,7 +207,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   e.stopPropagation();
                   handlePrevious();
                 }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center"
+                className="absolute left-4 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/10 backdrop-blur"
               >
                 <ChevronLeft className="w-6 h-6 text-white" />
               </button>
@@ -218,7 +218,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   e.stopPropagation();
                   handleNext();
                 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center"
+                className="absolute right-4 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/10 backdrop-blur"
               >
                 <ChevronRight className="w-6 h-6 text-white" />
               </button>
@@ -252,7 +252,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     return (
       <div className="w-full">
         <div
-          className="relative aspect-square overflow-hidden cursor-pointer bg-[#F8F8F8]"
+          className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ECE8E3] cursor-pointer"
           onClick={() => setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -317,23 +317,23 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-[72px_1fr] sm:grid-cols-[100px_1fr] gap-3 sm:gap-4 items-start">
+      <div className="grid items-start gap-3 sm:grid-cols-[88px_1fr] sm:gap-4 lg:grid-cols-[104px_1fr]">
         {/* Sol: Thumbnails */}
         <div className="relative flex flex-col">
           <div 
             ref={thumbnailsRef}
             onScroll={checkScroll}
-            className="flex flex-col gap-2 sm:gap-3 overflow-y-auto scrollbar-hide max-h-[320px] sm:max-h-[560px]"
+            className="scrollbar-hide flex max-h-[420px] flex-col gap-2 overflow-y-auto sm:max-h-[640px] sm:gap-3"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {displayImages.map((image, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedIndex(index)}
-                className={`relative w-[72px] h-[72px] sm:w-[100px] sm:h-[100px] flex-shrink-0 overflow-hidden border transition-all ${
+                className={`relative h-[88px] w-[72px] flex-shrink-0 overflow-hidden rounded-[1rem] border transition-all sm:h-[104px] sm:w-[88px] lg:w-[104px] ${
                   index === selectedIndex
-                    ? "border-primary"
-                    : "border-transparent hover:border-neutral-300 opacity-70 hover:opacity-100"
+                    ? "border-[#171311]"
+                    : "border-transparent opacity-70 hover:border-[rgba(26,26,26,0.16)] hover:opacity-100"
                 }`}
               >
                 <img
@@ -352,8 +352,8 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <button
                 onClick={() => scrollThumbnails('up')}
                 disabled={!canScrollUp}
-                className={`w-8 h-8 bg-[#F8F8F8] border border-gray-200 rounded-full flex items-center justify-center transition-all ${
-                  canScrollUp ? 'opacity-100 hover:border-primary hover:text-primary' : 'opacity-30 cursor-not-allowed'
+                className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
+                  canScrollUp ? 'opacity-100 hover:border-[#171311] hover:text-[#171311]' : 'cursor-not-allowed opacity-30'
                 }`}
               >
                 <ChevronLeft className="w-4 h-4 -rotate-90" />
@@ -361,8 +361,8 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <button
                 onClick={() => scrollThumbnails('down')}
                 disabled={!canScrollDown}
-                className={`w-8 h-8 bg-[#F8F8F8] border border-gray-200 rounded-full flex items-center justify-center transition-all ${
-                  canScrollDown ? 'opacity-100 hover:border-primary hover:text-primary' : 'opacity-30 cursor-not-allowed'
+                className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
+                  canScrollDown ? 'opacity-100 hover:border-[#171311] hover:text-[#171311]' : 'cursor-not-allowed opacity-30'
                 }`}
               >
                 <ChevronRight className="w-4 h-4 -rotate-90" />
@@ -373,7 +373,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
         {/* Sağ: Ana Görsel */}
         <div
-          className={`relative aspect-square overflow-hidden select-none bg-[#F8F8F8] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ECE8E3] select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -418,13 +418,13 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#F8F8F8]/90 rounded-full flex items-center justify-center hover:bg-[#F1F1F1] transition-colors z-10"
+                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/80 backdrop-blur transition-colors hover:bg-white"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#F8F8F8]/90 rounded-full flex items-center justify-center hover:bg-[#F1F1F1] transition-colors z-10"
+                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/80 backdrop-blur transition-colors hover:bg-white"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -439,7 +439,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   key={index}
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(index); }}
                   className={`w-2 h-2 rounded-full transition-all ${
-                    index === selectedIndex ? 'bg-primary w-4' : 'bg-neutral-300'
+                    index === selectedIndex ? 'bg-[#171311] w-4' : 'bg-neutral-300'
                   }`}
                 />
               ))}

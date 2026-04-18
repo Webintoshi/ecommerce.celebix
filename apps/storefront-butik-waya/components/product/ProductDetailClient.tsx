@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -10,10 +10,6 @@ import {
   Minus,
   Plus,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Hammer,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -28,9 +24,10 @@ import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
+import { SectionHeading } from "@/components/sections/redesign/SectionHeading";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { Product } from "@/types/product";
-import {
+import type { Product } from "@/types/product";
+import type {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
@@ -97,7 +94,9 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
+    new Set(["details"]),
+  );
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
@@ -113,16 +112,21 @@ export function ProductDetailClient({
   const [customizationValidationNonce, setCustomizationValidationNonce] =
     useState(0);
 
-  const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
+  const extrasSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
   const { locale } = useStorefrontRoute();
 
   const toggleAccordion = (id: string) => {
-    const next = new Set(openAccordions);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpenAccordions(next);
+    setOpenAccordions((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -137,7 +141,7 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
+    setOpenAccordions(new Set(["details"]));
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -148,28 +152,25 @@ export function ProductDetailClient({
   }, [product]);
 
   useEffect(() => {
-    if (product?.category) {
-      setIsLoadingRelated(true);
-      fetch(
-        `/api/products?category=${product.category}&limit=8&locale=${locale}`,
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.products) {
-            const filtered = data.products.filter(
-              (p: Product) => p.slug !== slug,
-            );
-            setRelatedProducts(filtered.slice(0, 4));
-          }
-        })
-        .finally(() => setIsLoadingRelated(false));
-    }
+    if (!product?.category) return;
+
+    setIsLoadingRelated(true);
+    fetch(`/api/products?category=${product.category}&limit=8&locale=${locale}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.products) {
+          const filtered = data.products.filter((p: Product) => p.slug !== slug);
+          setRelatedProducts(filtered.slice(0, 4));
+        }
+      })
+      .finally(() => setIsLoadingRelated(false));
   }, [locale, product?.category, slug]);
 
   useEffect(() => {
     if (!product?.id) return;
 
     let mounted = true;
+
     const loadActiveSchema = async () => {
       setIsSchemaLoading(true);
       try {
@@ -179,9 +180,13 @@ export function ProductDetailClient({
         }
       } catch (error) {
         console.error("Schema assignment load error:", error);
-        if (mounted) setActiveSchema(null);
+        if (mounted) {
+          setActiveSchema(null);
+        }
       } finally {
-        if (mounted) setIsSchemaLoading(false);
+        if (mounted) {
+          setIsSchemaLoading(false);
+        }
       }
     };
 
@@ -199,8 +204,8 @@ export function ProductDetailClient({
     setCustomizationValidationNonce(0);
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
-  const displayImages = React.useMemo(() => {
-    const baseImages = product.images || [];
+  const displayImages = useMemo(() => {
+    const baseImages = product?.images || [];
 
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter(
@@ -209,7 +214,9 @@ export function ProductDetailClient({
       if (variantImages.length > 0) {
         const combined = [...variantImages];
         baseImages.forEach((img: string) => {
-          if (!combined.includes(img)) combined.push(img);
+          if (!combined.includes(img)) {
+            combined.push(img);
+          }
         });
         return combined;
       }
@@ -220,7 +227,7 @@ export function ProductDetailClient({
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5F5]">
         <div className="animate-pulse text-center">
           <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
           <div className="h-4 w-32 rounded bg-neutral-200" />
@@ -231,10 +238,8 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
-        <div className="text-center">
-          <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5F5] px-4">
+        <div className="text-center text-[#7A736D]">Ürün bilgisi yüklenemedi.</div>
       </div>
     );
   }
@@ -242,8 +247,7 @@ export function ProductDetailClient({
   const discountPercent = variant.originalPrice
     ? Math.round((1 - variant.price / variant.originalPrice) * 100)
     : 0;
-
-  const isOutOfStock = variant.stock <= 0;
+  const isOutOfStock = Number(variant.stock || 0) <= 0;
 
   const handleAddToCart = () => {
     if (isOutOfStock || isSchemaLoading) return;
@@ -268,10 +272,10 @@ export function ProductDetailClient({
 
   const toggleWishlist = () => {
     const wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
-    const newWishlist = isWishlisted
+    const nextWishlist = isWishlisted
       ? wishlist.filter((id: string) => id !== product.id)
       : [...wishlist, product.id];
-    localStorage.setItem("wishlist", JSON.stringify(newWishlist));
+    localStorage.setItem("wishlist", JSON.stringify(nextWishlist));
     setIsWishlisted(!isWishlisted);
   };
 
@@ -282,17 +286,20 @@ export function ProductDetailClient({
         text: product.shortDescription,
         url: window.location.href,
       });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+      return;
     }
+
+    navigator.clipboard.writeText(window.location.href);
   };
 
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
-    if (variant.stock <= 5) {
-      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
+    if (isOutOfStock) {
+      return { text: "Tükendi", color: "text-[#9A928A]" };
     }
-    return { text: "Stokta var", color: "text-neutral-500" };
+    if (Number(variant.stock) <= 5) {
+      return { text: `Son ${variant.stock} adet`, color: "text-amber-700" };
+    }
+    return { text: "Stokta", color: "text-[#171311]" };
   };
 
   const stockStatus = getStockStatus();
@@ -301,40 +308,84 @@ export function ProductDetailClient({
     : variant.price;
   const displayOriginalPrice =
     variant.originalPrice !== undefined
-      ? variant.originalPrice +
-        (activeSchema ? customizationState.extraPrice : 0)
+      ? variant.originalPrice + (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
+  const productCode = variant.sku || product.sku || "";
+  const hasReviews = Number(product.reviewCount || 0) > 0;
+
+  const detailItems = [
+    {
+      id: "details",
+      label: "Ürün Detayları",
+      content: <ProductFeatures product={product} />,
+    },
+    {
+      id: "delivery",
+      label: "Teslimat ve İade",
+      content: (
+        <div className="space-y-4 text-sm leading-7 text-[#5E5751]">
+          <p>
+            Siparişler ödeme onayından sonra hazırlanır. Yoğunluk dönemlerinde hazırlık süresi
+            standart akıştan farklılaşabilir.
+          </p>
+          <p>
+            Teslim alınan ürünler kullanılmamış durumda ve orijinal formu korunarak iade sürecine
+            yönlendirilebilir.
+          </p>
+          <p>
+            Kişiselleştirme uygulanan siparişlerde üretim ve kontrol süresi standart gönderim
+            akışından daha uzun olabilir.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "care",
+      label: "Bakım Notları",
+      content: (
+        <div className="space-y-4 text-sm leading-7 text-[#5E5751]">
+          <p>
+            Ürünün formunu ve dokusunu korumak için ürün üzerindeki bakım etiketinde yer alan
+            talimatları izleyin.
+          </p>
+          <p>
+            Saklama ve kullanım tercihini kumaş yapısına göre belirlemek, siluetin daha uzun süre
+            korunmasına yardımcı olur.
+          </p>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#F5F5F5F5]">
+      <div className="border-b border-[rgba(26,26,26,0.08)] bg-[#F5F5F5F5]">
         <div className="container-premium">
-          <div className="flex items-center gap-3 py-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 py-4 text-[11px] uppercase tracking-[0.18em] text-[#7A736D]">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
+              className="flex items-center gap-2 transition-colors hover:text-[#171311]"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <ArrowLeft className="h-4 w-4" />
+              <span>Ürünlere dön</span>
             </Link>
-            <div className="ml-auto flex items-center gap-2 text-neutral-400">
+
+            <div className="ml-auto hidden items-center gap-2 text-[#9A928A] md:flex">
               <Link
                 href={buildLocalizedPath("/", locale)}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[#171311]"
               >
                 Ana Sayfa
               </Link>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
               <Link
                 href={buildLocalizedPath("/urunler", locale)}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[#171311]"
               >
                 Ürünler
               </Link>
-              <ChevronRight className="w-4 h-4" />
-              <span className="max-w-[150px] truncate font-medium text-neutral-900">
-                {product.name}
-              </span>
+              <ChevronRight className="h-4 w-4" />
+              <span className="max-w-[180px] truncate text-[#171311]">{product.name}</span>
             </div>
           </div>
         </div>
@@ -342,8 +393,8 @@ export function ProductDetailClient({
 
       <section className="py-8 lg:py-12">
         <div className="container-premium">
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
-            <div className="lg:sticky lg:top-28 lg:self-start">
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:gap-14">
+            <div className="lg:sticky lg:top-24 lg:self-start">
               <ImageGallery
                 key={`${product.id}-${selectedVariant}`}
                 images={displayImages}
@@ -351,194 +402,216 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                  {product.category}
-                </span>
-                <span className="h-px w-8 bg-neutral-300" />
-                {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Öne Çıkan
-                  </span>
-                )}
-              </div>
-
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
-                {product.name}
-              </h1>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-0.5">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-4 w-4 ${
-                        i < Math.floor(product.rating || 0)
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
-                          : "fill-neutral-200 text-neutral-200"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} değerlendirme)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {displayOriginalPrice !== undefined && (
-                  <span className="text-sm text-neutral-400 line-through lg:text-base">
-                    {formatPrice(displayOriginalPrice)}
-                  </span>
-                )}
-                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
-                  {formatPrice(displayPrice)}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {discountPercent > 0 && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} İndirim
-                  </span>
-                )}
-                {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    Yeni
-                  </span>
-                )}
-                {product.vegan && (
-                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
-                    Vegan
-                  </span>
-                )}
-              </div>
-
-              <VariantSelectorV2
-                variants={variants}
-                selectedIndex={selectedVariant}
-                onSelect={setSelectedVariant}
-              />
-
-              {isSchemaLoading ? (
-                <div className="py-3 text-sm text-neutral-500">
-                  Ekstra seçenekler yükleniyor...
-                </div>
-              ) : activeSchema ? (
-                <div
-                  ref={extrasSectionRef}
-                  className="space-y-3 border-b border-neutral-200 pb-5"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Kişiselleştirme
+            <div className="space-y-8">
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  {product.category ? (
+                    <span className="text-[10px] uppercase tracking-[0.26em] text-[#7A736D]">
+                      {product.category}
                     </span>
-                    <span className="h-px w-8 bg-neutral-300" />
-                  </div>
-                  <DynamicCustomizationForm
-                    schemaId={activeSchema.id}
-                    productId={product.id}
-                    variantId={variant.id}
-                    basePrice={variant.price}
-                    initialSchema={activeSchema}
-                    onCustomizationChange={setCustomizationState}
-                    validationNonce={customizationValidationNonce}
-                  />
-                </div>
-              ) : null}
-
-              <div className="space-y-5 border-y border-neutral-200 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isOutOfStock
-                          ? "bg-neutral-300"
-                          : variant.stock <= 5
-                            ? "bg-amber-500"
-                            : "bg-green-500"
-                      }`}
-                    />
-                    <span className={`text-sm ${stockStatus.color}`}>
-                      {stockStatus.text}
+                  ) : null}
+                  {product.featured ? (
+                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#171311]">
+                      Öne çıkan
                     </span>
-                  </div>
-                  {activeSchema && customizationState.extraPrice > 0 && (
-                    <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+                  ) : null}
+                  {product.new ? (
+                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-[#F1ECE7] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#171311]">
+                      Yeni sezon
+                    </span>
+                  ) : null}
+                  {discountPercent > 0 ? (
+                    <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-[#171311] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white">
+                      %{discountPercent} indirim
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="space-y-4">
+                  <h1 className="font-serif text-[2.7rem] leading-[0.94] tracking-[-0.055em] text-[#171311] sm:text-[3.05rem] lg:text-[4.35rem]">
+                    {product.name}
+                  </h1>
+
+                  {hasReviews ? (
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-[#7A736D]">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              i < Math.floor(product.rating || 0)
+                                ? "fill-[#171311] text-[#171311]"
+                                : "fill-[#DED7D1] text-[#DED7D1]"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span>{product.reviewCount || 0} değerlendirme</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm leading-7 text-[#7A736D]">
+                      Editoryal seçki içinde sakin bir ürün sunumu.
                     </p>
                   )}
-                </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
-                      Adet
+                  <div className="flex items-end gap-3">
+                    {displayOriginalPrice !== undefined ? (
+                      <span className="text-base text-[#9A928A] line-through lg:text-lg">
+                        {formatPrice(displayOriginalPrice)}
+                      </span>
+                    ) : null}
+                    <span className="text-[2rem] leading-none tracking-[-0.04em] text-[#171311] lg:text-[2.45rem]">
+                      {formatPrice(displayPrice)}
                     </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
+                  </div>
+
+                  {product.shortDescription ? (
+                    <p className="max-w-[48ch] text-[15px] leading-7 text-[#5E5751] sm:text-base">
+                      {product.shortDescription}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-white/72 p-5 shadow-[0_28px_80px_-64px_rgba(0,0,0,0.28)] backdrop-blur sm:p-6">
+                <div className="space-y-6">
+                  <VariantSelectorV2
+                    variants={variants}
+                    selectedIndex={selectedVariant}
+                    onSelect={setSelectedVariant}
+                  />
+
+                  {isSchemaLoading ? (
+                    <div className="py-1 text-sm text-[#7A736D]">
+                      Ekstra seçenekler yükleniyor...
+                    </div>
+                  ) : activeSchema ? (
+                    <div
+                      ref={extrasSectionRef}
+                      className="space-y-3 border-t border-[rgba(26,26,26,0.08)] pt-5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
+                          Kişiselleştirme
+                        </span>
+                        <span className="h-px w-8 bg-[rgba(26,26,26,0.12)]" />
+                      </div>
+                      <DynamicCustomizationForm
+                        schemaId={activeSchema.id}
+                        productId={product.id}
+                        variantId={variant.id}
+                        basePrice={variant.price}
+                        initialSchema={activeSchema}
+                        onCustomizationChange={setCustomizationState}
+                        validationNonce={customizationValidationNonce}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(26,26,26,0.08)] pt-5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div
+                        className={`h-2 w-2 rounded-full ${
+                          isOutOfStock
+                            ? "bg-neutral-300"
+                            : Number(variant.stock) <= 5
+                              ? "bg-amber-500"
+                              : "bg-[#171311]"
+                        }`}
+                      />
+                      <span className={stockStatus.color}>{stockStatus.text}</span>
+                    </div>
+                    {activeSchema && customizationState.extraPrice > 0 ? (
+                      <p className="text-sm text-[#7A736D]">
+                        +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center overflow-hidden rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F5F3F0]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Minus className="h-4 w-4 stroke-[1.5] text-[#171311]" />
                       </button>
-                      <span className="w-10 text-center text-base font-medium text-neutral-900">
+                      <span className="w-10 text-center text-base font-medium text-[#171311]">
                         {quantity}
                       </span>
                       <button
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Plus className="h-4 w-4 stroke-[1.5] text-[#171311]" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={isOutOfStock || isSchemaLoading}
+                      className={`flex min-h-[50px] min-w-[220px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium uppercase tracking-[0.18em] transition-all duration-300 ${
+                        isOutOfStock || isSchemaLoading
+                          ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
+                          : "bg-[#171311] text-white hover:bg-[#2A2420]"
+                      }`}
+                    >
+                      <ShoppingCart className="h-4.5 w-4.5 stroke-[1.5]" />
+                      {isSchemaLoading
+                        ? "Yükleniyor"
+                        : isOutOfStock
+                          ? "Tükendi"
+                          : "Sepete ekle"}
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleWishlist}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#171311] transition-all hover:bg-white"
+                      >
+                        <Heart
+                          className={`h-4.5 w-4.5 stroke-[1.5] ${
+                            isWishlisted ? "fill-current" : ""
+                          }`}
+                        />
+                      </button>
+                      <button
+                        onClick={handleShare}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#171311] transition-colors hover:bg-white"
+                      >
+                        <Share2 className="h-4.5 w-4.5 stroke-[1.5]" />
                       </button>
                     </div>
                   </div>
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={isOutOfStock || isSchemaLoading}
-                    className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300
-                      flex items-center justify-center gap-2
-                      ${
-                        isOutOfStock || isSchemaLoading
-                          ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
-                      }
-                    `}
-                  >
-                    <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                    {isSchemaLoading
-                      ? "Yükleniyor"
-                      : isOutOfStock
-                        ? "Tükendi"
-                        : "Sepete Ekle"}
-                  </button>
-                  <button
-                    onClick={toggleWishlist}
-                    className={`
-                      flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
-                      ${
-                        isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
-                      }
-                    `}
-                  >
-                    <Heart
-                      className={`h-5 w-5 stroke-[1.5] ${
-                        isWishlisted ? "fill-current" : ""
-                      }`}
-                    />
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
-                  >
-                    <Share2 className="h-5 w-5 stroke-[1.5]" />
-                  </button>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
+                        Stok
+                      </p>
+                      <p className="mt-2 text-sm text-[#171311]">{stockStatus.text}</p>
+                    </div>
+                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
+                        Ürün kodu
+                      </p>
+                      <p className="mt-2 text-sm text-[#171311]">
+                        {productCode || "Butik Waya seçkisi"}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
+                        Yorumlar
+                      </p>
+                      <p className="mt-2 text-sm text-[#171311]">
+                        {hasReviews
+                          ? `${product.reviewCount || 0} değerlendirme`
+                          : "İlk yorumu siz bırakın"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -548,118 +621,25 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              <div className="border-t border-neutral-200 pt-1">
-                {[
-                  {
-                    id: "features",
-                    label: "Ürün Detayları",
-                    content: <ProductFeatures product={product} />,
-                  },
-                  {
-                    id: "specs",
-                    label: "Özellikler",
-                    content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    id: "shipping",
-                    label: "Kargo & İade",
-                    content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
-                          </h4>
-                          <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
-                          </h4>
-                          <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
-                          </h4>
-                          <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
-                          </p>
-                        </div>
-                      </div>
-                    ),
-                  },
-                ].map((item) => {
+              <div className="divide-y divide-[rgba(26,26,26,0.08)] border-y border-[rgba(26,26,26,0.08)]">
+                {detailItems.map((item) => {
                   const isOpen = openAccordions.has(item.id);
+
                   return (
-                    <div key={item.id} className="border-b border-neutral-200">
+                    <div key={item.id}>
                       <button
                         onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
+                        className="flex w-full items-center justify-between py-4 text-[11px] font-medium uppercase tracking-[0.2em] text-[#171311]"
                       >
                         {item.label}
                         <ChevronDown
-                          className={`h-4 w-4 text-neutral-500 transition-transform ${
+                          className={`h-4 w-4 text-[#7A736D] transition-transform ${
                             isOpen ? "rotate-180" : ""
                           }`}
                         />
                       </button>
                       <AnimatePresence initial={false}>
-                        {isOpen && (
+                        {isOpen ? (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
@@ -669,24 +649,24 @@ export function ProductDetailClient({
                           >
                             <div className="pb-5">{item.content}</div>
                           </motion.div>
-                        )}
+                        ) : null}
                       </AnimatePresence>
                     </div>
                   );
                 })}
               </div>
 
-              {product.sku && (
-                <p className="text-xs text-neutral-400">
-                  ÜRÜN KODU: <span className="font-mono">{product.sku}</span>
+              {productCode ? (
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#9A928A]">
+                  Ürün kodu: <span className="font-mono text-[#171311]">{productCode}</span>
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
       </section>
 
-      <div className="container-premium py-4 lg:py-6">
+      <div className="container-premium py-4 lg:py-8">
         <ProductReviewsSection
           productId={product.id}
           productName={product.name}
@@ -697,34 +677,27 @@ export function ProductDetailClient({
       </div>
 
       <section
-        className="border-t border-neutral-200 py-16 lg:py-20"
-        style={{ backgroundColor: "#f8f8f8f8" }}
+        className="border-t border-[rgba(26,26,26,0.08)] py-16 lg:py-20"
+        style={{ backgroundColor: "#F5F5F5F5" }}
       >
         <div className="container-premium">
-          <div className="mb-10 flex items-center justify-between">
-            <div>
-              <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
-              </span>
-              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Ürünler
-              </h2>
-            </div>
+          <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <SectionHeading label="Benzer Ürünler" />
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
+              className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-[#171311] transition-colors hover:text-[#5E5751] sm:flex"
             >
-              Tümünü Gör
-              <ChevronRight className="w-5 h-5" />
+              Tümünü gör
+              <ChevronRight className="h-5 w-5" />
             </Link>
           </div>
 
           {isLoadingRelated ? (
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="aspect-square rounded-2xl bg-neutral-100 animate-pulse"
+                  className="aspect-[4/5] rounded-[1.85rem] bg-neutral-100 animate-pulse"
                 />
               ))}
             </div>
