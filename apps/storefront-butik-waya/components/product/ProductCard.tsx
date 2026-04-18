@@ -1,18 +1,22 @@
 "use client";
 
+import { type MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
+import { useWishlist } from "@/lib/wishlist-context";
 import { Product } from "@/types/product";
 
 interface ProductCardProps {
   product: Product;
   index?: number;
   viewMode?: "grid" | "list";
+  cardStyle?: "standard" | "featured";
 }
 
 function getResolvedProductImages(product: Product) {
@@ -33,8 +37,13 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
-export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  viewMode = "grid",
+  cardStyle = "standard",
+}: ProductCardProps) {
   const { locale } = useStorefrontRoute();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const secondaryImage = productImages[1];
@@ -49,79 +58,94 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       ? displayVariant.originalPrice
       : undefined;
   const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
+  const isWishlisted = isInWishlist(product.id);
+  const isFeatured = cardStyle === "featured";
 
-  if (viewMode === "list") {
-    return (
-      <Link href={productHref} className="group block">
-        <div className="grid gap-5 sm:grid-cols-[200px_1fr] sm:items-start">
-          <div className="relative aspect-[4/5] overflow-hidden bg-[#ECE8E3]">
-            {primaryImage ? (
-              <>
-                <Image
-                  src={primaryImage}
-                  alt={product.name}
-                  fill
-                  className={`object-cover transition duration-700 ${
-                    secondaryImage ? "group-hover:opacity-0" : "group-hover:scale-[1.03]"
-                  }`}
-                  unoptimized={usesProxiedPrimaryImage}
-                />
-                {secondaryImage ? (
-                  <Image
-                    src={secondaryImage}
-                    alt={product.name}
-                    fill
-                    className="object-cover opacity-0 transition duration-700 group-hover:opacity-100"
-                    unoptimized={usesProxiedSecondaryImage}
-                  />
-                ) : null}
-              </>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
-                {"G\u00F6rsel bekleniyor"}
-              </div>
-            )}
-          </div>
+  const handleWishlistToggle = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-          <div className="py-1">
-            <div className="flex items-start justify-between gap-4 border-b border-[#E6E0DA] pb-3">
-              <h3 className="line-clamp-2 max-w-[22ch] text-[14px] leading-[22px] tracking-[-0.01em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640]">
-                {product.name}
-              </h3>
+    if (isWishlisted) {
+      removeFromWishlist(product.id);
+      return;
+    }
 
-              {typeof displayPrice === "number" ? (
-                <div className="shrink-0 text-right">
-                  <div className="text-[0.92rem] font-medium leading-none tracking-[-0.015em] text-[#171311]">
-                    {formatPrice(displayPrice)}
-                  </div>
-                  {originalPrice ? (
-                    <div className="mt-1 text-[11px] leading-none text-[#A1978E] line-through">
-                      {formatPrice(originalPrice)}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
+    addToWishlist(product);
+  };
+
+  const titleClassName = cn(
+    "line-clamp-2 text-[#171311] transition-colors duration-300 group-hover:text-[#4a403a]",
+    "text-[13px] font-medium uppercase leading-[1.45] tracking-[0.12em] sm:text-[14px]",
+    isFeatured && "text-[14px] tracking-[0.14em] sm:text-[15px]",
+    viewMode === "list" && "max-w-[30ch]",
+  );
+
+  const priceMarkup =
+    typeof displayPrice === "number" ? (
+      <div className="shrink-0 text-right">
+        <div
+          className={cn(
+            "text-[12px] font-medium leading-none tracking-[0.08em] text-[#171311] sm:text-[13px]",
+            isFeatured && "sm:text-[14px]",
+          )}
+        >
+          {formatPrice(displayPrice)}
         </div>
-      </Link>
-    );
-  }
+        {originalPrice ? (
+          <div className="mt-1 text-[10px] leading-none tracking-[0.08em] text-[#9e9087] line-through">
+            {formatPrice(originalPrice)}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
-  return (
-    <Link href={productHref} className="group block">
-      <article className="h-full">
-        <div className="relative aspect-[4/5] overflow-hidden bg-[#ECE8E3]">
+  const wishlistButton = (
+    <button
+      type="button"
+      onClick={handleWishlistToggle}
+      aria-label={isWishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
+      className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-[rgba(251,248,244,0.86)] text-[#171311] shadow-[0_10px_30px_-18px_rgba(23,19,17,0.7)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
+    >
+      <Heart
+        className={cn(
+          "h-4 w-4 transition-all duration-300",
+          isWishlisted ? "fill-[#171311] text-[#171311]" : "text-[#171311]/78",
+        )}
+      />
+    </button>
+  );
+
+  const imageMarkup = (
+    <div
+      className={cn(
+        "relative overflow-hidden bg-[#f3ede7]",
+        viewMode === "grid" && isFeatured && "min-h-[24rem] sm:min-h-[30rem]",
+      )}
+    >
+      <Link href={productHref} className="block h-full">
+        <div
+          className={cn(
+            "relative h-full w-full overflow-hidden",
+            viewMode === "list" ? "aspect-[4/5]" : "aspect-[4/5]",
+          )}
+        >
           {primaryImage ? (
             <>
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className={`object-cover transition duration-700 ${
-                  secondaryImage ? "group-hover:opacity-0" : "group-hover:scale-[1.03]"
-                }`}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                className={cn(
+                  "object-cover transition duration-700 ease-out",
+                  secondaryImage ? "group-hover:scale-[1.015] group-hover:opacity-0" : "group-hover:scale-[1.045]",
+                )}
+                sizes={
+                  viewMode === "list"
+                    ? "(max-width: 768px) 100vw, 220px"
+                    : isFeatured
+                      ? "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                }
                 unoptimized={usesProxiedPrimaryImage}
               />
               {secondaryImage ? (
@@ -129,40 +153,58 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                   src={secondaryImage}
                   alt={product.name}
                   fill
-                  className="object-cover opacity-0 transition duration-700 group-hover:opacity-100"
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="object-cover opacity-0 transition duration-700 ease-out group-hover:scale-[1.045] group-hover:opacity-100"
+                  sizes={
+                    viewMode === "list"
+                      ? "(max-width: 768px) 100vw, 220px"
+                      : isFeatured
+                        ? "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  }
                   unoptimized={usesProxiedSecondaryImage}
                 />
               ) : null}
             </>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#ECE8E3] text-sm text-neutral-400">
-              {"G\u00F6rsel bekleniyor"}
+            <div className="absolute inset-0 flex items-center justify-center text-sm uppercase tracking-[0.14em] text-[#8f8177]">
+              Gorsel bekleniyor
             </div>
           )}
         </div>
+      </Link>
+      {wishlistButton}
+    </div>
+  );
 
-        <div className="pt-3">
-          <div className="flex items-start justify-between gap-4 border-b border-[#E6E0DA] pb-3">
-            <h3 className="line-clamp-2 max-w-[18ch] text-[14px] leading-[22px] tracking-[-0.008em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640]">
-              {product.name}
-            </h3>
+  if (viewMode === "list") {
+    return (
+      <article className="group">
+        <div className="grid gap-5 sm:grid-cols-[220px_1fr] sm:items-end">
+          {imageMarkup}
 
-            {typeof displayPrice === "number" ? (
-              <div className="shrink-0 text-right">
-                <div className="text-[0.9rem] font-medium leading-none tracking-[-0.015em] text-[#171311] sm:text-[0.92rem]">
-                  {formatPrice(displayPrice)}
-                </div>
-                {originalPrice ? (
-                  <div className="mt-1 text-[10px] leading-none text-[#A1978E] line-through">
-                    {formatPrice(originalPrice)}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+          <div className="flex min-h-full flex-col justify-end pt-1 sm:pb-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+              <Link href={productHref} className="min-w-0">
+                <h3 className={titleClassName}>{product.name}</h3>
+              </Link>
+              {priceMarkup}
+            </div>
           </div>
         </div>
       </article>
-    </Link>
+    );
+  }
+
+  return (
+    <article className="group flex h-full flex-col">
+      {imageMarkup}
+
+      <div className="flex flex-1 items-end justify-between gap-4 pt-4">
+        <Link href={productHref} className="min-w-0 flex-1">
+          <h3 className={titleClassName}>{product.name}</h3>
+        </Link>
+        {priceMarkup}
+      </div>
+    </article>
   );
 }
