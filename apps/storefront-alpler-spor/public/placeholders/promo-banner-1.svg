@@ -1,0 +1,10 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#211915"/>
+  <circle cx="1260" cy="140" r="240" fill="#A63812" fill-opacity="0.5"/>
+  <circle cx="220" cy="760" r="320" fill="#6D1116" fill-opacity="0.45"/>
+  <rect x="84" y="84" width="240" height="48" rx="24" fill="#F4E8DC" fill-opacity="0.12"/>
+  <text x="120" y="116" fill="#F6EDE7" font-family="Arial, sans-serif" font-size="18" font-weight="700">PLACEHOLDER HERO</text>
+  <text x="84" y="290" fill="#FFF7F2" font-family="Georgia, serif" font-size="96" font-weight="700">Yeni koleksiyon</text>
+  <text x="84" y="392" fill="#F0D7CA" font-family="Georgia, serif" font-size="96" font-weight="700">buraya gelir</text>
+  <text x="84" y="470" fill="#F3E7DD" font-family="Arial, sans-serif" font-size="32">Bu banner alani yeni magaza icin admin tarafindan doldurulacak.</text>
+</svg>

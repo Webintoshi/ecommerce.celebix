@@ -1,0 +1,271 @@
+---
+title: "Taranabilirlik (Crawlability) ve Crawl Budget"
+description: "Arama motorlarının sitenizi nasıl taradığını ve crawl budget yönetimini öğrenin. robots.txt, XML sitemap ve daha fazlası."
+primaryKeyword: "taranabilirlik"
+secondaryKeywords:
+  - "crawlability"
+  - "crawl budget"
+  - "robots.txt"
+  - "xml sitemap"
+searchIntent: "informational"
+publishedAt: "2026-02-19"
+updatedAt: "2026-02-19"
+readingTime: 9
+wordCount: 2500
+pillarTitle: "Teknik SEO"
+relatedClusters:
+  - "teknik-seo/core-web-vitals"
+  - "teknik-seo/site-hizi"
+keyTakeaways:
+  - "Taranabilirlik, arama motorlarının sitenizi keşfetme yeteneğidir"
+  - "Crawl budget, Google'ın sitenizi taramak için harcadığı kaynak sınırıdır"
+  - "Büyük siteler için crawl budget yönetimi kritik, küçük siteler için daha az önemli"
+  - "robots.txt, XML sitemap ve internal linking crawlability'i doğrudan etkiler"
+---
+
+## Taranabilirlik (Crawlability) Nedir?
+
+Taranabilirlik, arama motoru botlarının (spider'ların) web sitenizi keşfedebilmesi, tarayabilmesi ve dizine ekleyebilmesidir. Eğer bir sayfa taranamazsa, **hiçbir zaman arama sonuçlarında görünmez.**
+
+Crawlability 3 temel şeye bağlıdır:
+1. **Site yapısı** (site architecture)
+2. ** robots.txt ve meta directives**
+3. **Crawl budget** (taranma sıklığı)
+
+## Crawl Budget Nedir?
+
+Crawl budget, Googlebot'un sitenizi taramak için harcadığı **kaynak limitidir.**
+
+### Kimler Crawl Budget Endişelenmeli?
+
+| Site Tipi | Endişe Seviyesi | Neden |
+|---|---|---|
+| Küçük siteler (< 1K sayfa) | Düşük | Google hızlı tarar |
+| Orta siteler (1K-10K) | Orta | Bazı optimizasyonlar gerekli |
+| Büyük siteler (10K+) | Yüksek | Crawl budget kritik |
+| E-ticaret (100K+ ürün) | Çok yüksek | Sürekli optimizasyon şart |
+
+### Crawl Budget'ı Etkileyen Faktörler
+
+**Artıran (İyi):**
+- Yüksek domain authority
+- Hızlı site hızı
+- Temiz URL yapısı
+- Düşük error rate
+- Yeni içerik sıklığı
+
+**Azaltan (Kötü):**
+- Yavaş server response
+- 404 ve 5xx hataları
+- Duplicate content
+- Infinite scroll pagination
+- Fazla query parameter'lı URL'ler
+
+## robots.txt
+
+robots.txt, botlara hangi sayfaları tarayacaklarını söyler.
+
+```txt
+# Temel robots.txt
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /private/
+
+# Sitemap location
+Sitemap: https://example.com/sitemap.xml
+```
+
+**Önemli Kurallar:**
+- Blocking ≠ Noindex (sayfa hala dizine eklenebilir)
+- Case-sensitive
+- Wildcard (*) ve ending ($) kullanılabilir
+- Her subdomain için ayrı robots.txt
+
+```txt
+# Gelişmiş örnek
+User-agent: *
+Allow: /products/
+Disallow: /products/filter?
+Disallow: /products/page*
+
+# Crawl-delay (Gereksiz, kullanmayın)
+# Crawl-delay: 10 ❌
+
+# Specific bot
+User-agent: Googlebot
+Allow: /
+```
+
+## XML Sitemap
+
+XML sitemap, Google'a tüm önemli sayfalarınızı bildirir.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/</loc>
+    <lastmod>2026-02-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://example.com/products/widget</loc>
+    <lastmod>2026-02-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+```
+
+**Best Practices:**
+- Max 50K URL per sitemap
+- Max 50MB file size
+- Sitemap index kullan (multiple sitemaps)
+- Submit to Search Console
+
+```xml
+<!-- Sitemap index -->
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://example.com/sitemap-products.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://example.com/sitemap-blog.xml</loc>
+  </sitemap>
+</sitemapindex>
+```
+
+## Meta Directives
+
+Sayfa seviyesinde kontrol için:
+
+```html
+<!-- Taramayı engelle -->
+<meta name="robots" content="noindex, nofollow">
+
+<!-- Sadece taranabilir, dizine eklenemez -->
+<meta name="robots" content="noindex">
+
+<!-- Taranabilir, link'ler takip edilmez -->
+<meta name="robots" content="nofollow">
+
+<!-- Canonical (duplicate content için) -->
+<link rel="canonical" href="https://example.com/original-page" />
+```
+
+## Canonical Tags
+
+Canonical, duplicate content'i yönetmek için kullanılır.
+
+```html
+<!-- Sayfanın orijinal versiyonunu belirt -->
+<link rel="canonical" href="https://example.com/product/blue-widget" />
+
+<!-- Cross-domain canonical (izinli içerik paylaşımı) -->
+<link rel="canonical" href="https://original.com/article" />
+```
+
+**Kullanım Senaryoları:**
+- WWW vs non-WWW
+- HTTP vs HTTPS
+- URL parameter'ler
+- Pagination
+- Print sayfaları
+- Mobil vs desktop
+
+## Internal Linking
+
+Internal link'ler, crawl path'lerini oluşturur.
+
+**Best Practices:**
+- Tüm önemli sayfalar en fazla 3 tıklama uzaklıkta
+- Ana sayfadan tüm kategorilere link
+- Breadcrumb navigation kullan
+- HTML sitemap ekle
+- Orphan sayfa (inbound link olmayan) kalmasın
+
+```html
+<!-- Örnek internal link yapısı -->
+<nav>
+  <a href="/products">Ürünler</a>
+  <a href="/blog">Blog</a>
+  <a href="/about">Hakkımızda</a>
+</nav>
+
+<article>
+  <!-- Contextual internal link -->
+  Daha fazla bilgi için
+  <a href="/seo/teknik-seo/core-web-vitals">Core Web Vitals rehberimizi</a>
+  inceleyin.
+</article>
+```
+
+## JavaScript Rendering
+
+Modern sitelerde JS rendering kritik.
+
+```javascript
+// ❌ Yanlış - Client-side rendering (CSR)
+// Google içerikleri göremeyebilir
+function App() {
+  const [content, setContent] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/content')
+      .then(res => res.json())
+      .then(data => setContent(data));
+  }, []);
+
+  return <div>{content}</div>;
+}
+
+// ✅ Doğru - Server-side rendering (SSR)
+// HTML'de içerik hazır
+export default async function Page() {
+  const content = await fetch('/api/content').then(r => r.json());
+
+  return <div>{content}</div>;
+}
+```
+
+## Crawl Error'ları
+
+**404 Errors:**
+- External broken link'ler
+- Internal broken link'ler
+- Geçici sayfalar silinmiş
+
+**5xx Errors:**
+- Server overload
+- Timeout'lar
+- Application errors
+
+**Çözümler:**
+- Redirect (301) broken URL'ler
+- Fix internal link'ler
+- Custom 404 page
+- Server capacity artır
+
+## Crawlability Checklist
+
+- [ ] robots.txt configure edildi
+- [ ] XML sitemap oluşturuldu ve SC'ye submit edildi
+- [ ] Canonical tags tüm sayfalarda
+- [ ] Noindex gereksiz sayfalarda
+- [ ] Internal link yapısı düzenli
+- [ ] 404 ve 5xx error'lar minimal
+- [ ] Server response time < 600ms
+- [ ] JavaScript rendering SSR/SSG
+- [ ] Sitemap güncel (fresh content)
+
+## Sonraki Adımlar
+
+Crawlability optimize edildikten sonra:
+
+1. **[Site Yapısı](/seo/teknik-seo/site-yapisi)** - Information architecture
+2. **[Site Hızı](/seo/teknik-seo/site-hizi)** - Performance optimization
+3. **[Sayfa İçi SEO](/seo/sayfa-ici-seo)** - Content optimization
