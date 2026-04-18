@@ -700,7 +700,7 @@ function buildStorefrontSiteUrl(store: StoreConfig): string {
 async function ensureStorePaymentGateways(
   target: ReturnType<typeof createClient<any>>,
   store: StoreConfig,
-) {
+): Promise<string | null> {
   const storefrontUrl = buildStorefrontSiteUrl(store);
   const paymentCatalog = createPaymentProviderCatalog({ storefrontUrl });
   const { data, error } = await target
@@ -710,7 +710,7 @@ async function ensureStorePaymentGateways(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Payment gateway ayarlari okunamadi: ${error.message}`);
+    return `Payment gateway sablonlari guncellenemedi: ${error.message}`;
   }
 
   const existingGateways = paymentCatalog.normalizePaymentGateways(data?.value);
@@ -727,8 +727,10 @@ async function ensureStorePaymentGateways(
   );
 
   if (upsertError) {
-    throw new Error(`Payment gateway ayarlari yazilamadi: ${upsertError.message}`);
+    return `Payment gateway sablonlari yazilamadi: ${upsertError.message}`;
   }
+
+  return null;
 }
 
 async function hasCatalogContent(target: ReturnType<typeof createClient<any>>) {
@@ -770,7 +772,7 @@ export async function seedStarterStorefrontContent(
     },
   });
 
-  await ensureStorePaymentGateways(target, store);
+  const paymentGatewayWarning = await ensureStorePaymentGateways(target, store);
 
   if (!options?.force) {
     const contentExists = await hasCatalogContent(target);
@@ -778,7 +780,9 @@ export async function seedStarterStorefrontContent(
     if (contentExists) {
       return {
         status: "skipped",
-        message: "Starter storefront content atlandi; payment gateway sablonlari guncellendi ve store zaten kategori veya urun iceriyor.",
+        message: paymentGatewayWarning
+          ? `Starter storefront content atlandi; store zaten kategori veya urun iceriyor. Not: ${paymentGatewayWarning}`
+          : "Starter storefront content atlandi; payment gateway sablonlari guncellendi ve store zaten kategori veya urun iceriyor.",
       };
     }
   }
@@ -922,7 +926,9 @@ export async function seedStarterStorefrontContent(
 
   return {
     status: "seeded",
-    message: "Starter storefront content basariyla yazildi.",
+    message: paymentGatewayWarning
+      ? `Starter storefront content basariyla yazildi. Not: ${paymentGatewayWarning}`
+      : "Starter storefront content basariyla yazildi.",
     counts: {
       categories: mappedCategories.length,
       products: productsWithRatings.length,
