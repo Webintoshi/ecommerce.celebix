@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Loader2, Package, SlidersHorizontal } from "lucide-react";
+import { Loader2, Package, SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
 import { buildLocalizedPath } from "@/lib/i18n";
@@ -438,28 +438,6 @@ export function ProductListingExperience({
                       </span>
                     ) : null}
                   </button>
-
-                  <label className="relative block min-w-[13rem]">
-                    {!minimalCopy ? (
-                      <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#222222]">
-                        Siralama
-                      </span>
-                    ) : (
-                      <span className="sr-only">Siralama</span>
-                    )}
-                    <select
-                      value={sortBy}
-                      onChange={(event) => setSortBy(event.target.value as ListingSortValue)}
-                      aria-label="Urunleri sirala"
-                      className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#222222] outline-none transition-colors focus:border-[#222222]"
-                    >
-                      <option value="">Siralama</option>
-                      <option value="price-asc">Fiyat artan</option>
-                      <option value="price-desc">Fiyat azalan</option>
-                      <option value="name-asc">Isim A-Z</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute bottom-3 right-0 h-4 w-4 text-[#222222]" />
-                  </label>
                 </div>
               </div>
 
