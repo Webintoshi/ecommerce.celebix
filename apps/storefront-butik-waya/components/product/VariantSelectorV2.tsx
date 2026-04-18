@@ -16,6 +16,32 @@ function getAttributeId(attribute: any) {
   return attribute?.attribute?.id || attribute?.attribute_id || attribute?.attributeId || attribute?.name;
 }
 
+function getVariantAttributes(variant: any) {
+  const directAttributes = Array.isArray(variant?.attributes)
+    ? variant.attributes.filter(
+        (attribute: any) =>
+          attribute &&
+          typeof attribute === "object" &&
+          typeof attribute.value === "string" &&
+          attribute.value.trim().length > 0,
+      )
+    : [];
+
+  if (directAttributes.length > 0) {
+    return directAttributes;
+  }
+
+  return Array.isArray(variant?.raw_attributes)
+    ? variant.raw_attributes.filter(
+        (attribute: any) =>
+          attribute &&
+          typeof attribute === "object" &&
+          typeof attribute.value === "string" &&
+          attribute.value.trim().length > 0,
+      )
+    : [];
+}
+
 export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) {
   const [mounted, setMounted] = useState(false);
 
@@ -40,22 +66,48 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
     return isColorName || values.some((value) => value.image_url || value.color_code);
   };
 
-  const getSelectedValue = (attributeId: string) => {
-    const attributes = Array.isArray(currentVariant?.attributes) ? currentVariant.attributes : [];
+  const getSelectedValue = (attributeId: string, variant: any = currentVariant) => {
+    const attributes = getVariantAttributes(variant);
     const match = attributes.find((attribute: any) => getAttributeId(attribute) === attributeId);
     return match?.value;
   };
 
+  const getSelectionMap = (variant: any) => {
+    return getVariantAttributes(variant).reduce<Record<string, string>>((accumulator, attribute: any) => {
+      const attributeId = getAttributeId(attribute);
+      if (attributeId && typeof attribute.value === "string") {
+        accumulator[attributeId] = attribute.value;
+      }
+
+      return accumulator;
+    }, {});
+  };
+
+  const variantMatchesSelection = (variant: any, selections: Record<string, string>) => {
+    const variantSelectionMap = getSelectionMap(variant);
+
+    return Object.entries(selections).every(
+      ([attributeId, value]) => variantSelectionMap[attributeId] === value,
+    );
+  };
+
   const handleSelect = (attributeId: string, value: string) => {
+    const targetSelection = {
+      ...getSelectionMap(currentVariant),
+      [attributeId]: value,
+    };
+
     const nextIndex = variants.findIndex((variant) =>
-      variant.attributes?.some((attribute: any) => {
-        const resolvedId = getAttributeId(attribute);
-        return resolvedId === attributeId && attribute.value === value;
-      }),
+      variantMatchesSelection(variant, targetSelection),
     );
 
-    if (nextIndex !== -1) {
-      onSelect(nextIndex);
+    const fallbackIndex =
+      nextIndex !== -1
+        ? nextIndex
+        : variants.findIndex((variant) => getSelectedValue(attributeId, variant) === value);
+
+    if (fallbackIndex !== -1) {
+      onSelect(fallbackIndex);
     }
   };
 

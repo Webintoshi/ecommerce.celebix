@@ -393,8 +393,8 @@ export function ProductDetailClient({
 
       <section className="py-8 lg:py-12">
         <div className="container-premium">
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:gap-14">
-            <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)] lg:gap-10 xl:gap-14">
+            <div className="min-w-0">
               <ImageGallery
                 key={`${product.id}-${selectedVariant}`}
                 images={displayImages}
@@ -402,7 +402,7 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-8 lg:sticky lg:top-24 lg:self-start">
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center gap-3">
                   {product.category ? (

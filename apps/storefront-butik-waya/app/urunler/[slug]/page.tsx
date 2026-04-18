@@ -25,6 +25,121 @@ function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   );
 }
 
+function toOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeAttributeRecord(attribute: unknown) {
+  if (!attribute || typeof attribute !== "object") {
+    return null;
+  }
+
+  const record = attribute as Record<string, unknown>;
+  const nestedAttribute =
+    record.attribute && typeof record.attribute === "object"
+      ? (record.attribute as Record<string, unknown>)
+      : null;
+  const value = toOptionalString(record.value);
+
+  if (!value) {
+    return null;
+  }
+
+  const attributeId =
+    toOptionalString(record.attributeId) ||
+    toOptionalString(record.attribute_id) ||
+    toOptionalString(nestedAttribute?.id);
+  const attributeName =
+    toOptionalString(record.attributeName) ||
+    toOptionalString(record.name) ||
+    toOptionalString(nestedAttribute?.name);
+
+  return {
+    ...record,
+    value,
+    attribute: nestedAttribute ?? record.attribute,
+    attributeId: attributeId ?? record.attributeId,
+    attribute_id: attributeId ?? record.attribute_id,
+    attributeName: attributeName ?? record.attributeName,
+    name: attributeName ?? record.name,
+  };
+}
+
+function normalizeVariantAttributes(variant: any, allAttributeValues: any[] = []) {
+  const linkedAttributes = Array.isArray(variant.linked_attributes)
+    ? variant.linked_attributes
+        .map((attribute: any) => {
+          const attributeValue = attribute?.attribute_value;
+          const nestedAttribute =
+            attributeValue?.attribute && typeof attributeValue.attribute === "object"
+              ? attributeValue.attribute
+              : null;
+
+          return normalizeAttributeRecord({
+            ...attributeValue,
+            attribute: nestedAttribute,
+            attributeId: nestedAttribute?.id ?? attributeValue?.attribute_id,
+            attribute_id: nestedAttribute?.id ?? attributeValue?.attribute_id,
+            attributeName: nestedAttribute?.name,
+            name: nestedAttribute?.name,
+          });
+        })
+        .filter(Boolean)
+    : [];
+
+  if (linkedAttributes.length > 0) {
+    return linkedAttributes;
+  }
+
+  const rawAttributes = Array.isArray(variant.raw_attributes)
+    ? variant.raw_attributes
+        .map((attribute: any) => normalizeAttributeRecord(attribute))
+        .filter(Boolean)
+    : [];
+
+  if (rawAttributes.length > 0) {
+    return rawAttributes;
+  }
+
+  const directAttributes = Array.isArray(variant.attributes)
+    ? variant.attributes
+        .map((attribute: any) => normalizeAttributeRecord(attribute))
+        .filter(Boolean)
+    : [];
+
+  if (directAttributes.length > 0) {
+    return directAttributes;
+  }
+
+  const matchedValue = allAttributeValues.find(
+    (attributeValue: any) =>
+      attributeValue.value?.toLowerCase() === variant.name?.toLowerCase(),
+  );
+
+  if (!matchedValue) {
+    return [];
+  }
+
+  return [
+    normalizeAttributeRecord({
+      id: matchedValue.id,
+      value: matchedValue.value,
+      color_code: matchedValue.color_code,
+      image_url: matchedValue.image_url,
+      attribute: matchedValue.attribute,
+      attributeId: matchedValue.attribute?.id,
+      attribute_id: matchedValue.attribute?.id,
+      attributeName: matchedValue.attribute?.name,
+      name: matchedValue.attribute?.name,
+    }),
+  ].filter(Boolean);
+}
+
 async function fetchProductVariants(supabase: any, productId: string) {
   const selectWithLinkedAttributes = `
     *,
@@ -180,34 +295,7 @@ export default async function ProductDetailPage({
             },
             productDiscountRules,
           );
-          let attrs = Array.isArray(variant.linked_attributes)
-            ? variant.linked_attributes.map((attribute: any) => ({
-                ...attribute.attribute_value,
-                attribute: attribute.attribute_value?.attribute,
-              }))
-            : [];
-
-          if (attrs.length === 0 && Array.isArray(variant.raw_attributes)) {
-            attrs = variant.raw_attributes;
-          }
-
-          if (attrs.length === 0 && allAttributeValues) {
-            const matchedValue = allAttributeValues.find(
-              (attributeValue: any) =>
-                attributeValue.value?.toLowerCase() === variant.name?.toLowerCase(),
-            );
-            if (matchedValue) {
-              attrs = [
-                {
-                  id: matchedValue.id,
-                  value: matchedValue.value,
-                  color_code: matchedValue.color_code,
-                  image_url: matchedValue.image_url,
-                  attribute: matchedValue.attribute,
-                },
-              ];
-            }
-          }
+          const attrs = normalizeVariantAttributes(variant, allAttributeValues || []);
 
           return {
             ...variant,

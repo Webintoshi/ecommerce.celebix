@@ -77,13 +77,31 @@ function getDisplayOrder(attribute: Record<string, unknown>, fallbackOrder: numb
   return typeof rawDisplayOrder === "number" ? rawDisplayOrder : Number.MAX_SAFE_INTEGER - 1 + fallbackOrder;
 }
 
+function hasDisplayableValue(attribute: Record<string, unknown>) {
+  return Boolean(toOptionalString(attribute.value));
+}
+
 function getVariantAttributes(variant: VariantRecord) {
   if (Array.isArray(variant.attributes)) {
-    return variant.attributes;
+    const normalizedAttributes = variant.attributes.filter(
+      (attribute): attribute is Record<string, unknown> =>
+        Boolean(attribute) &&
+        typeof attribute === "object" &&
+        hasDisplayableValue(attribute as Record<string, unknown>),
+    );
+
+    if (normalizedAttributes.length > 0) {
+      return normalizedAttributes;
+    }
   }
 
   if (Array.isArray(variant.raw_attributes)) {
-    return variant.raw_attributes;
+    return variant.raw_attributes.filter(
+      (attribute): attribute is Record<string, unknown> =>
+        Boolean(attribute) &&
+        typeof attribute === "object" &&
+        hasDisplayableValue(attribute as Record<string, unknown>),
+    );
   }
 
   return [];
