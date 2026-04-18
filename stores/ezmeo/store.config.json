@@ -53,14 +53,16 @@
     "supabaseProvisioning": "pending-owner-env"
   },
   "storefront": {
-    "status": "not_started",
-    "lastScaffoldedAt": "2026-04-18T04:30:31.333921+00:00",
+    "appDir": "apps/storefront-ezmeo",
+    "status": "scaffolded",
+    "lastScaffoldedAt": "2026-04-18T04:37:21.240Z",
     "repoSyncStatus": "pending",
     "deploymentProvider": "coolify",
     "deploymentName": "Ezmeo websitesi",
     "deploymentBranch": "deploy/storefront/ezmeo",
     "runtimeUrl": "https://ezmeo.com",
-    "deploymentStatus": "pending-owner-env"
+    "deploymentStatus": "pending-owner-env",
+    "lastDeploymentError": "Storefront env authority henuz eksiksiz degil."
   },
   "features": [
     "catalog",
