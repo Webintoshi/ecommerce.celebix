@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteFromR2 } from "@/lib/r2";
+import { requireInternalApiAccess } from "@/lib/internal-api-auth";
 
 export async function DELETE(request: NextRequest) {
     try {
+        const unauthorizedResponse = requireInternalApiAccess(request);
+        if (unauthorizedResponse) {
+            return unauthorizedResponse;
+        }
+
         const { searchParams } = new URL(request.url);
         const key = searchParams.get("key");
 

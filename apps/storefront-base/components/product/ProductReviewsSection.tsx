@@ -182,7 +182,7 @@ export function ProductReviewsSection({
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("folder", "products");
+        formData.append("folder", "product-reviews");
         formData.append("thumbnail", "false");
 
         const response = await fetch("/api/upload", {

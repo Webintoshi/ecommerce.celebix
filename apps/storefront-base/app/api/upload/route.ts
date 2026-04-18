@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
+import { isInternalApiRequest } from "@/lib/internal-api-auth";
 import {
     getImageFormatLabel,
     isSvgImageMimeType,
@@ -8,6 +9,7 @@ import {
 } from "@celebix/platform-config/src/image-formats";
 
 export const dynamic = 'force-dynamic';
+const PUBLIC_UPLOAD_FOLDER = "product-reviews";
 
 async function getSharp() {
     const sharpModule = await import("sharp");
@@ -16,6 +18,7 @@ async function getSharp() {
 
 const MAX_DIMENSIONS = {
     products: { width: 2048, height: 2048 },
+    "product-reviews": { width: 1600, height: 1600 },
     categories: { width: 1200, height: 1200 },
     banners: { width: 1920, height: 1080 },
     "promo-banners": { width: 1920, height: 1350 },
@@ -24,6 +27,7 @@ const MAX_DIMENSIONS = {
 
 const THUMBNAIL_SIZES = {
     products: { width: 400, height: 400 },
+    "product-reviews": { width: 320, height: 320 },
     categories: { width: 300, height: 300 },
     banners: { width: 640, height: 360 },
     "promo-banners": { width: 540, height: 675 },
@@ -149,6 +153,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { success: false, error: "No file provided" },
                 { status: 400 }
+            );
+        }
+
+        if (!isInternalApiRequest(request) && folder !== PUBLIC_UPLOAD_FOLDER) {
+            return NextResponse.json(
+                { success: false, error: "Bu klasore dosya yukleme yetkiniz yok." },
+                { status: 403 }
             );
         }
 

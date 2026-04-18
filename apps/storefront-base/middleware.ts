@@ -28,6 +28,7 @@ const INTERNAL_WRITE_API_PATHS = [
   "/api/revalidate",
   "/api/seo",
   "/api/settings",
+  "/api/upload/delete",
   "/api/upload/optimize",
 ] as const;
 const PUBLIC_SENSITIVE_WRITE_API_PATHS = [
