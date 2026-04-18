@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Menu, Search, ShoppingBag, Sparkles, User, X } from "lucide-react";
+import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
@@ -17,7 +17,6 @@ import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type NavSubcategory = {
   id: string;
@@ -53,11 +52,6 @@ export function Header() {
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const supportPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const topMessage = storeInfo?.announcementBar?.trim() || STOREFRONT_RUNTIME.shippingMessage;
-  const brandLine = storeInfo?.name
-    ? `${storeInfo.name} editorial wardrobe`
-    : "Butik Waya editorial wardrobe";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -131,30 +125,14 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "border-b border-[rgba(35,24,21,0.12)] bg-[rgba(248,241,234,0.82)] backdrop-blur-xl"
-          : "bg-transparent"
+      className={`sticky top-0 z-50 border-b border-white/8 bg-[#1A1A1A] transition-all duration-300 ${
+        isScrolled ? "shadow-[0_18px_48px_-32px_rgba(0,0,0,0.72)]" : ""
       }`}
     >
-      <div className="border-b border-[rgba(35,24,21,0.08)] bg-[rgba(35,24,21,0.95)] text-[11px] uppercase tracking-[0.26em] text-white/75">
-        <div className="container-premium flex min-h-10 items-center justify-between gap-4 py-2">
-          <div className="hidden items-center gap-3 md:flex">
-            <Sparkles className="h-3.5 w-3.5 text-[#d7b59c]" />
-            <span>{brandLine}</span>
-          </div>
-          <p className="truncate text-center md:text-left">{topMessage}</p>
-          <a href={`tel:${supportPhone.replace(/\s+/g, "")}`} className="hidden text-white/90 md:block">
-            Concierge {supportPhone}
-          </a>
-        </div>
-      </div>
-
       <div className="container-premium">
-        <div className="editorial-shell mt-3 rounded-[2rem] px-4 sm:px-6">
-          <div className="flex h-16 items-center justify-between gap-4 lg:h-20">
+        <div className="flex h-16 items-center justify-between gap-4 lg:h-[72px]">
             <button
-              className="-ml-2 rounded-full p-2 lg:hidden"
+              className="-ml-2 rounded-full p-2 text-white lg:hidden"
               onClick={() => setIsMenuOpen((open) => !open)}
               aria-label={copy.menuLabel}
               type="button"
@@ -175,7 +153,7 @@ export function Header() {
                   />
                 </div>
               ) : (
-                <span className="font-serif text-lg font-semibold tracking-[-0.04em] text-neutral-900 lg:text-[1.45rem]">
+                <span className="font-serif text-lg font-semibold tracking-[-0.04em] text-[#F5F5F5] lg:text-[1.45rem]">
                   {logoAlt}
                 </span>
               )}
@@ -190,7 +168,7 @@ export function Header() {
                     <Link
                       key={category.id}
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="store-nav-text group relative text-[0.74rem] text-neutral-700 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-[#b9785a] after:transition-all after:duration-300 after:content-[''] hover:text-neutral-950 group-hover:after:w-full"
+                      className="store-nav-text group relative text-[0.74rem] text-white/78 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                     </Link>
@@ -201,20 +179,20 @@ export function Header() {
                   <div key={category.id} className="group relative">
                     <Link
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="store-nav-text relative inline-flex items-center gap-1 text-[0.74rem] text-neutral-700 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-[#b9785a] after:transition-all after:duration-300 after:content-[''] hover:text-neutral-950 group-hover:after:w-full"
+                      className="store-nav-text relative inline-flex items-center gap-1 text-[0.74rem] text-white/78 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                       <ChevronDown className="h-4 w-4" />
                     </Link>
 
                     <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                      <div className="rounded-[2rem] border border-[rgba(35,24,21,0.1)] bg-[rgba(255,250,244,0.95)] p-4 shadow-[0_24px_70px_-40px_rgba(27,18,14,0.55)] backdrop-blur-xl">
+                      <div className="rounded-[1.75rem] border border-[rgba(26,26,26,0.08)] bg-[#F5F5F5] p-4 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.4)]">
                         <div className="space-y-1">
                           {category.children.map((subcategory) => (
                             <Link
                               key={subcategory.id}
                               href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                              className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white hover:text-neutral-950"
+                              className="block rounded-2xl px-4 py-3 text-sm text-[#1A1A1A] transition-colors hover:bg-white hover:text-black"
                             >
                               {subcategory.name}
                             </Link>
@@ -230,59 +208,59 @@ export function Header() {
             <div className="flex items-center gap-4">
               <button
                 type="button"
-                className="rounded-full border border-transparent p-2 hover:border-[rgba(35,24,21,0.12)] hover:bg-white/60"
+                className="rounded-full border border-transparent p-2 text-white hover:border-white/12 hover:bg-white/8"
                 aria-label={copy.searchLabel}
                 onClick={() => setIsSearchOpen(true)}
               >
-                <Search className="h-5 w-5 text-neutral-700" />
+                <Search className="h-5 w-5 text-white/82" />
               </button>
 
               <Link
                 href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
-                className="hidden rounded-full border border-transparent p-2 hover:border-[rgba(35,24,21,0.12)] hover:bg-white/60 sm:block"
+                className="hidden rounded-full border border-transparent p-2 text-white hover:border-white/12 hover:bg-white/8 sm:block"
               >
-                <User className="h-5 w-5 text-neutral-700" />
+                <User className="h-5 w-5 text-white/82" />
               </Link>
 
               <button
                 type="button"
-                className="relative rounded-full border border-transparent p-2 hover:border-[rgba(35,24,21,0.12)] hover:bg-white/60"
+                className="relative rounded-full border border-transparent p-2 text-white hover:border-white/12 hover:bg-white/8"
                 aria-label={copy.cartLabel}
                 onClick={() => setIsCartOpen(true)}
               >
-                <ShoppingBag className="h-5 w-5 text-neutral-700" />
+                <ShoppingBag className="h-5 w-5 text-white/82" />
                 {cartItemCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#b9785a] text-[10px] text-white">
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F5F5F5] text-[10px] text-[#1A1A1A]">
                     {cartItemCount}
                   </span>
                 ) : null}
               </button>
             </div>
-          </div>
         </div>
       </div>
 
       {isMenuOpen ? (
-        <div className="container-premium lg:hidden">
-          <div className="editorial-shell mt-3 rounded-[2rem] px-5 py-5">
+        <div className="border-t border-white/8 bg-[#1A1A1A] lg:hidden">
+          <div className="container-premium px-0">
+          <div className="px-1 py-5">
             <nav className="space-y-5">
               {headerCategories.map((category) => (
                 <div key={category.id} className="space-y-2">
                   <Link
                     href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                    className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                    className="store-nav-text block text-white/82 transition-all duration-300 hover:pl-2 hover:text-white"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {getLocalizedCategoryLabel(category.slug, category.name, locale)}
                   </Link>
 
                   {category.children.length > 0 ? (
-                    <div className="space-y-2 border-l border-[rgba(35,24,21,0.12)] pl-4">
+                    <div className="space-y-2 border-l border-white/12 pl-4">
                       {category.children.map((subcategory) => (
                         <Link
                           key={subcategory.id}
                           href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                          className="block text-sm uppercase tracking-[0.22em] text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                          className="block text-sm uppercase tracking-[0.22em] text-white/58 transition-all duration-300 hover:pl-2 hover:text-white"
                           onClick={() => setIsMenuOpen(false)}
                         >
                           {subcategory.name}
@@ -293,6 +271,7 @@ export function Header() {
                 </div>
               ))}
             </nav>
+          </div>
           </div>
         </div>
       ) : null}

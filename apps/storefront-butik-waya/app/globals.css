@@ -1,36 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f2e8de;
-  --background-alt: #f8f1ea;
-  --foreground: #1d1715;
-  --foreground-soft: #5d5049;
+  --background: #f5f5f5f5;
+  --background-alt: #ffffff;
+  --foreground: #1a1a1a;
+  --foreground-soft: #66615c;
 
   /* Brand Palette */
-  --primary: #231815;
-  --primary-foreground: #fffaf4;
-  --secondary: #e6d4c4;
-  --secondary-foreground: #2b1e1a;
-  --accent: #b9785a;
-  --accent-foreground: #fff8f1;
-  --accent-soft: #dbc0ae;
-  --line: rgba(35, 24, 21, 0.12);
-  --glass: rgba(255, 248, 241, 0.74);
-  --panel: rgba(255, 250, 244, 0.92);
+  --primary: #1a1a1a;
+  --primary-foreground: #f5f5f5;
+  --secondary: #e8e6e3;
+  --secondary-foreground: #1a1a1a;
+  --accent: #8b847e;
+  --accent-foreground: #ffffff;
+  --accent-soft: #d7d3cf;
+  --line: rgba(26, 26, 26, 0.1);
+  --glass: rgba(255, 255, 255, 0.78);
+  --panel: rgba(255, 255, 255, 0.92);
 
-  --muted: #cdb9a8;
-  --muted-foreground: #6a5c54;
+  --muted: #ddd8d3;
+  --muted-foreground: #6c6660;
 
   /* shadcn/ui required variables */
-  --card: #fffaf4;
-  --card-foreground: #231815;
-  --popover: #fffaf4;
-  --popover-foreground: #231815;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
   --destructive: #c85b4c;
   --destructive-foreground: #ffffff;
-  --border: rgba(35, 24, 21, 0.12);
-  --input: rgba(35, 24, 21, 0.14);
-  --ring: #b9785a;
+  --border: rgba(26, 26, 26, 0.1);
+  --input: rgba(26, 26, 26, 0.12);
+  --ring: #8b847e;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
@@ -131,10 +131,7 @@
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(185, 120, 90, 0.18), transparent 32%),
-    radial-gradient(circle at 80% 12%, rgba(72, 53, 46, 0.12), transparent 28%),
-    linear-gradient(180deg, #f7efe7 0%, #f1e7dd 52%, #f6efe8 100%);
+  background: #f5f5f5f5;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
@@ -144,7 +141,7 @@ body {
 }
 
 body::selection {
-  background: rgba(185, 120, 90, 0.22);
+  background: rgba(139, 132, 126, 0.22);
 }
 
 h1,
@@ -332,8 +329,8 @@ a {
 .editorial-shell {
   border: 1px solid var(--line);
   background: var(--panel);
-  box-shadow: 0 24px 90px -60px rgba(27, 18, 14, 0.52);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 70px -56px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(14px);
 }
 
 .editorial-kicker {
@@ -344,7 +341,7 @@ a {
   font-weight: 700;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: #8d644d;
+  color: #6f6a65;
 }
 
 .editorial-kicker::before {
@@ -352,7 +349,7 @@ a {
   display: block;
   width: 2.5rem;
   height: 1px;
-  background: rgba(141, 100, 77, 0.45);
+  background: rgba(111, 106, 101, 0.45);
 }
 
 .editorial-copy {

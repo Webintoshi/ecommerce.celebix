@@ -150,7 +150,7 @@ function EmptyShowcaseState() {
     <section className="py-16 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.1)] bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8d644d]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#6f6a65]">
             <Sparkles className="h-3.5 w-3.5" />
             Vitrin Hazir
           </span>
@@ -167,9 +167,9 @@ function EmptyShowcaseState() {
           {cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-[2rem] border border-[rgba(35,24,21,0.08)] bg-[rgba(255,250,244,0.88)] p-6 shadow-[0_24px_70px_-50px_rgba(27,18,14,0.55)]"
+              className="rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[rgba(255,255,255,0.9)] p-6 shadow-[0_24px_70px_-50px_rgba(0,0,0,0.24)]"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d644d]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6f6a65]">
                 Automatic
               </p>
               <h3 className="mt-4 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1d1715]">
@@ -250,7 +250,7 @@ export function ProductShowcaseSections({
                   group.link.startsWith("/") ? group.link : ROUTES.products,
                   locale,
                 )}
-                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.12)] bg-white/70 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#1d1715] backdrop-blur hover:border-[#b9785a] hover:text-[#b9785a]"
+                className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#1A1A1A] backdrop-blur hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

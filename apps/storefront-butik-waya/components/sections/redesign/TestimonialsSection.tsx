@@ -92,11 +92,11 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-[#1d1715] py-16 text-white lg:py-20">
+    <section className="bg-[#1A1A1A] py-16 text-white lg:py-20">
       <div className="container-premium">
         <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1fr] lg:items-end">
           <div>
-            <p className="editorial-kicker text-[#d8b69b] before:bg-[#d8b69b]/45">Client Notes</p>
+            <p className="editorial-kicker text-[#d3cec8] before:bg-[#d3cec8]/45">Client Notes</p>
             <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#fff7f1] sm:text-5xl">
               {heading}
             </h2>
@@ -137,7 +137,7 @@ export function TestimonialsSection({
                               />
                             </div>
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-[0.24em] text-[#d8b69b]">
+                            <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-[0.24em] text-[#d3cec8]">
                               {getInitials(review.name)}
                             </div>
                           )}
@@ -151,7 +151,7 @@ export function TestimonialsSection({
                                 className={cn(
                                   "h-3.5 w-3.5",
                                   index < review.rating
-                                    ? "fill-[#d8b69b] text-[#d8b69b]"
+                                    ? "fill-[#d3cec8] text-[#d3cec8]"
                                     : "fill-white/10 text-white/10",
                                 )}
                               />

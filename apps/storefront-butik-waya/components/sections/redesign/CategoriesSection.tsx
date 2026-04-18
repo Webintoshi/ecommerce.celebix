@@ -96,7 +96,7 @@ export function CategoriesSection({
                     }
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-[linear-gradient(135deg,#e7d9cd,#cfae98)]" />
+                  <div className="absolute inset-0 bg-[linear-gradient(135deg,#E9E7E4,#D8D4CF)]" />
                 )}
 
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,12,10,0.04),rgba(20,12,10,0.7))]" />
@@ -105,7 +105,7 @@ export function CategoriesSection({
                 <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                   <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-black/20 px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-white/75 backdrop-blur">
                     <span>{String(index + 1).padStart(2, "0")}</span>
-                    <span>Waya Selection</span>
+                    <span>Collection</span>
                   </div>
                   <div className="mt-4 flex items-end justify-between gap-4">
                     <div>

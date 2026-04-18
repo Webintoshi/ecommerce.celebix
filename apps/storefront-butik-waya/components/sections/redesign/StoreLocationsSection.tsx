@@ -119,18 +119,18 @@ export function StoreLocationsSection({
               {cards.map((card) => (
                 <article
                   key={card.id}
-                  className="rounded-[2rem] border border-[rgba(35,24,21,0.08)] bg-[rgba(255,250,244,0.9)] p-6 shadow-[0_24px_70px_-50px_rgba(27,18,14,0.55)]"
+                  className="rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[rgba(255,255,255,0.9)] p-6 shadow-[0_24px_70px_-50px_rgba(0,0,0,0.24)]"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.26em] text-[#8d644d]">{card.badge}</p>
+                      <p className="text-[11px] uppercase tracking-[0.26em] text-[#6f6a65]">{card.badge}</p>
                       <h3 className="mt-3 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1d1715]">
                         {card.name}
                       </h3>
                     </div>
                     <a
                       href={card.actionHref}
-                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#1d1715] hover:border-[#b9785a] hover:text-[#b9785a]"
+                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.1)] bg-white/75 px-4 py-2 text-sm font-medium text-[#1d1715] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
                     >
                       {card.icon}
                       <span>{card.actionLabel}</span>
@@ -141,20 +141,20 @@ export function StoreLocationsSection({
 
                   <div className="mt-5 space-y-3 text-sm text-[#5f524a]">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(35,24,21,0.08)] bg-white px-3 py-2">
-                      <Clock3 className="size-4 text-[#8d644d]" />
+                      <Clock3 className="size-4 text-[#6f6a65]" />
                       <span>{card.hours}</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <MapPin className="mt-1 size-4 text-[#8d644d]" />
+                      <MapPin className="mt-1 size-4 text-[#6f6a65]" />
                       <p className="leading-6">{card.address}</p>
                     </div>
                     <div className="flex flex-wrap gap-5">
                       <span className="inline-flex items-center gap-2">
-                        <Phone className="size-4 text-[#8d644d]" />
+                        <Phone className="size-4 text-[#6f6a65]" />
                         {phone}
                       </span>
                       <span className="inline-flex items-center gap-2">
-                        <Mail className="size-4 text-[#8d644d]" />
+                        <Mail className="size-4 text-[#6f6a65]" />
                         {email}
                       </span>
                     </div>
@@ -166,7 +166,7 @@ export function StoreLocationsSection({
             <div className="mt-8">
               <Link
                 href={storesHref}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1d1715] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white hover:bg-[#b9785a]"
+                className="inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white hover:bg-[#2A2A2A]"
               >
                 <span>{linkLabel}</span>
                 <ExternalLink className="size-4" />
