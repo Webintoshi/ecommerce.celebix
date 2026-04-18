@@ -227,7 +227,7 @@ export function ProductDetailClient({
 
   if (loading || !product) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5F5]">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="animate-pulse text-center">
           <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
           <div className="h-4 w-32 rounded bg-neutral-200" />
@@ -238,7 +238,7 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5F5] px-4">
+      <div className="flex min-h-screen items-center justify-center bg-white px-4">
         <div className="text-center text-[#7A736D]">Ürün bilgisi yüklenemedi.</div>
       </div>
     );
@@ -358,8 +358,8 @@ export function ProductDetailClient({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5F5]">
-      <div className="border-b border-[rgba(26,26,26,0.08)] bg-[#F5F5F5F5]">
+    <div className="min-h-screen bg-white">
+      <div className="border-b border-[rgba(26,26,26,0.08)] bg-white">
         <div className="container-premium">
           <div className="flex flex-wrap items-center gap-3 py-4 text-[11px] uppercase tracking-[0.18em] text-[#7A736D]">
             <Link
@@ -678,7 +678,7 @@ export function ProductDetailClient({
 
       <section
         className="border-t border-[rgba(26,26,26,0.08)] py-16 lg:py-20"
-        style={{ backgroundColor: "#F5F5F5F5" }}
+        style={{ backgroundColor: "#ffffff" }}
       >
         <div className="container-premium">
           <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
