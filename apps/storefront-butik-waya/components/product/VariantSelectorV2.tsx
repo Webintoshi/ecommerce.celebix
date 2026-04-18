@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
 import { cn } from "@/lib/utils";
@@ -13,7 +12,12 @@ interface Props {
 }
 
 function getAttributeId(attribute: any) {
-  return attribute?.attribute?.id || attribute?.attribute_id || attribute?.attributeId || attribute?.name;
+  return (
+    attribute?.attribute?.id ||
+    attribute?.attribute_id ||
+    attribute?.attributeId ||
+    attribute?.name
+  );
 }
 
 function getVariantAttributes(variant: any) {
@@ -42,6 +46,10 @@ function getVariantAttributes(variant: any) {
     : [];
 }
 
+function hasStock(variant: any) {
+  return Number(variant?.stock ?? 0) > 0;
+}
+
 export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) {
   const [mounted, setMounted] = useState(false);
 
@@ -53,34 +61,49 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
     return null;
   }
 
-  const currentVariant = variants[selectedIndex];
+  const currentVariant = variants[selectedIndex] || variants[0];
+  if (!currentVariant) {
+    return null;
+  }
+
   const attributeGroups = getOrderedVariantAttributeGroups(variants);
 
   if (attributeGroups.length === 0) {
     return null;
   }
 
-  const isColor = (name: string, values: Array<{ image_url?: string | null; color_code?: string | null }>) => {
+  const isVisualGroup = (
+    name: string,
+    values: Array<{ image_url?: string | null; color_code?: string | null }>,
+  ) => {
     const lower = name.toLowerCase();
-    const isColorName = lower.includes("renk") || lower.includes("color") || lower.includes("rengi");
-    return isColorName || values.some((value) => value.image_url || value.color_code);
+    const nameSuggestsVisual =
+      lower.includes("renk") || lower.includes("color") || lower.includes("rengi");
+
+    return nameSuggestsVisual || values.some((value) => value.image_url || value.color_code);
   };
 
   const getSelectedValue = (attributeId: string, variant: any = currentVariant) => {
     const attributes = getVariantAttributes(variant);
-    const match = attributes.find((attribute: any) => getAttributeId(attribute) === attributeId);
+    const match = attributes.find(
+      (attribute: any) => getAttributeId(attribute) === attributeId,
+    );
+
     return match?.value;
   };
 
   const getSelectionMap = (variant: any) => {
-    return getVariantAttributes(variant).reduce<Record<string, string>>((accumulator, attribute: any) => {
-      const attributeId = getAttributeId(attribute);
-      if (attributeId && typeof attribute.value === "string") {
-        accumulator[attributeId] = attribute.value;
-      }
+    return getVariantAttributes(variant).reduce<Record<string, string>>(
+      (accumulator, attribute: any) => {
+        const attributeId = getAttributeId(attribute);
+        if (attributeId && typeof attribute.value === "string") {
+          accumulator[attributeId] = attribute.value;
+        }
 
-      return accumulator;
-    }, {});
+        return accumulator;
+      },
+      {},
+    );
   };
 
   const variantMatchesSelection = (variant: any, selections: Record<string, string>) => {
@@ -91,52 +114,73 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
     );
   };
 
-  const handleSelect = (attributeId: string, value: string) => {
+  const getCandidateIndex = (attributeId: string, value: string) => {
     const targetSelection = {
       ...getSelectionMap(currentVariant),
       [attributeId]: value,
     };
 
-    const nextIndex = variants.findIndex((variant) =>
+    const exactInStockIndex = variants.findIndex(
+      (variant) => hasStock(variant) && variantMatchesSelection(variant, targetSelection),
+    );
+    if (exactInStockIndex !== -1) {
+      return exactInStockIndex;
+    }
+
+    const exactIndex = variants.findIndex((variant) =>
       variantMatchesSelection(variant, targetSelection),
     );
+    if (exactIndex !== -1) {
+      return exactIndex;
+    }
 
-    const fallbackIndex =
-      nextIndex !== -1
-        ? nextIndex
-        : variants.findIndex((variant) => getSelectedValue(attributeId, variant) === value);
+    const relaxedInStockIndex = variants.findIndex(
+      (variant) => hasStock(variant) && getSelectedValue(attributeId, variant) === value,
+    );
+    if (relaxedInStockIndex !== -1) {
+      return relaxedInStockIndex;
+    }
 
-    if (fallbackIndex !== -1) {
-      onSelect(fallbackIndex);
+    return variants.findIndex(
+      (variant) => getSelectedValue(attributeId, variant) === value,
+    );
+  };
+
+  const handleSelect = (attributeId: string, value: string) => {
+    const nextIndex = getCandidateIndex(attributeId, value);
+    if (nextIndex !== -1) {
+      onSelect(nextIndex);
     }
   };
+
+  const isLowStock =
+    Number(currentVariant?.stock ?? 0) > 0 && Number(currentVariant?.stock ?? 0) <= 5;
 
   return (
     <div className="space-y-6">
       {attributeGroups.map((group) => {
         const selectedValue = getSelectedValue(group.id);
-        const showVisualSelector = isColor(group.name, group.values);
+        const showVisualSelector = isVisualGroup(group.name, group.values);
 
         return (
-          <div key={group.id} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
+          <div key={group.id} className="space-y-3.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[11px] uppercase tracking-[0.22em] text-[#7A736D]">
                 {group.name}
               </span>
               {selectedValue ? (
-                <>
-                  <span className="text-gray-400">-</span>
-                  <span className="text-sm font-medium text-neutral-500">{selectedValue}</span>
-                </>
+                <span className="text-sm text-[#222222]">{selectedValue}</span>
               ) : null}
             </div>
 
             {showVisualSelector ? (
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap gap-3">
                 {group.values.map((value) => {
+                  const candidateIndex = getCandidateIndex(group.id, value.value);
+                  const previewVariant =
+                    candidateIndex !== -1 ? variants[candidateIndex] : variants[value.variantIndex];
                   const isSelected = selectedValue === value.value;
-                  const variant = variants[value.variantIndex];
-                  const isOutOfStock = Number(variant?.stock ?? 0) <= 0;
+                  const isOutOfStock = !previewVariant || !hasStock(previewVariant);
 
                   return (
                     <button
@@ -145,15 +189,23 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       onClick={() => !isOutOfStock && handleSelect(group.id, value.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative h-11 w-11 overflow-hidden rounded-full border-2 transition-all duration-200",
+                        "group relative w-[4.5rem] overflow-hidden rounded-[0.9rem] transition-all duration-200",
                         isSelected
-                          ? "border-[#171311] ring-2 ring-[#171311]/10"
-                          : "border-gray-300 hover:border-gray-400",
-                        isOutOfStock && "cursor-not-allowed opacity-50",
+                          ? "ring-1 ring-[#222222]"
+                          : "hover:ring-1 hover:ring-[rgba(26,26,26,0.18)]",
+                        isOutOfStock && "cursor-not-allowed opacity-45",
                       )}
                       title={value.value}
                     >
-                      <div className="absolute inset-1 overflow-hidden rounded-full bg-gray-100">
+                      <span
+                        className={cn(
+                          "absolute inset-0 rounded-[0.9rem] border",
+                          isSelected
+                            ? "border-[#222222]"
+                            : "border-[rgba(26,26,26,0.12)]",
+                        )}
+                      />
+                      <span className="relative block aspect-[3/4] overflow-hidden rounded-[0.85rem] bg-[#F7F4F1]">
                         {value.image_url ? (
                           <img
                             src={resolveStorefrontAssetUrl(value.image_url)}
@@ -161,24 +213,31 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                             className="h-full w-full object-cover"
                           />
                         ) : value.color_code ? (
-                          <div className="h-full w-full" style={{ backgroundColor: value.color_code }} />
+                          <span
+                            className="block h-full w-full"
+                            style={{ backgroundColor: value.color_code }}
+                          />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs font-medium text-gray-600">
+                          <span className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.16em] text-[#222222]">
                             {value.value.slice(0, 2)}
-                          </div>
+                          </span>
                         )}
-                      </div>
-                      {isSelected ? <div className="absolute inset-0 rounded-full border-2 border-[#171311]" /> : null}
+                        {isOutOfStock ? (
+                          <span className="absolute inset-x-2 top-1/2 h-px -rotate-45 bg-[#222222]/70" />
+                        ) : null}
+                      </span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
                 {group.values.map((value) => {
+                  const candidateIndex = getCandidateIndex(group.id, value.value);
+                  const previewVariant =
+                    candidateIndex !== -1 ? variants[candidateIndex] : variants[value.variantIndex];
                   const isSelected = selectedValue === value.value;
-                  const variant = variants[value.variantIndex];
-                  const isOutOfStock = Number(variant?.stock ?? 0) <= 0;
+                  const isOutOfStock = !previewVariant || !hasStock(previewVariant);
 
                   return (
                     <button
@@ -187,16 +246,18 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       onClick={() => !isOutOfStock && handleSelect(group.id, value.value)}
                       disabled={isOutOfStock}
                       className={cn(
-                        "relative rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200",
+                        "relative flex min-h-[54px] items-center justify-center overflow-hidden rounded-[0.9rem] border px-4 py-3 text-sm transition-all duration-200",
                         isSelected
                           ? "border-[#171311] bg-[#171311] text-white"
                           : isOutOfStock
-                            ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                            : "border-gray-300 bg-white text-[#222222] hover:border-[#222222]",
+                            ? "cursor-not-allowed border-[rgba(26,26,26,0.08)] bg-[#F8F6F3] text-[#9A928A]"
+                            : "border-[rgba(26,26,26,0.12)] bg-white text-[#222222] hover:border-[#171311]",
                       )}
                     >
-                      {isSelected ? <Check className="mr-1 inline h-4 w-4" /> : null}
-                      {value.value}
+                      <span className="truncate">{value.value}</span>
+                      {isOutOfStock ? (
+                        <span className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 rotate-[-8deg] bg-current opacity-60" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -205,6 +266,12 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
           </div>
         );
       })}
+
+      {isLowStock ? (
+        <p className="text-[12px] leading-6 text-[#A0651B]">
+          Secili varyantta stok sinirli. Hemen seciminizi tamamlayin.
+        </p>
+      ) : null}
     </div>
   );
 }

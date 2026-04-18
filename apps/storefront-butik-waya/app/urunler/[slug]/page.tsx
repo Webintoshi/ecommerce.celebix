@@ -12,6 +12,10 @@ import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
@@ -34,110 +38,72 @@ function toOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeAttributeRecord(attribute: unknown) {
-  if (!attribute || typeof attribute !== "object") {
-    return null;
-  }
+function hasDisplayableAttributeEntries(attributes: unknown): attributes is Record<string, unknown>[] {
+  return (
+    Array.isArray(attributes) &&
+    attributes.some((attribute) => {
+      if (!attribute || typeof attribute !== "object") {
+        return false;
+      }
 
-  const record = attribute as Record<string, unknown>;
-  const nestedAttribute =
-    record.attribute && typeof record.attribute === "object"
-      ? (record.attribute as Record<string, unknown>)
-      : null;
-  const value = toOptionalString(record.value);
-
-  if (!value) {
-    return null;
-  }
-
-  const attributeId =
-    toOptionalString(record.attributeId) ||
-    toOptionalString(record.attribute_id) ||
-    toOptionalString(nestedAttribute?.id);
-  const attributeName =
-    toOptionalString(record.attributeName) ||
-    toOptionalString(record.name) ||
-    toOptionalString(nestedAttribute?.name);
-
-  return {
-    ...record,
-    value,
-    attribute: nestedAttribute ?? record.attribute,
-    attributeId: attributeId ?? record.attributeId,
-    attribute_id: attributeId ?? record.attribute_id,
-    attributeName: attributeName ?? record.attributeName,
-    name: attributeName ?? record.name,
-  };
+      return Boolean(toOptionalString((attribute as Record<string, unknown>).value));
+    })
+  );
 }
 
-function normalizeVariantAttributes(variant: any, allAttributeValues: any[] = []) {
-  const linkedAttributes = Array.isArray(variant.linked_attributes)
-    ? variant.linked_attributes
-        .map((attribute: any) => {
-          const attributeValue = attribute?.attribute_value;
-          const nestedAttribute =
-            attributeValue?.attribute && typeof attributeValue.attribute === "object"
-              ? attributeValue.attribute
-              : null;
+function getLinkedVariantAttributes(linkedAttributes: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(linkedAttributes)) {
+    return [];
+  }
 
-          return normalizeAttributeRecord({
-            ...attributeValue,
-            attribute: nestedAttribute,
-            attributeId: nestedAttribute?.id ?? attributeValue?.attribute_id,
-            attribute_id: nestedAttribute?.id ?? attributeValue?.attribute_id,
-            attributeName: nestedAttribute?.name,
-            name: nestedAttribute?.name,
-          });
-        })
-        .filter(Boolean)
-    : [];
+  return linkedAttributes
+    .map((entry) => {
+      const record =
+        entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+      const attributeValue =
+        record?.attribute_value && typeof record.attribute_value === "object"
+          ? (record.attribute_value as Record<string, unknown>)
+          : null;
+      const nestedAttribute =
+        attributeValue?.attribute && typeof attributeValue.attribute === "object"
+          ? (attributeValue.attribute as Record<string, unknown>)
+          : null;
+      const value = toOptionalString(attributeValue?.value);
 
+      if (!attributeValue || !value) {
+        return null;
+      }
+
+      return {
+        ...attributeValue,
+        value,
+        attribute: nestedAttribute ?? attributeValue.attribute,
+        attributeId:
+          toOptionalString(nestedAttribute?.id) ?? toOptionalString(attributeValue.attribute_id),
+        attribute_id:
+          toOptionalString(nestedAttribute?.id) ?? toOptionalString(attributeValue.attribute_id),
+        attributeName: toOptionalString(nestedAttribute?.name),
+        name: toOptionalString(nestedAttribute?.name),
+      };
+    })
+    .filter((attribute): attribute is Record<string, unknown> => Boolean(attribute));
+}
+
+function getVariantAttributeSource(variant: Record<string, unknown>): Record<string, unknown>[] {
+  if (hasDisplayableAttributeEntries(variant.raw_attributes)) {
+    return variant.raw_attributes;
+  }
+
+  const linkedAttributes = getLinkedVariantAttributes(variant.linked_attributes);
   if (linkedAttributes.length > 0) {
     return linkedAttributes;
   }
 
-  const rawAttributes = Array.isArray(variant.raw_attributes)
-    ? variant.raw_attributes
-        .map((attribute: any) => normalizeAttributeRecord(attribute))
-        .filter(Boolean)
-    : [];
-
-  if (rawAttributes.length > 0) {
-    return rawAttributes;
+  if (hasDisplayableAttributeEntries(variant.attributes)) {
+    return variant.attributes;
   }
 
-  const directAttributes = Array.isArray(variant.attributes)
-    ? variant.attributes
-        .map((attribute: any) => normalizeAttributeRecord(attribute))
-        .filter(Boolean)
-    : [];
-
-  if (directAttributes.length > 0) {
-    return directAttributes;
-  }
-
-  const matchedValue = allAttributeValues.find(
-    (attributeValue: any) =>
-      attributeValue.value?.toLowerCase() === variant.name?.toLowerCase(),
-  );
-
-  if (!matchedValue) {
-    return [];
-  }
-
-  return [
-    normalizeAttributeRecord({
-      id: matchedValue.id,
-      value: matchedValue.value,
-      color_code: matchedValue.color_code,
-      image_url: matchedValue.image_url,
-      attribute: matchedValue.attribute,
-      attributeId: matchedValue.attribute?.id,
-      attribute_id: matchedValue.attribute?.id,
-      attributeName: matchedValue.attribute?.name,
-      name: matchedValue.attribute?.name,
-    }),
-  ].filter(Boolean);
+  return [];
 }
 
 async function fetchProductVariants(supabase: any, productId: string) {
@@ -261,15 +227,7 @@ export default async function ProductDetailPage({
         console.error("Variants fetch error:", variantsError);
       }
 
-      const { data: allAttributeValues } = await supabase
-        .from("variant_attribute_values")
-        .select(`
-          id,
-          value,
-          color_code,
-          image_url,
-          attribute:variant_attributes(id, name)
-        `);
+      const attributeRegistry = await getVariantAttributeRegistry();
 
       let images: string[] = [];
       if (
@@ -286,24 +244,31 @@ export default async function ProductDetailPage({
         );
       }
 
-      const transformedVariants =
-        variants?.map((variant: any) => {
-          const pricing = resolveVariantDisplayPricing(
-            {
-              price: Number(variant.price || 0),
-              originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
-            },
-            productDiscountRules,
-          );
-          const attrs = normalizeVariantAttributes(variant, allAttributeValues || []);
+      const hydratedVariants = hydrateProductVariantSnapshots(
+        (variants || []).map((variant: any) => ({
+          ...variant,
+          raw_attributes: getVariantAttributeSource(variant),
+        })),
+        attributeRegistry,
+      );
 
-          return {
-            ...variant,
-            price: pricing.price,
-            originalPrice: pricing.originalPrice,
-            attributes: attrs,
-          };
-        }) || [];
+      const transformedVariants = hydratedVariants.map((variant: any) => {
+        const pricing = resolveVariantDisplayPricing(
+          {
+            price: Number(variant.price || 0),
+            originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+          },
+          productDiscountRules,
+        );
+
+        return {
+          ...variant,
+          price: pricing.price,
+          originalPrice: pricing.originalPrice,
+          attributes: variant.attributes,
+          raw_attributes: variant.raw_attributes,
+        };
+      });
 
       product = {
         ...dbProduct,

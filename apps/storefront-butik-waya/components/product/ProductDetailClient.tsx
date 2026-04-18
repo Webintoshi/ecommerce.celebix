@@ -7,8 +7,6 @@ import {
   Star,
   Heart,
   Share2,
-  Minus,
-  Plus,
   ArrowLeft,
   ChevronRight,
   ChevronDown,
@@ -93,7 +91,6 @@ export function ProductDetailClient({
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
-  const [quantity, setQuantity] = useState(1);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(
     new Set(["details"]),
   );
@@ -140,7 +137,6 @@ export function ProductDetailClient({
 
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
-    setQuantity(1);
     setOpenAccordions(new Set(["details"]));
   }, [initialVariantIndex, initialProduct?.id]);
 
@@ -261,13 +257,7 @@ export function ProductDetailClient({
       return;
     }
 
-    addToCart(product, variant, quantity, customizationState.payload || undefined);
-  };
-
-  const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) =>
-      Math.max(1, Math.min(variant.stock || 10, prev + delta)),
-    );
+    addToCart(product, variant, 1, customizationState.payload || undefined);
   };
 
   const toggleWishlist = () => {
@@ -528,31 +518,11 @@ export function ProductDetailClient({
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="flex items-center overflow-hidden rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F5F3F0]">
-                      <button
-                        onClick={() => handleQuantityChange(-1)}
-                        disabled={quantity <= 1}
-                        className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-[#222222]" />
-                      </button>
-                      <span className="w-10 text-center text-base font-medium text-[#222222]">
-                        {quantity}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(1)}
-                        disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-[#222222]" />
-                      </button>
-                    </div>
-
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
                     <button
                       onClick={handleAddToCart}
                       disabled={isOutOfStock || isSchemaLoading}
-                      className={`flex min-h-[50px] min-w-[220px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium uppercase tracking-[0.18em] transition-all duration-300 ${
+                      className={`flex min-h-[52px] min-w-[220px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium uppercase tracking-[0.18em] transition-all duration-300 ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
                           : "bg-[#171311] text-white hover:bg-[#2A2420]"
@@ -566,10 +536,10 @@ export function ProductDetailClient({
                           : "Sepete ekle"}
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 sm:shrink-0">
                       <button
                         onClick={toggleWishlist}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-all hover:bg-white"
+                        className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-all hover:bg-white"
                       >
                         <Heart
                           className={`h-4.5 w-4.5 stroke-[1.5] ${
@@ -579,7 +549,7 @@ export function ProductDetailClient({
                       </button>
                       <button
                         onClick={handleShare}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
+                        className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
                       >
                         <Share2 className="h-4.5 w-4.5 stroke-[1.5]" />
                       </button>
