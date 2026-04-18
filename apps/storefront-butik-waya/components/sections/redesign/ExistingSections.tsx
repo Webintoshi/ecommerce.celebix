@@ -65,10 +65,8 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || slides.length === 0) {
     return (
-      <section className="container-premium pt-0">
-        <div className="overflow-hidden rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[#EDEBE8] shadow-[0_24px_70px_-50px_rgba(0,0,0,0.28)]">
-          <div className="aspect-[4/5] w-full sm:aspect-[16/10] lg:aspect-[21/9]" />
-        </div>
+      <section className="w-full">
+        <div className="relative aspect-[5/7] w-full bg-[#ECE8E3] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]" />
       </section>
     );
   }
@@ -76,63 +74,64 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const slide = slides[current];
 
   return (
-    <section className="container-premium pt-0">
-      <div className="overflow-hidden rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[#EDEBE8] shadow-[0_24px_70px_-50px_rgba(0,0,0,0.28)]">
-        <div className="relative aspect-[4/5] max-h-[920px] w-full sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9]">
-          <div className="absolute inset-0 hidden md:block">
-            <Image
-              src={slide.desktop}
-              alt={slide.alt}
-              fill
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
-          </div>
-          <div className="absolute inset-0 block md:hidden">
-            <Image
-              src={slide.mobile || slide.desktop}
-              alt={slide.alt}
-              fill
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
-          </div>
-
-          {slides.length > 1 ? (
-            <>
-              <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:bottom-6">
-                {slides.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrent(idx)}
-                    className={cn(
-                      "h-2.5 rounded-full transition-all",
-                      idx === current ? "w-10 bg-white" : "w-2.5 bg-white/45 hover:bg-white/75",
-                    )}
-                    aria-label={`Slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-                className="absolute left-5 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/18 text-white backdrop-blur transition-all hover:bg-black/30 sm:flex lg:left-6"
-                aria-label="Onceki slide"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setCurrent((current + 1) % slides.length)}
-                className="absolute right-5 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/18 text-white backdrop-blur transition-all hover:bg-black/30 sm:flex lg:right-6"
-                aria-label="Sonraki slide"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          ) : null}
+    <section className="w-full">
+      <div className="relative aspect-[5/7] max-h-[980px] w-full overflow-hidden bg-[#ECE8E3] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
+        <div className="absolute inset-0 hidden md:block">
+          <Image
+            src={slide.desktop}
+            alt={slide.alt}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
         </div>
+        <div className="absolute inset-0 block md:hidden">
+          <Image
+            src={slide.mobile || slide.desktop}
+            alt={slide.alt}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+        </div>
+
+        {slides.length > 1 ? (
+          <>
+            <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 sm:bottom-8">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrent(idx)}
+                  className={cn(
+                    "h-1 rounded-full transition-all duration-300",
+                    idx === current ? "w-12 bg-white" : "w-6 bg-white/38 hover:bg-white/68",
+                  )}
+                  aria-label={`Slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
+              className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-black/12 text-white backdrop-blur transition-all hover:bg-black/24 lg:flex"
+              aria-label="Onceki slide"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrent((current + 1) % slides.length)}
+              className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-black/12 text-white backdrop-blur transition-all hover:bg-black/24 lg:flex"
+              aria-label="Sonraki slide"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        ) : null}
       </div>
     </section>
   );

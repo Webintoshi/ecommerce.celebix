@@ -4,22 +4,22 @@
   --background: #f5f5f5f5;
   --background-alt: #ffffff;
   --foreground: #1a1a1a;
-  --foreground-soft: #66615c;
+  --foreground-soft: #69635e;
 
   /* Brand Palette */
   --primary: #1a1a1a;
   --primary-foreground: #f5f5f5;
-  --secondary: #e8e6e3;
+  --secondary: #ebe7e1;
   --secondary-foreground: #1a1a1a;
-  --accent: #8b847e;
+  --accent: #7d756d;
   --accent-foreground: #ffffff;
-  --accent-soft: #d7d3cf;
+  --accent-soft: #dfdbd6;
   --line: rgba(26, 26, 26, 0.1);
   --glass: rgba(255, 255, 255, 0.78);
   --panel: rgba(255, 255, 255, 0.92);
 
-  --muted: #ddd8d3;
-  --muted-foreground: #6c6660;
+  --muted: #e2ddd8;
+  --muted-foreground: #6b645e;
 
   /* shadcn/ui required variables */
   --card: #ffffff;
@@ -101,14 +101,14 @@
   --store-font-heading: var(--font-editorial-heading), "Times New Roman", serif;
   --store-font-body: var(--font-editorial-body), "Segoe UI", sans-serif;
   --store-font-menu: var(--store-font-body);
-  --store-font-product-title: var(--store-font-body);
+  --store-font-product-title: var(--store-font-heading);
   --store-font-heading-weight: 600;
   --store-font-body-weight: 500;
-  --store-font-menu-weight: 600;
-  --store-font-product-title-weight: 700;
+  --store-font-menu-weight: 700;
+  --store-font-product-title-weight: 600;
   --store-font-base-size: 16px;
-  --store-font-menu-size: 12px;
-  --store-font-product-card-size: 16px;
+  --store-font-menu-size: 11.5px;
+  --store-font-product-card-size: 17px;
   --store-font-product-page-size: 52px;
   --store-font-heading-scale: 1.08;
   --store-font-heading-tracking: -0.03em;
@@ -141,7 +141,7 @@ body {
 }
 
 body::selection {
-  background: rgba(139, 132, 126, 0.22);
+  background: rgba(26, 26, 26, 0.12);
 }
 
 h1,
@@ -193,15 +193,15 @@ textarea {
 }
 
 .bg-primary\/10 {
-  background-color: rgba(35, 24, 21, 0.08) !important;
+  background-color: rgba(26, 26, 26, 0.08) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(35, 24, 21, 0.1) !important;
+  border-color: rgba(26, 26, 26, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(35, 24, 21, 0.2) !important;
+  border-color: rgba(26, 26, 26, 0.2) !important;
 }
 
 .text-primary-foreground {
@@ -291,7 +291,7 @@ textarea {
   font-family: var(--store-font-menu);
   font-size: var(--store-font-menu-size);
   font-weight: var(--store-font-menu-weight);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 

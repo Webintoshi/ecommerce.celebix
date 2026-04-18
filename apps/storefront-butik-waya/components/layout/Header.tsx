@@ -125,12 +125,12 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-white/8 bg-[#1A1A1A] transition-all duration-300 ${
-        isScrolled ? "shadow-[0_18px_48px_-32px_rgba(0,0,0,0.72)]" : ""
+      className={`sticky top-0 z-50 border-b border-white/10 bg-[#1A1A1A]/98 backdrop-blur-md transition-all duration-300 ${
+        isScrolled ? "shadow-[0_20px_60px_-36px_rgba(0,0,0,0.78)]" : ""
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center justify-between gap-4 lg:h-[72px]">
+        <div className="flex h-[68px] items-center justify-between gap-4 lg:h-[76px]">
             <button
               className="-ml-2 rounded-full p-2 text-white lg:hidden"
               onClick={() => setIsMenuOpen((open) => !open)}
@@ -168,7 +168,7 @@ export function Header() {
                     <Link
                       key={category.id}
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="store-nav-text group relative text-[0.74rem] text-white/78 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                      className="store-nav-text group relative text-white/76 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                     </Link>
@@ -179,7 +179,7 @@ export function Header() {
                   <div key={category.id} className="group relative">
                     <Link
                       href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
-                      className="store-nav-text relative inline-flex items-center gap-1 text-[0.74rem] text-white/78 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
+                      className="store-nav-text relative inline-flex items-center gap-1.5 text-white/76 after:absolute after:-bottom-2 after:left-0 after:h-px after:w-0 after:bg-white after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full"
                     >
                       {localizedCategoryName}
                       <ChevronDown className="h-4 w-4" />
@@ -192,7 +192,7 @@ export function Header() {
                             <Link
                               key={subcategory.id}
                               href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                              className="block rounded-2xl px-4 py-3 text-sm text-[#1A1A1A] transition-colors hover:bg-white hover:text-black"
+                              className="block rounded-2xl px-4 py-3 text-[12px] font-medium tracking-[0.04em] text-[#1A1A1A] transition-colors hover:bg-white hover:text-black"
                             >
                               {subcategory.name}
                             </Link>
@@ -260,7 +260,7 @@ export function Header() {
                         <Link
                           key={subcategory.id}
                           href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
-                          className="block text-sm uppercase tracking-[0.22em] text-white/58 transition-all duration-300 hover:pl-2 hover:text-white"
+                          className="block text-[12px] uppercase tracking-[0.18em] text-white/58 transition-all duration-300 hover:pl-2 hover:text-white"
                           onClick={() => setIsMenuOpen(false)}
                         >
                           {subcategory.name}

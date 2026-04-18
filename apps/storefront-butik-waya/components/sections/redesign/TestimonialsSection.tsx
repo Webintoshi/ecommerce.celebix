@@ -7,7 +7,7 @@ import type { HomepageTestimonial } from "@/lib/homepage";
 import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const AUTO_PLAY_INTERVAL = 5000;
+const AUTO_PLAY_INTERVAL = 6200;
 
 type TestimonialItem = {
   id: string;
@@ -52,8 +52,8 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "Onayli degerlendirmeler geldikce bu alan otomatik guncellenir",
+  heading = "Musteri notlari",
+  countLabel = "Dogrulanmis yorumlar geldikce bu alan otomatik olarak guncellenir",
   items,
 }: {
   heading?: string;
@@ -64,143 +64,166 @@ export function TestimonialsSection({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  const totalSlides = Math.max(1, Math.ceil(testimonials.length / 2));
+  const activeTestimonial = testimonials[currentIndex] || testimonials[0];
+  const reviewCountLabel = `${testimonials.length} yorum`;
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % totalSlides);
-  }, [totalSlides]);
+    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+  }, [testimonials.length]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
-  }, [totalSlides]);
+    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  }, [testimonials.length]);
 
   useEffect(() => {
     setCurrentIndex(0);
-  }, [totalSlides]);
+  }, [testimonials.length]);
 
   useEffect(() => {
-    if (isPaused || totalSlides <= 1) {
+    if (isPaused || testimonials.length <= 1) {
       return undefined;
     }
 
     const interval = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
     return () => clearInterval(interval);
-  }, [isPaused, nextSlide, totalSlides]);
+  }, [isPaused, nextSlide, testimonials.length]);
 
   if (testimonials.length === 0) {
     return null;
   }
 
   return (
-    <section className="bg-[#1A1A1A] py-16 text-white lg:py-20">
+    <section className="py-20 lg:py-28">
       <div className="container-premium">
-        <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1fr] lg:items-end">
+        <div className="mb-12 grid gap-6 lg:grid-cols-[0.78fr_1fr] lg:items-end">
           <div>
-            <p className="editorial-kicker text-[#d3cec8] before:bg-[#d3cec8]/45">Client Notes</p>
-            <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#fff7f1] sm:text-5xl">
+            <p className="editorial-kicker">Musteri notlari</p>
+            <h2 className="mt-5 font-serif text-4xl leading-[0.95] tracking-[-0.045em] text-[#1A1A1A] sm:text-5xl">
               {heading}
             </h2>
           </div>
-          <p className="max-w-2xl text-sm leading-8 text-white/65 sm:text-base">{countLabel}</p>
+          <p className="max-w-2xl text-sm leading-8 text-[#69635E] sm:text-base">{countLabel}</p>
         </div>
 
         <div
-          className="relative"
+          className="relative rounded-[2.5rem] border border-[rgba(26,26,26,0.08)] bg-white/92 p-6 shadow-[0_28px_90px_-64px_rgba(0,0,0,0.22)] sm:p-8 lg:p-10"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <div className="overflow-hidden">
-            <div
-              className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-            >
-              {Array.from({ length: totalSlides }).map((_, slideIndex) => (
-                <div
-                  key={`testimonial-slide-${slideIndex}`}
-                  className="grid w-full flex-shrink-0 grid-cols-1 gap-6 lg:grid-cols-2"
-                >
-                  {testimonials.slice(slideIndex * 2, slideIndex * 2 + 2).map((review) => (
-                    <div
-                      key={review.id}
-                      className="rounded-[2rem] border border-white/10 bg-white/6 p-6 shadow-[0_30px_90px_-60px_rgba(0,0,0,0.8)] backdrop-blur"
-                    >
-                      <div className="flex items-start gap-5">
-                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/8">
-                          {review.image ? (
-                            <div className="relative h-full w-full">
-                              <Image
-                                src={review.image}
-                                alt={review.name}
-                                fill
-                                className="object-cover"
-                                sizes="64px"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-[0.24em] text-[#d3cec8]">
-                              {getInitials(review.name)}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="mb-3 flex items-center gap-0.5">
-                            {Array.from({ length: 5 }).map((_, index) => (
-                              <Star
-                                key={`${review.id}-${index}`}
-                                className={cn(
-                                  "h-3.5 w-3.5",
-                                  index < review.rating
-                                    ? "fill-[#d3cec8] text-[#d3cec8]"
-                                    : "fill-white/10 text-white/10",
-                                )}
-                              />
-                            ))}
-                          </div>
-
-                          <div className="mb-3 flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[#fff7f1]">
-                              {review.name}
-                            </span>
-                            {review.verified ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-white/55">
-                                <Check className="h-3 w-3" />
-                                Dogrulanmis yorum
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <p className="text-sm leading-8 text-white/72">{review.text}</p>
-                        </div>
+          <div className="grid gap-8 lg:grid-cols-[0.4fr_1fr] lg:gap-12">
+            <div className="flex flex-col justify-between gap-8 border-b border-[rgba(26,26,26,0.08)] pb-8 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-10">
+              <div>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-[72px] w-[72px] flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[rgba(26,26,26,0.08)] bg-[#F2EEE9]">
+                    {activeTestimonial.image ? (
+                      <div className="relative h-full w-full">
+                        <Image
+                          src={activeTestimonial.image}
+                          alt={activeTestimonial.name}
+                          fill
+                          className="object-cover"
+                          sizes="72px"
+                        />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-[0.22em] text-[#7D756D]">
+                        {getInitials(activeTestimonial.name)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
+                      Dogrulanmis musteri
+                    </p>
+                    <h3 className="mt-2 font-serif text-3xl leading-none tracking-[-0.04em] text-[#1A1A1A]">
+                      {activeTestimonial.name}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center gap-1">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={`${activeTestimonial.id}-${index}`}
+                      className={cn(
+                        "h-4 w-4",
+                        index < activeTestimonial.rating
+                          ? "fill-[#7D756D] text-[#7D756D]"
+                          : "fill-[#E2DDD8] text-[#E2DDD8]",
+                      )}
+                    />
                   ))}
                 </div>
-              ))}
+
+                {activeTestimonial.verified ? (
+                  <p className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#69635E]">
+                    <Check className="h-3.5 w-3.5" />
+                    Dogrulanmis alisveris
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
+                    Geri bildirim
+                  </p>
+                  <p className="mt-2 text-sm text-[#69635E]">{reviewCountLabel}</p>
+                </div>
+
+                {testimonials.length > 1 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={prevSlide}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] text-[#1A1A1A] transition-colors hover:bg-white"
+                      aria-label="Onceki"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={nextSlide}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] text-[#1A1A1A] transition-colors hover:bg-white"
+                      aria-label="Sonraki"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between gap-8">
+              <div>
+                <span className="font-serif text-[5rem] leading-none text-[#DED8D2] lg:text-[6.5rem]">
+                  &ldquo;
+                </span>
+                <blockquote className="-mt-4 max-w-4xl font-serif text-[2rem] leading-[1.08] tracking-[-0.03em] text-[#1A1A1A] sm:text-[2.4rem] lg:text-[2.9rem]">
+                  {activeTestimonial.text}
+                </blockquote>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {testimonials.map((review, index) => (
+                  <button
+                    key={review.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(index)}
+                    className={`rounded-full border px-4 py-2 text-[11px] uppercase tracking-[0.18em] transition-colors ${
+                      index === currentIndex
+                        ? "border-[#1A1A1A] bg-[#1A1A1A] text-white"
+                        : "border-[rgba(26,26,26,0.1)] bg-[#F7F5F2] text-[#69635E] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+                    }`}
+                  >
+                    {review.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-
-          {totalSlides > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={prevSlide}
-                className="absolute left-0 top-1/2 flex h-11 w-11 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white/72 transition-all hover:bg-white/14 hover:text-white lg:-translate-x-6"
-                aria-label="Onceki"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={nextSlide}
-                className="absolute right-0 top-1/2 flex h-11 w-11 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white/72 transition-all hover:bg-white/14 hover:text-white lg:translate-x-6"
-                aria-label="Sonraki"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          ) : null}
         </div>
       </div>
     </section>
