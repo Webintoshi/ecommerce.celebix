@@ -1003,16 +1003,33 @@ async function ensureSelfHostedStoreSchema(
   adminUser: string,
   adminPassword: string,
 ): Promise<void> {
-  const productsExists = await runSelfHostedPgMetaQuery(
+  const coreSchemaStatus = await runSelfHostedPgMetaQuery(
     runtime.studioUrl,
     runtime.publicUrl,
     runtime.publicUrl8000,
     runtime.internalApiUrl,
     adminUser,
     adminPassword,
-    "select to_regclass('public.products') is not null as exists;",
+    `
+      select
+        to_regclass('public.products') is not null as products_exists,
+        to_regclass('public.product_variants') is not null as product_variants_exists,
+        to_regclass('public.categories') is not null as categories_exists,
+        to_regclass('public.settings') is not null as settings_exists,
+        to_regclass('public.blog_posts') is not null as blog_posts_exists,
+        to_regclass('public.product_reviews') is not null as product_reviews_exists;
+    `,
   );
-  const needsCoreBundle = !productsExists?.[0]?.exists;
+  const statusRow = (coreSchemaStatus?.[0] ?? {}) as Record<string, unknown>;
+  const coreTableFlags = [
+    "products_exists",
+    "product_variants_exists",
+    "categories_exists",
+    "settings_exists",
+    "blog_posts_exists",
+    "product_reviews_exists",
+  ];
+  const needsCoreBundle = coreTableFlags.some((key) => statusRow[key] !== true);
   const queries = needsCoreBundle
     ? buildBootstrapQueries([...CORE_BOOTSTRAP_SQL_FILES, ...ADDITIVE_BOOTSTRAP_SQL_FILES])
     : buildBootstrapQueries(ADDITIVE_BOOTSTRAP_SQL_FILES);
