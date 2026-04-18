@@ -297,7 +297,7 @@ textarea {
 
 .store-product-title {
   font-family: var(--store-font-body);
-  font-size: var(--store-font-base-size);
+  font-size: var(--store-font-product-card-size);
   font-weight: var(--store-font-body-weight);
   line-height: 1.5;
   letter-spacing: var(--store-font-body-tracking);

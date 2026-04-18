@@ -23,7 +23,7 @@ import {
 } from "./FilterSidebar";
 import { FilterDrawer } from "./FilterDrawer";
 
-type ListingSortValue = "recommended" | "price-asc" | "price-desc" | "name-asc";
+type ListingSortValue = "" | "price-asc" | "price-desc" | "name-asc";
 type ChipMode = "categories" | "subcategories";
 
 interface ProductListingExperienceProps {
@@ -209,7 +209,7 @@ export function ProductListingExperience({
   minimalCopy = false,
 }: ProductListingExperienceProps) {
   const { locale } = useStorefrontRoute();
-  const [sortBy, setSortBy] = React.useState<ListingSortValue>("recommended");
+  const [sortBy, setSortBy] = React.useState<ListingSortValue>("");
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [displayCount, setDisplayCount] = React.useState(ITEMS_PER_LOAD);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -453,7 +453,7 @@ export function ProductListingExperience({
                       aria-label="Urunleri sirala"
                       className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#222222] outline-none transition-colors focus:border-[#222222]"
                     >
-                      <option value="recommended">Onerilen</option>
+                      <option value="">Siralama</option>
                       <option value="price-asc">Fiyat artan</option>
                       <option value="price-desc">Fiyat azalan</option>
                       <option value="name-asc">Isim A-Z</option>
