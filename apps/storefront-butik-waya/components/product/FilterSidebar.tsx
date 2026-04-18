@@ -274,7 +274,7 @@ export function ActiveFilters({
             key={chip.key}
             type="button"
             onClick={chip.onRemove}
-            className="inline-flex items-center gap-2 rounded-full border border-[rgba(32,20,16,0.1)] bg-white px-3.5 py-2 text-[12px] uppercase tracking-[0.12em] text-[#201410] transition-colors hover:border-[#201410]"
+            className="inline-flex items-center gap-1.5 py-1 text-[12px] uppercase tracking-[0.14em] text-[#201410] underline decoration-[rgba(32,20,16,0.22)] underline-offset-[0.4rem] transition-colors hover:text-[#6d5b51]"
           >
             <span>{chip.label}</span>
             <X className="h-3.5 w-3.5" />
@@ -323,7 +323,7 @@ export function FilterSidebar({
   return (
     <aside
       className={cn(
-        "rounded-[2rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.92)] p-5 shadow-[0_30px_70px_-60px_rgba(32,20,16,0.8)]",
+        "bg-transparent p-0",
         className,
       )}
     >

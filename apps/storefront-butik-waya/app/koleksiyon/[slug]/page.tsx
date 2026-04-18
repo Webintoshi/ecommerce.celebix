@@ -430,7 +430,7 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.94)]" aria-label="Breadcrumb">
+      <nav className="border-b border-[rgba(32,20,16,0.08)] bg-transparent" aria-label="Breadcrumb">
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
@@ -460,17 +460,19 @@ export default async function CollectionPage({
 
       <section className="border-b border-[rgba(32,20,16,0.08)] bg-transparent">
         <div className="container-premium py-8 md:py-10">
-          <div className="rounded-[2.25rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.88)] px-6 py-8 shadow-[0_30px_90px_-70px_rgba(32,20,16,0.45)] lg:px-8">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Koleksiyon</p>
-            <h1 className="mt-4 font-serif text-5xl leading-[0.9] tracking-[-0.06em] text-[#201410] sm:text-6xl">
-              {category.name}
-            </h1>
-            {category.description ? (
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6d5b51] md:text-base">
-                {category.description}
-              </p>
-            ) : null}
-            <p className="mt-5 text-[11px] uppercase tracking-[0.22em] text-[#6d5b51]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Koleksiyon</p>
+              <h1 className="mt-4 font-serif text-5xl leading-[0.9] tracking-[-0.06em] text-[#201410] sm:text-6xl">
+                {category.name}
+              </h1>
+              {category.description ? (
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6d5b51] md:text-base">
+                  {category.description}
+                </p>
+              ) : null}
+            </div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6d5b51]">
               {products.length} urun
             </p>
           </div>

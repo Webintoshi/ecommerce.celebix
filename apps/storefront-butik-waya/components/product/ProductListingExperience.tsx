@@ -338,8 +338,8 @@ export function ProductListingExperience({
   return (
     <div className="space-y-6">
       {topChipFacet && topChipFacet.options.length > 1 ? (
-        <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max gap-2">
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max gap-5">
             {topChipFacet.options.map((option) => {
               const isSelected =
                 chipMode === "subcategories"
@@ -366,17 +366,17 @@ export function ProductListingExperience({
                     )
                   }
                   className={cn(
-                    "inline-flex items-center gap-2 whitespace-nowrap border px-4 py-2 text-[12px] uppercase tracking-[0.16em] transition-colors",
+                    "inline-flex items-center gap-2 whitespace-nowrap py-1 text-[12px] uppercase tracking-[0.18em] transition-colors",
                     isSelected
-                      ? "border-[#201410] bg-[#201410] text-white"
-                      : "border-[rgba(32,20,16,0.12)] bg-white text-[#201410] hover:border-[#201410]",
+                      ? "text-[#201410] underline decoration-[rgba(32,20,16,0.26)] underline-offset-[0.45rem]"
+                      : "text-[#8a7b71] hover:text-[#201410]",
                   )}
                 >
                   <span>{option.label}</span>
                   <span
                     className={cn(
                       "text-[10px]",
-                      isSelected ? "text-white/72" : "text-[#8a7b71]",
+                      isSelected ? "text-[#6d5b51]" : "text-[#a08f84]",
                     )}
                   >
                     {option.count}
@@ -400,7 +400,7 @@ export function ProductListingExperience({
         </div>
 
         <div className="min-w-0">
-          <div className="rounded-[1.75rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.84)] px-4 py-4 shadow-[0_28px_80px_-70px_rgba(32,20,16,0.75)] sm:px-5">
+          <div>
             <div className="flex flex-col gap-4 border-b border-[rgba(32,20,16,0.08)] pb-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -419,32 +419,32 @@ export function ProductListingExperience({
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[rgba(32,20,16,0.12)] bg-white px-4 py-3 text-[12px] uppercase tracking-[0.18em] text-[#201410] lg:hidden"
+                    className="inline-flex items-center justify-center gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem] lg:hidden"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                     Filtreler
                     {activeFilterCount > 0 ? (
-                      <span className="rounded-full bg-[#201410] px-2 py-0.5 text-[10px] text-white">
+                      <span className="text-[10px] text-[#6d5b51]">
                         {activeFilterCount}
                       </span>
                     ) : null}
                   </button>
 
-                  <label className="relative block min-w-[15rem]">
+                  <label className="relative block min-w-[13rem]">
                     <span className="mb-2 block text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
                       Siralama
                     </span>
                     <select
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as ListingSortValue)}
-                      className="h-12 w-full appearance-none rounded-full border border-[rgba(32,20,16,0.12)] bg-white px-4 pr-10 text-sm text-[#201410] outline-none transition-colors focus:border-[#201410]"
+                      className="h-10 w-full appearance-none border-b border-[rgba(32,20,16,0.14)] bg-transparent px-0 pr-8 text-sm text-[#201410] outline-none transition-colors focus:border-[#201410]"
                     >
                       <option value="recommended">Onerilen</option>
                       <option value="price-asc">Fiyat artan</option>
                       <option value="price-desc">Fiyat azalan</option>
                       <option value="name-asc">Isim A-Z</option>
                     </select>
-                    <ChevronDown className="pointer-events-none absolute bottom-4 right-4 h-4 w-4 text-[#6d5b51]" />
+                    <ChevronDown className="pointer-events-none absolute bottom-3 right-0 h-4 w-4 text-[#6d5b51]" />
                   </label>
                 </div>
               </div>
@@ -458,7 +458,7 @@ export function ProductListingExperience({
 
             {visibleProducts.length === 0 ? (
               <div className="py-16 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#efe5db]">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center text-[#6d5b51]">
                   <Package className="h-6 w-6 text-[#6d5b51]" />
                 </div>
                 <h3 className="mt-5 font-serif text-3xl tracking-[-0.04em] text-[#201410]">
@@ -473,14 +473,14 @@ export function ProductListingExperience({
                   <button
                     type="button"
                     onClick={() => handleFilterChange(createListingFilterState(metadata.priceBounds))}
-                    className="mt-6 inline-flex rounded-full border border-[rgba(32,20,16,0.12)] bg-white px-5 py-3 text-[12px] uppercase tracking-[0.18em] text-[#201410]"
+                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem]"
                   >
                     Filtreleri sifirla
                   </button>
                 ) : (
                   <Link
                     href={buildLocalizedPath("/urunler", locale)}
-                    className="mt-6 inline-flex rounded-full border border-[rgba(32,20,16,0.12)] bg-white px-5 py-3 text-[12px] uppercase tracking-[0.18em] text-[#201410]"
+                    className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#201410] underline underline-offset-[0.45rem]"
                   >
                     Tum urunlere don
                   </Link>
@@ -510,7 +510,7 @@ export function ProductListingExperience({
 
                 <div ref={loadMoreRef} className="flex min-h-16 items-center justify-center pt-8">
                   {hasMore ? (
-                    <div className="flex items-center gap-3 rounded-full border border-[rgba(32,20,16,0.08)] bg-white px-4 py-3 text-[#6d5b51]">
+                    <div className="flex items-center gap-3 text-[#6d5b51]">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="text-[11px] uppercase tracking-[0.18em]">
                         Vitrin genisliyor
@@ -544,23 +544,23 @@ export function ProductListingExperienceSkeleton() {
     <div className="space-y-6">
       <div className="flex gap-2 overflow-hidden">
         {[...Array(6)].map((_, index) => (
-          <div key={index} className="h-10 w-28 animate-pulse rounded-full bg-neutral-200" />
+          <div key={index} className="h-5 w-28 animate-pulse rounded bg-neutral-200" />
         ))}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[18.5rem_minmax(0,1fr)] xl:gap-12">
         <div className="hidden lg:block">
-          <div className="rounded-[2rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.92)] p-5">
+          <div>
             <div className="mb-5 h-10 w-40 animate-pulse rounded bg-neutral-200" />
             <div className="space-y-4">
               {[...Array(4)].map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-2xl bg-neutral-100" />
+                <div key={index} className="h-24 animate-pulse rounded bg-neutral-100" />
               ))}
             </div>
           </div>
         </div>
 
-        <div className="rounded-[1.75rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
+        <div>
           <div className="mb-6 h-24 animate-pulse rounded-2xl bg-neutral-100" />
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 pt-2 sm:gap-x-6 xl:grid-cols-3 xl:gap-x-8 xl:gap-y-10">
             {[...Array(9)].map((_, index) => (
