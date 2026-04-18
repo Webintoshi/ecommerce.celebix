@@ -66,7 +66,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   if (!isLoaded || slides.length === 0) {
     return (
       <section className="w-full">
-        <div className="relative aspect-[5/7] w-full bg-[#ECE8E3] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]" />
+                  <div className="relative aspect-[5/7] w-full bg-[#ffffff] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]" />
       </section>
     );
   }
@@ -75,7 +75,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   return (
     <section className="w-full">
-      <div className="relative aspect-[5/7] max-h-[980px] w-full overflow-hidden bg-[#ECE8E3] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
+              <div className="relative aspect-[5/7] max-h-[980px] w-full overflow-hidden bg-[#ffffff] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
         <div className="absolute inset-0 hidden md:block">
           <Image
             src={slide.desktop}

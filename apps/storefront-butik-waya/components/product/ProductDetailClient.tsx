@@ -587,13 +587,13 @@ export function ProductDetailClient({
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Stok
                       </p>
                       <p className="mt-2 text-sm text-[#222222]">{stockStatus.text}</p>
                     </div>
-                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Ürün kodu
                       </p>
@@ -601,7 +601,7 @@ export function ProductDetailClient({
                         {productCode || "Butik Waya seçkisi"}
                       </p>
                     </div>
-                    <div className="rounded-[1.35rem] bg-[#F2EEE9] px-4 py-3">
+                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
                       <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
                         Yorumlar
                       </p>

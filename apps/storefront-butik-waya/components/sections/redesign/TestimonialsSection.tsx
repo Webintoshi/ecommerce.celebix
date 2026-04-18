@@ -102,7 +102,7 @@ export function TestimonialsSection({
         </div>
 
         <div
-          className="mx-auto max-w-5xl rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(246,240,235,0.9))] p-6 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.18)] sm:p-8"
+          className="mx-auto max-w-5xl rounded-[2rem] border border-[rgba(26,26,26,0.08)] bg-[#ffffff] p-6 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.18)] sm:p-8"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -135,7 +135,7 @@ export function TestimonialsSection({
 
           <div className="mt-8 flex flex-col gap-5 border-t border-[rgba(26,26,26,0.08)] pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EFE5DD]">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#ffffff]">
                 {activeTestimonial.image ? (
                   <div className="relative h-full w-full">
                     <Image
@@ -194,7 +194,7 @@ export function TestimonialsSection({
                     className={cn(
                       "rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition-colors",
                       isActive
-                        ? "border-[rgba(183,162,150,0.42)] bg-[#F3E8E0] text-[#222222]"
+                        ? "border-[rgba(26,26,26,0.16)] bg-[#ffffff] text-[#222222]"
                         : "border-[rgba(26,26,26,0.08)] bg-white/70 text-[#222222] hover:border-[rgba(26,26,26,0.16)] hover:text-[#222222]",
                     )}
                   >

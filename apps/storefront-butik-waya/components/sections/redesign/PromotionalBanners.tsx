@@ -178,12 +178,12 @@ export default function PromotionalBanners({
 
   if (loading) {
     return (
-      <section className="bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
+      <section className="bg-[#ffffff] py-16 md:py-24" id="promotional-banners">
         <div className="mx-auto flex max-w-[1400px] gap-6 px-4 sm:px-6 lg:px-8">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="aspect-[16/10] flex-1 rounded-3xl bg-[#F3E0E1] animate-pulse"
+              className="aspect-[16/10] flex-1 rounded-3xl bg-[#ffffff] animate-pulse"
             />
           ))}
         </div>
@@ -196,7 +196,7 @@ export default function PromotionalBanners({
   const secondary = sortedBanners.slice(1, 3);
 
   return (
-    <section className="overflow-hidden bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
+    <section className="overflow-hidden bg-[#ffffff] py-16 md:py-24" id="promotional-banners">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="mb-10 text-center md:mb-14">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-medium text-white shadow-lg">

@@ -13,14 +13,14 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="flex min-h-screen flex-col bg-[#F8F8F8F8]">
+      <div className="flex min-h-screen flex-col bg-[#ffffff]">
         {!isAdmin && !isAuthPage && (
           <>
             <AnnouncementBar />
             <Header />
           </>
         )}
-        <main className={isAdmin ? "bg-[#F8F8F8F8]" : "flex-1 bg-[#F8F8F8F8]"}>{children}</main>
+        <main className={isAdmin ? "bg-[#ffffff]" : "flex-1 bg-[#ffffff]"}>{children}</main>
         {!isAdmin && <Footer />}
       </div>
       {!isAdmin && <CartWrapper />}

@@ -95,19 +95,19 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
 
   if (loading) {
     return (
-      <section className="py-16 md:py-24 bg-[#FFF5F5]" id="shop-by-category">
+      <section className="py-16 md:py-24 bg-[#ffffff]" id="shop-by-category">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header Skeleton */}
           <div className="text-center mb-10 md:mb-14">
-            <div className="h-6 w-32 bg-[#F3E0E1] rounded-full mx-auto mb-4 animate-pulse" />
-            <div className="h-10 w-56 bg-[#F3E0E1] rounded-lg mx-auto mb-3 animate-pulse" />
-            <div className="h-5 w-72 bg-[#F3E0E1] rounded mx-auto animate-pulse" />
+            <div className="h-6 w-32 bg-[#ffffff] rounded-full mx-auto mb-4 animate-pulse" />
+            <div className="h-10 w-56 bg-[#ffffff] rounded-lg mx-auto mb-3 animate-pulse" />
+            <div className="h-5 w-72 bg-[#ffffff] rounded mx-auto animate-pulse" />
           </div>
           {/* Cards Skeleton */}
           <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 justify-center">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex-shrink-0 w-[280px] md:w-auto">
-                <div className="aspect-[4/5] bg-[#F3E0E1] rounded-2xl md:rounded-3xl animate-pulse" />
+                <div className="aspect-[4/5] bg-[#ffffff] rounded-2xl md:rounded-3xl animate-pulse" />
               </div>
             ))}
           </div>
@@ -122,7 +122,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
 
   return (
     <section 
-      className="py-16 md:py-24 bg-[#FFF5F5] overflow-hidden" 
+      className="py-16 md:py-24 bg-[#ffffff] overflow-hidden" 
       id="shop-by-category"
       aria-labelledby="category-heading"
     >
@@ -189,7 +189,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                           onError={() => handleImageError(cat.id)}
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-[#F3E0E1]" aria-hidden="true" />
+                        <div className="absolute inset-0 bg-[#ffffff]" aria-hidden="true" />
                       )}
                       
                       {/* Gradient Overlay - Bottom to Top */}

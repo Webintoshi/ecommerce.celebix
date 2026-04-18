@@ -17,7 +17,7 @@ const FALLBACK_RATIO = 4 / 5;
 
 function FallbackGalleryState() {
   return (
-    <div className="relative flex aspect-[4/5] flex-col items-center justify-center bg-[#ECE8E3]">
+      <div className="relative flex aspect-[4/5] flex-col items-center justify-center bg-[#ffffff]">
       <svg
         className="mb-3 h-20 w-20 text-gray-300"
         fill="none"
@@ -357,7 +357,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               key={`${image}-${index}`}
               type="button"
               onClick={() => openLightboxAt(index)}
-              className="group relative overflow-hidden bg-[#ECE8E3] text-left"
+                className="group relative overflow-hidden bg-[#ffffff] text-left"
               style={{ aspectRatio: `${getRatio(image)}` }}
             >
               {status === "loading" ? (
@@ -399,7 +399,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const mobileSingleImage = (
     <div className="lg:hidden">
       <div
-        className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ECE8E3] cursor-pointer"
+                      className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ffffff] cursor-pointer"
         onClick={() => setIsLightboxOpen(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -508,7 +508,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         </div>
 
         <div
-          className={`relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ECE8E3] select-none ${
+                    className={`relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ffffff] select-none ${
             isDragging ? "cursor-grabbing" : "cursor-grab"
           }`}
           onClick={() => !isDragging && setIsLightboxOpen(true)}

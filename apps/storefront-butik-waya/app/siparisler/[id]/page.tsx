@@ -143,7 +143,7 @@ export default async function OrderSuccessPage({
 
   if (orderError || !order) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAFAFA] px-4 py-16 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#ffffff] px-4 py-16 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Sipariş bulunamadı</h1>
         <p className="mt-2 max-w-md text-sm text-gray-500">
           Aradığınız sipariş mevcut değil veya bu sipariş için erişim izniniz yok.
@@ -199,7 +199,7 @@ export default async function OrderSuccessPage({
 
         <section className="overflow-hidden rounded-[34px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
           <div className="grid gap-0 lg:grid-cols-[1.25fr_0.95fr]">
-            <div className="border-b border-stone-200 bg-[linear-gradient(135deg,#f7f1e7_0%,#fff_55%,#f8f5ef_100%)] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+            <div className="border-b border-stone-200 bg-[#ffffff] p-6 sm:p-8 lg:border-b-0 lg:border-r">
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-sm">
                 <Check className="h-7 w-7 stroke-[3]" />
               </div>
@@ -215,11 +215,11 @@ export default async function OrderSuccessPage({
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-2xl border border-stone-200 bg-[#ffffff] p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Sipariş No</p>
                   <p className="mt-2 font-mono text-sm font-semibold text-stone-900">#{order.order_number}</p>
                 </div>
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-2xl border border-stone-200 bg-[#ffffff] p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Tarih</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">
                     {new Date(order.created_at).toLocaleDateString("tr-TR", {
@@ -229,7 +229,7 @@ export default async function OrderSuccessPage({
                     })}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-2xl border border-stone-200 bg-[#ffffff] p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Toplam</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">{formatPrice(order.total)}</p>
                 </div>
@@ -237,7 +237,7 @@ export default async function OrderSuccessPage({
             </div>
 
             <div className="p-6 sm:p-8">
-              <div className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-5">
+              <div className="rounded-[28px] border border-stone-200 bg-[#ffffff] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Ödeme Yöntemi</p>
@@ -298,7 +298,7 @@ export default async function OrderSuccessPage({
                 return (
                   <article
                     key={item.id}
-                    className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-4 sm:p-5"
+                    className="rounded-[28px] border border-stone-200 bg-[#ffffff] p-4 sm:p-5"
                   >
                     <div className="flex items-start gap-4">
                       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-white sm:h-28 sm:w-28">
