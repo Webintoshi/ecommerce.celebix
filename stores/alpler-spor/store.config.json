@@ -67,7 +67,7 @@
   "storefront": {
     "appDir": "apps/storefront-alpler-spor",
     "status": "active",
-    "lastScaffoldedAt": "2026-04-18T09:16:53.611Z",
+    "lastScaffoldedAt": "2026-04-18T10:32:49.215Z",
     "repoSyncStatus": "synced",
     "repoSyncedAt": "2026-04-18T08:30:48.809Z",
     "repoCommitSha": "8ad5c0b4dcaa34c731cdf921cb6a75f83e3ba79d",
@@ -77,8 +77,8 @@
     "runtimeUrl": "https://alplerspor.com",
     "resourceId": "dis6pxj5c19u2rmpdxemswx3",
     "deploymentStatus": "configured",
-    "preparedAt": "2026-04-18T09:16:53.611Z",
-    "deployedAt": "2026-04-18T09:16:53.611Z"
+    "preparedAt": "2026-04-18T10:32:49.216Z",
+    "deployedAt": "2026-04-18T10:32:49.216Z"
   },
   "features": [
     "catalog",
