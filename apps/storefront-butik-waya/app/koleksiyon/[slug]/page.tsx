@@ -410,7 +410,7 @@ export default async function CollectionPage({
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#fbf8f4]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -430,7 +430,7 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
+      <nav className="border-b border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.94)]" aria-label="Breadcrumb">
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
@@ -458,15 +458,22 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{category.name}</h1>
-          {category.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
+      <section className="border-b border-[rgba(32,20,16,0.08)] bg-transparent">
+        <div className="container-premium py-8 md:py-10">
+          <div className="rounded-[2.25rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.88)] px-6 py-8 shadow-[0_30px_90px_-70px_rgba(32,20,16,0.45)] lg:px-8">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Koleksiyon</p>
+            <h1 className="mt-4 font-serif text-5xl leading-[0.9] tracking-[-0.06em] text-[#201410] sm:text-6xl">
+              {category.name}
+            </h1>
+            {category.description ? (
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6d5b51] md:text-base">
+                {category.description}
+              </p>
+            ) : null}
+            <p className="mt-5 text-[11px] uppercase tracking-[0.22em] text-[#6d5b51]">
+              {products.length} urun
             </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
+          </div>
         </div>
       </section>
 

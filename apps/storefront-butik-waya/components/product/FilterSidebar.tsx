@@ -1,40 +1,59 @@
 "use client";
 
 import * as React from "react";
-import { cn, formatPriceValue } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RangeSlider } from "@/components/ui/slider";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { cn, formatPriceValue } from "@/lib/utils";
+import { ChevronDown, X } from "lucide-react";
 
-export interface FilterState {
+export interface ListingFilterOption {
+  value: string;
+  label: string;
+  count: number;
+  colorCode?: string | null;
+}
+
+export interface ListingFacetGroup {
+  id: string;
+  label: string;
+  options: ListingFilterOption[];
+}
+
+export interface ListingFilterMetadata {
+  categories: ListingFacetGroup | null;
+  subcategories: ListingFacetGroup | null;
+  attributes: ListingFacetGroup[];
+  priceBounds: [number, number];
+}
+
+export interface ListingFilterState {
   categories: string[];
+  subcategories: string[];
+  attributes: Record<string, string[]>;
   priceRange: [number, number];
-  vegan: boolean;
-  sugarFree: boolean;
-  highProtein: boolean;
-  glutenFree: boolean;
   inStock: boolean;
   onSale: boolean;
   isNew: boolean;
 }
 
 interface FilterSidebarProps {
-  filters: FilterState;
-  onFilterChange: (filters: Partial<FilterState>) => void;
-  categoryCounts?: Record<string, number>;
+  filters: ListingFilterState;
+  metadata: ListingFilterMetadata;
+  onFilterChange: (filters: Partial<ListingFilterState>) => void;
   className?: string;
 }
 
-const CATEGORIES = [
-  { value: "kol-saati-kordonu", label: "Kol Saati Kordonu" },
-  { value: "akilli-saat-kordonu", label: "Akıllı Saat Kordonu" },
-  { value: "deri-bileklik", label: "Deri Bileklik" },
-  { value: "anahtarlik", label: "Anahtarlık" },
-  { value: "kartlik", label: "Kartlık" },
-  { value: "cuzdan", label: "Cüzdan" },
-  { value: "kemer", label: "Kemer" },
-  { value: "canta", label: "Çanta" },
-];
+interface ActiveFiltersProps {
+  filters: ListingFilterState;
+  metadata: ListingFilterMetadata;
+  onFilterChange: (filters: Partial<ListingFilterState>) => void;
+}
+
+type ActiveFilterChip = {
+  key: string;
+  label: string;
+  onRemove: () => void;
+};
 
 interface FilterSectionProps {
   title: string;
@@ -46,238 +65,370 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
-    <div className="border-b border-[#E5E2DE] pb-4">
+    <section className="border-b border-[rgba(32,20,16,0.08)] pb-5">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-sm font-medium text-[#0F1626] tracking-wide uppercase hover:text-[#8A6B37] transition-colors"
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 py-1 text-left"
       >
-        {title}
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
+        <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">{title}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-[#6d5b51] transition-transform duration-300",
+            isOpen && "rotate-180",
+          )}
+        />
       </button>
-      {isOpen && <div className="pt-3 space-y-3">{children}</div>}
-    </div>
+
+      {isOpen ? <div className="space-y-3 pt-4">{children}</div> : null}
+    </section>
   );
 }
 
-export function FilterSidebar({ filters, onFilterChange, categoryCounts, className }: FilterSidebarProps) {
-  const handleCategoryChange = (category: string, checked: boolean) => {
-    const newCategories = checked
-      ? [...filters.categories, category]
-      : filters.categories.filter((c) => c !== category);
-    onFilterChange({ categories: newCategories });
-  };
-
-  const hasActiveFilters =
-    filters.categories.length > 0 ||
-    filters.priceRange[0] > 0 ||
-    filters.priceRange[1] < 500 ||
-    filters.vegan ||
-    filters.sugarFree ||
-    filters.highProtein ||
-    filters.glutenFree ||
-    filters.inStock ||
-    filters.onSale ||
-    filters.isNew;
-
-  const clearFilters = () => {
-    onFilterChange({
-      categories: [],
-      priceRange: [0, 500],
-      vegan: false,
-      sugarFree: false,
-      highProtein: false,
-      glutenFree: false,
-      inStock: false,
-      onSale: false,
-      isNew: false,
-    });
-  };
-
+function FilterOptionRow({
+  checked,
+  label,
+  count,
+  colorCode,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  label: string;
+  count: number;
+  colorCode?: string | null;
+  onCheckedChange: (checked: boolean) => void;
+}) {
   return (
-    <div className={cn("bg-white p-6 border border-[#E5E2DE]", className)}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-serif text-xl text-[#0F1626]">Filtreler</h2>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
-          >
-            Temizle
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <FilterSection title="Kategoriler">
-          {CATEGORIES.map((category) => (
-            <Checkbox
-              key={category.value}
-              label={category.label}
-              checked={filters.categories.includes(category.value)}
-              onChange={(e) => handleCategoryChange(category.value, e.target.checked)}
-              count={categoryCounts?.[category.value]}
-            />
-          ))}
-        </FilterSection>
-
-        <FilterSection title="Fiyat Aralığı">
-          <RangeSlider
-            min={0}
-            max={5000}
-            step={50}
-            value={filters.priceRange}
-            onChange={(value) => onFilterChange({ priceRange: value })}
-          />
-        </FilterSection>
-
-        <FilterSection title="Özellikler">
-          <Checkbox
-            label="El Yapımı"
-            checked={filters.vegan}
-            onChange={(e) => onFilterChange({ vegan: e.target.checked })}
-          />
-          <Checkbox
-            label="Vegan Deri"
-            checked={filters.sugarFree}
-            onChange={(e) => onFilterChange({ sugarFree: e.target.checked })}
-          />
-          <Checkbox
-            label="Premium Koleksiyon"
-            checked={filters.highProtein}
-            onChange={(e) => onFilterChange({ highProtein: e.target.checked })}
-          />
-          <Checkbox
-            label="Kişiselleştirilebilir"
-            checked={filters.glutenFree}
-            onChange={(e) => onFilterChange({ glutenFree: e.target.checked })}
-          />
-        </FilterSection>
-
-        <FilterSection title="Stok & İndirim" defaultOpen={false}>
-          <Checkbox
-            label="Stokta olanlar"
-            checked={filters.inStock}
-            onChange={(e) => onFilterChange({ inStock: e.target.checked })}
-          />
-          <Checkbox
-            label="İndirimli ürünler"
-            checked={filters.onSale}
-            onChange={(e) => onFilterChange({ onSale: e.target.checked })}
-          />
-          <Checkbox
-            label="Yeni ürünler"
-            checked={filters.isNew}
-            onChange={(e) => onFilterChange({ isNew: e.target.checked })}
-          />
-        </FilterSection>
-      </div>
-    </div>
+    <label className="flex cursor-pointer items-center gap-3 text-sm text-[#201410]">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(Boolean(value))}
+        className="h-4 w-4 rounded-none border-[#cdbfb2] data-[state=checked]:border-[#201410] data-[state=checked]:bg-[#201410]"
+      />
+      {colorCode ? (
+        <span
+          className="h-3.5 w-3.5 rounded-full border border-[rgba(32,20,16,0.12)]"
+          style={{ backgroundColor: colorCode }}
+        />
+      ) : null}
+      <span className="flex-1 truncate">{label}</span>
+      {count > 0 ? (
+        <span className="text-xs tracking-[0.08em] text-[#8a7b71]">{count}</span>
+      ) : null}
+    </label>
   );
 }
 
-interface ActiveFiltersProps {
-  filters: FilterState;
-  onFilterChange: (filters: Partial<FilterState>) => void;
+function buildOptionLabelLookup(group: ListingFacetGroup | null) {
+  return new Map(group?.options.map((option) => [option.value, option.label]) ?? []);
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  "kol-saati-kordonu": "Kol Saati Kordonu",
-  "akilli-saat-kordonu": "Akıllı Saat Kordonu",
-  "deri-bileklik": "Deri Bileklik",
-  "anahtarlik": "Anahtarlık",
-  "kartlik": "Kartlık",
-  "cuzdan": "Cüzdan",
-  "kemer": "Kemer",
-  "canta": "Çanta",
-};
+export function createListingFilterState(priceBounds: [number, number]): ListingFilterState {
+  return {
+    categories: [],
+    subcategories: [],
+    attributes: {},
+    priceRange: priceBounds,
+    inStock: false,
+    onSale: false,
+    isNew: false,
+  };
+}
 
-export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
-  const activeFilters: { label: string; onRemove: () => void }[] = [];
+export function getActiveFilterCount(filters: ListingFilterState, metadata: ListingFilterMetadata) {
+  let count = filters.categories.length + filters.subcategories.length;
 
-  filters.categories.forEach((cat) => {
-    activeFilters.push({
-      label: CATEGORY_LABELS[cat] || cat,
+  Object.values(filters.attributes).forEach((values) => {
+    count += values.length;
+  });
+
+  if (
+    filters.priceRange[0] !== metadata.priceBounds[0] ||
+    filters.priceRange[1] !== metadata.priceBounds[1]
+  ) {
+    count += 1;
+  }
+
+  if (filters.inStock) count += 1;
+  if (filters.onSale) count += 1;
+  if (filters.isNew) count += 1;
+
+  return count;
+}
+
+export function hasActiveListingFilters(
+  filters: ListingFilterState,
+  metadata: ListingFilterMetadata,
+) {
+  return getActiveFilterCount(filters, metadata) > 0;
+}
+
+export function ActiveFilters({
+  filters,
+  metadata,
+  onFilterChange,
+}: ActiveFiltersProps) {
+  const categoryLabels = buildOptionLabelLookup(metadata.categories);
+  const subcategoryLabels = buildOptionLabelLookup(metadata.subcategories);
+
+  const chips: ActiveFilterChip[] = [];
+
+  filters.categories.forEach((value) => {
+    chips.push({
+      key: `category-${value}`,
+      label: categoryLabels.get(value) ?? value,
       onRemove: () =>
         onFilterChange({
-          categories: filters.categories.filter((c) => c !== cat),
+          categories: filters.categories.filter((item) => item !== value),
         }),
     });
   });
 
-  if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000) {
-    activeFilters.push({
-      label: `${formatPriceValue(filters.priceRange[0])}₺ - ${formatPriceValue(filters.priceRange[1])}₺`,
-      onRemove: () => onFilterChange({ priceRange: [0, 5000] }),
+  filters.subcategories.forEach((value) => {
+    chips.push({
+      key: `subcategory-${value}`,
+      label: subcategoryLabels.get(value) ?? value,
+      onRemove: () =>
+        onFilterChange({
+          subcategories: filters.subcategories.filter((item) => item !== value),
+        }),
     });
-  }
+  });
 
-  if (filters.vegan) {
-    activeFilters.push({
-      label: "El Yapımı",
-      onRemove: () => onFilterChange({ vegan: false }),
+  metadata.attributes.forEach((group) => {
+    const values = filters.attributes[group.id] ?? [];
+    const optionLabels = new Map(group.options.map((option) => [option.value, option.label]));
+
+    values.forEach((value) => {
+      chips.push({
+        key: `${group.id}-${value}`,
+        label: optionLabels.get(value) ?? value,
+        onRemove: () =>
+          onFilterChange({
+            attributes: {
+              ...filters.attributes,
+              [group.id]: values.filter((item) => item !== value),
+            },
+          }),
+      });
     });
-  }
+  });
 
-  if (filters.sugarFree) {
-    activeFilters.push({
-      label: "Vegan Deri",
-      onRemove: () => onFilterChange({ sugarFree: false }),
-    });
-  }
-
-  if (filters.highProtein) {
-    activeFilters.push({
-      label: "Premium Koleksiyon",
-      onRemove: () => onFilterChange({ highProtein: false }),
-    });
-  }
-
-  if (filters.glutenFree) {
-    activeFilters.push({
-      label: "Kişiselleştirilebilir",
-      onRemove: () => onFilterChange({ glutenFree: false }),
+  if (
+    filters.priceRange[0] !== metadata.priceBounds[0] ||
+    filters.priceRange[1] !== metadata.priceBounds[1]
+  ) {
+    chips.push({
+      key: "price",
+      label: `${formatPriceValue(filters.priceRange[0])} - ${formatPriceValue(filters.priceRange[1])}`,
+      onRemove: () => onFilterChange({ priceRange: metadata.priceBounds }),
     });
   }
 
   if (filters.inStock) {
-    activeFilters.push({
+    chips.push({
+      key: "in-stock",
       label: "Stokta",
       onRemove: () => onFilterChange({ inStock: false }),
     });
   }
 
   if (filters.onSale) {
-    activeFilters.push({
-      label: "İndirimli",
+    chips.push({
+      key: "on-sale",
+      label: "Indirimli",
       onRemove: () => onFilterChange({ onSale: false }),
     });
   }
 
   if (filters.isNew) {
-    activeFilters.push({
-      label: "Yeni",
+    chips.push({
+      key: "is-new",
+      label: "Yeni sezon",
       onRemove: () => onFilterChange({ isNew: false }),
     });
   }
 
-  if (activeFilters.length === 0) return null;
+  if (chips.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {activeFilters.map((filter, index) => (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">
+          Aktif filtreler
+        </span>
         <button
-          key={index}
-          onClick={filter.onRemove}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8A6B37]/10 text-[#0F1626] text-sm border border-[#8A6B37]/20 hover:bg-[#8A6B37]/20 transition-colors"
+          type="button"
+          onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
+          className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
         >
-          {filter.label}
-          <X className="w-3.5 h-3.5" />
+          Sifirla
         </button>
-      ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2.5">
+        {chips.map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={chip.onRemove}
+            className="inline-flex items-center gap-2 rounded-full border border-[rgba(32,20,16,0.1)] bg-white px-3.5 py-2 text-[12px] uppercase tracking-[0.12em] text-[#201410] transition-colors hover:border-[#201410]"
+          >
+            <span>{chip.label}</span>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+export function FilterSidebar({
+  filters,
+  metadata,
+  onFilterChange,
+  className,
+}: FilterSidebarProps) {
+  const hasActiveFilters = hasActiveListingFilters(filters, metadata);
+
+  const handleMultiSelect = (
+    key: "categories" | "subcategories",
+    option: string,
+    checked: boolean,
+  ) => {
+    const currentValues = filters[key];
+    const nextValues = checked
+      ? [...currentValues, option]
+      : currentValues.filter((value) => value !== option);
+
+    onFilterChange({ [key]: nextValues });
+  };
+
+  const handleAttributeChange = (groupId: string, option: string, checked: boolean) => {
+    const currentValues = filters.attributes[groupId] ?? [];
+    const nextValues = checked
+      ? [...currentValues, option]
+      : currentValues.filter((value) => value !== option);
+
+    onFilterChange({
+      attributes: {
+        ...filters.attributes,
+        [groupId]: nextValues,
+      },
+    });
+  };
+
+  return (
+    <aside
+      className={cn(
+        "rounded-[2rem] border border-[rgba(32,20,16,0.08)] bg-[rgba(255,252,247,0.92)] p-5 shadow-[0_30px_70px_-60px_rgba(32,20,16,0.8)]",
+        className,
+      )}
+    >
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-[#6d5b51]">Filtre paneli</p>
+          <h2 className="mt-2 font-serif text-[1.6rem] leading-none tracking-[-0.04em] text-[#201410]">
+            Secimi daralt
+          </h2>
+        </div>
+
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={() => onFilterChange(createListingFilterState(metadata.priceBounds))}
+            className="text-xs uppercase tracking-[0.18em] text-[#201410] underline underline-offset-4"
+          >
+            Temizle
+          </button>
+        ) : null}
+      </div>
+
+      <div className="space-y-5">
+        {metadata.categories && metadata.categories.options.length > 1 ? (
+          <FilterSection title={metadata.categories.label}>
+            {metadata.categories.options.map((option) => (
+              <FilterOptionRow
+                key={option.value}
+                checked={filters.categories.includes(option.value)}
+                label={option.label}
+                count={option.count}
+                onCheckedChange={(checked) =>
+                  handleMultiSelect("categories", option.value, checked)
+                }
+              />
+            ))}
+          </FilterSection>
+        ) : null}
+
+        {metadata.subcategories && metadata.subcategories.options.length > 1 ? (
+          <FilterSection title={metadata.subcategories.label}>
+            {metadata.subcategories.options.map((option) => (
+              <FilterOptionRow
+                key={option.value}
+                checked={filters.subcategories.includes(option.value)}
+                label={option.label}
+                count={option.count}
+                onCheckedChange={(checked) =>
+                  handleMultiSelect("subcategories", option.value, checked)
+                }
+              />
+            ))}
+          </FilterSection>
+        ) : null}
+
+        {metadata.attributes.map((group, index) => (
+          <FilterSection key={group.id} title={group.label} defaultOpen={index < 2}>
+            {group.options.map((option) => (
+              <FilterOptionRow
+                key={option.value}
+                checked={(filters.attributes[group.id] ?? []).includes(option.value)}
+                label={option.label}
+                count={option.count}
+                colorCode={option.colorCode}
+                onCheckedChange={(checked) =>
+                  handleAttributeChange(group.id, option.value, checked)
+                }
+              />
+            ))}
+          </FilterSection>
+        ))}
+
+        {metadata.priceBounds[0] < metadata.priceBounds[1] ? (
+          <FilterSection title="Fiyat araligi">
+            <RangeSlider
+              min={metadata.priceBounds[0]}
+              max={metadata.priceBounds[1]}
+              step={50}
+              value={filters.priceRange}
+              onChange={(value) => onFilterChange({ priceRange: value })}
+            />
+          </FilterSection>
+        ) : null}
+
+        <FilterSection title="Durum" defaultOpen={false}>
+          <FilterOptionRow
+            checked={filters.inStock}
+            label="Stokta"
+            count={0}
+            onCheckedChange={(checked) => onFilterChange({ inStock: checked })}
+          />
+          <FilterOptionRow
+            checked={filters.onSale}
+            label="Indirimli"
+            count={0}
+            onCheckedChange={(checked) => onFilterChange({ onSale: checked })}
+          />
+          <FilterOptionRow
+            checked={filters.isNew}
+            label="Yeni sezon"
+            count={0}
+            onCheckedChange={(checked) => onFilterChange({ isNew: checked })}
+          />
+        </FilterSection>
+      </div>
+    </aside>
   );
 }
