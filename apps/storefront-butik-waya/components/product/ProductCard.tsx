@@ -73,34 +73,26 @@ function ProductCardRating({ product }: { product: Product }) {
   const reviewCount = Number(product.reviewCount || 0);
 
   if (!Number.isFinite(reviewCount) || reviewCount <= 0) {
-    return (
-      <div className="mt-3 text-[11px] tracking-[0.04em] text-[#9A928A]">
-        Henüz yorum yok
-      </div>
-    );
+    return null;
   }
 
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-3 flex items-center gap-2 text-[#7D756D]">
+    <div className="flex items-center gap-1.5 text-[#887E76]">
       <div className="flex items-center gap-0.5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Star
             key={`${product.id}-rating-${index}`}
-            className={`h-3.25 w-3.25 ${
-              index < filledStars ? "fill-current text-current" : "fill-[#E2DDD8] text-[#E2DDD8]"
+            className={`h-[11px] w-[11px] ${
+              index < filledStars
+                ? "fill-current text-[#8A7E76]"
+                : "fill-[#DDD5CE] text-[#DDD5CE]"
             }`}
           />
         ))}
       </div>
-      <span className="text-[11px] font-medium tracking-[0.01em] text-[#171311]">
-        {rating.toFixed(1)}
-      </span>
-      <span className="h-1 w-1 rounded-full bg-[#CFC7C0]" />
-      <span className="text-[11px] tracking-[0.04em] text-[#8A827B]">
-        {reviewCount} yorum
-      </span>
+      <span className="text-[11px] tracking-[0.03em] text-[#8A7E76]">{reviewCount} yorum</span>
     </div>
   );
 }
@@ -150,31 +142,34 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               </>
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
-                Gorsel bekleniyor
+                {"G\u00F6rsel bekleniyor"}
               </div>
             )}
           </div>
 
           <div className="flex flex-1 flex-col justify-between py-2">
-            <div className="space-y-3">
-              <h3 className="line-clamp-2 max-w-[18ch] font-serif text-[1.35rem] leading-[1.02] tracking-[-0.03em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.6rem]">
+            <div className="space-y-2.5">
+              <h3 className="line-clamp-2 max-w-[20ch] font-serif text-[1.16rem] leading-[1.1] tracking-[-0.02em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.28rem]">
                 {product.name}
               </h3>
 
-              {typeof displayPrice === "number" ? (
-                <div className="flex items-end gap-2.5">
-                  <span className="text-[1.02rem] font-medium tracking-[-0.02em] text-[#171311] sm:text-[1.08rem]">
-                    {formatPrice(displayPrice)}
-                  </span>
-                  {originalPrice ? (
-                    <span className="text-[13px] text-[#A1978E] line-through">
-                      {formatPrice(originalPrice)}
+              <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+                {typeof displayPrice === "number" ? (
+                  <div className="flex items-end gap-2.5">
+                    <span className="text-[1rem] font-medium tracking-[-0.015em] text-[#171311] sm:text-[1.04rem]">
+                      {formatPrice(displayPrice)}
                     </span>
-                  ) : null}
-                </div>
-              ) : null}
+                    {originalPrice ? (
+                      <span className="text-[12px] text-[#A1978E] line-through">
+                        {formatPrice(originalPrice)}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
 
-              <ProductCardRating product={product} />
+                <ProductCardRating product={product} />
+              </div>
+
               <ProductCardSwatches product={product} />
             </div>
           </div>
@@ -212,30 +207,33 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-[#ECE8E3] text-sm text-neutral-400">
-              Gorsel bekleniyor
+              {"G\u00F6rsel bekleniyor"}
             </div>
           )}
         </div>
 
-        <div className="space-y-3 pt-4">
-          <h3 className="line-clamp-2 min-h-[2.2em] max-w-[18ch] font-serif text-[1.02rem] leading-[1.1] tracking-[-0.022em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.1rem]">
+        <div className="space-y-2.5 pt-3.5">
+          <h3 className="line-clamp-2 min-h-[2.45em] font-serif text-[0.98rem] leading-[1.18] tracking-[-0.018em] text-[#171311] transition-colors duration-300 group-hover:text-[#4E4640] sm:text-[1.04rem]">
             {product.name}
           </h3>
 
-          {typeof displayPrice === "number" ? (
-            <div className="flex items-end gap-2">
-              <span className="text-[0.96rem] font-medium tracking-[-0.02em] text-[#171311] sm:text-[1rem]">
-                {formatPrice(displayPrice)}
-              </span>
-              {originalPrice ? (
-                <span className="text-[12px] text-[#A1978E] line-through">
-                  {formatPrice(originalPrice)}
+          <div className="flex min-h-[1.25rem] flex-wrap items-end gap-x-3 gap-y-1.5">
+            {typeof displayPrice === "number" ? (
+              <div className="flex items-end gap-2">
+                <span className="text-[0.95rem] font-medium tracking-[-0.015em] text-[#171311] sm:text-[0.98rem]">
+                  {formatPrice(displayPrice)}
                 </span>
-              ) : null}
-            </div>
-          ) : null}
+                {originalPrice ? (
+                  <span className="text-[11px] text-[#A1978E] line-through">
+                    {formatPrice(originalPrice)}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
-          <ProductCardRating product={product} />
+            <ProductCardRating product={product} />
+          </div>
+
           <ProductCardSwatches product={product} />
         </div>
       </article>
