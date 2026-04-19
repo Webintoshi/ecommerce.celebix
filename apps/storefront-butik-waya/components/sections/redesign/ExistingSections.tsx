@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   Check,
-  ChevronLeft,
-  ChevronRight,
   Leaf,
   Mail,
   Send,
@@ -15,7 +13,6 @@ import {
   Award,
   Heart,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface MarqueeSettings {
   items: { id: string; text: string; icon: string; badge?: string }[];
@@ -46,93 +43,58 @@ interface HeroSlide {
 }
 
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
-  const [current, setCurrent] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    if (slides.length > 0) {
-      setIsLoaded(true);
-    }
-  }, [slides]);
-
-  useEffect(() => {
-    if (slides.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length);
-    }, 5600);
-    return () => clearInterval(interval);
-  }, [slides]);
-
-  if (!isLoaded || slides.length === 0) {
+  if (slides.length === 0) {
     return (
       <section className="w-full">
-                  <div className="relative aspect-[5/7] w-full bg-[#ffffff] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]" />
+        <div className="relative aspect-[5/7] w-full bg-[#ffffff] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]" />
       </section>
     );
   }
 
-  const slide = slides[current];
-
   return (
-    <section className="w-full">
-              <div className="relative aspect-[5/7] max-h-[980px] w-full overflow-hidden bg-[#ffffff] sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
-        <div className="absolute inset-0 hidden md:block">
-          <Image
-            src={slide.desktop}
-            alt={slide.alt}
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-          />
-        </div>
-        <div className="absolute inset-0 block md:hidden">
-          <Image
-            src={slide.mobile || slide.desktop}
-            alt={slide.alt}
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-          />
-        </div>
+    <section className="w-full space-y-2 sm:space-y-3">
+      {slides.map((slide, index) => {
+        const href = slide.buttonLink || slide.link;
+        const BannerTag = href ? "a" : "div";
 
-        {slides.length > 1 ? (
-          <>
-            <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 sm:bottom-8">
-              {slides.map((_, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrent(idx)}
-                  className={cn(
-                    "h-1 rounded-full transition-all duration-300",
-                    idx === current ? "w-12 bg-white" : "w-6 bg-white/38 hover:bg-white/68",
-                  )}
-                  aria-label={`Slide ${idx + 1}`}
+        return (
+          <BannerTag
+            key={slide.id ?? index}
+            {...(href
+              ? {
+                  href,
+                  className:
+                    "group relative block overflow-hidden bg-[#ffffff] transition-opacity hover:opacity-[0.98]",
+                }
+              : {
+                  className: "relative block overflow-hidden bg-[#ffffff]",
+                })}
+          >
+            <div className="relative aspect-[5/7] w-full sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
+              <div className="absolute inset-0 hidden md:block">
+                <Image
+                  src={slide.desktop}
+                  alt={slide.alt}
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
+                  sizes="100vw"
                 />
-              ))}
+              </div>
+              <div className="absolute inset-0 block md:hidden">
+                <Image
+                  src={slide.mobile || slide.desktop}
+                  alt={slide.alt}
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
+                  sizes="100vw"
+                />
+              </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-              className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-black/12 text-white backdrop-blur transition-all hover:bg-black/24 lg:flex"
-              aria-label="Onceki slide"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrent((current + 1) % slides.length)}
-              className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/18 bg-black/12 text-white backdrop-blur transition-all hover:bg-black/24 lg:flex"
-              aria-label="Sonraki slide"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        ) : null}
-      </div>
+          </BannerTag>
+        );
+      })}
     </section>
   );
 }
