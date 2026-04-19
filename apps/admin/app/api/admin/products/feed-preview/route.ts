@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
-import { parseXmlProductFeed } from "@/lib/admin/product-feed-import";
+import { fetchAndParseXmlProductFeed } from "@/lib/admin/product-feed-fetch";
 
 export const runtime = "nodejs";
-
-const MAX_FEED_BYTES = 8 * 1024 * 1024;
-const FEED_TIMEOUT_MS = 20000;
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdminApiAuth();
@@ -28,83 +25,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(feedUrl);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Geçerli bir feed URL girin." },
-        { status: 400 },
-      );
-    }
+    const { parseResult, source, host } = await fetchAndParseXmlProductFeed(feedUrl);
 
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return NextResponse.json(
-        { success: false, error: "Feed URL yalnızca http veya https olabilir." },
-        { status: 400 },
-      );
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(parsedUrl.toString(), {
-        cache: "no-store",
-        redirect: "follow",
-        headers: {
-          Accept: "application/xml,text/xml,application/atom+xml;q=0.9,*/*;q=0.8",
-        },
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Feed alınamadı: ${response.status} ${response.statusText || ""}`.trim(),
-          },
-          { status: 502 },
-        );
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.byteLength > MAX_FEED_BYTES) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Feed çok büyük. Lütfen daha küçük bir feed veya filtrelenmiş URL kullanın.",
-          },
-          { status: 413 },
-        );
-      }
-
-      const xmlContent = buffer.toString("utf8");
-      const parseResult = parseXmlProductFeed(xmlContent);
-
-      return NextResponse.json({
-        success: true,
-        parseResult,
-        meta: {
-          source: parsedUrl.toString(),
-          host: parsedUrl.host,
-        },
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    return NextResponse.json({
+      success: true,
+      parseResult,
+      meta: {
+        source,
+        host,
+      },
+    });
   } catch (error) {
     console.error("Admin feed preview route error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.name === "AbortError"
-              ? "Feed zaman aşımına uğradı. Lütfen tekrar deneyin."
-              : error.message
-            : "Feed işlenemedi.",
+        error: error instanceof Error ? error.message : "Feed işlenemedi.",
       },
       { status: 500 },
     );

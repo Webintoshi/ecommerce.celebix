@@ -14,6 +14,11 @@ type FeedParseOptions = {
   fallbackStock?: number;
 };
 
+type FeedCategoryPathSegment = {
+  slug: string;
+  name: string;
+};
+
 type FeedDraftProduct = {
   name: string;
   slug: string;
@@ -21,11 +26,13 @@ type FeedDraftProduct = {
   shortDescription: string;
   category: string;
   subcategory: string;
+  categoryPath: FeedCategoryPathSegment[];
   brand?: string;
   tags: Set<string>;
   images: Map<string, ParsedProductImage>;
   variants: Map<string, ParsedVariant>;
   sourceRows: number[];
+  shopifyMetadata?: Record<string, unknown>;
 };
 
 type FeedEntryDraft = {
@@ -38,6 +45,7 @@ type FeedEntryDraft = {
   brand?: string;
   category: string;
   subcategory: string;
+  categoryPath: FeedCategoryPathSegment[];
   images: string[];
   tags: string[];
   price: number;
@@ -139,11 +147,13 @@ export function parseXmlProductFeed(
         shortDescription: normalized.description.slice(0, 160),
         category: normalized.category,
         subcategory: normalized.subcategory,
+        categoryPath: normalized.categoryPath,
         brand: normalized.brand,
         tags: new Set(normalized.tags),
         images: new Map<string, ParsedProductImage>(),
         variants: new Map<string, ParsedVariant>(),
         sourceRows: [humanRow],
+        shopifyMetadata: buildFeedImportMetadata(normalized),
       });
     }
 
@@ -162,6 +172,9 @@ export function parseXmlProductFeed(
     }
     if (!draft.subcategory && normalized.subcategory) {
       draft.subcategory = normalized.subcategory;
+    }
+    if (draft.categoryPath.length === 0 && normalized.categoryPath.length > 0) {
+      draft.categoryPath = normalized.categoryPath;
     }
     normalized.tags.forEach((tag) => draft.tags.add(tag));
     draft.sourceRows.push(humanRow);
@@ -220,6 +233,7 @@ export function parseXmlProductFeed(
         `${draft.name} ürünü XML feed üzerinden toplu aktarım ile hazırlandı.`,
       category: draft.category || "genel",
       subcategory: draft.subcategory,
+      categoryPath: draft.categoryPath,
       images: imagesV2.map((image) => image.url),
       imagesV2,
       tags: Array.from(draft.tags).slice(0, 24),
@@ -236,6 +250,7 @@ export function parseXmlProductFeed(
         draft.shortDescription ||
         draft.description.slice(0, 160) ||
         `${draft.name} ürün detayları XML feed üzerinden alındı.`,
+      shopifyMetadata: draft.shopifyMetadata,
       variants,
       sourceRows: Array.from(new Set(draft.sourceRows)).sort((left, right) => left - right),
     });
@@ -285,7 +300,7 @@ function normalizeFeedEntry(
   const productType = cleanText(
     readText(entry.product_type) || readText(entry.google_product_category),
   );
-  const { category, subcategory } = mapFeedCategory(productType, title, slug);
+  const { category, subcategory, categoryPath } = mapFeedCategory(productType, title, slug);
   const images = dedupeStrings([
     cleanText(readText(entry.image_link)),
     ...ensureArray(entry.additional_image_link).map((value) => cleanText(readText(value))),
@@ -315,6 +330,7 @@ function normalizeFeedEntry(
     brand,
     category,
     subcategory,
+    categoryPath,
     images,
     tags: buildFeedTags({ brand, productType }),
     price,
@@ -398,29 +414,62 @@ function mapFeedCategory(
   rawCategory: string,
   productName: string,
   slug: string,
-): { category: string; subcategory: string } {
+): { category: string; subcategory: string; categoryPath: FeedCategoryPathSegment[] } {
   const normalizedSource = cleanText(rawCategory || productName || slug);
   if (!normalizedSource) {
-    return { category: "genel", subcategory: "" };
+    return {
+      category: "genel",
+      subcategory: "",
+      categoryPath: [{ slug: "genel", name: "Genel" }],
+    };
   }
 
   const hierarchy = normalizedSource
     .split(">")
     .map((segment) => cleanText(segment))
     .filter(Boolean);
+  const categoryPath = (hierarchy.length > 0 ? hierarchy : [normalizedSource])
+    .map((segment) => {
+      const normalizedSlug = toSlug(segment);
+      if (!normalizedSlug) {
+        return null;
+      }
 
-  if (hierarchy.length > 1) {
-    const category = toSlug(hierarchy[0]) || "genel";
-    const subcategorySlug = toSlug(hierarchy[hierarchy.length - 1]);
+      return {
+        slug: normalizedSlug,
+        name: segment,
+      } satisfies FeedCategoryPathSegment;
+    })
+    .filter((segment): segment is FeedCategoryPathSegment => Boolean(segment));
+
+  if (categoryPath.length > 1) {
+    const category = categoryPath[0]?.slug || "genel";
+    const subcategorySlug = categoryPath[categoryPath.length - 1]?.slug || "";
     return {
       category,
       subcategory: subcategorySlug !== category ? subcategorySlug : "",
+      categoryPath,
     };
   }
 
+  const fallbackCategory = categoryPath[0]?.slug || toSlug(normalizedSource) || "genel";
   return {
-    category: toSlug(normalizedSource) || "genel",
+    category: fallbackCategory,
     subcategory: "",
+    categoryPath:
+      categoryPath.length > 0
+        ? categoryPath
+        : [{ slug: fallbackCategory, name: normalizedSource }],
+  };
+}
+
+function buildFeedImportMetadata(entry: FeedEntryDraft): Record<string, unknown> {
+  return {
+    celebix_import_source: {
+      kind: "xml_feed",
+      rawCategoryPath: entry.categoryPath.map((segment) => segment.name),
+      itemGroupId: entry.groupId,
+    },
   };
 }
 

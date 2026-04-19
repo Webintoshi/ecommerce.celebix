@@ -45,6 +45,18 @@ function toJsonArray(value: unknown): unknown[] {
     return Array.isArray(value) ? value : [];
 }
 
+function readCategoryPathInput(value: Record<string, unknown>): unknown {
+    if ("categoryPath" in value) {
+        return value.categoryPath;
+    }
+
+    if ("category_path" in value) {
+        return value.category_path;
+    }
+
+    return undefined;
+}
+
 function logTagSuggestionSyncError(error: unknown, context: string) {
     console.error(`Product tag suggestion sync failed (${context}):`, error);
 }
@@ -655,6 +667,7 @@ export async function POST(request: NextRequest) {
 
         const primaryCategoryImage =
             normalizedImages.find((image: unknown): image is string => typeof image === "string" && Boolean(image.trim())) || null;
+        const categoryPathInput = readCategoryPathInput(productData);
         const resolvedSubcategory = inferLegacySubcategorySlug({
             category: productData.category,
             subcategory: productData.subcategory,
@@ -666,6 +679,7 @@ export async function POST(request: NextRequest) {
         const normalizedShopifyMetadata = withCelebixCategoryHierarchyMetadata(productData.shopify_metadata, {
             category: productData.category,
             subcategory: resolvedSubcategory,
+            categoryPath: categoryPathInput,
             name: productData.name,
             slug: productData.slug,
             tags: normalizedTags,
@@ -1043,11 +1057,13 @@ export async function PUT(request: NextRequest) {
         const effectiveName = updates.name !== undefined ? updates.name : existingProduct?.name;
         const effectiveSlug = updates.slug !== undefined ? updates.slug : existingProduct?.slug;
         const effectiveTags = normalizedUpdatedTags !== undefined ? normalizedUpdatedTags : existingProduct?.tags;
+        const categoryPathInput = readCategoryPathInput(updates);
         const mergedShopifyMetadata = withCelebixCategoryHierarchyMetadata(
             updates.shopify_metadata !== undefined ? updates.shopify_metadata : existingProduct?.shopify_metadata,
             {
                 category: effectiveCategory,
                 subcategory: updates.subcategory !== undefined ? updates.subcategory : existingProduct?.subcategory,
+                categoryPath: categoryPathInput,
                 name: effectiveName,
                 slug: effectiveSlug,
                 tags: effectiveTags,
@@ -1127,6 +1143,7 @@ export async function PUT(request: NextRequest) {
         if (updates.geo_data !== undefined) updateData.geo_data = updates.geo_data;
         if (
             updates.shopify_metadata !== undefined ||
+            categoryPathInput !== undefined ||
             updates.category !== undefined ||
             updates.subcategory !== undefined ||
             updates.name !== undefined ||

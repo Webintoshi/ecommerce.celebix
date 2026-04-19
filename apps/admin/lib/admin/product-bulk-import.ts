@@ -58,6 +58,7 @@ export interface ParsedProduct {
   shortDescription: string;
   category: string;
   subcategory: string;
+  categoryPath?: Array<{ slug: string; name: string }>;
   images: string[];
   imagesV2?: ParsedProductImage[];
   tags: string[];
