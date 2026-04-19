@@ -23,6 +23,20 @@ const CHANNEL_ICON_WRAPPER_STYLES: Record<FloatingContactChannelType, string> = 
   form: "text-white/84",
 } as const;
 
+const CHANNEL_PILL_CLASS =
+  "inline-flex h-12 w-[184px] items-center gap-2 rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,rgba(255,250,248,0.97),rgba(255,244,241,0.93))] px-2.5 text-[13px] font-medium text-[#2b2321] shadow-[0_20px_40px_-26px_rgba(98,58,80,0.24)] backdrop-blur-xl transition-all duration-300 hover:bg-[linear-gradient(180deg,rgba(255,252,250,0.99),rgba(255,247,244,0.96))]";
+
+const TOGGLE_LABEL = "İletişim";
+
+function getChannelLabel(type: FloatingContactChannelType, label?: string | null) {
+  if (type === "instagram") {
+    return "İnstagram";
+  }
+
+  const resolvedLabel = label?.trim() || getFloatingContactDefaultLabel(type);
+  return resolvedLabel;
+}
+
 export function FloatingContactButton() {
   const { storeInfo } = useStoreInfo();
   const [isOpen, setIsOpen] = useState(false);
@@ -36,6 +50,7 @@ export function FloatingContactButton() {
         .map((channel) => ({
           ...channel,
           resolvedHref: resolveFloatingContactHref(channel),
+          displayLabel: getChannelLabel(channel.type, channel.label),
         }))
         .filter(
           (channel) =>
@@ -75,66 +90,67 @@ export function FloatingContactButton() {
               isBottomPosition ? "mb-3 flex-col-reverse" : "mt-3 flex-col"
             } items-end gap-2`}
           >
-            {channels.map((channel, index) => {
-              const label =
-                channel.label || getFloatingContactDefaultLabel(channel.type);
-
-              return (
-                <a
-                  key={channel.type}
-                  href={channel.resolvedHref}
-                  target={channel.resolvedHref.startsWith("http") ? "_blank" : undefined}
-                  rel={
-                    channel.resolvedHref.startsWith("http")
-                      ? "noreferrer noopener"
-                      : undefined
-                  }
-                  aria-label={label}
-                  title={label}
-                  style={{
-                    transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
-                  }}
-                  className={`inline-flex min-w-[164px] items-center gap-2 rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,rgba(255,250,248,0.97),rgba(255,244,241,0.93))] px-2.5 py-2.5 text-[13px] font-medium text-[#2b2321] shadow-[0_20px_40px_-26px_rgba(98,58,80,0.24)] backdrop-blur-xl transition-all duration-300 hover:bg-[linear-gradient(180deg,rgba(255,252,250,0.99),rgba(255,247,244,0.96))] ${
-                    isOpen
-                      ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-                      : "pointer-events-none translate-y-2 scale-90 opacity-0"
-                  }`}
+            {channels.map((channel, index) => (
+              <a
+                key={channel.type}
+                href={channel.resolvedHref}
+                target={channel.resolvedHref.startsWith("http") ? "_blank" : undefined}
+                rel={
+                  channel.resolvedHref.startsWith("http")
+                    ? "noreferrer noopener"
+                    : undefined
+                }
+                aria-label={channel.displayLabel}
+                title={channel.displayLabel}
+                style={{
+                  transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
+                }}
+                className={`${CHANNEL_PILL_CLASS} ${
+                  isOpen
+                    ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                    : "pointer-events-none translate-y-2 scale-90 opacity-0"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(122,92,103,0.08)] bg-[#fff8f5] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
                 >
-                  <span
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(122,92,103,0.08)] bg-[#fff8f5] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
-                  >
-                    {getChannelIcon(channel.type)}
-                  </span>
-                  <span className="truncate pr-2">{label}</span>
-                </a>
-              );
-            })}
+                  {getChannelIcon(channel.type)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {channel.displayLabel}
+                </span>
+              </a>
+            ))}
           </div>
 
           <button
             type="button"
             onClick={() => setIsOpen((current) => !current)}
-            className="relative inline-flex h-[50px] w-[132px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[linear-gradient(180deg,rgba(29,22,22,0.98),rgba(20,15,15,0.96))] px-2.5 text-[14px] font-medium text-white shadow-[0_22px_48px_-24px_rgba(63,30,50,0.52)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[linear-gradient(180deg,rgba(34,26,26,0.98),rgba(22,16,16,0.96))]"
+            className="relative inline-flex h-12 w-[184px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[linear-gradient(180deg,rgba(29,22,22,0.98),rgba(20,15,15,0.96))] px-2.5 text-[14px] font-medium text-white shadow-[0_22px_48px_-24px_rgba(63,30,50,0.52)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[linear-gradient(180deg,rgba(34,26,26,0.98),rgba(22,16,16,0.96))]"
             aria-expanded={isOpen}
             aria-label={
-              isOpen ? "İletişim seçeneklerini kapat" : "İletişim seçeneklerini aç"
+              isOpen
+                ? "İletişim seçeneklerini kapat"
+                : "İletişim seçeneklerini aç"
             }
           >
             <span
               className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,#fffaf8,#f2e0db)] text-[#6c5550] shadow-[0_10px_24px_-14px_rgba(88,48,70,0.32)] transition-transform duration-300 ${
-                isOpen ? "translate-x-[78px]" : "translate-x-0"
+                isOpen ? "translate-x-[128px]" : "translate-x-0"
               }`}
             >
-              {isOpen ? <X className="h-4.5 w-4.5" /> : <ContactGlyph className="h-4.5 w-4.5" />}
+              {isOpen ? (
+                <X className="h-4.5 w-4.5" />
+              ) : (
+                <ContactGlyph className="h-4.5 w-4.5" />
+              )}
             </span>
             <span
               className={`absolute text-[14px] font-medium tracking-[0.01em] transition-all duration-300 ${
-                isOpen
-                  ? "left-4 text-white/70"
-                  : "left-[52px] text-white/94"
+                isOpen ? "left-4 text-white/70" : "left-[56px] text-white/94"
               }`}
             >
-              İletişim
+              {TOGGLE_LABEL}
             </span>
           </button>
         </div>

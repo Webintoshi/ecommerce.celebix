@@ -218,7 +218,7 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/60 transition-colors hover:border-white/28 hover:text-white"
-                aria-label="Instagram"
+                aria-label="İnstagram"
               >
                 <Instagram className="h-4 w-4" />
               </a>
