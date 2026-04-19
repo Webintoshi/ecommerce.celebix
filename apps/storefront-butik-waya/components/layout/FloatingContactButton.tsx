@@ -58,7 +58,7 @@ export function FloatingContactButton() {
           type="button"
           onClick={() => setIsOpen(false)}
           aria-label="Iletisim seceneklerini kapat"
-          className="fixed inset-0 z-40 bg-[rgba(255,255,255,0.08)] backdrop-blur-[5px] transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-[rgba(248,241,238,0.12)] backdrop-blur-[7px] transition-opacity duration-300"
         />
       ) : null}
 
@@ -94,14 +94,14 @@ export function FloatingContactButton() {
                   style={{
                     transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
                   }}
-                  className={`inline-flex min-w-[156px] items-center gap-2 rounded-full border border-[rgba(18,16,15,0.08)] bg-[rgba(255,255,255,0.92)] px-2.5 py-2 text-[13px] font-medium text-[#222222] shadow-[0_18px_40px_-24px_rgba(75,54,68,0.28)] backdrop-blur-xl transition-all duration-300 hover:bg-white ${
+                  className={`inline-flex min-w-[164px] items-center gap-2 rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,rgba(255,250,248,0.97),rgba(255,244,241,0.93))] px-2.5 py-2.5 text-[13px] font-medium text-[#2b2321] shadow-[0_20px_40px_-26px_rgba(98,58,80,0.24)] backdrop-blur-xl transition-all duration-300 hover:bg-[linear-gradient(180deg,rgba(255,252,250,0.99),rgba(255,247,244,0.96))] ${
                     isOpen
                       ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
                       : "pointer-events-none translate-y-2 scale-90 opacity-0"
                   }`}
                 >
                   <span
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(18,16,15,0.08)] bg-[#fffaf8] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(122,92,103,0.08)] bg-[#fff8f5] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
                   >
                     {getChannelIcon(channel.type)}
                   </span>
@@ -114,15 +114,15 @@ export function FloatingContactButton() {
           <button
             type="button"
             onClick={() => setIsOpen((current) => !current)}
-            className="relative inline-flex h-[50px] w-[128px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[#161211]/96 px-2.5 text-[14px] font-medium text-white shadow-[0_20px_46px_-24px_rgba(40,20,32,0.56)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[#1b1615]"
+            className="relative inline-flex h-[50px] w-[132px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[linear-gradient(180deg,rgba(29,22,22,0.98),rgba(20,15,15,0.96))] px-2.5 text-[14px] font-medium text-white shadow-[0_22px_48px_-24px_rgba(63,30,50,0.52)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[linear-gradient(180deg,rgba(34,26,26,0.98),rgba(22,16,16,0.96))]"
             aria-expanded={isOpen}
             aria-label={
               isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"
             }
           >
             <span
-              className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#fff8f7] text-[#161211] shadow-[0_10px_24px_-14px_rgba(67,36,54,0.4)] transition-transform duration-300 ${
-                isOpen ? "translate-x-[74px]" : "translate-x-0"
+              className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,#fffaf8,#f2e0db)] text-[#6c5550] shadow-[0_10px_24px_-14px_rgba(88,48,70,0.32)] transition-transform duration-300 ${
+                isOpen ? "translate-x-[78px]" : "translate-x-0"
               }`}
             >
               {isOpen ? <X className="h-4.5 w-4.5" /> : <ContactGlyph className="h-4.5 w-4.5" />}
@@ -158,8 +158,11 @@ function getChannelIcon(type: FloatingContactChannelType) {
 function ContactGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none">
-      <circle cx="12" cy="12" r="7.25" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="7.2" stroke="currentColor" strokeWidth="1.35" opacity="0.32" />
+      <path
+        d="M12 7.1 13.35 10.65 16.9 12 13.35 13.35 12 16.9 10.65 13.35 7.1 12 10.65 10.65 12 7.1Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
