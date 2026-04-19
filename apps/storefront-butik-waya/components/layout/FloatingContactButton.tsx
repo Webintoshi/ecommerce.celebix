@@ -23,7 +23,7 @@ const CHANNEL_ICON_WRAPPER_STYLES: Record<FloatingContactChannelType, string> = 
   form: "text-white/84",
 } as const;
 
-const BUTTON_WIDTH_CLASS = "w-[164px]";
+const BUTTON_WIDTH_CLASS = "w-[148px]";
 const BUTTON_HEIGHT_CLASS = "h-12";
 const TOGGLE_LABEL = "\u0130leti\u015fim";
 const CHANNEL_PILL_CLASS =
@@ -134,7 +134,7 @@ export function FloatingContactButton() {
           >
             <span
               className={`absolute left-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,#fffaf8,#f2e0db)] text-[#6c5550] shadow-[0_10px_24px_-14px_rgba(88,48,70,0.32)] transition-transform duration-300 ${
-                isOpen ? "translate-x-[116px]" : "translate-x-0"
+                isOpen ? "translate-x-[100px]" : "translate-x-0"
               }`}
             >
               {isOpen ? (
