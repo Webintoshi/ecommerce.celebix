@@ -7,6 +7,7 @@ import {
   Star,
   Heart,
   Share2,
+  MessageCircle,
   ArrowLeft,
   ChevronRight,
   ChevronDown,
@@ -23,13 +24,16 @@ import {
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
 import { SectionHeading } from "@/components/sections/redesign/SectionHeading";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import type { Product } from "@/types/product";
 import type {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { normalizeVariantAttributeEntries } from "@/lib/variant-selection";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
@@ -37,6 +41,42 @@ const ProductCard = React.lazy(() =>
     default: mod.ProductCard,
   })),
 );
+
+const PDP_COPY = {
+  schemaLoadError: "Ekstra şeması yüklenemedi",
+  productInfoLoadError: "Ürün bilgisi yüklenemedi.",
+  outOfStock: "Tükendi",
+  inStock: "Stokta",
+  details: "Ürün Detayları",
+  delivery: "Teslimat ve İade",
+  care: "Bakım Notları",
+  backToProducts: "Ürünlere dön",
+  products: "Ürünler",
+  featured: "Öne çıkan",
+  newSeason: "Yeni sezon",
+  reviewCountSuffix: "değerlendirme",
+  extrasLoading: "Ekstra seçenekler yükleniyor...",
+  personalization: "Kişiselleştirme",
+  loading: "Yükleniyor",
+  addToCart: "Sepete ekle",
+  productCode: "Ürün kodu",
+  similarProducts: "Benzer Ürünler",
+  viewAll: "Tümünü gör",
+  whatsappOrder: "WhatsApp ile Sipariş Ver",
+  whatsappIntro: "Merhaba, bu ürün için sipariş vermek istiyorum.",
+  selectedAttributes: "Seçili nitelikler",
+  priceLabel: "Fiyat",
+  productLink: "Ürün linki",
+  deliveryParagraphs: [
+    "Siparişler ödeme onayından sonra hazırlanır. Yoğunluk dönemlerinde hazırlık süresi standart akıştan farklılaşabilir.",
+    "Teslim alınan ürünler kullanılmamış durumda ve orijinal formu korunarak iade sürecine yönlendirilebilir.",
+    "Kişiselleştirme uygulanan siparişlerde üretim ve kontrol süresi standart gönderim akışından daha uzun olabilir.",
+  ],
+  careParagraphs: [
+    "Ürünün formunu ve dokusunu korumak için ürün üzerindeki bakım etiketinde yer alan talimatları izleyin.",
+    "Saklama ve kullanım tercihini kumaş yapısına göre belirlemek, siluetin daha uzun süre korunmasına yardımcı olur.",
+  ],
+} as const;
 
 type ResolvedCustomizationSchema = CustomizationSchema & {
   steps: CustomizationStep[];
@@ -64,7 +104,7 @@ async function fetchAssignedSchema(productId: string) {
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
+    throw new Error(payload?.error || PDP_COPY.schemaLoadError);
   }
 
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
@@ -113,6 +153,7 @@ export function ProductDetailClient({
 
   const { addToCart } = useCart();
   const { locale } = useStorefrontRoute();
+  const { storeInfo } = useStoreInfo();
 
   const toggleAccordion = (id: string) => {
     setOpenAccordions((current) => {
@@ -235,7 +276,7 @@ export function ProductDetailClient({
   if (!variant) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white px-4">
-        <div className="text-center text-[#7A736D]">Ürün bilgisi yüklenemedi.</div>
+        <div className="text-center text-[#7A736D]">{PDP_COPY.productInfoLoadError}</div>
       </div>
     );
   }
@@ -284,12 +325,12 @@ export function ProductDetailClient({
 
   const getStockStatus = () => {
     if (isOutOfStock) {
-      return { text: "Tükendi", color: "text-[#9A928A]" };
+      return { text: PDP_COPY.outOfStock, color: "text-[#9A928A]" };
     }
     if (Number(variant.stock) <= 5) {
       return { text: `Son ${variant.stock} adet`, color: "text-amber-700" };
     }
-    return { text: "Stokta", color: "text-[#222222]" };
+    return { text: PDP_COPY.inStock, color: "text-[#222222]" };
   };
 
   const stockStatus = getStockStatus();
@@ -302,46 +343,95 @@ export function ProductDetailClient({
       : undefined;
   const productCode = variant.sku || product.sku || "";
   const hasReviews = Number(product.reviewCount || 0) > 0;
+  const selectedAttributeSummary = useMemo(() => {
+    const seen = new Set<string>();
+    const attributes = normalizeVariantAttributeEntries(
+      variant?.attributes ?? variant?.raw_attributes,
+    );
+
+    return attributes
+      .map((attribute) => {
+        const rawName =
+          typeof attribute.attributeName === "string"
+            ? attribute.attributeName
+            : typeof attribute.name === "string"
+              ? attribute.name
+              : typeof attribute.linked_to === "string"
+                ? attribute.linked_to
+                : "";
+        const rawValue = typeof attribute.value === "string" ? attribute.value : "";
+        const name = rawName.trim();
+        const value = rawValue.trim();
+
+        if (!name || !value) {
+          return null;
+        }
+
+        const key = `${name}:${value}`;
+        if (seen.has(key)) {
+          return null;
+        }
+
+        seen.add(key);
+        return `${name}: ${value}`;
+      })
+      .filter((entry): entry is string => Boolean(entry))
+      .join(" \u2022 ");
+  }, [variant?.attributes, variant?.raw_attributes]);
+  const whatsappHref = useMemo(() => {
+    const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone || "";
+    const normalizedPhone = phone.replace(/\D+/g, "");
+
+    if (!normalizedPhone) {
+      return null;
+    }
+
+    const fallbackProductUrl = new URL(
+      buildLocalizedPath(`/urunler/${slug}`, locale),
+      STOREFRONT_RUNTIME.siteUrl,
+    ).toString();
+    const productUrl =
+      typeof window !== "undefined" ? window.location.href : fallbackProductUrl;
+    const messageLines = [
+      PDP_COPY.whatsappIntro,
+      product.name,
+      selectedAttributeSummary
+        ? `${PDP_COPY.selectedAttributes}: ${selectedAttributeSummary}`
+        : null,
+      `${PDP_COPY.priceLabel}: ${formatPrice(displayPrice)}`,
+      `${PDP_COPY.productLink}: ${productUrl}`,
+    ].filter((line): line is string => Boolean(line));
+
+    return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(
+      messageLines.join("\n"),
+    )}`;
+  }, [displayPrice, locale, product.name, selectedAttributeSummary, slug, storeInfo?.phone]);
 
   const detailItems = [
     {
       id: "details",
-      label: "Ürün Detayları",
+      label: PDP_COPY.details,
       content: <ProductFeatures product={product} />,
     },
     {
       id: "delivery",
-      label: "Teslimat ve İade",
+      label: PDP_COPY.delivery,
       content: (
         <div className="space-y-4 text-sm leading-7 text-[#5E5751]">
-          <p>
-            Siparişler ödeme onayından sonra hazırlanır. Yoğunluk dönemlerinde hazırlık süresi
-            standart akıştan farklılaşabilir.
-          </p>
-          <p>
-            Teslim alınan ürünler kullanılmamış durumda ve orijinal formu korunarak iade sürecine
-            yönlendirilebilir.
-          </p>
-          <p>
-            Kişiselleştirme uygulanan siparişlerde üretim ve kontrol süresi standart gönderim
-            akışından daha uzun olabilir.
-          </p>
+          {PDP_COPY.deliveryParagraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
         </div>
       ),
     },
     {
       id: "care",
-      label: "Bakım Notları",
+      label: PDP_COPY.care,
       content: (
         <div className="space-y-4 text-sm leading-7 text-[#5E5751]">
-          <p>
-            Ürünün formunu ve dokusunu korumak için ürün üzerindeki bakım etiketinde yer alan
-            talimatları izleyin.
-          </p>
-          <p>
-            Saklama ve kullanım tercihini kumaş yapısına göre belirlemek, siluetin daha uzun süre
-            korunmasına yardımcı olur.
-          </p>
+          {PDP_COPY.careParagraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
         </div>
       ),
     },
@@ -357,7 +447,7 @@ export function ProductDetailClient({
               className="flex items-center gap-2 transition-colors hover:text-[#222222]"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Ürünlere dön</span>
+              <span>{PDP_COPY.backToProducts}</span>
             </Link>
 
             <div className="ml-auto hidden items-center gap-2 text-[#9A928A] md:flex">
@@ -372,7 +462,7 @@ export function ProductDetailClient({
                 href={buildLocalizedPath("/urunler", locale)}
                 className="transition-colors hover:text-[#222222]"
               >
-                Ürünler
+                {PDP_COPY.products}
               </Link>
               <ChevronRight className="h-4 w-4" />
               <span className="max-w-[180px] truncate text-[#222222]">{product.name}</span>
@@ -402,12 +492,12 @@ export function ProductDetailClient({
                   ) : null}
                   {product.featured ? (
                     <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#222222]">
-                      Öne çıkan
+                      {PDP_COPY.featured}
                     </span>
                   ) : null}
                   {product.new ? (
                     <span className="rounded-full border border-[rgba(26,26,26,0.08)] bg-[#F1ECE7] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#222222]">
-                      Yeni sezon
+                      {PDP_COPY.newSeason}
                     </span>
                   ) : null}
                   {discountPercent > 0 ? (
@@ -436,13 +526,11 @@ export function ProductDetailClient({
                           />
                         ))}
                       </div>
-                      <span>{product.reviewCount || 0} değerlendirme</span>
+                      <span>
+                        {product.reviewCount || 0} {PDP_COPY.reviewCountSuffix}
+                      </span>
                     </div>
-                  ) : (
-                    <p className="text-sm leading-7 text-[#7A736D]">
-                      Editoryal seçki içinde sakin bir ürün sunumu.
-                    </p>
-                  )}
+                  ) : null}
 
                   <div className="flex items-end gap-3">
                     {displayOriginalPrice !== undefined ? (
@@ -454,6 +542,12 @@ export function ProductDetailClient({
                       {formatPrice(displayPrice)}
                     </span>
                   </div>
+
+                  {selectedAttributeSummary ? (
+                    <p className="text-sm leading-6 text-[#5E5751]">
+                      {selectedAttributeSummary}
+                    </p>
+                  ) : null}
 
                   {product.shortDescription ? (
                     <p className="max-w-[48ch] text-[15px] leading-7 text-[#5E5751] sm:text-base">
@@ -473,7 +567,7 @@ export function ProductDetailClient({
 
                   {isSchemaLoading ? (
                     <div className="py-1 text-sm text-[#7A736D]">
-                      Ekstra seçenekler yükleniyor...
+                      {PDP_COPY.extrasLoading}
                     </div>
                   ) : activeSchema ? (
                     <div
@@ -482,7 +576,7 @@ export function ProductDetailClient({
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] uppercase tracking-[0.24em] text-[#7A736D]">
-                          Kişiselleştirme
+                          {PDP_COPY.personalization}
                         </span>
                         <span className="h-px w-8 bg-[rgba(26,26,26,0.12)]" />
                       </div>
@@ -518,7 +612,7 @@ export function ProductDetailClient({
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                  <div className="flex flex-col gap-3">
                     <button
                       onClick={handleAddToCart}
                       disabled={isOutOfStock || isSchemaLoading}
@@ -530,56 +624,43 @@ export function ProductDetailClient({
                     >
                       <ShoppingCart className="h-4.5 w-4.5 stroke-[1.5]" />
                       {isSchemaLoading
-                        ? "Yükleniyor"
+                        ? PDP_COPY.loading
                         : isOutOfStock
-                          ? "Tükendi"
-                          : "Sepete ekle"}
+                          ? PDP_COPY.outOfStock
+                          : PDP_COPY.addToCart}
                     </button>
 
-                    <div className="flex items-center gap-2 sm:shrink-0">
-                      <button
-                        onClick={toggleWishlist}
-                        className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-all hover:bg-white"
-                      >
-                        <Heart
-                          className={`h-4.5 w-4.5 stroke-[1.5] ${
-                            isWishlisted ? "fill-current" : ""
-                          }`}
-                        />
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
-                      >
-                        <Share2 className="h-4.5 w-4.5 stroke-[1.5]" />
-                      </button>
-                    </div>
-                  </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      {whatsappHref ? (
+                        <a
+                          href={whatsappHref}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-5 py-3 text-sm font-medium text-[#222222] transition hover:bg-[#F7F4F1]"
+                        >
+                          <MessageCircle className="h-4.5 w-4.5 text-[#25D366]" />
+                          {PDP_COPY.whatsappOrder}
+                        </a>
+                      ) : null}
 
-                  <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
-                        Stok
-                      </p>
-                      <p className="mt-2 text-sm text-[#222222]">{stockStatus.text}</p>
-                    </div>
-                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
-                        Ürün kodu
-                      </p>
-                      <p className="mt-2 text-sm text-[#222222]">
-                        {productCode || "Butik Waya seçkisi"}
-                      </p>
-                    </div>
-                <div className="rounded-[1.35rem] bg-[#ffffff] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#7A736D]">
-                        Yorumlar
-                      </p>
-                      <p className="mt-2 text-sm text-[#222222]">
-                        {hasReviews
-                          ? `${product.reviewCount || 0} değerlendirme`
-                          : "İlk yorumu siz bırakın"}
-                      </p>
+                      <div className="flex items-center gap-2 sm:shrink-0">
+                        <button
+                          onClick={toggleWishlist}
+                          className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-all hover:bg-white"
+                        >
+                          <Heart
+                            className={`h-4.5 w-4.5 stroke-[1.5] ${
+                              isWishlisted ? "fill-current" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={handleShare}
+                          className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/72 text-[#222222] transition-colors hover:bg-white"
+                        >
+                          <Share2 className="h-4.5 w-4.5 stroke-[1.5]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -628,7 +709,8 @@ export function ProductDetailClient({
 
               {productCode ? (
                 <p className="text-[11px] uppercase tracking-[0.18em] text-[#9A928A]">
-                  Ürün kodu: <span className="font-mono text-[#222222]">{productCode}</span>
+                  {PDP_COPY.productCode}:{" "}
+                  <span className="font-mono text-[#222222]">{productCode}</span>
                 </p>
               ) : null}
             </div>
@@ -652,12 +734,12 @@ export function ProductDetailClient({
       >
         <div className="container-premium">
           <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <SectionHeading label="Benzer Ürünler" />
+            <SectionHeading label={PDP_COPY.similarProducts} />
             <Link
               href={buildLocalizedPath("/urunler", locale)}
               className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-[#222222] transition-colors hover:text-[#222222] sm:flex"
             >
-              Tümünü gör
+              {PDP_COPY.viewAll}
               <ChevronRight className="h-5 w-5" />
             </Link>
           </div>

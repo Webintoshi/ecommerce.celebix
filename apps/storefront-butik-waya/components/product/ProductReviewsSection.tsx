@@ -26,6 +26,36 @@ type ReviewImageTileProps = {
   className?: string;
 };
 
+const REVIEWS_COPY = {
+  imageLoadError: "Görsel yüklenemedi",
+  listLoadError: "Yorumlar yüklenemedi",
+  maxImages: (count: number) => `En fazla ${count} görsel ekleyebilirsiniz.`,
+  uploadError: (fileName: string) => `${fileName} yüklenemedi`,
+  imagesUploadError: "Görseller yüklenemedi.",
+  submitError: "Yorum gönderilemedi.",
+  submitSuccess: "Yorumunuz onay için alındı.",
+  headingLabel: "Ürün Yorumları",
+  headingTitle: "Müşteri yorumları",
+  approvedReviews: "onaylı yorum",
+  moderationNotice: "Yeni yorumlar önce moderasyona düşer.",
+  loading: "Yorumlar yükleniyor...",
+  emptyTitle: "Bu ürün için henüz onaylı yorum yok.",
+  emptyDescription: "İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.",
+  reviewImageAlt: (productName: string, index: number) =>
+    `${productName} yorum görseli ${index + 1}`,
+  formTitle: "Yorum bırak",
+  formDescription: "Görsel ekleyebilir, ürünü puanlayabilirsiniz.",
+  titlePlaceholder: "Yorum başlığı (opsiyonel)",
+  ratingLabel: "Puanınız",
+  bodyPlaceholder: "Ürün hakkındaki deneyiminizi yazın...",
+  imageUploadLabel: "Görsel ekleyin",
+  chooseImage: "Görsel Seç",
+  uploadedImageAlt: "Yüklenen yorum görseli",
+  approvalBox: "Yorumlar önce onaya düşer. Onaylanan görsel ve metinler ürün sayfasında yayınlanır.",
+  submitting: "Gönderiliyor...",
+  submitButton: "Yorumu Gönder",
+} as const;
+
 function formatDate(value: string) {
   if (!value) return "-";
 
@@ -64,7 +94,7 @@ function ReviewImageTile({ source, fallbackSource, alt, className = "object-cove
   if (failed || !currentSource) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-neutral-100 px-2 text-center text-[11px] font-medium text-neutral-500">
-        Görsel yüklenemedi
+        {REVIEWS_COPY.imageLoadError}
       </div>
     );
   }
@@ -113,7 +143,7 @@ export function ProductReviewsSection({
         const payload = await response.json();
 
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error || "Yorumlar yüklenemedi");
+          throw new Error(payload?.error || REVIEWS_COPY.listLoadError);
         }
 
         if (isMounted) {
@@ -167,7 +197,7 @@ export function ProductReviewsSection({
     if (remainingSlots <= 0) {
       setFeedback({
         type: "error",
-        message: `En fazla ${MAX_PRODUCT_REVIEW_IMAGES} görsel ekleyebilirsiniz.`,
+        message: REVIEWS_COPY.maxImages(MAX_PRODUCT_REVIEW_IMAGES),
       });
       return;
     }
@@ -192,7 +222,7 @@ export function ProductReviewsSection({
 
         const payload = await response.json();
         if (!response.ok || !payload?.success || typeof payload.url !== "string") {
-          throw new Error(payload?.error || `${file.name} yüklenemedi`);
+          throw new Error(payload?.error || REVIEWS_COPY.uploadError(file.name));
         }
 
         uploaded.push({
@@ -205,7 +235,7 @@ export function ProductReviewsSection({
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Görseller yüklenemedi.",
+        message: error instanceof Error ? error.message : REVIEWS_COPY.imagesUploadError,
       });
     } finally {
       setIsUploading(false);
@@ -251,7 +281,7 @@ export function ProductReviewsSection({
       if (!response.ok || !payload?.success) {
         setFeedback({
           type: "error",
-          message: payload?.error || "Yorum gönderilemedi.",
+          message: payload?.error || REVIEWS_COPY.submitError,
         });
         return;
       }
@@ -259,7 +289,7 @@ export function ProductReviewsSection({
       resetForm();
       setFeedback({
         type: "success",
-        message: payload?.message || "Yorumunuz onay için alındı.",
+        message: payload?.message || REVIEWS_COPY.submitSuccess,
       });
     });
   };
@@ -268,8 +298,12 @@ export function ProductReviewsSection({
     <section className="space-y-8 border-t border-neutral-200 pt-8">
       <div className="space-y-3">
         <div>
-          <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">Ürün Yorumları</p>
-          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">Müşteri yorumları</h2>
+          <p className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
+            {REVIEWS_COPY.headingLabel}
+          </p>
+          <h2 className="mt-2 text-2xl tracking-tight text-neutral-900">
+            {REVIEWS_COPY.headingTitle}
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-600">
           <div className="flex items-center gap-1">
@@ -286,9 +320,11 @@ export function ProductReviewsSection({
           </div>
           <span className="font-medium text-neutral-900">{summary.rating.toFixed(1)}</span>
           <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>{summary.reviewCount} onaylı yorum</span>
+          <span>
+            {summary.reviewCount} {REVIEWS_COPY.approvedReviews}
+          </span>
           <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>Yeni yorumlar önce moderasyona düşer.</span>
+          <span>{REVIEWS_COPY.moderationNotice}</span>
         </div>
       </div>
 
@@ -296,13 +332,15 @@ export function ProductReviewsSection({
         <div className="space-y-4">
           {isLoading ? (
             <div className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
-              Yorumlar yükleniyor...
+              {REVIEWS_COPY.loading}
             </div>
           ) : reviews.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
-              <p className="text-base font-medium text-neutral-900">Bu ürün için henüz onaylı yorum yok.</p>
+              <p className="text-base font-medium text-neutral-900">
+                {REVIEWS_COPY.emptyTitle}
+              </p>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
-                İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.
+                {REVIEWS_COPY.emptyDescription}
               </p>
             </div>
           ) : (
@@ -337,7 +375,7 @@ export function ProductReviewsSection({
                         <ReviewImageTile
                           source={resolveStorefrontAssetUrl(imageUrl) || imageUrl}
                           fallbackSource={resolveStorefrontDirectAssetUrl(imageUrl) || imageUrl}
-                          alt={`${productName} yorum görseli ${index + 1}`}
+                          alt={REVIEWS_COPY.reviewImageAlt(productName, index)}
                           className="object-cover"
                         />
                       </div>
@@ -352,8 +390,12 @@ export function ProductReviewsSection({
         <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-semibold text-neutral-900">Yorum bırak</h3>
-              <p className="mt-1 text-sm text-neutral-500">Görsel ekleyebilir, ürünü puanlayabilirsiniz.</p>
+              <h3 className="text-xl font-semibold text-neutral-900">
+                {REVIEWS_COPY.formTitle}
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                {REVIEWS_COPY.formDescription}
+              </p>
             </div>
             <Camera className="h-5 w-5 text-neutral-400" />
           </div>
@@ -377,12 +419,14 @@ export function ProductReviewsSection({
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Yorum başlığı (opsiyonel)"
+              placeholder={REVIEWS_COPY.titlePlaceholder}
               className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#171311] focus:ring-4 focus:ring-[#171311]/10"
             />
 
             <div className="space-y-2">
-              <div className="text-sm font-medium text-neutral-900">Puanınız</div>
+              <div className="text-sm font-medium text-neutral-900">
+                {REVIEWS_COPY.ratingLabel}
+              </div>
               <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
@@ -405,13 +449,15 @@ export function ProductReviewsSection({
               value={body}
               onChange={(event) => setBody(event.target.value)}
               rows={5}
-              placeholder="Ürün hakkındaki deneyiminizi yazın..."
+              placeholder={REVIEWS_COPY.bodyPlaceholder}
               className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#171311] focus:ring-4 focus:ring-[#171311]/10"
             />
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-neutral-900">Görsel ekleyin</div>
+                <div className="text-sm font-medium text-neutral-900">
+                  {REVIEWS_COPY.imageUploadLabel}
+                </div>
                 <div className="text-xs text-neutral-500">Maksimum {MAX_PRODUCT_REVIEW_IMAGES}</div>
               </div>
 
@@ -431,7 +477,7 @@ export function ProductReviewsSection({
                 className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                Görsel Seç
+                {REVIEWS_COPY.chooseImage}
               </button>
 
               {uploadedImages.length > 0 ? (
@@ -441,7 +487,7 @@ export function ProductReviewsSection({
                       <ReviewImageTile
                         source={image.previewUrl}
                         fallbackSource={image.url}
-                        alt="Yüklenen yorum görseli"
+                        alt={REVIEWS_COPY.uploadedImageAlt}
                         className="object-cover"
                       />
                       <button
@@ -458,7 +504,7 @@ export function ProductReviewsSection({
             </div>
 
             <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs leading-6 text-neutral-500">
-              Yorumlar önce onaya düşer. Onaylanan görsel ve metinler ürün sayfasında yayınlanır.
+              {REVIEWS_COPY.approvalBox}
             </div>
 
             {feedback ? (
@@ -479,7 +525,7 @@ export function ProductReviewsSection({
               disabled={isPending || isUploading}
               className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#171311] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#2A2420] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
+              {isPending ? REVIEWS_COPY.submitting : REVIEWS_COPY.submitButton}
             </button>
           </div>
         </div>
