@@ -12,6 +12,7 @@ type SearchProductResult = {
   name: string;
   slug: string;
   category?: string | null;
+  categoryLabel?: string | null;
   images?: string[] | null;
   variants?: Array<{
     price?: number | null;
@@ -138,7 +139,7 @@ export function HeaderSearchOverlay({
 
       try {
         const response = await fetch(
-          `/api/products?search=${encodeURIComponent(normalizedQuery)}`,
+          `/api/products?search=${encodeURIComponent(normalizedQuery)}&locale=${encodeURIComponent(locale)}`,
           {
             signal: controller.signal,
             cache: "no-store",
@@ -331,7 +332,7 @@ export function HeaderSearchOverlay({
 
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                          {product.category || "Urun"}
+                          {product.categoryLabel || product.category || "Urun"}
                         </p>
                         <p className="store-product-title mt-1 text-neutral-900">
                           {product.name}

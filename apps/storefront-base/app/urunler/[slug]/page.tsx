@@ -12,6 +12,7 @@ import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
+import { translateProductCollection, translateProductRecord } from "@/lib/translation";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
@@ -89,17 +90,19 @@ export async function generateMetadata({
     });
   }
 
+  const translatedProduct = await translateProductRecord(product, locale);
+
   return buildStorePageMetadata({
     locale,
     pathname: `/urunler/${baseSlug}`,
-    title: product.seo_title || product.name,
+    title: translatedProduct.seo_title || translatedProduct.name,
     description:
-      product.seo_description ||
-      product.shortDescription ||
-      extractPlainTextFromProductDescription(product.description, product.name).slice(0, 160) ||
+      translatedProduct.seo_description ||
+      translatedProduct.shortDescription ||
+      extractPlainTextFromProductDescription(translatedProduct.description, translatedProduct.name).slice(0, 160) ||
       "",
-    keywords: product.tags,
-    image: product.images && product.images.length > 0 ? product.images[0] : null,
+    keywords: translatedProduct.tags,
+    image: translatedProduct.images && translatedProduct.images.length > 0 ? translatedProduct.images[0] : null,
     type: "website",
   });
 }
@@ -115,6 +118,7 @@ export default async function ProductDetailPage({
   const { slug: urlSlug } = await params;
   const parsedSlug = parseProductSlug(urlSlug);
   const { baseSlug } = parsedSlug;
+  const locale = await getRequestLocale();
 
   let product = null;
   let relatedProducts: any[] = [];
@@ -235,6 +239,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  product = await translateProductRecord(product, locale);
+
   let selectedVariantIndex = 0;
   if (product.variants && product.variants.length > 0) {
     selectedVariantIndex =
@@ -250,9 +256,10 @@ export default async function ProductDetailPage({
     relatedProducts = [];
   }
 
+  relatedProducts = await translateProductCollection(relatedProducts, locale);
+
   const variant = product.variants?.[selectedVariantIndex || 0];
   const storeName = STOREFRONT_RUNTIME.name;
-  const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
   const [homeUrl, productsUrl, productUrl] = await Promise.all([
     buildAbsoluteRequestUrl(buildLocalizedPath("/", locale)),

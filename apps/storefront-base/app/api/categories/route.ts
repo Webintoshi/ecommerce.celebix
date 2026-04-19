@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import { getRequestLocale } from "@/lib/request-locale";
+import { isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
+import { translateCategoryCollection, translateCategoryRecord } from "@/lib/translation";
 
 // ============================================================================
 // CONFIGURATION
@@ -177,6 +180,18 @@ async function getSupabaseClient() {
   return createServerClient();
 }
 
+async function resolveApiLocale(
+  request: NextRequest,
+  searchParams: URLSearchParams,
+): Promise<StorefrontLocale> {
+  const requestedLocale = searchParams.get("locale");
+  if (isSupportedLocale(requestedLocale)) {
+    return requestedLocale;
+  }
+
+  return getRequestLocale();
+}
+
 // ============================================================================
 // API HANDLERS
 // ============================================================================
@@ -195,6 +210,7 @@ async function getSupabaseClient() {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const locale = await resolveApiLocale(request, searchParams);
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
 
@@ -223,7 +239,7 @@ export async function GET(request: NextRequest) {
         throw new APIError("Category not found", 404, "NOT_FOUND");
       }
 
-      return createSuccessResponse({ category: data });
+      return createSuccessResponse({ category: await translateCategoryRecord(data, locale) });
     }
 
     // Fetch single category by slug
@@ -256,7 +272,7 @@ export async function GET(request: NextRequest) {
         throw new APIError("Category not found", 404, "NOT_FOUND");
       }
 
-      return createSuccessResponse({ category: data });
+      return createSuccessResponse({ category: await translateCategoryRecord(data, locale) });
     }
 
     // Fetch all active categories
@@ -277,7 +293,9 @@ export async function GET(request: NextRequest) {
       throw new APIError("Database error", 500, "DB_ERROR");
     }
 
-    return createSuccessResponse({ categories: data || [] });
+    return createSuccessResponse({
+      categories: await translateCategoryCollection((data || []) as any[], locale),
+    });
 
   } catch (error) {
     return createErrorResponse(error);

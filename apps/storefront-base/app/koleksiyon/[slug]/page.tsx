@@ -22,6 +22,7 @@ import {
   sortProductsByListingOrder,
 } from "@celebix/platform-config";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+import { translateCategoryRecord, translateProductCollection } from "@/lib/translation";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -265,7 +266,7 @@ function transformProduct(
   };
 }
 
-async function getProductsByCategory(category: Category): Promise<Product[]> {
+async function getProductsByCategory(category: Category, locale: StorefrontLocale): Promise<Product[]> {
   const supabase = createServerClient();
   const categorySlugs = await getCollectionSlugs(category);
   const categorySet = new Set(categorySlugs);
@@ -308,8 +309,10 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
       orderedProducts.map((product) => product.id),
     );
 
-    return orderedProducts
-      .map((product) => transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []))
+    const translatedProducts = await translateProductCollection(orderedProducts as DBProduct[], locale);
+
+    return translatedProducts
+      .map((product) => transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []))
       .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Unexpected error fetching products:", error);
@@ -420,16 +423,18 @@ export async function generateMetadata({
     });
   }
 
+  const translatedCategory = await translateCategoryRecord(category, locale);
+
   return buildStorePageMetadata({
     locale,
     pathname: `/${category.slug}`,
-    title: category.seo_title || category.name,
+    title: translatedCategory.seo_title || translatedCategory.name,
     description:
-      category.seo_description ||
-      category.description ||
-      `${category.name} kategorisindeki urunleri kesfedin.`,
+      translatedCategory.seo_description ||
+      translatedCategory.description ||
+      `${translatedCategory.name} kategorisindeki urunleri kesfedin.`,
     keywords: category.seo_keywords,
-    image: category.image,
+    image: translatedCategory.image,
     type: "website",
   });
 }
@@ -448,14 +453,16 @@ export default async function CollectionPage({
     notFound();
   }
 
+  const translatedCategory = await translateCategoryRecord(category, locale);
+
   const [products, requestOrigin] = await Promise.all([
-    getProductsByCategory(category),
+    getProductsByCategory(category, locale),
     getRequestOrigin(),
   ]);
 
-  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy, requestOrigin);
-  const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin);
-  const faqSchema = generateFaqSchema(category.faq);
+  const breadcrumbSchema = generateBreadcrumbSchema(translatedCategory, locale, copy, requestOrigin);
+  const collectionSchema = generateCollectionSchema(translatedCategory, products, locale, requestOrigin);
+  const faqSchema = generateFaqSchema(translatedCategory.faq);
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
@@ -501,7 +508,7 @@ export default async function CollectionPage({
             </li>
             <li aria-hidden="true">/</li>
             <li className="font-medium text-neutral-900" aria-current="page">
-              {category.name}
+              {translatedCategory.name}
             </li>
           </ol>
         </div>
@@ -509,10 +516,10 @@ export default async function CollectionPage({
 
       <section className="border-b border-neutral-200 bg-white">
         <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{category.name}</h1>
-          {category.description ? (
+          <h1 className="store-product-title-detail mb-3 text-neutral-900">{translatedCategory.name}</h1>
+          {translatedCategory.description ? (
             <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
+              {translatedCategory.description}
             </p>
           ) : null}
           <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
@@ -523,14 +530,14 @@ export default async function CollectionPage({
         <CollectionProductsClient products={products} />
       </main>
 
-      {category.faq && category.faq.length > 0 ? (
+      {translatedCategory.faq && translatedCategory.faq.length > 0 ? (
         <section className="mt-2 border-t border-neutral-200 bg-white">
           <div className="container-premium py-12">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
               {copy.faqHeading}
             </h2>
             <div className="max-w-3xl space-y-4">
-              {category.faq.map((item, index) => (
+              {translatedCategory.faq.map((item, index) => (
                 <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
                   <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}

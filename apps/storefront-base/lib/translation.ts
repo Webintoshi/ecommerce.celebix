@@ -51,7 +51,7 @@ function sanitizeTranslatableText(value: unknown) {
   return value.trim();
 }
 
-function supportsDeepLTargetLocale(locale: StoreTranslationLocale) {
+function supportsDeepLLocale(locale: StoreTranslationLocale) {
   return Boolean(DEEPL_TARGET_LANGUAGE_MAP[locale]);
 }
 
@@ -82,10 +82,36 @@ function shouldTranslateLocale(settings: Awaited<ReturnType<typeof getConfigured
   return (
     settings.enabled &&
     Boolean(settings.apiKey) &&
-    supportsDeepLTargetLocale(locale) &&
+    supportsDeepLLocale(locale) &&
     locale !== settings.sourceLocale &&
     settings.enabledLocales.includes(locale)
   );
+}
+
+function shouldTranslateBetweenLocales(
+  settings: Awaited<ReturnType<typeof getConfiguredTranslationSettings>>,
+  sourceLocale: StoreTranslationLocale,
+  targetLocale: StoreTranslationLocale,
+) {
+  if (
+    !settings.enabled ||
+    !settings.apiKey ||
+    sourceLocale === targetLocale ||
+    !supportsDeepLLocale(sourceLocale) ||
+    !supportsDeepLLocale(targetLocale)
+  ) {
+    return false;
+  }
+
+  if (sourceLocale === settings.sourceLocale) {
+    return settings.enabledLocales.includes(targetLocale);
+  }
+
+  if (targetLocale === settings.sourceLocale) {
+    return settings.enabledLocales.includes(sourceLocale);
+  }
+
+  return settings.enabledLocales.includes(sourceLocale) && settings.enabledLocales.includes(targetLocale);
 }
 
 async function readTranslationCache(cacheKeys: string[]) {
@@ -185,22 +211,32 @@ async function requestDeepLTranslations(
   return (payload.translations || []).map((entry) => sanitizeTranslatableText(entry.text));
 }
 
-export async function translateTexts(
+export async function translateTextsBetweenLocales(
   values: Array<string | null | undefined>,
-  options: TranslationOptions,
+  options: {
+    sourceLocale: StoreTranslationLocale;
+    targetLocale: StoreTranslationLocale;
+    context: string;
+    format?: TranslationFormat;
+  },
 ) {
   const settings = await getConfiguredTranslationSettings();
-  const sourceLocale = options.sourceLocale || settings.sourceLocale;
   const format = options.format || "text";
 
-  if (!shouldTranslateLocale(settings, options.locale)) {
+  if (!shouldTranslateBetweenLocales(settings, options.sourceLocale, options.targetLocale)) {
     return values.map((value) => value || "");
   }
 
   const normalizedValues = values.map((value) => sanitizeTranslatableText(value));
   const descriptors = normalizedValues.map((sourceText) => ({
     sourceText,
-    cacheKey: buildCacheKey(sourceLocale, options.locale, options.context, format, sourceText),
+    cacheKey: buildCacheKey(
+      options.sourceLocale,
+      options.targetLocale,
+      options.context,
+      format,
+      sourceText,
+    ),
   }));
 
   const uniqueCacheKeys = Array.from(
@@ -238,8 +274,8 @@ export async function translateTexts(
       try {
         const translatedBatch = await requestDeepLTranslations(
           settings.apiKey,
-          sourceLocale,
-          options.locale,
+          options.sourceLocale,
+          options.targetLocale,
           batchTexts,
           options.context,
           format,
@@ -250,8 +286,8 @@ export async function translateTexts(
           cacheMap.set(cacheKey, translatedText);
           translatedEntries.push({
             cacheKey,
-            sourceLocale,
-            targetLocale: options.locale,
+            sourceLocale: options.sourceLocale,
+            targetLocale: options.targetLocale,
             context: options.context,
             format,
             sourceText,
@@ -278,6 +314,20 @@ export async function translateTexts(
   });
 }
 
+export async function translateTexts(
+  values: Array<string | null | undefined>,
+  options: TranslationOptions,
+) {
+  const settings = await getConfiguredTranslationSettings();
+  const sourceLocale = options.sourceLocale || settings.sourceLocale;
+  return translateTextsBetweenLocales(values, {
+    sourceLocale,
+    targetLocale: options.locale,
+    context: options.context,
+    format: options.format,
+  });
+}
+
 export async function translateText(value: string | null | undefined, options: TranslationOptions) {
   const [translated] = await translateTexts([value], {
     ...options,
@@ -296,13 +346,42 @@ export async function translateProductRecord<
     seo_title?: string | null;
     seoDescription?: string | null;
     seo_description?: string | null;
+    variants?: Array<{
+      name?: string | null;
+      group_name?: string | null;
+      groupName?: string | null;
+    }> | null;
   },
 >(product: T, locale: StoreTranslationLocale) {
+  const settings = await getConfiguredTranslationSettings();
+  return translateProductRecordWithSettings(product, locale, settings);
+}
+
+async function translateProductRecordWithSettings<
+  T extends {
+    name?: string | null;
+    description?: string | null;
+    shortDescription?: string | null;
+    short_description?: string | null;
+    seoTitle?: string | null;
+    seo_title?: string | null;
+    seoDescription?: string | null;
+    seo_description?: string | null;
+    variants?: Array<{
+      name?: string | null;
+      group_name?: string | null;
+      groupName?: string | null;
+    }> | null;
+  },
+>(
+  product: T,
+  locale: StoreTranslationLocale,
+  settings: Awaited<ReturnType<typeof getConfiguredTranslationSettings>>,
+) {
   if (!product) {
     return product;
   }
 
-  const settings = await getConfiguredTranslationSettings();
   if (!settings.translateCatalog || !shouldTranslateLocale(settings, locale)) {
     return product;
   }
@@ -321,6 +400,33 @@ export async function translateProductRecord<
     },
   );
 
+  const translatedVariants = Array.isArray(product.variants)
+    ? await (async () => {
+        const sourceTexts = product.variants.flatMap((variant) => [
+          variant?.name,
+          variant?.group_name ?? variant?.groupName,
+        ]);
+        const translatedTexts = await translateTexts(sourceTexts, {
+          locale,
+          context: "product-variant",
+        });
+
+        let cursor = 0;
+        return product.variants.map((variant) => {
+          const translatedName = translatedTexts[cursor++] || variant?.name || "";
+          const translatedGroupName =
+            translatedTexts[cursor++] || variant?.group_name || variant?.groupName || "";
+
+          return {
+            ...variant,
+            name: translatedName,
+            group_name: translatedGroupName,
+            groupName: translatedGroupName,
+          };
+        });
+      })()
+    : product.variants;
+
   return {
     ...product,
     translationSourceName: product.name || "",
@@ -332,6 +438,7 @@ export async function translateProductRecord<
     seo_title: seoTitle,
     seoDescription,
     seo_description: seoDescription,
+    variants: translatedVariants,
   };
 }
 
@@ -343,11 +450,26 @@ export async function translateCategoryRecord<
     seo_description?: string | null;
   },
 >(category: T, locale: StoreTranslationLocale) {
+  const settings = await getConfiguredTranslationSettings();
+  return translateCategoryRecordWithSettings(category, locale, settings);
+}
+
+async function translateCategoryRecordWithSettings<
+  T extends {
+    name?: string | null;
+    description?: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+  },
+>(
+  category: T,
+  locale: StoreTranslationLocale,
+  settings: Awaited<ReturnType<typeof getConfiguredTranslationSettings>>,
+) {
   if (!category) {
     return category;
   }
 
-  const settings = await getConfiguredTranslationSettings();
   if (!settings.translateCatalog || !shouldTranslateLocale(settings, locale)) {
     return category;
   }
@@ -367,6 +489,63 @@ export async function translateCategoryRecord<
     seo_title: seoTitle,
     seo_description: seoDescription,
   };
+}
+
+export async function translateProductCollection<
+  T extends {
+    name?: string | null;
+    description?: string | null;
+    shortDescription?: string | null;
+    short_description?: string | null;
+    seoTitle?: string | null;
+    seo_title?: string | null;
+    seoDescription?: string | null;
+    seo_description?: string | null;
+    variants?: Array<{
+      name?: string | null;
+      group_name?: string | null;
+      groupName?: string | null;
+    }> | null;
+  },
+>(products: T[], locale: StoreTranslationLocale) {
+  const settings = await getConfiguredTranslationSettings();
+  return Promise.all(
+    products.map((product) => translateProductRecordWithSettings(product, locale, settings)),
+  );
+}
+
+export async function translateCategoryCollection<
+  T extends {
+    name?: string | null;
+    description?: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+  },
+>(categories: T[], locale: StoreTranslationLocale) {
+  const settings = await getConfiguredTranslationSettings();
+  return Promise.all(
+    categories.map((category) => translateCategoryRecordWithSettings(category, locale, settings)),
+  );
+}
+
+export async function translateSearchQueryToSourceLocale(
+  value: string | null | undefined,
+  locale: StoreTranslationLocale,
+) {
+  const settings = await getConfiguredTranslationSettings();
+  const normalizedValue = sanitizeTranslatableText(value);
+
+  if (!normalizedValue || !settings.translateCatalog || locale === settings.sourceLocale) {
+    return normalizedValue;
+  }
+
+  const [translated] = await translateTextsBetweenLocales([normalizedValue], {
+    sourceLocale: locale,
+    targetLocale: settings.sourceLocale,
+    context: "product-search-query",
+  });
+
+  return translated || normalizedValue;
 }
 
 export async function translateHomepageSectionCopy(locale: StoreTranslationLocale) {
