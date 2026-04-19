@@ -5,7 +5,6 @@ import { Check, Globe2, Languages, Loader2, Save, Search, ShoppingBag, Type } fr
 import { toast } from "sonner";
 import {
   DEFAULT_STORE_TRANSLATION_SETTINGS,
-  STORE_TRANSLATION_LOCALES,
   normalizeStoreTranslationSettings,
   type StoreTranslationLocale,
   type StoreTranslationSettings,
@@ -15,6 +14,20 @@ type TranslationSettingsResponse = {
   success?: boolean;
   hasEnvKey?: boolean;
   translationSettings?: Partial<StoreTranslationSettings> | null;
+  error?: string;
+};
+
+type TranslationWarmupScope = "products" | "categories" | "all";
+
+type TranslationWarmupResponse = {
+  success?: boolean;
+  summary?: {
+    locale: Exclude<StoreTranslationLocale, "tr">;
+    scope: TranslationWarmupScope;
+    productsProcessed: number;
+    categoriesProcessed: number;
+    newCacheEntries: number;
+  };
   error?: string;
 };
 
@@ -84,8 +97,12 @@ function ToggleCard({
 export function TranslationSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [warmingUp, setWarmingUp] = useState(false);
   const [hasEnvKey, setHasEnvKey] = useState(false);
   const [settings, setSettings] = useState<StoreTranslationSettings>(DEFAULT_STORE_TRANSLATION_SETTINGS);
+  const [warmupLocale, setWarmupLocale] = useState<Exclude<StoreTranslationLocale, "tr">>("en");
+  const [warmupScope, setWarmupScope] = useState<TranslationWarmupScope>("all");
+  const [warmupSummary, setWarmupSummary] = useState<TranslationWarmupResponse["summary"] | null>(null);
 
   useEffect(() => {
     void loadSettings();
@@ -104,16 +121,24 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as TranslationSettingsResponse;
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Çeviri ayarları alınamadı");
+        throw new Error(payload.error || "Ceviri ayarlari alinamadi");
       }
 
-      setSettings(
-        normalizeStoreTranslationSettings(payload.translationSettings, DEFAULT_STORE_TRANSLATION_SETTINGS),
+      const normalizedSettings = normalizeStoreTranslationSettings(
+        payload.translationSettings,
+        DEFAULT_STORE_TRANSLATION_SETTINGS,
+      );
+
+      setSettings(normalizedSettings);
+      setWarmupLocale((current) =>
+        normalizedSettings.enabledLocales.includes(current)
+          ? current
+          : (normalizedSettings.enabledLocales[0] || "en"),
       );
       setHasEnvKey(Boolean(payload.hasEnvKey));
     } catch (error) {
       console.error("Failed to fetch translation settings:", error);
-      toast.error("Çeviri ayarları yüklenemedi");
+      toast.error("Ceviri ayarlari yuklenemedi");
     } finally {
       setLoading(false);
     }
@@ -155,15 +180,47 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as { success?: boolean; error?: string };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Çeviri ayarları kaydedilemedi");
+        throw new Error(payload.error || "Ceviri ayarlari kaydedilemedi");
       }
 
-      toast.success("Çeviri ayarları güncellendi");
+      toast.success("Ceviri ayarlari guncellendi");
     } catch (error) {
       console.error("Failed to save translation settings:", error);
-      toast.error(error instanceof Error ? error.message : "Çeviri ayarları kaydedilemedi");
+      toast.error(error instanceof Error ? error.message : "Ceviri ayarlari kaydedilemedi");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleWarmup() {
+    setWarmingUp(true);
+    setWarmupSummary(null);
+
+    try {
+      const response = await fetch("/api/admin/translations/catalog-warmup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          locale: warmupLocale,
+          scope: warmupScope,
+        }),
+      });
+
+      const payload = (await response.json()) as TranslationWarmupResponse;
+
+      if (!response.ok || !payload.success || !payload.summary) {
+        throw new Error(payload.error || "Katalog warm-up basarisiz.");
+      }
+
+      setWarmupSummary(payload.summary);
+      toast.success("Katalog cevirisi hazirlandi");
+    } catch (error) {
+      console.error("Catalog translation warm-up failed:", error);
+      toast.error(error instanceof Error ? error.message : "Katalog warm-up basarisiz.");
+    } finally {
+      setWarmingUp(false);
     }
   }
 
@@ -174,9 +231,9 @@ export function TranslationSettingsPanel() {
           <Languages className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-gray-900">Canlı Çeviri</h2>
+          <h2 className="text-base font-semibold text-gray-900">Canli Ceviri</h2>
           <p className="text-sm text-gray-500">
-            Footer dil değiştirici ile DeepL tabanlı içerik çevirisini mağaza bazlı yönetin.
+            DeepL tabanli locale deneyimini yonetin. Bu ayarlar urunler, kategoriler, PDP, listing ve ilgili SEO metinlerini etkiler.
           </p>
         </div>
       </div>
@@ -185,13 +242,13 @@ export function TranslationSettingsPanel() {
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Çeviri ayarları yükleniyor...
+            Ceviri ayarlari yukleniyor...
           </div>
         ) : (
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">DeepL API Anahtarı</label>
+                <label className="text-sm font-medium text-gray-700">DeepL API Anahtari</label>
                 <input
                   type="password"
                   value={settings.apiKey || ""}
@@ -201,32 +258,32 @@ export function TranslationSettingsPanel() {
                       apiKey: event.target.value,
                     }))
                   }
-                  placeholder="DeepL API anahtarı"
+                  placeholder="DeepL API anahtari"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
                 <div className="space-y-1 text-xs text-gray-500">
-                  <p>Sağlanan anahtar settings içinde saklanır. İsterseniz deploy env olarak da kullanabilirsiniz.</p>
-                  {hasEnvKey ? <p>Sunucuda ayrıca bir `DEEPL_API_KEY` env anahtarı da tanımlı.</p> : null}
+                  <p>Saglanan anahtar settings icinde saklanir. Isterseniz deploy env olarak da kullanabilirsiniz.</p>
+                  {hasEnvKey ? <p>Sunucuda ayri bir `DEEPL_API_KEY` env anahtari da tanimli.</p> : null}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8F8F8] p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                   <Globe2 className="h-4 w-4" />
-                  Yayın Özeti
+                  Yayin Ozeti
                 </div>
                 <div className="mt-3 space-y-2 text-sm text-gray-600">
                   <p>
-                    Kaynak dil: <span className="font-medium text-gray-900">Türkçe</span>
+                    Kaynak dil: <span className="font-medium text-gray-900">Turkce</span>
                   </p>
                   <p>
                     Hedef diller:{" "}
                     <span className="font-medium text-gray-900">
-                      {activeLocaleSummary || "Henüz seçilmedi"}
+                      {activeLocaleSummary || "Henuz secilmedi"}
                     </span>
                   </p>
                   <p>
-                    Sağlanan yapı, HTML içeriğini server-side çevrir ve çeviri sonucunu veritabanı cache'inde tutar.
+                    Katalog cevirileri storefront tarafinda cache'ten okunur. Warm-up ile urun ve kategori cache'ini onceden doldurabilirsiniz.
                   </p>
                 </div>
               </div>
@@ -248,9 +305,9 @@ export function TranslationSettingsPanel() {
                 <div className="h-6 w-11 rounded-full bg-gray-200 transition peer-checked:bg-neutral-900 peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition after:content-['']" />
               </label>
               <div>
-                <p className="text-sm font-medium text-gray-900">Canlı çeviriyi etkinleştir</p>
+                <p className="text-sm font-medium text-gray-900">Canli ceviriyi etkinlestir</p>
                 <p className="text-xs text-gray-500">
-                  Kapanırsa mağaza tüm locale URL'lerinde kaynak Türkçe içerikle çalışır.
+                  Kapanirsa magaza tum locale URL'lerinde kaynak Turkce icerikle calisir.
                 </p>
               </div>
             </div>
@@ -259,7 +316,7 @@ export function TranslationSettingsPanel() {
               <div>
                 <p className="text-sm font-medium text-gray-900">Hedef Diller</p>
                 <p className="text-xs text-gray-500">
-                  `/tr` kaynak dil olarak kalır. Seçili diller için çeviri cache'i DeepL ile doldurulur.
+                  `/tr` kaynak dil olarak kalir. Secili diller icin ceviri cache'i DeepL ile doldurulur.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -291,8 +348,8 @@ export function TranslationSettingsPanel() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <ToggleCard
-                title="Katalog Çevirisi"
-                description="Ürün, kategori ve ana sayfa katalog alanlarını çevirir."
+                title="Katalog Cevirisi"
+                description="Ürünler, kategoriler, kategori sayfalari, PDP ve listing katalog alanlarini cevirir."
                 enabled={settings.translateCatalog}
                 onToggle={() =>
                   updateSettings((current) => ({
@@ -303,8 +360,8 @@ export function TranslationSettingsPanel() {
                 icon={ShoppingBag}
               />
               <ToggleCard
-                title="SEO Çevirisi"
-                description="Meta title, description ve OG metinlerini locale bazlı üretir."
+                title="SEO Cevirisi"
+                description="Meta title, description ve benzeri SEO metinlerini locale bazli uretir."
                 enabled={settings.translateSeo}
                 onToggle={() =>
                   updateSettings((current) => ({
@@ -315,8 +372,8 @@ export function TranslationSettingsPanel() {
                 icon={Search}
               />
               <ToggleCard
-                title="Arayüz Çevirisi"
-                description="Ana sayfa section başlıkları ve ortak shell metinlerini çevirir."
+                title="Arayuz Cevirisi"
+                description="Homepage shell, ortak section basliklari ve genel UI metinlerini cevirir."
                 enabled={settings.translateUi}
                 onToggle={() =>
                   updateSettings((current) => ({
@@ -328,6 +385,72 @@ export function TranslationSettingsPanel() {
               />
             </div>
 
+            <div className="rounded-2xl border border-gray-200 bg-[#F8F8F8] p-4 md:p-5">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Katalog Cevirisini Hazirla</p>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  Müşteriye gostermeden once secili dil icin ürün ve kategori ceviri cache'ini topluca doldurur.
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">
+                    Hedef Dil
+                  </label>
+                  <select
+                    value={warmupLocale}
+                    onChange={(event) =>
+                      setWarmupLocale(event.target.value as Exclude<StoreTranslationLocale, "tr">)
+                    }
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-neutral-900"
+                  >
+                    {TARGET_LOCALE_OPTIONS.map((option) => (
+                      <option key={option.locale} value={option.locale}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">
+                    Kapsam
+                  </label>
+                  <select
+                    value={warmupScope}
+                    onChange={(event) => setWarmupScope(event.target.value as TranslationWarmupScope)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-neutral-900"
+                  >
+                    <option value="all">Ürün + kategori</option>
+                    <option value="products">Sadece ürünler</option>
+                    <option value="categories">Sadece kategoriler</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleWarmup()}
+                  disabled={warmingUp}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 shadow-sm ring-1 ring-gray-200 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {warmingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
+                  Katalog cevirisini hazirla
+                </button>
+              </div>
+
+              {warmupSummary ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  <p className="font-medium">
+                    {warmupSummary.locale.toUpperCase()} dili icin warm-up tamamlandi.
+                  </p>
+                  <p className="mt-1 text-emerald-800">
+                    {warmupSummary.productsProcessed} urun, {warmupSummary.categoriesProcessed} kategori tarandi; {warmupSummary.newCacheEntries} yeni cache kaydi olusturuldu.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
             <div className="flex justify-end border-t border-gray-100 pt-4">
               <button
                 type="button"
@@ -336,7 +459,7 @@ export function TranslationSettingsPanel() {
                 className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-neutral-900/20 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Çeviri Ayarlarını Kaydet
+                Ceviri ayarlarini kaydet
               </button>
             </div>
           </>
