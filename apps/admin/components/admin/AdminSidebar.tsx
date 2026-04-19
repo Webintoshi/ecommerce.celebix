@@ -142,9 +142,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Kargo", href: "/admin/ayarlar/kargo" },
       { title: "Ödeme", href: "/admin/ayarlar/odeme" },
       { title: "Bildirimler", href: "/admin/ayarlar/bildirimler" },
-      { title: "Hero Banner", href: "/admin/ayarlar/hero-banner" },
-      { title: "Promosyon Banner", href: "/admin/ayarlar/promosyon-banner" },
-      { title: "Marquee", href: "/admin/ayarlar/marquee" },
+      { title: "Tasarım Ayarları", href: "/admin/ayarlar/tasarim" },
     ],
   },
 ];

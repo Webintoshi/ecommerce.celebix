@@ -59,10 +59,10 @@ const SETTINGS_SECTIONS = [
     tone: "from-[#fff4ea] to-white text-[#c56a1f] border-[#efceae]",
   },
   {
-    title: "Hero Banner",
-    description: "Ana sayfa manset alani yonetimi.",
+    title: "Tasarım Ayarları",
+    description: "Hero banner, promosyon banner ve kayan yazi alanlarini tek yerden yonetin.",
     icon: ImageIcon,
-    href: "/admin/ayarlar/hero-banner",
+    href: "/admin/ayarlar/tasarim",
     tone: "from-[#fff3ec] to-white text-[#d55e2d] border-[#f1c5b2]",
   },
   {
