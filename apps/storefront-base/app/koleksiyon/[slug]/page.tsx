@@ -108,8 +108,7 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
     const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
       let query = supabase
         .from("categories")
-        .select("slug")
-        .eq("parent_id", category.id)
+        .select("id, slug, parent_id")
         .order("sort_order", { ascending: true });
 
       if (includeIsActiveFilter) {
@@ -124,11 +123,46 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
       return [category.slug];
     }
 
-    const childSlugs = (data || [])
-      .map((item) => item.slug)
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    const childrenByParent = new Map<string, Array<{ id: string; slug: string }>>();
 
-    return Array.from(new Set([category.slug, ...childSlugs]));
+    for (const item of data || []) {
+      if (!item.parent_id || typeof item.slug !== "string" || item.slug.length === 0) {
+        continue;
+      }
+
+      const siblings = childrenByParent.get(item.parent_id) || [];
+      siblings.push({
+        id: item.id,
+        slug: item.slug,
+      });
+      childrenByParent.set(item.parent_id, siblings);
+    }
+
+    const visitedIds = new Set<string>([category.id]);
+    const collectedSlugs = new Set<string>([category.slug]);
+    const queue = [category.id];
+
+    while (queue.length > 0) {
+      const parentId = queue.shift();
+      if (!parentId) {
+        continue;
+      }
+
+      for (const child of childrenByParent.get(parentId) || []) {
+        if (visitedIds.has(child.id)) {
+          continue;
+        }
+
+        visitedIds.add(child.id);
+        queue.push(child.id);
+
+        if (child.slug) {
+          collectedSlugs.add(child.slug);
+        }
+      }
+    }
+
+    return Array.from(collectedSlugs);
   } catch (error) {
     console.error("Unexpected error fetching child categories:", error);
     return [category.slug];
@@ -166,18 +200,29 @@ function transformVariant(
 
 function resolveProductCategorySlugs(product: DBProduct) {
   const storedHierarchy = readCelebixCategoryHierarchyMetadata(product.shopify_metadata);
+  const pathSlugs = storedHierarchy.path
+    .map((segment) => segment.slug)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const category = product.category || storedHierarchy.categorySlug || pathSlugs[0] || "";
+  const subcategory =
+    inferLegacySubcategorySlug({
+      category: category || storedHierarchy.categorySlug,
+      subcategory: product.subcategory,
+      name: product.name,
+      slug: product.slug,
+      tags: product.tags,
+      metadata: product.shopify_metadata,
+    }) ||
+    (pathSlugs.length > 1 ? pathSlugs[pathSlugs.length - 1] || "" : "");
+  const normalizedPathSlugs =
+    pathSlugs.length > 0
+      ? pathSlugs
+      : [category, ...(subcategory && subcategory !== category ? [subcategory] : [])].filter(Boolean);
 
   return {
-    category: product.category || storedHierarchy.categorySlug || "",
-    subcategory:
-      inferLegacySubcategorySlug({
-        category: product.category || storedHierarchy.categorySlug,
-        subcategory: product.subcategory,
-        name: product.name,
-        slug: product.slug,
-        tags: product.tags,
-        metadata: product.shopify_metadata,
-      }) || "",
+    category,
+    subcategory,
+    pathSlugs: normalizedPathSlugs,
   };
 }
 
@@ -250,7 +295,11 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
     const matchingProducts = (data as DBProduct[])
       .filter((product) => {
         const resolvedHierarchy = resolveProductCategorySlugs(product);
-        return categorySet.has(resolvedHierarchy.category) || categorySet.has(resolvedHierarchy.subcategory);
+        return (
+          resolvedHierarchy.pathSlugs.some((slug) => categorySet.has(slug)) ||
+          categorySet.has(resolvedHierarchy.category) ||
+          categorySet.has(resolvedHierarchy.subcategory)
+        );
       });
 
     const orderedProducts = sortProductsByListingOrder(matchingProducts, productListingOrder);
