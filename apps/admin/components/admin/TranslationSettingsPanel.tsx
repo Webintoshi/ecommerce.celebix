@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Globe2, Languages, Loader2, Save, Search, ShoppingBag, Type } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Globe2,
+  Languages,
+  Loader2,
+  Save,
+  Search,
+  ShoppingBag,
+  Type,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   DEFAULT_STORE_TRANSLATION_SETTINGS,
@@ -27,6 +38,36 @@ type TranslationWarmupResponse = {
     productsProcessed: number;
     categoriesProcessed: number;
     newCacheEntries: number;
+  };
+  error?: string;
+};
+
+type TranslationHealthResponse = {
+  success?: boolean;
+  summary?: {
+    locale: Exclude<StoreTranslationLocale, "tr">;
+    sourceLocale: StoreTranslationLocale;
+    ready: boolean;
+    probeSucceeded: boolean;
+    enabled: boolean;
+    translateCatalog: boolean;
+    translateSeo: boolean;
+    hasApiKey: boolean;
+    localeEnabled: boolean;
+    supportedLocale: boolean;
+    productsAvailable: number;
+    categoriesAvailable: number;
+    reasons: string[];
+    sampleProduct?: {
+      sourceText: string;
+      translatedText: string;
+      changed: boolean;
+    };
+    sampleCategory?: {
+      sourceText: string;
+      translatedText: string;
+      changed: boolean;
+    };
   };
   error?: string;
 };
@@ -98,11 +139,13 @@ export function TranslationSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [warmingUp, setWarmingUp] = useState(false);
+  const [checkingHealth, setCheckingHealth] = useState(false);
   const [hasEnvKey, setHasEnvKey] = useState(false);
   const [settings, setSettings] = useState<StoreTranslationSettings>(DEFAULT_STORE_TRANSLATION_SETTINGS);
   const [warmupLocale, setWarmupLocale] = useState<Exclude<StoreTranslationLocale, "tr">>("en");
   const [warmupScope, setWarmupScope] = useState<TranslationWarmupScope>("all");
   const [warmupSummary, setWarmupSummary] = useState<TranslationWarmupResponse["summary"] | null>(null);
+  const [healthSummary, setHealthSummary] = useState<TranslationHealthResponse["summary"] | null>(null);
 
   useEffect(() => {
     void loadSettings();
@@ -221,6 +264,37 @@ export function TranslationSettingsPanel() {
       toast.error(error instanceof Error ? error.message : "Katalog warm-up basarisiz.");
     } finally {
       setWarmingUp(false);
+    }
+  }
+
+  async function handleHealthCheck() {
+    setCheckingHealth(true);
+    setHealthSummary(null);
+
+    try {
+      const response = await fetch("/api/admin/translations/catalog-health", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          locale: warmupLocale,
+        }),
+      });
+
+      const payload = (await response.json()) as TranslationHealthResponse;
+
+      if (!response.ok || !payload.success || !payload.summary) {
+        throw new Error(payload.error || "Katalog saglik kontrolu basarisiz.");
+      }
+
+      setHealthSummary(payload.summary);
+      toast.success("Katalog ceviri sagligi kontrol edildi");
+    } catch (error) {
+      console.error("Catalog translation health check failed:", error);
+      toast.error(error instanceof Error ? error.message : "Katalog saglik kontrolu basarisiz.");
+    } finally {
+      setCheckingHealth(false);
     }
   }
 
@@ -447,6 +521,103 @@ export function TranslationSettingsPanel() {
                   <p className="mt-1 text-emerald-800">
                     {warmupSummary.productsProcessed} urun, {warmupSummary.categoriesProcessed} kategori tarandi; {warmupSummary.newCacheEntries} yeni cache kaydi olusturuldu.
                   </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Ceviri Sagligini Kontrol Et</p>
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Secili dil icin ayarlarin dogru olup olmadigini ve ornek urun ile kategori uzerinde gercek DeepL cevabinin donup donmedigini kontrol eder.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleHealthCheck()}
+                  disabled={checkingHealth}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-[#F8F8F8] px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {checkingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Sagligi kontrol et
+                </button>
+              </div>
+
+              {healthSummary ? (
+                <div
+                  className={`mt-4 rounded-2xl border px-4 py-4 text-sm ${
+                    healthSummary.ready && healthSummary.probeSucceeded
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : "border-amber-200 bg-amber-50 text-amber-950"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      {healthSummary.ready && healthSummary.probeSucceeded ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div>
+                        <p className="font-semibold">
+                          {healthSummary.ready && healthSummary.probeSucceeded
+                            ? "Canli katalog cevirisi bu dil icin hazir gorunuyor."
+                            : "Canli katalog cevirisi bu dil icin eksik veya riskli gorunuyor."}
+                        </p>
+                        <p className="mt-1 text-xs opacity-80">
+                          Kaynak dil {healthSummary.sourceLocale.toUpperCase()}, hedef dil {healthSummary.locale.toUpperCase()}.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2 text-xs md:grid-cols-2">
+                        <p>Canli ceviri: <span className="font-medium">{healthSummary.enabled ? "acik" : "kapali"}</span></p>
+                        <p>Katalog cevirisi: <span className="font-medium">{healthSummary.translateCatalog ? "acik" : "kapali"}</span></p>
+                        <p>SEO cevirisi: <span className="font-medium">{healthSummary.translateSeo ? "acik" : "kapali"}</span></p>
+                        <p>DeepL anahtari: <span className="font-medium">{healthSummary.hasApiKey ? "var" : "yok"}</span></p>
+                        <p>Hedef dil aktif: <span className="font-medium">{healthSummary.localeEnabled ? "evet" : "hayir"}</span></p>
+                        <p>Desteklenen dil: <span className="font-medium">{healthSummary.supportedLocale ? "evet" : "hayir"}</span></p>
+                        <p>Aktif urun: <span className="font-medium">{healthSummary.productsAvailable}</span></p>
+                        <p>Aktif kategori: <span className="font-medium">{healthSummary.categoriesAvailable}</span></p>
+                      </div>
+
+                      {healthSummary.reasons.length > 0 ? (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Eksikler</p>
+                          <ul className="mt-2 space-y-1 text-sm">
+                            {healthSummary.reasons.map((reason) => (
+                              <li key={reason}>- {reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {healthSummary.sampleProduct || healthSummary.sampleCategory ? (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {healthSummary.sampleProduct ? (
+                            <div className="rounded-xl bg-white/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Ornek urun</p>
+                              <p className="mt-2 text-xs text-gray-500">Kaynak</p>
+                              <p className="text-sm text-gray-900">{healthSummary.sampleProduct.sourceText}</p>
+                              <p className="mt-2 text-xs text-gray-500">Cevrilen</p>
+                              <p className="text-sm text-gray-900">{healthSummary.sampleProduct.translatedText}</p>
+                            </div>
+                          ) : null}
+                          {healthSummary.sampleCategory ? (
+                            <div className="rounded-xl bg-white/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Ornek kategori</p>
+                              <p className="mt-2 text-xs text-gray-500">Kaynak</p>
+                              <p className="text-sm text-gray-900">{healthSummary.sampleCategory.sourceText}</p>
+                              <p className="mt-2 text-xs text-gray-500">Cevrilen</p>
+                              <p className="text-sm text-gray-900">{healthSummary.sampleCategory.translatedText}</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>

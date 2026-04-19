@@ -46,6 +46,32 @@ export type CatalogTranslationWarmupSummary = {
   newCacheEntries: number;
 };
 
+export type CatalogTranslationHealthSummary = {
+  locale: StoreTranslationLocale;
+  sourceLocale: StoreTranslationLocale;
+  ready: boolean;
+  probeSucceeded: boolean;
+  enabled: boolean;
+  translateCatalog: boolean;
+  translateSeo: boolean;
+  hasApiKey: boolean;
+  localeEnabled: boolean;
+  supportedLocale: boolean;
+  productsAvailable: number;
+  categoriesAvailable: number;
+  reasons: string[];
+  sampleProduct?: {
+    sourceText: string;
+    translatedText: string;
+    changed: boolean;
+  };
+  sampleCategory?: {
+    sourceText: string;
+    translatedText: string;
+    changed: boolean;
+  };
+};
+
 function sanitizeTranslatableText(value: unknown) {
   if (typeof value !== "string") {
     return "";
@@ -337,6 +363,37 @@ async function warmProductTranslations(
   };
 }
 
+async function readActiveProductsForTranslation() {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      id,
+      name,
+      description,
+      short_description,
+      seo_title,
+      seo_description,
+      variants:product_variants(name, group_name)
+    `)
+    .eq("is_active", true)
+    .or("status.eq.published,status.is.null")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Urunler okunamadi: ${error.message}`);
+  }
+
+  return (data || []) as Array<{
+    name?: string | null;
+    description?: string | null;
+    short_description?: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    variants?: Array<{ name?: string | null; group_name?: string | null }> | null;
+  }>;
+}
+
 async function warmCategoryTranslations(
   locale: StoreTranslationLocale,
   sourceLocale: StoreTranslationLocale,
@@ -375,6 +432,61 @@ async function warmCategoryTranslations(
   return {
     categoriesProcessed: categories.length,
     newCacheEntries,
+  };
+}
+
+async function readActiveCategoriesForTranslation() {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, description, seo_title, seo_description")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    throw new Error(`Kategoriler okunamadi: ${error.message}`);
+  }
+
+  return (data || []) as Array<{
+    name?: string | null;
+    description?: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+  }>;
+}
+
+function pickSampleText(values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const normalized = sanitizeTranslatableText(value);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+async function probeTranslation(
+  apiKey: string,
+  sourceLocale: StoreTranslationLocale,
+  targetLocale: StoreTranslationLocale,
+  context: string,
+  sourceText: string,
+) {
+  const format = hasHtmlLikeContent(sourceText) ? "html" : "text";
+  const [translatedText] = await requestDeepLTranslations(
+    apiKey,
+    sourceLocale,
+    targetLocale,
+    [sourceText],
+    context,
+    format,
+  );
+
+  return {
+    sourceText,
+    translatedText: sanitizeTranslatableText(translatedText) || sourceText,
+    changed: sanitizeTranslatableText(translatedText) !== sourceText,
   };
 }
 
@@ -428,5 +540,108 @@ export async function warmCatalogTranslations(
     summary.newCacheEntries += categorySummary.newCacheEntries;
   }
 
+  return summary;
+}
+
+export async function probeCatalogTranslationHealth(
+  locale: StoreTranslationLocale,
+): Promise<CatalogTranslationHealthSummary> {
+  const settings = await getConfiguredTranslationSettings();
+  const products = await readActiveProductsForTranslation();
+  const categories = await readActiveCategoriesForTranslation();
+
+  const reasons: string[] = [];
+  const hasApiKey = Boolean(settings.apiKey);
+  const localeEnabled = settings.enabledLocales.includes(locale);
+  const supportedLocale = supportsDeepLLocale(locale) && supportsDeepLLocale(settings.sourceLocale);
+
+  if (!settings.enabled) {
+    reasons.push("Canli ceviri kapali.");
+  }
+
+  if (!settings.translateCatalog) {
+    reasons.push("Katalog cevirisi kapali.");
+  }
+
+  if (!hasApiKey) {
+    reasons.push("DeepL API anahtari eksik.");
+  }
+
+  if (locale === settings.sourceLocale) {
+    reasons.push("Hedef dil kaynak dil ile ayni.");
+  }
+
+  if (!localeEnabled) {
+    reasons.push("Secilen hedef dil etkin degil.");
+  }
+
+  if (!supportedLocale) {
+    reasons.push("Secilen dil DeepL ile desteklenmiyor.");
+  }
+
+  const summary: CatalogTranslationHealthSummary = {
+    locale,
+    sourceLocale: settings.sourceLocale,
+    ready: reasons.length === 0,
+    probeSucceeded: false,
+    enabled: settings.enabled,
+    translateCatalog: settings.translateCatalog,
+    translateSeo: settings.translateSeo,
+    hasApiKey,
+    localeEnabled,
+    supportedLocale,
+    productsAvailable: products.length,
+    categoriesAvailable: categories.length,
+    reasons,
+  };
+
+  if (!summary.ready) {
+    return summary;
+  }
+
+  const sampleProductText = pickSampleText(
+    products.flatMap((product) => [
+      product.description,
+      product.short_description,
+      product.name,
+      product.seo_title,
+      product.seo_description,
+    ]),
+  );
+  const sampleCategoryText = pickSampleText(
+    categories.flatMap((category) => [
+      category.description,
+      category.name,
+      category.seo_title,
+      category.seo_description,
+    ]),
+  );
+
+  if (!sampleProductText && !sampleCategoryText) {
+    summary.reasons.push("Ornek urun veya kategori metni bulunamadi.");
+    return summary;
+  }
+
+  if (sampleProductText) {
+    summary.sampleProduct = await probeTranslation(
+      settings.apiKey,
+      settings.sourceLocale,
+      locale,
+      "product-health-check",
+      sampleProductText,
+    );
+  }
+
+  if (sampleCategoryText) {
+    summary.sampleCategory = await probeTranslation(
+      settings.apiKey,
+      settings.sourceLocale,
+      locale,
+      "category-health-check",
+      sampleCategoryText,
+    );
+  }
+
+  summary.probeSucceeded = true;
   return summary;
 }
