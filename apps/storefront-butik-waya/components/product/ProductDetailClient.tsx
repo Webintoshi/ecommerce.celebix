@@ -612,37 +612,43 @@ export function ProductDetailClient({
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3">
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={isOutOfStock || isSchemaLoading}
-                      className={`flex min-h-[52px] min-w-[220px] flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium uppercase tracking-[0.18em] transition-all duration-300 ${
-                        isOutOfStock || isSchemaLoading
-                          ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#171311] text-white hover:bg-[#2A2420]"
-                      }`}
+                  <div className="space-y-3">
+                    <div
+                      className={`grid gap-3 ${whatsappHref ? "grid-cols-2" : "grid-cols-1"}`}
                     >
-                      <ShoppingCart className="h-4.5 w-4.5 stroke-[1.5]" />
-                      {isSchemaLoading
-                        ? PDP_COPY.loading
-                        : isOutOfStock
-                          ? PDP_COPY.outOfStock
-                          : PDP_COPY.addToCart}
-                    </button>
+                      <button
+                        onClick={handleAddToCart}
+                        disabled={isOutOfStock || isSchemaLoading}
+                        className={`flex min-h-[52px] min-w-0 items-center justify-center gap-2 rounded-full px-4 py-3.5 text-[13px] font-medium uppercase tracking-[0.16em] transition-all duration-300 sm:px-6 sm:text-sm sm:tracking-[0.18em] ${
+                          isOutOfStock || isSchemaLoading
+                            ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
+                            : "bg-[#171311] text-white hover:bg-[#2A2420]"
+                        }`}
+                      >
+                        <ShoppingCart className="h-4.5 w-4.5 shrink-0 stroke-[1.5]" />
+                        <span className="truncate">
+                          {isSchemaLoading
+                            ? PDP_COPY.loading
+                            : isOutOfStock
+                              ? PDP_COPY.outOfStock
+                              : PDP_COPY.addToCart}
+                        </span>
+                      </button>
 
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       {whatsappHref ? (
                         <a
                           href={whatsappHref}
                           target="_blank"
                           rel="noreferrer noopener"
-                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-5 py-3 text-sm font-medium text-[#222222] transition hover:bg-[#F7F4F1]"
+                          className="inline-flex min-h-[52px] min-w-0 items-center justify-center gap-2 rounded-full border border-[rgba(26,26,26,0.08)] bg-white px-4 py-3.5 text-[13px] font-medium text-[#222222] transition hover:bg-[#F7F4F1] sm:px-6 sm:text-sm"
                         >
-                          <MessageCircle className="h-4.5 w-4.5 text-[#25D366]" />
-                          {PDP_COPY.whatsappOrder}
+                          <MessageCircle className="h-4.5 w-4.5 shrink-0 text-[#25D366]" />
+                          <span className="truncate">{PDP_COPY.whatsappOrder}</span>
                         </a>
                       ) : null}
+                    </div>
 
+                    <div className="flex items-center justify-end gap-2">
                       <div className="flex items-center gap-2 sm:shrink-0">
                         <button
                           onClick={toggleWishlist}
