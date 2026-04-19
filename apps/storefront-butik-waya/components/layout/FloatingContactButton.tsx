@@ -52,82 +52,94 @@ export function FloatingContactButton() {
   const isBottomPosition = settings.position.startsWith("bottom");
 
   return (
-    <div
-      className={`pointer-events-none fixed z-40 ${POSITION_CLASSES[settings.position]}`}
-    >
-      <div
-        className={`pointer-events-auto flex items-end ${
-          isBottomPosition ? "flex-col" : "flex-col-reverse"
-        }`}
-      >
-        <div
-          className={`flex ${
-            isBottomPosition ? "mb-3 flex-col-reverse" : "mt-3 flex-col"
-          } items-end gap-2`}
-        >
-          {channels.map((channel, index) => {
-            const label =
-              channel.label || getFloatingContactDefaultLabel(channel.type);
-
-            return (
-              <a
-                key={channel.type}
-                href={channel.resolvedHref}
-                target={channel.resolvedHref.startsWith("http") ? "_blank" : undefined}
-                rel={
-                  channel.resolvedHref.startsWith("http")
-                    ? "noreferrer noopener"
-                    : undefined
-                }
-                aria-label={label}
-                title={label}
-                style={{
-                  transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
-                }}
-                className={`inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#12100f]/96 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.62)] backdrop-blur-xl transition-all duration-300 hover:border-white/18 hover:bg-[#1a1715] ${
-                  isOpen
-                    ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-                    : "pointer-events-none translate-y-2 scale-90 opacity-0"
-                }`}
-              >
-                <span
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
-                >
-                  {getChannelIcon(channel.type)}
-                </span>
-              </a>
-            );
-          })}
-        </div>
-
+    <>
+      {isOpen ? (
         <button
           type="button"
-          onClick={() => setIsOpen((current) => !current)}
-          className="relative inline-flex h-[50px] w-[128px] items-center rounded-full border border-white/10 bg-[#12100f]/96 px-2.5 text-[14px] font-medium text-white shadow-[0_20px_46px_-24px_rgba(0,0,0,0.66)] backdrop-blur-xl transition-all duration-300 hover:border-white/18 hover:bg-[#1a1715]"
-          aria-expanded={isOpen}
-          aria-label={
-            isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"
-          }
+          onClick={() => setIsOpen(false)}
+          aria-label="Iletisim seceneklerini kapat"
+          className="fixed inset-0 z-40 bg-[rgba(255,255,255,0.08)] backdrop-blur-[5px] transition-opacity duration-300"
+        />
+      ) : null}
+
+      <div
+        className={`pointer-events-none fixed z-50 ${POSITION_CLASSES[settings.position]}`}
+      >
+        <div
+          className={`pointer-events-auto flex items-end ${
+            isBottomPosition ? "flex-col" : "flex-col-reverse"
+          }`}
         >
-          <span
-            className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#12100f] shadow-[0_10px_24px_-14px_rgba(0,0,0,0.45)] transition-transform duration-300 ${
-              isOpen ? "translate-x-[74px]" : "translate-x-0"
-            }`}
+          <div
+            className={`flex ${
+              isBottomPosition ? "mb-3 flex-col-reverse" : "mt-3 flex-col"
+            } items-end gap-2`}
           >
-            {isOpen ? <X className="h-4.5 w-4.5" /> : <ContactGlyph className="h-4.5 w-4.5" />}
-          </span>
-          <span
-            className={`absolute text-[14px] font-medium tracking-[0.01em] transition-all duration-300 ${
-              isOpen
-                ? "left-4 text-white/70"
-                : "left-[52px] text-white/94"
-            }`}
+            {channels.map((channel, index) => {
+              const label =
+                channel.label || getFloatingContactDefaultLabel(channel.type);
+
+              return (
+                <a
+                  key={channel.type}
+                  href={channel.resolvedHref}
+                  target={channel.resolvedHref.startsWith("http") ? "_blank" : undefined}
+                  rel={
+                    channel.resolvedHref.startsWith("http")
+                      ? "noreferrer noopener"
+                      : undefined
+                  }
+                  aria-label={label}
+                  title={label}
+                  style={{
+                    transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
+                  }}
+                  className={`inline-flex min-w-[156px] items-center gap-2 rounded-full border border-[rgba(18,16,15,0.08)] bg-[rgba(255,255,255,0.92)] px-2.5 py-2 text-[13px] font-medium text-[#222222] shadow-[0_18px_40px_-24px_rgba(75,54,68,0.28)] backdrop-blur-xl transition-all duration-300 hover:bg-white ${
+                    isOpen
+                      ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                      : "pointer-events-none translate-y-2 scale-90 opacity-0"
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(18,16,15,0.08)] bg-[#fffaf8] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
+                  >
+                    {getChannelIcon(channel.type)}
+                  </span>
+                  <span className="truncate pr-2">{label}</span>
+                </a>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen((current) => !current)}
+            className="relative inline-flex h-[50px] w-[128px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[#161211]/96 px-2.5 text-[14px] font-medium text-white shadow-[0_20px_46px_-24px_rgba(40,20,32,0.56)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[#1b1615]"
+            aria-expanded={isOpen}
+            aria-label={
+              isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"
+            }
           >
-            Iletisim
-          </span>
-        </button>
+            <span
+              className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#fff8f7] text-[#161211] shadow-[0_10px_24px_-14px_rgba(67,36,54,0.4)] transition-transform duration-300 ${
+                isOpen ? "translate-x-[74px]" : "translate-x-0"
+              }`}
+            >
+              {isOpen ? <X className="h-4.5 w-4.5" /> : <ContactGlyph className="h-4.5 w-4.5" />}
+            </span>
+            <span
+              className={`absolute text-[14px] font-medium tracking-[0.01em] transition-all duration-300 ${
+                isOpen
+                  ? "left-4 text-white/70"
+                  : "left-[52px] text-white/94"
+              }`}
+            >
+              Iletisim
+            </span>
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
