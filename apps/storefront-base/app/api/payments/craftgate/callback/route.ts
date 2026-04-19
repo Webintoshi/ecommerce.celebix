@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPaymentWebhookEvent, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
-import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
 import {
-    getOrderRedirectUrl,
+    getPaymentAttemptRedirectUrl,
     getPaymentAttemptByCheckoutToken,
     getSafeAttemptStatusFromCraftgate,
     isExpectedAmount,
     retrieveCraftgateCheckoutPayment,
 } from "@/lib/payment-runtime";
+import { settleFailedPaymentAttempt, settleSuccessfulPaymentAttempt } from "@/lib/payment-attempt-settlement";
 
 function getBaseUrl(request: NextRequest) {
     const forwardedProto = request.headers.get("x-forwarded-proto");
@@ -78,7 +78,8 @@ async function handleCallback(request: NextRequest) {
         provider: "craftgate",
         gatewayId: gateway.id,
         paymentAttemptId: attempt.id,
-        orderId: attempt.order_id,
+        orderId: attempt.order_id ?? undefined,
+        quickOrderLinkId: attempt.quick_order_link_id ?? undefined,
         eventType: "callback",
         status: isValid ? "received" : "invalid_signature",
         headers: Object.fromEntries(request.headers.entries()),
@@ -106,16 +107,16 @@ async function handleCallback(request: NextRequest) {
             : null,
     });
 
+    let resolvedOrderId = attempt.order_id ?? null;
     if (paymentStatus === "captured") {
-        await updatePaymentStatus(attempt.order_id, "completed");
-        await updateOrderStatus(attempt.order_id, "confirmed");
+        resolvedOrderId = await settleSuccessfulPaymentAttempt(attempt);
     } else if (paymentStatus === "failed") {
-        await updatePaymentStatus(attempt.order_id, "failed");
-        await updateOrderStatus(attempt.order_id, "cancelled");
+        await settleFailedPaymentAttempt(attempt);
     }
 
-    const redirectStatus = paymentStatus === "captured" ? "success" : paymentStatus === "failed" ? "failed" : "pending";
-    return { attemptId: attempt.id, orderId: attempt.order_id, redirectStatus, status: 200 as const };
+    const redirectStatus: "success" | "failed" | "pending" =
+        paymentStatus === "captured" ? "success" : paymentStatus === "failed" ? "failed" : "pending";
+    return { attemptId: attempt.id, orderId: resolvedOrderId, redirectStatus, status: 200 as const, attempt };
 }
 
 export async function GET(request: NextRequest) {
@@ -125,7 +126,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${getBaseUrl(request)}/odeme`, 302);
     }
 
-    return NextResponse.redirect(getOrderRedirectUrl(getBaseUrl(request), result.orderId, result.redirectStatus), 302);
+    return NextResponse.redirect(
+        getPaymentAttemptRedirectUrl(
+            getBaseUrl(request),
+            {
+                ...result.attempt,
+                order_id: result.orderId,
+            },
+            result.redirectStatus,
+        ),
+        302,
+    );
 }
 
 export async function POST(request: NextRequest) {
@@ -135,5 +146,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: result.error }, { status: result.status });
     }
 
-    return NextResponse.redirect(getOrderRedirectUrl(getBaseUrl(request), result.orderId, result.redirectStatus), 302);
+    return NextResponse.redirect(
+        getPaymentAttemptRedirectUrl(
+            getBaseUrl(request),
+            {
+                ...result.attempt,
+                order_id: result.orderId,
+            },
+            result.redirectStatus,
+        ),
+        302,
+    );
 }

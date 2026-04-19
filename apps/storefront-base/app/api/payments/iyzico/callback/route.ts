@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
 import { createPaymentWebhookEvent, updatePaymentAttempt } from "@/lib/db/payment-attempts";
-import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
-import { enqueueAndProcessInvoiceForOrder } from "@/lib/db/accounting";
+import { settleFailedPaymentAttempt, settleSuccessfulPaymentAttempt } from "@/lib/payment-attempt-settlement";
 import {
-    getOrderRedirectUrl,
+    getPaymentAttemptRedirectUrl,
     getPaymentAttemptByCheckoutToken,
     getSafeAttemptStatusFromIyzico,
     retrieveIyzicoPayment,
@@ -45,7 +44,8 @@ export async function POST(request: NextRequest) {
             provider: gateway.gateway,
             gatewayId: gateway.id,
             paymentAttemptId: attempt.id,
-            orderId: attempt.order_id,
+            orderId: attempt.order_id ?? undefined,
+            quickOrderLinkId: attempt.quick_order_link_id ?? undefined,
             eventType: "checkout_callback",
             status: success ? "processed" : "failed",
             payload: Object.fromEntries(formData.entries()),
@@ -63,19 +63,24 @@ export async function POST(request: NextRequest) {
             errorMessage: success ? null : (typeof result.errorMessage === "string" ? result.errorMessage : "Odeme basarisiz."),
         });
 
-        await updatePaymentStatus(attempt.order_id, success ? "completed" : "failed");
+        let resolvedOrderId = attempt.order_id ?? null;
         if (success) {
-            await updateOrderStatus(attempt.order_id, "confirmed");
-            try {
-                await enqueueAndProcessInvoiceForOrder(attempt.order_id);
-            } catch (accountingError) {
-                console.error("Accounting queue error (iyzico):", accountingError);
-            }
+            resolvedOrderId = await settleSuccessfulPaymentAttempt(attempt);
         } else {
-            await updateOrderStatus(attempt.order_id, "cancelled");
+            await settleFailedPaymentAttempt(attempt);
         }
 
-        return NextResponse.redirect(getOrderRedirectUrl(getBaseUrl(request), attempt.order_id, success ? "success" : "failed"), 303);
+        return NextResponse.redirect(
+            getPaymentAttemptRedirectUrl(
+                getBaseUrl(request),
+                {
+                    ...attempt,
+                    order_id: resolvedOrderId,
+                },
+                success ? "success" : "failed",
+            ),
+            303,
+        );
     } catch (error) {
         console.error("iyzico callback error:", error);
         return NextResponse.json(
