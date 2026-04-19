@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Mail, X } from "lucide-react";
+import { Mail, X } from "lucide-react";
 import { useStoreInfo } from "@/lib/store-info-context";
 import {
   getFloatingContactDefaultLabel,
-  isFloatingContactExternalHref,
   normalizeFloatingContactSettings,
   resolveFloatingContactHref,
   type FloatingContactChannelType,
@@ -21,7 +20,7 @@ const POSITION_CLASSES = {
 const CHANNEL_ICON_WRAPPER_STYLES: Record<FloatingContactChannelType, string> = {
   whatsapp: "text-[#25D366]",
   instagram: "text-[#F77737]",
-  form: "text-white/82",
+  form: "text-white/84",
 } as const;
 
 export function FloatingContactButton() {
@@ -61,53 +60,71 @@ export function FloatingContactButton() {
           isBottomPosition ? "flex-col" : "flex-col-reverse"
         }`}
       >
-        <div className={`flex flex-col gap-2 ${isBottomPosition ? "mb-2.5" : "mt-2.5"}`}>
-          {isOpen
-            ? channels.map((channel) => {
-                const label =
-                  channel.label || getFloatingContactDefaultLabel(channel.type);
-                const external = isFloatingContactExternalHref(
-                  channel.resolvedHref,
-                );
+        <div
+          className={`flex ${
+            isBottomPosition ? "mb-3 flex-col-reverse" : "mt-3 flex-col"
+          } items-end gap-2`}
+        >
+          {channels.map((channel, index) => {
+            const label =
+              channel.label || getFloatingContactDefaultLabel(channel.type);
 
-                return (
-                  <a
-                    key={channel.type}
-                    href={channel.resolvedHref}
-                    target={external ? "_blank" : undefined}
-                    rel={external ? "noreferrer noopener" : undefined}
-                    className="group inline-flex min-w-[214px] items-center gap-3 rounded-full border border-white/10 bg-[#12100f]/96 px-3 py-2.5 text-[13px] font-medium text-white shadow-[0_18px_42px_-24px_rgba(0,0,0,0.62)] backdrop-blur-xl transition-all hover:border-white/18 hover:bg-[#1a1715]"
-                  >
-                    <span className="inline-flex min-w-0 flex-1 items-center gap-3">
-                      <span
-                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
-                      >
-                        {getChannelIcon(channel.type)}
-                      </span>
-                      <span className="truncate text-white/92">{label}</span>
-                    </span>
-                    {external ? (
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-white/46 transition group-hover:translate-x-0.5 group-hover:text-white/66" />
-                    ) : null}
-                  </a>
-                );
-              })
-            : null}
+            return (
+              <a
+                key={channel.type}
+                href={channel.resolvedHref}
+                target={channel.resolvedHref.startsWith("http") ? "_blank" : undefined}
+                rel={
+                  channel.resolvedHref.startsWith("http")
+                    ? "noreferrer noopener"
+                    : undefined
+                }
+                aria-label={label}
+                title={label}
+                style={{
+                  transitionDelay: isOpen ? `${index * 45}ms` : "0ms",
+                }}
+                className={`inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#12100f]/96 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.62)] backdrop-blur-xl transition-all duration-300 hover:border-white/18 hover:bg-[#1a1715] ${
+                  isOpen
+                    ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                    : "pointer-events-none translate-y-2 scale-90 opacity-0"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] ${CHANNEL_ICON_WRAPPER_STYLES[channel.type]}`}
+                >
+                  {getChannelIcon(channel.type)}
+                </span>
+              </a>
+            );
+          })}
         </div>
 
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#12100f]/96 px-3.5 py-2.5 text-[13px] font-medium text-white shadow-[0_20px_46px_-24px_rgba(0,0,0,0.66)] backdrop-blur-xl transition hover:border-white/18 hover:bg-[#1a1715]"
+          className="relative inline-flex h-[50px] w-[128px] items-center rounded-full border border-white/10 bg-[#12100f]/96 px-2.5 text-[14px] font-medium text-white shadow-[0_20px_46px_-24px_rgba(0,0,0,0.66)] backdrop-blur-xl transition-all duration-300 hover:border-white/18 hover:bg-[#1a1715]"
           aria-expanded={isOpen}
           aria-label={
             isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"
           }
         >
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/88">
-            {isOpen ? <X className="h-4 w-4" /> : <ContactGlyph className="h-4 w-4" />}
+          <span
+            className={`absolute left-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#12100f] shadow-[0_10px_24px_-14px_rgba(0,0,0,0.45)] transition-transform duration-300 ${
+              isOpen ? "translate-x-[74px]" : "translate-x-0"
+            }`}
+          >
+            {isOpen ? <X className="h-4.5 w-4.5" /> : <ContactGlyph className="h-4.5 w-4.5" />}
           </span>
-          <span className="hidden sm:inline">{isOpen ? "Kapat" : "Iletisim"}</span>
+          <span
+            className={`absolute text-[14px] font-medium tracking-[0.01em] transition-all duration-300 ${
+              isOpen
+                ? "left-4 text-white/70"
+                : "left-[52px] text-white/94"
+            }`}
+          >
+            Iletisim
+          </span>
         </button>
       </div>
     </div>
