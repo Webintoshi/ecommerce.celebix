@@ -52,6 +52,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Tüm Siparişler", href: "/admin/siparisler" },
       { title: "Terkedilen Sepetler", href: "/admin/siparisler/sepet-terk" },
+      { title: "Hızlı Sipariş", href: "/admin/siparisler/hizli-siparis" },
     ],
   },
   {
