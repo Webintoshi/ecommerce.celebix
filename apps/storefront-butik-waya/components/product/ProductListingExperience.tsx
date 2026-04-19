@@ -166,7 +166,7 @@ function buildListingMetadata(products: Product[]): ListingFilterMetadata {
         : null,
     subcategories:
       subcategories.length > 1
-        ? { id: "subcategories", label: "Alt seckiler", options: subcategories }
+        ? { id: "subcategories", label: "Alt seçkiler", options: subcategories }
         : null,
     attributes,
     priceBounds: getPriceBounds(products),
@@ -434,11 +434,11 @@ export function ProductListingExperience({
                   <Package className="h-6 w-6 text-[#222222]" />
                 </div>
                 <h3 className="mt-5 font-serif text-3xl tracking-[-0.04em] text-[#222222]">
-                  {isFilteredEmpty ? "Filtrelere uygun urun yok" : emptyTitle}
+                  {isFilteredEmpty ? "Filtrelere uygun ürün yok" : emptyTitle}
                 </h3>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#222222]">
                   {isFilteredEmpty
-                    ? "Secimi genisletmek icin aktif filtreleri sifirlayin ya da farkli bir kategori secin."
+                    ? "Seçimi genişletmek için aktif filtreleri sıfırlayın ya da farklı bir kategori seçin."
                     : emptyDescription}
                 </p>
                 {isFilteredEmpty ? (
@@ -447,14 +447,14 @@ export function ProductListingExperience({
                     onClick={() => handleFilterChange(createListingFilterState(metadata.priceBounds))}
                     className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem]"
                   >
-                    Filtreleri sifirla
+                    Filtreleri sıfırla
                   </button>
                 ) : (
                   <Link
                     href={buildLocalizedPath("/urunler", locale)}
                     className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem]"
                   >
-                    Tum urunlere don
+                    Tüm ürünlere dön
                   </Link>
                 )}
               </div>
@@ -485,12 +485,12 @@ export function ProductListingExperience({
                     <div className="flex items-center gap-3 text-[#222222]">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="text-[11px] uppercase tracking-[0.18em]">
-                        Vitrin genisliyor
+                        Vitrin genişliyor
                       </span>
                     </div>
                   ) : (
                     <p className="text-[11px] uppercase tracking-[0.18em] text-[#222222]">
-                      Tum urunler goruntulendi
+                      Tüm ürünler görüntülendi
                     </p>
                   )}
                 </div>

@@ -144,37 +144,37 @@ export const ROUTES = {
 export const PRODUCT_BADGES = {
   vegan: { label: "Vegan", color: "bg-primary/10 text-primary" },
   glutenFree: { label: "Glutensiz", color: "bg-primary/10 text-primary" },
-  sugarFree: { label: "Sekersiz", color: "bg-primary/10 text-primary" },
-  highProtein: { label: "Yuksek Protein", color: "bg-primary/10 text-primary" },
+  sugarFree: { label: "Şekersiz", color: "bg-primary/10 text-primary" },
+  highProtein: { label: "Yüksek Protein", color: "bg-primary/10 text-primary" },
   new: { label: "Yeni", color: "bg-primary/10 text-primary" },
-  discount: { label: "Indirim", color: "bg-primary/10 text-primary" },
+  discount: { label: "İndirim", color: "bg-primary/10 text-primary" },
 };
 
 export const NAV_LINKS = [
   { name: "Ana Sayfa", href: ROUTES.home },
-  { name: "Urunler", href: ROUTES.products },
+  { name: "Ürünler", href: ROUTES.products },
   { name: "Blog", href: ROUTES.blog },
-  { name: "Iletisim", href: ROUTES.contact },
+  { name: "İletişim", href: ROUTES.contact },
   { name: "SSS", href: "/sss" },
 ];
 
 export const FOOTER_LINKS = {
   discover: [
-    { name: "Tum Urunler", href: ROUTES.products },
-    { name: "One Cikanlar", href: `${ROUTES.products}?sort=featured` },
+    { name: "Tüm Ürünler", href: ROUTES.products },
+    { name: "Öne Çıkanlar", href: `${ROUTES.products}?sort=featured` },
     { name: "Yeni Gelenler", href: `${ROUTES.products}?sort=newest` },
   ],
   company: [
     { name: "Ana Sayfa", href: ROUTES.home },
     { name: "Blog", href: ROUTES.blog },
-    { name: "Iletisim", href: ROUTES.contact },
+    { name: "İletişim", href: ROUTES.contact },
     { name: "SSS", href: "/sss" },
   ],
   policies: [
-    { name: "Gizlilik Sozlesmesi", href: "/gizlilik" },
-    { name: "Iade Sozlesmesi", href: "/iade" },
-    { name: "Hizmet Sartlari", href: "/sartlar" },
-    { name: "Kargo Politikasi", href: "/kargo" },
+    { name: "Gizlilik Sözleşmesi", href: "/gizlilik" },
+    { name: "İade Sözleşmesi", href: "/iade" },
+    { name: "Hizmet Şartları", href: "/sartlar" },
+    { name: "Kargo Politikası", href: "/kargo" },
   ],
 };
 

@@ -57,7 +57,7 @@ export function FloatingContactButton() {
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          aria-label="Iletisim seceneklerini kapat"
+          aria-label="İletişim seçeneklerini kapat"
           className="fixed inset-0 z-40 bg-[rgba(248,241,238,0.12)] backdrop-blur-[7px] transition-opacity duration-300"
         />
       ) : null}
@@ -117,7 +117,7 @@ export function FloatingContactButton() {
             className="relative inline-flex h-[50px] w-[132px] items-center rounded-full border border-[rgba(255,255,255,0.16)] bg-[linear-gradient(180deg,rgba(29,22,22,0.98),rgba(20,15,15,0.96))] px-2.5 text-[14px] font-medium text-white shadow-[0_22px_48px_-24px_rgba(63,30,50,0.52)] backdrop-blur-xl transition-all duration-300 hover:border-white/24 hover:bg-[linear-gradient(180deg,rgba(34,26,26,0.98),rgba(22,16,16,0.96))]"
             aria-expanded={isOpen}
             aria-label={
-              isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"
+              isOpen ? "İletişim seçeneklerini kapat" : "İletişim seçeneklerini aç"
             }
           >
             <span
@@ -134,7 +134,7 @@ export function FloatingContactButton() {
                   : "left-[52px] text-white/94"
               }`}
             >
-              Iletisim
+              İletişim
             </span>
           </button>
         </div>

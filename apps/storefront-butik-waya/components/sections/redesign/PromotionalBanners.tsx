@@ -25,7 +25,7 @@ interface PromotionalBannersProps {
 }
 
 function getDefaultBadge(order: number): string {
-  const badges = ["Yeni Tema", "Editor Secimi", "Hazir Kampanya"];
+  const badges = ["Yeni Tema", "Editör Seçimi", "Hazır Kampanya"];
   return badges[order - 1] || "Placeholder";
 }
 
@@ -45,9 +45,9 @@ function getDefaultBanners(): PromoBanner[] {
       id: 1,
       image: "/placeholders/promo-banner-1.svg",
       mobileImage: "/placeholders/promo-banner-1.svg",
-      title: "Yeni koleksiyonunu konumlandir",
-      subtitle: "Hazir hero alani",
-      buttonText: "Urunleri gor",
+      title: "Yeni koleksiyonunu konumlandır",
+      subtitle: "Hazır hero alanı",
+      buttonText: "Ürünleri gör",
       buttonLink: "/urunler",
       order: 1,
       badge: "Yeni Tema",
@@ -58,9 +58,9 @@ function getDefaultBanners(): PromoBanner[] {
       id: 2,
       image: "/placeholders/promo-banner-2.svg",
       mobileImage: "/placeholders/promo-banner-2.svg",
-      title: "One cikan urun grubunu sergile",
-      subtitle: "Editor secimi alani",
-      buttonText: "Blog alanini ac",
+      title: "Öne çıkan ürün grubunu sergile",
+      subtitle: "Editör seçimi alanı",
+      buttonText: "Blog alanını aç",
       buttonLink: "/blog",
       order: 2,
       badge: "Editor Secimi",
@@ -71,9 +71,9 @@ function getDefaultBanners(): PromoBanner[] {
       id: 3,
       image: "/placeholders/promo-banner-3.svg",
       mobileImage: "/placeholders/promo-banner-3.svg",
-      title: "Hazir kampanya slotu",
-      subtitle: "Polish icin acik alan",
-      buttonText: "Iletisime gec",
+      title: "Hazır kampanya slotu",
+      subtitle: "Polish için açık alan",
+      buttonText: "İletişime geç",
       buttonLink: "/iletisim",
       order: 3,
       badge: "Hazir Kampanya",
@@ -161,7 +161,7 @@ export default function PromotionalBanners({
         const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(payload.error || "Promosyon banner verileri yuklenemedi.");
+          throw new Error(payload.error || "Promosyon banner verileri yüklenemedi.");
         }
 
         const normalizedBanners = withDefaults(normalizeBanners(payload.promoBanners));
@@ -201,14 +201,14 @@ export default function PromotionalBanners({
         <div className="mb-10 text-center md:mb-14">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-medium text-white shadow-lg">
             <Sparkles className="h-4 w-4" />
-            Hazir kampanya alani
+            Hazır kampanya alanı
           </span>
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-[#7B1113] md:text-5xl">
-            Storefront base promo slotlari
+            Storefront base promo slotları
           </h2>
           <p className="mx-auto max-w-2xl text-base text-[#6b4b4c] md:text-lg">
-            Bu bloklar yeni magazada admin ayarlariyla doldurulur. Placeholder gorseller,
-            tasarim ve polish surecini hizlandirmak icin birakildi.
+            Bu bloklar yeni mağazada admin ayarlarıyla doldurulur. Placeholder görseller,
+            tasarım ve polish sürecini hızlandırmak için bırakıldı.
           </p>
         </div>
 

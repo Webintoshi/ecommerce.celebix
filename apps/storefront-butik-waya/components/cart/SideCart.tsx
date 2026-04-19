@@ -102,7 +102,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-gray-900">Sepetim</h2>
                 <span className="text-sm font-medium text-gray-500">
-                  ({getTotalItems()} urun)
+                  ({getTotalItems()} ürün)
                 </span>
               </div>
               <button
@@ -121,7 +121,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    Son Eklenen Urun
+                    Son Eklenen Ürün
                   </p>
                   <p className="truncate text-[14px] font-bold text-gray-900">
                     {lastAddedItem.product.name}
@@ -151,9 +151,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <span className="font-bold text-primary">
                     {formatPrice(remainingForFreeShipping)}
                   </span>{" "}
-                  daha harcayip{" "}
-                  <span className="font-bold text-emerald-600">ucretsiz kargo</span>{" "}
-                  kazanin!
+                  daha harcayıp{" "}
+                  <span className="font-bold text-emerald-600">ücretsiz kargo</span>{" "}
+                  kazanın!
                 </p>
                 <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                   <div
@@ -171,9 +171,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     <ShoppingBag className="h-10 w-10 text-gray-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Sepetiniz Bos</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Sepetiniz Boş</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Henuz sepetinize urun eklemediniz.
+                      Henüz sepetinize ürün eklemediniz.
                     </p>
                   </div>
                   <Link
@@ -181,7 +181,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     onClick={onClose}
                     className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
                   >
-                    Alisverise Basla
+                    Alışverişe Başla
                   </Link>
                 </div>
               ) : (
@@ -283,7 +283,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                         shipping === 0 ? "text-emerald-600" : "text-gray-900",
                       )}
                     >
-                      {shipping === 0 ? "Ucretsiz" : formatPrice(shipping)}
+                      {shipping === 0 ? "Ücretsiz" : formatPrice(shipping)}
                     </span>
                   </div>
                 </div>
@@ -300,12 +300,12 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   onClick={onClose}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
                 >
-                  Odemeye Gec <ArrowRight className="h-5 w-5" />
+                  Ödemeye Geç <ArrowRight className="h-5 w-5" />
                 </Link>
 
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
                   <Lock className="h-3 w-3" />
-                  <span>256-bit SSL ile guvenli odeme</span>
+                  <span>256-bit SSL ile güvenli ödeme</span>
                 </div>
               </div>
             ) : null}

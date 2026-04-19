@@ -148,7 +148,7 @@ export function HeaderSearchOverlay({
         const payload = (await response.json()) as SearchProductsResponse;
 
         if (!response.ok || payload.success === false) {
-          throw new Error(payload.error || "Arama basarisiz");
+          throw new Error(payload.error || "Arama başarısız");
         }
 
         setResults(Array.isArray(payload.products) ? payload.products : []);
@@ -159,7 +159,7 @@ export function HeaderSearchOverlay({
 
         console.error("Header search request failed:", error);
         setResults([]);
-        setErrorMessage("Arama sonuclari su anda alinamiyor.");
+        setErrorMessage("Arama sonuçları şu anda alınamıyor.");
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -191,7 +191,7 @@ export function HeaderSearchOverlay({
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Urun arama penceresi"
+          aria-label="Ürün arama penceresi"
         >
           <div className="border-b border-neutral-200 px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-start gap-4">
@@ -201,7 +201,7 @@ export function HeaderSearchOverlay({
 
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500">
-                  Hizli Arama
+                  Hızlı Arama
                 </p>
                 <form
                   className="mt-3"
@@ -214,7 +214,7 @@ export function HeaderSearchOverlay({
                       type="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Urun, kategori veya model ara..."
+                      placeholder="Ürün, kategori veya model ara..."
                       className="h-14 w-full rounded-2xl border border-neutral-200 bg-white pl-12 pr-14 text-base font-medium text-neutral-900 outline-none transition focus:border-neutral-400"
                     />
                     {query ? (
@@ -222,7 +222,7 @@ export function HeaderSearchOverlay({
                         type="button"
                         onClick={() => setQuery("")}
                         className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-800"
-                        aria-label="Aramayi temizle"
+                        aria-label="Aramayı temizle"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -230,7 +230,7 @@ export function HeaderSearchOverlay({
                   </div>
                 </form>
                 <p className="mt-3 text-sm text-neutral-500">
-                  En az 2 karakter yazin. Sonuclar yazdikca otomatik gelir.
+                  En az 2 karakter yazın. Sonuçlar yazdıkça otomatik gelir.
                 </p>
               </div>
 
@@ -238,7 +238,7 @@ export function HeaderSearchOverlay({
                 type="button"
                 onClick={onClose}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-500 transition hover:border-neutral-300 hover:text-neutral-900"
-                aria-label="Aramayi kapat"
+                aria-label="Aramayı kapat"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -250,10 +250,10 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-dashed border-neutral-200 bg-white/70 px-6 text-center">
                 <div>
                   <p className="text-lg font-semibold text-neutral-900">
-                    Arama hazir
+                    Arama hazır
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Popupta ajax arama acik. Urun ismini yazmaya baslayin.
+                    Popupta ajax arama açık. Ürün ismini yazmaya başlayın.
                   </p>
                 </div>
               </div>
@@ -261,10 +261,10 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
                 <div>
                   <p className="text-lg font-semibold text-neutral-900">
-                    Araniyor...
+                    Aranıyor...
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Sonuclar anlik olarak getiriliyor.
+                    Sonuçlar anlık olarak getiriliyor.
                   </p>
                 </div>
               </div>
@@ -272,7 +272,7 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
                 <div>
                   <p className="text-lg font-semibold text-neutral-900">
-                    Arama su an calismiyor
+                    Arama şu an çalışmıyor
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">{errorMessage}</p>
                 </div>
@@ -281,10 +281,10 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
                 <div>
                   <p className="text-lg font-semibold text-neutral-900">
-                    Sonuc bulunamadi
+                    Sonuç bulunamadı
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Farkli bir urun veya model ismi deneyin.
+                    Farklı bir ürün veya model ismi deneyin.
                   </p>
                 </div>
               </div>
@@ -292,10 +292,10 @@ export function HeaderSearchOverlay({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
-                    Sonuclar
+                    Sonuçlar
                   </p>
                   <p className="text-sm text-neutral-500">
-                    {Math.min(results.length, MAX_RESULTS)} urun
+                    {Math.min(results.length, MAX_RESULTS)} ürün
                   </p>
                 </div>
 
@@ -331,7 +331,7 @@ export function HeaderSearchOverlay({
 
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                          {product.category || "Urun"}
+                          {product.category || "Ürün"}
                         </p>
                         <p className="store-product-title mt-1 text-neutral-900">
                           {product.name}

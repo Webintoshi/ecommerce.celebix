@@ -91,51 +91,51 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       };
     default:
       return {
-        siteTitle: `${name} | Premium Magaza Deneyimi`,
+        siteTitle: `${name} | Premium Mağaza Deneyimi`,
         siteDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
-        homeTitle: `${name} | Premium Magaza Deneyimi`,
+          "Adminden yönetilen ürünler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine dönüşen modern storefront deneyimi.",
+        homeTitle: `${name} | Premium Mağaza Deneyimi`,
         homeDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
-        productsTitle: `Tum Urunler | ${name}`,
+          "Adminden yönetilen ürünler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine dönüşen modern storefront deneyimi.",
+        productsTitle: `Tüm Ürünler | ${name}`,
         productsDescription:
-          "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
-        contactTitle: `Iletisim | ${name}`,
+          "Yayındaki ürünleri, seçili koleksiyonları ve premium vitrin bloklarını tek bir akışta keşfedin.",
+        contactTitle: `İletişim | ${name}`,
         contactDescription:
-          "Destek, toptan satis ve ozel proje talepleriniz icin bizimle iletisime gecin.",
-        corporateTitle: `Kurumsal Urunler | ${name}`,
+          "Destek, toptan satış ve özel proje talepleriniz için bizimle iletişime geçin.",
+        corporateTitle: `Kurumsal Ürünler | ${name}`,
         corporateDescription:
-          "Markanizi premium urunler, ozel hediye setleri ve admin yonetimli kurumsal vitrinle guclendirin.",
-        missingProductTitle: `Urun Bulunamadi | ${name}`,
-        missingProductDescription: "Aradiginiz urun bulunamadi.",
-        missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
+          "Markanızı premium ürünler, özel hediye setleri ve admin yönetimli kurumsal vitrinle güçlendirin.",
+        missingProductTitle: `Ürün Bulunamadı | ${name}`,
+        missingProductDescription: "Aradığınız ürün bulunamadı.",
+        missingCategoryTitle: `Kategori Bulunamadı | ${name}`,
         missingCategoryDescription:
-          "Istenen koleksiyon henuz hazir degil. Yayinlanan kategoriler otomatik olarak burada listelenecek.",
+          "İstenen koleksiyon henüz hazır değil. Yayınlanan kategoriler otomatik olarak burada listelenecek.",
       };
   }
 }
 
 const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnType<typeof getRuntimeCopyDefaults>>> = {
   tr: {
-    menuLabel: "Menu",
+    menuLabel: "Menü",
     searchLabel: "Ara",
-    cartLabel: "Sepeti ac",
+    cartLabel: "Sepeti aç",
     categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Taniyin",
+    aboutHeading: "Bizi Tanıyın",
     policiesHeading: "Politikalar",
     footerHome: "Ana Sayfa",
-    footerAbout: "Hakkimizda",
-    footerStores: "Magazalarimiz",
-    footerCorporate: "Kurumsal Urunler",
-    footerContact: "Iletisim",
-    footerDistanceSales: "Mesafeli Satis Sozlesmesi",
-    footerReturns: "Teslimat ve Iade Politikasi",
-    footerPrivacy: "Gizlilik Politikasi",
+    footerAbout: "Hakkımızda",
+    footerStores: "Mağazalarımız",
+    footerCorporate: "Kurumsal Ürünler",
+    footerContact: "İletişim",
+    footerDistanceSales: "Mesafeli Satış Sözleşmesi",
+    footerReturns: "Teslimat ve İade Politikası",
+    footerPrivacy: "Gizlilik Politikası",
     footerKvkk: "KVKK",
-    footerRights: "Tum haklari saklidir.",
+    footerRights: "Tüm hakları saklıdır.",
     breadcrumbHome: "Ana Sayfa",
-    breadcrumbProducts: "Urunler",
-    faqHeading: "Sikca sorulan sorular",
+    breadcrumbProducts: "Ürünler",
+    faqHeading: "Sıkça sorulan sorular",
   },
   en: {
     menuLabel: "Menu",

@@ -15,10 +15,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/hakkimizda",
-    title: managedPage?.seoTitle || `Hakkimizda | ${profile.name}`,
+    title: managedPage?.seoTitle || `Hakkımızda | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} marka hikayesi, magaza bilgileri ve kurumsal detaylari.`,
+      `${profile.name} marka hikayesi, mağaza bilgileri ve kurumsal detayları.`,
   });
 }
 
@@ -32,7 +32,7 @@ export default async function AboutPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#222222]">
-            Hakkimizda
+            Hakkımızda
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#222222] sm:text-5xl">
             {profile.name}
@@ -54,13 +54,13 @@ export default async function AboutPage() {
             ) : (
               <div className="space-y-5 text-sm leading-7 text-[#222222]">
                 <p>
-                  Bu alan admin panelindeki <strong>Hakkimizda</strong> sayfasindan yonetilir.
-                  Icerik girildiginde magaza hikayeniz, uretim anlayisiniz ve kurumsal anlatiminiz
-                  burada yayinlanir.
+                  Bu alan admin panelindeki <strong>Hakkımızda</strong> sayfasından yönetilir.
+                  İçerik girildiğinde mağaza hikayeniz, üretim anlayışınız ve kurumsal anlatımınız
+                  burada yayınlanır.
                 </p>
                 <p>
-                  Simdilik bu sayfa magaza genel ayarlarindaki marka bilgilerini referans aliyor.
-                  Musteriye gosterilecek son metni admin panelinden duzenlemeniz gerekir.
+                  Şimdilik bu sayfa mağaza genel ayarlarındaki marka bilgilerini referans alıyor.
+                  Müşteriye gösterilecek son metni admin panelinden düzenlemeniz gerekir.
                 </p>
               </div>
             )}
@@ -68,18 +68,18 @@ export default async function AboutPage() {
 
           <aside className="rounded-[28px] bg-[#11192D] px-6 py-8 text-white">
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-              Iletisim
+              İletişim
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Markanizi acik ve guvenli anlatin</h2>
+            <h2 className="mt-3 text-3xl font-semibold">Markanızı açık ve güvenli anlatın</h2>
             <p className="mt-4 text-sm leading-7 text-white/78">
-              Destek, teklif ve kurumsal talepler icin iletisim sayfasini da bu akisla birlikte guncelleyebilirsiniz.
+              Destek, teklif ve kurumsal talepler için iletişim sayfasını da bu akışla birlikte güncelleyebilirsiniz.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={buildLocalizedPath("/iletisim", locale)}
                 className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#222222] transition hover:bg-[#F4ECE5]"
               >
-                Iletisim sayfasina git
+                İletişim sayfasına git
               </Link>
               <a
                 href={`mailto:${profile.email}`}
