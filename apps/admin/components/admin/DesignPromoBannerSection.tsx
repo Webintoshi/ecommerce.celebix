@@ -3,6 +3,25 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  ChevronDown,
+  GripVertical,
   Image as ImageIcon,
   Loader2,
   Monitor,
@@ -62,6 +81,378 @@ const COLOR_OPTIONS = [
   { value: "from-lime-500 to-green-600", label: "Limon Yesili" },
 ];
 
+function normalizeBannerOrder(banners: PromoBanner[]) {
+  return [...banners]
+    .sort((left, right) => {
+      const leftOrder = typeof left.order === "number" ? left.order : Number.MAX_SAFE_INTEGER;
+      const rightOrder = typeof right.order === "number" ? right.order : Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder;
+    })
+    .map((banner, index) => ({
+      ...banner,
+      order: index + 1,
+    }));
+}
+
+function normalizeLoadedBanners(payload: unknown): PromoBanner[] {
+  const rawBanners = Array.isArray((payload as { banners?: unknown[] } | null)?.banners)
+    ? ((payload as { banners: unknown[] }).banners as PromoBanner[])
+    : [];
+
+  return normalizeBannerOrder(
+    rawBanners.map((banner, index) => ({
+      ...banner,
+      id: typeof banner.id === "number" ? banner.id : Date.now() + index,
+      image: banner.image || "",
+      mobileImage: banner.mobileImage || "",
+      title: banner.title || `Banner ${index + 1}`,
+      subtitle: banner.subtitle || "",
+      buttonText: banner.buttonText || "Incele",
+      buttonLink: banner.buttonLink || "/koleksiyon",
+      order: typeof banner.order === "number" ? banner.order : index + 1,
+      badge: banner.badge || "",
+      color: banner.color || "from-primary to-primary/80",
+      imageStats: banner.imageStats,
+      mobileImageStats: banner.mobileImageStats,
+    })),
+  );
+}
+
+function summarizeBanner(banner: PromoBanner) {
+  return {
+    title: banner.title.trim() || "Baslik yok",
+    badges: [
+      banner.image ? "Masaustu hazir" : "Masaustu eksik",
+      banner.mobileImage ? "Mobil hazir" : "Mobil otomatik",
+      banner.badge ? `Rozet: ${banner.badge}` : "Rozet yok",
+    ],
+  };
+}
+
+type SortablePromoBannerCardProps = {
+  banner: PromoBanner;
+  index: number;
+  isExpanded: boolean;
+  activeImageTab: "desktop" | "mobile";
+  isUploading: boolean;
+  isOptimizing: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  onTabChange: (tab: "desktop" | "mobile") => void;
+  onUpdateBanner: (field: keyof PromoBanner, value: string | number | ImageStats | undefined) => void;
+  onUpload: (event: React.ChangeEvent<HTMLInputElement>, type: "desktop" | "mobile") => void;
+  onOptimize: (type: "desktop" | "mobile") => void;
+  onClearOptimizedStats: (type: "desktop" | "mobile") => void;
+};
+
+function SortablePromoBannerCard({
+  banner,
+  index,
+  isExpanded,
+  activeImageTab,
+  isUploading,
+  isOptimizing,
+  onToggle,
+  onRemove,
+  onTabChange,
+  onUpdateBanner,
+  onUpload,
+  onOptimize,
+  onClearOptimizedStats,
+}: SortablePromoBannerCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: banner.id,
+  });
+  const summary = summarizeBanner(banner);
+  const currentImage = activeImageTab === "mobile" ? banner.mobileImage : banner.image;
+  const currentStats = activeImageTab === "mobile" ? banner.mobileImageStats : banner.imageStats;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm ${
+        isDragging ? "shadow-[0_24px_48px_rgba(73,44,23,0.18)]" : ""
+      }`}
+    >
+      <div className="flex items-center gap-3 border-b border-[#f0e4d8] bg-[#fcf7f1] px-4 py-4 md:px-5">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          onClick={onToggle}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[#C54E00]">
+            {index + 1}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate text-sm font-semibold text-[#2f241d]">{summary.title}</span>
+              <span className="rounded-full bg-[#f6ede5] px-2.5 py-1 text-[11px] font-medium text-[#8d7462]">
+                Sira {banner.order}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {summary.badges.map((badge) => (
+                <span
+                  key={badge}
+                  className="rounded-full border border-[#eadccd] bg-white px-2.5 py-1 text-[11px] text-[#7b685b]"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-[#9d816d] transition-transform ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
+            aria-label={`Banner ${index + 1} sil`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[#7b685b] active:cursor-grabbing"
+            aria-label={`Banner ${index + 1} sirala`}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {isExpanded ? (
+        <div className="space-y-5 p-5">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-[#f5eee7] p-1">
+              <button
+                type="button"
+                onClick={() => onTabChange("desktop")}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                  activeImageTab === "desktop"
+                    ? "bg-white text-[#2f241d] shadow-sm"
+                    : "text-[#7b685b] hover:text-[#2f241d]"
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Monitor className="h-4 w-4" />
+                  Masaustu
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onTabChange("mobile")}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                  activeImageTab === "mobile"
+                    ? "bg-white text-[#2f241d] shadow-sm"
+                    : "text-[#7b685b] hover:text-[#2f241d]"
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Smartphone className="h-4 w-4" />
+                  Mobil
+                </span>
+              </button>
+            </div>
+
+            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[#e7d6c8] bg-[#faf5ef] transition-colors hover:border-[#FE6100]/40">
+              {currentImage ? (
+                <>
+                  <Image
+                    src={currentImage}
+                    alt="Banner Preview"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 60vw"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/upload:opacity-100">
+                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#2f241d] shadow-lg hover:bg-[#f8f3ed]">
+                      Degistir
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(event) => onUpload(event, activeImageTab)}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center">
+                  {isUploading ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-[#b8977f]" />
+                  ) : (
+                    <>
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white">
+                        {activeImageTab === "mobile" ? (
+                          <Smartphone className="h-6 w-6 text-[#c8b5a7]" />
+                        ) : (
+                          <ImageIcon className="h-6 w-6 text-[#c8b5a7]" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-[#7b685b]">
+                        {activeImageTab === "mobile" ? "Mobil gorsel yukle" : "Masaustu gorsel yukle"}
+                      </span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(event) => onUpload(event, activeImageTab)}
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="veya gorsel URL'si girin"
+                value={currentImage || ""}
+                onChange={(event) =>
+                  onUpdateBanner(activeImageTab === "mobile" ? "mobileImage" : "image", event.target.value)
+                }
+                className="flex-1 rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-xs focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+              />
+              {currentImage && !currentStats ? (
+                <button
+                  type="button"
+                  onClick={() => onOptimize(activeImageTab)}
+                  disabled={isOptimizing}
+                  className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2 text-xs font-medium text-white transition-all hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
+                  title="Gorseli optimize et"
+                >
+                  {isOptimizing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="h-3.5 w-3.5" />
+                  )}
+                  Optimize
+                </button>
+              ) : null}
+            </div>
+
+            {currentStats ? (
+              <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
+                    <Sparkles className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-green-800">{currentStats.format.toUpperCase()}</div>
+                    <div className="text-xs text-green-600">{currentStats.savings}% tasarruf</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onClearOptimizedStats(activeImageTab)}
+                  className="rounded-lg p-1 text-green-600 hover:bg-green-100 hover:text-green-800"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Rozet
+              </label>
+              <select
+                value={banner.badge || ""}
+                onChange={(event) => onUpdateBanner("badge", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+              >
+                {BADGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
+                <Palette className="h-3.5 w-3.5" />
+                Renk
+              </label>
+              <select
+                value={banner.color || "from-primary to-primary/80"}
+                onChange={(event) => onUpdateBanner("color", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+              >
+                {COLOR_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Baslik</label>
+              <input
+                type="text"
+                value={banner.title}
+                onChange={(event) => onUpdateBanner("title", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                placeholder="Orn: Dogal fistik ezmesi"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Aciklama</label>
+              <input
+                type="text"
+                value={banner.subtitle}
+                onChange={(event) => onUpdateBanner("subtitle", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                placeholder="Orn: Her gun taze"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Buton metni</label>
+              <input
+                type="text"
+                value={banner.buttonText}
+                onChange={(event) => onUpdateBanner("buttonText", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                placeholder="Incele"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Link</label>
+              <input
+                type="text"
+                value={banner.buttonLink}
+                onChange={(event) => onUpdateBanner("buttonLink", event.target.value)}
+                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                placeholder="/kategori-slug"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DesignPromoBannerSection() {
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +460,18 @@ export function DesignPromoBannerSection() {
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [optimizing, setOptimizing] = useState<Record<string, boolean>>({});
   const [activeImageTab, setActiveImageTab] = useState<Record<number, "desktop" | "mobile">>({});
+  const [expandedBannerId, setExpandedBannerId] = useState<number | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   useEffect(() => {
     void loadSettings();
@@ -85,7 +488,7 @@ export function DesignPromoBannerSection() {
         throw new Error(data.error || "Promosyon banner ayarlari yuklenemedi.");
       }
 
-      setBanners(data.setting?.value?.banners ?? []);
+      setBanners(normalizeLoadedBanners(data.setting?.value));
     } catch (error) {
       console.error("Error loading settings:", error);
       toast.error("Ayarlar yuklenirken bir hata olustu.");
@@ -98,12 +501,13 @@ export function DesignPromoBannerSection() {
     setSaving(true);
 
     try {
+      const normalizedBanners = normalizeBannerOrder(banners);
       const res = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           key: "promo_banners",
-          value: { banners },
+          value: { banners: normalizedBanners },
         }),
       });
       const data = await res.json();
@@ -112,6 +516,7 @@ export function DesignPromoBannerSection() {
         throw new Error(data.error || "Promosyon banner ayarlari kaydedilemedi.");
       }
 
+      setBanners(normalizedBanners);
       toast.success("Promosyon banner ayarlari kaydedildi.");
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -135,25 +540,35 @@ export function DesignPromoBannerSection() {
       color: "from-primary to-primary/80",
     };
 
-    setBanners((prev) => [...prev, newBanner]);
+    setBanners((prev) => normalizeBannerOrder([...prev, newBanner]));
     setActiveImageTab((prev) => ({ ...prev, [newBanner.id]: "desktop" }));
+    setExpandedBannerId(newBanner.id);
   }
 
   function handleRemoveBanner(id: number) {
-    setBanners((prev) => prev.filter((banner) => banner.id !== id));
+    setBanners((prev) => normalizeBannerOrder(prev.filter((banner) => banner.id !== id)));
+    setExpandedBannerId((current) => (current === id ? null : current));
   }
 
-  function handleUpdateBanner(id: number, field: keyof PromoBanner, value: string | number) {
-    setBanners((prev) => prev.map((banner) => (banner.id === id ? { ...banner, [field]: value } : banner)));
+  function handleUpdateBanner(
+    id: number,
+    field: keyof PromoBanner,
+    value: string | number | ImageStats | undefined,
+  ) {
+    setBanners((prev) =>
+      prev.map((banner) => (banner.id === id ? { ...banner, [field]: value } : banner)),
+    );
   }
 
   async function handleFileUpload(
-    e: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement>,
     bannerId: number,
     type: "desktop" | "mobile",
   ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
 
     setUploading((prev) => ({ ...prev, [`${bannerId}-${type}`]: true }));
 
@@ -183,15 +598,10 @@ export function DesignPromoBannerSection() {
         savings: data.savings,
       };
 
-      setBanners((prev) =>
-        prev.map((banner) =>
-          banner.id === bannerId
-            ? {
-                ...banner,
-                ...(type === "desktop" ? { imageStats: stats } : { mobileImageStats: stats }),
-              }
-            : banner,
-        ),
+      handleUpdateBanner(
+        bannerId,
+        type === "desktop" ? "imageStats" : "mobileImageStats",
+        stats,
       );
 
       toast.success(`${type === "desktop" ? "Masaustu" : "Mobil"} gorsel yuklendi.`);
@@ -200,6 +610,7 @@ export function DesignPromoBannerSection() {
       toast.error("Görsel yuklenirken hata olustu.");
     } finally {
       setUploading((prev) => ({ ...prev, [`${bannerId}-${type}`]: false }));
+      event.target.value = "";
     }
   }
 
@@ -227,26 +638,14 @@ export function DesignPromoBannerSection() {
       }
 
       handleUpdateBanner(bannerId, type === "desktop" ? "image" : "mobileImage", data.url);
-
-      const stats: ImageStats = {
+      handleUpdateBanner(bannerId, type === "desktop" ? "imageStats" : "mobileImageStats", {
         format: data.format,
         width: data.width,
         height: data.height,
         originalSize: data.originalSize,
         processedSize: data.processedSize,
         savings: data.savings,
-      };
-
-      setBanners((prev) =>
-        prev.map((banner) =>
-          banner.id === bannerId
-            ? {
-                ...banner,
-                ...(type === "desktop" ? { imageStats: stats } : { mobileImageStats: stats }),
-              }
-            : banner,
-        ),
-      );
+      });
 
       toast.success("Görsel optimize edildi.");
     } catch (error) {
@@ -255,6 +654,25 @@ export function DesignPromoBannerSection() {
     } finally {
       setOptimizing((prev) => ({ ...prev, [`${bannerId}-${type}`]: false }));
     }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    setBanners((prev) => {
+      const oldIndex = prev.findIndex((banner) => banner.id === active.id);
+      const newIndex = prev.findIndex((banner) => banner.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return prev;
+      }
+
+      return normalizeBannerOrder(arrayMove(prev, oldIndex, newIndex));
+    });
   }
 
   if (loading) {
@@ -269,13 +687,18 @@ export function DesignPromoBannerSection() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Promosyon banner</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">Orta alan kampanya kartlari</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+            Promosyon banner
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">
+            Orta alan kampanya kartlari
+          </h2>
           <p className="mt-2 text-sm leading-6 text-[#7b685b]">
-            Banner gorsellerini, rozetini, rengini ve butonunu ayni kart uzerinden yonetin.
+            Bannerlari kapali kartlar olarak yonetin. Acmak istediginiz karti secin, sira degistirmek icin surukleyin.
           </p>
         </div>
         <button
+          type="button"
           onClick={() => void handleSave()}
           disabled={saving}
           className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
@@ -286,299 +709,52 @@ export function DesignPromoBannerSection() {
       </div>
 
       <div className="rounded-[24px] border border-[#ecdccd] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[#7b685b]">
-        Her banner bir kampanya kutusu gibi calisir. Once gorseli secin, sonra baslik, rozet ve buton ayarlarini doldurun.
+        Bannerlari acmadan bile durumunu gorun. Siralamayi surukleyerek degistirdiginizde kaydettikten sonra storefront ayni sira ile akar.
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        {banners.map((banner, index) => (
-          <div
-            key={banner.id}
-            className="flex h-full flex-col overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm"
-          >
-            <div className="flex items-center justify-between border-b border-[#f0e4d8] bg-[#fcf7f1] px-5 py-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FE6100]/10 text-sm font-bold text-[#FE6100]">
-                  {index + 1}
-                </span>
-                <span className="text-sm font-semibold text-[#2f241d]">Banner</span>
-              </div>
-              <button
-                onClick={() => handleRemoveBanner(banner.id)}
-                className="rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex flex-1 flex-col space-y-5 p-5">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 rounded-xl bg-[#f5eee7] p-1">
-                  <button
-                    onClick={() => setActiveImageTab((prev) => ({ ...prev, [banner.id]: "desktop" }))}
-                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                      (activeImageTab[banner.id] || "desktop") === "desktop"
-                        ? "bg-white text-[#2f241d] shadow-sm"
-                        : "text-[#7b685b] hover:text-[#2f241d]"
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Monitor className="h-4 w-4" />
-                      Masaustu
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setActiveImageTab((prev) => ({ ...prev, [banner.id]: "mobile" }))}
-                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                      activeImageTab[banner.id] === "mobile"
-                        ? "bg-white text-[#2f241d] shadow-sm"
-                        : "text-[#7b685b] hover:text-[#2f241d]"
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Smartphone className="h-4 w-4" />
-                      Mobil
-                    </span>
-                  </button>
-                </div>
-
-                <div className="group/upload relative aspect-[4/5] overflow-hidden rounded-2xl border-2 border-dashed border-[#e7d6c8] bg-[#faf5ef] transition-colors hover:border-[#FE6100]/40">
-                  {(activeImageTab[banner.id] === "mobile" ? banner.mobileImage : banner.image) ? (
-                    <>
-                      <Image
-                        src={activeImageTab[banner.id] === "mobile" ? banner.mobileImage! : banner.image}
-                        alt="Banner Preview"
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        unoptimized
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/upload:opacity-100">
-                        <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#2f241d] shadow-lg hover:bg-[#f8f3ed]">
-                          Degistir
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={(e) =>
-                              void handleFileUpload(e, banner.id, activeImageTab[banner.id] || "desktop")
-                            }
-                          />
-                        </label>
-                      </div>
-                    </>
-                  ) : (
-                    <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center">
-                      {uploading[`${banner.id}-${activeImageTab[banner.id] || "desktop"}`] ? (
-                        <Loader2 className="h-8 w-8 animate-spin text-[#b8977f]" />
-                      ) : (
-                        <>
-                          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white">
-                            <ImageIcon className="h-6 w-6 text-[#c8b5a7]" />
-                          </div>
-                          <span className="text-sm font-medium text-[#7b685b]">
-                            {(activeImageTab[banner.id] || "desktop") === "mobile"
-                              ? "Mobil gorsel yukle"
-                              : "Masaustu gorsel yukle"}
-                          </span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={(e) =>
-                          void handleFileUpload(e, banner.id, activeImageTab[banner.id] || "desktop")
-                        }
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="veya gorsel URL'si girin"
-                    value={activeImageTab[banner.id] === "mobile" ? banner.mobileImage || "" : banner.image}
-                    onChange={(e) =>
-                      handleUpdateBanner(
-                        banner.id,
-                        activeImageTab[banner.id] === "mobile" ? "mobileImage" : "image",
-                        e.target.value,
-                      )
-                    }
-                    className="flex-1 rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-xs focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                  />
-                  {(activeImageTab[banner.id] === "desktop" ? banner.image : banner.mobileImage) &&
-                  !(activeImageTab[banner.id] === "desktop" ? banner.imageStats : banner.mobileImageStats) ? (
-                    <button
-                      onClick={() =>
-                        void handleOptimizeImage(banner.id, activeImageTab[banner.id] || "desktop")
-                      }
-                      disabled={optimizing[`${banner.id}-${activeImageTab[banner.id] || "desktop"}`]}
-                      className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2 text-xs font-medium text-white transition-all hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
-                      title="Görseli optimize et"
-                    >
-                      {optimizing[`${banner.id}-${activeImageTab[banner.id] || "desktop"}`] ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Zap className="h-3.5 w-3.5" />
-                      )}
-                      Optimize
-                    </button>
-                  ) : null}
-                </div>
-
-                {(activeImageTab[banner.id] === "desktop" ? banner.imageStats : banner.mobileImageStats) ? (
-                  <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
-                        <Sparkles className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-green-800">
-                          {(activeImageTab[banner.id] === "desktop" ? banner.imageStats : banner.mobileImageStats)?.format.toUpperCase()}
-                        </div>
-                        <div className="text-xs text-green-600">
-                          {(activeImageTab[banner.id] === "desktop"
-                            ? banner.imageStats
-                            : banner.mobileImageStats)?.savings ?? 0}
-                          % tasarruf
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setBanners((prev) =>
-                          prev.map((entry) =>
-                            entry.id === banner.id
-                              ? {
-                                  ...entry,
-                                  ...(activeImageTab[banner.id] === "desktop"
-                                    ? { imageStats: undefined }
-                                    : { mobileImageStats: undefined }),
-                                }
-                              : entry,
-                          ),
-                        );
-                      }}
-                      className="rounded-lg p-1 text-green-600 hover:bg-green-100 hover:text-green-800"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Rozet
-                  </label>
-                  <select
-                    value={banner.badge || ""}
-                    onChange={(e) => handleUpdateBanner(banner.id, "badge", e.target.value)}
-                    className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                  >
-                    {BADGE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
-                    <Palette className="h-3.5 w-3.5" />
-                    Renk
-                  </label>
-                  <select
-                    value={banner.color || "from-primary to-primary/80"}
-                    onChange={(e) => handleUpdateBanner(banner.id, "color", e.target.value)}
-                    className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                  >
-                    {COLOR_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Baslik</label>
-                  <input
-                    type="text"
-                    value={banner.title}
-                    onChange={(e) => handleUpdateBanner(banner.id, "title", e.target.value)}
-                    className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                    placeholder="Orn: Dogal fistik ezmesi"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Aciklama</label>
-                  <input
-                    type="text"
-                    value={banner.subtitle}
-                    onChange={(e) => handleUpdateBanner(banner.id, "subtitle", e.target.value)}
-                    className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                    placeholder="Orn: Her gun taze"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Buton metni</label>
-                    <input
-                      type="text"
-                      value={banner.buttonText}
-                      onChange={(e) => handleUpdateBanner(banner.id, "buttonText", e.target.value)}
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                      placeholder="Incele"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Link</label>
-                    <input
-                      type="text"
-                      value={banner.buttonLink}
-                      onChange={(e) => handleUpdateBanner(banner.id, "buttonLink", e.target.value)}
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                      placeholder="/kategori-slug"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Siralama</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={Math.max(1, banners.length)}
-                  value={banner.order}
-                  onChange={(e) => handleUpdateBanner(banner.id, "order", parseInt(e.target.value, 10) || 1)}
-                  className="w-20 rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-center text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
-                />
-              </div>
-            </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={banners.map((banner) => banner.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-4">
+            {banners.map((banner, index) => (
+              <SortablePromoBannerCard
+                key={banner.id}
+                banner={banner}
+                index={index}
+                isExpanded={expandedBannerId === banner.id}
+                activeImageTab={activeImageTab[banner.id] || "desktop"}
+                isUploading={Boolean(uploading[`${banner.id}-${activeImageTab[banner.id] || "desktop"}`])}
+                isOptimizing={Boolean(optimizing[`${banner.id}-${activeImageTab[banner.id] || "desktop"}`])}
+                onToggle={() =>
+                  setExpandedBannerId((current) => (current === banner.id ? null : banner.id))
+                }
+                onRemove={() => handleRemoveBanner(banner.id)}
+                onTabChange={(tab) => setActiveImageTab((prev) => ({ ...prev, [banner.id]: tab }))}
+                onUpdateBanner={(field, value) => handleUpdateBanner(banner.id, field, value)}
+                onUpload={(event, type) => void handleFileUpload(event, banner.id, type)}
+                onOptimize={(type) => void handleOptimizeImage(banner.id, type)}
+                onClearOptimizedStats={(type) =>
+                  handleUpdateBanner(
+                    banner.id,
+                    type === "desktop" ? "imageStats" : "mobileImageStats",
+                    undefined,
+                  )
+                }
+              />
+            ))}
           </div>
-        ))}
+        </SortableContext>
+      </DndContext>
 
-        {banners.length < 6 ? (
-          <button
-            onClick={handleAddBanner}
-            className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-[28px] border-2 border-dashed border-[#e7d6c8] font-medium text-[#7b685b] transition-all hover:border-[#FE6100]/40 hover:bg-[#fff7f0] hover:text-[#C54E00]"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f7efe8]">
-              <Plus className="h-8 w-8" />
-            </div>
-            <span>Yeni Banner Ekle</span>
-            <span className="text-xs text-[#9d816d]">Maksimum 6 banner</span>
-          </button>
-        ) : null}
-      </div>
+      {banners.length < 6 ? (
+        <button
+          type="button"
+          onClick={handleAddBanner}
+          className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#e7d6c8] py-4 font-medium text-[#7b685b] transition-all hover:border-[#FE6100]/40 hover:bg-[#fff7f0] hover:text-[#C54E00]"
+        >
+          <Plus className="h-5 w-5" />
+          Yeni Banner Ekle
+        </button>
+      ) : null}
 
       {banners.length > 0 ? (
         <div className="flex items-start gap-3 rounded-[24px] border border-blue-100 bg-blue-50 p-4">
