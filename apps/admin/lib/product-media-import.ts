@@ -29,6 +29,25 @@ async function mirrorImageUrlToR2(
     });
 }
 
+async function mirrorImageUrlToR2BestEffort(
+    sourceUrl: string,
+    folder: string,
+    fileBase: string,
+    cache: Map<string, string>
+): Promise<string | null> {
+    try {
+        return await mirrorImageUrlToR2(sourceUrl, folder, fileBase, cache);
+    } catch (error) {
+        console.warn("Skipping remote image during product import:", {
+            sourceUrl,
+            folder,
+            fileBase,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+    }
+}
+
 async function mirrorAttributeImageUrls(
     attributes: unknown[],
     folder: string,
@@ -43,7 +62,7 @@ async function mirrorAttributeImageUrls(
 
             const nextAttribute = { ...(attribute as JsonObject) };
             if (typeof nextAttribute.image_url === "string") {
-                nextAttribute.image_url = await mirrorImageUrlToR2(
+                nextAttribute.image_url = await mirrorImageUrlToR2BestEffort(
                     nextAttribute.image_url,
                     folder,
                     `${fileBase}-attribute-${index + 1}`,
@@ -64,33 +83,48 @@ export async function mirrorImportedProductMediaToR2(
     const folderRoot = `products/imported/${folderSlug}`;
 
     const imagesV2 = options.imagesV2
-        ? await Promise.all(
-              options.imagesV2.map(async (image, index) => {
-                  const nextImage = { ...image };
-                  if (typeof nextImage.url === "string") {
-                          nextImage.url = await mirrorImageUrlToR2(
+        ? (
+              await Promise.all(
+                  options.imagesV2.map(async (image, index) => {
+                      const nextImage = { ...image };
+                      if (typeof nextImage.url === "string") {
+                          const mirroredUrl = await mirrorImageUrlToR2BestEffort(
                               nextImage.url,
                               folderRoot,
                               `${folderSlug}-${index + 1}`,
                               cache
                           );
-                  }
-                  return nextImage;
-              })
+                          if (!mirroredUrl) {
+                              return null;
+                          }
+
+                          nextImage.url = mirroredUrl;
+                      }
+                      return nextImage;
+                  })
+              )
           )
+              .filter((image): image is JsonObject => Boolean(image))
+              .map((image, index) => ({
+                  ...image,
+                  is_primary: index === 0,
+                  sort_order: index,
+              }))
         : undefined;
 
     const imageUrls = options.imageUrls
-        ? await Promise.all(
-              options.imageUrls.map((url, index) =>
-                  mirrorImageUrlToR2(
-                      url,
-                      folderRoot,
-                      `${folderSlug}-${index + 1}`,
-                      cache
+        ? (
+              await Promise.all(
+                  options.imageUrls.map((url, index) =>
+                      mirrorImageUrlToR2BestEffort(
+                          url,
+                          folderRoot,
+                          `${folderSlug}-${index + 1}`,
+                          cache
+                      )
                   )
               )
-          )
+          ).filter((url): url is string => Boolean(url))
         : imagesV2?.map((image) => String(image.url || "")).filter(Boolean);
 
     const variants = options.variants
@@ -101,13 +135,20 @@ export async function mirrorImportedProductMediaToR2(
                   const variantBase = `${folderSlug}-variant-${variantIndex + 1}`;
 
                   if (Array.isArray(nextVariant.images)) {
-                      nextVariant.images = await Promise.all(
-                          nextVariant.images.map((image, imageIndex) =>
-                              typeof image === "string"
-                                  ? mirrorImageUrlToR2(image, variantFolder, `${variantBase}-${imageIndex + 1}`, cache)
-                                  : Promise.resolve(image)
+                      nextVariant.images = (
+                          await Promise.all(
+                              nextVariant.images.map((image, imageIndex) =>
+                                  typeof image === "string"
+                                      ? mirrorImageUrlToR2BestEffort(
+                                            image,
+                                            variantFolder,
+                                            `${variantBase}-${imageIndex + 1}`,
+                                            cache
+                                        )
+                                      : Promise.resolve(image)
+                              )
                           )
-                      );
+                      ).filter(Boolean);
                   }
 
                   if (Array.isArray(nextVariant.attributes)) {

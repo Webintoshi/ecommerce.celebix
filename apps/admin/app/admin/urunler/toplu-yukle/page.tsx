@@ -26,6 +26,7 @@ interface ImportRunResult {
   success: number;
   failed: number;
   errors: string[];
+  halted?: boolean;
 }
 
 interface RepairRunResult {
@@ -171,9 +172,20 @@ export default function BulkUploadPage() {
         const response = await fetch("/api/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(toApiPayload(product)),
         });
         const data = await response.json();
+
+        if (response.status === 401 || response.status === 403) {
+          runResult.failed += parseResult.products.length - index;
+          runResult.halted = true;
+          runResult.errors.push(
+            "Admin oturumu import sirasinda kesildi. Tekrar giris yapip ayni feed ile devam edin.",
+          );
+          break;
+        }
+
         if (!response.ok || !data?.success) {
           runResult.failed += 1;
           runResult.errors.push(`${product.name}: ${data?.error ?? "API hatası"}`);
@@ -810,6 +822,15 @@ export default function BulkUploadPage() {
                     <p className="mt-2 text-sm leading-6 text-emerald-800">Tüm ürünler hatasız işlendi ve sonuç kartları güncellendi.</p>
                   </div>
                 )}
+
+                {importResult.halted ? (
+                  <div className="mt-4 rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                    <p className="text-sm font-semibold text-amber-900">Aktarım durduruldu</p>
+                    <p className="mt-2 text-sm leading-6 text-amber-800">
+                      Uzun süren aktarımlarda admin oturumu sona erebilir. Tekrar giriş yapıp aynı feed ile kaldığın yerden devam et.
+                    </p>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
