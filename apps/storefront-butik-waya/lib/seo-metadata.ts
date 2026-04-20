@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSeoSettings, getStoreInfo } from "@/lib/db/settings";
+import { getCodeIntegrationsSettings, getSeoSettings, getStoreInfo } from "@/lib/db/settings";
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getRequestOrigin } from "@/lib/request-origin";
@@ -150,7 +150,10 @@ export async function buildStoreRootMetadata(
   const languageAlternates = buildLocaleAlternates(pathname, localeRouting);
   const ogImageUrl = toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
-  const storeInfo = await getStoreInfo();
+  const [storeInfo, codeIntegrations] = await Promise.all([
+    getStoreInfo(),
+    getCodeIntegrationsSettings(),
+  ]);
   const faviconUrl = typeof storeInfo?.faviconUrl === "string" ? storeInfo.faviconUrl.trim() : "";
   const faviconHref = faviconUrl
     ? `/api/favicon?v=${encodeURIComponent(faviconUrl)}`
@@ -200,7 +203,9 @@ export async function buildStoreRootMetadata(
       ...(languageAlternates ? { languages: languageAlternates } : {}),
     },
     verification: {
-      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+      google:
+        codeIntegrations.googleSearchConsoleVerification ||
+        process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     },
   };
 }

@@ -10,9 +10,10 @@ import { AuthProvider } from "@/lib/auth-context";
 import { StoreInfoProvider } from "@/lib/store-info-context";
 import { FloatingContactButton } from "@/components/layout/FloatingContactButton";
 import { QuickViewProvider } from "@/components/product/QuickViewProvider";
+import CodeIntegrationMarkup from "@/components/integrations/CodeIntegrationMarkup";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
-import { getStoreInfo } from "@/lib/db/settings";
+import { getCodeIntegrationsSettings, getStoreInfo } from "@/lib/db/settings";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
 import { RTL_LOCALES } from "@/lib/i18n";
@@ -53,13 +54,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const gtmId = STOREFRONT_RUNTIME.gtmId;
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
-  const [initialStoreInfo, localeRouting] = await Promise.all([
+  const [initialStoreInfo, codeIntegrations, localeRouting] = await Promise.all([
     getStoreInfo(),
+    getCodeIntegrationsSettings(),
     getLocaleRoutingConfig(),
   ]);
+  const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
+  const metaPixelId = codeIntegrations.metaPixelId;
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -79,12 +82,29 @@ export default async function RootLayout({
         <link rel="stylesheet" href={typographyStylesheetUrl} />
         {gtmId ? (
           <Script
+            id="celebix-gtm"
             strategy="lazyOnload"
             dangerouslySetInnerHTML={{
               __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`,
             }}
           />
         ) : null}
+        {metaPixelId ? (
+          <Script
+            id="celebix-meta-pixel"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html:
+                `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?` +
+                `n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;` +
+                `n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);` +
+                `t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}` +
+                `(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
+                `fbq('init', '${metaPixelId}');fbq('track', 'PageView');`,
+            }}
+          />
+        ) : null}
+        <CodeIntegrationMarkup html={codeIntegrations.customHeadHtml} />
       </head>
       <body className="font-sans antialiased bg-transparent text-foreground" suppressHydrationWarning>
         {gtmId ? (
@@ -94,6 +114,17 @@ export default async function RootLayout({
               height="0"
               width="0"
               style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
+        ) : null}
+        {metaPixelId ? (
+          <noscript>
+            <img
+              alt=""
+              height="1"
+              width="1"
+              style={{ display: "none" }}
+              src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
             />
           </noscript>
         ) : null}
@@ -121,6 +152,7 @@ export default async function RootLayout({
             </StoreInfoProvider>
           </TrackingProvider>
         </StorefrontRouteProvider>
+        <CodeIntegrationMarkup html={codeIntegrations.customBodyEndHtml} />
       </body>
     </html>
   );
