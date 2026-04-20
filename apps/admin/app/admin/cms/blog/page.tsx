@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -10,6 +10,7 @@ import {
   Calendar,
   CheckCircle2,
   Circle,
+  FileEdit,
   FileText,
   Filter,
   LayoutGrid,
@@ -19,9 +20,11 @@ import {
   Plus,
   Search,
   Target,
+  Trash2,
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import type { BlogPost, TopicType } from "@/types/blog";
 import type {
@@ -36,6 +39,11 @@ const EMPTY_PROGRESS = {
   standalone: { total: 0 },
 };
 
+type NoticeState = {
+  tone: "success" | "error";
+  text: string;
+};
+
 export default function BlogListingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -43,36 +51,28 @@ export default function BlogListingPage() {
   const [snapshot, setSnapshot] = useState<BlogStrategySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+
+  const loadSnapshot = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const nextSnapshot = await fetchBlogStrategySnapshot();
+      setSnapshot(nextSnapshot);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : "Blog stratejisi yüklenemedi.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadSnapshot() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const nextSnapshot = await fetchBlogStrategySnapshot();
-        if (!active) return;
-        setSnapshot(nextSnapshot);
-      } catch (loadError) {
-        if (!active) return;
-        setError(
-          loadError instanceof Error ? loadError.message : "Blog stratejisi yüklenemedi.",
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
     void loadSnapshot();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  }, [loadSnapshot]);
 
   const posts = snapshot?.posts || [];
   const categories = snapshot?.categories || [];
@@ -93,6 +93,40 @@ export default function BlogListingPage() {
       return matchesSearch && matchesCategory;
     });
   }, [posts, searchTerm, selectedCategory]);
+
+  const handleDeletePost = useCallback(
+    async (post: BlogPost) => {
+      if (!window.confirm(`"${post.title}" yazısını silmek istediğinize emin misiniz?`)) {
+        return;
+      }
+
+      setDeletingPostId(post.id);
+      setNotice(null);
+
+      try {
+        await fetchAdminJson<{ success: boolean }>(`/api/admin/blog-posts/${post.id}`, {
+          timeoutMs: 12000,
+          init: {
+            method: "DELETE",
+          },
+        });
+
+        await loadSnapshot();
+        setNotice({ tone: "success", text: "Yazı silindi." });
+      } catch (deleteError) {
+        setNotice({
+          tone: "error",
+          text:
+            deleteError instanceof Error
+              ? deleteError.message
+              : "Yazı silinirken bir sorun oluştu.",
+        });
+      } finally {
+        setDeletingPostId(null);
+      }
+    },
+    [loadSnapshot],
+  );
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf3_0%,#f8efe2_40%,#f3eadf_100%)] p-6 md:p-8">
@@ -132,6 +166,38 @@ export default function BlogListingPage() {
             </div>
           </div>
         </section>
+
+        {notice ? (
+          <section
+            className={`rounded-[22px] border px-5 py-4 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)] ${
+              notice.tone === "success"
+                ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
+                : "border-rose-200 bg-rose-50/90 text-rose-700"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border ${
+                  notice.tone === "success"
+                    ? "border-emerald-200 bg-white text-emerald-700"
+                    : "border-rose-200 bg-white text-rose-600"
+                }`}
+              >
+                {notice.tone === "success" ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <TriangleAlert className="h-4 w-4" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold">
+                  {notice.tone === "success" ? "İşlem tamamlandı" : "Bir sorun oluştu"}
+                </p>
+                <p className="mt-1 text-sm leading-6">{notice.text}</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-[26px] border border-stone-200/80 bg-white/90 p-3 shadow-[0_20px_50px_-34px_rgba(120,78,33,0.45)]">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
@@ -196,7 +262,13 @@ export default function BlogListingPage() {
         ) : error ? (
           <ErrorState message={error} />
         ) : viewMode === "list" ? (
-          <ListView posts={filteredPosts} categories={categories} totalPosts={posts.length} />
+          <ListView
+            posts={filteredPosts}
+            categories={categories}
+            totalPosts={posts.length}
+            deletingPostId={deletingPostId}
+            onDelete={handleDeletePost}
+          />
         ) : (
           <StrategyView
             suggestedPillars={suggestedPillars}
@@ -241,10 +313,14 @@ function ListView({
   posts,
   categories,
   totalPosts,
+  deletingPostId,
+  onDelete,
 }: {
   posts: BlogPost[];
   categories: BlogStrategyCategory[];
   totalPosts: number;
+  deletingPostId: string | null;
+  onDelete: (post: BlogPost) => Promise<void>;
 }) {
   return (
     <section className="overflow-hidden rounded-[26px] border border-stone-200/80 bg-white/92 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
@@ -278,6 +354,9 @@ function ListView({
               </th>
               <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 Tarih
+              </th>
+              <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                Aksiyonlar
               </th>
             </tr>
           </thead>
@@ -333,12 +412,36 @@ function ListView({
                     {format(post.publishedAt, "d MMM yyyy", { locale: tr })}
                   </div>
                 </td>
+                <td className="px-6 py-5 align-top">
+                  <div className="flex justify-end gap-2">
+                    <Link
+                      href={`/admin/cms/blog/${post.id}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-amber-300 hover:text-stone-900"
+                    >
+                      <FileEdit className="h-4 w-4" />
+                      Düzenle
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void onDelete(post)}
+                      disabled={deletingPostId === post.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-wait disabled:opacity-70"
+                    >
+                      {deletingPostId === post.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Sil
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
 
             {posts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-16 text-center">
+                <td colSpan={6} className="px-6 py-16 text-center">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-stone-400">
                     <FileText className="h-7 w-7" />
                   </div>
@@ -520,8 +623,7 @@ function StrategyView({
                     className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
                     style={{
                       width: `${Math.min(
-                        (pillar.existingClusterCount / Math.max(pillar.suggestedClusters.length, 1)) *
-                          100,
+                        (pillar.existingClusterCount / Math.max(pillar.suggestedClusters.length, 1)) * 100,
                         100,
                       )}%`,
                     }}
