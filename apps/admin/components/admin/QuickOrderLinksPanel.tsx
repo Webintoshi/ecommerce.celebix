@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -290,10 +290,6 @@ export function QuickOrderLinksPanel() {
       return;
     }
 
-    if (!allowedGatewayIds.length) {
-      toast.error("En az bir ödeme yontemi secmelisiniz.");
-      return;
-    }
 
     setSaving(true);
 
@@ -587,6 +583,9 @@ export function QuickOrderLinksPanel() {
                 <ShieldCheck className="h-4 w-4 text-[#FE6100]" />
                 İzinli ödeme yöntemleri
               </div>
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                Secim yapmazsan bu linkte tum aktif online odeme yontemleri gorunur.
+              </p>
               <div className="mt-4 space-y-2">
                 {paymentGateways.map((gateway) => (
                   <label key={gateway.id} className="flex items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm">
@@ -814,3 +813,5 @@ export function QuickOrderLinksPanel() {
     </div>
   );
 }
+
+

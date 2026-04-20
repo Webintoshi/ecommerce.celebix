@@ -38,7 +38,7 @@ const requestSchema = z.object({
   shippingCost: z.coerce.number().min(0).default(0),
   discount: z.coerce.number().min(0).default(0),
   note: z.string().trim().optional().nullable(),
-  allowedPaymentMethodIds: z.array(z.string().trim().min(1)).min(1, "En az bir odeme yontemi secin."),
+  allowedPaymentMethodIds: z.array(z.string().trim().min(1)).default([]),
   expiresAt: z.string().datetime("Gecerli bir son kullanma tarihi gerekir."),
   items: z.array(itemSchema).min(1, "En az bir ürün secin."),
 });
