@@ -51,27 +51,21 @@ export function Footer() {
   const newsletterCopy = useMemo(() => {
     if (locale === "en") {
       return {
-        eyebrow: "Private newsletter",
-        heading: "Receive new-season notes before everyone else.",
-        description:
-          "A restrained edit of new arrivals, editorial picks and quiet wardrobe updates.",
+        eyebrow: "Newsletter",
+        heading: "New-season edits.",
         placeholder: "Your email address",
-        action: "Join the list",
-        helper: "No noise. Only concise notes worth opening.",
-        success: "Your email app is opening with the subscription draft.",
+        action: "Join",
+        success: "Your email draft is opening.",
         error: "Please enter a valid email address.",
       };
     }
 
     return {
-      eyebrow: "\u00d6zel b\u00fclten",
-      heading: "Yeni sezon notlar\u0131 size herkesten \u00f6nce ula\u015fs\u0131n.",
-      description:
-        "Yeni gelenler, editoryal se\u00e7imler ve sakin gard\u0131rop g\u00fcncellemeleri i\u00e7in k\u0131sa bir davet.",
+      eyebrow: "B\u00fclten",
+      heading: "Yeni sezon editleri.",
       placeholder: "E-posta adresiniz",
-      action: "B\u00fcltene kat\u0131l",
-      helper: "G\u00fcr\u00fclt\u00fcs\u00fcz. Yaln\u0131zca a\u00e7maya de\u011fer k\u0131sa notlar.",
-      success: "Abonelik tasla\u011f\u0131 i\u00e7in e-posta uygulaman\u0131z a\u00e7\u0131l\u0131yor.",
+      action: "Kat\u0131l",
+      success: "E-posta tasla\u011f\u0131n\u0131z a\u00e7\u0131l\u0131yor.",
       error: "L\u00fctfen ge\u00e7erli bir e-posta adresi girin.",
     };
   }, [locale]);
@@ -167,26 +161,23 @@ export function Footer() {
   return (
     <footer className="mt-24 bg-[#151515] text-[#F5F1EB]">
       <div className="container-premium py-14 lg:py-16">
-        <section className="mb-12 rounded-[2rem] border border-white/10 bg-white/[0.04] px-6 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.12)] sm:px-8 lg:mb-14 lg:px-10 lg:py-9">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-            <div className="max-w-2xl">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-white/52">
+        <section className="mb-12 border-y border-white/10 py-8 lg:mb-14 lg:py-10">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+            <div className="max-w-lg">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-white/42">
                 {newsletterCopy.eyebrow}
               </p>
-              <h2 className="mt-4 max-w-xl font-serif text-[clamp(1.9rem,3vw,3rem)] leading-[0.95] tracking-[-0.04em] text-white">
+              <h2 className="mt-4 max-w-md font-serif text-[clamp(1.9rem,3vw,3.1rem)] leading-[0.95] tracking-[-0.05em] text-white">
                 {newsletterCopy.heading}
               </h2>
-              <p className="mt-4 max-w-lg text-sm leading-7 text-white/62">
-                {newsletterCopy.description}
-              </p>
             </div>
 
-            <div className="rounded-[1.7rem] border border-white/10 bg-[#1A1A1A] p-4 sm:p-5">
-              <form className="space-y-3" onSubmit={handleNewsletterSubmit}>
+            <div className="w-full lg:justify-self-end lg:max-w-xl">
+              <form onSubmit={handleNewsletterSubmit}>
                 <label htmlFor="footer-newsletter" className="sr-only">
                   {newsletterCopy.placeholder}
                 </label>
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex flex-col gap-3 border-b border-white/14 pb-3 sm:flex-row sm:items-center sm:gap-4">
                   <input
                     id="footer-newsletter"
                     type="email"
@@ -198,12 +189,12 @@ export function Footer() {
                       }
                     }}
                     placeholder={newsletterCopy.placeholder}
-                    className="h-12 min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-white/24"
+                    className="h-12 min-w-0 flex-1 bg-transparent pr-2 text-sm text-white placeholder:text-white/28 outline-none"
                     autoComplete="email"
                   />
                   <button
                     type="submit"
-                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-medium text-[#151515] transition hover:bg-white/92"
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 self-start text-[11px] uppercase tracking-[0.24em] text-white transition hover:text-white/70 sm:self-auto"
                   >
                     {newsletterCopy.action}
                     <ArrowUpRight className="h-4 w-4" />
@@ -211,21 +202,15 @@ export function Footer() {
                 </div>
               </form>
 
-              <p
-                className={`mt-3 text-xs ${
-                  newsletterState === "error"
-                    ? "text-[#F1B2A7]"
-                    : newsletterState === "success"
-                      ? "text-[#D7E6CA]"
-                      : "text-white/45"
-                }`}
-              >
-                {newsletterState === "error"
-                  ? newsletterCopy.error
-                  : newsletterState === "success"
-                    ? newsletterCopy.success
-                    : newsletterCopy.helper}
-              </p>
+              {newsletterState !== "idle" ? (
+                <p
+                  className={`mt-3 text-xs ${
+                    newsletterState === "error" ? "text-[#F1B2A7]" : "text-white/52"
+                  }`}
+                >
+                  {newsletterState === "error" ? newsletterCopy.error : newsletterCopy.success}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>
