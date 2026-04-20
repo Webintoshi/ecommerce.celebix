@@ -13,6 +13,7 @@ import CodeIntegrationMarkup from "@/components/integrations/CodeIntegrationMark
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getCodeIntegrationsSettings, getStoreInfo } from "@/lib/db/settings";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
 import { RTL_LOCALES } from "@/lib/i18n";
 import { StorefrontRouteProvider } from "@/lib/storefront-route-context";
@@ -40,9 +41,10 @@ export default async function RootLayout({
 }>) {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
-  const [initialStoreInfo, codeIntegrations] = await Promise.all([
+  const [initialStoreInfo, codeIntegrations, localeRouting] = await Promise.all([
     getStoreInfo(),
     getCodeIntegrationsSettings(),
+    getLocaleRoutingConfig(),
   ]);
   const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
   const metaPixelId = codeIntegrations.metaPixelId;
@@ -106,7 +108,11 @@ export default async function RootLayout({
           </noscript>
         ) : null}
         <PromotionalBannersPreload />
-        <StorefrontRouteProvider initialLocale={locale} initialInternalPathname={pathname}>
+        <StorefrontRouteProvider
+          initialLocale={locale}
+          initialInternalPathname={pathname}
+          initialRouting={localeRouting}
+        >
           <TrackingProvider>
             <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
               <AuthProvider>

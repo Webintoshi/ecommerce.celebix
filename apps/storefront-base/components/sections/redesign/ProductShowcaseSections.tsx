@@ -6,7 +6,6 @@ import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { HomepageCategory } from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
 
@@ -189,7 +188,7 @@ export function ProductShowcaseSections({
   groupCopy,
   viewAllLabel = "Tumunu Gor",
 }: ProductShowcaseSectionsProps) {
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
 
   if (!Array.isArray(allProducts) || allProducts.length === 0) {
     return <EmptyShowcaseState />;
@@ -241,10 +240,7 @@ export function ProductShowcaseSections({
               </div>
 
               <Link
-                href={buildLocalizedPath(
-                  group.link.startsWith("/") ? group.link : ROUTES.products,
-                  locale,
-                )}
+                href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
                 className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
               >
                 {viewAllLabel}

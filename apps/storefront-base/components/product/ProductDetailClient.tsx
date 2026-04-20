@@ -34,7 +34,6 @@ import {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
@@ -116,7 +115,7 @@ export function ProductDetailClient({
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
 
   const toggleAccordion = (id: string) => {
     const next = new Set(openAccordions);
@@ -311,7 +310,7 @@ export function ProductDetailClient({
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -319,14 +318,14 @@ export function ProductDetailClient({
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
-                href={buildLocalizedPath("/", locale)}
+                  href={buildPath("/")}
                 className="transition-colors hover:text-neutral-600"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
-                href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
                 className="transition-colors hover:text-neutral-600"
               >
                 Ürünler
@@ -711,7 +710,7 @@ export function ProductDetailClient({
               </h2>
             </div>
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
               Tümünü Gör

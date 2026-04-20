@@ -2,6 +2,14 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
+export type LocaleRoutingMode = "prefixed" | "prefixless";
+export type LocaleRoutingConfig = {
+  mode: LocaleRoutingMode;
+  sourceLocale: StorefrontLocale;
+  enabledLocales: StorefrontLocale[];
+  availableLocales: StorefrontLocale[];
+  showLocaleSwitcher: boolean;
+};
 
 export const DEFAULT_LOCALE: StorefrontLocale = "tr";
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
@@ -269,19 +277,39 @@ export function stripLocaleFromPathname(pathname: string): string {
   return nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
 }
 
-export function buildLocalizedPath(pathname: string, locale: StorefrontLocale): string {
+type LocalizedPathOptions = Pick<LocaleRoutingConfig, "mode" | "sourceLocale">;
+
+export function buildLocalizedPath(
+  pathname: string,
+  locale: StorefrontLocale,
+  routing?: LocalizedPathOptions,
+): string {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const strippedPath = stripLocaleFromPathname(normalizedPath);
+  const mode = routing?.mode ?? "prefixed";
+
+  if (mode === "prefixless") {
+    return strippedPath;
+  }
+
   return strippedPath === "/" ? `/${locale}` : `/${locale}${strippedPath}`;
 }
 
-export function buildLocaleAlternates(pathname: string) {
+export function buildLocaleAlternates(
+  pathname: string,
+  routing?: LocaleRoutingConfig,
+) {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  if (routing?.mode === "prefixless") {
+    return undefined;
+  }
+
+  const locales = routing?.availableLocales ?? [...SUPPORTED_LOCALES];
 
   return Object.fromEntries(
-    SUPPORTED_LOCALES.map((locale) => [
+    locales.map((locale) => [
       LOCALE_LANGUAGE_CODES[locale],
-      buildLocalizedPath(normalizedPath, locale),
+      buildLocalizedPath(normalizedPath, locale, routing),
     ]),
   );
 }
@@ -304,13 +332,15 @@ export function getLocalizedCategoryLabel(
 export function detectPreferredLocale(
   cookieLocale?: string | null,
   acceptLanguage?: string | null,
+  allowedLocales: readonly StorefrontLocale[] = SUPPORTED_LOCALES,
+  fallbackLocale: StorefrontLocale = DEFAULT_LOCALE,
 ): StorefrontLocale {
-  if (isSupportedLocale(cookieLocale)) {
+  if (isSupportedLocale(cookieLocale) && allowedLocales.includes(cookieLocale)) {
     return cookieLocale;
   }
 
   const normalizedAcceptLanguage = (acceptLanguage || "").toLowerCase();
-  for (const locale of SUPPORTED_LOCALES) {
+  for (const locale of allowedLocales) {
     if (
       normalizedAcceptLanguage.includes(`${locale.toLowerCase()}-`) ||
       normalizedAcceptLanguage.includes(`${locale.toLowerCase()},`) ||
@@ -320,5 +350,5 @@ export function detectPreferredLocale(
     }
   }
 
-  return DEFAULT_LOCALE;
+  return fallbackLocale;
 }

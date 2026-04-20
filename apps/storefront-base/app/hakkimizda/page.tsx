@@ -3,6 +3,7 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function generateMetadata() {
 
 export default async function AboutPage() {
   const locale = await getRequestLocale();
+  const routing = await getLocaleRoutingConfig();
   const profile = await getStorefrontProfile();
   const managedPage = await getPublishedManagedContentPage("hakkimizda");
 
@@ -76,7 +78,7 @@ export default async function AboutPage() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
-                href={buildLocalizedPath("/iletisim", locale)}
+                href={buildLocalizedPath("/iletisim", locale, routing)}
                 className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
               >
                 Iletisim sayfasina git

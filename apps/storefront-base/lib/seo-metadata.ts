@@ -10,6 +10,7 @@ import {
   getLocalizedCopy,
   type StorefrontLocale,
 } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { translateSeoStrings } from "@/lib/translation";
 
 type PageKeywords = string[] | string | null | undefined;
@@ -143,8 +144,10 @@ export async function buildStoreRootMetadata(
   pathname: string,
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(locale);
+  const localeRouting = await getLocaleRoutingConfig();
   const requestOrigin = await getRequestOrigin();
-  const localizedPath = buildLocalizedPath(pathname, locale);
+  const localizedPath = buildLocalizedPath(pathname, locale, localeRouting);
+  const languageAlternates = buildLocaleAlternates(pathname, localeRouting);
   const ogImageUrl = toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
   const [storeInfo, codeIntegrations] = await Promise.all([
@@ -197,7 +200,7 @@ export async function buildStoreRootMetadata(
     },
     alternates: {
       canonical: localizedPath,
-      languages: buildLocaleAlternates(pathname),
+      ...(languageAlternates ? { languages: languageAlternates } : {}),
     },
     verification: {
       google:
@@ -211,8 +214,10 @@ export async function buildStorePageMetadata(
   input: BuildStorePageMetadataInput,
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(input.locale);
+  const localeRouting = await getLocaleRoutingConfig();
   const requestOrigin = await getRequestOrigin();
-  const localizedPath = buildLocalizedPath(input.pathname, input.locale);
+  const localizedPath = buildLocalizedPath(input.pathname, input.locale, localeRouting);
+  const languageAlternates = buildLocaleAlternates(input.pathname, localeRouting);
   const title = buildPageTitle(
     normalizeTitle(input.title) || seo.defaultTitle,
     seo.titleSuffix,
@@ -233,7 +238,7 @@ export async function buildStorePageMetadata(
     metadataBase: new URL(requestOrigin),
     alternates: {
       canonical: localizedPath,
-      languages: buildLocaleAlternates(input.pathname),
+      ...(languageAlternates ? { languages: languageAlternates } : {}),
     },
     openGraph: {
       title,
