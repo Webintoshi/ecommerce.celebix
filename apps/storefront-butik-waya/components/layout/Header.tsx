@@ -157,13 +157,14 @@ export function Header() {
   const accountHref = buildPath(user ? "/hesap" : ROUTES.login);
 
   return (
-    <header
-      className={`sticky top-0 z-50 border-b border-white/10 bg-[#000000]/98 backdrop-blur-md transition-all duration-300 ${
-        isScrolled ? "shadow-[0_20px_60px_-36px_rgba(0,0,0,0.78)]" : ""
-      }`}
-    >
-      <div className="container-premium">
-        <div className="grid h-[66px] grid-cols-[1fr_auto] items-center gap-3 lg:h-[58px] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+    <>
+      <header
+        className={`sticky top-0 z-50 border-b border-white/10 bg-[#000000]/98 backdrop-blur-md transition-all duration-300 ${
+          isScrolled ? "shadow-[0_20px_60px_-36px_rgba(0,0,0,0.78)]" : ""
+        }`}
+      >
+        <div className="container-premium">
+          <div className="grid h-[66px] grid-cols-[1fr_auto] items-center gap-3 lg:h-[58px] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
           <Link
             href={buildPath(ROUTES.home)}
             className="flex min-w-0 flex-shrink-0 lg:hidden"
@@ -252,54 +253,61 @@ export function Header() {
               <Menu className="h-5 w-5 text-white/82" />
             </button>
           </div>
-        </div>
+          </div>
 
-        <nav className="hidden h-[34px] items-center justify-center gap-4 border-t border-white/8 lg:flex xl:gap-6 2xl:gap-7">
-          {headerCategories.map((category) => {
-            const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+          <nav className="hidden h-[34px] items-center justify-center gap-4 border-t border-white/8 lg:flex xl:gap-6 2xl:gap-7">
+            {headerCategories.map((category) => {
+              const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
-            if (category.children.length === 0) {
+              if (category.children.length === 0) {
+                return (
+                  <Link
+                    key={category.id}
+                    href={buildPath(ROUTES.category(category.slug))}
+                    className="group relative inline-flex shrink-0 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
+                  >
+                    {localizedCategoryName}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
-                  key={category.id}
-                  href={buildPath(ROUTES.category(category.slug))}
-                  className="group relative inline-flex shrink-0 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
-                >
-                  {localizedCategoryName}
-                </Link>
-              );
-            }
+                <div key={category.id} className="group relative shrink-0">
+                  <Link
+                    href={buildPath(ROUTES.category(category.slug))}
+                    className="relative inline-flex items-center gap-1 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
+                  >
+                    {localizedCategoryName}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Link>
 
-            return (
-              <div key={category.id} className="group relative shrink-0">
-                <Link
-                  href={buildPath(ROUTES.category(category.slug))}
-                  className="relative inline-flex items-center gap-1 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
-                >
-                  {localizedCategoryName}
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Link>
-
-                <div className="pointer-events-none absolute left-1/2 top-full z-30 w-64 -translate-x-1/2 pt-3 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                  <div className="rounded-[1.65rem] border border-[rgba(26,26,26,0.08)] bg-[#F5F5F5] p-3 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.4)]">
-                    <div className="space-y-1">
-                      {category.children.map((subcategory) => (
-                        <Link
-                          key={subcategory.id}
-                          href={buildPath(ROUTES.category(subcategory.slug))}
-                          className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#222222] transition-colors hover:bg-white hover:text-[#222222]"
-                        >
-                          {subcategory.name}
-                        </Link>
-                      ))}
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-64 -translate-x-1/2 pt-3 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                    <div className="rounded-[1.65rem] border border-[rgba(26,26,26,0.08)] bg-[#F5F5F5] p-3 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.4)]">
+                      <div className="space-y-1">
+                        {category.children.map((subcategory) => (
+                          <Link
+                            key={subcategory.id}
+                            href={buildPath(ROUTES.category(subcategory.slug))}
+                            className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#222222] transition-colors hover:bg-white hover:text-[#222222]"
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </nav>
-      </div>
+              );
+            })}
+          </nav>
+        </div>
+
+        <HeaderSearchOverlay
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          resolveImageSrc={resolveStorefrontAssetUrl}
+        />
+      </header>
 
       <AnimatePresence>
         {isMenuOpen ? (
@@ -308,7 +316,7 @@ export function Header() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed inset-0 z-[70] bg-[#050505] text-white lg:hidden"
+            className="fixed inset-0 z-[80] bg-[#050505] text-white lg:hidden"
           >
             <div className="container-premium flex h-full flex-col">
               <div className="flex h-[66px] items-center justify-between gap-4 border-b border-white/10">
@@ -454,12 +462,6 @@ export function Header() {
           </motion.div>
         ) : null}
       </AnimatePresence>
-
-      <HeaderSearchOverlay
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        resolveImageSrc={resolveStorefrontAssetUrl}
-      />
-    </header>
+    </>
   );
 }
