@@ -71,6 +71,14 @@ const FEED_HEADERS = [
   "additional_image_link",
 ] as const;
 
+const FEED_XML_ENTITY_LIMITS = {
+  enabled: true,
+  maxEntitySize: 50_000,
+  maxEntityCount: 10_000,
+  maxTotalExpansions: 25_000,
+  maxExpandedLength: 2_000_000,
+} as const;
+
 export function parseXmlProductFeed(
   xmlContent: string,
   options: FeedParseOptions = {},
@@ -85,6 +93,10 @@ export function parseXmlProductFeed(
     parseTagValue: false,
     trimValues: true,
     removeNSPrefix: true,
+    // Merchant feeds often carry HTML-escaped rich descriptions. The parser's
+    // default entity ceiling is too low for large but legitimate catalogs.
+    htmlEntities: true,
+    processEntities: FEED_XML_ENTITY_LIMITS,
     isArray: (_name, jpath) =>
       jpath === "feed.entry" ||
       jpath === "feed.entry.additional_image_link" ||
