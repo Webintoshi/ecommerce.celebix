@@ -12,7 +12,6 @@ function parseArgs(argv) {
     storeSlug: "butik-waya",
     profile: defaults.profilePath,
     dryRun: false,
-    chunkSize: 100,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -27,28 +26,12 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
-    if (token === "--chunk-size" && argv[index + 1]) {
-      const parsed = Number.parseInt(argv[index + 1], 10);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        args.chunkSize = parsed;
-      }
-      index += 1;
-      continue;
-    }
     if (token === "--dry-run") {
       args.dryRun = true;
     }
   }
 
   return args;
-}
-
-function chunkArray(items, size) {
-  const chunks = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function toJsonObject(value) {
@@ -187,6 +170,46 @@ async function ensureCategoryHierarchy(supabase, categoryPath) {
   }
 }
 
+function normalizeLookupKey(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function buildProductLookupIndex(products) {
+  const bySlug = new Map();
+  const byItemGroupId = new Map();
+
+  for (const row of products || []) {
+    if (row?.slug) {
+      bySlug.set(normalizeLookupKey(row.slug), row);
+    }
+
+    const importSource = toJsonObject(row?.shopify_metadata).celebix_import_source;
+    const itemGroupId = normalizeLookupKey(toJsonObject(importSource).itemGroupId);
+    if (itemGroupId) {
+      byItemGroupId.set(itemGroupId, row);
+    }
+  }
+
+  return { bySlug, byItemGroupId };
+}
+
+function resolveProductRow(lookup, mappedFeedItem) {
+  const slugMatch = lookup.bySlug.get(normalizeLookupKey(mappedFeedItem.slug));
+  if (slugMatch) {
+    return { row: slugMatch, source: "slug" };
+  }
+
+  const itemGroupId = normalizeLookupKey(mappedFeedItem.itemGroupId);
+  if (itemGroupId) {
+    const itemGroupMatch = lookup.byItemGroupId.get(itemGroupId);
+    if (itemGroupMatch) {
+      return { row: itemGroupMatch, source: "itemGroupId" };
+    }
+  }
+
+  return { row: null, source: null };
+}
+
 function mergeMetadata(existingMetadata, mappedFeedItem) {
   const metadata = toJsonObject(existingMetadata);
   const existingImportSource = toJsonObject(metadata.celebix_import_source);
@@ -227,6 +250,8 @@ async function main() {
     dryRun: args.dryRun,
     totalFeedItems: audit.totalItems,
     matchedProducts: 0,
+    matchedBySlug: 0,
+    matchedByItemGroupId: 0,
     updatedProducts: 0,
     skippedProducts: 0,
     failedProducts: 0,
@@ -239,6 +264,7 @@ async function main() {
   if (args.dryRun) {
     result.matchedProducts = feedBySlug.size;
     result.updatedProducts = feedBySlug.size;
+    result.matchedBySlug = feedBySlug.size;
     result.categoriesEnsured = parsedFeed.mappedItems.reduce(
       (total, item) => total + item.categoryPath.length,
       0,
@@ -252,50 +278,54 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  for (const slugChunk of chunkArray(Array.from(feedBySlug.keys()), args.chunkSize)) {
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, slug, name, category, subcategory, shopify_metadata")
-      .in("slug", slugChunk);
+  const { data: allProducts, error: productFetchError } = await supabase
+    .from("products")
+    .select("id, slug, name, category, subcategory, shopify_metadata");
 
-    if (error) {
-      throw error;
+  if (productFetchError) {
+    throw productFetchError;
+  }
+
+  const lookup = buildProductLookupIndex(allProducts);
+
+  for (const mappedFeedItem of feedBySlug.values()) {
+    const match = resolveProductRow(lookup, mappedFeedItem);
+    if (!match.row) {
+      result.skippedProducts += 1;
+      continue;
     }
 
-    for (const row of data || []) {
-      const mappedFeedItem = feedBySlug.get(row.slug);
-      if (!mappedFeedItem) {
-        result.skippedProducts += 1;
-        continue;
+    result.matchedProducts += 1;
+    if (match.source === "itemGroupId") {
+      result.matchedByItemGroupId += 1;
+    } else {
+      result.matchedBySlug += 1;
+    }
+
+    try {
+      await ensureCategoryHierarchy(supabase, mappedFeedItem.categoryPath);
+      result.categoriesEnsured += mappedFeedItem.categoryPath.length;
+
+      const mergedMetadata = mergeMetadata(match.row.shopify_metadata, mappedFeedItem);
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          category: mappedFeedItem.category,
+          subcategory: mappedFeedItem.subcategory,
+          shopify_metadata: mergedMetadata,
+        })
+        .eq("id", match.row.id);
+
+      if (updateError) {
+        throw updateError;
       }
 
-      result.matchedProducts += 1;
-
-      try {
-        await ensureCategoryHierarchy(supabase, mappedFeedItem.categoryPath);
-        result.categoriesEnsured += mappedFeedItem.categoryPath.length;
-
-        const mergedMetadata = mergeMetadata(row.shopify_metadata, mappedFeedItem);
-        const { error: updateError } = await supabase
-          .from("products")
-          .update({
-            category: mappedFeedItem.category,
-            subcategory: mappedFeedItem.subcategory,
-            shopify_metadata: mergedMetadata,
-          })
-          .eq("id", row.id);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        result.updatedProducts += 1;
-      } catch (error) {
-        result.failedProducts += 1;
-        result.errors.push(
-          `${row.slug}: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
-        );
-      }
+      result.updatedProducts += 1;
+    } catch (error) {
+      result.failedProducts += 1;
+      result.errors.push(
+        `${mappedFeedItem.slug}: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+      );
     }
   }
 
