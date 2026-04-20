@@ -270,6 +270,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   }
 
   const getRatio = (imageUrl: string) => imageRatios[imageUrl] || FALLBACK_RATIO;
+  const getMobileRatio = (imageUrl: string) => {
+    const ratio = getRatio(imageUrl);
+    return Math.min(Math.max(ratio, 0.74), 0.84);
+  };
 
   const lightboxContent = (
     <AnimatePresence>
@@ -400,7 +404,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     <div className="lg:hidden">
       <div
         className="relative overflow-hidden rounded-[2rem] bg-[#ffffff] cursor-pointer"
-        style={{ aspectRatio: `${getRatio(currentImage)}` }}
+        style={{ aspectRatio: `${getMobileRatio(currentImage)}` }}
         onClick={() => setIsLightboxOpen(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -447,12 +451,12 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   const mobileCarousel = (
     <div className="lg:hidden">
-      <div className="grid items-start gap-3 sm:grid-cols-[88px_1fr] sm:gap-4 lg:grid-cols-[104px_1fr]">
-        <div className="order-2 relative flex flex-col sm:order-1">
+      <div className="grid grid-cols-[68px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[88px_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[104px_minmax(0,1fr)]">
+        <div className="relative flex flex-col">
           <div
             ref={thumbnailsRef}
             onScroll={checkScroll}
-            className="scrollbar-hide flex gap-2 overflow-x-auto pb-1 sm:max-h-[640px] sm:flex-col sm:gap-3 sm:overflow-x-hidden sm:overflow-y-auto sm:pb-0"
+            className="scrollbar-hide flex max-h-[380px] flex-col gap-2 overflow-y-auto sm:max-h-[640px] sm:gap-3"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {displayImages.map((image, index) => (
@@ -460,7 +464,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 key={image}
                 type="button"
                 onClick={() => setSelectedIndex(index)}
-                className={`relative h-[88px] w-[72px] flex-shrink-0 overflow-hidden rounded-[1rem] border transition-all sm:h-[104px] sm:w-[88px] ${
+                className={`relative h-[78px] w-[68px] flex-shrink-0 overflow-hidden rounded-[1rem] border transition-all sm:h-[104px] sm:w-[88px] ${
                   index === selectedIndex
                     ? "border-[#171311]"
                     : "border-transparent opacity-70 hover:border-[rgba(26,26,26,0.16)] hover:opacity-100"
@@ -509,10 +513,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         </div>
 
         <div
-          className={`order-1 relative overflow-hidden rounded-[2rem] bg-[#ffffff] select-none sm:order-2 ${
+          className={`relative overflow-hidden rounded-[2rem] bg-[#ffffff] select-none ${
             isDragging ? "cursor-grabbing" : "cursor-grab"
           }`}
-          style={{ aspectRatio: `${getRatio(currentImage)}` }}
+          style={{ aspectRatio: `${getMobileRatio(currentImage)}` }}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
