@@ -119,6 +119,7 @@ export const SETTING_KEYS = {
     AI_PROVIDER: "ai_provider",
     TRANSLATION_SETTINGS: "translation_settings",
     PRODUCT_LISTING_ORDER: PRODUCT_LISTING_ORDER_SETTING_KEY,
+    CODE_INTEGRATIONS: "code_integrations",
 } as const;
 
 // =====================================================
@@ -154,6 +155,97 @@ export interface StoreInfo {
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
 export type { ProductListingOrderSettings };
+
+export interface CodeIntegrationsSettings {
+    googleTagManagerId: string;
+    googleSearchConsoleVerification: string;
+    metaPixelId: string;
+    customHeadHtml: string;
+    customBodyEndHtml: string;
+}
+
+const DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS: CodeIntegrationsSettings = {
+    googleTagManagerId: "",
+    googleSearchConsoleVerification: "",
+    metaPixelId: "",
+    customHeadHtml: "",
+    customBodyEndHtml: "",
+};
+
+const GTM_ID_REGEX = /\bGTM-[A-Z0-9]+\b/i;
+const META_PIXEL_ID_REGEX = /\b\d{5,}\b/;
+const META_PIXEL_SNIPPET_REGEX = /fbq\(\s*['"]init['"]\s*,\s*['"](\d{5,})['"]\s*\)/i;
+const SEARCH_CONSOLE_META_REGEX =
+    /<meta[^>]*name=["']google-site-verification["'][^>]*content=["']([^"']+)["'][^>]*>/i;
+
+function normalizeCodeIntegrationString(value: unknown) {
+    return typeof value === "string" ? value.trim() : "";
+}
+
+function extractGoogleTagManagerId(value: unknown) {
+    const raw = normalizeCodeIntegrationString(value);
+    if (!raw) {
+        return "";
+    }
+
+    const match = raw.match(GTM_ID_REGEX);
+    return match ? match[0].toUpperCase() : raw.toUpperCase();
+}
+
+function extractGoogleSearchConsoleVerification(value: unknown) {
+    const raw = normalizeCodeIntegrationString(value);
+    if (!raw) {
+        return "";
+    }
+
+    const metaMatch = raw.match(SEARCH_CONSOLE_META_REGEX);
+    if (metaMatch?.[1]) {
+        return metaMatch[1].trim();
+    }
+
+    const contentMatch = raw.match(/content=["']([^"']+)["']/i);
+    if (raw.includes("google-site-verification") && contentMatch?.[1]) {
+        return contentMatch[1].trim();
+    }
+
+    return raw;
+}
+
+function extractMetaPixelId(value: unknown) {
+    const raw = normalizeCodeIntegrationString(value);
+    if (!raw) {
+        return "";
+    }
+
+    const initMatch = raw.match(META_PIXEL_SNIPPET_REGEX);
+    if (initMatch?.[1]) {
+        return initMatch[1];
+    }
+
+    const genericMatch = raw.match(META_PIXEL_ID_REGEX);
+    return genericMatch ? genericMatch[0] : raw;
+}
+
+function normalizeStoreCodeIntegrationsSettings(
+    value?: Partial<CodeIntegrationsSettings> | null,
+    fallback?: Partial<CodeIntegrationsSettings> | null,
+): CodeIntegrationsSettings {
+    const merged = {
+        ...DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
+        ...(fallback || {}),
+        ...(value || {}),
+    };
+
+    return {
+        googleTagManagerId: extractGoogleTagManagerId(merged.googleTagManagerId),
+        googleSearchConsoleVerification: extractGoogleSearchConsoleVerification(
+            merged.googleSearchConsoleVerification,
+        ),
+        metaPixelId: extractMetaPixelId(merged.metaPixelId),
+        customHeadHtml: normalizeCodeIntegrationString(merged.customHeadHtml),
+        customBodyEndHtml: normalizeCodeIntegrationString(merged.customBodyEndHtml),
+    };
+}
 
 export interface HomepageCurationSettings {
     featuredCategorySlugs: string[];
@@ -351,6 +443,14 @@ export async function setSeoSettings(settings: SEOSettings) {
     return setSetting(
         SETTING_KEYS.SEO_SETTINGS,
         normalizeStoreSeoSettings(settings) as unknown as Record<string, unknown>,
+    );
+}
+
+export async function getCodeIntegrationsSettings(): Promise<CodeIntegrationsSettings> {
+    const data = await getSetting(SETTING_KEYS.CODE_INTEGRATIONS);
+    return normalizeStoreCodeIntegrationsSettings(
+        data as Partial<CodeIntegrationsSettings> | null,
+        DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
     );
 }
 
