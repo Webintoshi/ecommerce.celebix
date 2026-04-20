@@ -16,6 +16,57 @@ interface MirrorProductMediaResult {
     variants?: JsonObject[];
 }
 
+function dedupeUrlList(values: Array<string | null | undefined>): string[] {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+
+    values.forEach((value) => {
+        if (typeof value !== "string") {
+            return;
+        }
+
+        const normalized = value.trim();
+        if (!normalized || seen.has(normalized)) {
+            return;
+        }
+
+        seen.add(normalized);
+        deduped.push(normalized);
+    });
+
+    return deduped;
+}
+
+function dedupeImagesV2(images: JsonObject[]): JsonObject[] {
+    const seen = new Set<string>();
+    const deduped = images.filter((image) => {
+        const url = typeof image.url === "string" ? image.url.trim() : "";
+        if (!url || seen.has(url)) {
+            return false;
+        }
+
+        seen.add(url);
+        return true;
+    });
+
+    return deduped.map((image, index) => ({
+        ...image,
+        is_primary: index === 0,
+        sort_order: index,
+    }));
+}
+
+function dedupeVariantMedia(variants: JsonObject[]): JsonObject[] {
+    return variants.map((variant) => {
+        const nextVariant = { ...variant };
+        if (Array.isArray(nextVariant.images)) {
+            nextVariant.images = dedupeUrlList(nextVariant.images as Array<string | null | undefined>);
+        }
+
+        return nextVariant;
+    });
+}
+
 async function mirrorImageUrlToR2(
     sourceUrl: string,
     folder: string,
@@ -82,7 +133,7 @@ export async function mirrorImportedProductMediaToR2(
     const folderSlug = toStorageFolderSlug(options.slug || options.productName || "urun");
     const folderRoot = `products/imported/${folderSlug}`;
 
-    const imagesV2 = options.imagesV2
+    const mirroredImagesV2 = options.imagesV2
         ? (
               await Promise.all(
                   options.imagesV2.map(async (image, index) => {
@@ -105,14 +156,11 @@ export async function mirrorImportedProductMediaToR2(
               )
           )
               .filter((image): image is JsonObject => Boolean(image))
-              .map((image, index) => ({
-                  ...image,
-                  is_primary: index === 0,
-                  sort_order: index,
-              }))
         : undefined;
 
-    const imageUrls = options.imageUrls
+    const dedupedImagesV2 = mirroredImagesV2 ? dedupeImagesV2(mirroredImagesV2) : undefined;
+
+    const mirroredImageUrls = options.imageUrls
         ? (
               await Promise.all(
                   options.imageUrls.map((url, index) =>
@@ -125,9 +173,11 @@ export async function mirrorImportedProductMediaToR2(
                   )
               )
           ).filter((url): url is string => Boolean(url))
-        : imagesV2?.map((image) => String(image.url || "")).filter(Boolean);
+        : dedupedImagesV2?.map((image) => String(image.url || "")).filter(Boolean);
 
-    const variants = options.variants
+    const imageUrls = mirroredImageUrls ? dedupeUrlList(mirroredImageUrls) : undefined;
+
+    const mirroredVariants = options.variants
         ? await Promise.all(
               options.variants.map(async (variant, variantIndex) => {
                   const nextVariant = { ...variant };
@@ -165,9 +215,11 @@ export async function mirrorImportedProductMediaToR2(
           )
         : undefined;
 
+    const variants = mirroredVariants ? dedupeVariantMedia(mirroredVariants) : undefined;
+
     return {
         imageUrls,
-        imagesV2,
+        imagesV2: dedupedImagesV2,
         variants,
     };
 }

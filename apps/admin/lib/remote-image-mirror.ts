@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { isCurrentStoreR2Url, isR2Configured, uploadToR2 } from "@/lib/r2";
 
 const REMOTE_IMAGE_TIMEOUT_MS = 25_000;
@@ -50,7 +51,12 @@ function extensionFromUrl(value: string): string {
     }
 }
 
-function buildImportFileName(sourceUrl: string, fileBase: string, contentType: string | null): string {
+function buildImportFileName(
+    sourceUrl: string,
+    fileBase: string,
+    contentType: string | null,
+    contentHash?: string
+): string {
     const requestedName = (() => {
         try {
             const pathname = new URL(sourceUrl).pathname;
@@ -63,8 +69,9 @@ function buildImportFileName(sourceUrl: string, fileBase: string, contentType: s
     const baseNameFromUrl = requestedName.replace(/\.[^/.]+$/, "");
     const baseName = sanitizeFileSegment(baseNameFromUrl || fileBase);
     const extension = extensionFromContentType(contentType) || extensionFromUrl(sourceUrl) || "jpg";
+    const hashSuffix = contentHash ? `-${contentHash.slice(0, 12)}` : "";
 
-    return `${baseName}.${extension}`;
+    return `${baseName}${hashSuffix}.${extension}`;
 }
 
 async function fetchRemoteImage(sourceUrl: string): Promise<{ buffer: Buffer; contentType: string | null; }> {
@@ -150,11 +157,23 @@ export async function mirrorRemoteImageToR2(
     }
 
     const { buffer, contentType } = await fetchRemoteImage(normalizedUrl);
+    const contentHash = createHash("sha1").update(buffer).digest("hex");
+    const hashedCacheKey = `content:${options.folder}:${contentHash}`;
+    const cachedByContent = options.cache?.get(hashedCacheKey);
+    if (cachedByContent) {
+        options.cache?.set(normalizedUrl, cachedByContent);
+        return cachedByContent;
+    }
+
+    const fileName = buildImportFileName(normalizedUrl, options.fileBase, contentType, contentHash);
     const uploadResult = await uploadToR2(
         buffer,
-        buildImportFileName(normalizedUrl, options.fileBase, contentType),
+        fileName,
         contentType || "application/octet-stream",
-        options.folder
+        options.folder,
+        {
+            keyOverride: `${options.folder}/${fileName}`,
+        }
     );
 
     if (!uploadResult.success || !uploadResult.url) {
@@ -162,5 +181,6 @@ export async function mirrorRemoteImageToR2(
     }
 
     options.cache?.set(normalizedUrl, uploadResult.url);
+    options.cache?.set(hashedCacheKey, uploadResult.url);
     return uploadResult.url;
 }
