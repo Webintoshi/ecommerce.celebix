@@ -44,7 +44,6 @@ export function Footer() {
     localeSwitchOptions.find((option) => option.locale === locale) ?? localeSwitchOptions[0];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
-  const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
   const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
 
@@ -52,7 +51,6 @@ export function Footer() {
     if (locale === "en") {
       return {
         eyebrow: "Newsletter",
-        heading: "New-season edits.",
         placeholder: "Your email address",
         action: "Join",
         success: "Your email draft is opening.",
@@ -62,7 +60,6 @@ export function Footer() {
 
     return {
       eyebrow: "B\u00fclten",
-      heading: "Yeni sezon editleri.",
       placeholder: "E-posta adresiniz",
       action: "Kat\u0131l",
       success: "E-posta tasla\u011f\u0131n\u0131z a\u00e7\u0131l\u0131yor.",
@@ -162,14 +159,11 @@ export function Footer() {
     <footer className="mt-24 bg-[#151515] text-[#F5F1EB]">
       <div className="container-premium py-14 lg:py-16">
         <section className="mb-12 border-y border-white/10 py-8 lg:mb-14 lg:py-10">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div className="grid gap-6 lg:grid-cols-[0.5fr_1.5fr] lg:items-end">
             <div className="max-w-lg">
               <p className="text-[10px] uppercase tracking-[0.28em] text-white/42">
                 {newsletterCopy.eyebrow}
               </p>
-              <h2 className="mt-4 max-w-md font-serif text-[clamp(1.9rem,3vw,3.1rem)] leading-[0.95] tracking-[-0.05em] text-white">
-                {newsletterCopy.heading}
-              </h2>
             </div>
 
             <div className="w-full lg:justify-self-end lg:max-w-xl">
@@ -243,71 +237,9 @@ export function Footer() {
             </Link>
 
             <p className="mt-6 max-w-md text-sm leading-7 text-white/62">
-              Butik Waya, sakin l\u00fcks\u00fc g\u00fcnl\u00fck gard\u0131roba ta\u015f\u0131yan
-              se\u00e7ili bir kurgu ile yeni sezonun net, rafine ve kolay kombinlenen
-              par\u00e7alar\u0131n\u0131 bir araya getirir.
+              Butik Waya, sakin lüksü günlük gardıroba taşıyan seçili bir kurgu ile
+              yeni sezonun net, rafine ve kolay kombinlenen parçalarını bir araya getirir.
             </p>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Concierge</p>
-                <p className="mt-3 text-base font-medium text-white">{contactPhone}</p>
-                <p className="mt-1 break-all text-sm text-white/58">{contactEmail}</p>
-              </div>
-
-              {routing.showLocaleSwitcher ? (
-                <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">
-                    Dil se\u00e7imi
-                  </p>
-                  <div ref={localeMenuRef} className="relative mt-3 w-full">
-                    <button
-                      type="button"
-                      onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                      className="flex w-full items-center justify-between gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-white transition hover:border-white/22"
-                      aria-expanded={isLocaleMenuOpen}
-                      aria-haspopup="listbox"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
-                        <span className="text-sm text-white/58">{locale.toUpperCase()}</span>
-                      </span>
-                      <ChevronDown
-                        className={`h-4 w-4 text-white/60 transition-transform ${
-                          isLocaleMenuOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-
-                    {isLocaleMenuOpen ? (
-                      <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden rounded-[1.4rem] border border-white/10 bg-[#1C1C1C] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                        <div className="space-y-1">
-                          {localeSwitchOptions.map((option) => {
-                            const isActive = option.locale === locale;
-                            return (
-                              <Link
-                                key={option.locale}
-                                href={buildPath(internalPathname, option.locale)}
-                                hrefLang={option.locale}
-                                onClick={() => setIsLocaleMenuOpen(false)}
-                                className={`flex items-center justify-between rounded-xl px-3 py-2 transition ${
-                                  isActive
-                                    ? "bg-white text-[#151515]"
-                                    : "text-white/82 hover:bg-white/8 hover:text-white"
-                                }`}
-                              >
-                                <span className="text-sm font-medium">{option.label}</span>
-                                <span className="text-xs uppercase">{option.locale}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
 
             <div className="mt-6 flex items-center gap-3">
               <a
@@ -329,6 +261,57 @@ export function Footer() {
                 <Youtube className="h-4 w-4" />
               </a>
             </div>
+
+            {routing.showLocaleSwitcher ? (
+              <div ref={localeMenuRef} className="relative mt-6 w-full max-w-[12rem]">
+                <button
+                  type="button"
+                  onClick={() => setIsLocaleMenuOpen((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 border-b border-white/12 pb-3 text-left text-white transition hover:border-white/24"
+                  aria-expanded={isLocaleMenuOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-[0.24em] text-white/42">
+                      Dil
+                    </span>
+                    <span className="text-sm font-medium">{activeLocaleOption.label}</span>
+                    <span className="text-sm text-white/58">{locale.toUpperCase()}</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-white/60 transition-transform ${
+                      isLocaleMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isLocaleMenuOpen ? (
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden border border-white/10 bg-[#1C1C1C] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                    <div className="space-y-1">
+                      {localeSwitchOptions.map((option) => {
+                        const isActive = option.locale === locale;
+                        return (
+                          <Link
+                            key={option.locale}
+                            href={buildPath(internalPathname, option.locale)}
+                            hrefLang={option.locale}
+                            onClick={() => setIsLocaleMenuOpen(false)}
+                            className={`flex items-center justify-between px-3 py-2 transition ${
+                              isActive
+                                ? "bg-white text-[#151515]"
+                                : "text-white/82 hover:bg-white/8 hover:text-white"
+                            }`}
+                          >
+                            <span className="text-sm font-medium">{option.label}</span>
+                            <span className="text-xs uppercase">{option.locale}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div>
