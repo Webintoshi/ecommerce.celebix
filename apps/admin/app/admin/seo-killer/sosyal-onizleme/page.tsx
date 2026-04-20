@@ -86,9 +86,6 @@ export default function SocialPreviewPage() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Sosyal Medya Önizleme</h1>
-                  <p className="mt-3 text-sm leading-7 text-[#7f6858] md:text-base">
-                    Linklerinizin Facebook, X, LinkedIn ve WhatsApp üzerinde nasıl görüneceğini sıcak tonlu bir editör ve canlı kart önizlemeleriyle kontrol edin.
-                  </p>
                 </div>
               </div>
             </div>
@@ -97,9 +94,8 @@ export default function SocialPreviewPage() {
               <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
                 Editör modu
               </div>
-              <p className="mt-4 text-lg font-semibold tracking-[-0.02em]">Bu ekran yalnızca önizleme amaçlıdır</p>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-[#ead9c9]">
-                Buradaki alanlar veritabanına yazılmaz. Kalıcı değişiklik için ilgili içeriğin SEO alanını düzenlemeniz gerekir.
+              <p className="mt-4 text-sm font-medium leading-6 text-[#ead9c9]">
+                Bu ekran yalnızca önizleme amaçlıdır; buradaki alanlar veritabanına yazılmaz.
               </p>
             </div>
           </div>
@@ -171,9 +167,6 @@ export default function SocialPreviewPage() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                <strong>İpucu:</strong> Başlığın 60, açıklamanın 160 karakteri aşmaması çoğu platformda kesintisiz görünüm için daha dengeli sonuç verir.
-              </div>
             </div>
 
             <div className="lg:col-span-7">

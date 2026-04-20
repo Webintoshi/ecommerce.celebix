@@ -20,7 +20,6 @@ function resolvePageState(hasContent: boolean, status: "published" | "draft" | "
       badgeLabel: "Yayında",
       badgeClassName:
         "border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-      description: "Storefront'ta yayında görünür.",
     };
   }
 
@@ -31,14 +30,12 @@ function resolvePageState(hasContent: boolean, status: "published" | "draft" | "
         status === "archived"
           ? "border-stone-200 bg-stone-100 text-stone-700 ring-1 ring-stone-100"
           : "border-amber-200 bg-amber-50 text-amber-800 ring-1 ring-amber-100",
-      description: "İçerik yayınlanana kadar storefront'ta ana içerik olarak kullanılmaz.",
     };
   }
 
   return {
     badgeLabel: "Hazır değil",
     badgeClassName: "border-stone-200 bg-stone-100 text-stone-700 ring-1 ring-stone-100",
-    description: "Bu sabit sayfa için henüz içerik girilmedi.",
   };
 }
 
@@ -137,23 +134,22 @@ export default function PagesListingPage() {
                       </div>
                     </div>
 
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${state.badgeClassName}`}>
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${state.badgeClassName}`}
+                    >
                       {state.badgeLabel}
                     </span>
                   </div>
 
-                  <div className="mt-6 rounded-2xl border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] p-4">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Durum notu
-                    </div>
-                    <p className="text-sm leading-6 text-stone-700">{state.description}</p>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     <InfoPill label="Yol" value={`/${entry.slug}`} />
                     <InfoPill
                       label="Son güncelleme"
-                      value={entry.page?.updatedAt ? entry.page.updatedAt.toLocaleDateString("tr-TR") : "Henüz içerik girilmedi"}
+                      value={
+                        entry.page?.updatedAt
+                          ? entry.page.updatedAt.toLocaleDateString("tr-TR")
+                          : "Henüz içerik girilmedi"
+                      }
                     />
                   </div>
 

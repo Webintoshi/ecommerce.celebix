@@ -626,7 +626,6 @@ export function QuickOrderLinksPanel() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Sipariş özeti</p>
-                  <p className="mt-1 text-sm text-gray-500">Seçilen kalemler ödeme linkinde kilitli gösterilir.</p>
                 </div>
                 <button
                   type="button"

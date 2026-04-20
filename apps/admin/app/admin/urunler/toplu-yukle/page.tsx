@@ -582,12 +582,6 @@ export default function BulkUploadPage() {
                     />
                   </div>
 
-                  <div className="rounded-[22px] border border-[#ead9cb] bg-white/90 p-4 text-sm leading-6 text-[#7b685b] shadow-sm">
-                    Feed varyantları{" "}
-                    <code className="rounded bg-[#f8efe6] px-1 py-0.5 text-[#8a4b22]">item_group_id</code>{" "}
-                    ve ek varyant alanlarıyla gruplanır. Çoklu görseller otomatik dedupe edilir.
-                  </div>
-
                   <button
                     type="button"
                     onClick={handleAnalyzeFeed}
@@ -617,14 +611,6 @@ export default function BulkUploadPage() {
                 </div>
               ))}
 
-              <div className="rounded-[24px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff3e9] to-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Hazırlık notu</p>
-                <p className="mt-2 text-sm leading-6 text-[#7b685b]">
-                  {isFeedMode
-                    ? "Feed URL admin sunucusu üzerinden okunur. Böylece CORS, encoding ve XML ayrıştırma sorunları tarayıcıya bırakılmaz."
-                    : "Şablon dosyasını kullanmanız sütun eşleşmesini hızlandırır ve önizleme aşamasında daha temiz sonuç verir."}
-                </p>
-              </div>
             </div>
           </div>
         </section>
@@ -692,7 +678,6 @@ export default function BulkUploadPage() {
                   <div className="flex items-center justify-between gap-3 border-b border-[#f0e4d8] px-5 py-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">Önizleme tablosu</p>
-                      <p className="mt-1 text-sm text-[#7b685b]">İlk 20 ürün gösterilir.</p>
                     </div>
                     <span className="rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-semibold text-[#FE6100]">
                       {parseResult.products.length} ürün hazır

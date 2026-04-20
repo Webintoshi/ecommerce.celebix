@@ -86,7 +86,7 @@ const TARGET_LOCALE_OPTIONS: Array<{
 
 function ToggleCard({
   title,
-  description,
+  description: _description,
   enabled,
   onToggle,
   icon: Icon,
@@ -129,7 +129,6 @@ function ToggleCard({
             />
           </span>
         </div>
-        <p className={`mt-1 text-sm ${enabled ? "text-white/80" : "text-gray-500"}`}>{description}</p>
       </div>
     </button>
   );
@@ -304,12 +303,7 @@ export function TranslationSettingsPanel() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 text-white">
           <Languages className="h-5 w-5" />
         </div>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-gray-900">Canli Ceviri</h2>
-          <p className="text-sm text-gray-500">
-            DeepL tabanli locale deneyimini yonetin. Bu ayarlar urunler, kategoriler, PDP, listing ve ilgili SEO metinlerini etkiler.
-          </p>
-        </div>
+        <h2 className="text-base font-semibold text-gray-900">Canli Ceviri</h2>
       </div>
 
       <div className="space-y-6 p-5">
@@ -335,10 +329,9 @@ export function TranslationSettingsPanel() {
                   placeholder="DeepL API anahtari"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
-                <div className="space-y-1 text-xs text-gray-500">
-                  <p>Saglanan anahtar settings icinde saklanir. Isterseniz deploy env olarak da kullanabilirsiniz.</p>
-                  {hasEnvKey ? <p>Sunucuda ayri bir `DEEPL_API_KEY` env anahtari da tanimli.</p> : null}
-                </div>
+                {hasEnvKey ? (
+                  <p className="text-xs text-gray-500">Sunucuda ayri bir `DEEPL_API_KEY` env anahtari da tanimli.</p>
+                ) : null}
               </div>
 
               <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8F8F8] p-4">
@@ -355,12 +348,6 @@ export function TranslationSettingsPanel() {
                     <span className="font-medium text-gray-900">
                       {activeLocaleSummary || "Henuz secilmedi"}
                     </span>
-                  </p>
-                  <p>
-                    Katalog cevirileri storefront tarafinda cache'ten okunur. Warm-up ile urun ve kategori cache'ini onceden doldurabilirsiniz.
-                  </p>
-                  <p>
-                    Canli ceviri kapaliyken vitrin temiz URL ile calisir. Acikken secili diller prefixli olarak yasamaya baslar.
                   </p>
                 </div>
               </div>
@@ -383,18 +370,12 @@ export function TranslationSettingsPanel() {
               </label>
               <div>
                 <p className="text-sm font-medium text-gray-900">Canli ceviriyi etkinlestir</p>
-                <p className="text-xs text-gray-500">
-                  Kapaliyken vitrin slug'siz calisir. Acildiginda kaynak Turkce dahil secili diller `/tr`, `/en` gibi prefixlerle acilir.
-                </p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-gray-900">Hedef Diller</p>
-                <p className="text-xs text-gray-500">
-                  Bu secim yalnizca canli ceviri acikken aktif olur. Kaynak dil de `/tr` ile prefixlenir, secili diller icin ceviri cache'i DeepL ile doldurulur.
-                </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {TARGET_LOCALE_OPTIONS.map((option) => {

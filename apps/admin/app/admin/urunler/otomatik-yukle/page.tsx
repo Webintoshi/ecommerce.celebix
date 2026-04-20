@@ -121,32 +121,6 @@ export default function AutoImportPage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-            <div className="rounded-[26px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FE6100] to-[#E45700] shadow-[0_18px_35px_rgba(254,97,0,0.18)]">
-              <AlertCircle className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h3 className="mb-2 font-semibold text-[#2f241d]">
-                Bu sayfa ne yapar?
-              </h3>
-              <p className="mb-3 text-sm text-[#6f5a4b]">
-                <code className="rounded-full border border-[#ead9cb] bg-white px-2.5 py-1 text-[#8a4b22]">/public/products_export_1.csv</code> dosyasindaki Shopify urunlerini otomatik olarak Celebix Panel formatina donusturur ve sisteme yukler.
-              </p>
-              <ul className="space-y-1 text-sm text-[#6f5a4b]">
-                <li>Shopify CSV formatını otomatik tanır</li>
-                <li>Her ürün için 5 adede kadar görsel alır (Shopify CDN'den)</li>
-                <li>Ürün açıklamalarını HTML'den temizler</li>
-                <li>Kategorileri otomatik belirler (fıstık ezmesi, fındık ezmesi, kuruyemiş)</li>
-                <li>Diyet özelliklerini etiketlerden çıkarır (vegan, glutensiz, vb.)</li>
-                <li>Mevcut ürünler güncellenir, yeniler eklenir</li>
-              </ul>
-            </div>
-          </div>
-            </div>
-          </section>
-
         {!result && (
           <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
@@ -157,9 +131,6 @@ export default function AutoImportPage() {
               <h3 className="mb-2 text-xl font-semibold text-[#2f241d]">
                 Ürünleri İçe Aktar
               </h3>
-              <p className="mb-6 text-[#786658]">
-                Tek tıkla Shopify ürünlerini sisteme aktarın
-              </p>
 
               <button
                 onClick={handleAutoImport}

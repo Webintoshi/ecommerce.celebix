@@ -1043,16 +1043,12 @@ function GEOSection({
                     <Lightbulb className="w-5 h-5 text-purple-600" />
                     <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
                 </div>
-                <p className="text-sm text-purple-700">
-                    Bu alan ChatGPT, Perplexity ve diğer AI sistemlerinin kategorinizi anlamasına yardımcı olur.
-                </p>
             </div>
             
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <div>
                         <h4 className="font-medium text-gray-900">Önemli Çıkarımlar (Key Takeaways)</h4>
-                        <p className="text-sm text-gray-500">AI'ların kategoriniz hakkında vurgulaması gereken ana noktalar</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button 

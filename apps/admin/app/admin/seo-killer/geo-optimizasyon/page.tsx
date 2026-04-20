@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import {
     Bot,
-    Sparkles,
-    MessageSquare,
     FileText,
     ArrowLeft,
     CheckCircle2,
@@ -55,7 +53,7 @@ const MOCK_GEO_DATA: LLMOptimization[] = [
         keyTakeaways: [
             "Kategori sayfası ilgili ürün gruplarını tek yerde toplar.",
             "Filtreleme ve koleksiyon yapısı kullanıcının doğru ürüne hızla ulaşmasını sağlar.",
-            "Kategori metinleri AI sistemlerinin konu bağlamını daha iyi anlamasına yardımcı olur."
+            "Kategori metinleri konu kapsamını netleştirir."
         ],
         entities: ["ProductCategory", "CollectionPage", STORE_RUNTIME.name],
         citations: [
@@ -166,45 +164,6 @@ Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${S
                     >
                         <RefreshCw className="w-5 h-5" />
                     </button>
-                </div>
-            </div>
-
-            {/* Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-5 rounded-xl border border-purple-100">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <Sparkles className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <h3 className="font-semibold text-gray-900">Generative SEO</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                        AI sistemlerinin içeriklerinizi anlaması ve özetlemesi için optimize edin.
-                    </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <MessageSquare className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <h3 className="font-semibold text-gray-900">Citations</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                        AI yanıtlarında markanızın kaynak olarak gösterilmesini sağlayın.
-                    </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-green-600" />
-                        </div>
-                        <h3 className="font-semibold text-gray-900">llms.txt</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                        LLM tarayıcıları için robots.txt benzeri standart yapılandırma.
-                    </p>
                 </div>
             </div>
 
@@ -325,35 +284,6 @@ Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${S
                 </div>
             </div>
 
-            {/* Guidelines */}
-            <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5" />
-                    GEO Optimizasyon İpuçları
-                </h4>
-                <ul className="space-y-2 text-sm text-blue-800">
-                    <li className="flex items-start gap-2">
-                        <span className="font-bold">1.</span>
-                        İlk paragrafta ana konuyu net bir şekilde tanımlayın.
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="font-bold">2.</span>
-                        "Önemli Çıkarımlar" bölümü ekleyin - AI'lar bunu özette kullanır.
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="font-bold">3.</span>
-        <parameter name="faq_format">Soruları ve cevapları yapılandırılmış formatta kullanın (FAQ schema).</parameter>
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="font-bold">4.</span>
-                        Varlık isimleri (Entity) kullanın: marka, ürün, kişi adları.
-                    </li>
-                    <li className="flex items-start gap-2">
-                        <span className="font-bold">5.</span>
-                        İstatistikleri kaynaklarıyla birlikte ekleyin.
-                    </li>
-                </ul>
-            </div>
         </div>
     );
 }

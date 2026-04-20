@@ -973,7 +973,6 @@ function GEOSection({ keyTakeaways, onAdd, onUpdate, onRemove, onGenerateAI, isG
                     <Lightbulb className="w-5 h-5 text-purple-600" />
                     <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
                 </div>
-                <p className="text-sm text-purple-700">ChatGPT, Perplexity ve AI sistemlerinin ürününüzü anlamasına yardımcı olun.</p>
             </div>
             <div>
                 <div className="flex items-center justify-between mb-3">
