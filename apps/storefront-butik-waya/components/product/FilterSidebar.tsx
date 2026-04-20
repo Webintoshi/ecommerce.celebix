@@ -63,7 +63,7 @@ interface FilterSectionProps {
   children: React.ReactNode;
 }
 
-function FilterSection({ title, defaultOpen = true, children }: FilterSectionProps) {
+function FilterSection({ title, defaultOpen = false, children }: FilterSectionProps) {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
@@ -380,8 +380,8 @@ export function FilterSidebar({
           </FilterSection>
         ) : null}
 
-        {metadata.attributes.map((group, index) => (
-          <FilterSection key={group.id} title={group.label} defaultOpen={index < 2}>
+        {metadata.attributes.map((group) => (
+          <FilterSection key={group.id} title={group.label}>
             {group.options.map((option) => (
               <FilterOptionRow
                 key={option.value}

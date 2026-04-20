@@ -32,7 +32,7 @@ export function FilterDrawer({
     <Sheet open={isOpen} onOpenChange={(open) => (open ? undefined : onClose())}>
       <SheetContent
         side="left"
-        className="w-full max-w-[26rem] border-none bg-white p-0"
+        className="w-[50vw] min-w-[18rem] max-w-[24rem] border-none bg-white p-0"
       >
         <div className="flex h-full flex-col">
           <SheetHeader className="sticky top-0 z-10 mb-0 border-b border-[rgba(32,20,16,0.08)] bg-white px-5 py-4">

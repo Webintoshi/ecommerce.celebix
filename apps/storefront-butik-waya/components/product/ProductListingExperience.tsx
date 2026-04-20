@@ -402,11 +402,11 @@ export function ProductListingExperience({
                   </div>
                 ) : null}
 
-                <div className="flex flex-col gap-3 sm:items-end">
+                <div className="flex flex-col items-start gap-3 sm:items-end">
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem] lg:hidden"
+                    className="inline-flex self-start items-center justify-start gap-2 py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem] lg:hidden"
                   >
                     <SlidersHorizontal className="h-4 w-4" />
                     Filtrele
