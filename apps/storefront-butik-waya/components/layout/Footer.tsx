@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Instagram, Youtube } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Instagram, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
@@ -40,6 +40,8 @@ export function Footer() {
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterState, setNewsletterState] = useState<"idle" | "error" | "success">("idle");
   const { locale, internalPathname } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
@@ -54,6 +56,34 @@ export function Footer() {
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
   const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
+
+  const newsletterCopy = useMemo(() => {
+    if (locale === "en") {
+      return {
+        eyebrow: "Private newsletter",
+        heading: "Receive new-season notes before everyone else.",
+        description:
+          "A restrained edit of new arrivals, editorial picks and quiet wardrobe updates.",
+        placeholder: "Your email address",
+        action: "Join the list",
+        helper: "No noise. Only concise notes worth opening.",
+        success: "Your email app is opening with the subscription draft.",
+        error: "Please enter a valid email address.",
+      };
+    }
+
+    return {
+      eyebrow: "\u00d6zel b\u00fclten",
+      heading: "Yeni sezon notlar\u0131 size herkesten \u00f6nce ula\u015fs\u0131n.",
+      description:
+        "Yeni gelenler, editoryal se\u00e7imler ve sakin gard\u0131rop g\u00fcncellemeleri i\u00e7in k\u0131sa bir davet.",
+      placeholder: "E-posta adresiniz",
+      action: "B\u00fcltene kat\u0131l",
+      helper: "G\u00fcr\u00fclt\u00fcs\u00fcz. Yaln\u0131zca a\u00e7maya de\u011fer k\u0131sa notlar.",
+      success: "Abonelik tasla\u011f\u0131 i\u00e7in e-posta uygulaman\u0131z a\u00e7\u0131l\u0131yor.",
+      error: "L\u00fctfen ge\u00e7erli bir e-posta adresi girin.",
+    };
+  }, [locale]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,9 +150,95 @@ export function Footer() {
     { name: copy.footerContact, href: "/iletisim" },
   ];
 
+  const handleNewsletterSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const email = newsletterEmail.trim();
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    if (!isValidEmail) {
+      setNewsletterState("error");
+      return;
+    }
+
+    const subject =
+      locale === "en" ? "Newsletter subscription" : "B\u00fclten aboneli\u011fi";
+    const body =
+      locale === "en"
+        ? `Hello,\n\nI would like to join the ${storeInfo?.name || SITE_NAME} newsletter with this email address:\n${email}\n`
+        : `Merhaba,\n\n${storeInfo?.name || SITE_NAME} b\u00fcltenine \u015fu e-posta adresiyle kat\u0131lmak istiyorum:\n${email}\n`;
+
+    window.location.href = `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setNewsletterState("success");
+    setNewsletterEmail("");
+  };
+
   return (
     <footer className="mt-24 bg-[#151515] text-[#F5F1EB]">
       <div className="container-premium py-14 lg:py-16">
+        <section className="mb-12 rounded-[2rem] border border-white/10 bg-white/[0.04] px-6 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.12)] sm:px-8 lg:mb-14 lg:px-10 lg:py-9">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+            <div className="max-w-2xl">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-white/52">
+                {newsletterCopy.eyebrow}
+              </p>
+              <h2 className="mt-4 max-w-xl font-serif text-[clamp(1.9rem,3vw,3rem)] leading-[0.95] tracking-[-0.04em] text-white">
+                {newsletterCopy.heading}
+              </h2>
+              <p className="mt-4 max-w-lg text-sm leading-7 text-white/62">
+                {newsletterCopy.description}
+              </p>
+            </div>
+
+            <div className="rounded-[1.7rem] border border-white/10 bg-[#1A1A1A] p-4 sm:p-5">
+              <form className="space-y-3" onSubmit={handleNewsletterSubmit}>
+                <label htmlFor="footer-newsletter" className="sr-only">
+                  {newsletterCopy.placeholder}
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="footer-newsletter"
+                    type="email"
+                    value={newsletterEmail}
+                    onChange={(event) => {
+                      setNewsletterEmail(event.target.value);
+                      if (newsletterState !== "idle") {
+                        setNewsletterState("idle");
+                      }
+                    }}
+                    placeholder={newsletterCopy.placeholder}
+                    className="h-12 min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-white/24"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="submit"
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-medium text-[#151515] transition hover:bg-white/92"
+                  >
+                    {newsletterCopy.action}
+                    <ArrowUpRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+
+              <p
+                className={`mt-3 text-xs ${
+                  newsletterState === "error"
+                    ? "text-[#F1B2A7]"
+                    : newsletterState === "success"
+                      ? "text-[#D7E6CA]"
+                      : "text-white/45"
+                }`}
+              >
+                {newsletterState === "error"
+                  ? newsletterCopy.error
+                  : newsletterState === "success"
+                    ? newsletterCopy.success
+                    : newsletterCopy.helper}
+              </p>
+            </div>
+          </div>
+        </section>
+
         <div
           className={`grid gap-12 border-b border-white/10 pb-12 ${
             policyLinks.length > 0
@@ -151,8 +267,9 @@ export function Footer() {
             </Link>
 
             <p className="mt-6 max-w-md text-sm leading-7 text-white/62">
-              Butik Waya, sakin luksu gunluk gardiroba tasiyan secili bir storefront duzeniyle
-              yeni sezonun net, rafine ve kolay kombinlenen parcalarini bir araya getirir.
+              Butik Waya, sakin l\u00fcks\u00fc g\u00fcnl\u00fck gard\u0131roba ta\u015f\u0131yan
+              se\u00e7ili bir kurgu ile yeni sezonun net, rafine ve kolay kombinlenen
+              par\u00e7alar\u0131n\u0131 bir araya getirir.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -163,7 +280,9 @@ export function Footer() {
               </div>
 
               <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Dil secimi</p>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">
+                  Dil se\u00e7imi
+                </p>
                 <div ref={localeMenuRef} className="relative mt-3 w-full">
                   <button
                     type="button"
@@ -218,7 +337,7 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/60 transition-colors hover:border-white/28 hover:text-white"
-                aria-label="İnstagram"
+                aria-label="\u0130nstagram"
               >
                 <Instagram className="h-4 w-4" />
               </a>
