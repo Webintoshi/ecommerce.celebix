@@ -138,13 +138,6 @@ const MENU_ITEMS: MenuItem[] = [
     title: "Ayarlar",
     icon: Settings,
     href: "/admin/ayarlar",
-    submenu: [
-      { title: "Genel Ayarlar", href: "/admin/ayarlar/genel" },
-      { title: "Kargo", href: "/admin/ayarlar/kargo" },
-      { title: "Ödeme", href: "/admin/ayarlar/odeme" },
-      { title: "Bildirimler", href: "/admin/ayarlar/bildirimler" },
-      { title: "Tasarım Ayarları", href: "/admin/ayarlar/tasarim" },
-    ],
   },
 ];
 
@@ -348,9 +341,11 @@ export function AdminSidebar({
 
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {filteredItems.map((item) => {
-            const isActive = pathname === item.href;
-            const isExpanded = expandedMenus.includes(item.title);
             const hasSubmenu = Boolean(item.submenu?.length);
+            const isActive =
+              pathname === item.href ||
+              (!hasSubmenu && item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+            const isExpanded = expandedMenus.includes(item.title);
             const isSubmenuActive = item.submenu?.some((sub) => pathname === sub.href);
 
             return (
