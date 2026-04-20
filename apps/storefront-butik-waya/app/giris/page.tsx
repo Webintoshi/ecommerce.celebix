@@ -49,7 +49,7 @@ export default function LoginPage() {
 
     if (authError) {
       if (authError.message.includes("Invalid login credentials")) {
-        setError("E-posta adresi veya ?ifre hatal?");
+        setError("E-posta adresi veya şifre hatalı");
       } else if (authError.message.includes("Email not confirmed")) {
         setError("Hesabınız aktifleştirilemedi. Lütfen tekrar deneyin.");
       } else {
@@ -93,7 +93,7 @@ export default function LoginPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Giri? Yap
+              Giriş Yap
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
@@ -128,7 +128,7 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                ?ifre
+                Şifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -156,7 +156,7 @@ export default function LoginPage() {
                 href="/sifremi-unuttum"
                 className="text-sm text-primary hover:underline font-medium"
               >
-                ?ifremi Unuttum
+                Şifremi Unuttum
               </Link>
             </div>
 
@@ -177,11 +177,11 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Giri? Yap?l?yor...
+                  Giriş Yapılıyor...
                 </>
               ) : (
                 <>
-                  Giri? Yap
+                  Giriş Yap
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -192,7 +192,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center text-gray-600">
             Hesabınız yok mu?{" "}
             <Link href="/kayit" className="text-primary font-bold hover:underline">
-              Kay?t Ol
+              Kayıt Ol
             </Link>
           </div>
         </motion.div>

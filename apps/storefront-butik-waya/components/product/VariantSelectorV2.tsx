@@ -256,7 +256,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
 
       {isLowStock ? (
         <p className="text-[12px] leading-6 text-[#A0651B]">
-          Secili varyantta stok sinirli. Hemen seciminizi tamamlayin.
+          Seçili varyantta stok sınırlı. Hemen seçiminizi tamamlayın.
         </p>
       ) : null}
     </div>

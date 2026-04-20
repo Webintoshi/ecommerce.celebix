@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     if (isMissingProductReviewsTableError(error)) {
       return NextResponse.json(
-        { success: false, error: "Yorum sistemi hen?z haz?r de?il. L?tfen biraz sonra tekrar deneyin." },
+        { success: false, error: "Yorum sistemi henüz hazır değil. Lütfen biraz sonra tekrar deneyin." },
         { status: 503 },
       );
     }

@@ -38,7 +38,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `promo-${index}-${imageIndex}`,
           src: image,
-          alt: banner.title || `${storeName} koleksiyon g?rseli`,
+          alt: banner.title || `${storeName} koleksiyon görseli`,
           city: "Studio",
         })),
     ),
@@ -57,8 +57,8 @@ function buildGalleryImages({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Ma?aza Deneyimi",
-  heading = "Markan?z? fiziksel temas noktalar?yla g??lendirin",
+  eyebrow = "Mağaza Deneyimi",
+  heading = "Markanızı fiziksel temas noktalarıyla güçlendirin",
   description = "Genel ayarlara girdiğiniz iletişim ve adres verileri, bu alanda otomatik olarak premium bir sunuma dönüşür.",
   linkLabel = "Mağaza detaylarını gör",
   storesHref,
@@ -87,7 +87,7 @@ export function StoreLocationsSection({
       hours: "Pzt - Cmt / 10:00 - 19:00",
       address,
       actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Haritada a?" : "Detay? a?",
+      actionLabel: storeInfo?.address ? "Haritada aç" : "Detayı aç",
       icon: <MapPin className="size-4" />,
     },
     {

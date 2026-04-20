@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              ?ifremi Unuttum
+              Şifremi Unuttum
             </h2>
           </div>
           <p className="text-gray-500 mb-6">

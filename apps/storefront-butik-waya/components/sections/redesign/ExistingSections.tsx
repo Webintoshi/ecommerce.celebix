@@ -185,7 +185,7 @@ export function Newsletter() {
                 Waya listesine kaydoldunuz.
               </h3>
               <p className="mt-3 text-base text-white/72 sm:text-lg">
-                Yeni sezon dususleri ve ozel kampanya notlari artik ilk size ulasacak.
+                Yeni sezon düşüşleri ve özel kampanya notları artık ilk size ulaşacak.
               </p>
               <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm text-white">
                 <Sparkles className="h-4 w-4" />
@@ -200,12 +200,12 @@ export function Newsletter() {
               </div>
 
               <h2 className="font-serif text-4xl leading-[0.9] tracking-[-0.05em] text-[#fff8f2] sm:text-5xl md:text-6xl">
-                Sezon dususlerini ilk once goren listede olun.
+                Sezon düşüşlerini ilk önce gören listede olun.
               </h2>
 
               <p className="mx-auto mt-5 max-w-xl text-base text-white/72 sm:text-lg">
-                Drop bildirimleri, sinirli look secimleri ve kampanya notlari tek bir sakin luks
-                bultende bulussun.
+                Drop bildirimleri, sınırlı look seçimleri ve kampanya notları tek bir sakin
+                lüks bültende buluşsun.
               </p>
 
               <form onSubmit={handleSubmit} className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
@@ -228,7 +228,7 @@ export function Newsletter() {
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#181311] border-t-transparent" />
                   ) : (
                     <>
-                      Katil
+                      Katıl
                       <Send className="h-4 w-4" />
                     </>
                   )}

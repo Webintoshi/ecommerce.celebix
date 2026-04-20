@@ -28,13 +28,13 @@ export default function ResetPasswordPage() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("?ifreler e?le?miyor");
+      setError("Şifreler eşleşmiyor");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError("?ifre en az 6 karakter olmal?d?r");
+      setError("Şifre en az 6 karakter olmalıdır");
       setLoading(false);
       return;
     }
@@ -107,11 +107,11 @@ export default function ResetPasswordPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Yeni ?ifre Belirle
+              Yeni Şifre Belirle
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
-            Yeni ?ifrenizi olu?turun
+            Yeni şifrenizi oluşturun
           </p>
 
           {error && (
@@ -124,7 +124,7 @@ export default function ResetPasswordPage() {
             {/* New Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Yeni ?ifre
+                Yeni Şifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -150,7 +150,7 @@ export default function ResetPasswordPage() {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                ?ifre Tekrar
+                Şifre Tekrar
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -160,7 +160,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="?ifrenizi tekrar girin"
+                   placeholder="Şifrenizi tekrar girin"
                 />
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function ResetPasswordPage() {
                 </>
               ) : (
                 <>
-                  ?ifremi De?i?tir
+                  Şifremi Değiştir
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}

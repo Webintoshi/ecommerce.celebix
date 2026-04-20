@@ -59,11 +59,11 @@ export function Footer() {
     }
 
     return {
-      eyebrow: "B?lten",
+      eyebrow: "Bülten",
       placeholder: "E-posta adresiniz",
-      action: "Kat?l",
+      action: "Katıl",
       success: "E-posta taslağınız açılıyor.",
-      error: "L?tfen ge?erli bir e-posta adresi girin.",
+      error: "Lütfen geçerli bir e-posta adresi girin.",
     };
   }, [locale]);
 
@@ -144,11 +144,11 @@ export function Footer() {
     }
 
     const subject =
-      locale === "en" ? "Newsletter subscription" : "B?lten aboneli\u011fi";
+      locale === "en" ? "Newsletter subscription" : "Bülten aboneliği";
     const body =
       locale === "en"
         ? `Hello,\n\nI would like to join the ${storeInfo?.name || SITE_NAME} newsletter with this email address:\n${email}\n`
-        : `Merhaba,\n\n${storeInfo?.name || SITE_NAME} b?ltenine ?u e-posta adresiyle kat?lmak istiyorum:\n${email}\n`;
+        : `Merhaba,\n\n${storeInfo?.name || SITE_NAME} bültenine şu e-posta adresiyle katılmak istiyorum:\n${email}\n`;
 
     window.location.href = `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     setNewsletterState("success");

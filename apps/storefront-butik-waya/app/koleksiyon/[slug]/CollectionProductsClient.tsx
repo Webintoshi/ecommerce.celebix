@@ -13,7 +13,7 @@ export default function CollectionProductsClient({
   return (
     <ProductListingExperience
       products={products}
-      emptyTitle="Koleksiyon haz?rlan?yor"
+      emptyTitle="Koleksiyon hazırlanıyor"
       emptyDescription="Bu kategori için yayınlanan ürünler geldiği anda soldaki filtre akışı ve premium grid burada otomatik olarak dolacak."
       chipMode="subcategories"
       minimalCopy

@@ -55,13 +55,13 @@ export default function RegisterPage() {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError("?ifreler e?le?miyor");
+      setError("Şifreler eşleşmiyor");
       setLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("?ifre en az 6 karakter olmal?d?r");
+      setError("Şifre en az 6 karakter olmalıdır");
       setLoading(false);
       return;
     }
@@ -86,9 +86,9 @@ export default function RegisterPage() {
 
     if (authError) {
       if (authError.message.includes("User already registered")) {
-        setError("Bu e-posta adresi zaten kay?tl?");
+        setError("Bu e-posta adresi zaten kayıtlı");
       } else if (authError.message.includes("Password should be")) {
-        setError("?ifre en az 6 karakter olmal?d?r");
+        setError("Şifre en az 6 karakter olmalıdır");
       } else {
         setError(authError.message);
       }
@@ -133,7 +133,7 @@ export default function RegisterPage() {
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Kay?t Ba?ar?l?
+            Kayıt Başarılı
           </h2>
           <p className="text-gray-600 mb-6">
             Hesabınız oluşturuldu. Hesabınıza yönlendiriliyorsunuz...
@@ -176,7 +176,7 @@ export default function RegisterPage() {
               <UserPlus className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Hesap Olu?tur
+              Hesap Oluştur
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
@@ -220,7 +220,7 @@ export default function RegisterPage() {
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     required
                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    placeholder="Y?lmaz"
+                    placeholder="Yılmaz"
                   />
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function RegisterPage() {
             {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                ?ifre
+                Şifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -290,7 +290,7 @@ export default function RegisterPage() {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                ?ifre Tekrar
+                Şifre Tekrar
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -300,7 +300,7 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="?ifrenizi tekrar girin"
+                   placeholder="Şifrenizi tekrar girin"
                 />
               </div>
             </div>
@@ -324,11 +324,11 @@ export default function RegisterPage() {
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 <Link href="/kullanim-kosullari" className="text-primary hover:underline font-medium">
-                  Kullan?m Ko?ullar?
+                  Kullanım Koşulları
                 </Link>
                 {" "}ve{" "}
                 <Link href="/gizlilik" className="text-primary hover:underline font-medium">
-                  Gizlilik Politikas?
+                  Gizlilik Politikası
                 </Link>
                 {" "}ni okudum ve kabul ediyorum.
               </label>
@@ -358,7 +358,7 @@ export default function RegisterPage() {
           <div className="mt-6 text-center text-gray-600">
             Zaten hesabınız var mı?{" "}
             <Link href="/giris" className="text-primary font-bold hover:underline">
-              Giri? Yap
+              Giriş Yap
             </Link>
           </div>
         </motion.div>
