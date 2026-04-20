@@ -1,0 +1,263 @@
+{
+  "storeSlug": "butik-waya",
+  "provider": "ticimax_xml",
+  "feedUrl": "https://www.butikwaya.com/XMLExport/9CD0633424C84874963D7191A8259B1C",
+  "primaryCategoryTree": [
+    {
+      "name": "Üst Giyim",
+      "slug": "ust-giyim",
+      "children": [
+        { "name": "Gömlek", "slug": "gomlek" },
+        { "name": "T-Shirt", "slug": "t-shirt" },
+        { "name": "Sweat & Kazak", "slug": "sweat-kazak" },
+        { "name": "Hırka", "slug": "hirka" },
+        { "name": "Tulum", "slug": "tulum" },
+        { "name": "Büstiyer", "slug": "bustiyer" },
+        { "name": "Bluz & Crop & Body", "slug": "bluz-crop-body" }
+      ]
+    },
+    {
+      "name": "Alt Giyim",
+      "slug": "alt-giyim",
+      "children": [
+        { "name": "Jean & Denim", "slug": "jean-denim" },
+        { "name": "Tayt", "slug": "tayt" },
+        { "name": "Etek", "slug": "etek" },
+        { "name": "Şort", "slug": "sort" },
+        { "name": "Pantolon", "slug": "pantolon" }
+      ]
+    },
+    {
+      "name": "Dış Giyim",
+      "slug": "dis-giyim",
+      "children": [
+        { "name": "Mont-Kaban & Kürk", "slug": "mont-kaban-kurk" },
+        { "name": "Trençkot", "slug": "trenckot" },
+        { "name": "Yelek", "slug": "yelek" },
+        { "name": "Ceket", "slug": "ceket" }
+      ]
+    },
+    {
+      "name": "Takımlar",
+      "slug": "takimlar",
+      "children": [
+        { "name": "Pantolon & Ceket Takım", "slug": "pantolon-ceket-takim" },
+        { "name": "Eşofman & Spor Takım", "slug": "esofman-spor-takim" },
+        { "name": "İkili Takım", "slug": "ikili-takim" },
+        { "name": "İthal Takım", "slug": "ithal-takim" }
+      ]
+    },
+    {
+      "name": "Elbiseler",
+      "slug": "elbiseler",
+      "children": [
+        { "name": "Abiye Elbise", "slug": "abiye-elbise" },
+        { "name": "Günlük Elbise", "slug": "gunluk-elbise" },
+        { "name": "Mini Elbise", "slug": "mini-elbise" },
+        { "name": "İthal Elbise", "slug": "ithal-elbise" },
+        { "name": "Siyah", "slug": "siyah" },
+        { "name": "Elbise", "slug": "elbise" },
+        { "name": "Beyaz", "slug": "beyaz" }
+      ]
+    },
+    {
+      "name": "İthal Ürünler",
+      "slug": "ithal-urunler",
+      "children": [
+        { "name": "İthal Mont & Kaban & Kürk", "slug": "ithal-mont-kaban-kurk" },
+        { "name": "İthal Hırka & Yelek & Trençkot", "slug": "ithal-hirka-yelek-trenckot" },
+        { "name": "İthal Ceket", "slug": "ithal-ceket" },
+        { "name": "İthal Gömlek & Kazak & Bluz", "slug": "ithal-gomlek-kazak-bluz" },
+        { "name": "İthal Takım", "slug": "ithal-takim" },
+        { "name": "İthal Elbise", "slug": "ithal-elbise" },
+        { "name": "İthal Etek", "slug": "ithal-etek" }
+      ]
+    },
+    {
+      "name": "Aksesuarlar",
+      "slug": "aksesuarlar",
+      "children": [
+        { "name": "Çanta", "slug": "canta" },
+        { "name": "Kemer", "slug": "kemer" },
+        { "name": "Ayakkabı", "slug": "ayakkabi" },
+        { "name": "Eldiven", "slug": "eldiven" },
+        { "name": "Şal", "slug": "sal" },
+        { "name": "Bere", "slug": "bere" }
+      ]
+    }
+  ],
+  "menuCollections": [
+    {
+      "name": "Yeni Gelenler",
+      "kind": "dynamic",
+      "notes": "Import kategorisi degil. Son eklenen urunlerden uretilir."
+    },
+    {
+      "name": "Çok Satanlar",
+      "kind": "dynamic",
+      "notes": "Import kategorisi degil. Satis/adet metriklerinden uretilir."
+    },
+    {
+      "name": "Tüm Ürünler",
+      "kind": "dynamic",
+      "notes": "Import kategorisi degil. Tum aktif katalogu gosterir."
+    },
+    {
+      "name": "İndirimli Ürünler",
+      "kind": "dynamic",
+      "children": [
+        "Elbise",
+        "Bluz",
+        "Beyaz",
+        "Yelek"
+      ],
+      "notes": "Import kategorisi degil. sale_price bulunan urunler ve ek renk/urun tipi kurallariyla uretilir."
+    }
+  ],
+  "productTypeMappings": [
+    {
+      "source": "Pantolon & Ceket Takım",
+      "primaryPath": ["Takımlar", "Pantolon & Ceket Takım"]
+    },
+    {
+      "source": "Trençkot",
+      "primaryPath": ["Dış Giyim", "Trençkot"]
+    },
+    {
+      "source": "Çanta",
+      "primaryPath": ["Aksesuarlar", "Çanta"]
+    },
+    {
+      "source": "Elbiseler",
+      "primaryPath": ["Elbiseler", "Elbise"]
+    },
+    {
+      "source": "Bluz & Crop & Body",
+      "primaryPath": ["Üst Giyim", "Bluz & Crop & Body"]
+    },
+    {
+      "source": "Günlük Elbise",
+      "primaryPath": ["Elbiseler", "Günlük Elbise"]
+    },
+    {
+      "source": "Gömlek",
+      "primaryPath": ["Üst Giyim", "Gömlek"]
+    },
+    {
+      "source": "Pantolon",
+      "primaryPath": ["Alt Giyim", "Pantolon"]
+    },
+    {
+      "source": "Mini Elbise",
+      "primaryPath": ["Elbiseler", "Mini Elbise"]
+    },
+    {
+      "source": "İthal Mont & Kaban & Kürk",
+      "primaryPath": ["İthal Ürünler", "İthal Mont & Kaban & Kürk"]
+    },
+    {
+      "source": "Üst Giyim",
+      "primaryPath": ["Üst Giyim"]
+    },
+    {
+      "source": "Etek",
+      "primaryPath": ["Alt Giyim", "Etek"]
+    },
+    {
+      "source": "Ceket",
+      "primaryPath": ["Dış Giyim", "Ceket"]
+    },
+    {
+      "source": "İkili Takım",
+      "primaryPath": ["Takımlar", "İkili Takım"]
+    },
+    {
+      "source": "İthal Takım",
+      "primaryPath": ["İthal Ürünler", "İthal Takım"]
+    },
+    {
+      "source": "İthal Ceket",
+      "primaryPath": ["İthal Ürünler", "İthal Ceket"]
+    },
+    {
+      "source": "İthal Hırka & Yelek & Trençkot",
+      "primaryPath": ["İthal Ürünler", "İthal Hırka & Yelek & Trençkot"]
+    },
+    {
+      "source": "İthal Etek",
+      "primaryPath": ["İthal Ürünler", "İthal Etek"]
+    },
+    {
+      "source": "İthal Ürünler",
+      "primaryPath": ["İthal Ürünler"]
+    },
+    {
+      "source": "İthal Elbise",
+      "primaryPath": ["İthal Ürünler", "İthal Elbise"]
+    },
+    {
+      "source": "Aksesuarlar",
+      "primaryPath": ["Aksesuarlar"]
+    },
+    {
+      "source": "Şal",
+      "primaryPath": ["Aksesuarlar", "Şal"]
+    },
+    {
+      "source": "Sweat & Kazak",
+      "primaryPath": ["Üst Giyim", "Sweat & Kazak"]
+    },
+    {
+      "source": "Tayt",
+      "primaryPath": ["Alt Giyim", "Tayt"]
+    },
+    {
+      "source": "İthal Gömlek & Kazak & Bluz",
+      "primaryPath": ["İthal Ürünler", "İthal Gömlek & Kazak & Bluz"]
+    },
+    {
+      "source": "Alt Giyim",
+      "primaryPath": ["Alt Giyim"]
+    },
+    {
+      "source": "Jean & Denim",
+      "primaryPath": ["Alt Giyim", "Jean & Denim"]
+    },
+    {
+      "source": "Abiye Elbise",
+      "primaryPath": ["Elbiseler", "Abiye Elbise"]
+    },
+    {
+      "source": "Tulum",
+      "primaryPath": ["Üst Giyim", "Tulum"]
+    },
+    {
+      "source": "Yelek",
+      "primaryPath": ["Dış Giyim", "Yelek"]
+    },
+    {
+      "source": "Büstiyer",
+      "primaryPath": ["Üst Giyim", "Büstiyer"]
+    },
+    {
+      "source": "Kemer",
+      "primaryPath": ["Aksesuarlar", "Kemer"]
+    },
+    {
+      "source": "Mont-Kaban & Kürk",
+      "primaryPath": ["Dış Giyim", "Mont-Kaban & Kürk"]
+    },
+    {
+      "source": "Hırka",
+      "primaryPath": ["Üst Giyim", "Hırka"]
+    },
+    {
+      "source": "Şort",
+      "primaryPath": ["Alt Giyim", "Şort"]
+    },
+    {
+      "source": "T-Shirt",
+      "primaryPath": ["Üst Giyim", "T-Shirt"]
+    }
+  ]
+}
