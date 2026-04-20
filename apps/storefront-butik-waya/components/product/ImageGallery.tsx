@@ -399,7 +399,8 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const mobileSingleImage = (
     <div className="lg:hidden">
       <div
-                      className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ffffff] cursor-pointer"
+        className="relative overflow-hidden rounded-[2rem] bg-[#ffffff] cursor-pointer"
+        style={{ aspectRatio: `${getRatio(currentImage)}` }}
         onClick={() => setIsLightboxOpen(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -447,11 +448,11 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const mobileCarousel = (
     <div className="lg:hidden">
       <div className="grid items-start gap-3 sm:grid-cols-[88px_1fr] sm:gap-4 lg:grid-cols-[104px_1fr]">
-        <div className="relative flex flex-col">
+        <div className="order-2 relative flex flex-col sm:order-1">
           <div
             ref={thumbnailsRef}
             onScroll={checkScroll}
-            className="scrollbar-hide flex max-h-[420px] flex-col gap-2 overflow-y-auto sm:max-h-[640px] sm:gap-3"
+            className="scrollbar-hide flex gap-2 overflow-x-auto pb-1 sm:max-h-[640px] sm:flex-col sm:gap-3 sm:overflow-x-hidden sm:overflow-y-auto sm:pb-0"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {displayImages.map((image, index) => (
@@ -478,7 +479,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           </div>
 
           {displayImages.length > 4 ? (
-            <div className="mt-3 flex items-center justify-center gap-2">
+            <div className="mt-3 hidden items-center justify-center gap-2 sm:flex">
               <button
                 type="button"
                 onClick={() => scrollThumbnails("up")}
@@ -508,9 +509,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         </div>
 
         <div
-                    className={`relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#ffffff] select-none ${
+          className={`order-1 relative overflow-hidden rounded-[2rem] bg-[#ffffff] select-none sm:order-2 ${
             isDragging ? "cursor-grabbing" : "cursor-grab"
           }`}
+          style={{ aspectRatio: `${getRatio(currentImage)}` }}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}

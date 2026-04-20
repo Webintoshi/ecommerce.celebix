@@ -624,7 +624,9 @@ export function ProductDetailClient({
 
                   <div className="space-y-3">
                     <div
-                      className={`grid gap-3 ${whatsappHref ? "grid-cols-2" : "grid-cols-1"}`}
+                      className={`grid gap-3 ${
+                        whatsappHref ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
+                      }`}
                     >
                       <button
                         onClick={handleAddToCart}
@@ -658,7 +660,7 @@ export function ProductDetailClient({
                       ) : null}
                     </div>
 
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-start gap-2 sm:justify-end">
                       <div className="flex items-center gap-2 sm:shrink-0">
                         <button
                           onClick={toggleWishlist}
