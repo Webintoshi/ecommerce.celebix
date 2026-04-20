@@ -98,7 +98,7 @@ export async function POST(
       );
     }
 
-    if (!link.allowed_payment_method_ids.includes(gateway.id)) {
+    if (link.allowed_payment_method_ids.length > 0 && !link.allowed_payment_method_ids.includes(gateway.id)) {
       return NextResponse.json(
         {
           success: false,

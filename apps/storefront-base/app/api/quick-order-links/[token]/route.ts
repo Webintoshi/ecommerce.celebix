@@ -19,6 +19,8 @@ export async function GET(
       link = await markQuickOrderLinkOpened(link.id);
     }
 
+    const hasRestrictedGateways = link.allowed_payment_method_ids.length > 0;
+
     const gateways = link.status === "paid" || link.status === "cancelled" || link.status === "expired"
       ? []
       : (await getStoredPaymentGateways())
@@ -26,7 +28,7 @@ export async function GET(
             gateway.status === "active"
             && !isManualGateway(gateway)
             && getPaymentGatewayRuntimeStatus(gateway).isReady
-            && link.allowed_payment_method_ids.includes(gateway.id),
+            && (!hasRestrictedGateways || link.allowed_payment_method_ids.includes(gateway.id)),
           )
           .map((gateway) => sanitizePublicPaymentGateway(gateway));
 
