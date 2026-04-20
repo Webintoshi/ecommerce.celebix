@@ -129,6 +129,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "SEO Kontrol", href: "/admin/seo-killer" },
       { title: "Sitemap", href: "/admin/seo-killer/sitemap" },
       { title: "Sosyal Önizleme", href: "/admin/seo-killer/sosyal-onizleme" },
+      { title: "Kod Entegrasyonlari", href: "/admin/seo-killer/kod-entegrasyonlari" },
       { title: "Hızlı İndeks", href: "/admin/seo-killer/hizli-index" },
     ],
   },

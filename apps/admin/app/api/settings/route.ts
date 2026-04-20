@@ -10,6 +10,7 @@ import {
     getAIProviderSettings,
     getAllSettings,
     getAnnouncementBarSettings,
+    getCodeIntegrationsSettings,
     getHomepageCurationSettings,
     getMarqueeSettings,
     getNotificationSettings,
@@ -22,6 +23,7 @@ import {
     getTranslationSettings,
     setAIProviderSettings,
     setAnnouncementBarSettings,
+    setCodeIntegrationsSettings,
     setHomepageCurationSettings,
     setMarqueeSettings,
     setNotificationSettings,
@@ -199,6 +201,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "code-integrations") {
+            const codeIntegrations = await getCodeIntegrationsSettings();
+            return NextResponse.json({
+                success: true,
+                codeIntegrations,
+            });
+        }
+
         if (type === "announcement") {
             const settings = await getAnnouncementBarSettings();
             return NextResponse.json({ success: true, announcementSettings: settings });
@@ -275,6 +285,7 @@ export async function POST(request: NextRequest) {
             shippingIntegrations,
             storeInfo,
             seoSettings,
+            codeIntegrations,
             announcementSettings,
             marqueeSettings,
             homepageCuration,
@@ -347,6 +358,11 @@ export async function POST(request: NextRequest) {
                 ogImageUrl: extractAdminStoredAssetUrl(seoSettings.ogImageUrl),
             });
             return NextResponse.json({ success: true, message: "SEO settings updated" });
+        }
+
+        if (type === "code-integrations" && codeIntegrations !== undefined) {
+            await setCodeIntegrationsSettings(codeIntegrations);
+            return NextResponse.json({ success: true, message: "Code integrations updated" });
         }
 
         if (type === "announcement" && announcementSettings !== undefined) {
