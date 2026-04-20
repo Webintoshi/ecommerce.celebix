@@ -359,6 +359,9 @@ export function TranslationSettingsPanel() {
                   <p>
                     Katalog cevirileri storefront tarafinda cache'ten okunur. Warm-up ile urun ve kategori cache'ini onceden doldurabilirsiniz.
                   </p>
+                  <p>
+                    Canli ceviri kapaliyken vitrin temiz URL ile calisir. Acikken secili diller prefixli olarak yasamaya baslar.
+                  </p>
                 </div>
               </div>
             </div>
@@ -381,7 +384,7 @@ export function TranslationSettingsPanel() {
               <div>
                 <p className="text-sm font-medium text-gray-900">Canli ceviriyi etkinlestir</p>
                 <p className="text-xs text-gray-500">
-                  Kapanirsa magaza tum locale URL'lerinde kaynak Turkce icerikle calisir.
+                  Kapaliyken vitrin slug'siz calisir. Acildiginda kaynak Turkce dahil secili diller `/tr`, `/en` gibi prefixlerle acilir.
                 </p>
               </div>
             </div>
@@ -390,7 +393,7 @@ export function TranslationSettingsPanel() {
               <div>
                 <p className="text-sm font-medium text-gray-900">Hedef Diller</p>
                 <p className="text-xs text-gray-500">
-                  `/tr` kaynak dil olarak kalir. Secili diller icin ceviri cache'i DeepL ile doldurulur.
+                  Bu secim yalnizca canli ceviri acikken aktif olur. Kaynak dil de `/tr` ile prefixlenir, secili diller icin ceviri cache'i DeepL ile doldurulur.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
