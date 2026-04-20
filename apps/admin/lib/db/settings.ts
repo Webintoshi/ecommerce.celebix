@@ -199,6 +199,12 @@ export interface HomepageCurationSettings {
     updatedAt?: string;
 }
 
+type HomepageCurationProductCandidate = {
+    id: string;
+    category: string | null;
+    subcategory: string | null;
+};
+
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
 const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
 const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
@@ -282,9 +288,121 @@ export function normalizeHomepageCurationSettings(value: unknown): HomepageCurat
     };
 }
 
+async function sanitizeHomepageCurationSettingsAgainstCatalog(
+    settings: HomepageCurationSettings,
+): Promise<HomepageCurationSettings> {
+    if (settings.featuredCategorySlugs.length === 0) {
+        return {
+            ...settings,
+            featuredProductIdsByCategory: {},
+        };
+    }
+
+    const serverClient = createServerClient();
+    const [categoriesResponse, productsResponse] = await Promise.all([
+        serverClient.from("categories").select("slug, is_active"),
+        serverClient.from("products").select("id, category, subcategory"),
+    ]);
+
+    if (categoriesResponse.error) {
+        throw categoriesResponse.error;
+    }
+
+    if (productsResponse.error) {
+        throw productsResponse.error;
+    }
+
+    const activeCategorySlugSet = new Set(
+        (categoriesResponse.data || [])
+            .filter((category) => category.is_active !== false)
+            .map((category) => normalizeHomepageCategoryKey(category.slug || ""))
+            .filter(Boolean),
+    );
+
+    const featuredCategorySlugs = settings.featuredCategorySlugs.filter((slug) =>
+        activeCategorySlugSet.has(normalizeHomepageCategoryKey(slug)),
+    );
+
+    if (featuredCategorySlugs.length === 0) {
+        return {
+            ...settings,
+            featuredCategorySlugs: [],
+            featuredProductIdsByCategory: {},
+        };
+    }
+
+    const productLookup = new Map<string, HomepageCurationProductCandidate>(
+        ((productsResponse.data || []) as HomepageCurationProductCandidate[]).map((product) => [
+            product.id,
+            {
+                id: product.id,
+                category: typeof product.category === "string" ? product.category : null,
+                subcategory: typeof product.subcategory === "string" ? product.subcategory : null,
+            },
+        ]),
+    );
+
+    let remainingCapacity = MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL;
+    const featuredProductIdsByCategory = featuredCategorySlugs.reduce<Record<string, string[]>>((result, slug) => {
+        const normalizedSlug = normalizeHomepageCategoryKey(slug);
+        if (!normalizedSlug || remainingCapacity <= 0) {
+            return result;
+        }
+
+        const rawIds = settings.featuredProductIdsByCategory[normalizedSlug] || [];
+        const validIds = rawIds
+            .filter((productId) => {
+                const product = productLookup.get(productId);
+                if (!product) {
+                    return false;
+                }
+
+                const productCategory = normalizeHomepageCategoryKey(product.category || "");
+                const productSubcategory = normalizeHomepageCategoryKey(product.subcategory || "");
+                return productCategory === normalizedSlug || productSubcategory === normalizedSlug;
+            })
+            .slice(0, Math.min(MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY, remainingCapacity));
+
+        if (validIds.length > 0) {
+            result[normalizedSlug] = validIds;
+            remainingCapacity -= validIds.length;
+        }
+
+        return result;
+    }, {});
+
+    return {
+        ...settings,
+        featuredCategorySlugs,
+        featuredProductIdsByCategory,
+    };
+}
+
 export async function getHomepageCurationSettings(): Promise<HomepageCurationSettings> {
     const data = await getSetting(SETTING_KEYS.HOMEPAGE_CURATION);
-    return normalizeHomepageCurationSettings(data);
+    const normalizedSettings = normalizeHomepageCurationSettings(data);
+
+    try {
+        const sanitizedSettings = await sanitizeHomepageCurationSettingsAgainstCatalog(normalizedSettings);
+
+        if (JSON.stringify(sanitizedSettings) !== JSON.stringify(normalizedSettings)) {
+            const updatedAt = new Date().toISOString();
+            await setSetting(SETTING_KEYS.HOMEPAGE_CURATION, {
+                ...sanitizedSettings,
+                updatedAt,
+            } as Record<string, unknown>);
+
+            return {
+                ...sanitizedSettings,
+                updatedAt,
+            };
+        }
+
+        return sanitizedSettings;
+    } catch (error) {
+        console.error("Failed to sanitize homepage curation settings against catalog:", error);
+        return normalizedSettings;
+    }
 }
 
 export async function setHomepageCurationSettings(settings: HomepageCurationSettings) {
