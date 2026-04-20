@@ -403,7 +403,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const mobileSingleImage = (
     <div className="lg:hidden">
       <div
-        className="relative overflow-hidden rounded-[2rem] bg-[#ffffff] cursor-pointer"
+        className="relative overflow-hidden bg-[#ffffff] cursor-pointer"
         style={{ aspectRatio: `${getMobileRatio(currentImage)}` }}
         onClick={() => setIsLightboxOpen(true)}
         onTouchStart={handleTouchStart}
@@ -464,7 +464,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                 key={image}
                 type="button"
                 onClick={() => setSelectedIndex(index)}
-                className={`relative h-[78px] w-[68px] flex-shrink-0 overflow-hidden rounded-[1rem] border transition-all sm:h-[104px] sm:w-[88px] ${
+                className={`relative h-[78px] w-[68px] flex-shrink-0 overflow-hidden border transition-all sm:h-[104px] sm:w-[88px] ${
                   index === selectedIndex
                     ? "border-[#171311]"
                     : "border-transparent opacity-70 hover:border-[rgba(26,26,26,0.16)] hover:opacity-100"
@@ -513,10 +513,10 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         </div>
 
         <div
-          className={`relative overflow-hidden rounded-[2rem] bg-[#ffffff] select-none ${
+          className={`relative overflow-hidden bg-[#ffffff] select-none ${
             isDragging ? "cursor-grabbing" : "cursor-grab"
           }`}
-          style={{ aspectRatio: `${getMobileRatio(currentImage)}` }}
+          style={{ aspectRatio: `${getMobileRatio(currentImage)}`, touchAction: "pan-y" }}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -524,7 +524,6 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{ touchAction: "pan-y" }}
         >
           {currentStatus === "loading" ? (
             <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-gray-100 to-gray-200" />
@@ -574,9 +573,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   event.stopPropagation();
                   handlePrevious();
                 }}
-                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/80 backdrop-blur transition-colors hover:bg-white"
+                className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/16 bg-[#171311]/74 text-white shadow-[0_16px_30px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all hover:bg-[#171311]/88"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4 stroke-[1.75]" />
               </button>
               <button
                 type="button"
@@ -584,9 +583,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
                   event.stopPropagation();
                   handleNext();
                 }}
-                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/80 backdrop-blur transition-colors hover:bg-white"
+                className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/16 bg-[#171311]/74 text-white shadow-[0_16px_30px_rgba(0,0,0,0.16)] backdrop-blur-md transition-all hover:bg-[#171311]/88"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4 stroke-[1.75]" />
               </button>
             </>
           ) : null}
