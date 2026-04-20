@@ -8,6 +8,7 @@ import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
+import { runProductsQuery } from "@/lib/products-query-compat";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { Product } from "@/types/product";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
@@ -129,15 +130,22 @@ async function getProducts(): Promise<Product[]> {
 
   try {
     const [{ data: products, error }, attributeRegistry, productListingOrder] = await Promise.all([
-      supabase
-        .from("products")
-        .select(`
-          *,
-          variants:product_variants(*, raw_attributes:attributes)
-        `)
-        .eq("is_active", true)
-        .or("status.eq.published,status.is.null")
-        .order("created_at", { ascending: false }),
+      runProductsQuery((includeIsActiveFilter) => {
+        let query = supabase
+          .from("products")
+          .select(`
+            *,
+            variants:product_variants(*, raw_attributes:attributes)
+          `);
+
+        if (includeIsActiveFilter) {
+          query = query.eq("is_active", true);
+        }
+
+        return query
+          .or("status.eq.published,status.is.null")
+          .order("created_at", { ascending: false });
+      }),
       getVariantAttributeRegistry(),
       getProductListingOrderPositions(),
     ]);
@@ -156,43 +164,19 @@ async function getProducts(): Promise<Product[]> {
       orderedProducts.map((product) => product.id),
     );
 
-    return orderedProducts.map((product) =>
-      transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []),
-    );
+    return orderedProducts
+      .map((product) => transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []))
+      .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return [];
   }
 }
 
-async function getCategoryCounts() {
-  const supabase = createServerClient();
-
-  try {
-    const { data: products } = await supabase
-      .from("products")
-      .select("category")
-      .eq("is_active", true);
-
-    const counts: Record<string, number> = {};
-    products?.forEach((product) => {
-      counts[product.category] = (counts[product.category] || 0) + 1;
-    });
-
-    return counts;
-  } catch (error) {
-    console.error("Failed to fetch category counts:", error);
-    return {};
-  }
-}
-
 export default async function AllProductsPage() {
-  const [products, categoryCounts] = await Promise.all([getProducts(), getCategoryCounts()]);
+  const products = await getProducts();
 
   return (
-    <ProductsPageClient
-      initialProducts={products}
-      categoryCounts={categoryCounts}
-    />
+    <ProductsPageClient initialProducts={products} />
   );
 }
