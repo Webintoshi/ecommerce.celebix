@@ -19,6 +19,8 @@ type ExistingProductRecord = {
   tags: string[] | null;
   shopify_metadata: Record<string, unknown> | null;
   shopify_metafields: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -35,6 +37,76 @@ function toJsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function readImportSourceItemGroupId(value: unknown): string | null {
+  const metadata = toJsonObject(value);
+  const importSource = toJsonObject(metadata.celebix_import_source);
+  const itemGroupId = importSource.itemGroupId;
+
+  return typeof itemGroupId === "string" && itemGroupId.trim().length > 0
+    ? itemGroupId.trim()
+    : null;
+}
+
+function preferMoreRecentRecord(
+  current: ExistingProductRecord | undefined,
+  candidate: ExistingProductRecord,
+): ExistingProductRecord {
+  if (!current) {
+    return candidate;
+  }
+
+  const currentTimestamp =
+    current.updated_at || current.created_at || "";
+  const candidateTimestamp =
+    candidate.updated_at || candidate.created_at || "";
+
+  return candidateTimestamp > currentTimestamp ? candidate : current;
+}
+
+async function loadExistingProductsByImportGroupId(supabase: ReturnType<typeof createServerClient>) {
+  const productsByImportGroupId = new Map<string, ExistingProductRecord>();
+  const pageSize = 500;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        "id, slug, name, category, subcategory, tags, shopify_metadata, shopify_metafields, created_at, updated_at",
+      )
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = (data || []) as ExistingProductRecord[];
+    if (rows.length === 0) {
+      break;
+    }
+
+    for (const row of rows) {
+      const itemGroupId = readImportSourceItemGroupId(row.shopify_metadata);
+      if (!itemGroupId) {
+        continue;
+      }
+
+      productsByImportGroupId.set(
+        itemGroupId,
+        preferMoreRecentRecord(productsByImportGroupId.get(itemGroupId), row),
+      );
+    }
+
+    if (rows.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return productsByImportGroupId;
 }
 
 export async function POST(request: NextRequest) {
@@ -78,12 +150,14 @@ export async function POST(request: NextRequest) {
       parseResult.products.map((product) => [product.slug, product] as const),
     );
     const slugs = Array.from(feedProductsBySlug.keys());
-    const existingProducts = new Map<string, ExistingProductRecord>();
+    const existingProductsBySlug = new Map<string, ExistingProductRecord>();
 
     for (const slugChunk of chunkArray(slugs, 100)) {
       const { data, error } = await supabase
         .from("products")
-        .select("id, slug, name, category, subcategory, tags, shopify_metadata, shopify_metafields")
+        .select(
+          "id, slug, name, category, subcategory, tags, shopify_metadata, shopify_metafields, created_at, updated_at",
+        )
         .in("slug", slugChunk);
 
       if (error) {
@@ -91,13 +165,22 @@ export async function POST(request: NextRequest) {
       }
 
       for (const row of (data || []) as ExistingProductRecord[]) {
-        existingProducts.set(row.slug, row);
+        existingProductsBySlug.set(row.slug, row);
       }
     }
+
+    const feedProductsMissingSlugMatch = parseResult.products.filter(
+      (product) => !existingProductsBySlug.has(product.slug),
+    );
+    const existingProductsByImportGroupId =
+      feedProductsMissingSlugMatch.length > 0
+        ? await loadExistingProductsByImportGroupId(supabase)
+        : new Map<string, ExistingProductRecord>();
 
     const result = {
       totalFeedProducts: parseResult.products.length,
       matchedProducts: 0,
+      metadataMatchedProducts: 0,
       updatedProducts: 0,
       skippedProducts: 0,
       failedProducts: 0,
@@ -105,13 +188,20 @@ export async function POST(request: NextRequest) {
     };
 
     for (const product of parseResult.products) {
-      const existingProduct = existingProducts.get(product.slug);
+      const existingProduct =
+        existingProductsBySlug.get(product.slug) ||
+        existingProductsByImportGroupId.get(
+          readImportSourceItemGroupId(product.shopifyMetadata),
+        );
       if (!existingProduct) {
         result.skippedProducts += 1;
         continue;
       }
 
       result.matchedProducts += 1;
+      if (existingProduct.slug !== product.slug) {
+        result.metadataMatchedProducts += 1;
+      }
 
       try {
         const mergedShopifyMetadata = withCelebixCategoryHierarchyMetadata(
