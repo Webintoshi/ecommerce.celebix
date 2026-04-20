@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Package, SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { cn } from "@/lib/utils";
 import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
@@ -192,7 +191,7 @@ export function ProductListingExperience({
   chipMode = "categories",
   minimalCopy = false,
 }: ProductListingExperienceProps) {
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [displayCount, setDisplayCount] = React.useState(ITEMS_PER_LOAD);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -451,7 +450,7 @@ export function ProductListingExperience({
                   </button>
                 ) : (
                   <Link
-                    href={buildLocalizedPath("/urunler", locale)}
+                    href={buildPath("/urunler")}
                     className="mt-6 inline-flex py-1 text-[12px] uppercase tracking-[0.18em] text-[#222222] underline underline-offset-[0.45rem]"
                   >
                     Tüm ürünlere dön

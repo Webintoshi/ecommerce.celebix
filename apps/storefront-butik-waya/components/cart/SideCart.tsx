@@ -15,7 +15,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
 import { getPrimaryResolvedProductImage } from "@/lib/product-images";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
@@ -40,7 +39,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
     getTotalItems,
     lastAddedItem,
   } = useCart();
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
 
   const [isMobile, setIsMobile] = useState(false);
   const effectiveShippingThreshold = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
@@ -177,7 +176,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     </p>
                   </div>
                   <Link
-                    href={buildLocalizedPath("/urunler", locale)}
+                    href={buildPath("/urunler")}
                     onClick={onClose}
                     className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
                   >
@@ -296,7 +295,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 </div>
 
                 <Link
-                  href={buildLocalizedPath("/odeme", locale)}
+                  href={buildPath("/odeme")}
                   onClick={onClose}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
                 >

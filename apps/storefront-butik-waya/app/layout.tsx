@@ -13,6 +13,7 @@ import { QuickViewProvider } from "@/components/product/QuickViewProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getStoreInfo } from "@/lib/db/settings";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
 import { RTL_LOCALES } from "@/lib/i18n";
 import { StorefrontRouteProvider } from "@/lib/storefront-route-context";
@@ -55,7 +56,10 @@ export default async function RootLayout({
   const gtmId = STOREFRONT_RUNTIME.gtmId;
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
-  const initialStoreInfo = await getStoreInfo();
+  const [initialStoreInfo, localeRouting] = await Promise.all([
+    getStoreInfo(),
+    getLocaleRoutingConfig(),
+  ]);
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -94,7 +98,11 @@ export default async function RootLayout({
           </noscript>
         ) : null}
         <PromotionalBannersPreload />
-        <StorefrontRouteProvider initialLocale={locale} initialInternalPathname={pathname}>
+        <StorefrontRouteProvider
+          initialLocale={locale}
+          initialInternalPathname={pathname}
+          initialRouting={localeRouting}
+        >
           <TrackingProvider>
             <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
               <AuthProvider>

@@ -30,7 +30,6 @@ import type {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { normalizeVariantAttributeEntries } from "@/lib/variant-selection";
 import { formatPrice } from "@/lib/utils";
 
@@ -163,7 +162,7 @@ export function ProductDetailClient({
   const extrasSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
   const { storeInfo } = useStoreInfo();
 
   const toggleAccordion = (id: string) => {
@@ -398,7 +397,7 @@ export function ProductDetailClient({
     }
 
     const fallbackProductUrl = new URL(
-      buildLocalizedPath(`/urunler/${slug}`, locale),
+      buildPath(`/urunler/${slug}`),
       STOREFRONT_RUNTIME.siteUrl,
     ).toString();
     const productUrl =
@@ -454,7 +453,7 @@ export function ProductDetailClient({
         <div className="container-premium">
           <div className="flex flex-wrap items-center gap-3 py-4 text-[11px] uppercase tracking-[0.18em] text-[#7A736D]">
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+              href={buildPath("/urunler")}
               className="flex items-center gap-2 transition-colors hover:text-[#222222]"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -463,14 +462,14 @@ export function ProductDetailClient({
 
             <div className="ml-auto hidden items-center gap-2 text-[#9A928A] md:flex">
               <Link
-                href={buildLocalizedPath("/", locale)}
+                href={buildPath("/")}
                 className="transition-colors hover:text-[#222222]"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="h-4 w-4" />
               <Link
-                href={buildLocalizedPath("/urunler", locale)}
+                href={buildPath("/urunler")}
                 className="transition-colors hover:text-[#222222]"
               >
                 {PDP_COPY.products}
@@ -747,7 +746,7 @@ export function ProductDetailClient({
           <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <SectionHeading label={PDP_COPY.similarProducts} />
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+              href={buildPath("/urunler")}
               className="hidden items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-[#222222] transition-colors hover:text-[#222222] sm:flex"
             >
               {PDP_COPY.viewAll}

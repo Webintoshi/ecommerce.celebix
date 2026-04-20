@@ -8,6 +8,7 @@ import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { createServerClient } from "@/lib/supabase";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestOrigin } from "@/lib/request-origin";
 import {
@@ -71,8 +72,15 @@ interface DBProduct {
   variants: DBVariant[] | null;
 }
 
-function buildAbsoluteUrl(path: string, locale: StorefrontLocale, origin: string) {
-  return new URL(buildLocalizedPath(path, locale), origin).toString();
+type ResolvedLocaleRouting = Awaited<ReturnType<typeof getLocaleRoutingConfig>>;
+
+function buildAbsoluteUrl(
+  path: string,
+  locale: StorefrontLocale,
+  origin: string,
+  routing: ResolvedLocaleRouting,
+) {
+  return new URL(buildLocalizedPath(path, locale, routing), origin).toString();
 }
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -273,6 +281,7 @@ function generateBreadcrumbSchema(
   locale: StorefrontLocale,
   copy: ReturnType<typeof getLocalizedCopy>,
   origin: string,
+  routing: ResolvedLocaleRouting,
 ) {
   return {
     "@context": "https://schema.org",
@@ -282,19 +291,19 @@ function generateBreadcrumbSchema(
         "@type": "ListItem",
         position: 1,
         name: copy.breadcrumbHome,
-        item: buildAbsoluteUrl("/", locale, origin),
+        item: buildAbsoluteUrl("/", locale, origin, routing),
       },
       {
         "@type": "ListItem",
         position: 2,
         name: copy.breadcrumbProducts,
-        item: buildAbsoluteUrl("/urunler", locale, origin),
+        item: buildAbsoluteUrl("/urunler", locale, origin, routing),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: category.name,
-        item: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
+        item: buildAbsoluteUrl(`/${category.slug}`, locale, origin, routing),
       },
     ],
   };
@@ -305,19 +314,20 @@ function generateCollectionSchema(
   products: Product[],
   locale: StorefrontLocale,
   origin: string,
+  routing: ResolvedLocaleRouting,
 ) {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: category.seo_title || category.name,
     description: category.seo_description || category.description || category.name,
-    url: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
+    url: buildAbsoluteUrl(`/${category.slug}`, locale, origin, routing),
     mainEntity: {
       "@type": "ItemList",
       itemListElement: products.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale, origin),
+        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale, origin, routing),
       })),
     },
   };
@@ -399,13 +409,14 @@ export default async function CollectionPage({
     notFound();
   }
 
-  const [products, requestOrigin] = await Promise.all([
+  const [products, requestOrigin, routing] = await Promise.all([
     getProductsByCategory(category),
     getRequestOrigin(),
+    getLocaleRoutingConfig(),
   ]);
 
-  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy, requestOrigin);
-  const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin);
+  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy, requestOrigin, routing);
+  const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin, routing);
   const faqSchema = generateFaqSchema(category.faq);
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
@@ -435,7 +446,7 @@ export default async function CollectionPage({
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
               <Link
-                href={buildLocalizedPath("/", locale)}
+                href={buildLocalizedPath("/", locale, routing)}
                 className="transition-colors hover:text-neutral-900"
               >
                 {copy.breadcrumbHome}
@@ -444,7 +455,7 @@ export default async function CollectionPage({
             <li aria-hidden="true">/</li>
             <li>
               <Link
-                href={buildLocalizedPath("/urunler", locale)}
+                href={buildLocalizedPath("/urunler", locale, routing)}
                 className="transition-colors hover:text-neutral-900"
               >
                 {copy.breadcrumbProducts}

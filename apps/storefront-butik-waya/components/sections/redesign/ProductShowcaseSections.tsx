@@ -7,7 +7,6 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { ROUTES } from "@/lib/constants";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
 import type { HomepageCategory } from "@/lib/homepage";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { Product } from "@/types/product";
 
@@ -190,7 +189,7 @@ export function ProductShowcaseSections({
   groupCopy,
   viewAllLabel = "Tümünü gör",
 }: ProductShowcaseSectionsProps) {
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
 
   if (!Array.isArray(allProducts) || allProducts.length === 0) {
     return <EmptyShowcaseState />;
@@ -235,10 +234,7 @@ export function ProductShowcaseSections({
               <SectionHeading label={group.title} />
 
               <Link
-                href={buildLocalizedPath(
-                  group.link.startsWith("/") ? group.link : ROUTES.products,
-                  locale,
-                )}
+                href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
                 className="group inline-flex items-center gap-2 rounded-full border border-[rgba(26,26,26,0.12)] bg-white/78 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#222222] backdrop-blur hover:border-[#222222] hover:text-[#222222]"
               >
                 {viewAllLabel}

@@ -13,7 +13,6 @@ import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import {
-  buildLocalizedPath,
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
@@ -39,7 +38,7 @@ export function Header() {
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user } = useAuth();
   const { storeInfo } = useStoreInfo();
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
 
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
@@ -141,7 +140,7 @@ export function Header() {
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
 
-            <Link href={buildLocalizedPath(ROUTES.home, locale)} className="flex-shrink-0" aria-label={logoAlt}>
+            <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
               {logoSrc ? (
                 <div className="relative h-8 w-[112px] sm:h-9 sm:w-[126px] lg:h-9 lg:w-[128px]">
                   <Image
@@ -164,7 +163,7 @@ export function Header() {
           <div className="hidden lg:block" aria-hidden="true" />
 
           <Link
-            href={buildLocalizedPath(ROUTES.home, locale)}
+            href={buildPath(ROUTES.home)}
             className="mx-auto hidden flex-shrink-0 lg:flex"
             aria-label={logoAlt}
           >
@@ -197,7 +196,7 @@ export function Header() {
             </button>
 
             <Link
-              href={buildLocalizedPath(user ? "/hesap" : ROUTES.login, locale)}
+              href={buildPath(user ? "/hesap" : ROUTES.login)}
               className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 sm:flex"
             >
               <User className="h-4.5 w-4.5 text-white/82" />
@@ -227,7 +226,7 @@ export function Header() {
               return (
                 <Link
                   key={category.id}
-                  href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                  href={buildPath(ROUTES.category(category.slug))}
                   className="group relative inline-flex shrink-0 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
                 >
                   {localizedCategoryName}
@@ -238,7 +237,7 @@ export function Header() {
             return (
               <div key={category.id} className="group relative shrink-0">
                 <Link
-                  href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                  href={buildPath(ROUTES.category(category.slug))}
                   className="relative inline-flex items-center gap-1 whitespace-nowrap py-1 font-serif text-[0.82rem] font-medium tracking-[0.02em] text-white/74 after:absolute after:-bottom-[7px] after:left-0 after:h-px after:w-0 after:bg-white/88 after:transition-all after:duration-300 after:content-[''] hover:text-white group-hover:after:w-full xl:text-[0.85rem]"
                 >
                   {localizedCategoryName}
@@ -251,7 +250,7 @@ export function Header() {
                       {category.children.map((subcategory) => (
                         <Link
                           key={subcategory.id}
-                          href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                          href={buildPath(ROUTES.category(subcategory.slug))}
                           className="block rounded-[1rem] px-4 py-3 text-[11.5px] font-medium tracking-[0.02em] text-[#222222] transition-colors hover:bg-white hover:text-[#222222]"
                         >
                           {subcategory.name}
@@ -274,7 +273,7 @@ export function Header() {
               {headerCategories.map((category) => (
                 <div key={category.id} className="space-y-2">
                   <Link
-                    href={buildLocalizedPath(ROUTES.category(category.slug), locale)}
+                    href={buildPath(ROUTES.category(category.slug))}
                     className="store-nav-text block text-white/82 transition-all duration-300 hover:pl-2 hover:text-white"
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -286,7 +285,7 @@ export function Header() {
                       {category.children.map((subcategory) => (
                         <Link
                           key={subcategory.id}
-                          href={buildLocalizedPath(ROUTES.category(subcategory.slug), locale)}
+                          href={buildPath(ROUTES.category(subcategory.slug))}
                           className="block text-[12px] uppercase tracking-[0.18em] text-white/58 transition-all duration-300 hover:pl-2 hover:text-white"
                           onClick={() => setIsMenuOpen(false)}
                         >
@@ -306,7 +305,6 @@ export function Header() {
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        locale={locale}
         resolveImageSrc={resolveStorefrontAssetUrl}
       />
     </header>

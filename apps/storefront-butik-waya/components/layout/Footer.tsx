@@ -9,8 +9,7 @@ import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
 import {
-  type StorefrontLocale,
-  buildLocalizedPath,
+  LOCALE_LABELS,
   getLocalizedCopy,
 } from "@/lib/i18n";
 import { useStoreInfo } from "@/lib/store-info-context";
@@ -23,18 +22,6 @@ type FooterCategory = {
   slug: string;
 };
 
-const LOCALE_SWITCH_OPTIONS: Array<{
-  locale: StorefrontLocale;
-  label: string;
-}> = [
-  { locale: "tr", label: "TR" },
-  { locale: "en", label: "EN" },
-  { locale: "de", label: "DE" },
-  { locale: "ru", label: "RU" },
-  { locale: "ar", label: "AR" },
-  { locale: "ka", label: "KA" },
-];
-
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
@@ -42,15 +29,19 @@ export function Footer() {
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterState, setNewsletterState] = useState<"idle" | "error" | "success">("idle");
-  const { locale, internalPathname } = useStorefrontRoute();
+  const { locale, internalPathname, routing, buildPath } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const localeSwitchOptions = routing.availableLocales.map((entryLocale) => ({
+    locale: entryLocale,
+    label: LOCALE_LABELS[entryLocale],
+  }));
   const activeLocaleOption =
-    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
+    localeSwitchOptions.find((option) => option.locale === locale) ?? localeSwitchOptions[0];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
@@ -247,7 +238,7 @@ export function Footer() {
           }`}
         >
           <div>
-            <Link href={buildLocalizedPath("/", locale)} className="inline-block">
+            <Link href={buildPath("/")} className="inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[158px]">
                   <Image
@@ -279,56 +270,58 @@ export function Footer() {
                 <p className="mt-1 break-all text-sm text-white/58">{contactEmail}</p>
               </div>
 
-              <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">
-                  Dil se\u00e7imi
-                </p>
-                <div ref={localeMenuRef} className="relative mt-3 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                    className="flex w-full items-center justify-between gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-white transition hover:border-white/22"
-                    aria-expanded={isLocaleMenuOpen}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
-                      <span className="text-sm text-white/58">{locale.toUpperCase()}</span>
-                    </span>
-                    <ChevronDown
-                      className={`h-4 w-4 text-white/60 transition-transform ${
-                        isLocaleMenuOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+              {routing.showLocaleSwitcher ? (
+                <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">
+                    Dil se\u00e7imi
+                  </p>
+                  <div ref={localeMenuRef} className="relative mt-3 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setIsLocaleMenuOpen((current) => !current)}
+                      className="flex w-full items-center justify-between gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-white transition hover:border-white/22"
+                      aria-expanded={isLocaleMenuOpen}
+                      aria-haspopup="listbox"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
+                        <span className="text-sm text-white/58">{locale.toUpperCase()}</span>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 text-white/60 transition-transform ${
+                          isLocaleMenuOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
 
-                  {isLocaleMenuOpen ? (
-                    <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden rounded-[1.4rem] border border-white/10 bg-[#1C1C1C] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                      <div className="space-y-1">
-                        {LOCALE_SWITCH_OPTIONS.map((option) => {
-                          const isActive = option.locale === locale;
-                          return (
-                            <Link
-                              key={option.locale}
-                              href={buildLocalizedPath(internalPathname, option.locale)}
-                              hrefLang={option.locale}
-                              onClick={() => setIsLocaleMenuOpen(false)}
-                              className={`flex items-center justify-between rounded-xl px-3 py-2 transition ${
-                                isActive
-                                  ? "bg-white text-[#151515]"
-                                  : "text-white/82 hover:bg-white/8 hover:text-white"
-                              }`}
-                            >
-                              <span className="text-sm font-medium">{option.label}</span>
-                              <span className="text-xs uppercase">{option.locale}</span>
-                            </Link>
-                          );
-                        })}
+                    {isLocaleMenuOpen ? (
+                      <div className="absolute left-0 top-full z-20 mt-2 min-w-full overflow-hidden rounded-[1.4rem] border border-white/10 bg-[#1C1C1C] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                        <div className="space-y-1">
+                          {localeSwitchOptions.map((option) => {
+                            const isActive = option.locale === locale;
+                            return (
+                              <Link
+                                key={option.locale}
+                                href={buildPath(internalPathname, option.locale)}
+                                hrefLang={option.locale}
+                                onClick={() => setIsLocaleMenuOpen(false)}
+                                className={`flex items-center justify-between rounded-xl px-3 py-2 transition ${
+                                  isActive
+                                    ? "bg-white text-[#151515]"
+                                    : "text-white/82 hover:bg-white/8 hover:text-white"
+                                }`}
+                              >
+                                <span className="text-sm font-medium">{option.label}</span>
+                                <span className="text-xs uppercase">{option.locale}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
 
             <div className="mt-6 flex items-center gap-3">
@@ -361,7 +354,7 @@ export function Footer() {
               {aboutLinks.map((link) => (
                 <li key={link.href}>
                   <Link
-                    href={buildLocalizedPath(link.href, locale)}
+                    href={buildPath(link.href)}
                     className="text-sm text-white/58 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -379,7 +372,7 @@ export function Footer() {
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    href={buildPath(`/${link.slug}`)}
                     className="text-sm text-white/58 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -398,7 +391,7 @@ export function Footer() {
                 {policyLinks.map((link) => (
                   <li key={link.slug}>
                     <Link
-                      href={buildLocalizedPath(link.href, locale)}
+                      href={buildPath(link.href)}
                       className="text-sm text-white/58 transition-colors hover:text-white"
                     >
                       {link.label}

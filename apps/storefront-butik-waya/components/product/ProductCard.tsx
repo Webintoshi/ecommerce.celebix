@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { cn, formatPrice } from "@/lib/utils";
 import { useWishlist } from "@/lib/wishlist-context";
@@ -42,7 +41,7 @@ export function ProductCard({
   viewMode = "grid",
   cardStyle = "standard",
 }: ProductCardProps) {
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
@@ -57,7 +56,7 @@ export function ProductCard({
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
       : undefined;
-  const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
+  const productHref = buildPath(ROUTES.product(product.slug));
   const isWishlisted = isInWishlist(product.id);
   const isFeatured = cardStyle === "featured";
 

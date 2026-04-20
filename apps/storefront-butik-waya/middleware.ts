@@ -14,6 +14,7 @@ import {
   getLocaleFromPathname,
   stripLocaleFromPathname,
 } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
@@ -213,6 +214,7 @@ export async function middleware(request: NextRequest) {
     return withSecurity(request, await handleBypassedRequest(request, originalPathname, ip));
   }
 
+  const localeRouting = await getLocaleRoutingConfig();
   const locale = getLocaleFromPathname(originalPathname);
   const internalPathname = locale ? stripLocaleFromPathname(originalPathname) : originalPathname;
   const normalizedUserAgent = userAgent.toLowerCase();
@@ -244,13 +246,59 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (localeRouting.mode === "prefixless") {
+    if (locale) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = internalPathname;
+      return withSecurity(request, NextResponse.redirect(redirectUrl, 301));
+    }
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-celebix-locale", localeRouting.sourceLocale);
+    requestHeaders.set("x-celebix-pathname", originalPathname);
+
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    response.cookies.set(LOCALE_COOKIE_NAME, localeRouting.sourceLocale, {
+      path: "/",
+      sameSite: "lax",
+      secure: isSecureRequest(request),
+      maxAge: 60 * 60 * 24 * 365,
+    });
+
+    applyNoCacheHeaders(response, originalPathname);
+
+    if (isAIBot) {
+      response.headers.set("X-Robots-Tag", "noai, noimageai");
+      response.headers.set("X-Bot-Type", "AI");
+      response.headers.set("X-RateLimit-Limit", String(AI_BOT_RATE_LIMIT));
+    } else if (isGeneralBot) {
+      response.headers.set("X-Bot-Type", "crawler");
+    }
+
+    return withSecurity(request, response);
+  }
+
+  if (locale && !localeRouting.availableLocales.includes(locale)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = buildLocalizedPath(
+      internalPathname,
+      localeRouting.sourceLocale,
+      localeRouting,
+    );
+    return withSecurity(request, NextResponse.redirect(redirectUrl, 301));
+  }
+
   if (!locale) {
     const preferredLocale = detectPreferredLocale(
       request.cookies.get(LOCALE_COOKIE_NAME)?.value,
       request.headers.get("accept-language"),
+      localeRouting.availableLocales,
+      localeRouting.sourceLocale,
     );
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = buildLocalizedPath(originalPathname, preferredLocale);
+    redirectUrl.pathname = buildLocalizedPath(originalPathname, preferredLocale, localeRouting);
 
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.set(LOCALE_COOKIE_NAME, preferredLocale, {

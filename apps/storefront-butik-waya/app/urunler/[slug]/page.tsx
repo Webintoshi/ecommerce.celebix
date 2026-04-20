@@ -12,6 +12,7 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
@@ -296,10 +297,11 @@ export default async function ProductDetailPage({
   const storeName = STOREFRONT_RUNTIME.name;
   const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
+  const routing = await getLocaleRoutingConfig();
   const [homeUrl, productsUrl, productUrl] = await Promise.all([
-    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale)),
-    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale)),
-    buildAbsoluteRequestUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale, routing)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale, routing)),
+    buildAbsoluteRequestUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale, routing)),
   ]);
 
   const jsonLd = variant
