@@ -174,6 +174,22 @@ function normalizeLookupKey(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function formatUnknownError(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    try {
+      return JSON.stringify(error, null, 2);
+    } catch {
+      return String(error);
+    }
+  }
+
+  return String(error);
+}
+
 function buildProductLookupIndex(products) {
   const bySlug = new Map();
   const byItemGroupId = new Map();
@@ -343,6 +359,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(formatUnknownError(error));
   process.exitCode = 1;
 });
