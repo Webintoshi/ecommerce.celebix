@@ -20,6 +20,11 @@ import {
     type ProductListingOrderSettings,
 } from "@celebix/platform-config/src/product-listing-order";
 import {
+    DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
+    normalizeStoreCodeIntegrationsSettings,
+    type StoreCodeIntegrationsSettings,
+} from "@celebix/platform-config/src/code-integrations";
+import {
     normalizeFloatingContactSettings,
     type FloatingContactSettings,
 } from "@celebix/platform-config/src/floating-contact";
@@ -119,6 +124,7 @@ export const SETTING_KEYS = {
     AI_PROVIDER: "ai_provider",
     TRANSLATION_SETTINGS: "translation_settings",
     PRODUCT_LISTING_ORDER: PRODUCT_LISTING_ORDER_SETTING_KEY,
+    CODE_INTEGRATIONS: "code_integrations",
 } as const;
 
 // =====================================================
@@ -153,6 +159,7 @@ export interface StoreInfo {
 
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
+export type CodeIntegrationsSettings = StoreCodeIntegrationsSettings;
 export type { ProductListingOrderSettings };
 
 export interface HomepageCurationSettings {
@@ -361,6 +368,21 @@ export async function setSeoSettings(settings: SEOSettings) {
     return setSetting(
         SETTING_KEYS.SEO_SETTINGS,
         normalizeStoreSeoSettings(settings) as unknown as Record<string, unknown>,
+    );
+}
+
+export async function getCodeIntegrationsSettings(): Promise<CodeIntegrationsSettings> {
+    const data = await getSetting(SETTING_KEYS.CODE_INTEGRATIONS);
+    return normalizeStoreCodeIntegrationsSettings(
+        data as Partial<StoreCodeIntegrationsSettings> | null,
+        DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
+    );
+}
+
+export async function setCodeIntegrationsSettings(settings: CodeIntegrationsSettings) {
+    return setSetting(
+        SETTING_KEYS.CODE_INTEGRATIONS,
+        normalizeStoreCodeIntegrationsSettings(settings) as unknown as Record<string, unknown>,
     );
 }
 
