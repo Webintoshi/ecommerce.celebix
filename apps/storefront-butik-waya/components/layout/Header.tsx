@@ -13,10 +13,7 @@ import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/as
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import {
-  getLocalizedCategoryLabel,
-  getLocalizedCopy,
-} from "@/lib/i18n";
+import { getLocalizedCategoryLabel, getLocalizedCopy } from "@/lib/i18n";
 
 type NavSubcategory = {
   id: string;
@@ -60,11 +57,15 @@ export function Header() {
             account: "Account",
             search: "Search",
             contact: "Contact",
+            viewAll: "View all",
+            close: "Close menu",
           }
         : {
             account: "Hesap",
             search: "Arama",
-            contact: "İletişim",
+            contact: "\u0130leti\u015Fim",
+            viewAll: "T\u00FCm\u00FCn\u00FC g\u00F6r",
+            close: "Men\u00FCy\u00FC kapat",
           },
     [locale],
   );
@@ -303,14 +304,14 @@ export function Header() {
       <AnimatePresence>
         {isMenuOpen ? (
           <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            className="fixed inset-0 z-[70] bg-[#050505]/98 text-white lg:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed inset-0 z-[70] bg-[#050505] text-white lg:hidden"
           >
             <div className="container-premium flex h-full flex-col">
-              <div className="flex h-[66px] items-center justify-between gap-4 border-b border-white/8">
+              <div className="flex h-[66px] items-center justify-between gap-4 border-b border-white/10">
                 <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={() => setIsMenuOpen(false)}>
                   {logoSrc ? (
                     <div className="relative h-8 w-[112px] sm:h-9 sm:w-[126px]">
@@ -333,16 +334,16 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => setIsMenuOpen(false)}
-                  aria-label={copy.closeLabel || "Menüyü kapat"}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
+                  aria-label={mobileMenuCopy.close}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white transition-colors hover:border-white/18 hover:bg-white/[0.08]"
                 >
                   <X className="h-5 w-5 text-white/82" />
                 </button>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col pb-6 pt-5">
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <nav className="space-y-1">
+              <div className="flex min-h-0 flex-1 flex-col pb-6 pt-4">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  <nav className="divide-y divide-white/10">
                     {headerCategories.map((category) => {
                       const localizedCategoryName = getLocalizedCategoryLabel(
                         category.slug,
@@ -352,14 +353,11 @@ export function Header() {
                       const isExpanded = expandedMobileCategoryId === category.id;
 
                       return (
-                        <div
-                          key={category.id}
-                          className="border-b border-white/8 py-4 first:pt-0"
-                        >
-                          <div className="flex items-start gap-3">
+                        <div key={category.id} className="py-3">
+                          <div className="flex items-center gap-3">
                             <Link
                               href={buildPath(ROUTES.category(category.slug))}
-                              className="min-w-0 flex-1 font-serif text-[1.85rem] leading-[0.94] tracking-[-0.045em] text-white/92 transition-all duration-300 hover:translate-x-1 hover:text-white"
+                              className="min-w-0 flex-1 py-1 font-serif text-[1.2rem] leading-[1.02] tracking-[-0.03em] text-white/94 transition-colors duration-200 hover:text-white"
                               onClick={() => setIsMenuOpen(false)}
                             >
                               {localizedCategoryName}
@@ -375,10 +373,10 @@ export function Header() {
                                     current === category.id ? null : category.id,
                                   )
                                 }
-                                className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white/72 transition-colors hover:border-white/16 hover:text-white"
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/72 transition-colors duration-200 hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
                               >
                                 <ChevronDown
-                                  className={`h-4 w-4 transition-transform ${
+                                  className={`h-4 w-4 transition-transform duration-200 ${
                                     isExpanded ? "rotate-180" : ""
                                   }`}
                                 />
@@ -395,12 +393,19 @@ export function Header() {
                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                 className="overflow-hidden"
                               >
-                                <div className="space-y-2 pb-1 pl-1 pt-4">
+                                <div className="space-y-3 pb-2 pt-4">
+                                  <Link
+                                    href={buildPath(ROUTES.category(category.slug))}
+                                    className="block text-[0.72rem] uppercase tracking-[0.22em] text-white/42 transition-colors duration-200 hover:text-white/68"
+                                    onClick={() => setIsMenuOpen(false)}
+                                  >
+                                    {mobileMenuCopy.viewAll}
+                                  </Link>
                                   {category.children.map((subcategory) => (
                                     <Link
                                       key={subcategory.id}
                                       href={buildPath(ROUTES.category(subcategory.slug))}
-                                      className="block text-sm tracking-[0.01em] text-white/58 transition-all duration-300 hover:translate-x-1 hover:text-white"
+                                      className="block text-[0.98rem] tracking-[0.01em] text-white/64 transition-colors duration-200 hover:text-white"
                                       onClick={() => setIsMenuOpen(false)}
                                     >
                                       {subcategory.name}
@@ -416,18 +421,18 @@ export function Header() {
                   </nav>
                 </div>
 
-                <div className="mt-6 border-t border-white/8 pt-5">
-                  <div className="grid grid-cols-3 gap-3 text-[10px] uppercase tracking-[0.22em] text-white/58">
+                <div className="mt-6 border-t border-white/10 pt-4">
+                  <div className="grid grid-cols-3 gap-3 text-[10px] uppercase tracking-[0.22em] text-white/54">
                     <Link
                       href={accountHref}
-                      className="transition-colors hover:text-white"
+                      className="transition-colors duration-200 hover:text-white"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       {mobileMenuCopy.account}
                     </Link>
                     <button
                       type="button"
-                      className="text-left transition-colors hover:text-white"
+                      className="text-left transition-colors duration-200 hover:text-white"
                       onClick={() => {
                         setIsMenuOpen(false);
                         setIsSearchOpen(true);
@@ -437,7 +442,7 @@ export function Header() {
                     </button>
                     <Link
                       href={buildPath(ROUTES.contact)}
-                      className="text-right transition-colors hover:text-white"
+                      className="text-right transition-colors duration-200 hover:text-white"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       {mobileMenuCopy.contact}
