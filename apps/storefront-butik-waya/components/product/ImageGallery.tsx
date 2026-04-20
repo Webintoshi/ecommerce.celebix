@@ -483,30 +483,30 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           </div>
 
           {displayImages.length > 4 ? (
-            <div className="mt-3 hidden items-center justify-center gap-2 sm:flex">
+            <div className="mt-2 flex items-center justify-center gap-1.5 sm:mt-3 sm:gap-2">
               <button
                 type="button"
                 onClick={() => scrollThumbnails("up")}
                 disabled={!canScrollUp}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
+                className={`flex h-7 w-7 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all sm:h-8 sm:w-8 ${
                   canScrollUp
                     ? "opacity-100 hover:border-[#222222] hover:text-[#222222]"
                     : "cursor-not-allowed opacity-30"
                 }`}
               >
-                <ChevronLeft className="h-4 w-4 -rotate-90" />
+                <ChevronLeft className="h-3.5 w-3.5 -rotate-90 sm:h-4 sm:w-4" />
               </button>
               <button
                 type="button"
                 onClick={() => scrollThumbnails("down")}
                 disabled={!canScrollDown}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all ${
+                className={`flex h-7 w-7 items-center justify-center rounded-full border border-[rgba(26,26,26,0.08)] bg-white/78 transition-all sm:h-8 sm:w-8 ${
                   canScrollDown
                     ? "opacity-100 hover:border-[#222222] hover:text-[#222222]"
                     : "cursor-not-allowed opacity-30"
                 }`}
               >
-                <ChevronRight className="h-4 w-4 -rotate-90" />
+                <ChevronRight className="h-3.5 w-3.5 -rotate-90 sm:h-4 sm:w-4" />
               </button>
             </div>
           ) : null}
