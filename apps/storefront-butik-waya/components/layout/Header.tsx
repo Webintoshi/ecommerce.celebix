@@ -55,17 +55,25 @@ export function Header() {
       locale === "en"
         ? {
             account: "Account",
+            signIn: "Sign in",
+            register: "Register",
             search: "Search",
             contact: "Contact",
             viewAll: "View all",
             close: "Close menu",
+            browse: "Browse",
+            products: "All products",
           }
         : {
             account: "Hesap",
+            signIn: "Giriş",
+            register: "Kayıt ol",
             search: "Arama",
             contact: "\u0130leti\u015Fim",
             viewAll: "T\u00FCm\u00FCn\u00FC g\u00F6r",
             close: "Men\u00FCy\u00FC kapat",
+            browse: "Kategoriler",
+            products: "Tüm ürünler",
           },
     [locale],
   );
@@ -155,6 +163,7 @@ export function Header() {
   }, [isMenuOpen]);
 
   const accountHref = buildPath(user ? "/hesap" : ROUTES.login);
+  const registerHref = buildPath(ROUTES.register);
 
   return (
     <>
@@ -350,8 +359,51 @@ export function Header() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col pb-6 pt-4">
+                <div className="mb-4 flex items-center justify-between gap-3 border-b border-white/10 pb-4">
+                  <span className="text-[0.68rem] uppercase tracking-[0.28em] text-white/46">
+                    {mobileMenuCopy.browse}
+                  </span>
+                  <div className="flex items-center gap-4 text-[0.74rem] uppercase tracking-[0.2em] text-white/56">
+                    {user ? (
+                      <Link
+                        href={accountHref}
+                        className="transition-colors duration-200 hover:text-white"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {mobileMenuCopy.account}
+                      </Link>
+                    ) : (
+                      <>
+                        <Link
+                          href={accountHref}
+                          className="transition-colors duration-200 hover:text-white"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {mobileMenuCopy.signIn}
+                        </Link>
+                        <Link
+                          href={registerHref}
+                          className="transition-colors duration-200 hover:text-white"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {mobileMenuCopy.register}
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   <nav className="divide-y divide-white/10">
+                    <div className="py-3">
+                      <Link
+                        href={buildPath(ROUTES.products)}
+                        className="block py-1 font-serif text-[1.2rem] leading-[1.02] tracking-[-0.03em] text-white transition-colors duration-200 hover:text-white/78"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {mobileMenuCopy.products}
+                      </Link>
+                    </div>
                     {headerCategories.map((category) => {
                       const localizedCategoryName = getLocalizedCategoryLabel(
                         category.slug,
@@ -430,14 +482,7 @@ export function Header() {
                 </div>
 
                 <div className="mt-6 border-t border-white/10 pt-4">
-                  <div className="grid grid-cols-3 gap-3 text-[10px] uppercase tracking-[0.22em] text-white/54">
-                    <Link
-                      href={accountHref}
-                      className="transition-colors duration-200 hover:text-white"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      {mobileMenuCopy.account}
-                    </Link>
+                  <div className="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-[0.22em] text-white/54">
                     <button
                       type="button"
                       className="text-left transition-colors duration-200 hover:text-white"
