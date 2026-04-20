@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   fetchCategories,
   addCategory,
@@ -128,6 +128,21 @@ function flattenCategoryTree(categories: CategoryInfo[]): CategoryInfo[] {
   ]);
 }
 
+function buildCategoryAncestorIdChain(
+  category: CategoryInfo,
+  categoryById: Map<string, CategoryInfo>,
+): string[] {
+  const ancestorIds: string[] = [];
+  let currentParentId = category.parent_id;
+
+  while (currentParentId) {
+    ancestorIds.push(currentParentId);
+    currentParentId = categoryById.get(currentParentId)?.parent_id || null;
+  }
+
+  return ancestorIds;
+}
+
 export default function CategoryManager() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +225,24 @@ export default function CategoryManager() {
     loadCategories();
   }, [loadCategories]);
 
+  useEffect(() => {
+    if (featuredCategories.length === 0) {
+      return;
+    }
+
+    setExpandedIds((current) => {
+      const next = new Set(current);
+
+      featuredCategories.forEach((category) => {
+        buildCategoryAncestorIdChain(category, categoryById).forEach((ancestorId) => {
+          next.add(ancestorId);
+        });
+      });
+
+      return next;
+    });
+  }, [categoryById, featuredCategories]);
+
   const buildTree = (cats: CategoryInfo[], parentId: string | null = null): CategoryInfo[] => {
     return cats
       .filter((c) => c.parent_id === parentId)
@@ -222,8 +255,24 @@ export default function CategoryManager() {
 
   const tree = buildTree(categories);
   const orderedCategories = flattenCategoryTree(tree);
-  const categoryOrderMap = new Map(
-    orderedCategories.map((category, index) => [category.slug, index]),
+  const categoryOrderMap = useMemo(
+    () => new Map(orderedCategories.map((category, index) => [category.slug, index])),
+    [orderedCategories],
+  );
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+  const categoryBySlug = useMemo(
+    () => new Map(categories.map((category) => [category.slug, category])),
+    [categories],
+  );
+  const featuredCategories = useMemo(
+    () =>
+      featuredCategorySlugs
+        .map((slug) => categoryBySlug.get(slug))
+        .filter((category): category is CategoryInfo => Boolean(category)),
+    [categoryBySlug, featuredCategorySlugs],
   );
 
   const filteredTree = searchQuery
@@ -438,7 +487,17 @@ export default function CategoryManager() {
     }
 
     if (!isFeatured && homepageFeaturedCount >= MAX_HOMEPAGE_FEATURED_CATEGORIES) {
-      showToast("error", "Ana sayfada en fazla 4 koleksiyon yildizlanabilir.");
+      const selectedCategoryNames = featuredCategories
+        .map((entry) => entry.name)
+        .filter(Boolean)
+        .join(", ");
+
+      showToast(
+        "error",
+        selectedCategoryNames
+          ? `Ana sayfada en fazla 4 koleksiyon yildizlanabilir. Secili koleksiyonlar: ${selectedCategoryNames}`
+          : "Ana sayfada en fazla 4 koleksiyon yildizlanabilir.",
+      );
       return;
     }
 
@@ -499,6 +558,45 @@ export default function CategoryManager() {
       showToast("error", "Ana sayfa vitrini guncellenemedi");
     } finally {
       setFeaturedSavingSlug(null);
+    }
+  };
+
+  const handleClearHomepageFeaturedCategories = async () => {
+    const previousSlugs = featuredCategorySlugs;
+    const previousHomepageCuration = homepageCuration;
+
+    setFeaturedCategorySlugs([]);
+    setHomepageCuration((current) => ({
+      ...current,
+      featuredCategorySlugs: [],
+      featuredProductIdsByCategory: {},
+    }));
+
+    try {
+      await fetchAdminJson("/api/settings", {
+        timeoutMs: 10000,
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "homepage-curation",
+            homepageCuration: {
+              featuredCategorySlugs: [],
+              featuredProductIdsByCategory: {},
+              enforceFeaturedProductCaps: homepageCuration.enforceFeaturedProductCaps,
+            },
+          }),
+        },
+      });
+
+      showToast("success", "Ana sayfa vitrini icin secilen koleksiyonlar temizlendi");
+    } catch (error) {
+      console.error("Failed to clear homepage curation categories:", error);
+      setFeaturedCategorySlugs(previousSlugs);
+      setHomepageCuration(previousHomepageCuration);
+      showToast("error", "Ana sayfa vitrini secimleri temizlenemedi");
     }
   };
 
@@ -734,6 +832,55 @@ export default function CategoryManager() {
               <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
                 Gösterilen: {filteredResults}
               </span>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-[26px] border border-[#eddccf] bg-white/80 p-4 shadow-[0_12px_30px_rgba(99,67,37,0.05)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#af7a54]">
+                  Ana Sayfa Vitrini
+                </p>
+                <p className="text-sm leading-6 text-[#786658]">
+                  Secili koleksiyonlar burada her zaman gorunur. Gizli kalmis eski secimler varsa buradan kaldirabilirsiniz.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+                  {homepageFeaturedCount}/4 secili
+                </span>
+                {homepageFeaturedCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleClearHomepageFeaturedCategories()}
+                    className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-[#ead7c8] bg-white px-4 py-2.5 text-sm font-medium text-[#6d5849] shadow-sm transition hover:border-[#FE6100]/30 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  >
+                    <X className="h-4 w-4" />
+                    Tumunu temizle
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {featuredCategories.length > 0 ? (
+                featuredCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => void handleHomepageFeatureToggle(category)}
+                    className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-200"
+                  >
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <span>{category.name}</span>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm text-[#8d7a6d]">
+                  Su anda ana sayfa vitrini icin secili koleksiyon yok.
+                </p>
+              )}
             </div>
           </div>
 
