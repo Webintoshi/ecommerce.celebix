@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ROUTES, SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
@@ -34,6 +35,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [expandedMobileCategoryId, setExpandedMobileCategoryId] = useState<string | null>(null);
   const [headerCategories, setHeaderCategories] = useState<NavCategory[]>([]);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user } = useAuth();
@@ -51,6 +53,21 @@ export function Header() {
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const mobileMenuCopy = useMemo(
+    () =>
+      locale === "en"
+        ? {
+            account: "Account",
+            search: "Search",
+            contact: "Contact",
+          }
+        : {
+            account: "Hesap",
+            search: "Arama",
+            contact: "İletişim",
+          },
+    [locale],
+  );
 
   useEffect(() => {
     const handleScroll = () => {
@@ -122,6 +139,22 @@ export function Header() {
     };
   }, [locale]);
 
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setExpandedMobileCategoryId(null);
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMenuOpen]);
+
+  const accountHref = buildPath(user ? "/hesap" : ROUTES.login);
+
   return (
     <header
       className={`sticky top-0 z-50 border-b border-white/10 bg-[#000000]/98 backdrop-blur-md transition-all duration-300 ${
@@ -129,36 +162,29 @@ export function Header() {
       }`}
     >
       <div className="container-premium">
-        <div className="grid h-[66px] grid-cols-[auto_1fr_auto] items-center gap-3 lg:h-[58px] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
-          <div className="flex items-center gap-3 lg:hidden">
-            <button
-              className="-ml-2 rounded-full p-2 text-white lg:hidden"
-              onClick={() => setIsMenuOpen((open) => !open)}
-              aria-label={copy.menuLabel}
-              type="button"
-            >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-
-            <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
-              {logoSrc ? (
-                <div className="relative h-8 w-[112px] sm:h-9 sm:w-[126px] lg:h-9 lg:w-[128px]">
-                  <Image
-                    src={logoSrc}
-                    alt={logoAlt}
-                    fill
-                    className="object-contain object-left"
-                    sizes="(max-width: 640px) 112px, (max-width: 1024px) 126px, 128px"
-                    unoptimized={usesProxiedLogo}
-                  />
-                </div>
-              ) : (
-                <span className="font-serif text-lg font-semibold tracking-[-0.04em] text-[#F5F5F5] lg:text-[1.32rem]">
-                  {logoAlt}
-                </span>
-              )}
-            </Link>
-          </div>
+        <div className="grid h-[66px] grid-cols-[1fr_auto] items-center gap-3 lg:h-[58px] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+          <Link
+            href={buildPath(ROUTES.home)}
+            className="flex min-w-0 flex-shrink-0 lg:hidden"
+            aria-label={logoAlt}
+          >
+            {logoSrc ? (
+              <div className="relative h-8 w-[112px] sm:h-9 sm:w-[126px] lg:h-9 lg:w-[128px]">
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt}
+                  fill
+                  className="object-contain object-left"
+                  sizes="(max-width: 640px) 112px, (max-width: 1024px) 126px, 128px"
+                  unoptimized={usesProxiedLogo}
+                />
+              </div>
+            ) : (
+              <span className="font-serif text-lg font-semibold tracking-[-0.04em] text-[#F5F5F5] lg:text-[1.32rem]">
+                {logoAlt}
+              </span>
+            )}
+          </Link>
 
           <div className="hidden lg:block" aria-hidden="true" />
 
@@ -196,8 +222,8 @@ export function Header() {
             </button>
 
             <Link
-              href={buildPath(user ? "/hesap" : ROUTES.login)}
-              className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 sm:flex"
+              href={accountHref}
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 lg:flex"
             >
               <User className="h-4.5 w-4.5 text-white/82" />
             </Link>
@@ -214,6 +240,15 @@ export function Header() {
                   {cartItemCount}
                 </span>
               ) : null}
+            </button>
+
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8 lg:hidden"
+              onClick={() => setIsMenuOpen(true)}
+              aria-label={copy.menuLabel}
+              type="button"
+            >
+              <Menu className="h-5 w-5 text-white/82" />
             </button>
           </div>
         </div>
@@ -265,42 +300,155 @@ export function Header() {
         </nav>
       </div>
 
-      {isMenuOpen ? (
-        <div className="border-t border-white/8 bg-[#000000] lg:hidden">
-          <div className="container-premium px-0">
-          <div className="px-1 py-5">
-            <nav className="space-y-5">
-              {headerCategories.map((category) => (
-                <div key={category.id} className="space-y-2">
-                  <Link
-                    href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text block text-white/82 transition-all duration-300 hover:pl-2 hover:text-white"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {getLocalizedCategoryLabel(category.slug, category.name, locale)}
-                  </Link>
-
-                  {category.children.length > 0 ? (
-                    <div className="space-y-2 border-l border-white/12 pl-4">
-                      {category.children.map((subcategory) => (
-                        <Link
-                          key={subcategory.id}
-                          href={buildPath(ROUTES.category(subcategory.slug))}
-                          className="block text-[12px] uppercase tracking-[0.18em] text-white/58 transition-all duration-300 hover:pl-2 hover:text-white"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          {subcategory.name}
-                        </Link>
-                      ))}
+      <AnimatePresence>
+        {isMenuOpen ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="fixed inset-0 z-[70] bg-[#050505]/98 text-white lg:hidden"
+          >
+            <div className="container-premium flex h-full flex-col">
+              <div className="flex h-[66px] items-center justify-between gap-4 border-b border-white/8">
+                <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={() => setIsMenuOpen(false)}>
+                  {logoSrc ? (
+                    <div className="relative h-8 w-[112px] sm:h-9 sm:w-[126px]">
+                      <Image
+                        src={logoSrc}
+                        alt={logoAlt}
+                        fill
+                        className="object-contain object-left"
+                        sizes="(max-width: 640px) 112px, 126px"
+                        unoptimized={usesProxiedLogo}
+                      />
                     </div>
-                  ) : null}
+                  ) : (
+                    <span className="font-serif text-lg font-semibold tracking-[-0.04em] text-[#F5F5F5]">
+                      {logoAlt}
+                    </span>
+                  )}
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen(false)}
+                  aria-label={copy.closeLabel || "Menüyü kapat"}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white transition-colors hover:border-white/16 hover:bg-white/8"
+                >
+                  <X className="h-5 w-5 text-white/82" />
+                </button>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col pb-6 pt-5">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <nav className="space-y-1">
+                    {headerCategories.map((category) => {
+                      const localizedCategoryName = getLocalizedCategoryLabel(
+                        category.slug,
+                        category.name,
+                        locale,
+                      );
+                      const isExpanded = expandedMobileCategoryId === category.id;
+
+                      return (
+                        <div
+                          key={category.id}
+                          className="border-b border-white/8 py-4 first:pt-0"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Link
+                              href={buildPath(ROUTES.category(category.slug))}
+                              className="min-w-0 flex-1 font-serif text-[1.85rem] leading-[0.94] tracking-[-0.045em] text-white/92 transition-all duration-300 hover:translate-x-1 hover:text-white"
+                              onClick={() => setIsMenuOpen(false)}
+                            >
+                              {localizedCategoryName}
+                            </Link>
+
+                            {category.children.length > 0 ? (
+                              <button
+                                type="button"
+                                aria-label={`${localizedCategoryName} alt kategorileri`}
+                                aria-expanded={isExpanded}
+                                onClick={() =>
+                                  setExpandedMobileCategoryId((current) =>
+                                    current === category.id ? null : category.id,
+                                  )
+                                }
+                                className="mt-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/8 bg-white/[0.02] text-white/72 transition-colors hover:border-white/16 hover:text-white"
+                              >
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform ${
+                                    isExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <AnimatePresence initial={false}>
+                            {isExpanded && category.children.length > 0 ? (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                className="overflow-hidden"
+                              >
+                                <div className="space-y-2 pb-1 pl-1 pt-4">
+                                  {category.children.map((subcategory) => (
+                                    <Link
+                                      key={subcategory.id}
+                                      href={buildPath(ROUTES.category(subcategory.slug))}
+                                      className="block text-sm tracking-[0.01em] text-white/58 transition-all duration-300 hover:translate-x-1 hover:text-white"
+                                      onClick={() => setIsMenuOpen(false)}
+                                    >
+                                      {subcategory.name}
+                                    </Link>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            ) : null}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </nav>
                 </div>
-              ))}
-            </nav>
-          </div>
-          </div>
-        </div>
-      ) : null}
+
+                <div className="mt-6 border-t border-white/8 pt-5">
+                  <div className="grid grid-cols-3 gap-3 text-[10px] uppercase tracking-[0.22em] text-white/58">
+                    <Link
+                      href={accountHref}
+                      className="transition-colors hover:text-white"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {mobileMenuCopy.account}
+                    </Link>
+                    <button
+                      type="button"
+                      className="text-left transition-colors hover:text-white"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsSearchOpen(true);
+                      }}
+                    >
+                      {mobileMenuCopy.search}
+                    </button>
+                    <Link
+                      href={buildPath(ROUTES.contact)}
+                      className="text-right transition-colors hover:text-white"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {mobileMenuCopy.contact}
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
