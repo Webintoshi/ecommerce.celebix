@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             callbackPayload: event as unknown as Record<string, unknown>,
             callbackReceivedAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
-            errorMessage: event.type === "checkout.session.expired" ? "Stripe checkout oturumu sona erdi." : "Stripe odemesi basarisiz oldu.",
+            errorMessage: event.type === "checkout.session.expired" ? "Stripe checkout oturumu sona erdi." : "Stripe ödemesi başarısız oldu.",
         });
         await updatePaymentStatus(attempt.order_id, "failed");
         await updateOrderStatus(attempt.order_id, "cancelled");

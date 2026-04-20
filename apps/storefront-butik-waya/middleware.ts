@@ -157,7 +157,7 @@ function sameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginRequ
     return "Guvenlik dogrulamasi icin origin basligi gerekli.";
   }
 
-  return "Bu istek farkli bir origin uzerinden gonderilemez.";
+  return "Bu istek farklı bir origin üzerinden gönderilemez.";
 }
 
 async function handleBypassedRequest(request: NextRequest, pathname: string, ip: string) {
@@ -190,7 +190,7 @@ async function handleBypassedRequest(request: NextRequest, pathname: string, ip:
 
     if (!rateLimitResult.allowed) {
       const response = NextResponse.json(
-        { success: false, error: "Cok fazla istek. Lutfen biraz sonra tekrar deneyin." },
+        { success: false, error: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." },
         { status: 429 },
       );
       response.headers.set("Retry-After", "600");
@@ -231,7 +231,7 @@ export async function middleware(request: NextRequest) {
     });
 
     if (!rateLimitResult.allowed) {
-      return new NextResponse("Cok fazla istek. Lutfen daha sonra tekrar deneyin.", {
+      return new NextResponse("Çok fazla istek. Lütfen daha sonra tekrar deneyin.", {
         status: 429,
         headers: {
           "Retry-After": "60",

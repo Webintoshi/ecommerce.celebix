@@ -88,7 +88,7 @@ async function handleCallback(request: NextRequest) {
     });
 
     if (!isValid) {
-        return { error: "Craftgate callback dogrulamasi basarisiz.", status: 400 as const };
+        return { error: "Craftgate callback doğrulaması başarısız.", status: 400 as const };
     }
 
     await updatePaymentAttempt(attempt.id, {
@@ -102,7 +102,7 @@ async function handleCallback(request: NextRequest) {
         errorMessage: paymentStatus === "failed"
             ? (typeof payment.paymentError === "object" && payment.paymentError && "errorDescription" in payment.paymentError
                 ? String(payment.paymentError.errorDescription)
-                : "Craftgate odemesi basarisiz oldu.")
+                : "Craftgate ödemesi başarısız oldu.")
             : null,
     });
 

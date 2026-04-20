@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (!isValid) {
-            return NextResponse.json({ success: false, error: "Paynet callback dogrulamasi basarisiz." }, { status: 400 });
+            return NextResponse.json({ success: false, error: "Paynet callback doğrulaması başarısız." }, { status: 400 });
         }
 
         await updatePaymentAttempt(attempt.id, {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
             callbackPayload: payload,
             callbackReceivedAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
-            errorMessage: isSuccess ? null : "Paynet islemi basarisiz oldu.",
+            errorMessage: isSuccess ? null : "Paynet işlemi başarısız oldu.",
         });
 
         await updatePaymentStatus(attempt.order_id, isSuccess ? "completed" : "failed");

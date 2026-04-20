@@ -221,7 +221,7 @@ export function createAmazonTrAdapter(): MarketplaceProviderAdapter {
 
       return {
         success: true,
-        message: "Amazon TR baglanti testi basarili.",
+        message: "Amazon TR bağlantı testi başarılı.",
         providerStatusCode: response.metadata.status,
         latencyMs: response.metadata.latencyMs,
         raw: {

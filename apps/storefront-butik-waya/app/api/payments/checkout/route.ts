@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
         const gateway = await getActivePaymentGatewayById(body.paymentMethod);
         if (!gateway) {
-            return NextResponse.json({ success: false, error: "Secilen odeme yontemi aktif degil." }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Seçilen ödeme yöntemi aktif değil." }, { status: 404 });
         }
 
         const order = await createOrder({

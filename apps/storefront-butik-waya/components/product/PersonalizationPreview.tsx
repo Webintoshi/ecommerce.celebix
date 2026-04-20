@@ -234,7 +234,7 @@ export function PersonalizationPreview({
         <li className="flex gap-3">
           <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-900" />
           <span>
-            Urunlerin uzerinde belirtilen kazima alanina yazi / isim kazimasi
+            Ürünlerin üzerinde belirtilen kazıma alanına yazı / isim kazıması
             yapabiliriz. Kisisellestirme ornekleridir.
           </span>
         </li>

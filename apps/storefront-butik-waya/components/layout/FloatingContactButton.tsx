@@ -25,13 +25,13 @@ const CHANNEL_ICON_WRAPPER_STYLES: Record<FloatingContactChannelType, string> = 
 
 const BUTTON_WIDTH_CLASS = "w-[126px] sm:w-[148px]";
 const BUTTON_HEIGHT_CLASS = "h-12";
-const TOGGLE_LABEL = "\u0130leti\u015fim";
+const TOGGLE_LABEL = "?leti?im";
 const CHANNEL_PILL_CLASS =
   `inline-flex ${BUTTON_HEIGHT_CLASS} ${BUTTON_WIDTH_CLASS} items-center gap-2 rounded-full border border-[rgba(122,92,103,0.10)] bg-[linear-gradient(180deg,rgba(255,250,248,0.97),rgba(255,244,241,0.93))] px-2.5 text-[13px] font-medium text-[#2b2321] shadow-[0_20px_40px_-24px_rgba(98,58,80,0.22)] backdrop-blur-xl transition-all duration-300 hover:bg-[linear-gradient(180deg,rgba(255,252,250,0.99),rgba(255,247,244,0.96))]`;
 
 function getChannelLabel(type: FloatingContactChannelType, label?: string | null) {
   if (type === "instagram") {
-    return "\u0130nstagram";
+    return "İnstagram";
   }
 
   return label?.trim() || getFloatingContactDefaultLabel(type);
@@ -72,7 +72,7 @@ export function FloatingContactButton() {
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          aria-label="\u0130leti\u015fim se\u00e7eneklerini kapat"
+          aria-label="?leti?im se\u00e7eneklerini kapat"
           className="fixed inset-0 z-40 bg-[rgba(248,241,238,0.12)] backdrop-blur-[7px] transition-opacity duration-300"
         />
       ) : null}
@@ -128,8 +128,8 @@ export function FloatingContactButton() {
             aria-expanded={isOpen}
             aria-label={
               isOpen
-                ? "\u0130leti\u015fim se\u00e7eneklerini kapat"
-                : "\u0130leti\u015fim se\u00e7eneklerini a\u00e7"
+                ? "?leti?im se\u00e7eneklerini kapat"
+                : "?leti?im se\u00e7eneklerini a\u00e7"
             }
           >
             <span

@@ -28,13 +28,13 @@ export default function ResetPasswordPage() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Sifreler eslesmiyor");
+      setError("?ifreler e?le?miyor");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError("Sifre en az 6 karakter olmalidir");
+      setError("?ifre en az 6 karakter olmal?d?r");
       setLoading(false);
       return;
     }
@@ -64,10 +64,10 @@ export default function ResetPasswordPage() {
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Sifre Guncellendi
+            Şifre Güncellendi
           </h2>
           <p className="text-gray-600 mb-6">
-            Sifreniz basariyla degistirildi. Giris sayfasina yonlendiriliyorsunuz...
+            Şifreniz başarıyla değiştirildi. Giriş sayfasına yönlendiriliyorsunuz...
           </p>
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
         </motion.div>
@@ -107,11 +107,11 @@ export default function ResetPasswordPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Yeni Sifre Belirle
+              Yeni ?ifre Belirle
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
-            Yeni sifrenizi olusturun
+            Yeni ?ifrenizi olu?turun
           </p>
 
           {error && (
@@ -124,7 +124,7 @@ export default function ResetPasswordPage() {
             {/* New Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Yeni Sifre
+                Yeni ?ifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -150,7 +150,7 @@ export default function ResetPasswordPage() {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Sifre Tekrar
+                ?ifre Tekrar
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -160,7 +160,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="Sifrenizi tekrar girin"
+                  placeholder="?ifrenizi tekrar girin"
                 />
               </div>
             </div>
@@ -174,11 +174,11 @@ export default function ResetPasswordPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Guncelleniyor...
+                  Güncelleniyor...
                 </>
               ) : (
                 <>
-                  Sifremi Degistir
+                  ?ifremi De?i?tir
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -188,7 +188,7 @@ export default function ResetPasswordPage() {
           {/* Back to Login */}
           <div className="mt-6 text-center text-gray-600">
             <Link href="/giris" className="text-primary font-bold hover:underline">
-              Giris Sayfasina Don
+              Giriş Sayfasına Dön
             </Link>
           </div>
         </motion.div>
@@ -204,7 +204,7 @@ export default function ResetPasswordPage() {
             href="/" 
             className="text-sm text-gray-500 hover:text-primary transition-colors"
           >
-            Ana Sayfaya Don
+            Ana Sayfaya Dön
           </Link>
         </motion.div>
       </div>

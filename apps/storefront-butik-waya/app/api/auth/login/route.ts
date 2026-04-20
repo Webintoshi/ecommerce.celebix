@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const { email, password }: LoginBody = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
+      return NextResponse.json({ error: "E-posta ve şifre zorunludur." }, { status: 400 });
     }
 
     const publicClient = createPublicServerClient();
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
     if (error || !data.session) {
       return NextResponse.json(
-        { error: error?.message || "Giris yapilamadi." },
+        { error: error?.message || "Giriş yapılamadı." },
         { status: 400 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Giris yapilamadi.";
+    const message = error instanceof Error ? error.message : "Giriş yapılamadı.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

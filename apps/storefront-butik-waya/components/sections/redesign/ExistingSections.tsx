@@ -237,7 +237,7 @@ export function Newsletter() {
 
               <p className="mt-6 flex items-center justify-center gap-2 text-xs text-white/58 sm:text-sm">
                 <Shield className="h-4 w-4" />
-                Yalnizca yeni sezon ve ozel drop notlari.
+                Yalnızca yeni sezon ve özel drop notları.
               </p>
             </div>
           )}

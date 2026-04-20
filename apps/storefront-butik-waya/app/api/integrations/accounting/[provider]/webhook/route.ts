@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const { provider } = await params;
     if (!isAccountingProvider(provider)) {
-      return NextResponse.json({ success: false, error: "Gecersiz saglayici." }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Geçersiz sağlayıcı." }, { status: 404 });
     }
 
     const text = await request.text();

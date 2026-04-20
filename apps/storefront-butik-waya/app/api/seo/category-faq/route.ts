@@ -8,9 +8,17 @@ function extractJSON(text: string): any {
     return JSON.parse(text.trim());
   } catch (e) {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) { try { return JSON.parse(jsonMatch[1].trim()); } catch (e2) { } }
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[1].trim());
+      } catch (e2) {}
+    }
     const curlyMatch = text.match(/\{[\s\S]*\}/);
-    if (curlyMatch) { try { return JSON.parse(curlyMatch[0]); } catch (e3) { } }
+    if (curlyMatch) {
+      try {
+        return JSON.parse(curlyMatch[0]);
+      } catch (e3) {}
+    }
   }
   return null;
 }
@@ -24,30 +32,30 @@ async function callAIForJSON(prompt: string): Promise<any> {
 }
 
 function buildCategoryFAQPrompt(name: string, description?: string): string {
-  return `Sen Toshi - 15 yillik deneyimli bir E-ticaret icerik uzmanisin. Google FAQ rich snippet uzmanisisin.
+  return `Sen Toshi - 15 yıllık deneyimli bir e-ticaret içerik uzmanısın. Google FAQ rich snippet uzmanısısın.
 
-KATEGORI: ${name}
-${description ? `Aciklama: ${description}` : ''}
+KATEGORİ: ${name}
+${description ? `Açıklama: ${description}` : ""}
 
-GOREV: Bu KATEGORI icin Google'da sikca aranan, gercek kullanicilarin merak ettigi 3-5 adet FAQ (Soru-Cevap) olustur.
+GÖREV: Bu KATEGORİ için Google'da sıkça aranan, gerçek kullanıcıların merak ettiği 3-5 adet FAQ (Soru-Cevap) oluştur.
 
-KATEGORI OLDUGUNU UNUTMA! Bu bir urun degil, bir kategori/koleksiyon sayfasi.
+KATEGORİ OLDUĞUNU UNUTMA! Bu bir ürün değil, bir kategori/koleksiyon sayfası.
 
 KURALLAR:
-1. Sorular gercek musterilerin sordugu gibi olmali
-2. Cevaplar 1-2 cumle, oz ve net olmali
-3. Kesinlikle 3 ile 5 arasi soru olmali
-4. Sorular KATEGORIYE ozgu olmali (urun degil kategori odakli)
-5. Google FAQ schema uyumlu formatta olmali
+1. Sorular gerçek müşterilerin sorduğu gibi olmalı
+2. Cevaplar 1-2 cümle, öz ve net olmalı
+3. Kesinlikle 3 ile 5 arası soru olmalı
+4. Sorular kategoriye özgü olmalı
+5. Google FAQ schema uyumlu formatta olmalı
 
-KATEGORI ICIN ORNEK SORU TIPLERI:
-- Bu kategori nedir? Icerisinde ne tur urunler var?
-- Bu kategorideki urunler kimler icin uygundur?
+KATEGORİ İÇİN ÖRNEK SORU TİPLERİ:
+- Bu kategori nedir? İçerisinde ne tür ürünler var?
+- Bu kategorideki ürünler kimler için uygundur?
 - Bu kategori ile ilgili bilinmesi gerekenler nelerdir?
-- Hangi durumlarda bu kategoriden urun tercih edilmeli?
-- Bu kategorideki urunlerin ortak ozellikleri nelerdir?
+- Hangi durumlarda bu kategoriden ürün tercih edilmeli?
+- Bu kategorideki ürünlerin ortak özellikleri nelerdir?
 
-CIKTI FORMATI (SADECE JSON):
+ÇIKTI FORMATI (SADECE JSON):
 {
   "faq": [
     {"question": "Soru metni?", "answer": "Cevap metni."},
@@ -63,48 +71,56 @@ export async function POST(request: NextRequest) {
     const { name, description } = body;
 
     if (!name) {
-      return NextResponse.json({
-        success: false,
-        error: "Kategori adi zorunludur"
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Kategori adı zorunludur",
+        },
+        { status: 400 },
+      );
     }
 
     const prompt = buildCategoryFAQPrompt(name, description);
     const aiResponse = await callAIForJSON(prompt);
 
     if (!aiResponse.faq || !Array.isArray(aiResponse.faq) || aiResponse.faq.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "AI gecerli FAQ olusturamadi"
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI geçerli FAQ oluşturamadı",
+        },
+        { status: 500 },
+      );
     }
 
-    // Validate FAQ structure
-    const validFAQ = aiResponse.faq.filter((item: any) =>
-      item.question && item.answer &&
-      typeof item.question === 'string' &&
-      typeof item.answer === 'string'
+    const validFAQ = aiResponse.faq.filter(
+      (item: any) => item.question && item.answer && typeof item.question === "string" && typeof item.answer === "string",
     );
 
     if (validFAQ.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "AI gecerli FAQ formati dondurmedi"
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI geçerli FAQ formatı döndürmedi",
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
       success: true,
       faq: validFAQ,
-      source: "toshi_category_faq"
+      source: "toshi_category_faq",
     });
-
   } catch (error: any) {
     console.error("[Toshi Category FAQ] Error:", error);
 
-    return NextResponse.json({
-      success: false,
-      error: `Toshi FAQ olusturamiyor: ${error.message}`
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Toshi FAQ oluşturamıyor: ${error.message}`,
+      },
+      { status: 500 },
+    );
   }
 }

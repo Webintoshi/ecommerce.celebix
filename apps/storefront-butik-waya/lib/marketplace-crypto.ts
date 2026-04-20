@@ -5,7 +5,7 @@ const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 function getKeyBuffer() {
   const rawKey = (process.env.MARKETPLACE_CREDENTIALS_KEY || "").trim();
   if (!rawKey) {
-    throw new Error("MARKETPLACE_CREDENTIALS_KEY tanimli degil.");
+    throw new Error("MARKETPLACE_CREDENTIALS_KEY tanımlı değil.");
   }
 
   const base64Candidate = Buffer.from(rawKey, "base64");
@@ -35,7 +35,7 @@ export function decryptMarketplaceCredentials(encryptedPayload: string | null | 
 
   const parts = encryptedPayload.split(".");
   if (parts.length !== 3) {
-    throw new Error("Gecersiz sifreli pazaryeri payload formati.");
+    throw new Error("Geçersiz şifreli pazaryeri payload formatı.");
   }
 
   const [ivBase64, authTagBase64, cipherTextBase64] = parts;

@@ -13,13 +13,13 @@ function success(message: string, raw?: Record<string, unknown>): MarketplacePro
 export function createGoogleMerchantAdapter(): MarketplaceProviderAdapter {
   return {
     async connect(input) {
-      return success("Google Merchant feed baglantisi hazir.", {
+      return success("Google Merchant feed bağlantısı hazır.", {
         merchantId: input.credentials.merchantId || "",
       });
     },
 
     async testConnection(input) {
-      return success("Google Merchant feed baglantisi hazir.", {
+      return success("Google Merchant feed bağlantısı hazır.", {
         merchantId: input.credentials.merchantId || "",
       });
     },
@@ -53,7 +53,7 @@ export function createGoogleMerchantAdapter(): MarketplaceProviderAdapter {
     },
 
     normalizeError(error: unknown) {
-      return error instanceof Error ? error.message : "Google Merchant islemi basarisiz.";
+      return error instanceof Error ? error.message : "Google Merchant işlemi başarısız.";
     },
   };
 }

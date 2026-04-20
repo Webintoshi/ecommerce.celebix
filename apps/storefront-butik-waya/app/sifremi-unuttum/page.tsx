@@ -46,19 +46,19 @@ export default function ForgotPasswordPage() {
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            E-posta Gonderildi
+            E-posta Gönderildi
           </h2>
           <p className="text-gray-600 mb-2">
-            Sifre sifirlama linki e-posta adresinize gonderildi.
+            Şifre sıfırlama linki e-posta adresinize gönderildi.
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            Lutfen gelen kutunuzu kontrol edin ve linke tiklayarak sifrenizi sifirlayin.
+            Lütfen gelen kutunuzu kontrol edin ve linke tıklayarak şifrenizi sıfırlayın.
           </p>
           <Link
             href="/giris"
             className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
           >
-            Giris Sayfasina Git
+            Giriş Sayfasına Git
           </Link>
         </motion.div>
       </div>
@@ -97,11 +97,11 @@ export default function ForgotPasswordPage() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Sifremi Unuttum
+              ?ifremi Unuttum
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
-            E-posta adresinizi girin, sifre sifirlama linki gonderelim.
+            E-posta adresinizi girin, şifre sıfırlama linki gönderelim.
           </p>
 
           {error && (
@@ -138,11 +138,11 @@ export default function ForgotPasswordPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Gonderiliyor...
+                  Gönderiliyor...
                 </>
               ) : (
                 <>
-                  Sifirlama Linki Gonder
+                  Sıfırlama Linki Gönder
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -152,7 +152,7 @@ export default function ForgotPasswordPage() {
           {/* Back to Login */}
           <div className="mt-6 text-center text-gray-600">
             <Link href="/giris" className="text-primary font-bold hover:underline">
-              Giris Sayfasina Don
+              Giriş Sayfasına Dön
             </Link>
           </div>
         </motion.div>
@@ -168,7 +168,7 @@ export default function ForgotPasswordPage() {
             href="/" 
             className="text-sm text-gray-500 hover:text-primary transition-colors"
           >
-            Ana Sayfaya Don
+            Ana Sayfaya Dön
           </Link>
         </motion.div>
       </div>

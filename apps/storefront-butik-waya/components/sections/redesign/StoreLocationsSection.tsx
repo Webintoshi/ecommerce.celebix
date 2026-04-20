@@ -28,7 +28,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `hero-${index}-${imageIndex}`,
           src: image,
-          alt: banner.alt || `${storeName} vitrin gorunumu`,
+          alt: banner.alt || `${storeName} vitrin görünümü`,
           city: "Lookbook",
         })),
     ),
@@ -38,7 +38,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `promo-${index}-${imageIndex}`,
           src: image,
-          alt: banner.title || `${storeName} koleksiyon gorseli`,
+          alt: banner.title || `${storeName} koleksiyon g?rseli`,
           city: "Studio",
         })),
     ),
@@ -49,25 +49,25 @@ function buildGalleryImages({
   }
 
   return [
-    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak gorunum 1`, city: "Studio" },
-    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak gorunum 2`, city: "Wardrobe" },
-    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak gorunum 3`, city: "Atelier" },
-    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak gorunum 4`, city: "Preview" },
+    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak görünüm 1`, city: "Studio" },
+    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak görünüm 2`, city: "Wardrobe" },
+    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak görünüm 3`, city: "Atelier" },
+    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak görünüm 4`, city: "Preview" },
   ];
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Magaza Deneyimi",
-  heading = "Markanizi fiziksel temas noktalariyla guclendirin",
-  description = "Genel ayarlara girdiginiz iletisim ve adres verileri, bu alanda otomatik olarak premium bir sunuma donusur.",
-  linkLabel = "Magaza detaylarini gor",
+  eyebrow = "Ma?aza Deneyimi",
+  heading = "Markan?z? fiziksel temas noktalar?yla g??lendirin",
+  description = "Genel ayarlara girdiğiniz iletişim ve adres verileri, bu alanda otomatik olarak premium bir sunuma dönüşür.",
+  linkLabel = "Mağaza detaylarını gör",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi tanimlandiginda bu alan concierge notu olarak otomatik dolar.";
+  const address = storeInfo?.address || "Adres bilgisi tanımlandığında bu alan concierge notu olarak otomatik dolar.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
@@ -82,12 +82,12 @@ export function StoreLocationsSection({
       name: `${storeName} Studio`,
       summary:
         storeInfo?.address
-          ? `${storeName} icin girdiginiz adres ve gorsel bilgiler, butik ziyaretini guclendiren bir davet katmanina donusur.`
-          : `${storeName} icin adres ve servis detaylari girildiginde bu alan dogrudan studio davetine cevrilir.`,
+          ? `${storeName} için girdiğiniz adres ve görsel bilgiler, butik ziyaretini güçlendiren bir davet katmanına dönüşür.`
+          : `${storeName} için adres ve servis detayları girildiğinde bu alan doğrudan studio davetine çevrilir.`,
       hours: "Pzt - Cmt / 10:00 - 19:00",
       address,
       actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Haritada ac" : "Detayi ac",
+      actionLabel: storeInfo?.address ? "Haritada a?" : "Detay? a?",
       icon: <MapPin className="size-4" />,
     },
     {
@@ -95,11 +95,11 @@ export function StoreLocationsSection({
       badge: "Private Concierge",
       name: "Destek ve stil hatti",
       summary:
-        "Siparis yardimi, beden sorulari ve kurumsal talepler tek noktadan yanitlanir; telefon ve e-posta alanlari ayarlardan otomatik okunur.",
-      hours: "Hafta ici hizli geri donus",
+        "Sipariş yardımı, beden soruları ve kurumsal talepler tek noktadan yanıtlanır; telefon ve e-posta alanları ayarlardan otomatik okunur.",
+      hours: "Hafta içi hızlı geri dönüş",
       address: `${phone} / ${email}`,
       actionHref: `mailto:${email}`,
-      actionLabel: "Mail gonder",
+      actionLabel: "Mail gönder",
       icon: <Mail className="size-4" />,
     },
   ];

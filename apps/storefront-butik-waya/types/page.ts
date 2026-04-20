@@ -58,12 +58,7 @@ export interface PageSEOViewModel extends StaticPage {
 export function isValidPage(value: unknown): value is StaticPage {
   if (typeof value !== "object" || value === null) return false;
   const p = value as StaticPage;
-  return (
-    typeof p.id === "string" &&
-    typeof p.name === "string" &&
-    typeof p.slug === "string" &&
-    typeof p.schema_type === "string"
-  );
+  return typeof p.id === "string" && typeof p.name === "string" && typeof p.slug === "string" && typeof p.schema_type === "string";
 }
 
 function calculatePageScore(page: StaticPage): { score: number; issues: string[] } {
@@ -74,18 +69,18 @@ function calculatePageScore(page: StaticPage): { score: number; issues: string[]
   const desc = page.seo_description || "";
 
   if (!title) {
-    issues.push("Meta baslik eksik");
+    issues.push("Meta başlık eksik");
     score -= 25;
   } else if (title.length < 30 || title.length > 60) {
-    issues.push("Meta baslik uzunlugu ideal degil");
+    issues.push("Meta başlık uzunluğu ideal değil");
     score -= 10;
   }
 
   if (!desc) {
-    issues.push("Meta aciklama eksik");
+    issues.push("Meta açıklama eksik");
     score -= 25;
   } else if (desc.length < 120 || desc.length > 160) {
-    issues.push("Meta aciklama uzunlugu ideal degil");
+    issues.push("Meta açıklama uzunluğu ideal değil");
     score -= 10;
   }
 
@@ -134,8 +129,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     schema_type: "WebSite",
     icon: "Home",
     seo_title: `${STOREFRONT_RUNTIME.name} | Premium Mağaza Deneyimi`,
-    seo_description:
-      "Adminden yönetilen ürünler, kategoriler ve bannerlarla otomatik olarak güncellenen premium storefront deneyimi.",
+    seo_description: "Adminden yönetilen ürünler, kategoriler ve bannerlarla otomatik olarak güncellenen premium storefront deneyimi.",
     seo_keywords: ["premium storefront", "e-ticaret", "ürün vitrini", "celebix"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["WebSite", "Organization"] },
@@ -148,8 +142,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     schema_type: "CollectionPage",
     icon: "Package",
     seo_title: `Tüm Ürünler | ${STOREFRONT_RUNTIME.name}`,
-    seo_description:
-      "Yayındaki ürünleri, seçili koleksiyonları ve admin panelinden yönetilen premium vitrin bloklarını keşfedin.",
+    seo_description: "Yayındaki ürünleri, seçili koleksiyonları ve admin panelinden yönetilen premium vitrin bloklarını keşfedin.",
     seo_keywords: ["tüm ürünler", "koleksiyonlar", "premium vitrin"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["CollectionPage"] },
@@ -162,8 +155,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     schema_type: "ContactPage",
     icon: "Mail",
     seo_title: `İletişim | ${STOREFRONT_RUNTIME.name}`,
-    seo_description:
-      "Destek, toptan satış ve proje talepleriniz için markayla aynı gün bağlantı kurun.",
+    seo_description: "Destek, toptan satış ve proje talepleriniz için markayla aynı gün bağlantı kurun.",
     seo_keywords: ["iletişim", "destek", "teklif", "toptan satış"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["ContactPage"] },
@@ -176,8 +168,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     schema_type: "AboutPage",
     icon: "Info",
     seo_title: `Hakkımızda | ${STOREFRONT_RUNTIME.name}`,
-    seo_description:
-      "Marka profili, vitrin mantığı ve kurumsal iletişim detayları bu sayfada sunulur.",
+    seo_description: "Marka profili, vitrin mantığı ve kurumsal iletişim detayları bu sayfada sunulur.",
     seo_keywords: ["hakkımızda", "marka profili", "kurumsal mağaza"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["AboutPage"] },
@@ -190,8 +181,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     schema_type: "FAQPage",
     icon: "HelpCircle",
     seo_title: `Sıkça Sorulan Sorular | ${STOREFRONT_RUNTIME.name}`,
-    seo_description:
-      "Sipariş, kargo, iade ve kurumsal süreçlerle ilgili en çok sorulan soruların toplandığı yardım merkezi.",
+    seo_description: "Sipariş, kargo, iade ve kurumsal süreçlerle ilgili en çok sorulan soruların toplandığı yardım merkezi.",
     seo_keywords: ["sss", "yardım merkezi", "sipariş", "kargo", "iade"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["FAQPage"] },

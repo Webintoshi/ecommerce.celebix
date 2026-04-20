@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get("src");
 
   if (!source) {
-    return buildErrorResponse("Kaynak gorsel URL'si eksik.", 400);
+    return buildErrorResponse("Kaynak görsel URL'si eksik.", 400);
   }
 
   let targetUrl: URL;
@@ -53,15 +53,15 @@ export async function GET(request: NextRequest) {
   try {
     targetUrl = new URL(source);
   } catch {
-    return buildErrorResponse("Gecersiz gorsel URL'si.", 400);
+    return buildErrorResponse("Geçersiz görsel URL'si.", 400);
   }
 
   if (!["http:", "https:"].includes(targetUrl.protocol)) {
-    return buildErrorResponse("Yalnizca http ve https gorselleri desteklenir.", 400);
+    return buildErrorResponse("Yalnızca http ve https görselleri desteklenir.", 400);
   }
 
   if (!isAllowedStorefrontAssetHost(targetUrl.hostname)) {
-    return buildErrorResponse("Bu gorsel kaynagina izin verilmiyor.", 403);
+    return buildErrorResponse("Bu görsel kaynağına izin verilmiyor.", 403);
   }
 
   const r2Asset = await fetchCurrentStoreR2Asset(targetUrl.toString());
@@ -83,11 +83,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Asset proxy fetch failed:", error);
-    return buildErrorResponse("Gorsel kaynagina ulasilamadi.", 502);
+    return buildErrorResponse("Görsel kaynağına ulaşılamadı.", 502);
   }
 
   if (!upstreamResponse.ok || !upstreamResponse.body) {
-    return buildErrorResponse("Gorsel yuklenemedi.", upstreamResponse.status || 502);
+    return buildErrorResponse("Görsel yüklenemedi.", upstreamResponse.status || 502);
   }
 
   return buildAssetResponse({

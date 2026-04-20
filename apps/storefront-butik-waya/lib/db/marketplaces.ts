@@ -171,7 +171,7 @@ function extractProviderErrorCode(payload: Record<string, unknown>) {
 function extractProviderErrorContext(error: unknown) {
   const raw = toRecord((error as { responseBody?: unknown })?.responseBody);
   return {
-    message: error instanceof Error ? error.message : "Provider islemi basarisiz.",
+    message: error instanceof Error ? error.message : "Provider işlemi başarısız.",
     providerStatusCode: parseNumber((error as { status?: unknown })?.status, 0) || null,
     providerErrorCode: extractProviderErrorCode(raw),
     raw,
@@ -813,7 +813,7 @@ async function handleInventorySync(
   }
 
   if (!mapping) {
-    throw new Error("Marketplace listing eslesmesi olusturulamadi.");
+    throw new Error("Marketplace listing eşleşmesi oluşturulamadı.");
   }
 
   const syncResults = await adapter.updateInventory({
@@ -984,7 +984,7 @@ export async function listMarketplaceIntegrations(): Promise<MarketplaceIntegrat
 export async function saveMarketplaceConnection(provider: MarketplaceProvider, input: MarketplaceConnectionInput) {
   const definition = getMarketplaceProviderDefinition(provider);
   if (!definition) {
-    throw new Error("Gecersiz pazaryeri secimi.");
+    throw new Error("Geçersiz pazaryeri seçimi.");
   }
 
   const credentials = (input.credentials || {}) as Record<string, string>;
@@ -1068,11 +1068,11 @@ export async function saveMarketplaceConnection(provider: MarketplaceProvider, i
 
 export async function testMarketplaceConnection(provider: MarketplaceProvider) {
   const definition = getMarketplaceProviderDefinition(provider);
-  if (!definition) throw new Error("Gecersiz pazaryeri secimi.");
+  if (!definition) throw new Error("Geçersiz pazaryeri seçimi.");
 
   const connection = await getProviderConnectionRow(provider);
   if (!connection) {
-    throw new Error("Pazaryeri baglantisi bulunamadi.");
+    throw new Error("Pazaryeri bağlantısı bulunamadı.");
   }
 
   const credentials = decryptMarketplaceCredentials(connection.encrypted_credentials);
@@ -1193,7 +1193,7 @@ export async function listMarketplaceListings(provider: MarketplaceProvider, lim
     if (!variant.sku?.trim()) {
       issue = "SKU eksik";
     } else if (!listing?.external_listing_id) {
-      issue = "External listing baglantisi yok";
+      issue = "External listing bağlantısı yok";
     } else if (listing.status === "error") {
       issue = listing.last_error || "Son sync hatali";
     }
@@ -1267,7 +1267,7 @@ export async function processMarketplaceSyncQueue(options?: {
         .from("marketplace_sync_queue")
         .update({
           status: "manual_action_required",
-          last_error: "Aktif pazaryeri baglantisi bulunamadi.",
+          last_error: "Aktif pazaryeri bağlantısı bulunamadı.",
           attempt_count: MAX_RETRY_COUNT,
           next_retry_at: null,
         })
@@ -1281,7 +1281,7 @@ export async function processMarketplaceSyncQueue(options?: {
         entityType: row.entity_type,
         entityId: row.entity_id,
         status: "manual_action_required",
-        errorMessage: "Aktif pazaryeri baglantisi bulunamadi.",
+        errorMessage: "Aktif pazaryeri bağlantısı bulunamadı.",
       });
       continue;
     }
@@ -1415,7 +1415,7 @@ export async function pullOrdersForProvider(
 ) {
   const connection = await getProviderConnectionRow(provider);
   if (!connection || connection.status !== "active") {
-    throw new Error("Aktif pazaryeri baglantisi bulunamadi.");
+    throw new Error("Aktif pazaryeri bağlantısı bulunamadı.");
   }
 
   const credentials = decryptMarketplaceCredentials(connection.encrypted_credentials);
@@ -1697,7 +1697,7 @@ export async function verifyMarketplaceWebhook(
 ) {
   const definition = getMarketplaceProviderDefinition(provider);
   if (!definition) {
-    throw new Error("Gecersiz pazaryeri secimi.");
+    throw new Error("Geçersiz pazaryeri seçimi.");
   }
 
   if (!definition.supportsWebhook) {
@@ -1713,7 +1713,7 @@ export async function verifyMarketplaceWebhook(
     return {
       success: false,
       statusCode: 403 as const,
-      message: "Aktif provider baglantisi bulunamadi.",
+      message: "Aktif provider bağlantısı bulunamadı.",
     };
   }
 
@@ -1742,7 +1742,7 @@ export async function verifyMarketplaceWebhook(
     return {
       success: false,
       statusCode: 403,
-      message: error instanceof Error ? error.message : "Webhook dogrulamasi basarisiz.",
+      message: error instanceof Error ? error.message : "Webhook doğrulaması başarısız.",
     };
   }
 }
@@ -1758,7 +1758,7 @@ export async function recordMarketplaceWebhook(
 ) {
   const definition = getMarketplaceProviderDefinition(provider);
   if (!definition) {
-    throw new Error("Gecersiz pazaryeri secimi.");
+    throw new Error("Geçersiz pazaryeri seçimi.");
   }
 
   if (!definition.supportsWebhook) {

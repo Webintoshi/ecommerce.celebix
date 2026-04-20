@@ -183,7 +183,7 @@ export function createHepsiburadaAdapter(): MarketplaceProviderAdapter {
 
       return {
         success: true,
-        message: "Hepsiburada baglanti testi basarili.",
+        message: "Hepsiburada bağlantı testi başarılı.",
         latencyMs: response.metadata.latencyMs,
         providerStatusCode: response.metadata.status,
         raw: {
@@ -372,7 +372,7 @@ export function createHepsiburadaAdapter(): MarketplaceProviderAdapter {
         return {
           success: false,
           statusCode: 403,
-          message: "Webhook basic auth bilgisi tanimli degil.",
+          message: "Webhook basic auth bilgisi tanımlı değil.",
         };
       }
 

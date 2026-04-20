@@ -162,7 +162,7 @@ export function createN11Adapter(): MarketplaceProviderAdapter {
 
       return {
         success: true,
-        message: "N11 baglanti testi basarili.",
+        message: "N11 bağlantı testi başarılı.",
         providerStatusCode: response.metadata.status,
         latencyMs: response.metadata.latencyMs,
         raw: {

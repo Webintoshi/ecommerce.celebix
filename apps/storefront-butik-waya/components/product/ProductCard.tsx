@@ -99,7 +99,7 @@ export function ProductCard({
     <button
       type="button"
       onClick={handleWishlistToggle}
-      aria-label={isWishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
+      aria-label={isWishlisted ? "Favorilerden ??kar" : "Favorilere ekle"}
       className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-[rgba(255,255,255,0.88)] text-[#222222] shadow-[0_10px_24px_-18px_rgba(23,19,17,0.5)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:bg-white"
     >
       <Heart
@@ -163,7 +163,7 @@ export function ProductCard({
             </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm uppercase tracking-[0.14em] text-[#8f8177]">
-              Gorsel bekleniyor
+              Görsel bekleniyor
             </div>
           )}
         </div>

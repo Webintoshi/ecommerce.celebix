@@ -40,7 +40,7 @@ const ProductCard = React.lazy(() =>
 );
 
 const PDP_COPY = {
-  schemaLoadError: "Ekstra şeması yüklenemedi",
+  schemaLoadError: "Ekstra şema yüklenemedi",
   productInfoLoadError: "Ürün bilgisi yüklenemedi.",
   outOfStock: "Tükendi",
   inStock: "Stokta",

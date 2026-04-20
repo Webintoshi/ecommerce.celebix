@@ -10,11 +10,19 @@ function extractJSON(text: string): any {
   } catch (e) {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
-      try { return JSON.parse(jsonMatch[1].trim()); } catch (e2) { console.log("[Toshi] Code block parse failed"); }
+      try {
+        return JSON.parse(jsonMatch[1].trim());
+      } catch (e2) {
+        console.log("[Toshi] Code block parse failed");
+      }
     }
     const curlyMatch = text.match(/\{[\s\S]*\}/);
     if (curlyMatch) {
-      try { return JSON.parse(curlyMatch[0]); } catch (e3) { console.log("[Toshi] Curly brace extract failed"); }
+      try {
+        return JSON.parse(curlyMatch[0]);
+      } catch (e3) {
+        console.log("[Toshi] Curly brace extract failed");
+      }
     }
   }
   return null;
@@ -30,25 +38,25 @@ async function callAIForJSON(prompt: string): Promise<any> {
 
 function buildSEOPrompt(name: string, category?: string, description?: string): string {
   const brand = STOREFRONT_RUNTIME.name;
-  return `Sen Toshi - 15 yillik deneyimli bir E-ticaret SEO uzmanisin.
+  return `Sen Toshi - 15 yıllık deneyimli bir e-ticaret SEO uzmanısın.
 
-URUN: ${name}
-${category ? `Kategori: ${category}` : ''}
-${description ? `Aciklama: ${description}` : ''}
+ÜRÜN: ${name}
+${category ? `Kategori: ${category}` : ""}
+${description ? `Açıklama: ${description}` : ""}
 
-GOREV: Bu urun icin Google SERP'da en yuksek tiklanma orani saglayacak meta baslik ve aciklama olustur.
+GÖREV: Bu ürün için Google SERP'da en yüksek tıklanma oranı sağlayacak meta başlık ve açıklama oluştur.
 
 KURALLAR:
-1. Meta baslik: 50-60 karakter arasi (Google 60'ta keser)
-2. Meta aciklama: 150-160 karakter arasi (Google 160'ta keser)  
-3. Marka | ${brand} olarak SONDA olmali
-4. Urun neyse onu yaz: fistik ezmesi ise fistik, recel ise meyve
-5. Kesinlikle karakter limitlerini asma
+1. Meta başlık: 50-60 karakter arası
+2. Meta açıklama: 150-160 karakter arası
+3. Marka | ${brand} olarak sonda olmalı
+4. Ürün neyse onu yaz
+5. Kesinlikle karakter limitlerini aşma
 
-CIKTI FORMATI (SADECE JSON, baska hicbir sey yazma):
+ÇIKTI FORMATI (SADECE JSON, başka hiçbir şey yazma):
 {
-  "metaTitle": "50-60 karakter arasi baslik | ${brand}",
-  "metaDescription": "150-160 karakter arasi aciklama"
+  "metaTitle": "50-60 karakter arası başlık | ${brand}",
+  "metaDescription": "150-160 karakter arası açıklama"
 }`;
 }
 
@@ -58,10 +66,13 @@ export async function POST(request: NextRequest) {
     const { name, category, description } = body;
 
     if (!name) {
-      return NextResponse.json({
-        success: false,
-        error: "Urun adi zorunludur"
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Ürün adı zorunludur",
+        },
+        { status: 400 },
+      );
     }
 
     const prompt = buildSEOPrompt(name, category, description);
@@ -70,30 +81,34 @@ export async function POST(request: NextRequest) {
     let title = aiResponse.metaTitle || "";
     let desc = aiResponse.metaDescription || "";
 
-    // Hard limit enforcement
-    if (title.length > 60) title = title.substring(0, 57) + "...";
-    if (desc.length > 160) desc = desc.substring(0, 157) + "...";
+    if (title.length > 60) title = `${title.substring(0, 57)}...`;
+    if (desc.length > 160) desc = `${desc.substring(0, 157)}...`;
 
     if (!title || !desc) {
-      return NextResponse.json({
-        success: false,
-        error: "AI yaniti eksik"
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI yanıtı eksik",
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
       success: true,
       metaTitle: title,
       metaDescription: desc,
-      source: "toshi_ai"
+      source: "toshi_ai",
     });
-
   } catch (error: any) {
     console.error("[Toshi] Error:", error);
 
-    return NextResponse.json({
-      success: false,
-      error: `Toshi calisamiyor: ${error.message}`
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Toshi çalışamıyor: ${error.message}`,
+      },
+      { status: 500 },
+    );
   }
 }

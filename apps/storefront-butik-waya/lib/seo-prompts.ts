@@ -13,33 +13,23 @@ export interface ProductSEOContext {
 }
 
 export function buildSEOPrompt(context: ProductSEOContext): string {
-  const {
-    name,
-    description,
-    shortDescription,
-    category,
-    tags = [],
-    features = [],
-    brand = STOREFRONT_RUNTIME.name,
-  } = context;
+  const { name, description, shortDescription, category, tags = [], features = [], brand = STOREFRONT_RUNTIME.name } = context;
 
-  const fullDescription = [name, shortDescription, description, ...tags, ...features]
-    .filter(Boolean)
-    .join(". ");
+  const fullDescription = [name, shortDescription, description, ...tags, ...features].filter(Boolean).join(". ");
 
   return `
-Sen deneyimli bir e-ticaret SEO uzmansin. Asagidaki urun icin meta baslik ve aciklama olustur.
+Sen deneyimli bir e-ticaret SEO uzmanısın. Aşağıdaki ürün için meta başlık ve açıklama oluştur.
 
-URUN: ${name}
+ÜRÜN: ${name}
 ${category ? `Kategori: ${category}` : ""}
-Aciklama: ${fullDescription}
+Açıklama: ${fullDescription}
 Marka: ${brand}
 
 KURALLAR:
-- Meta baslik 50-60 karakter olmali ve marka sonda "| ${brand}" olarak yer almali.
-- Meta aciklama 150-160 karakter olmali ve net bir CTA icermeli.
-- Turkce karakterleri dogru kullan.
-- Sadece JSON don.
+- Meta başlık 50-60 karakter olmalı ve marka sonda "| ${brand}" olarak yer almalı.
+- Meta açıklama 150-160 karakter olmalı ve net bir CTA içermeli.
+- Türkçe karakterleri doğru kullan.
+- Sadece JSON dön.
 
 JSON:
 \`\`\`json
@@ -64,24 +54,20 @@ JSON:
 `;
 }
 
-export function buildCategorySEOPrompt(
-  name: string,
-  description?: string | null,
-  products?: string[],
-) {
+export function buildCategorySEOPrompt(name: string, description?: string | null, products?: string[]) {
   return `
-Sen bir kategori SEO uzmansin.
+Sen bir kategori SEO uzmanısın.
 
-KATEGORI: ${name}
-${description ? `ACIKLAMA: ${description}` : ""}
-${products && products.length > 0 ? `ORNEK URUNLER: ${products.slice(0, 5).join(", ")}` : ""}
+KATEGORİ: ${name}
+${description ? `AÇIKLAMA: ${description}` : ""}
+${products && products.length > 0 ? `ÖRNEK ÜRÜNLER: ${products.slice(0, 5).join(", ")}` : ""}
 
-GOREV:
-1. CollectionPage uyumlu meta baslik
-2. Meta aciklama
+GÖREV:
+1. CollectionPage uyumlu meta başlık
+2. Meta açıklama
 3. Hedef anahtar kelimeler
 
-CIKTI:
+ÇIKTI:
 \`\`\`json
 {
   "metaTitle": "",
@@ -95,23 +81,23 @@ CIKTI:
 
 export function buildPageSEOPrompt(pageName: string, pageType: string, description?: string) {
   const typeGuidance: Record<string, string> = {
-    WebSite: "Ana sayfa icin marka ve teklif netligi uret.",
-    ContactPage: "Iletisim sayfasi icin guven ve erisilebilirlik vurgusu yap.",
-    AboutPage: "Marka hikayesi ve deger onerisini one cikar.",
-    FAQPage: "Soru-cevap odakli acik ve net bir dil kullan.",
-    CollectionPage: "Kategori niyeti ve urun grubunu kuvvetlendir.",
+    WebSite: "Ana sayfa için marka ve teklif netliği üret.",
+    ContactPage: "İletişim sayfası için güven ve erişilebilirlik vurgusu yap.",
+    AboutPage: "Marka hikâyesi ve değer önerisini öne çıkar.",
+    FAQPage: "Soru-cevap odaklı açık ve net bir dil kullan.",
+    CollectionPage: "Kategori niyeti ve ürün grubunu kuvvetlendir.",
   };
 
   return `
-Sen bir statik sayfa SEO uzmansin.
+Sen bir statik sayfa SEO uzmanısın.
 
 SAYFA: ${pageName}
-TIP: ${pageType}
-${description ? `MEVCUT ACIKLAMA: ${description}` : ""}
+TİP: ${pageType}
+${description ? `MEVCUT AÇIKLAMA: ${description}` : ""}
 
-REHBER: ${typeGuidance[pageType] || "Genel SEO kurallari"}
+REHBER: ${typeGuidance[pageType] || "Genel SEO kuralları"}
 
-CIKTI:
+ÇIKTI:
 \`\`\`json
 {
   "metaTitle": "",
@@ -129,20 +115,18 @@ export function generateFallbackSEO(productName: string, category?: string) {
 
   const templates: Record<string, (name: string) => { title: string; desc: string; keywords: string[] }> = {
     default: (name) => ({
-      title: `${name} | Premium Secim | ${brand}`,
-      desc: `${name} icin guclu urun sayfasi, guven veren aciklama ve hizli siparis akisi ${brand} ile hazir.`,
-      keywords: [name.toLowerCase(), `${name} fiyat`, `${name} satin al`],
+      title: `${name} | Premium Seçim | ${brand}`,
+      desc: `${name} için güçlü ürün sayfası, güven veren açıklama ve hızlı sipariş akışı ${brand} ile hazır.`,
+      keywords: [name.toLowerCase(), `${name} fiyat`, `${name} satın al`],
     }),
     accessory: (name) => ({
-      title: `${name} | Zamansiz Tasarim | ${brand}`,
-      desc: `${name} icin kaliteli malzeme, guclu sunum ve hizli siparis akisi. Koleksiyonu ${brand} uzerinden inceleyin.`,
-      keywords: [name.toLowerCase(), `${name} tasarim`, `${name} koleksiyon`],
+      title: `${name} | Zamansız Tasarım | ${brand}`,
+      desc: `${name} için kaliteli malzeme, güçlü sunum ve hızlı sipariş akışı. Koleksiyonu ${brand} üzerinden inceleyin.`,
+      keywords: [name.toLowerCase(), `${name} tasarım`, `${name} koleksiyon`],
     }),
   };
 
-  const categoryKey = /aksesuar|canta|saat|kartlik|kayis|deri/.test(normalizedCategory)
-    ? "accessory"
-    : "default";
+  const categoryKey = /aksesuar|canta|saat|kartlik|kayis|deri/.test(normalizedCategory) ? "accessory" : "default";
 
   return {
     metaTitle: templates[categoryKey](productName).title,

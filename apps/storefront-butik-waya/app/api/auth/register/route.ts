@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const { email, password, metadata }: RegisterBody = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
+      return NextResponse.json({ error: "E-posta ve şifre zorunludur." }, { status: 400 });
     }
 
     const supabase = createServerClient();
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (error) {
       const normalizedMessage = error.message.toLowerCase();
       if (normalizedMessage.includes("already") || normalizedMessage.includes("registered")) {
-        return NextResponse.json({ error: "Bu e-posta adresi zaten kayitli." }, { status: 409 });
+        return NextResponse.json({ error: "Bu e-posta adresi zaten kayıtlı." }, { status: 409 });
       }
 
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ user: data.user }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Kayit olusturulamadi.";
+    const message = error instanceof Error ? error.message : "Kayıt oluşturulamadı.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

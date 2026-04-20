@@ -243,7 +243,7 @@ export async function listAccountingIntegrations(): Promise<AccountingIntegratio
 export async function saveAccountingConnection(provider: AccountingProvider, input: AccountingConnectionInput) {
   const definition = getAccountingProviderDefinition(provider);
   if (!definition) {
-    throw new Error("Gecersiz saglayici secimi.");
+    throw new Error("Geçersiz sağlayıcı seçimi.");
   }
 
   const missingField = definition.credentialFields.find(
@@ -301,11 +301,11 @@ export async function saveAccountingConnection(provider: AccountingProvider, inp
 
 export async function testAccountingConnection(provider: AccountingProvider) {
   const definition = getAccountingProviderDefinition(provider);
-  if (!definition) throw new Error("Gecersiz saglayici.");
+  if (!definition) throw new Error("Geçersiz sağlayıcı.");
 
   const connection = await getProviderConnectionRow(provider);
   if (!connection) {
-    throw new Error("Saglayici baglantisi bulunamadi.");
+    throw new Error("Sağlayıcı bağlantısı bulunamadı.");
   }
 
   const credentials = decryptAccountingCredentials(connection.encrypted_credentials);
@@ -480,7 +480,7 @@ export async function processAccountingInvoiceQueue(options?: {
         .from("accounting_invoice_queue")
         .update({
           status: "manual_action_required",
-          last_error: "Aktif saglayici baglantisi bulunamadi.",
+          last_error: "Aktif sağlayıcı bağlantısı bulunamadı.",
           attempt_count: MAX_RETRY_COUNT,
           next_retry_at: null,
         })
@@ -492,7 +492,7 @@ export async function processAccountingInvoiceQueue(options?: {
         entityType: "invoice",
         entityId: row.order_id,
         status: "manual_action_required",
-        errorMessage: "Aktif saglayici baglantisi bulunamadi.",
+        errorMessage: "Aktif sağlayıcı bağlantısı bulunamadı.",
       });
       continue;
     }

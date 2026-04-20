@@ -20,8 +20,8 @@ function ProductsPageContent({ initialProducts }: Pick<ProductsPageClientProps, 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <ProductListingExperience
             products={initialProducts}
-            emptyTitle="Vitrin hazir"
-            emptyDescription="Adminde yayinlanan ilk urunler geldigi anda bu alan Butik Waya kartlariyla otomatik olarak dolar."
+            emptyTitle="Vitrin hazır"
+            emptyDescription="Adminde yayınlanan ilk ürünler geldiği anda bu alan Butik Waya kartlarıyla otomatik olarak dolar."
             chipMode="categories"
             minimalCopy
           />

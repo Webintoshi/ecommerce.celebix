@@ -46,7 +46,7 @@ export default function Error({
             Bir Hata Olustu
           </h1>
           <p className="mb-8 text-lg text-gray-600">
-            Uzgunuz, bir seyler ters gitti. Lutfen sayfayi yenilemeyi deneyin veya
+            Üzgünüz, bir şeyler ters gitti. Lütfen sayfayı yenilemeyi deneyin veya
             ana sayfaya donun.
           </p>
 
@@ -69,7 +69,7 @@ export default function Error({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
             >
               <Home className="h-5 w-5" />
-              Ana Sayfaya Don
+              Ana Sayfaya Dön
             </Link>
           </div>
 

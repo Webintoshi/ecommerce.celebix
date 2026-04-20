@@ -59,11 +59,11 @@ export function Footer() {
     }
 
     return {
-      eyebrow: "B\u00fclten",
+      eyebrow: "B?lten",
       placeholder: "E-posta adresiniz",
-      action: "Kat\u0131l",
-      success: "E-posta tasla\u011f\u0131n\u0131z a\u00e7\u0131l\u0131yor.",
-      error: "L\u00fctfen ge\u00e7erli bir e-posta adresi girin.",
+      action: "Kat?l",
+      success: "E-posta taslağınız açılıyor.",
+      error: "L?tfen ge?erli bir e-posta adresi girin.",
     };
   }, [locale]);
 
@@ -144,11 +144,11 @@ export function Footer() {
     }
 
     const subject =
-      locale === "en" ? "Newsletter subscription" : "B\u00fclten aboneli\u011fi";
+      locale === "en" ? "Newsletter subscription" : "B?lten aboneli\u011fi";
     const body =
       locale === "en"
         ? `Hello,\n\nI would like to join the ${storeInfo?.name || SITE_NAME} newsletter with this email address:\n${email}\n`
-        : `Merhaba,\n\n${storeInfo?.name || SITE_NAME} b\u00fcltenine \u015fu e-posta adresiyle kat\u0131lmak istiyorum:\n${email}\n`;
+        : `Merhaba,\n\n${storeInfo?.name || SITE_NAME} b?ltenine ?u e-posta adresiyle kat?lmak istiyorum:\n${email}\n`;
 
     window.location.href = `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     setNewsletterState("success");
@@ -247,7 +247,7 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/60 transition-colors hover:border-white/28 hover:text-white"
-                aria-label="\u0130nstagram"
+                aria-label="İnstagram"
               >
                 <Instagram className="h-4 w-4" />
               </a>

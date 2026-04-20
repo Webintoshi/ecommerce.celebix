@@ -94,7 +94,7 @@ export function CaptchaProtection({ onVerify, error }: CaptchaProtectionProps) {
       {/* Status */}
       {error && !isVerified && (
         <p className="text-sm text-red-600">
-          Lutfen bot koruma islemini dogru tamamlayin.
+          Lütfen bot koruma işlemini doğru tamamlayın.
         </p>
       )}
 
@@ -103,7 +103,7 @@ export function CaptchaProtection({ onVerify, error }: CaptchaProtectionProps) {
           <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
             <Check className="w-3 h-3 text-white" />
           </div>
-          <span className="font-medium">Dogrulama basarili</span>
+          <span className="font-medium">Doğrulama başarılı</span>
         </div>
       )}
 

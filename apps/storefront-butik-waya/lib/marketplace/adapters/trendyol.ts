@@ -176,7 +176,7 @@ export function createTrendyolAdapter(): MarketplaceProviderAdapter {
 
       return {
         success: true,
-        message: "Trendyol baglanti testi basarili.",
+        message: "Trendyol bağlantı testi başarılı.",
         latencyMs: response.metadata.latencyMs,
         providerStatusCode: response.metadata.status,
         raw: {
@@ -399,7 +399,7 @@ export function createTrendyolAdapter(): MarketplaceProviderAdapter {
       return {
         success: false,
         statusCode: 403,
-        message: "Webhook dogrulama gizlisi tanimli degil.",
+        message: "Webhook doğrulama gizlisi tanımlı değil.",
       };
     },
 

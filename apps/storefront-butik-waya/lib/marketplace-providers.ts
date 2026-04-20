@@ -55,9 +55,9 @@ export const MARKETPLACE_PROVIDER_DEFINITIONS: MarketplaceProviderDefinition[] =
     supportsWebhook: true,
     credentialFields: [
       { key: "merchantId", label: "Merchant ID", required: true },
-      { key: "integrationUsername", label: "Entegrator kullanici adi", required: true },
+      { key: "integrationUsername", label: "Entegratör kullanıcı adı", required: true },
       { key: "serviceKey", label: "Service Key", required: true, type: "password" },
-      { key: "webhookUsername", label: "Webhook kullanici adi", required: false },
+      { key: "webhookUsername", label: "Webhook kullanıcı adı", required: false },
       { key: "webhookPassword", label: "Webhook sifresi", required: false, type: "password" },
     ],
     mappingFields: [
@@ -107,7 +107,7 @@ export const MARKETPLACE_PROVIDER_DEFINITIONS: MarketplaceProviderDefinition[] =
       { key: "marketplaceId", label: "Marketplace ID", placeholder: "A33AVAJ2PDY3EV" },
     ],
     mappingFields: [
-      { key: "fulfillmentLatency", label: "Hazirlama suresi" },
+      { key: "fulfillmentLatency", label: "Hazırlama süresi" },
       { key: "merchantShippingGroup", label: "Shipping group" },
       { key: "baseUrl", label: "API Base URL", placeholder: "https://sellingpartnerapi-eu.amazon.com" },
     ],

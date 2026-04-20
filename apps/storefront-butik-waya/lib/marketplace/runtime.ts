@@ -149,7 +149,7 @@ export async function sendProviderRequest<T = unknown>(
           continue;
         }
 
-        let message = `Provider istegi basarisiz: ${status}`;
+        let message = `Provider isteği başarısız: ${status}`;
         if (body && typeof body === "object") {
           const candidate = (body as Record<string, unknown>).message;
           if (typeof candidate === "string" && candidate.trim()) {

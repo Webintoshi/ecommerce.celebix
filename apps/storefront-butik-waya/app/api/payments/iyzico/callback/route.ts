@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
             callbackReceivedAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
             errorCode: success ? null : (typeof result.errorCode === "string" ? result.errorCode : null),
-            errorMessage: success ? null : (typeof result.errorMessage === "string" ? result.errorMessage : "Odeme basarisiz."),
+            errorMessage: success ? null : (typeof result.errorMessage === "string" ? result.errorMessage : "Ödeme başarısız."),
         });
 
         await updatePaymentStatus(attempt.order_id, success ? "completed" : "failed");
