@@ -225,24 +225,6 @@ export default function CategoryManager() {
     loadCategories();
   }, [loadCategories]);
 
-  useEffect(() => {
-    if (featuredCategories.length === 0) {
-      return;
-    }
-
-    setExpandedIds((current) => {
-      const next = new Set(current);
-
-      featuredCategories.forEach((category) => {
-        buildCategoryAncestorIdChain(category, categoryById).forEach((ancestorId) => {
-          next.add(ancestorId);
-        });
-      });
-
-      return next;
-    });
-  }, [categoryById, featuredCategories]);
-
   const buildTree = (cats: CategoryInfo[], parentId: string | null = null): CategoryInfo[] => {
     return cats
       .filter((c) => c.parent_id === parentId)
@@ -282,6 +264,24 @@ export default function CategoryManager() {
           cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : tree;
+
+  useEffect(() => {
+    if (featuredCategories.length === 0) {
+      return;
+    }
+
+    setExpandedIds((current) => {
+      const next = new Set(current);
+
+      featuredCategories.forEach((category) => {
+        buildCategoryAncestorIdChain(category, categoryById).forEach((ancestorId) => {
+          next.add(ancestorId);
+        });
+      });
+
+      return next;
+    });
+  }, [categoryById, featuredCategories]);
 
   const sortHomepageFeaturedSlugs = (slugs: string[]) =>
     [...new Set(slugs)]
