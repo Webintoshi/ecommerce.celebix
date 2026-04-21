@@ -255,7 +255,7 @@ above-the-fold {
 
 @media (max-width: 767px) {
   html {
-    font-size: 15.75px;
+    font-size: 16.5px;
   }
 
   body {
@@ -263,6 +263,6 @@ above-the-fold {
   }
 
   .clean-input {
-    @apply rounded-[1.35rem] px-4 py-3 text-[0.95rem];
+    @apply rounded-[1.45rem] px-[1.125rem] py-[0.85rem] text-base;
   }
 }

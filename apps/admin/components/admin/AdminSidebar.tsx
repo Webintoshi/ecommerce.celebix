@@ -308,12 +308,12 @@ export function AdminSidebar({
         className={cn(
           "bg-[#eee5dc] border-l border-[#e6d7c8] flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
           isMobile
-            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(22rem,92vw)] right-0 left-auto`
+            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(24rem,94vw)] right-0 left-auto`
             : "w-56 shrink-0 xl:w-[15rem] 2xl:w-64",
         )}
       >
-        <div className="flex items-center gap-3 border-b border-[#e6d7c8] p-3.5 xl:px-4 2xl:px-5">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[18px] bg-white shadow-sm ring-1 ring-black/5">
+        <div className="flex items-center gap-3.5 border-b border-[#e6d7c8] p-4 xl:px-4.5 2xl:px-5">
+          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-[20px] bg-white shadow-sm ring-1 ring-black/5">
             <Image
               src={ADMIN_BRAND_LOGO_SRC}
               alt="Celebi X"
@@ -325,22 +325,22 @@ export function AdminSidebar({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="block break-words text-sm font-semibold leading-snug text-gray-900">
+            <span className="block break-words text-[15px] font-semibold leading-snug text-gray-900">
               {STORE_RUNTIME.name} Admin
             </span>
-            <span className="text-xs text-gray-500 font-medium truncate block">
+            <span className="block truncate text-[13px] font-medium text-gray-500">
               {userName || userEmail || "Admin Kullanıcı"}
             </span>
           </div>
         </div>
 
         {!role && !isRecoveringProfile ? (
-          <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          <div className="mx-4 mt-4 rounded-[1.2rem] border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] font-medium leading-5 text-amber-800">
             Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
           </div>
         ) : null}
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3.5">
           {filteredItems.map((item) => {
             const hasSubmenu = Boolean(item.submenu?.length);
             const isActive =
@@ -353,7 +353,7 @@ export function AdminSidebar({
               <div key={item.title}>
                 <div
                   className={cn(
-                    "group flex items-center justify-between rounded-2xl px-3 py-2.5 cursor-pointer transition-colors text-sm font-medium select-none",
+                    "group flex items-center justify-between rounded-[1.35rem] px-3.5 py-3 cursor-pointer select-none text-[15px] font-medium transition-colors",
                     isActive || isSubmenuActive
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900",
@@ -364,27 +364,31 @@ export function AdminSidebar({
                     }
                   }}
                 >
-                    <Link href={item.href} onClick={handleLinkClick} className="flex min-w-0 flex-1 items-center gap-3">
-                      <item.icon className="w-5 h-5 opacity-70" />
+                    <Link href={item.href} onClick={handleLinkClick} className="flex min-w-0 flex-1 items-center gap-3.5">
+                      <item.icon className="h-[1.35rem] w-[1.35rem] opacity-75" />
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
                     </Link>
 
                   <div className="flex items-center gap-2">
                     {item.badge ? (
-                      <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">
                         {item.badge}
                       </span>
                     ) : null}
                     {hasSubmenu ? (
                       <div className="text-gray-400">
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {isExpanded ? (
+                          <ChevronDown className="h-[1.05rem] w-[1.05rem]" />
+                        ) : (
+                          <ChevronRight className="h-[1.05rem] w-[1.05rem]" />
+                        )}
                       </div>
                     ) : null}
                   </div>
                 </div>
 
                 {hasSubmenu && isExpanded && (
-                  <div className="mt-1 ml-8 space-y-0.5">
+                  <div className="mt-1.5 ml-9 space-y-1">
                     {item.submenu?.map((sub) => {
                       const isSubActive = pathname === sub.href;
                       return (
@@ -393,7 +397,7 @@ export function AdminSidebar({
                           href={sub.href}
                           onClick={handleLinkClick}
                           className={cn(
-                            "block rounded-xl px-3 py-2 text-[13px] leading-5 transition-colors break-words",
+                            "block break-words rounded-[1rem] px-3.5 py-2.5 text-[14px] font-medium leading-5 transition-colors",
                             isSubActive
                               ? "text-gray-900 font-medium bg-gray-200/50"
                               : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",
@@ -410,22 +414,22 @@ export function AdminSidebar({
           })}
         </nav>
 
-        <div className="border-t border-[#e6d7c8] p-3.5 space-y-2">
+        <div className="space-y-2.5 border-t border-[#e6d7c8] p-4">
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition-colors min-h-[44px]"
+            className="flex min-h-[48px] w-full items-center gap-3.5 rounded-[1.25rem] px-3.5 py-3 text-[15px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
           >
-            <LogOut className="w-5 h-5 opacity-70" />
+            <LogOut className="h-[1.35rem] w-[1.35rem] opacity-75" />
             <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
           </button>
           <Link
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 text-sm font-medium transition-colors min-h-[44px]"
+            className="flex min-h-[48px] items-center gap-3.5 rounded-[1.25rem] px-3.5 py-3 text-[15px] font-medium text-gray-600 transition-colors hover:bg-gray-200/50 hover:text-gray-900"
           >
-            <Store className="w-5 h-5 opacity-70" />
+            <Store className="h-[1.35rem] w-[1.35rem] opacity-75" />
             <span>Siteye Dön</span>
           </Link>
         </div>

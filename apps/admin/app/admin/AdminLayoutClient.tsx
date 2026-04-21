@@ -125,17 +125,17 @@ export default function AdminLayoutClient({
       </AdminClientBoundary>
 
       <main className="h-screen min-w-0 flex-1 overflow-y-auto">
-        <div className="px-4 py-4 pb-28 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
-          <div className="sticky top-0 z-30 mb-5 rounded-[25px] border border-[#f3d8c1] bg-[rgba(255,250,245,0.92)] px-4 py-3.5 shadow-[0_16px_38px_rgba(112,73,44,0.12)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
+        <div className="px-4 py-[1.125rem] pb-28 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
+          <div className="sticky top-0 z-30 mb-5 rounded-[25px] border border-[#f3d8c1] bg-[rgba(255,250,245,0.92)] px-4 py-4 shadow-[0_16px_38px_rgba(112,73,44,0.12)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d95a08] md:text-[11px]">
+                <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08] md:text-[11px]">
                   Celebix Admin
                 </div>
-                <h1 className="mt-2.5 truncate text-[1.65rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-2xl">
+                <h1 className="mt-3 truncate text-[1.82rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-2xl">
                   {shellMeta.title}
                 </h1>
-                <p className="mt-1.5 max-w-2xl text-[0.95rem] leading-6 text-[#6f6258] md:text-sm">
+                <p className="mt-2 max-w-2xl text-[1rem] leading-6 text-[#6f6258] md:text-sm">
                   {shellMeta.subtitle}
                 </p>
               </div>
@@ -159,37 +159,37 @@ export default function AdminLayoutClient({
       </main>
 
       {isMobile ? (
-        <div className="safe-area-bottom fixed bottom-3 left-1/2 z-50 w-[calc(100%-1rem)] max-w-[34rem] -translate-x-1/2 rounded-[30px] border border-[#f1d8c3] bg-[rgba(255,249,243,0.95)] px-2.5 py-2.5 shadow-[0_20px_44px_rgba(92,56,30,0.18)] backdrop-blur-2xl md:hidden">
-          <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-center gap-1.5">
+        <div className="safe-area-bottom fixed bottom-3 left-1/2 z-50 w-[calc(100%-1rem)] max-w-[34rem] -translate-x-1/2 rounded-[32px] border border-[#f1d8c3] bg-[rgba(255,249,243,0.97)] px-3 py-3 shadow-[0_20px_44px_rgba(92,56,30,0.18)] backdrop-blur-2xl md:hidden">
+          <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-center gap-2">
             <button
               onClick={handleBack}
-              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="text-[11px] font-medium tracking-[0.01em]">Geri</span>
+              <ArrowLeft className="h-[1.4rem] w-[1.4rem]" />
+              <span className="text-[12px] font-semibold tracking-[0.01em]">Geri</span>
             </button>
 
             <button
               onClick={handleHome}
-              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] bg-[#fff1e7] px-2 py-2.5 text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.1)] transition-all hover:bg-[#ffe8d8] active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] bg-[#fff1e7] px-2 py-3 text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.1)] transition-all hover:bg-[#ffe8d8] active:scale-95"
             >
-              <Home className="h-5 w-5" />
-              <span className="text-[11px] font-semibold tracking-[0.01em]">Ana Sayfa</span>
+              <Home className="h-[1.4rem] w-[1.4rem]" />
+              <span className="text-[12px] font-semibold tracking-[0.01em]">Ana Sayfa</span>
             </button>
 
             <button
               onClick={() => setIsToshiOpen((current) => !current)}
               aria-label="Toshi AI Asistanı"
-              className="relative flex h-[66px] w-[66px] items-center justify-center rounded-[24px] border border-[#ffc89f] bg-gradient-to-br from-[#FE6100] via-[#ff7d2c] to-[#ff9350] text-white shadow-[0_18px_32px_rgba(254,97,0,0.34)] transition-all active:scale-95"
+              className="relative flex h-[70px] w-[70px] items-center justify-center rounded-[26px] border border-[#ffc89f] bg-gradient-to-br from-[#FE6100] via-[#ff7d2c] to-[#ff9350] text-white shadow-[0_18px_32px_rgba(254,97,0,0.34)] transition-all active:scale-95"
             >
               <span className="sr-only">Toshi</span>
-              <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-white/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-sm">
+              <span className="flex h-12 w-12 items-center justify-center rounded-[19px] bg-white/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-sm">
                 <Image
                   src={ADMIN_BRAND_LOGO_SRC}
                   alt="Celebix X"
                   width={24}
                   height={24}
-                  className="h-6 w-6 drop-shadow-[0_2px_8px_rgba(255,255,255,0.22)]"
+                  className="h-[1.65rem] w-[1.65rem] drop-shadow-[0_2px_8px_rgba(255,255,255,0.22)]"
                 />
               </span>
               {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
@@ -201,17 +201,17 @@ export default function AdminLayoutClient({
 
             <button
               onClick={handleRefresh}
-              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <RotateCw className="h-5 w-5" />
-              <span className="text-[11px] font-medium tracking-[0.01em]">Yenile</span>
+              <RotateCw className="h-[1.4rem] w-[1.4rem]" />
+              <span className="text-[12px] font-semibold tracking-[0.01em]">Yenile</span>
             </button>
 
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-[1.4rem] w-[1.4rem]" />
               <span className="text-[11px] font-medium tracking-[0.01em]">Menü</span>
             </button>
           </div>
