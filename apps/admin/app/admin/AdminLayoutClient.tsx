@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Menu, RotateCw } from "lucide-react";
+import { ArrowLeft, Bot, Home, Menu, RotateCw } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
@@ -19,6 +19,11 @@ export default function AdminLayoutClient({
   const pathname = usePathname() ?? "";
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isToshiOpen, setIsToshiOpen] = useState(false);
+  const [toshiAlertInfo, setToshiAlertInfo] = useState<{
+    count: number;
+    summary: string;
+  } | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -72,10 +77,10 @@ export default function AdminLayoutClient({
 
       {isMobile ? (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-50 safe-area-bottom">
-          <div className="flex items-center justify-around">
+          <div className="flex items-center justify-between gap-1">
             <button
               onClick={handleBack}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-gray-100 active:scale-95 transition-all min-w-[70px]"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all hover:bg-gray-100 active:scale-95"
             >
               <ArrowLeft className="w-6 h-6 text-gray-700" />
               <span className="text-xs font-medium text-gray-600">Geri</span>
@@ -83,15 +88,29 @@ export default function AdminLayoutClient({
 
             <button
               onClick={handleHome}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-95 transition-all min-w-[70px]"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl bg-primary/10 p-3 transition-all hover:bg-primary/20 active:scale-95"
             >
               <Home className="w-6 h-6 text-primary" />
               <span className="text-xs font-medium text-primary">Ana Sayfa</span>
             </button>
 
             <button
+              onClick={() => setIsToshiOpen((current) => !current)}
+              aria-label="Toshi AI Asistanı"
+              className="relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 px-3 py-3 text-white shadow-[0_16px_30px_rgba(79,70,229,0.24)] transition-all active:scale-95"
+            >
+              <Bot className="h-6 w-6" />
+              <span className="text-xs font-semibold">Toshi</span>
+              {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
+                <span className="absolute right-2 top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg">
+                  {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
+                </span>
+              ) : null}
+            </button>
+
+            <button
               onClick={handleRefresh}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-gray-100 active:scale-95 transition-all min-w-[70px]"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all hover:bg-gray-100 active:scale-95"
             >
               <RotateCw className="w-6 h-6 text-gray-700" />
               <span className="text-xs font-medium text-gray-600">Yenile</span>
@@ -99,7 +118,7 @@ export default function AdminLayoutClient({
 
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-gray-100 active:scale-95 transition-all min-w-[70px]"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all hover:bg-gray-100 active:scale-95"
             >
               <Menu className="w-6 h-6 text-gray-700" />
               <span className="text-xs font-medium text-gray-600">Menu</span>
@@ -109,7 +128,12 @@ export default function AdminLayoutClient({
       ) : null}
 
       <AdminClientBoundary name="ToshiAssistant">
-        <ToshiAssistant />
+        <ToshiAssistant
+          isMobile={isMobile}
+          isOpen={isToshiOpen}
+          onOpenChange={setIsToshiOpen}
+          onAlertInfoChange={setToshiAlertInfo}
+        />
       </AdminClientBoundary>
     </div>
   );
