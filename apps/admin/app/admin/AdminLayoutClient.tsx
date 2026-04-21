@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
@@ -64,6 +64,34 @@ function getShellMeta(pathname: string) {
 
 function isAdminRoot(pathname: string) {
   return pathname === "/admin" || pathname === "/admin/";
+}
+
+function MobileDockButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-h-[60px] min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-[22px] px-2.5 py-3 transition-all duration-200 active:scale-[0.98]",
+        active
+          ? "bg-[linear-gradient(180deg,#fff4eb_0%,#ffeddc_100%)] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.16),0_10px_20px_rgba(254,97,0,0.08)]"
+          : "text-[#75675c] hover:bg-white/80",
+      )}
+    >
+      <Icon className={cn("h-[1.35rem] w-[1.35rem]", active ? "opacity-100" : "opacity-80")} />
+      <span className="text-[12px] font-semibold tracking-[0.01em]">{label}</span>
+    </button>
+  );
 }
 
 export default function AdminLayoutClient({
@@ -208,76 +236,41 @@ export default function AdminLayoutClient({
             hideDock ? "pointer-events-none translate-y-6 opacity-0" : "translate-y-0 opacity-100",
           )}
         >
-          <div className="mx-auto w-full max-w-[34rem] rounded-[32px] border border-[#f0d8c4] bg-[rgba(255,250,246,0.98)] px-3 py-3 shadow-[0_18px_42px_rgba(92,56,30,0.18)] backdrop-blur-2xl">
-            <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-2.5">
-              <button
-                onClick={handleHome}
-                className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 transition-all active:scale-[0.98] ${
-                  rootAdmin
-                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
-                    : "text-[#6c5b52] hover:bg-white/80"
-                }`}
-              >
-                <Home className="h-[1.4rem] w-[1.4rem]" />
-                <span className="text-[12px] font-semibold tracking-[0.01em]">Ana</span>
-              </button>
+          <div className="mx-auto flex w-full max-w-[35rem] items-end justify-center gap-2.5">
+            <div className="flex flex-1 items-center gap-2 rounded-[30px] border border-[#ecd7c8] bg-[linear-gradient(180deg,rgba(255,251,247,0.98)_0%,rgba(248,239,230,0.96)_100%)] p-2.5 shadow-[0_20px_38px_rgba(84,50,25,0.14)] backdrop-blur-2xl">
+              <MobileDockButton icon={Home} label="Ana" active={rootAdmin} onClick={handleHome} />
+              <MobileDockButton icon={Package} label="Sipariş" active={isOrdersRoute} onClick={handleOrders} />
+            </div>
 
-              <button
-                onClick={handleOrders}
-                className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 transition-all active:scale-[0.98] ${
-                  isOrdersRoute
-                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
-                    : "text-[#6c5b52] hover:bg-white/80"
-                }`}
-              >
-                <Package className="h-[1.4rem] w-[1.4rem]" />
-                <span className="text-[12px] font-semibold tracking-[0.01em]">Sipariş</span>
-              </button>
-
-              <button
-                onClick={handleToggleToshi}
-                aria-label="Toshi asistanını aç"
-                className="relative z-10 flex h-[90px] w-[90px] -translate-y-4 items-center justify-center rounded-[32px] bg-white shadow-[0_18px_36px_rgba(92,56,30,0.22)] transition-transform active:scale-[0.98]"
-              >
-                <span className="absolute inset-[7px] rounded-[26px] bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.95),rgba(255,245,238,0.4)_55%,rgba(255,240,229,0.15)_100%)]" />
-                <span className="relative flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-[#ffd5b8] bg-gradient-to-br from-[#ff9957] via-[#FE6100] to-[#df5400] shadow-[0_18px_28px_rgba(254,97,0,0.26)] ring-8 ring-white/85">
-                  <Image
-                    src={ADMIN_MASCOT_SRC}
-                    alt="Celebix mascot"
-                    width={56}
-                    height={56}
-                    className="h-[3rem] w-[3rem] drop-shadow-[0_4px_10px_rgba(255,255,255,0.18)]"
-                    priority
-                  />
+            <button
+              type="button"
+              onClick={handleToggleToshi}
+              aria-label="Toshi asistanını aç"
+              className="group relative z-10 flex h-[104px] w-[104px] -translate-y-5 items-center justify-center rounded-[36px] bg-white shadow-[0_26px_40px_rgba(92,56,30,0.22)] transition-transform duration-200 active:scale-[0.98]"
+            >
+              <span className="absolute inset-[8px] rounded-[30px] bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.98),rgba(255,245,238,0.62)_54%,rgba(255,232,215,0.18)_100%)]" />
+              <span className="absolute inset-[14px] rounded-[26px] border border-white/55 bg-[linear-gradient(180deg,#fff7f1_0%,#ffe7d4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" />
+              <span className="relative flex h-[82px] w-[82px] items-center justify-center rounded-[28px] bg-[radial-gradient(circle_at_30%_20%,#ffb27e_0%,#ff944e_28%,#FE6100_68%,#d75600_100%)] shadow-[0_20px_30px_rgba(254,97,0,0.28)] ring-[7px] ring-white/88">
+                <span className="absolute inset-[1px] rounded-[27px] border border-white/28" />
+                <Image
+                  src={ADMIN_MASCOT_SRC}
+                  alt="Celebix mascot"
+                  width={64}
+                  height={64}
+                  className="h-[3.4rem] w-[3.4rem] drop-shadow-[0_8px_16px_rgba(80,38,9,0.18)] transition-transform duration-200 group-hover:scale-[1.03]"
+                  priority
+                />
+              </span>
+              {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
+                <span className="absolute right-1.5 top-1.5 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#b42318] px-1.5 text-[10px] font-bold text-white shadow-[0_12px_18px_rgba(180,35,24,0.3)]">
+                  {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
                 </span>
-                {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
-                  <span className="absolute right-1 top-1 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#b42318] px-1.5 text-[10px] font-bold text-white shadow-[0_12px_18px_rgba(180,35,24,0.3)]">
-                    {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
-                  </span>
-                ) : null}
-              </button>
+              ) : null}
+            </button>
 
-              <button
-                onClick={handleProducts}
-                className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 transition-all active:scale-[0.98] ${
-                  isProductsRoute
-                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
-                    : "text-[#6c5b52] hover:bg-white/80"
-                }`}
-              >
-                <Tag className="h-[1.4rem] w-[1.4rem]" />
-                <span className="text-[12px] font-semibold tracking-[0.01em]">Ürün</span>
-              </button>
-
-              <button
-                onClick={handleToggleMenu}
-                className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 transition-all active:scale-[0.98] ${
-                  isSidebarOpen ? "bg-[#fff0e5] text-[#d95a08]" : "text-[#6c5b52] hover:bg-white/80"
-                }`}
-              >
-                <Menu className="h-[1.4rem] w-[1.4rem]" />
-                <span className="text-[12px] font-semibold tracking-[0.01em]">Menü</span>
-              </button>
+            <div className="flex flex-1 items-center gap-2 rounded-[30px] border border-[#ecd7c8] bg-[linear-gradient(180deg,rgba(255,251,247,0.98)_0%,rgba(248,239,230,0.96)_100%)] p-2.5 shadow-[0_20px_38px_rgba(84,50,25,0.14)] backdrop-blur-2xl">
+              <MobileDockButton icon={Tag} label="Ürün" active={isProductsRoute} onClick={handleProducts} />
+              <MobileDockButton icon={Menu} label="Menü" active={isSidebarOpen} onClick={handleToggleMenu} />
             </div>
           </div>
         </div>

@@ -1,34 +1,50 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="helmet" x1="24" y1="20" x2="104" y2="108" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF8E4A"/>
-      <stop offset="1" stop-color="#FE6100"/>
+    <linearGradient id="celebixHelmet" x1="34" y1="22" x2="126" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB27B"/>
+      <stop offset="0.52" stop-color="#FE6100"/>
+      <stop offset="1" stop-color="#D44D00"/>
     </linearGradient>
-    <linearGradient id="visor" x1="48" y1="22" x2="80" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF7F2"/>
-      <stop offset="1" stop-color="#FFDCC4"/>
+    <linearGradient id="celebixFace" x1="56" y1="48" x2="102" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDFB"/>
+      <stop offset="1" stop-color="#FFE9D5"/>
     </linearGradient>
-    <filter id="shadow" x="8" y="10" width="112" height="110" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <linearGradient id="celebixHalo" x1="61" y1="13" x2="99" y2="45" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8F3"/>
+      <stop offset="1" stop-color="#FFD9BF"/>
+    </linearGradient>
+    <radialGradient id="celebixGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(80 63) rotate(90) scale(66)">
+      <stop stop-color="#FFF4E8"/>
+      <stop offset="1" stop-color="#FFF4E8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="celebixShadow" x="10" y="10" width="140" height="138" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix"/>
       <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-      <feOffset dy="8"/>
-      <feGaussianBlur stdDeviation="8"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.54902 0 0 0 0 0.239216 0 0 0 0 0.0509804 0 0 0 0.16 0"/>
+      <feOffset dy="10"/>
+      <feGaussianBlur stdDeviation="10"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.443137 0 0 0 0 0.227451 0 0 0 0 0.0666667 0 0 0 0.18 0"/>
       <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
       <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
     </filter>
   </defs>
-  <g filter="url(#shadow)">
-    <circle cx="64" cy="60" r="34" fill="#FFF8F3"/>
-    <path d="M31 39C31 24.6406 42.6406 13 57 13H71C85.3594 13 97 24.6406 97 39V63C97 66.3137 94.3137 69 91 69H37C33.6863 69 31 66.3137 31 63V39Z" fill="url(#helmet)"/>
-    <path d="M41 67C41 52.0883 53.0883 40 68 40H70C84.9117 40 97 52.0883 97 67V74H41V67Z" fill="url(#helmet)"/>
-    <path d="M49 21C49 15.4772 53.4772 11 59 11H69C74.5228 11 79 15.4772 79 21V24C79 29.5228 74.5228 34 69 34H59C53.4772 34 49 29.5228 49 24V21Z" fill="url(#visor)"/>
-    <circle cx="59" cy="54" r="4.75" fill="#4F4843"/>
-    <circle cx="77" cy="54" r="4.75" fill="#4F4843"/>
-    <path d="M53.5 67.5C57.4583 72.4722 62.375 75 68.25 75C74.125 75 79.0417 72.4722 83 67.5" stroke="#5B4E47" stroke-width="4.5" stroke-linecap="round"/>
-    <path d="M98 39.5C101.59 41.0712 104 44.6485 104 48.75V64C104 67.3137 101.314 70 98 70H95V39.5H98Z" fill="#FF9A5C"/>
-    <path d="M31 39.5C27.4101 41.0712 25 44.6485 25 48.75V64C25 67.3137 27.6863 70 31 70H34V39.5H31Z" fill="#FF9A5C"/>
-    <circle cx="88" cy="25" r="4.5" fill="#FFE6D2"/>
-    <circle cx="95.5" cy="20.5" r="2.5" fill="#FFD0AD"/>
+  <g filter="url(#celebixShadow)">
+    <circle cx="80" cy="74" r="48" fill="url(#celebixGlow)"/>
+    <path d="M39 52C39 31.0132 56.0132 14 77 14H83C103.987 14 121 31.0132 121 52V81C121 86.5228 116.523 91 111 91H49C43.4772 91 39 86.5228 39 81V52Z" fill="url(#celebixHelmet)"/>
+    <path d="M49 87C49 66.5655 65.5655 50 86 50H88C108.435 50 125 66.5655 125 87V96H49V87Z" fill="url(#celebixHelmet)"/>
+    <path d="M52 55C52 38.9837 64.9837 26 81 26H82C98.0163 26 111 38.9837 111 55V63C111 66.3137 108.314 69 105 69H58C54.6863 69 52 66.3137 52 63V55Z" fill="#FFDABF" fill-opacity="0.42"/>
+    <ellipse cx="80" cy="72" rx="34" ry="39" fill="url(#celebixFace)"/>
+    <path d="M62 33.5C62 25.4919 68.4919 19 76.5 19H83.5C91.5081 19 98 25.4919 98 33.5V36C98 44.0081 91.5081 50.5 83.5 50.5H76.5C68.4919 50.5 62 44.0081 62 36V33.5Z" fill="url(#celebixHalo)"/>
+    <path d="M67 38C72.378 36.1186 76.8036 35.1778 80.2768 35.1778C84.1974 35.1778 88.7718 36.2538 94 38.4051" stroke="#FFF7F1" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="67.5" cy="69" r="5.5" fill="#4E4640"/>
+    <circle cx="93.5" cy="69" r="5.5" fill="#4E4640"/>
+    <circle cx="63.5" cy="83.5" r="4.5" fill="#FFCCAF" fill-opacity="0.75"/>
+    <circle cx="97.5" cy="83.5" r="4.5" fill="#FFCCAF" fill-opacity="0.75"/>
+    <path d="M68.5 86.5C73.3056 92.0556 77.9167 94.8333 82.3333 94.8333C87.1597 94.8333 92.2153 92.0556 97.5 86.5" stroke="#5A4C45" stroke-width="5" stroke-linecap="round"/>
+    <path d="M121.5 56C126.627 58.1485 130 63.2108 130 68.77V84C130 88.4183 126.418 92 122 92H118V56H121.5Z" fill="#FF9F63"/>
+    <path d="M38.5 56C33.3726 58.1485 30 63.2108 30 68.77V84C30 88.4183 33.5817 92 38 92H42V56H38.5Z" fill="#FF9F63"/>
+    <path d="M50 52C53.75 49.25 59.6667 47.875 67.75 47.875H94.5C103.743 47.875 110.243 49.4167 114 52.5" stroke="#FFC59D" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="111.5" cy="30.5" r="5.5" fill="#FFF2E6"/>
+    <circle cx="120" cy="24" r="3.5" fill="#FFD0AE"/>
+    <path d="M116.2 21.2L118.2 17.5L120.1 21.2L123.8 23.2L120.1 25.1L118.2 28.8L116.2 25.1L112.5 23.2L116.2 21.2Z" fill="#FFF8F0"/>
   </g>
 </svg>
