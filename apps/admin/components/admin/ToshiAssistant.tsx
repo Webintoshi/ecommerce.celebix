@@ -274,10 +274,10 @@ export default function ToshiAssistant({
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
-    if (panelIsOpen && !isMinimized) {
+    if (panelIsOpen && !isMinimized && !isMobile) {
       window.setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [panelIsOpen, isMinimized]);
+  }, [isMobile, panelIsOpen, isMinimized]);
 
   useEffect(() => {
     if (isMobile) {
@@ -584,7 +584,7 @@ export default function ToshiAssistant({
             onKeyDown={handleKeyDown}
             placeholder="Toshi'ye sor..."
             rows={1}
-            className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-[0.95rem] leading-6 text-gray-800 outline-none placeholder:text-gray-400"
+            className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-base leading-6 text-gray-800 outline-none placeholder:text-gray-400 md:text-[0.95rem]"
             style={{ overflow: "auto" }}
             disabled={isLoading}
           />
