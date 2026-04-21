@@ -32,9 +32,9 @@ export function buttonVariants({
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-xs rounded-xl md:text-sm",
-    md: "h-9 px-3.5 text-sm rounded-xl md:h-10 md:px-4",
-    lg: "h-10 px-4 text-sm rounded-2xl md:h-12 md:px-6 md:text-base",
+    sm: "h-9 px-3.5 text-[0.82rem] rounded-[0.95rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    md: "h-10 px-4 text-[0.95rem] rounded-[1.1rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
+    lg: "h-11 px-[1.125rem] text-[0.98rem] rounded-[1.35rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };
 
   return cn(baseStyles, variants[variant], sizes[size], className);
@@ -64,9 +64,9 @@ export function Button({
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-xs rounded-xl md:text-sm",
-    md: "h-9 px-3.5 text-sm rounded-xl md:h-10 md:px-4",
-    lg: "h-10 px-4 text-sm rounded-2xl md:h-12 md:px-6 md:text-base",
+    sm: "h-9 px-3.5 text-[0.82rem] rounded-[0.95rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    md: "h-10 px-4 text-[0.95rem] rounded-[1.1rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
+    lg: "h-11 px-[1.125rem] text-[0.98rem] rounded-[1.35rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };
 
   return (

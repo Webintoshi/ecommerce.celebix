@@ -7,7 +7,7 @@ export function AdminPageShell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("space-y-5 md:space-y-7", className)}>{children}</div>;
+  return <div className={cn("space-y-6 md:space-y-7", className)}>{children}</div>;
 }
 
 export function AdminPageHeader({
@@ -24,19 +24,23 @@ export function AdminPageHeader({
   metrics?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_14px_40px_rgba(254,97,0,0.08)] md:rounded-[28px]">
-      <div className="border-b border-[#FE6100]/8 px-4 py-4 md:px-6 md:py-5">
+    <section className="overflow-hidden rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_16px_42px_rgba(254,97,0,0.09)] md:rounded-[28px]">
+      <div className="border-b border-[#FE6100]/8 px-4 py-[1.125rem] md:px-6 md:py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             {badge ? (
-              <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/15 bg-[#fff6f1] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#FE6100] md:text-[11px]">
+              <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/15 bg-[#fff6f1] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#FE6100] md:text-[11px]">
                 {badge}
               </div>
             ) : null}
-            <h1 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950 md:text-[2rem]">
+            <h1 className="mt-3 text-[2.15rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-[2rem]">
               {title}
             </h1>
-            {description ? <p className="mt-2 max-w-3xl text-sm text-gray-500 md:text-[15px]">{description}</p> : null}
+            {description ? (
+              <p className="mt-2.5 max-w-3xl text-[0.97rem] leading-6 text-[#6f6258] md:text-[15px]">
+                {description}
+              </p>
+            ) : null}
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>

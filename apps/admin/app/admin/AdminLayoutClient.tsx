@@ -1,13 +1,16 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Bot, Home, Menu, RotateCw } from "lucide-react";
+import { ArrowLeft, Home, Menu, RotateCw } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
+
+const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -122,17 +125,17 @@ export default function AdminLayoutClient({
       </AdminClientBoundary>
 
       <main className="h-screen min-w-0 flex-1 overflow-y-auto">
-        <div className="px-3 py-3 pb-24 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
-          <div className="sticky top-0 z-30 mb-4 rounded-[22px] border border-[#FE6100]/10 bg-white/88 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
+        <div className="px-4 py-4 pb-28 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
+          <div className="sticky top-0 z-30 mb-5 rounded-[25px] border border-[#f3d8c1] bg-[rgba(255,250,245,0.92)] px-4 py-3.5 shadow-[0_16px_38px_rgba(112,73,44,0.12)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff6f1] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#FE6100] md:text-[11px]">
+                <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d95a08] md:text-[11px]">
                   Celebix Admin
                 </div>
-                <h1 className="mt-2 truncate text-xl font-semibold tracking-[-0.04em] text-gray-950 md:text-2xl">
+                <h1 className="mt-2.5 truncate text-[1.65rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-2xl">
                   {shellMeta.title}
                 </h1>
-                <p className="mt-1 max-w-2xl text-xs text-gray-500 md:text-sm">
+                <p className="mt-1.5 max-w-2xl text-[0.95rem] leading-6 text-[#6f6258] md:text-sm">
                   {shellMeta.subtitle}
                 </p>
               </div>
@@ -156,33 +159,41 @@ export default function AdminLayoutClient({
       </main>
 
       {isMobile ? (
-        <div className="safe-area-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-[#e8ddd1] bg-white/96 px-3 py-2 backdrop-blur-xl md:hidden">
-          <div className="flex items-center justify-between gap-1">
+        <div className="safe-area-bottom fixed bottom-3 left-1/2 z-50 w-[calc(100%-1rem)] max-w-[34rem] -translate-x-1/2 rounded-[30px] border border-[#f1d8c3] bg-[rgba(255,249,243,0.95)] px-2.5 py-2.5 shadow-[0_20px_44px_rgba(92,56,30,0.18)] backdrop-blur-2xl md:hidden">
+          <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-center gap-1.5">
             <button
               onClick={handleBack}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl p-2.5 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-700" />
-              <span className="text-[11px] font-medium text-gray-600">Geri</span>
+              <ArrowLeft className="h-5 w-5" />
+              <span className="text-[11px] font-medium tracking-[0.01em]">Geri</span>
             </button>
 
             <button
               onClick={handleHome}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl bg-primary/10 p-2.5 transition-all hover:bg-primary/20 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] bg-[#fff1e7] px-2 py-2.5 text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.1)] transition-all hover:bg-[#ffe8d8] active:scale-95"
             >
-              <Home className="h-5 w-5 text-primary" />
-              <span className="text-[11px] font-medium text-primary">Ana Sayfa</span>
+              <Home className="h-5 w-5" />
+              <span className="text-[11px] font-semibold tracking-[0.01em]">Ana Sayfa</span>
             </button>
 
             <button
               onClick={() => setIsToshiOpen((current) => !current)}
               aria-label="Toshi AI Asistanı"
-              className="relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[20px] bg-gradient-to-br from-violet-600 to-indigo-600 px-3 py-2.5 text-white shadow-[0_14px_24px_rgba(79,70,229,0.22)] transition-all active:scale-95"
+              className="relative flex h-[66px] w-[66px] items-center justify-center rounded-[24px] border border-[#ffc89f] bg-gradient-to-br from-[#FE6100] via-[#ff7d2c] to-[#ff9350] text-white shadow-[0_18px_32px_rgba(254,97,0,0.34)] transition-all active:scale-95"
             >
-              <Bot className="h-5 w-5" />
-              <span className="text-[11px] font-semibold">Toshi</span>
+              <span className="sr-only">Toshi</span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-white/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-sm">
+                <Image
+                  src={ADMIN_BRAND_LOGO_SRC}
+                  alt="Celebix X"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 drop-shadow-[0_2px_8px_rgba(255,255,255,0.22)]"
+                />
+              </span>
               {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
-                <span className="absolute right-2 top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg">
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b42318] px-1 text-[10px] font-bold text-white shadow-[0_10px_18px_rgba(180,35,24,0.3)]">
                   {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
                 </span>
               ) : null}
@@ -190,18 +201,18 @@ export default function AdminLayoutClient({
 
             <button
               onClick={handleRefresh}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl p-2.5 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <RotateCw className="h-5 w-5 text-gray-700" />
-              <span className="text-[11px] font-medium text-gray-600">Yenile</span>
+              <RotateCw className="h-5 w-5" />
+              <span className="text-[11px] font-medium tracking-[0.01em]">Yenile</span>
             </button>
 
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl p-2.5 transition-all hover:bg-gray-100 active:scale-95"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
             >
-              <Menu className="h-5 w-5 text-gray-700" />
-              <span className="text-[11px] font-medium text-gray-600">Menu</span>
+              <Menu className="h-5 w-5" />
+              <span className="text-[11px] font-medium tracking-[0.01em]">Menü</span>
             </button>
           </div>
         </div>
