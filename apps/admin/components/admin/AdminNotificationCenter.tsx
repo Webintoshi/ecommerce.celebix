@@ -21,6 +21,7 @@ import {
   markNotificationRead,
   savePushSubscription,
   sendTestNotification,
+  syncNotificationCenter,
 } from "@/lib/notifications";
 
 type NotificationCenterStatus = Awaited<ReturnType<typeof getNotificationCenterStatus>>;
@@ -85,6 +86,8 @@ export function AdminNotificationCenter({
   const [syncingPush, setSyncingPush] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [status, setStatus] = useState<NotificationCenterStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [backgroundSyncError, setBackgroundSyncError] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default",
   );
@@ -119,14 +122,32 @@ export function AdminNotificationCenter({
     try {
       const nextStatus = await getNotificationCenterStatus();
       setStatus(nextStatus);
+      setStatusError(null);
       await applyAppBadge(nextStatus.inbox.unreadCount);
     } catch (error) {
       console.error("Notification center load failed:", error);
-      toast.error(error instanceof Error ? error.message : "Bildirim merkezi yuklenemedi.");
+      setStatusError(error instanceof Error ? error.message : "Bildirim merkezi yuklenemedi.");
     } finally {
       setLoading(false);
     }
   }, [applyAppBadge]);
+
+  const runBackgroundSync = useCallback(
+    async (force = false) => {
+      try {
+        const result = await syncNotificationCenter({ force });
+        setBackgroundSyncError(null);
+        if (result.updated) {
+          await loadStatus();
+        }
+      } catch (error) {
+        setBackgroundSyncError(
+          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadi.",
+        );
+      }
+    },
+    [loadStatus],
+  );
 
   const syncBrowserSubscription = useCallback(async () => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -149,6 +170,12 @@ export function AdminNotificationCenter({
     void loadStatus();
     void syncBrowserSubscription();
   }, [loadStatus, syncBrowserSubscription]);
+
+  useEffect(() => {
+    if (!loading && status) {
+      void runBackgroundSync();
+    }
+  }, [loading, runBackgroundSync, status]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -390,6 +417,28 @@ export function AdminNotificationCenter({
             </header>
 
             <div className="max-h-[min(70dvh,38rem)] overflow-y-auto px-4 py-4 md:px-5">
+              {statusError && !status ? (
+                <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-800">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-rose-900">Bildirim merkezi acilamadi</p>
+                      <p className="mt-1">{statusError}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => void loadStatus()}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Yeniden dene
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-[22px] border border-[#FE6100]/10 bg-[#fff8f3] p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
@@ -467,6 +516,40 @@ export function AdminNotificationCenter({
                 </button>
               </div>
 
+              {statusError ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{statusError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void loadStatus()}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Yeniden dene
+                  </button>
+                </div>
+              ) : null}
+
+              {backgroundSyncError ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Yorum bildirim senkronu tamamlanamadi: {backgroundSyncError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void runBackgroundSync(true)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 transition-all hover:bg-amber-100"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Tekrar dene
+                  </button>
+                </div>
+              ) : null}
+
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-gray-950">Bildirim kutusu</p>
@@ -480,7 +563,7 @@ export function AdminNotificationCenter({
                   </Link>
                 </div>
 
-                {loading ? (
+                {loading && !status ? (
                   <div className="flex items-center gap-2 rounded-[22px] border border-[#FE6100]/10 bg-white px-4 py-6 text-sm text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
                     Bildirimler yukleniyor...
@@ -546,6 +629,8 @@ export function AdminNotificationCenter({
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
           </section>
         </>

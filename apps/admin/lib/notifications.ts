@@ -1,9 +1,29 @@
 import type {
   AdminInboxNotificationRecord,
+  AdminPushSubscriptionRecord,
   EmailConfig,
   NotificationSettings,
   SMSConfig,
 } from "@/types/notification";
+
+type NotificationCenterStatus = {
+  settings: NotificationSettings;
+  inbox: {
+    items: AdminInboxNotificationRecord[];
+    unreadCount: number;
+  };
+  vapidPublicKey: string;
+  webPushAvailable: boolean;
+  subscriptions: AdminPushSubscriptionRecord[];
+};
+
+type NotificationSyncResult = {
+  updated: boolean;
+  skipped?: boolean;
+};
+
+let notificationSyncPromise: Promise<NotificationSyncResult> | null = null;
+let notificationSyncAttempted = false;
 
 async function parseJsonResponse(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -67,15 +87,43 @@ export async function getNotificationCenterStatus() {
     cache: "no-store",
     credentials: "same-origin",
   });
-  return parseJsonResponse(response) as Promise<{
-    settings: NotificationSettings;
-    inbox: {
-      items: AdminInboxNotificationRecord[];
-      unreadCount: number;
+  return parseJsonResponse(response) as Promise<NotificationCenterStatus>;
+}
+
+export async function syncNotificationCenter(options: { force?: boolean } = {}) {
+  if (!options.force && notificationSyncAttempted) {
+    return {
+      updated: false,
+      skipped: true,
     };
-    vapidPublicKey: string;
-    webPushAvailable: boolean;
-  }>;
+  }
+
+  if (notificationSyncPromise) {
+    return notificationSyncPromise;
+  }
+
+  notificationSyncAttempted = true;
+
+  notificationSyncPromise = (async () => {
+    const response = await fetch("/api/admin/notifications/sync", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    const payload = await parseJsonResponse(response);
+
+    return {
+      updated: Boolean(payload.updated),
+    };
+  })()
+    .catch((error) => {
+      notificationSyncAttempted = false;
+      throw error;
+    })
+    .finally(() => {
+      notificationSyncPromise = null;
+    });
+
+  return notificationSyncPromise;
 }
 
 export async function getNotificationInbox(limit = 25, unreadOnly = false) {

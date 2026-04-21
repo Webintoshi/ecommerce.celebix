@@ -25,6 +25,7 @@ import {
   getNotificationCenterStatus,
   savePushSubscription,
   sendTestNotification,
+  syncNotificationCenter,
   testEmailConnection,
   testSMSConnection,
   updateNotificationSettings,
@@ -53,6 +54,8 @@ export default function NotificationSettingsPage() {
   const [testingPush, setTestingPush] = useState(false);
   const [syncingDevice, setSyncingDevice] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [backgroundSyncError, setBackgroundSyncError] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default",
   );
@@ -61,6 +64,22 @@ export default function NotificationSettingsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeSubscriptions, setActiveSubscriptions] = useState(0);
   const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<string | null>(null);
+
+  const syncBrowserSubscription = useCallback(async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setSubscriptionEndpoint(null);
+      return;
+    }
+
+    try {
+      const registration = await ensureServiceWorker();
+      const subscription = await registration?.pushManager.getSubscription();
+      setSubscriptionEndpoint(subscription?.endpoint || null);
+    } catch (error) {
+      console.warn("Notification settings service worker sync failed:", error);
+      setSubscriptionEndpoint(null);
+    }
+  }, []);
 
   const refreshState = useCallback(async () => {
     setLoading(true);
@@ -71,20 +90,41 @@ export default function NotificationSettingsPage() {
       setWebPushAvailable(status.webPushAvailable);
       setUnreadCount(status.inbox.unreadCount);
       setActiveSubscriptions(status.subscriptions.length);
-
-      const registration = await ensureServiceWorker();
-      const subscription = await registration?.pushManager.getSubscription();
-      setSubscriptionEndpoint(subscription?.endpoint || null);
+      setStatusError(null);
+      void syncBrowserSubscription();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bildirim durumu yuklenemedi.");
+      setStatusError(error instanceof Error ? error.message : "Bildirim durumu yuklenemedi.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncBrowserSubscription]);
+
+  const runBackgroundSync = useCallback(
+    async (force = false) => {
+      try {
+        const result = await syncNotificationCenter({ force });
+        setBackgroundSyncError(null);
+        if (result.updated) {
+          await refreshState();
+        }
+      } catch (error) {
+        setBackgroundSyncError(
+          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadi.",
+        );
+      }
+    },
+    [refreshState],
+  );
 
   useEffect(() => {
     void refreshState();
   }, [refreshState]);
+
+  useEffect(() => {
+    if (!loading && settings) {
+      void runBackgroundSync();
+    }
+  }, [loading, settings, runBackgroundSync]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -241,12 +281,34 @@ export default function NotificationSettingsPage() {
     }
   };
 
-  if (loading || !settings) {
+  if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-2xl border border-[#FE6100]/10 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
           Bildirim ayarlari yukleniyor...
+        </div>
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-[28px] border border-rose-200 bg-white p-6 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <ShieldAlert className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-gray-950">Bildirim ayarlari acilamadi</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            {statusError || "Bildirim durumu yuklenirken beklenmeyen bir hata olustu."}
+          </p>
+          <div className="mt-5 flex justify-center">
+            <Button onClick={() => void refreshState()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tekrar dene
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -322,6 +384,22 @@ export default function NotificationSettingsPage() {
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
             Tarayici bildirim izni kapali. Push almak icin izin ayarini yeniden acmaniz gerekir.
+          </div>
+        ) : null}
+
+        {backgroundSyncError ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Yorum bildirim senkronu tamamlanamadi: {backgroundSyncError}</span>
+            </div>
+            <Button
+              variant="outline"
+              className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+              onClick={() => void runBackgroundSync(true)}
+            >
+              Tekrar dene
+            </Button>
           </div>
         ) : null}
       </AdminSectionCard>

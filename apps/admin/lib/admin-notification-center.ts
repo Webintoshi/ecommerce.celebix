@@ -3,6 +3,7 @@ import "server-only";
 import webpush from "web-push";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 import { getNotificationSettings } from "@/lib/db/settings";
+import { isMissingProductReviewsTableError } from "@/lib/product-reviews";
 import type {
     AdminInboxNotificationRecord,
     AdminPushSubscriptionRecord,
@@ -66,22 +67,6 @@ const MAX_SYNCED_REVIEW_IDS = 250;
 const REVIEW_SYNC_LIMIT = 25;
 
 let cachedWebPushRuntimePromise: Promise<WebPushRuntimeConfig | null> | null = null;
-
-function getErrorMessage(error: unknown) {
-    return error && typeof error === "object" && "message" in error
-        ? String((error as { message: unknown }).message)
-        : "";
-}
-
-function isMissingSettingRow(error: unknown) {
-    const message = getErrorMessage(error).toLowerCase();
-    return (
-        message.includes("0 rows") ||
-        message.includes("no rows") ||
-        message.includes("json object requested") ||
-        message.includes("multiple (or no) rows returned")
-    );
-}
 
 function normalizeInboxRecord(value: unknown): AdminInboxNotificationRecord | null {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -246,12 +231,9 @@ async function getPrivateSettingValue(key: string) {
         .from("settings")
         .select("value")
         .eq("key", key)
-        .single();
+        .maybeSingle();
 
     if (error) {
-        if (isMissingSettingRow(error)) {
-            return null;
-        }
         throw error;
     }
 
@@ -614,10 +596,10 @@ async function sendPushNotifications(
     );
 }
 
-async function syncNewProductReviewNotifications() {
+export async function syncNewProductReviewNotifications() {
     const settings = await getNotificationSettings();
     if (!settings.push.events.new_product_review) {
-        return;
+        return false;
     }
 
     const supabase = createServiceSupabaseClient();
@@ -628,13 +610,16 @@ async function syncNewProductReviewNotifications() {
         .limit(REVIEW_SYNC_LIMIT);
 
     if (error) {
+        if (isMissingProductReviewsTableError(error)) {
+            return false;
+        }
         console.error("Product review notification sync failed:", error);
-        return;
+        throw error;
     }
 
     const reviews = ((data || []) as ProductReviewSyncRow[]).filter((review) => review.id);
     if (reviews.length === 0) {
-        return;
+        return false;
     }
 
     const syncStore = await getReviewSyncStore();
@@ -645,7 +630,7 @@ async function syncNewProductReviewNotifications() {
             bootstrappedAt: new Date().toISOString(),
             seenReviewIds: currentIds.slice(0, MAX_SYNCED_REVIEW_IDS),
         });
-        return;
+        return false;
     }
 
     const seenIds = new Set(syncStore.seenReviewIds);
@@ -661,7 +646,7 @@ async function syncNewProductReviewNotifications() {
                 MAX_SYNCED_REVIEW_IDS,
             ),
         });
-        return;
+        return false;
     }
 
     const adminUserIds = await getAdminRecipientIds();
@@ -701,11 +686,11 @@ async function syncNewProductReviewNotifications() {
             MAX_SYNCED_REVIEW_IDS,
         ),
     });
+
+    return true;
 }
 
 export async function getAdminNotificationStatus(adminUserId: string) {
-    await syncNewProductReviewNotifications();
-
     const [settings, inboxSummary, subscriptions, publicKey] = await Promise.all([
         getNotificationSettings(),
         listAdminInboxNotificationsForUser(adminUserId, { limit: 12 }),
