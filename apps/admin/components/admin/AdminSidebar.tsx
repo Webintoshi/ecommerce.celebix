@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -6,22 +6,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
 import {
-  Home,
-  Package,
-  Tag,
-  Users,
-  Percent,
-  FileText,
-  TrendingUp,
+  Calculator,
   ChevronDown,
-  ChevronRight,
+  FileText,
+  Home,
   LogOut,
+  Megaphone as MarketingIcon,
+  Package,
+  Percent,
+  Search,
   Settings,
   Store,
-  Megaphone as MarketingIcon,
-  Search,
+  Tag,
+  TrendingUp,
+  Users,
   Users as AdminsIcon,
-  Calculator,
 } from "lucide-react";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -129,17 +128,13 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "SEO Kontrol", href: "/admin/seo-killer" },
       { title: "Sitemap", href: "/admin/seo-killer/sitemap" },
       { title: "Sosyal Önizleme", href: "/admin/seo-killer/sosyal-onizleme" },
-      { title: "Kod Entegrasyonlari", href: "/admin/seo-killer/kod-entegrasyonlari" },
+      { title: "Kod Entegrasyonları", href: "/admin/seo-killer/kod-entegrasyonlari" },
       { title: "Hızlı İndeks", href: "/admin/seo-killer/hizli-index" },
     ],
   },
   { title: "Marketplace", icon: Store, href: "/admin/markets" },
   { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
-  {
-    title: "Ayarlar",
-    icon: Settings,
-    href: "/admin/ayarlar",
-  },
+  { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
 ];
 
 interface SidebarProps {
@@ -177,7 +172,7 @@ export function AdminSidebar({
   const [isRecoveringProfile, setIsRecoveringProfile] = useState(false);
   const [hasAttemptedProfileRecovery, setHasAttemptedProfileRecovery] = useState(Boolean(initialProfile?.role));
   const userEmail = resolvedProfile?.email;
-  const userName = resolvedProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
+  const userName = resolvedProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanıcı";
   const role: UserRole | null = resolvedProfile?.role || null;
 
   useEffect(() => {
@@ -206,7 +201,9 @@ export function AdminSidebar({
     const autoExpand = MENU_ITEMS.filter((item) => item.submenu?.some((sub) => sub.href === pathname)).map(
       (item) => item.title,
     );
-    if (autoExpand.length === 0) return;
+    if (autoExpand.length === 0) {
+      return;
+    }
 
     setExpandedMenus((prev) => Array.from(new Set([...prev, ...autoExpand])));
   }, [pathname]);
@@ -258,8 +255,12 @@ export function AdminSidebar({
     }
 
     return MENU_ITEMS.filter((item) => {
-      if (!hasPermission(role, item.href)) return false;
-      if (item.permission && !hasActionPermission(role, item.permission)) return false;
+      if (!hasPermission(role, item.href)) {
+        return false;
+      }
+      if (item.permission && !hasActionPermission(role, item.permission)) {
+        return false;
+      }
       return true;
     });
   }, [role]);
@@ -294,29 +295,39 @@ export function AdminSidebar({
     }
   };
 
-  const handleLinkClick = () => {
+  const handleLeafClick = () => {
     if (isMobile && onClose) {
       onClose();
     }
   };
 
+  const mobileAsideClassName =
+    "fixed right-0 left-auto top-[calc(env(safe-area-inset-top,0px)+5.35rem)] bottom-[calc(6.9rem+env(safe-area-inset-bottom,0px))] z-[55] h-auto w-[min(24.75rem,94vw)] rounded-[2rem_0_0_2rem] shadow-[0_28px_60px_rgba(58,36,18,0.22)]";
+
   return (
     <>
-      {isMobile && isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
+      {isMobile && isMobileMenuOpen ? (
+        <button
+          type="button"
+          aria-label="Menüyü kapat"
+          className="fixed inset-0 z-[44] bg-[rgba(41,25,12,0.18)] backdrop-blur-[3px] md:hidden"
+          onClick={onClose}
+        />
+      ) : null}
 
       <aside
         className={cn(
-          "bg-[#eee5dc] border-l border-[#e6d7c8] flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
+          "border-l border-[#e6d7c8] bg-[#f2e9df] flex flex-col transition-transform duration-300",
           isMobile
-            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(24.5rem,94vw)] right-0 left-auto`
-            : "w-56 shrink-0 xl:w-[15rem] 2xl:w-64",
+            ? `${mobileAsideClassName} ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}`
+            : "sticky top-0 z-20 h-screen w-56 shrink-0 bg-[#eee5dc] xl:w-[15rem] 2xl:w-64",
         )}
       >
-        <div className="flex items-center gap-4 border-b border-[#e6d7c8] p-4 xl:px-[1.125rem] 2xl:px-5">
+        <div className="flex items-center gap-4 border-b border-[#e6d7c8] px-4 py-4 xl:px-[1.125rem] 2xl:px-5">
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white shadow-sm ring-1 ring-black/5">
             <Image
               src={ADMIN_BRAND_LOGO_SRC}
-              alt="Celebi X"
+              alt="Celebix X"
               width={40}
               height={40}
               className="h-full w-full object-contain p-[0.4rem]"
@@ -328,87 +339,112 @@ export function AdminSidebar({
             <span className="block break-words text-base font-semibold leading-snug text-gray-900">
               {STORE_RUNTIME.name} Admin
             </span>
-            <span className="block truncate text-[0.9rem] font-medium text-gray-500">
-              {userName || userEmail || "Admin Kullanıcı"}
-            </span>
+            <span className="block truncate text-[0.9rem] font-medium text-gray-500">{userName}</span>
           </div>
         </div>
 
         {!role && !isRecoveringProfile ? (
           <div className="mx-4 mt-4 rounded-[1.2rem] border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] font-medium leading-5 text-amber-800">
-            Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
+            Yetki bilgisi yüklenemedi. Menüler sınırlı gösteriliyor.
           </div>
         ) : null}
 
-        <nav className="flex-1 space-y-2 overflow-y-auto px-2.5 py-4">
+        <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
           {filteredItems.map((item) => {
             const hasSubmenu = Boolean(item.submenu?.length);
-            const isActive =
+            const isDirectActive =
               pathname === item.href ||
               (!hasSubmenu && item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
             const isExpanded = expandedMenus.includes(item.title);
-            const isSubmenuActive = item.submenu?.some((sub) => pathname === sub.href);
+            const isSubmenuActive = item.submenu?.some((sub) => pathname === sub.href) ?? false;
+            const rowActive = isDirectActive || isSubmenuActive;
 
             return (
-              <div key={item.title}>
-                <div
-                  className={cn(
-                    "group flex min-h-[54px] items-center justify-between rounded-[1.55rem] px-4 py-3 cursor-pointer select-none text-base font-medium transition-colors",
-                    isActive || isSubmenuActive
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900",
-                  )}
-                  onClick={() => {
-                    if (hasSubmenu) {
-                      toggleMenu(item.title);
-                    }
-                  }}
-                >
-                    <Link href={item.href} onClick={handleLinkClick} className="flex min-h-[54px] min-w-0 flex-1 items-center gap-3.5">
-                      <item.icon className="h-[1.45rem] w-[1.45rem] opacity-80" />
+              <div key={item.title} className="space-y-1.5">
+                {hasSubmenu ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleMenu(item.title)}
+                    aria-expanded={isExpanded}
+                    aria-controls={`sidebar-group-${item.title}`}
+                    className={cn(
+                      "group flex min-h-[56px] w-full items-center justify-between rounded-[1.55rem] px-4 py-3 text-left text-base font-medium transition-all",
+                      rowActive
+                        ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
+                        : "text-gray-600 hover:bg-white/80 hover:text-gray-900",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-3.5">
+                      <item.icon className="h-[1.45rem] w-[1.45rem] shrink-0 opacity-80" />
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
-                    </Link>
+                    </span>
 
-                  <div className="flex items-center gap-2">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#efe1d2] bg-[#f8f2eb] text-[#7b6a5f] transition-colors group-hover:border-[#FE6100]/20 group-hover:text-[#d95a08]">
+                      <ChevronDown
+                        className={cn(
+                          "h-[1.05rem] w-[1.05rem] transition-transform duration-200",
+                          isExpanded ? "rotate-180" : "rotate-0",
+                        )}
+                      />
+                    </span>
+                  </button>
+                ) : (
+                  <Link
+                    href={item.href}
+                    onClick={handleLeafClick}
+                    className={cn(
+                      "group flex min-h-[56px] items-center justify-between rounded-[1.55rem] px-4 py-3 text-base font-medium transition-all",
+                      rowActive
+                        ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
+                        : "text-gray-600 hover:bg-white/80 hover:text-gray-900",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-3.5">
+                      <item.icon className="h-[1.45rem] w-[1.45rem] shrink-0 opacity-80" />
+                      <span className="min-w-0 truncate leading-snug">{item.title}</span>
+                    </span>
                     {item.badge ? (
                       <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">
                         {item.badge}
                       </span>
                     ) : null}
-                    {hasSubmenu ? (
-                      <div className="text-gray-400">
-                        {isExpanded ? (
-                          <ChevronDown className="h-[1.05rem] w-[1.05rem]" />
-                        ) : (
-                          <ChevronRight className="h-[1.05rem] w-[1.05rem]" />
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                {hasSubmenu && isExpanded && (
-                  <div className="mt-1.5 ml-9 space-y-1.5">
-                    {item.submenu?.map((sub) => {
-                      const isSubActive = pathname === sub.href;
-                      return (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
-                          onClick={handleLinkClick}
-                          className={cn(
-                            "flex min-h-[48px] items-center break-words rounded-[1.15rem] px-4 py-2.5 text-[0.95rem] font-medium leading-5 transition-colors",
-                            isSubActive
-                              ? "text-gray-900 font-medium bg-gray-200/50"
-                              : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",
-                          )}
-                        >
-                          {sub.title}
-                        </Link>
-                      );
-                    })}
-                  </div>
+                  </Link>
                 )}
+
+                {hasSubmenu ? (
+                  <div
+                    id={`sidebar-group-${item.title}`}
+                    className={cn(
+                      "grid overflow-hidden transition-all duration-300 ease-out",
+                      isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                    )}
+                  >
+                    <div className="min-h-0">
+                      <div className="ml-5 border-l border-[#ead8c8] pl-4 pt-1">
+                        <div className="space-y-1.5">
+                          {item.submenu?.map((sub) => {
+                            const isSubActive = pathname === sub.href;
+                            return (
+                              <Link
+                                key={sub.href}
+                                href={sub.href}
+                                onClick={handleLeafClick}
+                                className={cn(
+                                  "flex min-h-[50px] items-center rounded-[1.15rem] px-4 py-2.5 text-[0.95rem] font-medium leading-5 transition-all",
+                                  isSubActive
+                                    ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.05)]"
+                                    : "text-gray-500 hover:bg-white/70 hover:text-gray-900",
+                                )}
+                              >
+                                {sub.title}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -421,13 +457,14 @@ export function AdminSidebar({
             className="flex min-h-[52px] w-full items-center gap-3.5 rounded-[1.35rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
           >
             <LogOut className="h-[1.4rem] w-[1.4rem] opacity-75" />
-            <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
+            <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
           </button>
+
           <Link
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-[52px] items-center gap-3.5 rounded-[1.35rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-gray-200/50 hover:text-gray-900"
+            className="flex min-h-[52px] items-center gap-3.5 rounded-[1.35rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-white/70 hover:text-gray-900"
           >
             <Store className="h-[1.4rem] w-[1.4rem] opacity-75" />
             <span>Siteye Dön</span>
@@ -437,4 +474,3 @@ export function AdminSidebar({
     </>
   );
 }
-

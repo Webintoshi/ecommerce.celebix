@@ -504,7 +504,7 @@ export default function ToshiAssistant({
 
   const panelContent = (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-3.5">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-4">
         {messages.map((message, index) => (
           <div
             key={`${message.role}-${index}`}
@@ -521,7 +521,7 @@ export default function ToshiAssistant({
             ) : null}
 
             <div
-              className={`max-w-[82%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6 ${
+              className={`max-w-[84%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6 ${
                 message.role === "user"
                   ? "rounded-tr-md bg-gradient-to-br from-[#FE6100] to-[#ff8a3d] text-white shadow-[0_14px_24px_rgba(254,97,0,0.18)]"
                   : "rounded-tl-md border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]"
@@ -553,16 +553,18 @@ export default function ToshiAssistant({
       </div>
 
       {showQuickPrompts ? (
-        <div className="flex flex-wrap gap-1.5 border-t border-[#f1dfd0] bg-white px-4 pb-2">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => void sendMessage(prompt)}
-              className="mt-2 whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-1.5 text-xs font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
-            >
-              {prompt}
-            </button>
-          ))}
+        <div className="border-t border-[#f1dfd0] bg-white px-4 py-3">
+          <div className="flex flex-wrap gap-1.5">
+            {quickPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => void sendMessage(prompt)}
+                className="whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-1.5 text-xs font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -659,12 +661,7 @@ export default function ToshiAssistant({
             transition: "height 0.25s cubic-bezier(.4,0,.2,1)",
           }}
         >
-          <div
-            className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3.5"
-            style={{
-              background: TOSHI_GRADIENT,
-            }}
-          >
+          <div className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3.5" style={{ background: TOSHI_GRADIENT }}>
             <div className="flex items-center gap-2.5">
               <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
               <div>
@@ -688,9 +685,7 @@ export default function ToshiAssistant({
               >
                 <ChevronDown
                   className="h-4 w-4 transition-transform duration-200"
-                  style={{
-                    transform: isMinimized ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
+                  style={{ transform: isMinimized ? "rotate(180deg)" : "rotate(0deg)" }}
                 />
               </button>
               <button
@@ -713,23 +708,11 @@ export default function ToshiAssistant({
             type="button"
             aria-label="Toshi panelini kapat"
             onClick={() => setPanelOpen(false)}
-            className="fixed inset-0 z-[9998] bg-[#3f2413]/28 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] bg-[rgba(40,24,12,0.22)] backdrop-blur-[3px]"
           />
 
-          <div
-            className="fixed inset-x-0 z-[9999] flex flex-col overflow-hidden rounded-t-[30px] border border-[#ffd7ba] bg-white shadow-[0_-18px_48px_rgba(254,97,0,0.2)]"
-            style={{
-              bottom: "calc(env(safe-area-inset-bottom, 0px) + 118px)",
-              height:
-                "min(740px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 118px))",
-            }}
-          >
-            <div
-              className="relative flex flex-shrink-0 select-none items-center justify-between px-4 pb-3.5 pt-2.5"
-              style={{
-                background: TOSHI_GRADIENT,
-              }}
-            >
+          <div className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)+5.35rem)] z-[86] flex flex-col overflow-hidden rounded-t-[30px] border border-[#ffd7ba] bg-white shadow-[0_-18px_48px_rgba(254,97,0,0.2)]">
+            <div className="relative flex flex-shrink-0 select-none items-center justify-between px-4 pb-3.5 pt-2.5" style={{ background: TOSHI_GRADIENT }}>
               <div className="absolute left-1/2 top-2 h-1.5 w-14 -translate-x-1/2 rounded-full bg-white/45" />
 
               <div className="flex items-center gap-2.5">

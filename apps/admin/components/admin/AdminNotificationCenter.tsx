@@ -39,22 +39,22 @@ function relativeTime(value: string) {
   const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
 
   if (diffMinutes < 60) {
-    return `${diffMinutes} dk once`;
+    return `${diffMinutes} dk önce`;
   }
 
   const diffHours = Math.round(diffMinutes / 60);
   if (diffHours < 24) {
-    return `${diffHours} sa once`;
+    return `${diffHours} sa önce`;
   }
 
   const diffDays = Math.round(diffHours / 24);
-  return `${diffDays} gun once`;
+  return `${diffDays} gün önce`;
 }
 
 function getNotificationTypeLabel(type: AdminInboxNotificationRecord["type"]) {
   switch (type) {
     case "new_order":
-      return "Yeni siparis";
+      return "Yeni sipariş";
     case "new_product_review":
       return "Yeni yorum";
     case "payment_failed":
@@ -126,7 +126,7 @@ export function AdminNotificationCenter({
       await applyAppBadge(nextStatus.inbox.unreadCount);
     } catch (error) {
       console.error("Notification center load failed:", error);
-      setStatusError(error instanceof Error ? error.message : "Bildirim merkezi yuklenemedi.");
+      setStatusError(error instanceof Error ? error.message : "Bildirim merkezi yüklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ export function AdminNotificationCenter({
         }
       } catch (error) {
         setBackgroundSyncError(
-          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadi.",
+          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadı.",
         );
       }
     },
@@ -203,17 +203,17 @@ export function AdminNotificationCenter({
 
   const permissionLabel = useMemo(() => {
     if (permission === "granted") {
-      return "Izin verildi";
+      return "İzin verildi";
     }
     if (permission === "denied") {
-      return "Izin kapali";
+      return "İzin kapalı";
     }
-    return "Izin bekleniyor";
+    return "İzin bekleniyor";
   }, [permission]);
 
   const handleEnablePush = useCallback(async () => {
     if (!webPushAvailable || !status?.vapidPublicKey) {
-      toast.error("Web push icin VAPID anahtarlari hazir degil.");
+      toast.error("Web push için VAPID anahtarları hazır değil.");
       return;
     }
 
@@ -222,7 +222,7 @@ export function AdminNotificationCenter({
     try {
       const registration = await ensureServiceWorker();
       if (!registration) {
-        throw new Error("Service worker kaydi desteklenmiyor.");
+        throw new Error("Service worker kaydı desteklenmiyor.");
       }
 
       let nextPermission = permission;
@@ -232,7 +232,7 @@ export function AdminNotificationCenter({
       }
 
       if (nextPermission !== "granted") {
-        throw new Error("Tarayici bildirim izni gerekli.");
+        throw new Error("Tarayıcı bildirim izni gerekli.");
       }
 
       const existingSubscription = await registration.pushManager.getSubscription();
@@ -248,7 +248,7 @@ export function AdminNotificationCenter({
       const auth = json.keys?.auth;
 
       if (!subscription.endpoint || !p256dh || !auth) {
-        throw new Error("Push aboneligi eksik anahtar dondurdu.");
+        throw new Error("Push aboneliği eksik anahtar döndürdü.");
       }
 
       await savePushSubscription({
@@ -260,11 +260,11 @@ export function AdminNotificationCenter({
       });
 
       setSubscriptionEndpoint(subscription.endpoint);
-      toast.success("Push bildirimleri bu cihaza baglandi.");
+      toast.success("Push bildirimleri bu cihaza bağlandı.");
       await loadStatus();
     } catch (error) {
       console.error("Enable push failed:", error);
-      toast.error(error instanceof Error ? error.message : "Push aboneligi kurulamadi.");
+      toast.error(error instanceof Error ? error.message : "Push aboneliği kurulamadı.");
     } finally {
       setSyncingPush(false);
     }
@@ -283,11 +283,11 @@ export function AdminNotificationCenter({
 
       await subscription?.unsubscribe();
       setSubscriptionEndpoint(null);
-      toast.success("Push bildirimi bu cihaz icin kapatildi.");
+      toast.success("Push bildirimi bu cihaz için kapatıldı.");
       await loadStatus();
     } catch (error) {
       console.error("Disable push failed:", error);
-      toast.error(error instanceof Error ? error.message : "Push aboneligi kaldirilamadi.");
+      toast.error(error instanceof Error ? error.message : "Push aboneliği kaldırılamadı.");
     } finally {
       setSyncingPush(false);
     }
@@ -312,7 +312,7 @@ export function AdminNotificationCenter({
       );
       await applyAppBadge(0);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bildirimler guncellenemedi.");
+      toast.error(error instanceof Error ? error.message : "Bildirimler güncellenemedi.");
     }
   }, [applyAppBadge]);
 
@@ -342,7 +342,7 @@ export function AdminNotificationCenter({
           };
         });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Bildirim okunamadi.");
+        toast.error(error instanceof Error ? error.message : "Bildirim okunamadı.");
       }
     },
     [applyAppBadge],
@@ -352,18 +352,18 @@ export function AdminNotificationCenter({
     setSendingTest(true);
     try {
       await sendTestNotification();
-      toast.success("Test bildirimi siraya alindi.");
+      toast.success("Test bildirimi sıraya alındı.");
       await loadStatus();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Test bildirimi gonderilemedi.");
+      toast.error(error instanceof Error ? error.message : "Test bildirimi gönderilemedi.");
     } finally {
       setSendingTest(false);
     }
   }, [loadStatus]);
 
   const shellClassName = isMobile
-    ? "fixed inset-x-0 bottom-[calc(6.4rem+env(safe-area-inset-bottom,0px))] z-[72] mx-3 rounded-[24px] border border-[#FE6100]/12 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl"
-    : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] rounded-[26px] border border-[#FE6100]/12 bg-white/96 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl";
+    ? "fixed inset-x-0 top-[calc(env(safe-area-inset-top,0px)+5.35rem)] z-[88] mx-4 max-h-[min(62dvh,34rem)] overflow-hidden rounded-[28px] border border-[#FE6100]/12 bg-white/97 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl"
+    : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[26px] border border-[#FE6100]/12 bg-white/96 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl";
 
   return (
     <div className="relative">
@@ -388,7 +388,7 @@ export function AdminNotificationCenter({
           <button
             type="button"
             aria-label="Bildirim merkezini kapat"
-            className="fixed inset-0 z-[70] bg-black/30 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[84] bg-[rgba(33,22,14,0.18)] backdrop-blur-[2px]"
             onClick={() => setOpen(false)}
           />
 
@@ -402,9 +402,7 @@ export function AdminNotificationCenter({
                   Operasyon merkezi
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {unreadCount > 0
-                    ? `${unreadCount} okunmamis kayit var.`
-                    : "Tum bildirimler goruldu."}
+                  {unreadCount > 0 ? `${unreadCount} okunmamış kayıt var.` : "Tüm bildirimler görüldü."}
                 </p>
               </div>
 
@@ -418,13 +416,13 @@ export function AdminNotificationCenter({
               </button>
             </header>
 
-            <div className="max-h-[min(70dvh,38rem)] overflow-y-auto px-4 py-4 md:px-5">
+            <div className="max-h-[min(62dvh,34rem)] overflow-y-auto px-4 py-4 md:px-5">
               {statusError && !status ? (
                 <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-800">
                   <div className="flex items-start gap-3">
                     <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-rose-900">Bildirim merkezi acilamadi</p>
+                      <p className="font-semibold text-rose-900">Bildirim merkezi açılamadı</p>
                       <p className="mt-1">{statusError}</p>
                     </div>
                   </div>
@@ -441,196 +439,188 @@ export function AdminNotificationCenter({
                 </div>
               ) : (
                 <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[22px] border border-[#FE6100]/10 bg-[#fff8f3] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
-                    Cihaz durumu
-                  </p>
-                  <p className="mt-2 text-base font-semibold text-gray-950">
-                    {hasActiveSubscription ? "Push bagli" : "Push bagli degil"}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {permissionLabel}
-                  </p>
-                </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[22px] border border-[#FE6100]/10 bg-[#fff8f3] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                        Cihaz durumu
+                      </p>
+                      <p className="mt-2 text-base font-semibold text-gray-950">
+                        {hasActiveSubscription ? "Push bağlı" : "Push bağlı değil"}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">{permissionLabel}</p>
+                    </div>
 
-                <div className="rounded-[22px] border border-[#FE6100]/10 bg-white p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
-                    Dagitim
-                  </p>
-                  <p className="mt-2 text-base font-semibold text-gray-950">
-                    {pushEnabled && webPushAvailable ? "Push + Inbox" : inboxEnabled ? "Yalniz inbox" : "Kapali"}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Store ayarlarindaki event matrix kullaniliyor.
-                  </p>
-                </div>
-              </div>
+                    <div className="rounded-[22px] border border-[#FE6100]/10 bg-white p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                        Dağıtım
+                      </p>
+                      <p className="mt-2 text-base font-semibold text-gray-950">
+                        {pushEnabled && webPushAvailable ? "Push + Inbox" : inboxEnabled ? "Yalnız inbox" : "Kapalı"}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">Store ayarlarındaki event matrix kullanılıyor.</p>
+                    </div>
+                  </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {pushEnabled && webPushAvailable ? (
-                  hasActiveSubscription ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {pushEnabled && webPushAvailable ? (
+                      hasActiveSubscription ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleDisablePush()}
+                          disabled={syncingPush}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100 disabled:opacity-60"
+                        >
+                          {syncingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
+                          Bu cihazda kapat
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleEnablePush()}
+                          disabled={syncingPush}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E85A00] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(254,97,0,0.24)] transition-all hover:from-[#E85A00] hover:to-[#D45500] disabled:opacity-60"
+                        >
+                          {syncingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                          Cihazı bağla
+                        </button>
+                      )
+                    ) : (
+                      <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+                        <ShieldAlert className="h-4 w-4" />
+                        Web push runtime hazır değil
+                      </div>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => void handleDisablePush()}
-                      disabled={syncingPush}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100 disabled:opacity-60"
+                      onClick={() => void handleSendTest()}
+                      disabled={sendingTest}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] disabled:opacity-60"
                     >
-                      {syncingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
-                      Bu cihazda kapat
+                      {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Test gönder
                     </button>
-                  ) : (
+
                     <button
                       type="button"
-                      onClick={() => void handleEnablePush()}
-                      disabled={syncingPush}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E85A00] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(254,97,0,0.24)] transition-all hover:from-[#E85A00] hover:to-[#D45500] disabled:opacity-60"
+                      onClick={() => void handleMarkAllRead()}
+                      disabled={unreadCount === 0}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] disabled:opacity-60"
                     >
-                      {syncingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                      Cihazi bagla
+                      <CheckCheck className="h-4 w-4" />
+                      Tümünü okundu yap
                     </button>
-                  )
-                ) : (
-                  <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
-                    <ShieldAlert className="h-4 w-4" />
-                    Web push runtime hazir degil
                   </div>
-                )}
 
-                <button
-                  type="button"
-                  onClick={() => void handleSendTest()}
-                  disabled={sendingTest}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] disabled:opacity-60"
-                >
-                  {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Test gonder
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void handleMarkAllRead()}
-                  disabled={unreadCount === 0}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] disabled:opacity-60"
-                >
-                  <CheckCheck className="h-4 w-4" />
-                  Tumunu okundu yap
-                </button>
-              </div>
-
-              {statusError ? (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                  <div className="flex items-start gap-3">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{statusError}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void loadStatus()}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Yeniden dene
-                  </button>
-                </div>
-              ) : null}
-
-              {backgroundSyncError ? (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  <div className="flex items-start gap-3">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>Yorum bildirim senkronu tamamlanamadi: {backgroundSyncError}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void runBackgroundSync(true)}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 transition-all hover:bg-amber-100"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Tekrar dene
-                  </button>
-                </div>
-              ) : null}
-
-              <div className="mt-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-gray-950">Bildirim kutusu</p>
-                  <Link
-                    href="/admin/ayarlar/bildirimler"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-[#FE6100] transition-colors hover:text-[#D45500]"
-                    onClick={() => setOpen(false)}
-                  >
-                    Ayarlara git
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                </div>
-
-                {loading && !status ? (
-                  <div className="flex items-center gap-2 rounded-[22px] border border-[#FE6100]/10 bg-white px-4 py-6 text-sm text-gray-500">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
-                    Bildirimler yukleniyor...
-                  </div>
-                ) : inboxItems.length > 0 ? (
-                  <div className="space-y-3">
-                    {inboxItems.map((item) => (
-                      <article
-                        key={item.id}
-                        className={`rounded-[22px] border px-4 py-4 transition-all ${
-                          item.readAt
-                            ? "border-[#eadbd0] bg-white"
-                            : "border-[#FE6100]/16 bg-[#fff8f3]"
-                        }`}
+                  {statusError ? (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                      <div className="flex items-start gap-3">
+                        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{statusError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadStatus()}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#FE6100]">
-                                {getNotificationTypeLabel(item.type)}
-                              </span>
-                              <span className="text-xs text-gray-500">{relativeTime(item.createdAt)}</span>
-                            </div>
-                            <h4 className="mt-3 text-sm font-semibold text-gray-950">{item.title}</h4>
-                            <p className="mt-1 text-sm text-gray-600">{item.body}</p>
-                          </div>
-                          {!item.readAt ? (
-                            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#FE6100]" />
-                          ) : null}
-                        </div>
+                        <RefreshCw className="h-4 w-4" />
+                        Yeniden dene
+                      </button>
+                    </div>
+                  ) : null}
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {item.href ? (
-                            <Link
-                              href={item.href}
-                              onClick={() => {
-                                void handleMarkRead(item.id);
-                                setOpen(false);
-                              }}
-                              className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-medium text-[#FE6100] shadow-sm transition-all hover:bg-[#fff2ea]"
-                            >
-                              Kaydi ac
-                              <ExternalLink className="h-4 w-4" />
-                            </Link>
-                          ) : null}
-                          {!item.readAt ? (
-                            <button
-                              type="button"
-                              onClick={() => void handleMarkRead(item.id)}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100]"
-                            >
-                              <CheckCheck className="h-4 w-4" />
-                              Okundu yap
-                            </button>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
+                  {backgroundSyncError ? (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <div className="flex items-start gap-3">
+                        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>Yorum bildirim senkronu tamamlanamadı: {backgroundSyncError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void runBackgroundSync(true)}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 transition-all hover:bg-amber-100"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Tekrar dene
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-gray-950">Bildirim kutusu</p>
+                      <Link
+                        href="/admin/ayarlar/bildirimler"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-[#FE6100] transition-colors hover:text-[#D45500]"
+                        onClick={() => setOpen(false)}
+                      >
+                        Ayarlara git
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                    </div>
+
+                    {loading && !status ? (
+                      <div className="flex items-center gap-2 rounded-[22px] border border-[#FE6100]/10 bg-white px-4 py-6 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
+                        Bildirimler yükleniyor...
+                      </div>
+                    ) : inboxItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {inboxItems.map((item) => (
+                          <article
+                            key={item.id}
+                            className={`rounded-[22px] border px-4 py-4 transition-all ${
+                              item.readAt ? "border-[#eadbd0] bg-white" : "border-[#FE6100]/16 bg-[#fff8f3]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#FE6100]">
+                                    {getNotificationTypeLabel(item.type)}
+                                  </span>
+                                  <span className="text-xs text-gray-500">{relativeTime(item.createdAt)}</span>
+                                </div>
+                                <h4 className="mt-3 text-sm font-semibold text-gray-950">{item.title}</h4>
+                                <p className="mt-1 text-sm text-gray-600">{item.body}</p>
+                              </div>
+                              {!item.readAt ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#FE6100]" /> : null}
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {item.href ? (
+                                <Link
+                                  href={item.href}
+                                  onClick={() => {
+                                    void handleMarkRead(item.id);
+                                    setOpen(false);
+                                  }}
+                                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-medium text-[#FE6100] shadow-sm transition-all hover:bg-[#fff2ea]"
+                                >
+                                  Kaydı aç
+                                  <ExternalLink className="h-4 w-4" />
+                                </Link>
+                              ) : null}
+                              {!item.readAt ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleMarkRead(item.id)}
+                                  className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100]"
+                                >
+                                  <CheckCheck className="h-4 w-4" />
+                                  Okundu yap
+                                </button>
+                              ) : null}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-[22px] border border-dashed border-[#FE6100]/18 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                        Henüz bildirim kaydı yok.
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="rounded-[22px] border border-dashed border-[#FE6100]/18 bg-white px-4 py-8 text-center text-sm text-gray-500">
-                    Henüz bildirim kaydı yok.
-                  </div>
-                )}
-              </div>
                 </>
               )}
             </div>
