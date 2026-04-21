@@ -15,6 +15,7 @@ import {
     getMarqueeSettings,
     getNotificationSettings,
     getPaymentMethods,
+    isPrivateSettingKey,
     getSeoSettings,
     getSetting,
     getShippingIntegrations,
@@ -252,6 +253,12 @@ export async function GET(request: NextRequest) {
         }
 
         if (key) {
+            if (isPrivateSettingKey(key)) {
+                return NextResponse.json(
+                    { success: false, error: "Setting not found" },
+                    { status: 404 },
+                );
+            }
             const value = await getSetting(key);
             return NextResponse.json({
                 success: true,
@@ -396,6 +403,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (key && value !== undefined) {
+            if (isPrivateSettingKey(key)) {
+                return NextResponse.json(
+                    { success: false, error: "Protected setting key" },
+                    { status: 403 },
+                );
+            }
             const normalizedValue = key === "hero_banners" ? extractHeroBannersForStorage(value) : value;
             const setting = await setSetting(key, normalizedValue);
             return NextResponse.json({ success: true, setting });
@@ -423,6 +436,13 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json(
                 { success: false, error: "Setting key is required" },
                 { status: 400 },
+            );
+        }
+
+        if (isPrivateSettingKey(key)) {
+            return NextResponse.json(
+                { success: false, error: "Protected setting key" },
+                { status: 403 },
             );
         }
 

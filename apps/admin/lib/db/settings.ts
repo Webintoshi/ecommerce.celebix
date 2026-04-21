@@ -44,6 +44,12 @@ import {
 // SETTINGS OPERATIONS
 // =====================================================
 
+export const PRIVATE_SETTING_KEY_PREFIX = "__admin_internal__";
+
+export function isPrivateSettingKey(key: string) {
+    return key.startsWith(PRIVATE_SETTING_KEY_PREFIX);
+}
+
 /**
  * Get setting by key
  */
@@ -74,6 +80,9 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
 
     const settings: Record<string, Record<string, unknown>> = {};
     for (const item of data || []) {
+        if (isPrivateSettingKey(item.key)) {
+            continue;
+        }
         settings[item.key] = item.value;
     }
     return settings;

@@ -28,32 +28,17 @@ type EmitAdminNotificationInput = {
     force?: boolean;
 };
 
-type InboxRow = {
-    id: string;
-    admin_user_id: string;
-    type: string;
-    title: string;
-    body: string;
-    href: string | null;
-    entity_type: string | null;
-    entity_id: string | null;
-    payload: Record<string, unknown> | null;
-    read_at: string | null;
-    created_at: string;
+type InboxStore = {
+    items: AdminInboxNotificationRecord[];
 };
 
-type SubscriptionRow = {
-    id: string;
-    admin_user_id: string;
-    endpoint: string;
-    p256dh: string;
-    auth: string;
-    user_agent: string | null;
-    platform: string | null;
-    last_seen_at: string | null;
-    disabled_at: string | null;
-    created_at: string;
-    updated_at: string;
+type SubscriptionStore = {
+    subscriptions: AdminPushSubscriptionRecord[];
+};
+
+type ReviewSyncStore = {
+    bootstrappedAt: string | null;
+    seenReviewIds: string[];
 };
 
 type WebPushRuntimeConfig = {
@@ -62,69 +47,319 @@ type WebPushRuntimeConfig = {
     subject: string;
 };
 
-let cachedWebPushRuntime: WebPushRuntimeConfig | null | undefined;
+type ProductReviewSyncRow = {
+    id: string;
+    product_id: string | null;
+    reviewer_name: string | null;
+    created_at: string;
+};
 
-function readWebPushRuntime(): WebPushRuntimeConfig | null {
-    if (cachedWebPushRuntime !== undefined) {
-        return cachedWebPushRuntime;
+const PRIVATE_SETTING_KEYS = {
+    runtime: "__admin_internal__notification_runtime",
+    inbox: "__admin_internal__notification_inbox",
+    subscriptions: "__admin_internal__notification_subscriptions",
+    reviewSync: "__admin_internal__notification_review_sync",
+} as const;
+
+const MAX_INBOX_ITEMS = 250;
+const MAX_SYNCED_REVIEW_IDS = 250;
+const REVIEW_SYNC_LIMIT = 25;
+
+let cachedWebPushRuntimePromise: Promise<WebPushRuntimeConfig | null> | null = null;
+
+function getErrorMessage(error: unknown) {
+    return error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : "";
+}
+
+function isMissingSettingRow(error: unknown) {
+    const message = getErrorMessage(error).toLowerCase();
+    return (
+        message.includes("0 rows") ||
+        message.includes("no rows") ||
+        message.includes("json object requested") ||
+        message.includes("multiple (or no) rows returned")
+    );
+}
+
+function normalizeInboxRecord(value: unknown): AdminInboxNotificationRecord | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
     }
 
-    const publicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() || "";
-    const privateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() || "";
-    const subject = process.env.WEB_PUSH_SUBJECT?.trim() || "mailto:destek@celebix.site";
+    const record = value as Record<string, unknown>;
+    const type = String(record.type || "") as NotificationEventType;
+    if (!type) {
+        return null;
+    }
+
+    return {
+        id: String(record.id || ""),
+        adminUserId: String(record.adminUserId || record.admin_user_id || ""),
+        type,
+        title: String(record.title || ""),
+        body: String(record.body || ""),
+        href: typeof record.href === "string" ? record.href : null,
+        entityType: typeof record.entityType === "string"
+            ? record.entityType
+            : typeof record.entity_type === "string"
+                ? record.entity_type
+                : null,
+        entityId: typeof record.entityId === "string"
+            ? record.entityId
+            : typeof record.entity_id === "string"
+                ? record.entity_id
+                : null,
+        payload:
+            record.payload && typeof record.payload === "object" && !Array.isArray(record.payload)
+                ? (record.payload as Record<string, unknown>)
+                : {},
+        readAt: typeof record.readAt === "string"
+            ? record.readAt
+            : typeof record.read_at === "string"
+                ? record.read_at
+                : null,
+        createdAt: String(record.createdAt || record.created_at || new Date().toISOString()),
+    };
+}
+
+function normalizeSubscriptionRecord(value: unknown): AdminPushSubscriptionRecord | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const endpoint = String(record.endpoint || "");
+    if (!endpoint) {
+        return null;
+    }
+
+    return {
+        id: String(record.id || ""),
+        adminUserId: String(record.adminUserId || record.admin_user_id || ""),
+        endpoint,
+        p256dh: String(record.p256dh || ""),
+        auth: String(record.auth || ""),
+        userAgent: typeof record.userAgent === "string"
+            ? record.userAgent
+            : typeof record.user_agent === "string"
+                ? record.user_agent
+                : null,
+        platform: typeof record.platform === "string" ? record.platform : null,
+        disabledAt: typeof record.disabledAt === "string"
+            ? record.disabledAt
+            : typeof record.disabled_at === "string"
+                ? record.disabled_at
+                : null,
+        lastSeenAt: typeof record.lastSeenAt === "string"
+            ? record.lastSeenAt
+            : typeof record.last_seen_at === "string"
+                ? record.last_seen_at
+                : null,
+        createdAt: String(record.createdAt || record.created_at || new Date().toISOString()),
+        updatedAt: String(record.updatedAt || record.updated_at || new Date().toISOString()),
+    };
+}
+
+function normalizeInboxStore(value: unknown): InboxStore {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return { items: [] };
+    }
+
+    const items = Array.isArray((value as { items?: unknown[] }).items)
+        ? ((value as { items: unknown[] }).items
+            .map((item) => normalizeInboxRecord(item))
+            .filter((item): item is AdminInboxNotificationRecord => Boolean(item)))
+        : [];
+
+    return {
+        items: items
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+            .slice(0, MAX_INBOX_ITEMS),
+    };
+}
+
+function normalizeSubscriptionStore(value: unknown): SubscriptionStore {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return { subscriptions: [] };
+    }
+
+    const subscriptions = Array.isArray((value as { subscriptions?: unknown[] }).subscriptions)
+        ? ((value as { subscriptions: unknown[] }).subscriptions
+            .map((item) => normalizeSubscriptionRecord(item))
+            .filter((item): item is AdminPushSubscriptionRecord => Boolean(item)))
+        : [];
+
+    return {
+        subscriptions: subscriptions
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    };
+}
+
+function normalizeReviewSyncStore(value: unknown): ReviewSyncStore {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {
+            bootstrappedAt: null,
+            seenReviewIds: [],
+        };
+    }
+
+    const record = value as Record<string, unknown>;
+    return {
+        bootstrappedAt: typeof record.bootstrappedAt === "string" ? record.bootstrappedAt : null,
+        seenReviewIds: Array.isArray(record.seenReviewIds)
+            ? record.seenReviewIds
+                .filter((item): item is string => typeof item === "string")
+                .slice(0, MAX_SYNCED_REVIEW_IDS)
+            : [],
+    };
+}
+
+function normalizeRuntimeConfig(value: unknown): WebPushRuntimeConfig | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const publicKey = typeof record.publicKey === "string" ? record.publicKey.trim() : "";
+    const privateKey = typeof record.privateKey === "string" ? record.privateKey.trim() : "";
+    const subject =
+        typeof record.subject === "string" && record.subject.trim().length > 0
+            ? record.subject.trim()
+            : "mailto:destek@celebix.site";
 
     if (!publicKey || !privateKey) {
-        cachedWebPushRuntime = null;
-        return cachedWebPushRuntime;
+        return null;
     }
 
-    webpush.setVapidDetails(subject, publicKey, privateKey);
-    cachedWebPushRuntime = {
+    return {
         publicKey,
         privateKey,
         subject,
     };
-    return cachedWebPushRuntime;
 }
 
-export function isWebPushConfigured() {
-    return Boolean(readWebPushRuntime());
+async function getPrivateSettingValue(key: string) {
+    const supabase = createServiceSupabaseClient();
+    const { data, error } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", key)
+        .single();
+
+    if (error) {
+        if (isMissingSettingRow(error)) {
+            return null;
+        }
+        throw error;
+    }
+
+    return data?.value ?? null;
 }
 
-export function getWebPushPublicKey() {
-    return readWebPushRuntime()?.publicKey || "";
+async function setPrivateSettingValue(key: string, value: Record<string, unknown>) {
+    const supabase = createServiceSupabaseClient();
+    const { error } = await supabase
+        .from("settings")
+        .upsert({ key, value }, { onConflict: "key" });
+
+    if (error) {
+        throw error;
+    }
 }
 
-function normalizeInboxRecord(row: InboxRow): AdminInboxNotificationRecord {
-    return {
-        id: row.id,
-        adminUserId: row.admin_user_id,
-        type: row.type as NotificationEventType,
-        title: row.title,
-        body: row.body,
-        href: row.href,
-        entityType: row.entity_type,
-        entityId: row.entity_id,
-        payload: row.payload || {},
-        readAt: row.read_at,
-        createdAt: row.created_at,
-    };
+async function getInboxStore() {
+    return normalizeInboxStore(await getPrivateSettingValue(PRIVATE_SETTING_KEYS.inbox));
 }
 
-function normalizeSubscriptionRecord(row: SubscriptionRow): AdminPushSubscriptionRecord {
-    return {
-        id: row.id,
-        adminUserId: row.admin_user_id,
-        endpoint: row.endpoint,
-        p256dh: row.p256dh,
-        auth: row.auth,
-        userAgent: row.user_agent,
-        platform: row.platform,
-        lastSeenAt: row.last_seen_at,
-        disabledAt: row.disabled_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-    };
+async function saveInboxStore(store: InboxStore) {
+    await setPrivateSettingValue(PRIVATE_SETTING_KEYS.inbox, store as unknown as Record<string, unknown>);
+}
+
+async function getSubscriptionStore() {
+    return normalizeSubscriptionStore(await getPrivateSettingValue(PRIVATE_SETTING_KEYS.subscriptions));
+}
+
+async function saveSubscriptionStore(store: SubscriptionStore) {
+    await setPrivateSettingValue(
+        PRIVATE_SETTING_KEYS.subscriptions,
+        store as unknown as Record<string, unknown>,
+    );
+}
+
+async function getReviewSyncStore() {
+    return normalizeReviewSyncStore(await getPrivateSettingValue(PRIVATE_SETTING_KEYS.reviewSync));
+}
+
+async function saveReviewSyncStore(store: ReviewSyncStore) {
+    await setPrivateSettingValue(
+        PRIVATE_SETTING_KEYS.reviewSync,
+        store as unknown as Record<string, unknown>,
+    );
+}
+
+async function getWebPushRuntime() {
+    if (cachedWebPushRuntimePromise) {
+        return cachedWebPushRuntimePromise;
+    }
+
+    cachedWebPushRuntimePromise = (async () => {
+        const envPublicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() || "";
+        const envPrivateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() || "";
+        const envSubject = process.env.WEB_PUSH_SUBJECT?.trim() || "mailto:destek@celebix.site";
+
+        const envRuntime = normalizeRuntimeConfig({
+            publicKey: envPublicKey,
+            privateKey: envPrivateKey,
+            subject: envSubject,
+        });
+
+        if (envRuntime) {
+            webpush.setVapidDetails(envRuntime.subject, envRuntime.publicKey, envRuntime.privateKey);
+            return envRuntime;
+        }
+
+        const storedRuntime = normalizeRuntimeConfig(
+            await getPrivateSettingValue(PRIVATE_SETTING_KEYS.runtime),
+        );
+
+        if (storedRuntime) {
+            webpush.setVapidDetails(
+                storedRuntime.subject,
+                storedRuntime.publicKey,
+                storedRuntime.privateKey,
+            );
+            return storedRuntime;
+        }
+
+        const generated = webpush.generateVAPIDKeys();
+        const runtime = {
+            publicKey: generated.publicKey,
+            privateKey: generated.privateKey,
+            subject: "mailto:destek@celebix.site",
+        };
+
+        await setPrivateSettingValue(
+            PRIVATE_SETTING_KEYS.runtime,
+            runtime as unknown as Record<string, unknown>,
+        );
+        webpush.setVapidDetails(runtime.subject, runtime.publicKey, runtime.privateKey);
+        return runtime;
+    })().catch((error) => {
+        cachedWebPushRuntimePromise = null;
+        throw error;
+    });
+
+    return cachedWebPushRuntimePromise;
+}
+
+export async function isWebPushConfigured() {
+    return Boolean(await getWebPushRuntime());
+}
+
+export async function getWebPushPublicKey() {
+    return (await getWebPushRuntime())?.publicKey || "";
 }
 
 export async function listAdminInboxNotificationsForUser(
@@ -134,39 +369,24 @@ export async function listAdminInboxNotificationsForUser(
         unreadOnly?: boolean;
     } = {},
 ) {
-    const supabase = createServiceSupabaseClient();
     const limit = Math.max(1, Math.min(options.limit ?? 25, 100));
-    let query = supabase
-        .from("admin_inbox_notifications")
-        .select("id,admin_user_id,type,title,body,href,entity_type,entity_id,payload,read_at,created_at")
-        .eq("admin_user_id", adminUserId)
-        .order("created_at", { ascending: false })
-        .limit(limit);
+    const store = await getInboxStore();
 
-    if (options.unreadOnly) {
-        query = query.is("read_at", null);
-    }
+    const items = store.items.filter((item) => {
+        if (item.adminUserId !== adminUserId) {
+            return false;
+        }
 
-    const [inboxResponse, unreadResponse] = await Promise.all([
-        query,
-        supabase
-            .from("admin_inbox_notifications")
-            .select("id", { count: "exact", head: true })
-            .eq("admin_user_id", adminUserId)
-            .is("read_at", null),
-    ]);
+        if (options.unreadOnly && item.readAt) {
+            return false;
+        }
 
-    if (inboxResponse.error) {
-        throw inboxResponse.error;
-    }
-
-    if (unreadResponse.error) {
-        throw unreadResponse.error;
-    }
+        return true;
+    });
 
     return {
-        items: ((inboxResponse.data || []) as InboxRow[]).map(normalizeInboxRecord),
-        unreadCount: Number(unreadResponse.count || 0),
+        items: items.slice(0, limit),
+        unreadCount: store.items.filter((item) => item.adminUserId === adminUserId && !item.readAt).length,
     };
 }
 
@@ -177,30 +397,34 @@ export async function markAdminInboxNotificationsRead(
         all?: boolean;
     },
 ) {
-    const supabase = createServiceSupabaseClient();
+    const store = await getInboxStore();
     const now = new Date().toISOString();
-    let query = supabase
-        .from("admin_inbox_notifications")
-        .update({ read_at: now })
-        .eq("admin_user_id", adminUserId)
-        .is("read_at", null);
 
-    if (options.all) {
-        const { error } = await query;
-        if (error) {
-            throw error;
+    const nextItems = store.items.map((item) => {
+        if (item.adminUserId !== adminUserId || item.readAt) {
+            return item;
         }
-        return true;
-    }
 
-    if (!options.notificationId) {
-        return false;
-    }
+        if (options.all) {
+            return {
+                ...item,
+                readAt: now,
+            };
+        }
 
-    const { error } = await query.eq("id", options.notificationId);
-    if (error) {
-        throw error;
-    }
+        if (options.notificationId && item.id === options.notificationId) {
+            return {
+                ...item,
+                readAt: now,
+            };
+        }
+
+        return item;
+    });
+
+    await saveInboxStore({
+        items: nextItems,
+    });
 
     return true;
 }
@@ -209,79 +433,82 @@ export async function registerAdminPushSubscription(
     adminUserId: string,
     subscription: PushSubscriptionInput,
 ) {
-    const supabase = createServiceSupabaseClient();
+    const store = await getSubscriptionStore();
     const now = new Date().toISOString();
-    const payload = {
-        admin_user_id: adminUserId,
+    const existing = store.subscriptions.find((item) => item.endpoint === subscription.endpoint);
+
+    const nextRecord: AdminPushSubscriptionRecord = {
+        id: existing?.id || crypto.randomUUID(),
+        adminUserId,
         endpoint: subscription.endpoint,
         p256dh: subscription.p256dh,
         auth: subscription.auth,
-        user_agent: subscription.userAgent || null,
+        userAgent: subscription.userAgent || null,
         platform: subscription.platform || null,
-        last_seen_at: now,
-        disabled_at: null,
+        disabledAt: null,
+        lastSeenAt: now,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
     };
 
-    const { data, error } = await supabase
-        .from("admin_push_subscriptions")
-        .upsert(payload, { onConflict: "endpoint" })
-        .select("id,admin_user_id,endpoint,p256dh,auth,user_agent,platform,last_seen_at,disabled_at,created_at,updated_at")
-        .single();
+    const nextSubscriptions = [
+        nextRecord,
+        ...store.subscriptions.filter((item) => item.endpoint !== subscription.endpoint),
+    ];
 
-    if (error) {
-        throw error;
-    }
+    await saveSubscriptionStore({
+        subscriptions: nextSubscriptions,
+    });
 
-    return normalizeSubscriptionRecord(data as SubscriptionRow);
+    return nextRecord;
 }
 
 export async function disableAdminPushSubscription(
     adminUserId: string,
     endpoint: string,
 ) {
-    const supabase = createServiceSupabaseClient();
-    const { error } = await supabase
-        .from("admin_push_subscriptions")
-        .update({
-            disabled_at: new Date().toISOString(),
-            last_seen_at: new Date().toISOString(),
-        })
-        .eq("admin_user_id", adminUserId)
-        .eq("endpoint", endpoint);
+    const store = await getSubscriptionStore();
+    const now = new Date().toISOString();
 
-    if (error) {
-        throw error;
-    }
+    await saveSubscriptionStore({
+        subscriptions: store.subscriptions.map((item) =>
+            item.endpoint === endpoint && item.adminUserId === adminUserId
+                ? {
+                    ...item,
+                    disabledAt: now,
+                    lastSeenAt: now,
+                    updatedAt: now,
+                }
+                : item,
+        ),
+    });
 
     return true;
 }
 
-export async function getAdminNotificationStatus(adminUserId: string) {
-    const [settings, inboxSummary, subscriptionsResponse] = await Promise.all([
-        getNotificationSettings(),
-        listAdminInboxNotificationsForUser(adminUserId, { limit: 12 }),
-        createServiceSupabaseClient()
-            .from("admin_push_subscriptions")
-            .select("id,admin_user_id,endpoint,p256dh,auth,user_agent,platform,last_seen_at,disabled_at,created_at,updated_at")
-            .eq("admin_user_id", adminUserId)
-            .is("disabled_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(5),
-    ]);
+async function getActivePushSubscriptions() {
+    const store = await getSubscriptionStore();
+    return store.subscriptions
+        .filter((item) => !item.disabledAt)
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
 
-    if (subscriptionsResponse.error) {
-        throw subscriptionsResponse.error;
-    }
+async function disablePushSubscriptionByEndpoint(endpoint: string) {
+    const store = await getSubscriptionStore();
+    const now = new Date().toISOString();
 
-    return {
-        settings,
-        inbox: inboxSummary,
-        vapidPublicKey: getWebPushPublicKey(),
-        webPushAvailable: isWebPushConfigured(),
-        subscriptions: ((subscriptionsResponse.data || []) as SubscriptionRow[]).map(
-            normalizeSubscriptionRecord,
+    await saveSubscriptionStore({
+        subscriptions: store.subscriptions.map((item) =>
+            item.endpoint === endpoint
+                ? {
+                    ...item,
+                    disabledAt: now,
+                    lastSeenAt: now,
+                    updatedAt: now,
+                }
+                : item,
         ),
-    };
+    });
 }
 
 async function getAdminRecipientIds() {
@@ -305,39 +532,45 @@ async function createInboxNotifications(
         return [];
     }
 
-    const supabase = createServiceSupabaseClient();
-    const rows = adminUserIds.map((adminUserId) => ({
-        admin_user_id: adminUserId,
-        type: input.type,
-        title: input.title,
-        body: input.body,
-        href: input.href || null,
-        entity_type: input.entityType || null,
-        entity_id: input.entityId || null,
-        payload: input.payload || {},
-    }));
+    const store = await getInboxStore();
+    const createdAt = new Date().toISOString();
+    const nextItems = [
+        ...adminUserIds.map<AdminInboxNotificationRecord>((adminUserId) => ({
+            id: crypto.randomUUID(),
+            adminUserId,
+            type: input.type,
+            title: input.title,
+            body: input.body,
+            href: input.href || null,
+            entityType: input.entityType || null,
+            entityId: input.entityId || null,
+            payload: input.payload || {},
+            readAt: null,
+            createdAt,
+        })),
+        ...store.items,
+    ].slice(0, MAX_INBOX_ITEMS);
 
-    const { data, error } = await supabase
-        .from("admin_inbox_notifications")
-        .insert(rows)
-        .select("id,admin_user_id,type,title,body,href,entity_type,entity_id,payload,read_at,created_at");
+    await saveInboxStore({
+        items: nextItems,
+    });
 
-    if (error) {
-        throw error;
-    }
-
-    return ((data || []) as InboxRow[]).map(normalizeInboxRecord);
+    return nextItems.slice(0, adminUserIds.length);
 }
 
 async function sendPushNotifications(
-    subscriptions: SubscriptionRow[],
+    subscriptions: AdminPushSubscriptionRecord[],
     input: EmitAdminNotificationInput,
 ) {
-    if (subscriptions.length === 0 || !isWebPushConfigured()) {
+    if (subscriptions.length === 0) {
         return;
     }
 
-    const supabase = createServiceSupabaseClient();
+    const runtime = await getWebPushRuntime();
+    if (!runtime) {
+        return;
+    }
+
     const payload = JSON.stringify({
         title: input.title,
         body: input.body,
@@ -371,13 +604,7 @@ async function sendPushNotifications(
                         : null;
 
                 if (statusCode === 404 || statusCode === 410) {
-                    await supabase
-                        .from("admin_push_subscriptions")
-                        .update({
-                            disabled_at: new Date().toISOString(),
-                            last_seen_at: new Date().toISOString(),
-                        })
-                        .eq("endpoint", subscription.endpoint);
+                    await disablePushSubscriptionByEndpoint(subscription.endpoint);
                     return;
                 }
 
@@ -385,6 +612,114 @@ async function sendPushNotifications(
             }
         }),
     );
+}
+
+async function syncNewProductReviewNotifications() {
+    const settings = await getNotificationSettings();
+    if (!settings.push.events.new_product_review) {
+        return;
+    }
+
+    const supabase = createServiceSupabaseClient();
+    const { data, error } = await supabase
+        .from("product_reviews")
+        .select("id, product_id, reviewer_name, created_at")
+        .order("created_at", { ascending: false })
+        .limit(REVIEW_SYNC_LIMIT);
+
+    if (error) {
+        console.error("Product review notification sync failed:", error);
+        return;
+    }
+
+    const reviews = ((data || []) as ProductReviewSyncRow[]).filter((review) => review.id);
+    if (reviews.length === 0) {
+        return;
+    }
+
+    const syncStore = await getReviewSyncStore();
+    const currentIds = reviews.map((review) => review.id);
+
+    if (!syncStore.bootstrappedAt) {
+        await saveReviewSyncStore({
+            bootstrappedAt: new Date().toISOString(),
+            seenReviewIds: currentIds.slice(0, MAX_SYNCED_REVIEW_IDS),
+        });
+        return;
+    }
+
+    const seenIds = new Set(syncStore.seenReviewIds);
+    const unseenReviews = reviews
+        .filter((review) => !seenIds.has(review.id))
+        .sort((left, right) => left.created_at.localeCompare(right.created_at));
+
+    if (unseenReviews.length === 0) {
+        await saveReviewSyncStore({
+            bootstrappedAt: syncStore.bootstrappedAt,
+            seenReviewIds: [...new Set([...currentIds, ...syncStore.seenReviewIds])].slice(
+                0,
+                MAX_SYNCED_REVIEW_IDS,
+            ),
+        });
+        return;
+    }
+
+    const adminUserIds = await getAdminRecipientIds();
+    const subscriptions = settings.push.webPushEnabled
+        ? await getActivePushSubscriptions()
+        : [];
+
+    for (const review of unseenReviews) {
+        const reviewerName = review.reviewer_name?.trim() || "Musteri";
+        const eventInput: EmitAdminNotificationInput = {
+            type: "new_product_review",
+            title: "Yeni urun yorumu",
+            body: `${reviewerName} yeni bir yorum gonderdi.`,
+            href: "/admin/urunler/yorumlar",
+            entityType: "product_review",
+            entityId: review.id,
+            payload: {
+                productId: review.product_id,
+                reviewId: review.id,
+                source: "review_sync",
+            },
+        };
+
+        if (settings.push.inboxEnabled) {
+            await createInboxNotifications(adminUserIds, eventInput);
+        }
+
+        if (subscriptions.length > 0) {
+            await sendPushNotifications(subscriptions, eventInput);
+        }
+    }
+
+    await saveReviewSyncStore({
+        bootstrappedAt: syncStore.bootstrappedAt,
+        seenReviewIds: [...new Set([...currentIds, ...syncStore.seenReviewIds])].slice(
+            0,
+            MAX_SYNCED_REVIEW_IDS,
+        ),
+    });
+}
+
+export async function getAdminNotificationStatus(adminUserId: string) {
+    await syncNewProductReviewNotifications();
+
+    const [settings, inboxSummary, subscriptions, publicKey] = await Promise.all([
+        getNotificationSettings(),
+        listAdminInboxNotificationsForUser(adminUserId, { limit: 12 }),
+        getActivePushSubscriptions(),
+        getWebPushPublicKey(),
+    ]);
+
+    return {
+        settings,
+        inbox: inboxSummary,
+        vapidPublicKey: publicKey,
+        webPushAvailable: Boolean(publicKey),
+        subscriptions: subscriptions.filter((item) => item.adminUserId === adminUserId).slice(0, 5),
+    };
 }
 
 export async function emitAdminNotificationEvent(input: EmitAdminNotificationInput) {
@@ -403,19 +738,8 @@ export async function emitAdminNotificationEvent(input: EmitAdminNotificationInp
         ? await createInboxNotifications(adminUserIds, input)
         : [];
 
-    if (settings.push.webPushEnabled && isWebPushConfigured()) {
-        const supabase = createServiceSupabaseClient();
-        const { data, error } = await supabase
-            .from("admin_push_subscriptions")
-            .select("id,admin_user_id,endpoint,p256dh,auth,user_agent,platform,last_seen_at,disabled_at,created_at,updated_at")
-            .in("admin_user_id", adminUserIds)
-            .is("disabled_at", null);
-
-        if (error) {
-            throw error;
-        }
-
-        await sendPushNotifications((data || []) as SubscriptionRow[], input);
+    if (settings.push.webPushEnabled) {
+        await sendPushNotifications(await getActivePushSubscriptions(), input);
     }
 
     return {
