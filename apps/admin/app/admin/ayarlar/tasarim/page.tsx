@@ -8,18 +8,18 @@ const DESIGN_SECTIONS = [
   {
     id: "hero-banner",
     title: "Hero Banner",
-    description: "Ana sayfa ust manseti ve ilk kampanya alani.",
+    description: "Ana sayfa üst manşeti ve ilk kampanya alanı.",
     icon: LayoutTemplate,
   },
   {
     id: "promosyon-banner",
     title: "Promosyon Banner",
-    description: "Orta alanda gosterilen kampanya kartlari.",
+    description: "Orta alanda gösterilen kampanya kartları.",
     icon: ImageIcon,
   },
   {
     id: "marquee",
-    title: "Kayan Yazi",
+    title: "Kayan Yazı",
     description: "Ustte hareket eden hizli bilgi seridi.",
     icon: Sparkles,
   },
@@ -35,10 +35,10 @@ export default function DesignSettingsPage() {
           </div>
           <div className="mt-5 max-w-3xl">
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#2f241d]">
-              Görsel alanlari tek yerden yonetin
+              Görsel alanları tek yerden yönetin
             </h1>
             <p className="mt-3 text-sm leading-6 text-[#7b685b]">
-              Hero banner, promosyon banner ve kayan yazi ayarlari artik tek sayfada. Her bolum kendi icinde kaydolur, digerini bozmaz.
+              Hero banner, promosyon banner ve kayan yazı ayarları artık tek sayfada. Her bölüm kendi içinde kaydolur, diğerini bozmaz.
             </p>
           </div>
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
@@ -48,7 +48,7 @@ export default function DesignSettingsPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">Hizli Gecis</p>
-              <p className="mt-1 text-sm text-[#7b685b]">Duzenlemek istedigin bolume tek tikla git.</p>
+              <p className="mt-1 text-sm text-[#7b685b]">Düzenlemek istediğin bölüme tek tıkla git.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {DESIGN_SECTIONS.map((section) => (
@@ -70,9 +70,9 @@ export default function DesignSettingsPage() {
           className="scroll-mt-32 rounded-[32px] border border-[#ecdccd] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
-            eyebrow="1. bolum"
+            eyebrow="1. bölüm"
             title="Hero Banner"
-            description="Ana sayfada en ustte cikan buyuk manseti buradan yonet."
+            description="Ana sayfada en üstte çıkan büyük manşeti buradan yönet."
           />
           <DesignHeroBannerSection />
         </section>
@@ -82,9 +82,9 @@ export default function DesignSettingsPage() {
           className="scroll-mt-32 rounded-[32px] border border-[#ecdccd] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
-            eyebrow="2. bolum"
+            eyebrow="2. bölüm"
             title="Promosyon Banner"
-            description="Kampanya kutularini, rozetlerini ve gorsellerini tek alanda duzenle."
+            description="Kampanya kutularını, rozetlerini ve görsellerini tek alanda düzenle."
           />
           <DesignPromoBannerSection />
         </section>
@@ -94,8 +94,8 @@ export default function DesignSettingsPage() {
           className="scroll-mt-32 rounded-[32px] border border-[#ecdccd] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
-            eyebrow="3. bolum"
-            title="Kayan Yazi"
+            eyebrow="3. bölüm"
+            title="Kayan Yazı"
             description="Ustte gorunen hizli bilgi metinlerini kolayca ekle, sil ve kaydet."
           />
           <DesignMarqueeSection />

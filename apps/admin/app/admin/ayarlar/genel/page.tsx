@@ -125,7 +125,7 @@ const FLOATING_CONTACT_CHANNELS: Array<{
 ];
 
 const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
-  message: `${STORE_RUNTIME.name} icin yeni koleksiyonlar yayinda.`,
+  message: `${STORE_RUNTIME.name} için yeni koleksiyonlar yayında.`,
   link: "/kampanyalar",
   linkText: "Hemen Kesfet",
   enabled: true,
@@ -384,7 +384,7 @@ export default function GeneralSettingsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);
-      toast.error("Ayarlar yuklenirken hata olustu");
+      toast.error("Ayarlar yüklenirken hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -515,7 +515,7 @@ export default function GeneralSettingsPage() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success || !payload.url) {
-        throw new Error(payload.error || `${options.errorLabel} yuklenemedi`);
+        throw new Error(payload.error || `${options.errorLabel} yüklenemedi`);
       }
 
       setFormData((prev) => ({ ...prev, [options.field]: String(payload.url) }));
@@ -523,7 +523,7 @@ export default function GeneralSettingsPage() {
     } catch (error) {
       console.error(`${options.errorLabel} upload error:`, error);
       toast.error(
-        error instanceof Error ? error.message : `${options.errorLabel} yuklenirken hata olustu`
+        error instanceof Error ? error.message : `${options.errorLabel} yüklenirken hata oluştu`
       );
     } finally {
       options.setUploading(false);
@@ -535,7 +535,7 @@ export default function GeneralSettingsPage() {
     await handleAssetUpload(event, {
       field: "logoUrl",
       folder: "branding",
-      successMessage: "Logo yuklendi",
+      successMessage: "Logo yüklendi",
       setUploading: setLogoUploading,
       errorLabel: "Logo",
     });
@@ -545,7 +545,7 @@ export default function GeneralSettingsPage() {
     await handleAssetUpload(event, {
       field: "faviconUrl",
       folder: "branding",
-      successMessage: "Favicon yuklendi",
+      successMessage: "Favicon yüklendi",
       setUploading: setFaviconUploading,
       errorLabel: "Favicon",
     });
@@ -569,7 +569,7 @@ export default function GeneralSettingsPage() {
       const settingsPayload = await settingsResponse.json();
 
       if (!settingsPayload.success) {
-        throw new Error(settingsPayload.error || "Kaydetme basarisiz");
+        throw new Error(settingsPayload.error || "Kaydetme başarısız");
       }
 
       const announcementResponse = await fetch("/api/settings", {
@@ -589,7 +589,7 @@ export default function GeneralSettingsPage() {
       toast.success("Tum ayarlar kaydedildi");
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error(error instanceof Error ? error.message : "Kaydedilirken hata olustu");
+      toast.error(error instanceof Error ? error.message : "Kaydedilirken hata oluştu");
     } finally {
       setSaving(false);
     }
@@ -643,7 +643,7 @@ export default function GeneralSettingsPage() {
             { id: "floating-contact", label: "Floating Iletisim" },
             { id: "region", label: "Sosyal ve Bolge" },
             { id: "announcement", label: "Duyuru" },
-            { id: "typography", label: "Yazi Tipleri" },
+            { id: "typography", label: "Yazı Tipleri" },
           ].map((section) => (
             <button
               key={section.id}
@@ -850,7 +850,7 @@ export default function GeneralSettingsPage() {
                       Yüzen İletişim Butonu
                     </h3>
                     <p className="mt-1 text-[13px] text-[#7d6959]">
-                      Sadece aktif edilen ve link girilen kanallar vitrinde gosterilir.
+                      Sadece aktif edilen ve link girilen kanallar vitrinde gösterilir.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -886,8 +886,8 @@ export default function GeneralSettingsPage() {
                   <div className="rounded-[24px] border border-dashed border-[#eadccd] bg-[#fdf8f3] p-5">
                     <span className="text-[13px] font-semibold text-[#6e5b4e] tracking-tight">Not</span>
                     <p className="mt-2 text-[13.5px] leading-relaxed text-[#8c7564]">
-                      WhatsApp ve Instagram alanlari kullanici adi veya tam link kabul eder.
-                      Form alani icin dahili rota ya da tam URL girebilirsiniz.
+                      WhatsApp ve Instagram alanları kullanıcı adı veya tam link kabul eder.
+                      Form alanı için dahili rota ya da tam URL girebilirsiniz.
                     </p>
                   </div>
                 </div>
@@ -928,7 +928,7 @@ export default function GeneralSettingsPage() {
                             />
                             <div className="h-6 w-11 rounded-full bg-[#eadccd] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#FE6100]/15 peer-checked:bg-[#FE6100] peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white after:bg-white after:transition-all after:content-[''] shadow-inner" />
                             <span className="ml-3 text-[13.5px] font-medium text-[#2f241d]">
-                              {channel?.enabled ? "Aktif" : "Kapali"}
+                              {channel?.enabled ? "Aktif" : "Kapalı"}
                             </span>
                           </label>
                         </div>
@@ -951,7 +951,7 @@ export default function GeneralSettingsPage() {
                             placeholder={getFloatingContactDefaultLabel(channelConfig.type)}
                           />
                           <Input
-                            label="Baglanti"
+                            label="Bağlantı"
                             name={`${channelConfig.type}-href`}
                             value={channel?.href || ""}
                             onChange={(event) =>
@@ -1099,7 +1099,7 @@ export default function GeneralSettingsPage() {
                         </div>
                       </div>
                       <p className="text-[12.5px] text-[#9a8474] pt-1">
-                        Yazi ve buton kontrasti otomatik ayarlanir.
+                        Yazı ve buton kontrastı otomatik ayarlanır.
                       </p>
                     </div>
 

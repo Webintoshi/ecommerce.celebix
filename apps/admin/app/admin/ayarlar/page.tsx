@@ -32,7 +32,7 @@ const SETTINGS_SECTIONS = [
   },
   {
         title: "Ödeme Yöntemleri",
-    description: "Kredi karti, havale/EFT ve kapida odeme ayarlari.",
+    description: "Kredi kartı, havale/EFT ve kapıda ödeme ayarları.",
     icon: CreditCard,
     href: "/admin/ayarlar/odeme",
     tone: "from-[#fff4ec] to-white text-[#c6541f] border-[#f0c4ac]",
@@ -60,14 +60,14 @@ const SETTINGS_SECTIONS = [
   },
   {
     title: "Tasarım Ayarları",
-    description: "Hero banner, promosyon banner ve kayan yazi alanlarini tek yerden yonetin.",
+    description: "Hero banner, promosyon banner ve kayan yazı alanlarını tek yerden yönetin.",
     icon: ImageIcon,
     href: "/admin/ayarlar/tasarim",
     tone: "from-[#fff3ec] to-white text-[#d55e2d] border-[#f1c5b2]",
   },
   {
     title: "Yapay Zeka",
-    description: "Toshi AI asistan ve SEO araclari icin provider ve API key ayarlari.",
+    description: "Toshi AI asistanı ve SEO araçları için provider ve API key ayarları.",
     icon: Brain,
     href: "/admin/ayarlar/yapay-zeka",
     tone: "from-[#fff2eb] to-white text-[#b85c3a] border-[#ebc8b8]",
@@ -118,10 +118,10 @@ export default function SettingsPage() {
         <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[0_24px_70px_rgba(47,36,29,0.22)] md:p-8">
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffcfaa]">Ek Buyume Alani</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Mobil uygulama hazirlik alanini buradan takip edin</h3>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffcfaa]">Ek Büyüme Alanı</p>
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Mobil uygulama hazırlık alanını buradan takip edin</h3>
               <p className="mt-3 text-sm leading-6 text-[#f7ddcb]">
-                Magazanizi mobil uygulamaya donusturmek icin ihtiyac duyulan tasarim ve teslim akisini tek alanda toplar.
+                Mağazanızı mobil uygulamaya dönüştürmek için ihtiyaç duyulan tasarım ve teslim akışını tek alanda toplar.
               </p>
             </div>
             <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#3d2b1f] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">

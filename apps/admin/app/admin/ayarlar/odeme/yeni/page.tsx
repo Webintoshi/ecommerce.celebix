@@ -39,7 +39,7 @@ export default function NewPaymentGatewayPage() {
     setErrors(validationErrors);
 
     if (validationErrors.length > 0) {
-      toast.error("Formdaki zorunlu alanlari duzeltin.");
+      toast.error("Formdaki zorunlu alanları düzeltin.");
       return;
     }
 
@@ -50,7 +50,7 @@ export default function NewPaymentGatewayPage() {
       router.push("/admin/ayarlar/odeme");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Kayit sirasinda hata olustu.");
+      toast.error(error instanceof Error ? error.message : "Kayıt sırasında hata oluştu.");
     } finally {
       setSaving(false);
     }

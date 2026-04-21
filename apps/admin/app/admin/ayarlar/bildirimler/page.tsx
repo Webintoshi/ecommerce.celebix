@@ -93,7 +93,7 @@ export default function NotificationSettingsPage() {
       setStatusError(null);
       void syncBrowserSubscription();
     } catch (error) {
-      setStatusError(error instanceof Error ? error.message : "Bildirim durumu yuklenemedi.");
+      setStatusError(error instanceof Error ? error.message : "Bildirim durumu yüklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export default function NotificationSettingsPage() {
         }
       } catch (error) {
         setBackgroundSyncError(
-          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadi.",
+          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadı.",
         );
       }
     },
@@ -148,10 +148,10 @@ export default function NotificationSettingsPage() {
     setSaving(true);
     try {
       await updateNotificationSettings(settings);
-      toast.success("Bildirim ayarlari kaydedildi.");
+      toast.success("Bildirim ayarları kaydedildi.");
       await refreshState();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bildirim ayarlari kaydedilemedi.");
+      toast.error(error instanceof Error ? error.message : "Bildirim ayarları kaydedilemedi.");
     } finally {
       setSaving(false);
     }
@@ -166,7 +166,7 @@ export default function NotificationSettingsPage() {
     try {
       const success = await testEmailConnection(settings.email);
       toast[success ? "success" : "error"](
-        success ? "E-posta baglanti testi basarili." : "E-posta baglanti testi basarisiz.",
+        success ? "E-posta bağlantı testi başarılı." : "E-posta bağlantı testi başarısız.",
       );
     } finally {
       setTestingEmail(false);
@@ -182,7 +182,7 @@ export default function NotificationSettingsPage() {
     try {
       const success = await testSMSConnection(settings.sms);
       toast[success ? "success" : "error"](
-        success ? "SMS testi basarili." : "SMS testi basarisiz.",
+        success ? "SMS testi başarılı." : "SMS testi başarısız.",
       );
     } finally {
       setTestingSms(false);
@@ -193,10 +193,10 @@ export default function NotificationSettingsPage() {
     setTestingPush(true);
     try {
       await sendTestNotification();
-      toast.success("Test bildirimi gonderildi.");
+      toast.success("Test bildirimi gönderildi.");
       await refreshState();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Test bildirimi gonderilemedi.");
+      toast.error(error instanceof Error ? error.message : "Test bildirimi gönderilemedi.");
     } finally {
       setTestingPush(false);
     }
@@ -204,7 +204,7 @@ export default function NotificationSettingsPage() {
 
   const handleEnableDevice = async () => {
     if (!vapidPublicKey || !webPushAvailable) {
-      toast.error("Web push altyapisi henuz hazir degil.");
+      toast.error("Web push altyapısı henüz hazır değil.");
       return;
     }
 
@@ -222,7 +222,7 @@ export default function NotificationSettingsPage() {
       }
 
       if (nextPermission !== "granted") {
-        throw new Error("Tarayici bildirim izni gerekli.");
+        throw new Error("Tarayıcı bildirim izni gerekli.");
       }
 
       const existingSubscription = await registration.pushManager.getSubscription();
@@ -238,7 +238,7 @@ export default function NotificationSettingsPage() {
       const auth = json.keys?.auth;
 
       if (!subscription.endpoint || !p256dh || !auth) {
-        throw new Error("Push aboneligi eksik veri dondurdu.");
+        throw new Error("Push aboneliği eksik veri döndürdü.");
       }
 
       await savePushSubscription({
@@ -250,10 +250,10 @@ export default function NotificationSettingsPage() {
       });
 
       setSubscriptionEndpoint(subscription.endpoint);
-      toast.success("Bu cihaz push bildirimlerine baglandi.");
+      toast.success("Bu cihaz push bildirimlerine bağlandı.");
       await refreshState();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Cihaz push bildirimine baglanamadi.");
+      toast.error(error instanceof Error ? error.message : "Cihaz push bildirimine bağlanamadı.");
     } finally {
       setSyncingDevice(false);
     }
@@ -272,10 +272,10 @@ export default function NotificationSettingsPage() {
 
       await subscription?.unsubscribe();
       setSubscriptionEndpoint(null);
-      toast.success("Bu cihaz icin push kapatildi.");
+      toast.success("Bu cihaz için push kapatıldı.");
       await refreshState();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Cihaz bildirimi kaldirilamadi.");
+      toast.error(error instanceof Error ? error.message : "Cihaz bildirimi kaldırılamadı.");
     } finally {
       setSyncingDevice(false);
     }
@@ -286,7 +286,7 @@ export default function NotificationSettingsPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-2xl border border-[#FE6100]/10 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
-          Bildirim ayarlari yukleniyor...
+          Bildirim ayarları yükleniyor...
         </div>
       </div>
     );
@@ -299,9 +299,9 @@ export default function NotificationSettingsPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
             <ShieldAlert className="h-5 w-5" />
           </div>
-          <h2 className="mt-4 text-lg font-semibold text-gray-950">Bildirim ayarlari acilamadi</h2>
+          <h2 className="mt-4 text-lg font-semibold text-gray-950">Bildirim ayarları açılamadı</h2>
           <p className="mt-2 text-sm text-gray-500">
-            {statusError || "Bildirim durumu yuklenirken beklenmeyen bir hata olustu."}
+            {statusError || "Bildirim durumu yüklenirken beklenmeyen bir hata oluştu."}
           </p>
           <div className="mt-5 flex justify-center">
             <Button onClick={() => void refreshState()}>
@@ -319,7 +319,7 @@ export default function NotificationSettingsPage() {
       <AdminPageHeader
         badge="Bildirimler"
         title="PWA bildirim merkezi"
-        description="Inbox, push ve cihaz akisini yonetin."
+        description="Inbox, push ve cihaz akışını yönetin."
         actions={
           <Button onClick={() => void handleSave()} loading={saving}>
             <Save className="mr-2 h-4 w-4" />
@@ -328,19 +328,19 @@ export default function NotificationSettingsPage() {
         }
         metrics={
           <>
-            <AdminStatCard label="Inbox okunmamis" value={String(unreadCount)} tone="accent" />
+            <AdminStatCard label="Inbox okunmamış" value={String(unreadCount)} tone="accent" />
             <AdminStatCard label="Aktif cihaz" value={String(activeSubscriptions)} />
             <AdminStatCard
-              label="Tarayici izni"
+              label="Tarayıcı izni"
               value={
                 permission === "granted"
-                  ? "Acik"
+                  ? "Açık"
                   : permission === "denied"
-                    ? "Kapali"
+                    ? "Kapalı"
                     : "Bekliyor"
               }
             />
-            <AdminStatCard label="Dagitim" value={webPushAvailable ? "Push hazir" : "Inbox only"} />
+            <AdminStatCard label="Dağıtım" value={webPushAvailable ? "Push hazır" : "Sadece inbox"} />
           </>
         }
       />
@@ -350,15 +350,15 @@ export default function NotificationSettingsPage() {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Cihaz ve push durumu</h2>
-              <p className="mt-1 hidden text-sm text-gray-500 md:block">Bu cihazi push akisina dahil edin veya ayirin.</p>
+              <p className="mt-1 hidden text-sm text-gray-500 md:block">Bu cihazı push akışına dahil edin veya ayırın.</p>
             </div>
           </div>
         }
       >
         <AdminStatGrid className="xl:grid-cols-3">
-          <AdminStatCard label="Tarayici izni" value={permission === "granted" ? "Verildi" : permission === "denied" ? "Reddedildi" : "Bekliyor"} tone="accent" />
-          <AdminStatCard label="Bu cihaz" value={subscriptionEndpoint ? "Bagli" : "Bagli degil"} />
-          <AdminStatCard label="Runtime" value={webPushAvailable ? "VAPID hazir" : "Eksik"} />
+          <AdminStatCard label="Tarayıcı izni" value={permission === "granted" ? "Verildi" : permission === "denied" ? "Reddedildi" : "Bekliyor"} tone="accent" />
+          <AdminStatCard label="Bu cihaz" value={subscriptionEndpoint ? "Bağlı" : "Bağlı değil"} />
+          <AdminStatCard label="Runtime" value={webPushAvailable ? "VAPID hazır" : "Eksik"} />
         </AdminStatGrid>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -370,7 +370,7 @@ export default function NotificationSettingsPage() {
           ) : (
             <Button onClick={() => void handleEnableDevice()} loading={syncingDevice}>
               <Smartphone className="mr-2 h-4 w-4" />
-              Bu cihazi bagla
+              Bu cihazı bağla
             </Button>
           )}
 
@@ -383,7 +383,7 @@ export default function NotificationSettingsPage() {
         {permission === "denied" ? (
           <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            Tarayici bildirim izni kapali. Push almak icin izin ayarini yeniden acmaniz gerekir.
+            Tarayıcı bildirim izni kapalı. Push almak için izin ayarını yeniden açmanız gerekir.
           </div>
         ) : null}
 
@@ -391,7 +391,7 @@ export default function NotificationSettingsPage() {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <div className="flex items-start gap-3">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>Yorum bildirim senkronu tamamlanamadi: {backgroundSyncError}</span>
+              <span>Yorum bildirim senkronu tamamlanamadı: {backgroundSyncError}</span>
             </div>
             <Button
               variant="outline"
@@ -407,15 +407,15 @@ export default function NotificationSettingsPage() {
       <AdminSectionCard
         header={
           <div>
-            <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Event matrix</h2>
-            <p className="mt-1 hidden text-sm text-gray-500 md:block">Inbox ve push icin aktif olay tiplerini belirleyin.</p>
+            <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Olay matrisi</h2>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Inbox ve push için aktif olay tiplerini belirleyin.</p>
           </div>
         }
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ToggleCard
             title="Bildirim sistemi"
-            description="Store seviyesinde event uretimini acar veya durdurur."
+            description="Mağaza seviyesinde event üretimini açar veya durdurur."
             checked={settings.push.enabled}
             onChange={(checked) =>
               setSettings({
@@ -426,7 +426,7 @@ export default function NotificationSettingsPage() {
           />
           <ToggleCard
             title="Web push"
-            description="Push uygun cihazlara servis worker uzerinden gider."
+            description="Push uygun cihazlara service worker üzerinden gider."
             checked={settings.push.webPushEnabled}
             onChange={(checked) =>
               setSettings({
@@ -437,7 +437,7 @@ export default function NotificationSettingsPage() {
           />
           <ToggleCard
             title="Inbox"
-            description="Push kapali olsa bile admin bildirim kutusu kayit olusturur."
+            description="Push kapalı olsa bile admin bildirim kutusu kayıt oluşturur."
             checked={settings.push.inboxEnabled}
             onChange={(checked) =>
               setSettings({
@@ -447,8 +447,8 @@ export default function NotificationSettingsPage() {
             }
           />
           <ToggleCard
-            title="Yeni siparis"
-            description="Yeni order olustugunda inbox ve push uretir."
+            title="Yeni sipariş"
+            description="Yeni sipariş oluştuğunda inbox ve push üretir."
             checked={settings.push.events.new_order}
             onChange={(checked) =>
               setSettings({
@@ -461,8 +461,8 @@ export default function NotificationSettingsPage() {
             }
           />
           <ToggleCard
-            title="Yeni urun yorumu"
-            description="Yeni review kaydi inbox akisina dusurulur."
+            title="Yeni ürün yorumu"
+            description="Yeni yorum kaydı inbox akışına düşürülür."
             checked={settings.push.events.new_product_review}
             onChange={(checked) =>
               setSettings({
@@ -495,7 +495,7 @@ export default function NotificationSettingsPage() {
         header={
           <div>
             <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">E-posta ve SMS</h2>
-            <p className="mt-1 hidden text-sm text-gray-500 md:block">Operasyonel iletim ayarlari ayni ekranda tutulur.</p>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Operasyonel iletim ayarları aynı ekranda tutulur.</p>
           </div>
         }
       >
@@ -507,7 +507,7 @@ export default function NotificationSettingsPage() {
             </div>
             <div className="grid gap-4">
               <Input
-                label="Gonderen adi"
+                label="Gönderen adı"
                 value={settings.email.senderName}
                 onChange={(event) =>
                   setSettings({
@@ -517,7 +517,7 @@ export default function NotificationSettingsPage() {
                 }
               />
               <Input
-                label="Gonderen e-posta"
+                label="Gönderen e-posta"
                 type="email"
                 value={settings.email.senderEmail}
                 onChange={(event) =>
@@ -528,7 +528,7 @@ export default function NotificationSettingsPage() {
                 }
               />
               <Input
-                label="API anahtari"
+                label="API anahtarı"
                 type="password"
                 value={settings.email.apiKey || ""}
                 onChange={(event) =>
@@ -552,7 +552,7 @@ export default function NotificationSettingsPage() {
             </div>
             <div className="grid gap-4">
               <Input
-                label="Saglayici anahtari"
+                label="Sağlayıcı anahtarı"
                 value={settings.sms.apiKey}
                 onChange={(event) =>
                   setSettings({
@@ -573,7 +573,7 @@ export default function NotificationSettingsPage() {
                 }
               />
               <Input
-                label="Gonderici basligi"
+                label="Gönderici başlığı"
                 value={settings.sms.senderTitle}
                 onChange={(event) =>
                   setSettings({
@@ -618,7 +618,7 @@ function ToggleCard({
         <p className="mt-1 hidden text-sm text-gray-500 md:block">{description}</p>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#fff6f1] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#FE6100]">
           {checked ? <CheckCircle className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
-          {checked ? "Acik" : "Kapali"}
+          {checked ? "Açık" : "Kapalı"}
         </div>
       </div>
     </label>

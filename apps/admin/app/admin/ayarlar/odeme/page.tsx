@@ -350,7 +350,7 @@ export default function PaymentSettingsPage() {
                                     className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-xs font-medium text-white transition-all hover:bg-gray-800"
                                 >
                                     <Edit className="h-3.5 w-3.5" />
-                                    Duzenle
+                                    Düzenle
                                 </Link>
 
                                 <button

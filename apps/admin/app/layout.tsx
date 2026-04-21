@@ -32,7 +32,7 @@ export function generateMetadata(): Metadata {
       default: `${storeName} Admin`,
       template: `%s | ${storeName} Admin`,
     },
-    description: `${storeName} icin ortak admin panel cekirdegi`,
+    description: `${storeName} için ortak admin panel çekirdeği`,
     applicationName: `${storeName} Admin`,
     manifest: "/manifest.webmanifest",
     appleWebApp: {

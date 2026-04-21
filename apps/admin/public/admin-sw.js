@@ -13,7 +13,7 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     self.registration.showNotification(title, {
-      body: payload.body || "Yeni bir yonetim bildirimi var.",
+      body: payload.body || "Yeni bir yönetim bildirimi var.",
       icon: payload.icon || "/pwa/admin-icon.svg",
       badge: payload.badge || "/pwa/admin-icon-maskable.svg",
       tag: payload.tag || payload.type || "admin-notification",

@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: `${STORE_RUNTIME.name} Admin`,
         short_name: "Celebix Admin",
-        description: `${STORE_RUNTIME.name} icin mobil uyumlu yonetim paneli`,
+        description: `${STORE_RUNTIME.name} için mobil uyumlu yönetim paneli`,
         start_url: "/admin",
         display: "standalone",
         background_color: "#f6efe8",
