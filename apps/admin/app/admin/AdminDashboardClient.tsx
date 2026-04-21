@@ -197,7 +197,7 @@ function StatCard({
     >
       <Link
         href={config.href}
-        className="group block overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ee] shadow-[0_18px_55px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(254,97,0,0.14)]"
+        className="group block overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ee] shadow-[0_18px_55px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(254,97,0,0.14)] md:rounded-[28px]"
       >
         <div className="p-6">
           <div className="flex items-start justify-between gap-4">
@@ -207,7 +207,7 @@ function StatCard({
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">{config.title}</p>
-                <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">
+                <p className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">
                   <AnimatedCounter value={value} formatter={config.format} />
                 </p>
               </div>
@@ -280,7 +280,7 @@ function QuickActions() {
         >
           <Link
             href={action.href}
-            className="group block overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-white/80 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_55px_rgba(254,97,0,0.12)]"
+            className="group block overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-white/80 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_55px_rgba(254,97,0,0.12)] md:rounded-[28px] md:p-5"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -319,7 +319,7 @@ function SectionCard({
   eyebrow?: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+    <div className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]">
       <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-7">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -571,8 +571,8 @@ export default function AdminDashboardClient({
           <div className="absolute bottom-[-140px] right-[20%] h-[340px] w-[340px] rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
         </div>
 
-        <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
-          <div className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+        <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
+          <div className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]">
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="h-5 w-28 rounded-full bg-[#FE6100]/10" />
               <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
@@ -589,7 +589,7 @@ export default function AdminDashboardClient({
               {Array.from({ length: 3 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-[320px] rounded-[30px] border border-[#FE6100]/10 bg-white/80"
+                  className="h-[320px] rounded-[22px] border border-[#FE6100]/10 bg-white/80 md:rounded-[30px]"
                 />
               ))}
             </div>
@@ -613,13 +613,13 @@ export default function AdminDashboardClient({
         <div className="absolute bottom-[-140px] right-[20%] h-[340px] w-[340px] rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: ANIMATION_CONFIG.ease }}
-            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
+            className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]"
           >
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">

@@ -306,14 +306,14 @@ export function AdminSidebar({
 
       <aside
         className={cn(
-          "bg-[#ebebeb] border-l border-gray-200 flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
+          "bg-[#eee5dc] border-l border-[#e6d7c8] flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
           isMobile
-            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-80 right-0 left-auto`
-            : "w-56 shrink-0 xl:w-60 2xl:w-64",
+            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(22rem,92vw)] right-0 left-auto`
+            : "w-56 shrink-0 xl:w-[15rem] 2xl:w-64",
         )}
       >
-        <div className="flex items-center gap-3 border-b border-gray-200/50 p-4 xl:px-4 2xl:px-5">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+        <div className="flex items-center gap-3 border-b border-[#e6d7c8] p-3.5 xl:px-4 2xl:px-5">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[18px] bg-white shadow-sm ring-1 ring-black/5">
             <Image
               src={ADMIN_BRAND_LOGO_SRC}
               alt="Celebi X"
@@ -335,12 +335,12 @@ export function AdminSidebar({
         </div>
 
         {!role && !isRecoveringProfile ? (
-          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
             Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
           </div>
         ) : null}
 
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
           {filteredItems.map((item) => {
             const hasSubmenu = Boolean(item.submenu?.length);
             const isActive =
@@ -353,7 +353,7 @@ export function AdminSidebar({
               <div key={item.title}>
                 <div
                   className={cn(
-                    "group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm font-medium select-none",
+                    "group flex items-center justify-between rounded-2xl px-3 py-2.5 cursor-pointer transition-colors text-sm font-medium select-none",
                     isActive || isSubmenuActive
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900",
@@ -393,7 +393,7 @@ export function AdminSidebar({
                           href={sub.href}
                           onClick={handleLinkClick}
                           className={cn(
-                            "block rounded-md px-3 py-2 text-[13px] leading-5 transition-colors break-words",
+                            "block rounded-xl px-3 py-2 text-[13px] leading-5 transition-colors break-words",
                             isSubActive
                               ? "text-gray-900 font-medium bg-gray-200/50"
                               : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",
@@ -410,11 +410,11 @@ export function AdminSidebar({
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-200/50 space-y-2">
+        <div className="border-t border-[#e6d7c8] p-3.5 space-y-2">
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
+            className="w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition-colors min-h-[44px]"
           >
             <LogOut className="w-5 h-5 opacity-70" />
             <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
@@ -423,7 +423,7 @@ export function AdminSidebar({
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
+            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 text-sm font-medium transition-colors min-h-[44px]"
           >
             <Store className="w-5 h-5 opacity-70" />
             <span>Siteye Dön</span>

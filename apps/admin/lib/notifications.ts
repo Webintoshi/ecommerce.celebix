@@ -1,4 +1,9 @@
-import type { EmailConfig, NotificationSettings, SMSConfig } from "@/types/notification";
+import type {
+  AdminInboxNotificationRecord,
+  EmailConfig,
+  NotificationSettings,
+  SMSConfig,
+} from "@/types/notification";
 
 async function parseJsonResponse(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -56,3 +61,107 @@ export const testSMSConnection = async (config: SMSConfig): Promise<boolean> => 
   await new Promise((resolve) => setTimeout(resolve, 300));
   return Boolean(config.apiKey);
 };
+
+export async function getNotificationCenterStatus() {
+  const response = await fetch("/api/admin/notifications/status", {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  return parseJsonResponse(response) as Promise<{
+    settings: NotificationSettings;
+    inbox: {
+      items: AdminInboxNotificationRecord[];
+      unreadCount: number;
+    };
+    vapidPublicKey: string;
+    webPushAvailable: boolean;
+  }>;
+}
+
+export async function getNotificationInbox(limit = 25, unreadOnly = false) {
+  const response = await fetch(
+    `/api/admin/notifications/inbox?limit=${limit}&unreadOnly=${unreadOnly ? "true" : "false"}`,
+    {
+      cache: "no-store",
+      credentials: "same-origin",
+    },
+  );
+
+  return parseJsonResponse(response) as Promise<{
+    items: AdminInboxNotificationRecord[];
+    unreadCount: number;
+  }>;
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const response = await fetch("/api/admin/notifications/inbox/read", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      notificationId,
+    }),
+  });
+
+  await parseJsonResponse(response);
+}
+
+export async function markAllNotificationsRead() {
+  const response = await fetch("/api/admin/notifications/inbox/read", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      all: true,
+    }),
+  });
+
+  await parseJsonResponse(response);
+}
+
+export async function savePushSubscription(subscription: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent?: string | null;
+  platform?: string | null;
+}) {
+  const response = await fetch("/api/admin/notifications/subscriptions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(subscription),
+  });
+
+  await parseJsonResponse(response);
+}
+
+export async function deletePushSubscription(endpoint: string) {
+  const response = await fetch("/api/admin/notifications/subscriptions", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      endpoint,
+    }),
+  });
+
+  await parseJsonResponse(response);
+}
+
+export async function sendTestNotification() {
+  const response = await fetch("/api/admin/notifications/test", {
+    method: "POST",
+    credentials: "same-origin",
+  });
+
+  await parseJsonResponse(response);
+}

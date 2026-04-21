@@ -113,6 +113,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
+  text-rendering: optimizeLegibility;
 }
 
 /* Brand color overrides */
@@ -242,4 +243,26 @@ img {
 above-the-fold {
   content-visibility: auto;
   contain-intrinsic-size: 1px 500px;
+}
+
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 15px;
+  }
+
+  body {
+    background: linear-gradient(180deg, #f8f3ed 0%, #f3ede7 50%, #efe8e1 100%);
+  }
+
+  .clean-input {
+    @apply rounded-2xl px-3.5 py-2.5 text-sm;
+  }
 }

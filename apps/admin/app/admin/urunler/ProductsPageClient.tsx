@@ -1015,9 +1015,9 @@ export default function ProductsPageClient({
         <div className="absolute bottom-[-6rem] right-[20%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+          <section className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]">
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="space-y-0">

@@ -633,7 +633,7 @@ export default function CustomersPage({
         <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
       <input
         ref={fileInputRef}
@@ -643,7 +643,7 @@ export default function CustomersPage({
         onChange={handleImport}
       />
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
+          <section className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]">
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -749,7 +749,7 @@ export default function CustomersPage({
             />
           </section>
 
-          <section className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-6">
+          <section className="rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-4 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:rounded-[30px] md:p-6">
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -809,7 +809,7 @@ export default function CustomersPage({
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+          <section className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]">
             <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1112,12 +1112,12 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
 
 function StatCard({ title, value, icon: Icon, tone }: StatCardProps) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+    <div className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:rounded-[28px]">
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
+            <p className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
           </div>
           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm ${tone}`}>
             <Icon className="h-5 w-5" />

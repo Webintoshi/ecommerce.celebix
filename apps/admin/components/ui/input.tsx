@@ -18,7 +18,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-gray-500 md:text-sm md:normal-case md:tracking-normal">
             {label}
           </label>
         )}
@@ -32,7 +32,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             ref={ref}
             className={cn(
-              "w-full h-11 px-4 bg-white border rounded-xl text-gray-900 placeholder:text-gray-400",
+              "h-10 w-full rounded-2xl border bg-white px-3.5 text-sm text-gray-900 placeholder:text-gray-400 md:h-11 md:px-4",
               "transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0",
               error
                 ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
@@ -55,7 +55,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             </button>
           )}
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {error && <p className="mt-1 text-xs text-red-500 md:text-sm">{error}</p>}
       </div>
     );
   }

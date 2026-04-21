@@ -147,15 +147,90 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
         senderTitle: STORE_RUNTIME.smsSenderTitle,
     },
     push: {
-        provider: "firebase",
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: "",
+        enabled: true,
+        webPushEnabled: true,
+        inboxEnabled: true,
+        permissionPrompt: "manual",
+        appBadgeEnabled: true,
+        events: {
+            new_order: true,
+            new_product_review: true,
+            payment_failed: true,
+        },
     },
 };
+
+function normalizeNotificationSettings(value: unknown): NotificationSettings {
+    const record =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+    const emailRecord =
+        record.email && typeof record.email === "object" && !Array.isArray(record.email)
+            ? (record.email as Record<string, unknown>)
+            : {};
+    const smsRecord =
+        record.sms && typeof record.sms === "object" && !Array.isArray(record.sms)
+            ? (record.sms as Record<string, unknown>)
+            : {};
+    const rawPushRecord =
+        record.push && typeof record.push === "object" && !Array.isArray(record.push)
+            ? (record.push as Record<string, unknown>)
+            : {};
+    const eventRecord =
+        rawPushRecord.events &&
+        typeof rawPushRecord.events === "object" &&
+        !Array.isArray(rawPushRecord.events)
+            ? (rawPushRecord.events as Record<string, unknown>)
+            : {};
+
+    return {
+        email: {
+            ...DEFAULT_NOTIFICATION_SETTINGS.email,
+            ...(emailRecord as Partial<NotificationSettings["email"]>),
+        },
+        sms: {
+            ...DEFAULT_NOTIFICATION_SETTINGS.sms,
+            ...(smsRecord as Partial<NotificationSettings["sms"]>),
+        },
+        push: {
+            enabled:
+                typeof rawPushRecord.enabled === "boolean"
+                    ? rawPushRecord.enabled
+                    : DEFAULT_NOTIFICATION_SETTINGS.push.enabled,
+            webPushEnabled:
+                typeof rawPushRecord.webPushEnabled === "boolean"
+                    ? rawPushRecord.webPushEnabled
+                    : DEFAULT_NOTIFICATION_SETTINGS.push.webPushEnabled,
+            inboxEnabled:
+                typeof rawPushRecord.inboxEnabled === "boolean"
+                    ? rawPushRecord.inboxEnabled
+                    : DEFAULT_NOTIFICATION_SETTINGS.push.inboxEnabled,
+            permissionPrompt:
+                rawPushRecord.permissionPrompt === "disabled"
+                    ? "disabled"
+                    : DEFAULT_NOTIFICATION_SETTINGS.push.permissionPrompt,
+            appBadgeEnabled:
+                typeof rawPushRecord.appBadgeEnabled === "boolean"
+                    ? rawPushRecord.appBadgeEnabled
+                    : DEFAULT_NOTIFICATION_SETTINGS.push.appBadgeEnabled,
+            events: {
+                new_order:
+                    typeof eventRecord.new_order === "boolean"
+                        ? eventRecord.new_order
+                        : DEFAULT_NOTIFICATION_SETTINGS.push.events.new_order,
+                new_product_review:
+                    typeof eventRecord.new_product_review === "boolean"
+                        ? eventRecord.new_product_review
+                        : DEFAULT_NOTIFICATION_SETTINGS.push.events.new_product_review,
+                payment_failed:
+                    typeof eventRecord.payment_failed === "boolean"
+                        ? eventRecord.payment_failed
+                        : DEFAULT_NOTIFICATION_SETTINGS.push.events.payment_failed,
+            },
+        },
+    };
+}
 
 // =====================================================
 // TYPED SETTING HELPERS
@@ -417,33 +492,13 @@ export async function setHomepageCurationSettings(settings: HomepageCurationSett
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
     const data = await getSetting(SETTING_KEYS.NOTIFICATION_SETTINGS);
-
-    if (!data) {
-        return DEFAULT_NOTIFICATION_SETTINGS;
-    }
-
-    const record = data as Partial<NotificationSettings>;
-
-    return {
-        email: {
-            ...DEFAULT_NOTIFICATION_SETTINGS.email,
-            ...(record.email || {}),
-        },
-        sms: {
-            ...DEFAULT_NOTIFICATION_SETTINGS.sms,
-            ...(record.sms || {}),
-        },
-        push: {
-            ...DEFAULT_NOTIFICATION_SETTINGS.push,
-            ...(record.push || {}),
-        },
-    };
+    return normalizeNotificationSettings(data);
 }
 
 export async function setNotificationSettings(settings: NotificationSettings) {
     return setSetting(
         SETTING_KEYS.NOTIFICATION_SETTINGS,
-        settings as unknown as Record<string, unknown>,
+        normalizeNotificationSettings(settings) as unknown as Record<string, unknown>,
     );
 }
 

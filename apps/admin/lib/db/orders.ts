@@ -5,6 +5,7 @@ import { incrementCouponUsage } from "./coupons";
 import { enqueueAndProcessInvoiceForOrder } from "./accounting";
 import { enqueueInventorySyncByVariantIds, enqueueOrderStatusSync } from "./marketplace-sync";
 import { attemptOrderShippingDispatch } from "./shipping-automation";
+import { emitAdminNotificationEvent } from "@/lib/admin-notification-center";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
 import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 
@@ -330,6 +331,25 @@ export async function createOrder(orderData: {
         console.error("Abandoned cart recovery sync error (createOrder):", abandonedCartError);
     }
 
+    try {
+        await emitAdminNotificationEvent({
+            type: "new_order",
+            title: `Yeni siparis #${order.order_number || "---"}`,
+            body: `${orderItems.length} kalem iceren yeni siparis olustu.`,
+            href: `/admin/siparisler/${order.id}`,
+            entityType: "order",
+            entityId: String(order.id),
+            payload: {
+                orderId: order.id,
+                orderNumber: order.order_number || null,
+                total,
+                itemCount: orderItems.length,
+            },
+        });
+    } catch (notificationError) {
+        console.error("Admin notification error (createOrder):", notificationError);
+    }
+
     return { ...order, items: orderItems };
 }
 
@@ -567,6 +587,26 @@ export async function updatePaymentStatus(id: string, paymentStatus: string) {
         await enqueueOrderStatusSync(id);
     } catch (marketplaceError) {
         console.error("Marketplace queue error (updatePaymentStatus):", marketplaceError);
+    }
+
+    if (paymentStatus === "failed") {
+        try {
+            await emitAdminNotificationEvent({
+                type: "payment_failed",
+                title: `Odeme hatasi #${data.order_number || "---"}`,
+                body: "Siparis odemesi basarisiz oldu. Detayi kontrol edin.",
+                href: `/admin/siparisler/${data.id}`,
+                entityType: "order",
+                entityId: String(data.id),
+                payload: {
+                    orderId: data.id,
+                    orderNumber: data.order_number || null,
+                    paymentStatus,
+                },
+            });
+        } catch (notificationError) {
+            console.error("Admin notification error (updatePaymentStatus):", notificationError);
+        }
     }
 
     return data;

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Lora } from "next/font/google";
 import { Toaster } from "sonner";
 import { getActiveStoreSlug, requireStoreConfig } from "@celebix/platform-config";
@@ -32,13 +32,27 @@ export function generateMetadata(): Metadata {
       default: `${storeName} Admin`,
       template: `%s | ${storeName} Admin`,
     },
-    description: `${storeName} için ortak admin panel çekirdeği`,
+    description: `${storeName} icin ortak admin panel cekirdegi`,
+    applicationName: `${storeName} Admin`,
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      title: `${storeName} Admin`,
+      statusBarStyle: "default",
+    },
     robots: {
       index: false,
       follow: false,
     },
   };
 }
+
+export const viewport: Viewport = {
+  themeColor: "#FE6100",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

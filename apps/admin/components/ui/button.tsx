@@ -32,9 +32,9 @@ export function buttonVariants({
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-sm rounded-lg",
-    md: "h-10 px-4 text-sm rounded-lg",
-    lg: "h-12 px-6 text-base rounded-xl",
+    sm: "h-8 px-3 text-xs rounded-xl md:text-sm",
+    md: "h-9 px-3.5 text-sm rounded-xl md:h-10 md:px-4",
+    lg: "h-10 px-4 text-sm rounded-2xl md:h-12 md:px-6 md:text-base",
   };
 
   return cn(baseStyles, variants[variant], sizes[size], className);
@@ -64,9 +64,9 @@ export function Button({
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-sm rounded-lg",
-    md: "h-10 px-4 text-sm rounded-lg",
-    lg: "h-12 px-6 text-base rounded-xl",
+    sm: "h-8 px-3 text-xs rounded-xl md:text-sm",
+    md: "h-9 px-3.5 text-sm rounded-xl md:h-10 md:px-4",
+    lg: "h-10 px-4 text-sm rounded-2xl md:h-12 md:px-6 md:text-base",
   };
 
   return (

@@ -193,13 +193,13 @@ function StatsCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]"
+      className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:rounded-[28px]"
     >
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
+            <p className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
           </div>
           <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm", tone)}>
             <Icon className="h-5 w-5" />
@@ -369,13 +369,13 @@ export default function OrdersPage() {
       aria-busy={loading}
       className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#f0e8e0]"
     >
-      <div className="mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
+            className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]"
           >
             <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -462,7 +462,7 @@ export default function OrdersPage() {
 
           <section
             aria-labelledby="orders-filters-title"
-            className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-6"
+            className="rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-4 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:rounded-[30px] md:p-6"
           >
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -552,7 +552,7 @@ export default function OrdersPage() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+          <section className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]">
             <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>

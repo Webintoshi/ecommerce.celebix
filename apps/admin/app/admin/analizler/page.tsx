@@ -212,14 +212,14 @@ export default function AnalyticsPage() {
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/5 to-transparent rounded-full blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
           {/* Hero Header with warm tones */}
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
+            className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)] md:rounded-[30px]"
           >
             <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -489,7 +489,7 @@ function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.42, delay: index * 0.06, ease: ANIMATION_EASE }}
       className={cn(
-        "group relative overflow-hidden rounded-[28px] border bg-gradient-to-br shadow-[0_18px_55px_rgba(0,0,0,0.08)]",
+        "group relative overflow-hidden rounded-[22px] border bg-gradient-to-br shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:rounded-[28px]",
         style.border,
         style.gradient
       )}
@@ -505,7 +505,7 @@ function KpiCard({
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">{title}</p>
-              <h3 className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">
+              <h3 className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">
                 {loading ? <span className="text-gray-300">...</span> : value}
               </h3>
             </div>
@@ -546,7 +546,7 @@ function RevenueCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.18, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]"
     >
       <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -704,7 +704,7 @@ function LiveSnapshotCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.24, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]"
     >
       <div className="border-b border-[#FE6100]/8 px-6 py-5">
         <div className="flex items-center justify-between gap-3">
@@ -725,7 +725,7 @@ function LiveSnapshotCard({
 
       <div className="space-y-6 p-6">
         {/* Live visitors big number */}
-        <div className="rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-[#faf0f0] via-[#fdf5f3] to-white p-5">
+        <div className="rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-[#faf0f0] via-[#fdf5f3] to-white p-4 md:rounded-[28px] md:p-5">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-[#FE6100]/70">Çevrim içi kullanıcı</p>
@@ -838,7 +838,7 @@ function CartRecoveryCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.48, delay: 0.3, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[22px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)] md:rounded-[30px]"
     >
       <div className="border-b border-[#FE6100]/8 px-6 py-5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
