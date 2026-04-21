@@ -32,7 +32,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             ref={ref}
             className={cn(
-              "h-11 w-full rounded-[1.35rem] border bg-white px-4 text-[0.95rem] text-gray-900 placeholder:text-gray-400 md:h-11 md:px-4 md:text-sm md:rounded-2xl",
+              "h-12 w-full rounded-[1.45rem] border bg-white px-[1.125rem] text-base leading-6 text-gray-900 placeholder:text-gray-400 md:h-11 md:px-4 md:text-sm md:rounded-2xl",
               "transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0",
               error
                 ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"

@@ -28,12 +28,12 @@ const ALERT_CACHE_KEY = "toshi_alerts";
 const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
-const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
-const TOSHI_GRADIENT = "linear-gradient(135deg, #FE6100 0%, #ff8a3d 100%)";
+const TOSHI_MASCOT_SRC = "/branding/celebix-mascot.svg";
+const TOSHI_GRADIENT = "linear-gradient(135deg, #FE6100 0%, #ff8a3d 58%, #f4984d 100%)";
 
 function ToshiMark({
   sizeClassName = "h-8 w-8",
-  imageClassName = "h-4 w-4",
+  imageClassName = "h-5 w-5",
   shellClassName = "",
 }: {
   sizeClassName?: string;
@@ -44,7 +44,7 @@ function ToshiMark({
     <span
       className={`flex items-center justify-center rounded-full border border-white/18 bg-[rgba(255,255,255,0.16)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] ${sizeClassName} ${shellClassName}`.trim()}
     >
-      <Image src={ADMIN_BRAND_LOGO_SRC} alt="Celebix X" width={24} height={24} className={imageClassName} />
+      <Image src={TOSHI_MASCOT_SRC} alt="Toshi mascot" width={28} height={28} className={imageClassName} priority />
     </span>
   );
 }
@@ -339,7 +339,7 @@ export default function ToshiAssistant({
       }
     };
 
-    checkAlerts();
+    void checkAlerts();
     const intervalId = window.setInterval(checkAlerts, ALERT_CHECK_INTERVAL);
     return () => window.clearInterval(intervalId);
   }, [isAdmin]);
@@ -477,7 +477,7 @@ export default function ToshiAssistant({
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      sendMessage();
+      void sendMessage();
     }
   };
 
@@ -504,7 +504,7 @@ export default function ToshiAssistant({
 
   const panelContent = (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-3">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-3.5">
         {messages.map((message, index) => (
           <div
             key={`${message.role}-${index}`}
@@ -513,18 +513,18 @@ export default function ToshiAssistant({
             {message.role === "model" ? (
               <div className="mr-2 mt-0.5 flex-shrink-0">
                 <ToshiMark
-                  sizeClassName="h-6 w-6"
-                  imageClassName="h-3.5 w-3.5"
+                  sizeClassName="h-7 w-7"
+                  imageClassName="h-4.5 w-4.5"
                   shellClassName="border-[#ffc89f] bg-[linear-gradient(135deg,#FE6100_0%,#ff8a3d_100%)]"
                 />
               </div>
             ) : null}
 
             <div
-              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+              className={`max-w-[82%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6 ${
                 message.role === "user"
-                  ? "rounded-tr-sm bg-gradient-to-br from-[#FE6100] to-[#ff8a3d] text-white shadow-[0_14px_24px_rgba(254,97,0,0.18)]"
-                  : "rounded-tl-sm border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]"
+                  ? "rounded-tr-md bg-gradient-to-br from-[#FE6100] to-[#ff8a3d] text-white shadow-[0_14px_24px_rgba(254,97,0,0.18)]"
+                  : "rounded-tl-md border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]"
               }`}
               style={{ wordBreak: "break-word" }}
             >
@@ -537,14 +537,14 @@ export default function ToshiAssistant({
           <div className="flex justify-start">
             <div className="mr-2 mt-0.5 flex-shrink-0">
               <ToshiMark
-                sizeClassName="h-6 w-6"
-                imageClassName="h-3.5 w-3.5"
+                sizeClassName="h-7 w-7"
+                imageClassName="h-4.5 w-4.5"
                 shellClassName="border-[#ffc89f] bg-[linear-gradient(135deg,#FE6100_0%,#ff8a3d_100%)]"
               />
             </div>
-            <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-[#f1dfd0] bg-white px-3 py-2.5 shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
+            <div className="flex items-center gap-2 rounded-[1.35rem] rounded-tl-md border border-[#f1dfd0] bg-white px-3.5 py-2.5 shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d95a08]" />
-              <span className="text-xs text-gray-400">Veri çekiliyor...</span>
+              <span className="text-xs text-gray-500">Veri çekiliyor...</span>
             </div>
           </div>
         ) : null}
@@ -557,8 +557,8 @@ export default function ToshiAssistant({
           {quickPrompts.map((prompt) => (
             <button
               key={prompt}
-              onClick={() => sendMessage(prompt)}
-              className="mt-2 whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3 py-1.5 text-xs font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
+              onClick={() => void sendMessage(prompt)}
+              className="mt-2 whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-1.5 text-xs font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
             >
               {prompt}
             </button>
@@ -567,14 +567,14 @@ export default function ToshiAssistant({
       ) : null}
 
       <div
-        className={`flex-shrink-0 border-t border-[#f1dfd0] bg-white ${isMobile ? "px-4 pt-3" : "px-3 py-3"}`}
+        className={`flex-shrink-0 border-t border-[#f1dfd0] bg-white ${isMobile ? "px-4 pt-3.5" : "px-3.5 py-3.5"}`}
         style={
           isMobile
-            ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }
+            ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }
             : undefined
         }
       >
-        <div className="flex items-end gap-2 rounded-[1.15rem] border border-[#ecd9c8] bg-[#fbf7f3] px-3 py-2.5 transition-all focus-within:border-[#FE6100]/60 focus-within:ring-2 focus-within:ring-[#ffd8ba]">
+        <div className="flex items-end gap-2.5 rounded-[1.35rem] border border-[#ecd9c8] bg-[#fbf7f3] px-3.5 py-3 transition-all focus-within:border-[#FE6100]/60 focus-within:ring-2 focus-within:ring-[#ffd8ba]">
           <textarea
             ref={inputRef}
             value={input}
@@ -582,27 +582,27 @@ export default function ToshiAssistant({
             onKeyDown={handleKeyDown}
             placeholder="Toshi'ye sor..."
             rows={1}
-            className="min-h-[20px] max-h-[80px] flex-1 resize-none bg-transparent text-sm leading-5 text-gray-800 outline-none placeholder:text-gray-400"
+            className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-[0.95rem] leading-6 text-gray-800 outline-none placeholder:text-gray-400"
             style={{ overflow: "auto" }}
             disabled={isLoading}
           />
           <button
-            onClick={() => sendMessage()}
+            onClick={() => void sendMessage()}
             disabled={!input.trim() || isLoading}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl transition-all disabled:opacity-30"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[1rem] transition-all disabled:opacity-30"
             style={{
               background: input.trim() && !isLoading ? TOSHI_GRADIENT : "#e5e7eb",
             }}
           >
             <Send
-              className="h-3.5 w-3.5"
+              className="h-4 w-4"
               style={{
                 color: input.trim() && !isLoading ? "#fff" : "#9ca3af",
               }}
             />
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-gray-300">
+        <p className="mt-1.5 text-center text-[10px] text-gray-400">
           {isMobile ? "Enter ile gönder" : "Enter ile gönder · Ctrl+K kısayol · Esc kapat"}
         </p>
       </div>
@@ -614,20 +614,20 @@ export default function ToshiAssistant({
       {!isMobile && !panelIsOpen ? (
         <button
           onClick={handleOpen}
-          aria-label="Toshi AI Asistanı Aç (Ctrl+K)"
+          aria-label="Toshi AI asistanını aç (Ctrl+K)"
           className="group fixed bottom-6 right-6 z-[9999]"
           style={{
             filter: "drop-shadow(0 12px 28px rgba(254,97,0,0.32))",
           }}
         >
           <div
-            className="relative flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+            className="relative flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
             style={{
               background: TOSHI_GRADIENT,
             }}
           >
             <span className="absolute inset-0 rounded-full bg-[#ffb37f] opacity-20 animate-ping" />
-            <ToshiMark sizeClassName="h-10 w-10" imageClassName="h-5 w-5" shellClassName="border-white/20 bg-white/14" />
+            <ToshiMark sizeClassName="h-12 w-12" imageClassName="h-7 w-7" shellClassName="border-white/20 bg-white/14" />
 
             {alertInfo && alertInfo.count > 0 ? (
               <span
@@ -641,7 +641,7 @@ export default function ToshiAssistant({
             ) : null}
           </div>
 
-          <span className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#2d180b] px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <span className="pointer-events-none absolute right-[4.35rem] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#2d180b] px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             {alertInfo && alertInfo.count > 0 ? alertInfo.summary : "Toshi'ye sor (Ctrl+K)"}
           </span>
         </button>
@@ -649,10 +649,10 @@ export default function ToshiAssistant({
 
       {!isMobile && panelIsOpen ? (
         <div
-          className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[24px] shadow-2xl"
+          className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[26px] shadow-2xl"
           style={{
-            width: "400px",
-            height: isMinimized ? "56px" : "560px",
+            width: "408px",
+            height: isMinimized ? "60px" : "572px",
             background: "#fff",
             border: "1px solid rgba(254,97,0,0.16)",
             boxShadow: "0 26px 64px rgba(254,97,0,0.18), 0 2px 16px rgba(0,0,0,0.08)",
@@ -660,16 +660,16 @@ export default function ToshiAssistant({
           }}
         >
           <div
-            className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3"
+            className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3.5"
             style={{
               background: TOSHI_GRADIENT,
             }}
           >
             <div className="flex items-center gap-2.5">
-              <ToshiMark sizeClassName="h-8 w-8" imageClassName="h-4 w-4" shellClassName="border-white/20 bg-white/18" />
+              <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
               <div>
                 <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                <p className="text-xs leading-tight text-[#ffe2ce]">AI Asistan · Gerçek zamanlı</p>
+                <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan · gerçek zamanlı</p>
               </div>
             </div>
 
@@ -677,17 +677,17 @@ export default function ToshiAssistant({
               <button
                 onClick={handleReset}
                 title="Konuşmayı sıfırla"
-                className="rounded-lg p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                <RotateCcw className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setIsMinimized((current) => !current)}
                 title="Küçült"
-                className="rounded-lg p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
                 <ChevronDown
-                  className="h-3.5 w-3.5 transition-transform duration-200"
+                  className="h-4 w-4 transition-transform duration-200"
                   style={{
                     transform: isMinimized ? "rotate(180deg)" : "rotate(0deg)",
                   }}
@@ -696,9 +696,9 @@ export default function ToshiAssistant({
               <button
                 onClick={() => setPanelOpen(false)}
                 title="Kapat (Esc)"
-                className="rounded-lg p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -717,15 +717,15 @@ export default function ToshiAssistant({
           />
 
           <div
-            className="fixed inset-x-0 z-[9999] flex flex-col overflow-hidden rounded-t-[28px] border border-[#ffd7ba] bg-white shadow-[0_-18px_48px_rgba(254,97,0,0.2)]"
+            className="fixed inset-x-0 z-[9999] flex flex-col overflow-hidden rounded-t-[30px] border border-[#ffd7ba] bg-white shadow-[0_-18px_48px_rgba(254,97,0,0.2)]"
             style={{
-              bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 118px)",
               height:
-                "min(720px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 96px))",
+                "min(740px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 118px))",
             }}
           >
             <div
-              className="relative flex flex-shrink-0 select-none items-center justify-between px-4 pb-3 pt-2.5"
+              className="relative flex flex-shrink-0 select-none items-center justify-between px-4 pb-3.5 pt-2.5"
               style={{
                 background: TOSHI_GRADIENT,
               }}
@@ -733,10 +733,10 @@ export default function ToshiAssistant({
               <div className="absolute left-1/2 top-2 h-1.5 w-14 -translate-x-1/2 rounded-full bg-white/45" />
 
               <div className="flex items-center gap-2.5">
-                <ToshiMark sizeClassName="h-8 w-8" imageClassName="h-4 w-4" shellClassName="border-white/20 bg-white/18" />
+                <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
                 <div>
                   <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                  <p className="text-xs leading-tight text-[#ffe2ce]">AI Asistan · Gerçek zamanlı</p>
+                  <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan · gerçek zamanlı</p>
                 </div>
               </div>
 
@@ -744,16 +744,16 @@ export default function ToshiAssistant({
                 <button
                   onClick={handleReset}
                   title="Konuşmayı sıfırla"
-                  className="rounded-lg p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
+                  <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setPanelOpen(false)}
                   title="Kapat"
-                  className="rounded-lg p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>

@@ -1,0 +1,34 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="helmet" x1="24" y1="20" x2="104" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8E4A"/>
+      <stop offset="1" stop-color="#FE6100"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="48" y1="22" x2="80" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7F2"/>
+      <stop offset="1" stop-color="#FFDCC4"/>
+    </linearGradient>
+    <filter id="shadow" x="8" y="10" width="112" height="110" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="8"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.54902 0 0 0 0 0.239216 0 0 0 0 0.0509804 0 0 0 0.16 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <circle cx="64" cy="60" r="34" fill="#FFF8F3"/>
+    <path d="M31 39C31 24.6406 42.6406 13 57 13H71C85.3594 13 97 24.6406 97 39V63C97 66.3137 94.3137 69 91 69H37C33.6863 69 31 66.3137 31 63V39Z" fill="url(#helmet)"/>
+    <path d="M41 67C41 52.0883 53.0883 40 68 40H70C84.9117 40 97 52.0883 97 67V74H41V67Z" fill="url(#helmet)"/>
+    <path d="M49 21C49 15.4772 53.4772 11 59 11H69C74.5228 11 79 15.4772 79 21V24C79 29.5228 74.5228 34 69 34H59C53.4772 34 49 29.5228 49 24V21Z" fill="url(#visor)"/>
+    <circle cx="59" cy="54" r="4.75" fill="#4F4843"/>
+    <circle cx="77" cy="54" r="4.75" fill="#4F4843"/>
+    <path d="M53.5 67.5C57.4583 72.4722 62.375 75 68.25 75C74.125 75 79.0417 72.4722 83 67.5" stroke="#5B4E47" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M98 39.5C101.59 41.0712 104 44.6485 104 48.75V64C104 67.3137 101.314 70 98 70H95V39.5H98Z" fill="#FF9A5C"/>
+    <path d="M31 39.5C27.4101 41.0712 25 44.6485 25 48.75V64C25 67.3137 27.6863 70 31 70H34V39.5H31Z" fill="#FF9A5C"/>
+    <circle cx="88" cy="25" r="4.5" fill="#FFE6D2"/>
+    <circle cx="95.5" cy="20.5" r="2.5" fill="#FFD0AD"/>
+  </g>
+</svg>

@@ -308,27 +308,27 @@ export function AdminSidebar({
         className={cn(
           "bg-[#eee5dc] border-l border-[#e6d7c8] flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
           isMobile
-            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(24rem,94vw)] right-0 left-auto`
+            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-[min(24.5rem,94vw)] right-0 left-auto`
             : "w-56 shrink-0 xl:w-[15rem] 2xl:w-64",
         )}
       >
-        <div className="flex items-center gap-3.5 border-b border-[#e6d7c8] p-4 xl:px-4.5 2xl:px-5">
-          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-[20px] bg-white shadow-sm ring-1 ring-black/5">
+        <div className="flex items-center gap-4 border-b border-[#e6d7c8] p-4 xl:px-[1.125rem] 2xl:px-5">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white shadow-sm ring-1 ring-black/5">
             <Image
               src={ADMIN_BRAND_LOGO_SRC}
               alt="Celebi X"
               width={40}
               height={40}
-              className="h-full w-full object-contain p-1.5"
+              className="h-full w-full object-contain p-[0.4rem]"
               priority
               unoptimized
             />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="block break-words text-[15px] font-semibold leading-snug text-gray-900">
+            <span className="block break-words text-base font-semibold leading-snug text-gray-900">
               {STORE_RUNTIME.name} Admin
             </span>
-            <span className="block truncate text-[13px] font-medium text-gray-500">
+            <span className="block truncate text-[0.9rem] font-medium text-gray-500">
               {userName || userEmail || "Admin Kullanıcı"}
             </span>
           </div>
@@ -340,7 +340,7 @@ export function AdminSidebar({
           </div>
         ) : null}
 
-        <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3.5">
+        <nav className="flex-1 space-y-2 overflow-y-auto px-2.5 py-4">
           {filteredItems.map((item) => {
             const hasSubmenu = Boolean(item.submenu?.length);
             const isActive =
@@ -353,7 +353,7 @@ export function AdminSidebar({
               <div key={item.title}>
                 <div
                   className={cn(
-                    "group flex items-center justify-between rounded-[1.35rem] px-3.5 py-3 cursor-pointer select-none text-[15px] font-medium transition-colors",
+                    "group flex min-h-[54px] items-center justify-between rounded-[1.55rem] px-4 py-3 cursor-pointer select-none text-base font-medium transition-colors",
                     isActive || isSubmenuActive
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900",
@@ -364,8 +364,8 @@ export function AdminSidebar({
                     }
                   }}
                 >
-                    <Link href={item.href} onClick={handleLinkClick} className="flex min-w-0 flex-1 items-center gap-3.5">
-                      <item.icon className="h-[1.35rem] w-[1.35rem] opacity-75" />
+                    <Link href={item.href} onClick={handleLinkClick} className="flex min-h-[54px] min-w-0 flex-1 items-center gap-3.5">
+                      <item.icon className="h-[1.45rem] w-[1.45rem] opacity-80" />
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
                     </Link>
 
@@ -388,7 +388,7 @@ export function AdminSidebar({
                 </div>
 
                 {hasSubmenu && isExpanded && (
-                  <div className="mt-1.5 ml-9 space-y-1">
+                  <div className="mt-1.5 ml-9 space-y-1.5">
                     {item.submenu?.map((sub) => {
                       const isSubActive = pathname === sub.href;
                       return (
@@ -397,7 +397,7 @@ export function AdminSidebar({
                           href={sub.href}
                           onClick={handleLinkClick}
                           className={cn(
-                            "block break-words rounded-[1rem] px-3.5 py-2.5 text-[14px] font-medium leading-5 transition-colors",
+                            "flex min-h-[48px] items-center break-words rounded-[1.15rem] px-4 py-2.5 text-[0.95rem] font-medium leading-5 transition-colors",
                             isSubActive
                               ? "text-gray-900 font-medium bg-gray-200/50"
                               : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",
@@ -418,18 +418,18 @@ export function AdminSidebar({
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="flex min-h-[48px] w-full items-center gap-3.5 rounded-[1.25rem] px-3.5 py-3 text-[15px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex min-h-[52px] w-full items-center gap-3.5 rounded-[1.35rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
           >
-            <LogOut className="h-[1.35rem] w-[1.35rem] opacity-75" />
+            <LogOut className="h-[1.4rem] w-[1.4rem] opacity-75" />
             <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
           </button>
           <Link
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-[48px] items-center gap-3.5 rounded-[1.25rem] px-3.5 py-3 text-[15px] font-medium text-gray-600 transition-colors hover:bg-gray-200/50 hover:text-gray-900"
+            className="flex min-h-[52px] items-center gap-3.5 rounded-[1.35rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-gray-200/50 hover:text-gray-900"
           >
-            <Store className="h-[1.35rem] w-[1.35rem] opacity-75" />
+            <Store className="h-[1.4rem] w-[1.4rem] opacity-75" />
             <span>Siteye Dön</span>
           </Link>
         </div>

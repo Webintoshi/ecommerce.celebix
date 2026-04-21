@@ -3,14 +3,14 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Menu, RotateCw } from "lucide-react";
+import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
-const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
+const ADMIN_MASCOT_SRC = "/branding/celebix-mascot.svg";
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -30,14 +30,14 @@ function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/musteriler")) {
     return {
       title: "Müşteri merkezi",
-      subtitle: "Kayıtlar, segmentler ve segment akışlarını mobilde yoğun tutun.",
+      subtitle: "Kayıtlar, segmentler ve müşteri aksiyonları burada toplanır.",
     };
   }
 
   if (pathname.startsWith("/admin/analizler")) {
     return {
       title: "Canlı analiz",
-      subtitle: "KPI, trafik ve operasyon metrikleri daha kompakt yüzeyde.",
+      subtitle: "KPI, trafik ve operasyon metriklerini mobilde rahat izleyin.",
     };
   }
 
@@ -61,6 +61,10 @@ function getShellMeta(pathname: string) {
   };
 }
 
+function isAdminRoot(pathname: string) {
+  return pathname === "/admin" || pathname === "/admin/";
+}
+
 export default function AdminLayoutClient({
   children,
   initialProfile,
@@ -79,6 +83,9 @@ export default function AdminLayoutClient({
   } | null>(null);
 
   const shellMeta = useMemo(() => getShellMeta(pathname), [pathname]);
+  const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
+  const isOrdersRoute = pathname.startsWith("/admin/siparisler");
+  const isProductsRoute = pathname.startsWith("/admin/urunler");
 
   useEffect(() => {
     const checkMobile = () => {
@@ -96,6 +103,14 @@ export default function AdminLayoutClient({
 
   const handleHome = () => {
     router.push("/admin");
+  };
+
+  const handleOrders = () => {
+    router.push("/admin/siparisler");
+  };
+
+  const handleProducts = () => {
+    router.push("/admin/urunler");
   };
 
   const handleRefresh = () => {
@@ -125,29 +140,42 @@ export default function AdminLayoutClient({
       </AdminClientBoundary>
 
       <main className="h-screen min-w-0 flex-1 overflow-y-auto">
-        <div className="px-4 py-[1.125rem] pb-28 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
-          <div className="sticky top-0 z-30 mb-5 rounded-[25px] border border-[#f3d8c1] bg-[rgba(255,250,245,0.92)] px-4 py-4 shadow-[0_16px_38px_rgba(112,73,44,0.12)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08] md:text-[11px]">
-                  Celebix Admin
+        <div className="px-4 py-5 pb-40 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
+          <div className="sticky top-0 z-30 mb-5 rounded-[30px] border border-[#f3d8c1] bg-[rgba(255,250,245,0.94)] px-4 py-4 shadow-[0_18px_40px_rgba(112,73,44,0.12)] backdrop-blur-xl md:mb-5 md:px-5 md:py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-3.5">
+                {isMobile && !rootAdmin ? (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[#ecd7c3] bg-white/90 text-[#6f6258] shadow-[0_10px_24px_rgba(112,73,44,0.08)] transition-all hover:border-[#FE6100]/20 hover:text-[#d95a08]"
+                    aria-label="Geri git"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                ) : null}
+
+                <div className="min-w-0">
+                  <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08] md:text-[11px]">
+                    Celebix Admin
+                  </div>
+                  <h1 className="mt-3 truncate text-[2rem] font-semibold tracking-[-0.05em] text-gray-950 md:text-2xl">
+                    {shellMeta.title}
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-[1.02rem] leading-7 text-[#6f6258] md:text-sm">
+                    {shellMeta.subtitle}
+                  </p>
                 </div>
-                <h1 className="mt-3 truncate text-[1.82rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-2xl">
-                  {shellMeta.title}
-                </h1>
-                <p className="mt-2 max-w-2xl text-[1rem] leading-6 text-[#6f6258] md:text-sm">
-                  {shellMeta.subtitle}
-                </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-600 transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] md:inline-flex"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#ecd7c3] bg-white/90 text-[#6f6258] shadow-[0_10px_24px_rgba(112,73,44,0.08)] transition-all hover:border-[#FE6100]/20 hover:text-[#d95a08] md:h-10 md:w-10"
                   aria-label="Sayfayı yenile"
                 >
-                  <RotateCw className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5 md:h-4 md:w-4" />
                 </button>
                 <AdminNotificationCenter isMobile={isMobile} />
               </div>
@@ -159,61 +187,78 @@ export default function AdminLayoutClient({
       </main>
 
       {isMobile ? (
-        <div className="safe-area-bottom fixed bottom-3 left-1/2 z-50 w-[calc(100%-1rem)] max-w-[34rem] -translate-x-1/2 rounded-[32px] border border-[#f1d8c3] bg-[rgba(255,249,243,0.97)] px-3 py-3 shadow-[0_20px_44px_rgba(92,56,30,0.18)] backdrop-blur-2xl md:hidden">
-          <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-center gap-2">
-            <button
-              onClick={handleBack}
-              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
-            >
-              <ArrowLeft className="h-[1.4rem] w-[1.4rem]" />
-              <span className="text-[12px] font-semibold tracking-[0.01em]">Geri</span>
-            </button>
+        <div className="safe-area-bottom fixed bottom-3 left-1/2 z-50 w-[calc(100%-1rem)] max-w-[34rem] -translate-x-1/2 md:hidden">
+          <div className="rounded-[34px] border border-[#f0d8c4] bg-[rgba(255,250,246,0.97)] px-3 py-3 shadow-[0_22px_54px_rgba(92,56,30,0.18)] backdrop-blur-2xl">
+            <div className="grid grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-2.5">
+              <button
+                onClick={handleHome}
+                className={`flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[26px] px-2 py-3 transition-all active:scale-[0.98] ${
+                  rootAdmin
+                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
+                    : "text-[#6c5b52] hover:bg-white/80"
+                }`}
+              >
+                <Home className="h-[1.45rem] w-[1.45rem]" />
+                <span className="text-[12px] font-semibold tracking-[0.01em]">Ana</span>
+              </button>
 
-            <button
-              onClick={handleHome}
-              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] bg-[#fff1e7] px-2 py-3 text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.1)] transition-all hover:bg-[#ffe8d8] active:scale-95"
-            >
-              <Home className="h-[1.4rem] w-[1.4rem]" />
-              <span className="text-[12px] font-semibold tracking-[0.01em]">Ana Sayfa</span>
-            </button>
+              <button
+                onClick={handleOrders}
+                className={`flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[26px] px-2 py-3 transition-all active:scale-[0.98] ${
+                  isOrdersRoute
+                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
+                    : "text-[#6c5b52] hover:bg-white/80"
+                }`}
+              >
+                <Package className="h-[1.45rem] w-[1.45rem]" />
+                <span className="text-[12px] font-semibold tracking-[0.01em]">Sipariş</span>
+              </button>
 
-            <button
-              onClick={() => setIsToshiOpen((current) => !current)}
-              aria-label="Toshi AI Asistanı"
-              className="relative flex h-[70px] w-[70px] items-center justify-center rounded-[26px] border border-[#ffc89f] bg-gradient-to-br from-[#FE6100] via-[#ff7d2c] to-[#ff9350] text-white shadow-[0_18px_32px_rgba(254,97,0,0.34)] transition-all active:scale-95"
-            >
-              <span className="sr-only">Toshi</span>
-              <span className="flex h-12 w-12 items-center justify-center rounded-[19px] bg-white/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-sm">
-                <Image
-                  src={ADMIN_BRAND_LOGO_SRC}
-                  alt="Celebix X"
-                  width={24}
-                  height={24}
-                  className="h-[1.65rem] w-[1.65rem] drop-shadow-[0_2px_8px_rgba(255,255,255,0.22)]"
-                />
-              </span>
-              {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b42318] px-1 text-[10px] font-bold text-white shadow-[0_10px_18px_rgba(180,35,24,0.3)]">
-                  {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
+              <button
+                onClick={() => setIsToshiOpen((current) => !current)}
+                aria-label="Toshi asistanını aç"
+                className="relative z-10 flex h-[92px] w-[92px] -translate-y-5 items-center justify-center rounded-[34px] bg-white shadow-[0_18px_36px_rgba(92,56,30,0.22)] transition-transform active:scale-[0.98]"
+              >
+                <span className="absolute inset-[7px] rounded-[28px] bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.95),rgba(255,245,238,0.4)_55%,rgba(255,240,229,0.15)_100%)]" />
+                <span className="relative flex h-[78px] w-[78px] items-center justify-center rounded-[28px] border border-[#ffd5b8] bg-gradient-to-br from-[#ff9957] via-[#FE6100] to-[#df5400] shadow-[0_18px_28px_rgba(254,97,0,0.26)] ring-8 ring-white/85">
+                  <Image
+                    src={ADMIN_MASCOT_SRC}
+                    alt="Celebix mascot"
+                    width={58}
+                    height={58}
+                    className="h-[3.2rem] w-[3.2rem] drop-shadow-[0_4px_10px_rgba(255,255,255,0.18)]"
+                    priority
+                  />
                 </span>
-              ) : null}
-            </button>
+                {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
+                  <span className="absolute right-1 top-1 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#b42318] px-1.5 text-[10px] font-bold text-white shadow-[0_12px_18px_rgba(180,35,24,0.3)]">
+                    {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
+                  </span>
+                ) : null}
+              </button>
 
-            <button
-              onClick={handleRefresh}
-              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
-            >
-              <RotateCw className="h-[1.4rem] w-[1.4rem]" />
-              <span className="text-[12px] font-semibold tracking-[0.01em]">Yenile</span>
-            </button>
+              <button
+                onClick={handleProducts}
+                className={`flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[26px] px-2 py-3 transition-all active:scale-[0.98] ${
+                  isProductsRoute
+                    ? "bg-[#fff0e5] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.12)]"
+                    : "text-[#6c5b52] hover:bg-white/80"
+                }`}
+              >
+                <Tag className="h-[1.45rem] w-[1.45rem]" />
+                <span className="text-[12px] font-semibold tracking-[0.01em]">Ürün</span>
+              </button>
 
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-[24px] px-2 py-3 text-[#6c5b52] transition-all hover:bg-white/80 active:scale-95"
-            >
-              <Menu className="h-[1.4rem] w-[1.4rem]" />
-              <span className="text-[11px] font-medium tracking-[0.01em]">Menü</span>
-            </button>
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className={`flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[26px] px-2 py-3 transition-all active:scale-[0.98] ${
+                  isSidebarOpen ? "bg-[#fff0e5] text-[#d95a08]" : "text-[#6c5b52] hover:bg-white/80"
+                }`}
+              >
+                <Menu className="h-[1.45rem] w-[1.45rem]" />
+                <span className="text-[12px] font-semibold tracking-[0.01em]">Menü</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

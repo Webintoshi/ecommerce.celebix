@@ -362,7 +362,7 @@ export function AdminNotificationCenter({
   }, [loadStatus]);
 
   const shellClassName = isMobile
-    ? "fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-[72] mx-3 rounded-[24px] border border-[#FE6100]/12 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl"
+    ? "fixed inset-x-0 bottom-[calc(6.4rem+env(safe-area-inset-bottom,0px))] z-[72] mx-3 rounded-[24px] border border-[#FE6100]/12 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl"
     : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] rounded-[26px] border border-[#FE6100]/12 bg-white/96 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl";
 
   return (
@@ -370,7 +370,9 @@ export function AdminNotificationCenter({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-gray-700 shadow-sm transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
+        className={`relative inline-flex items-center justify-center border border-[#FE6100]/12 bg-white text-gray-700 shadow-sm transition-all hover:border-[#FE6100]/24 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15 ${
+          isMobile ? "h-11 w-11 rounded-[18px]" : "h-10 w-10 rounded-2xl"
+        }`}
         aria-label="Bildirim merkezi"
       >
         <Bell className="h-5 w-5" />
