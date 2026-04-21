@@ -361,13 +361,13 @@ export default function ToshiAssistant({
       return;
     }
 
-    let greeting = `Merhaba! Ben **Toshi**. ${STORE_RUNTIME.name} için çalışan AI admin asistanıyım.\n\nSana **gerçek zamanlı** sipariş, ürün ve müşteri verileriyle yardımcı olabilirim. Matematiksel hesaplamalar da yapabilirim.`;
+    let greeting = `Merhaba, ben **Toshi**.\n\n${STORE_RUNTIME.name} admininde sipariş, ürün ve müşteri verilerinde yardımcı olabilirim.`;
 
     if (alertInfo && alertInfo.count > 0) {
       greeting += `\n\n⚠️ **Dikkat:** ${alertInfo.summary}. Detay için sor.`;
     }
 
-    greeting += "\n\nNe öğrenmek istersin?";
+    greeting += "\n\nNe lazım?";
 
     const initialMessages: Message[] = [{ role: "model", text: greeting }];
     setMessages(initialMessages);
@@ -559,7 +559,7 @@ export default function ToshiAssistant({
               <button
                 key={prompt}
                 onClick={() => void sendMessage(prompt)}
-                className="whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-1.5 text-xs font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
+                className="whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-2 text-[13px] font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
               >
                 {prompt}
               </button>
@@ -604,9 +604,9 @@ export default function ToshiAssistant({
             />
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-gray-400">
-          {isMobile ? "Enter ile gönder" : "Enter ile gönder · Ctrl+K kısayol · Esc kapat"}
-        </p>
+        {!isMobile ? (
+          <p className="mt-1.5 text-center text-[10px] text-gray-400">Enter ile gönder · Ctrl+K · Esc</p>
+        ) : null}
       </div>
     </>
   );
@@ -666,7 +666,7 @@ export default function ToshiAssistant({
               <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
               <div>
                 <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan · gerçek zamanlı</p>
+                <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan</p>
               </div>
             </div>
 
@@ -708,18 +708,18 @@ export default function ToshiAssistant({
             type="button"
             aria-label="Toshi panelini kapat"
             onClick={() => setPanelOpen(false)}
-            className="fixed inset-0 z-[80] bg-[rgba(40,24,12,0.22)] backdrop-blur-[3px]"
+            className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(40,24,12,0.12)] backdrop-blur-[2px]"
           />
 
-          <div className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)+5.35rem)] z-[86] flex flex-col overflow-hidden rounded-t-[30px] border border-[#ffd7ba] bg-white shadow-[0_-18px_48px_rgba(254,97,0,0.2)]">
-            <div className="relative flex flex-shrink-0 select-none items-center justify-between px-4 pb-3.5 pt-2.5" style={{ background: TOSHI_GRADIENT }}>
+          <div className="fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[#ffd7ba] bg-white shadow-[0_24px_56px_rgba(254,97,0,0.16)]">
+            <div className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4" style={{ background: TOSHI_GRADIENT }}>
               <div className="absolute left-1/2 top-2 h-1.5 w-14 -translate-x-1/2 rounded-full bg-white/45" />
 
               <div className="flex items-center gap-2.5">
                 <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
                 <div>
                   <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                  <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan · gerçek zamanlı</p>
+                  <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan</p>
                 </div>
               </div>
 

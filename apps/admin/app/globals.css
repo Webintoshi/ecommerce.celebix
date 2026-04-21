@@ -113,6 +113,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
   text-rendering: optimizeLegibility;
 }
 
@@ -255,7 +257,7 @@ above-the-fold {
 
 @media (max-width: 767px) {
   html {
-    font-size: 16.75px;
+    font-size: 17px;
   }
 
   body {

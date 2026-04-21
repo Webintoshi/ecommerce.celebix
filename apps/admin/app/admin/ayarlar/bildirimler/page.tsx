@@ -319,7 +319,7 @@ export default function NotificationSettingsPage() {
       <AdminPageHeader
         badge="Bildirimler"
         title="PWA bildirim merkezi"
-        description="Inbox, web push ve cihaz izinlerini tek yerden yonetin."
+        description="Inbox, push ve cihaz akisini yonetin."
         actions={
           <Button onClick={() => void handleSave()} loading={saving}>
             <Save className="mr-2 h-4 w-4" />
@@ -350,7 +350,7 @@ export default function NotificationSettingsPage() {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Cihaz ve push durumu</h2>
-              <p className="mt-1 text-sm text-gray-500">Bu cihazi push akışına dahil edin veya ayırın.</p>
+              <p className="mt-1 hidden text-sm text-gray-500 md:block">Bu cihazi push akisina dahil edin veya ayirin.</p>
             </div>
           </div>
         }
@@ -408,7 +408,7 @@ export default function NotificationSettingsPage() {
         header={
           <div>
             <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Event matrix</h2>
-            <p className="mt-1 text-sm text-gray-500">Inbox ve push için aktif olay tiplerini belirleyin.</p>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Inbox ve push icin aktif olay tiplerini belirleyin.</p>
           </div>
         }
       >
@@ -495,11 +495,11 @@ export default function NotificationSettingsPage() {
         header={
           <div>
             <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">E-posta ve SMS</h2>
-            <p className="mt-1 text-sm text-gray-500">Operasyonel iletim ayarlari ayni ekranda tutulur.</p>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Operasyonel iletim ayarlari ayni ekranda tutulur.</p>
           </div>
         }
       >
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-4 rounded-[22px] border border-[#FE6100]/10 bg-[#fff8f3] p-4">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-[#FE6100]" />
@@ -615,7 +615,7 @@ function ToggleCard({
       />
       <div>
         <p className="text-sm font-semibold text-gray-950">{title}</p>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
+        <p className="mt-1 hidden text-sm text-gray-500 md:block">{description}</p>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#fff6f1] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#FE6100]">
           {checked ? <CheckCircle className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
           {checked ? "Acik" : "Kapali"}

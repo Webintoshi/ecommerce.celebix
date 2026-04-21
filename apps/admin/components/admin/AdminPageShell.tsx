@@ -7,7 +7,7 @@ export function AdminPageShell({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("space-y-[1.8rem] md:space-y-7", className)}>{children}</div>;
+  return <div className={cn("space-y-4 md:space-y-7", className)}>{children}</div>;
 }
 
 export function AdminPageHeader({
@@ -24,8 +24,8 @@ export function AdminPageHeader({
   metrics?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_16px_42px_rgba(254,97,0,0.09)] md:rounded-[28px]">
-      <div className="border-b border-[#FE6100]/8 px-[1.15rem] py-[1.35rem] md:px-6 md:py-5">
+    <section className="overflow-hidden rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_16px_42px_rgba(254,97,0,0.09)] md:rounded-[28px]">
+      <div className="border-b border-[#FE6100]/8 px-4 py-4 md:px-6 md:py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             {badge ? (
@@ -33,19 +33,19 @@ export function AdminPageHeader({
                 {badge}
               </div>
             ) : null}
-            <h1 className="mt-3 text-[2.38rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-[2rem]">
+            <h1 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.045em] text-gray-950 md:text-[2rem]">
               {title}
             </h1>
             {description ? (
-              <p className="mt-2.5 max-w-3xl text-[1.02rem] leading-7 text-[#6f6258] md:text-[15px]">
+              <p className="mt-2.5 hidden max-w-3xl text-[15px] leading-6 text-[#6f6258] md:block">
                 {description}
               </p>
             ) : null}
           </div>
-          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">{actions}</div> : null}
         </div>
       </div>
-      {metrics ? <div className="grid grid-cols-1 gap-px bg-[#FE6100]/8 sm:grid-cols-2 xl:grid-cols-4">{metrics}</div> : null}
+      {metrics ? <div className="grid grid-cols-2 gap-px bg-[#FE6100]/8 xl:grid-cols-4">{metrics}</div> : null}
     </section>
   );
 }
