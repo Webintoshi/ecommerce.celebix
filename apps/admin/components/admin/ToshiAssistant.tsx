@@ -648,26 +648,26 @@ export default function ToshiAssistant({
         <button
           onClick={handleOpen}
           aria-label="Toshi AI asistanını aç (Ctrl+K)"
-          className="group fixed bottom-6 right-6 z-[9999]"
+          className="group fixed right-5 top-1/2 z-[9999] -translate-y-1/2"
           style={{
-            filter: "drop-shadow(0 14px 30px rgba(254,97,0,0.22))",
+            filter: "drop-shadow(0 12px 24px rgba(254,97,0,0.2))",
           }}
         >
           <div
-            className="relative flex h-20 w-20 items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.06] group-active:scale-[0.97]"
+            className="relative flex h-[4.45rem] w-[4.45rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
             style={{
               background: TOSHI_GRADIENT,
-              boxShadow: "0 18px 34px rgba(254,97,0,0.16), inset 0 1px 0 rgba(255,255,255,0.24)",
+              boxShadow: "0 14px 28px rgba(254,97,0,0.15), inset 0 1px 0 rgba(255,255,255,0.24)",
             }}
           >
             <span className="pointer-events-none absolute inset-[6px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.44),rgba(255,255,255,0)_62%)] opacity-80" />
-            <span className="relative block h-[4.35rem] w-[4.35rem] overflow-hidden rounded-full border border-white/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_10px_22px_rgba(122,72,28,0.14)]">
+            <span className="relative block h-[3.82rem] w-[3.82rem] overflow-hidden rounded-full border border-white/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_8px_18px_rgba(122,72,28,0.12)]">
               <Image
                 src={TOSHI_MASCOT_SRC}
                 alt="Toshi mascot"
                 fill
-                sizes="72px"
-                className="object-cover object-[center_40%] scale-[1.58]"
+                sizes="64px"
+                className="object-cover object-[47%_35%] scale-[1.42]"
                 priority
               />
             </span>
