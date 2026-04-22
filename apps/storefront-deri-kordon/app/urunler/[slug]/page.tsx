@@ -224,11 +224,15 @@ export async function generateMetadata({
   }
 
   const translatedProduct = await translateProductRecord(product, locale);
+  const resolvedSeoTitle = normalizeOptionalString(
+    translatedProduct.seoTitle ?? translatedProduct.seo_title,
+  );
 
   return buildStorePageMetadata({
     locale,
     pathname: productPath,
-    title: translatedProduct.seoTitle || translatedProduct.name,
+    title: resolvedSeoTitle || translatedProduct.name,
+    absoluteTitle: Boolean(resolvedSeoTitle),
     description:
       translatedProduct.seoDescription ||
       translatedProduct.shortDescription ||

@@ -20,6 +20,7 @@ type BuildStorePageMetadataInput = {
   locale: StorefrontLocale;
   pathname: string;
   title?: string | null;
+  absoluteTitle?: boolean;
   description?: string | null;
   keywords?: PageKeywords;
   image?: string | null;
@@ -320,10 +321,11 @@ export async function buildStorePageMetadata(
   );
   const canonicalPath =
     normalizeMetadataUrl(input.canonicalUrl) || localizedCanonicalPath;
-  const title = buildPageTitle(
-    normalizeTitle(input.title) || seo.defaultTitle,
-    seo.titleSuffix,
-  );
+  const normalizedTitle = normalizeTitle(input.title);
+  const title =
+    input.absoluteTitle && normalizedTitle
+      ? normalizedTitle
+      : buildPageTitle(normalizedTitle || seo.defaultTitle, seo.titleSuffix);
   const description = normalizeDescription(input.description) || seo.defaultDescription;
   const imageUrl =
     toAbsoluteAssetUrl(input.image, requestOrigin) ||
