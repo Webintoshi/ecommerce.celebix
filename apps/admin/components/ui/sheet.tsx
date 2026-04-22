@@ -14,7 +14,7 @@ interface SheetProps {
 export function Sheet({ open, onOpenChange, children }: SheetProps) {
   return (
     <Dialog open={open} onClose={onOpenChange} className="relative z-50">
-      <DialogBackdrop className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity" />
+      <DialogBackdrop className="fixed inset-0 bg-[rgba(31,41,55,0.16)] backdrop-blur-sm transition-opacity" />
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 overflow-hidden pointer-events-auto">
           {open && children}
@@ -41,7 +41,7 @@ export function SheetContent({ side = "right", className, children }: SheetConte
   return (
     <div
       className={cn(
-        "fixed inset-y-0 bg-white shadow-xl pointer-events-auto",
+        "fixed inset-y-0 border-[var(--admin-border)] bg-white shadow-[0_18px_44px_rgba(17,24,39,0.1)] pointer-events-auto",
         sideClasses[side],
         className
       )}
@@ -57,7 +57,7 @@ export function SheetHeader({ className, children }: { className?: string; child
 
 export function SheetTitle({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <DialogTitle className={cn("text-lg font-bold text-gray-900", className)}>
+    <DialogTitle className={cn("text-lg font-bold text-[var(--admin-heading)]", className)}>
       {children}
     </DialogTitle>
   );

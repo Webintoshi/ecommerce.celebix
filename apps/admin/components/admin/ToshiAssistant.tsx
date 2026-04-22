@@ -35,7 +35,7 @@ const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 const TOSHI_LAUNCHER_MASCOT_SRC = "/branding/toshi-mascot-launcher.png";
-const TOSHI_GRADIENT = "linear-gradient(135deg, #FE6100 0%, #ff8a3d 58%, #f4984d 100%)";
+const TOSHI_GRADIENT = "linear-gradient(135deg, #FF6A00 0%, #E85D04 100%)";
 
 function ToshiMark({
   sizeClassName = "h-8 w-8",
@@ -535,10 +535,10 @@ export default function ToshiAssistant({
 
   const panelContent = (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-4">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#f7f8fa_100%)] px-4 py-4">
         <div className="grid gap-2.5">
           {alertInfo ? (
-            <div className="rounded-[1.35rem] border border-[#ffd9bc] bg-[#fff3e7] px-4 py-3.5 text-sm text-[#9d4d0f] shadow-[0_12px_24px_rgba(254,97,0,0.08)]">
+            <div className="rounded-[1.35rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-3.5 text-sm text-[var(--admin-accent-hover)] shadow-[0_12px_24px_rgba(255,106,0,0.08)]">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-white text-[#d95a08]">
                   <AlertTriangle className="h-4.5 w-4.5" />
@@ -553,7 +553,7 @@ export default function ToshiAssistant({
             </div>
           ) : null}
 
-          <div className="rounded-[1.35rem] border border-[#f1dfd0] bg-white px-4 py-3.5 text-sm text-[#6f6258] shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
+          <div className="rounded-[1.35rem] border border-[var(--admin-border)] bg-white px-4 py-3.5 text-sm text-[var(--admin-text-secondary)] shadow-[0_10px_22px_rgba(17,24,39,0.06)]">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-[#fff3e8] text-[#d95a08]">
                 <Sparkles className="h-4.5 w-4.5" />
@@ -576,7 +576,7 @@ export default function ToshiAssistant({
                 <ToshiMark
                   sizeClassName="h-7 w-7"
                   imageClassName="h-4.5 w-4.5"
-                  shellClassName="border-[#ffc89f] bg-[linear-gradient(135deg,#FE6100_0%,#ff8a3d_100%)]"
+                  shellClassName="border-[var(--admin-accent-border)] bg-[linear-gradient(135deg,#FF6A00_0%,#E85D04_100%)]"
                 />
               </div>
             ) : null}
@@ -585,8 +585,8 @@ export default function ToshiAssistant({
               className={cn(
                 "max-w-[84%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6",
                 message.role === "user"
-                  ? "rounded-tr-md bg-gradient-to-br from-[#FE6100] to-[#ff8a3d] text-white shadow-[0_14px_24px_rgba(254,97,0,0.18)]"
-                  : "rounded-tl-md border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]",
+                  ? "rounded-tr-md bg-[linear-gradient(135deg,#FF6A00_0%,#E85D04_100%)] text-white shadow-[0_14px_24px_rgba(255,106,0,0.18)]"
+                  : "rounded-tl-md border border-[var(--admin-border)] bg-white text-[var(--admin-text)] shadow-[0_10px_22px_rgba(17,24,39,0.06)]",
               )}
               style={{ wordBreak: "break-word" }}
             >
@@ -601,7 +601,7 @@ export default function ToshiAssistant({
               <ToshiMark
                 sizeClassName="h-7 w-7"
                 imageClassName="h-4.5 w-4.5"
-                shellClassName="border-[#ffc89f] bg-[linear-gradient(135deg,#FE6100_0%,#ff8a3d_100%)]"
+                shellClassName="border-[var(--admin-accent-border)] bg-[linear-gradient(135deg,#FF6A00_0%,#E85D04_100%)]"
               />
             </div>
             <div className="flex items-center gap-2 rounded-[1.35rem] rounded-tl-md border border-[#f1dfd0] bg-white px-3.5 py-2.5 shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
@@ -615,13 +615,13 @@ export default function ToshiAssistant({
       </div>
 
       {showQuickPrompts ? (
-        <div className="border-t border-[#f1dfd0] bg-white px-4 py-3">
+        <div className="border-t border-[var(--admin-border)] bg-white px-4 py-3">
           <div className={cn("gap-2", isMobile ? "grid grid-cols-2" : "flex flex-wrap")}>
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => void sendMessage(prompt)}
-                className="min-h-[44px] rounded-[1rem] border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-2.5 text-[13px] font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
+                className="min-h-[44px] rounded-[1rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--admin-accent-hover)] transition-colors hover:bg-[#ffe8d8]"
               >
                 {prompt}
               </button>
@@ -631,10 +631,10 @@ export default function ToshiAssistant({
       ) : null}
 
       <div
-        className={`flex-shrink-0 border-t border-[#f1dfd0] bg-white ${isMobile ? "px-4 pt-3.5" : "px-3.5 py-3.5"}`}
+        className={`flex-shrink-0 border-t border-[var(--admin-border)] bg-white ${isMobile ? "px-4 pt-3.5" : "px-3.5 py-3.5"}`}
         style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" } : undefined}
       >
-        <div className="flex items-end gap-2.5 rounded-[1.35rem] border border-[#ecd9c8] bg-[#fbf7f3] px-3.5 py-3 transition-all focus-within:border-[#FE6100]/60 focus-within:ring-2 focus-within:ring-[#ffd8ba]">
+        <div className="flex items-end gap-2.5 rounded-[1.35rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-3.5 py-3 transition-all focus-within:border-[var(--admin-accent)] focus-within:ring-2 focus-within:ring-[color:rgba(255,106,0,0.12)]">
           <textarea
             ref={inputRef}
             value={input}
@@ -643,7 +643,7 @@ export default function ToshiAssistant({
             placeholder="Toshi'ye sor..."
             rows={1}
             aria-label="Toshi mesaj alanı"
-            className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-base leading-6 text-gray-800 outline-none placeholder:text-gray-400 md:text-[0.95rem]"
+            className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-base leading-6 text-[var(--admin-text)] outline-none placeholder:text-[var(--admin-text-muted)] md:text-[0.95rem]"
             style={{ overflow: "auto" }}
             disabled={isLoading}
           />
@@ -679,14 +679,14 @@ export default function ToshiAssistant({
           aria-label="Toshi AI asistanını aç (Ctrl+K)"
           className="group fixed right-5 top-1/2 z-[9999] -translate-y-1/2"
           style={{
-            filter: "drop-shadow(0 9px 18px rgba(254,97,0,0.16))",
+            filter: "drop-shadow(0 9px 18px rgba(255,106,0,0.16))",
           }}
         >
           <div
-            className="relative flex h-[4.18rem] w-[4.18rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
+            className="relative flex h-[4.18rem] w-[4.18rem] items-center justify-center rounded-full border border-[var(--admin-accent-border)] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
             style={{
               background: TOSHI_GRADIENT,
-              boxShadow: "0 10px 20px rgba(254,97,0,0.11), inset 0 1px 0 rgba(255,255,255,0.18)",
+              boxShadow: "0 10px 20px rgba(255,106,0,0.11), inset 0 1px 0 rgba(255,255,255,0.18)",
             }}
           >
             <span className="pointer-events-none absolute inset-[3px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.26),rgba(255,255,255,0)_62%)] opacity-55" />
@@ -713,7 +713,7 @@ export default function ToshiAssistant({
             ) : null}
           </div>
 
-          <span className="pointer-events-none absolute right-[4.35rem] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#2d180b] px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <span className="pointer-events-none absolute right-[4.35rem] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[var(--admin-heading)] px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             {alertInfo && alertInfo.count > 0 ? alertInfo.summary : "Toshi'ye sor (Ctrl+K)"}
           </span>
         </button>
@@ -726,8 +726,8 @@ export default function ToshiAssistant({
             width: "408px",
             height: isMinimized ? "60px" : "620px",
             background: "#fff",
-            border: "1px solid rgba(254,97,0,0.16)",
-            boxShadow: "0 26px 64px rgba(254,97,0,0.18), 0 2px 16px rgba(0,0,0,0.08)",
+            border: "1px solid rgba(231,234,240,1)",
+            boxShadow: "0 26px 64px rgba(17,24,39,0.12), 0 2px 16px rgba(17,24,39,0.06)",
             transition: "height 0.25s cubic-bezier(.4,0,.2,1)",
           }}
         >
@@ -781,10 +781,10 @@ export default function ToshiAssistant({
             type="button"
             aria-label="Toshi panelini kapat"
             onClick={() => setPanelOpen(false)}
-            className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(40,24,12,0.12)] backdrop-blur-[2px]"
+            className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(17,24,39,0.12)] backdrop-blur-[2px]"
           />
 
-          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[#ffd7ba] bg-white shadow-[0_24px_56px_rgba(254,97,0,0.16)]">
+          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[0_24px_56px_rgba(17,24,39,0.16)]">
             <div
               className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4"
               style={{ background: TOSHI_GRADIENT }}

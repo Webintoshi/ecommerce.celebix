@@ -16,13 +16,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label ? (
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-gray-500 md:text-sm md:normal-case md:tracking-normal">
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-[var(--admin-text-secondary)] md:text-sm md:normal-case md:tracking-normal">
             {label}
           </label>
         ) : null}
         <div className="relative">
           {icon ? (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-text-muted)]">
               {icon}
             </div>
           ) : null}
@@ -30,11 +30,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             ref={ref}
             className={cn(
-              "h-12 w-full rounded-[1.45rem] border bg-white px-[1.125rem] text-base leading-6 text-gray-900 placeholder:text-gray-400 md:h-11 md:px-4 md:text-sm md:rounded-2xl",
+              "h-12 w-full rounded-[1.45rem] border border-[var(--admin-border)] bg-white px-[1.125rem] text-base leading-6 text-[var(--admin-text)] placeholder:text-[var(--admin-text-muted)] shadow-[0_6px_18px_rgba(17,24,39,0.03)] md:h-11 md:px-4 md:text-sm md:rounded-2xl",
               "transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0",
               error
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                : "border-gray-200 focus:border-primary focus:ring-primary/20",
+                ? "border-[var(--admin-danger)] focus:border-[var(--admin-danger)] focus:ring-[color:rgba(239,68,68,0.14)]"
+                : "focus:border-[var(--admin-accent)] focus:ring-[color:rgba(255,106,0,0.12)]",
               icon ? "pl-10" : "",
               onClear && props.value ? "pr-12" : "",
               className,
@@ -45,14 +45,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={onClear}
-              className="absolute right-1.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-[#f7efe8] hover:text-gray-700"
+              className="absolute right-1.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[var(--admin-text-muted)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-text)]"
               aria-label="Temizle"
             >
               <X className="h-4 w-4" />
             </button>
           ) : null}
         </div>
-        {error ? <p className="mt-1 text-xs text-red-500 md:text-sm">{error}</p> : null}
+        {error ? <p className="mt-1 text-xs text-[var(--admin-danger)] md:text-sm">{error}</p> : null}
       </div>
     );
   },

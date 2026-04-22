@@ -105,21 +105,21 @@ function MobileDockButton({
       aria-current={active ? "page" : undefined}
       aria-label={label}
       className={cn(
-        "group relative flex flex-1 items-center justify-center px-[0.1rem] py-1 text-[#746a62] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
-        active ? "text-[#d95a08]" : "text-[#70665f]",
+        "group relative flex flex-1 items-center justify-center px-[0.1rem] py-1 text-[var(--admin-text-secondary)] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
+        active ? "text-[var(--admin-accent-hover)]" : "text-[var(--admin-text-secondary)]",
       )}
     >
       <span
         className={cn(
           "relative flex min-h-[56px] w-full max-w-[4.05rem] flex-col items-center justify-center gap-[0.24rem] rounded-[1rem] border border-transparent px-2 py-2.5 transition-all duration-200 ease-out group-active:scale-[0.98]",
           active
-            ? "border-[rgba(254,97,0,0.10)] bg-[linear-gradient(180deg,rgba(255,251,247,0.98)_0%,rgba(255,244,235,0.9)_100%)] shadow-[0_10px_18px_rgba(73,50,31,0.06),inset_0_1px_0_rgba(255,255,255,0.82)]"
+            ? "border-[var(--admin-accent-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,232,0.92)_100%)] shadow-[0_10px_18px_rgba(17,24,39,0.06),inset_0_1px_0_rgba(255,255,255,0.82)]"
             : "bg-transparent group-active:bg-white/35",
         )}
       >
         <span
           className={cn(
-            "pointer-events-none absolute inset-x-[1.05rem] top-[0.45rem] h-px bg-[linear-gradient(90deg,rgba(254,97,0,0)_0%,rgba(254,97,0,0.5)_50%,rgba(254,97,0,0)_100%)] transition-opacity duration-200 ease-out",
+            "pointer-events-none absolute inset-x-[1.05rem] top-[0.45rem] h-px bg-[linear-gradient(90deg,rgba(255,106,0,0)_0%,rgba(255,106,0,0.42)_50%,rgba(255,106,0,0)_100%)] transition-opacity duration-200 ease-out",
             active ? "opacity-100" : "opacity-0",
           )}
         />
@@ -162,7 +162,7 @@ function MobileToshiDockButton({
     >
       <span
         className={cn(
-          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(254,97,0,0.16),rgba(254,97,0,0)_74%)] blur-[18px] transition-opacity duration-200 ease-out",
+          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,106,0,0.14),rgba(255,106,0,0)_74%)] blur-[18px] transition-opacity duration-200 ease-out",
           active ? "opacity-100" : "opacity-45",
         )}
       />
@@ -170,12 +170,12 @@ function MobileToshiDockButton({
         className={cn(
           "relative flex h-[3.8rem] w-[3.8rem] -translate-y-[0.68rem] items-center justify-center rounded-full border p-[2px] shadow-[0_18px_30px_rgba(49,34,22,0.14),0_4px_10px_rgba(49,34,22,0.06)] transition-all duration-200 ease-out group-active:scale-[0.98]",
           active
-            ? "border-[rgba(254,97,0,0.26)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,244,235,0.92)_100%)]"
-            : "border-[rgba(255,255,255,0.78)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,239,233,0.94)_100%)]",
+            ? "border-[var(--admin-accent-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,232,0.92)_100%)]"
+            : "border-[rgba(255,255,255,0.82)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.96)_100%)]",
         )}
       >
         <span className="pointer-events-none absolute inset-[1px] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_100%)]" />
-        <span className="relative block h-full w-full overflow-hidden rounded-full bg-[#f3ebe3]">
+        <span className="relative block h-full w-full overflow-hidden rounded-full bg-white">
           <Image
             src={TOSHI_MASCOT_SRC}
             alt=""
@@ -189,12 +189,12 @@ function MobileToshiDockButton({
             style={{ objectPosition: "50% 38%" }}
             priority
           />
-          <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.02)_42%,rgba(16,12,9,0.08)_100%)]" />
+          <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.02)_42%,rgba(17,24,39,0.06)_100%)]" />
           <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/45" />
         </span>
 
         {alertCount && alertCount > 0 ? (
-          <span className="absolute -right-1 -top-0.5 flex h-[1.2rem] min-w-[1.2rem] items-center justify-center rounded-full border border-white/85 bg-[#1f1712] px-1 text-[9px] font-bold text-white shadow-[0_6px_12px_rgba(31,22,17,0.16)]">
+          <span className="absolute -right-1 -top-0.5 flex h-[1.2rem] min-w-[1.2rem] items-center justify-center rounded-full border border-white/85 bg-[var(--admin-heading)] px-1 text-[9px] font-bold text-white shadow-[0_6px_12px_rgba(17,24,39,0.16)]">
             {alertCount > 9 ? "9+" : alertCount}
           </span>
         ) : null}
@@ -202,7 +202,7 @@ function MobileToshiDockButton({
       <span
         className={cn(
           "mt-[-0.08rem] text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
-          active ? "text-[#d95a08]" : "text-[#7b7067]",
+          active ? "text-[var(--admin-accent-hover)]" : "text-[var(--admin-text-secondary)]",
         )}
       >
         Toshi
@@ -404,13 +404,13 @@ export default function AdminLayoutClient({
 
   return (
     <div
-      className="flex min-h-dvh bg-[linear-gradient(180deg,#f8f3ed_0%,#f2ece5_42%,#efe8e0_100%)] font-sans"
+      className="flex min-h-dvh bg-[var(--admin-bg)] font-sans"
       style={shellStyle}
     >
       <AdminClientBoundary
         name="AdminSidebar"
         fallback={
-          <div className="hidden h-screen w-[13.5rem] shrink-0 border-l border-[#e6d7c8] bg-[#eee5dc] xl:block xl:w-56 2xl:w-[14.5rem]" />
+          <div className="hidden h-screen w-[13.5rem] shrink-0 border-l border-[var(--admin-border)] bg-white xl:block xl:w-56 2xl:w-[14.5rem]" />
         }
       >
         <AdminSidebar
@@ -424,7 +424,7 @@ export default function AdminLayoutClient({
         <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-4 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
           <div
             className={cn(
-              "sticky top-[max(0.55rem,env(safe-area-inset-top))] z-30 border border-[#f3d8c1] bg-[rgba(255,250,245,0.94)] shadow-[0_18px_40px_rgba(112,73,44,0.12)] backdrop-blur-xl",
+              "sticky top-[max(0.55rem,env(safe-area-inset-top))] z-30 border border-[var(--admin-border)] bg-[rgba(255,255,255,0.92)] shadow-[0_18px_40px_rgba(17,24,39,0.07)] backdrop-blur-xl",
               compactShell
                 ? "mb-3 rounded-[1.45rem] px-4 py-3 md:mb-4 md:rounded-[1.55rem] md:px-4 md:py-3"
                 : "mb-4 rounded-[1.9rem] px-4 py-4 md:mb-5 md:rounded-[30px] md:px-5 md:py-4",
@@ -436,7 +436,7 @@ export default function AdminLayoutClient({
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[#ecd7c3] bg-white/90 text-[#6f6258] shadow-[0_10px_24px_rgba(112,73,44,0.08)] transition-all hover:border-[#FE6100]/20 hover:text-[#d95a08]"
+                    className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_24px_rgba(17,24,39,0.06)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
                     aria-label="Geri git"
                   >
                     <ArrowLeft className="h-5 w-5" />
@@ -444,16 +444,16 @@ export default function AdminLayoutClient({
                 ) : null}
 
                 <div className="min-w-0">
-                  <div className="inline-flex items-center rounded-full border border-[#FE6100]/12 bg-[#fff4eb] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08]">
+                  <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
                     Celebix Admin
                   </div>
                   {!compactShell ? (
                     <>
-                      <h1 className="mt-3 truncate text-[1.85rem] font-semibold tracking-[-0.05em] text-gray-950 md:text-2xl">
+                      <h1 className="mt-3 truncate text-[1.85rem] font-semibold tracking-[-0.05em] text-[var(--admin-heading)] md:text-2xl">
                         {shellMeta.title}
                       </h1>
                       {!isMobile ? (
-                        <p className="mt-2 max-w-2xl text-[15px] leading-6 text-[#6f6258]">{shellMeta.subtitle}</p>
+                        <p className="mt-2 max-w-2xl text-[15px] leading-6 text-[var(--admin-text-secondary)]">{shellMeta.subtitle}</p>
                       ) : (
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
@@ -462,8 +462,8 @@ export default function AdminLayoutClient({
                             className={cn(
                               "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-3.5 py-2 text-left text-[12px] font-semibold tracking-[0.01em] transition-all active:scale-[0.99]",
                               isNotificationsOpen
-                                ? "border-[#FE6100]/20 bg-[#fff2e7] text-[#d95a08]"
-                                : "border-[#ecd7c3] bg-white/88 text-[#6f6258]",
+                                ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                                : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)]",
                             )}
                           >
                             <BellDot className="h-4 w-4 shrink-0" />
@@ -490,7 +490,7 @@ export default function AdminLayoutClient({
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#ecd7c3] bg-white/90 text-[#6f6258] shadow-[0_10px_24px_rgba(112,73,44,0.08)] transition-all hover:border-[#FE6100]/20 hover:text-[#d95a08] md:h-10 md:w-10"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_24px_rgba(17,24,39,0.06)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] md:h-10 md:w-10"
                   aria-label="Sayfayı yenile"
                 >
                   <RefreshCw className="h-5 w-5 md:h-4 md:w-4" />
@@ -506,12 +506,12 @@ export default function AdminLayoutClient({
       {isMobile ? (
         <nav
           aria-label="Alt gezinme"
-          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(108,94,82,0.14)] bg-[linear-gradient(180deg,rgba(252,249,245,0.74)_0%,rgba(248,241,234,0.94)_24%,rgba(243,236,229,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(45,31,19,0.08)] backdrop-blur-[24px] md:hidden"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(247,248,250,0.74)_0%,rgba(255,255,255,0.94)_24%,rgba(255,255,255,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(17,24,39,0.08)] backdrop-blur-[24px] md:hidden"
         >
           <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_50%,rgba(255,255,255,0)_100%)]" />
           <span className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(180deg,rgba(255,255,255,0.42)_0%,rgba(255,255,255,0)_100%)]" />
           <div className="relative mx-auto w-full max-w-[30rem]">
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(114,98,86,0.12)] bg-[linear-gradient(180deg,rgba(255,252,248,0.92)_0%,rgba(249,243,237,0.82)_100%)] shadow-[0_-12px_24px_rgba(56,39,26,0.04)]" />
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(247,248,250,0.84)_100%)] shadow-[0_-12px_24px_rgba(17,24,39,0.04)]" />
             <span className="pointer-events-none absolute inset-x-8 top-[1rem] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.88)_50%,rgba(255,255,255,0)_100%)]" />
             <div className="relative grid w-full grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5">
               <MobileDockButton icon={Home} label="Ana" active={activeDockItem === "home"} onClick={handleHome} />

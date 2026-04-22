@@ -17,14 +17,14 @@ export function WizardStepper({
             className={cn(
               "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium",
               active
-                ? "border-[#FE6100]/20 bg-[#FE6100] text-white shadow-[0_10px_20px_rgba(254,97,0,0.18)]"
-                : "border-[#e7d9cc] bg-white text-gray-600",
+                ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[0_10px_20px_rgba(255,106,0,0.18)]"
+                : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)]",
             )}
           >
             <span
               className={cn(
                 "flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
-                active ? "bg-white/20 text-white" : "bg-[#fff6f1] text-[#FE6100]",
+                active ? "bg-white/20 text-white" : "bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
               )}
             >
               {index + 1}

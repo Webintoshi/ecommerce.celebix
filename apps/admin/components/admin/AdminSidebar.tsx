@@ -330,9 +330,9 @@ export function AdminSidebar({
   };
 
   const mobileAsideClassName =
-    "fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[74] h-auto rounded-[2rem] border border-[#ead8ca] bg-[linear-gradient(180deg,rgba(250,245,239,0.98)_0%,rgba(244,236,227,0.98)_100%)] shadow-[0_24px_60px_rgba(58,36,18,0.18)] backdrop-blur-2xl";
+    "fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[74] h-auto rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.98)_100%)] shadow-[0_24px_60px_rgba(17,24,39,0.16)] backdrop-blur-2xl";
   const desktopAsideClassName =
-    "sticky top-0 z-20 h-screen w-[13.5rem] shrink-0 bg-[#eee5dc] xl:w-56 2xl:w-[14.5rem]";
+    "sticky top-0 z-20 h-screen w-[13.5rem] shrink-0 bg-white xl:w-56 2xl:w-[14.5rem]";
 
   return (
     <>
@@ -340,14 +340,14 @@ export function AdminSidebar({
         <button
           type="button"
           aria-label="Menüyü kapat"
-          className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[68] bg-[rgba(41,25,12,0.12)] backdrop-blur-[2px] md:hidden"
+          className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[68] bg-[rgba(17,24,39,0.12)] backdrop-blur-[2px] md:hidden"
           onClick={onClose}
         />
       ) : null}
 
       <aside
         className={cn(
-          "flex flex-col border-l border-[#e6d7c8] bg-[#f2e9df] transition-all duration-300",
+          "flex flex-col border-l border-[var(--admin-border)] bg-white transition-all duration-300",
           isMobile
             ? `${mobileAsideClassName} ${
                 mobileMenuOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
@@ -355,7 +355,7 @@ export function AdminSidebar({
             : desktopAsideClassName,
         )}
       >
-        <div className={cn("border-b border-[#e6d7c8]", isMobile ? "px-4 py-4 xl:px-[1.125rem] 2xl:px-5" : "px-3 py-3.5 xl:px-3.5 2xl:px-4")}>
+        <div className={cn("border-b border-[var(--admin-border)]", isMobile ? "px-4 py-4 xl:px-[1.125rem] 2xl:px-5" : "px-3 py-3.5 xl:px-3.5 2xl:px-4")}>
           <div className={cn("flex items-center", isMobile ? "gap-4" : "gap-3")}>
             <div
               className={cn(
@@ -385,7 +385,7 @@ export function AdminSidebar({
               </span>
               <span
                 className={cn(
-                  "mt-1 inline-flex items-center rounded-full border border-[#ecd9c6] bg-white/75 font-medium uppercase text-[#8a5a33]",
+                  "mt-1 inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] font-medium uppercase text-[var(--admin-accent-hover)]",
                   isMobile ? "px-2.5 py-1 text-[11px] tracking-[0.14em]" : "px-2 py-0.5 text-[10px] tracking-[0.12em]",
                 )}
               >
@@ -397,7 +397,7 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-[1rem] border border-[#e8d7c8] bg-white/85 text-[#7b6a5f] shadow-[0_10px_18px_rgba(112,73,44,0.08)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[1rem] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_18px_rgba(17,24,39,0.06)]"
                 aria-label="Menüyü kapat"
               >
                 <X className="h-4 w-4" />
@@ -407,12 +407,12 @@ export function AdminSidebar({
 
           <div
             className={cn(
-              "border border-[#ead8ca] bg-white/70",
+              "border border-[var(--admin-border)] bg-[var(--admin-bg)]/65",
               isMobile ? "mt-4 rounded-[1.4rem] px-3.5 py-3" : "mt-3 rounded-[1.05rem] px-3 py-2.5",
             )}
           >
             <p className={cn("truncate font-semibold text-gray-900", isMobile ? "text-sm" : "text-[13px]")}>{userName}</p>
-            <p className={cn("mt-1 truncate text-gray-500", isMobile ? "text-sm" : "text-[12px]")}>
+            <p className={cn("mt-1 truncate text-[var(--admin-text-secondary)]", isMobile ? "text-sm" : "text-[12px]")}>
               {userEmail || "Profil bekleniyor"}
             </p>
           </div>
@@ -488,11 +488,11 @@ export function AdminSidebar({
                         : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
                       rowActive
                         ? isMobile
-                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
-                          : "bg-white/92 text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.045)]"
+                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(17,24,39,0.07)]"
+                          : "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
                         : isMobile
                           ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
-                          : "text-[#65584f] hover:bg-white/80 hover:text-gray-900",
+                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
                     )}
                   >
                     <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
@@ -502,8 +502,8 @@ export function AdminSidebar({
                           isMobile
                             ? "text-current"
                             : rowActive
-                              ? "h-8 w-8 rounded-[0.95rem] border border-[#f3ded0] bg-[#fff4eb] text-[#d95a08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-                              : "h-8 w-8 rounded-[0.95rem] border border-[#ece1d7] bg-white/72 text-[#7a6b60]",
+                              ? "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+                              : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
                         )}
                       >
                         <item.icon
@@ -518,10 +518,10 @@ export function AdminSidebar({
 
                     <span
                       className={cn(
-                        "flex shrink-0 items-center justify-center text-[#7b6a5f] transition-colors group-hover:border-[#FE6100]/20 group-hover:text-[#d95a08]",
+                        "flex shrink-0 items-center justify-center text-[var(--admin-text-secondary)] transition-colors group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]",
                         isMobile
-                          ? "h-12 w-12 rounded-full border border-[#efe1d2] bg-[#f8f2eb]"
-                          : "h-8 w-8 rounded-[0.95rem] border border-[#eadfd4] bg-white/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]",
+                          ? "h-12 w-12 rounded-full border border-[var(--admin-border)] bg-[var(--admin-bg)]"
+                          : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]",
                       )}
                     >
                       <ChevronDown
@@ -544,11 +544,11 @@ export function AdminSidebar({
                         : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
                       rowActive
                         ? isMobile
-                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
-                          : "bg-white/92 text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.045)]"
+                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(17,24,39,0.07)]"
+                          : "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
                         : isMobile
                           ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
-                          : "text-[#65584f] hover:bg-white/80 hover:text-gray-900",
+                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
                     )}
                   >
                     <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
@@ -558,8 +558,8 @@ export function AdminSidebar({
                           isMobile
                             ? "text-current"
                             : rowActive
-                              ? "h-8 w-8 rounded-[0.95rem] border border-[#f3ded0] bg-[#fff4eb] text-[#d95a08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-                              : "h-8 w-8 rounded-[0.95rem] border border-[#ece1d7] bg-white/72 text-[#7a6b60]",
+                              ? "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+                              : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
                         )}
                       >
                         <item.icon
@@ -572,7 +572,7 @@ export function AdminSidebar({
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
                     </span>
                     {item.badge ? (
-                      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      <span className="rounded-full bg-[var(--admin-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
                         {item.badge}
                       </span>
                     ) : null}
@@ -588,7 +588,7 @@ export function AdminSidebar({
                     )}
                   >
                     <div className="min-h-0">
-                      <div className={cn(isMobile ? "ml-5 border-l border-[#ead8c8] pl-4 pt-1" : "ml-4 border-l border-[#eadfd4] pl-3.5 pt-0.5")}>
+                      <div className={cn(isMobile ? "ml-5 border-l border-[var(--admin-border)] pl-4 pt-1" : "ml-4 border-l border-[var(--admin-border)] pl-3.5 pt-0.5")}>
                         <div className={cn(isMobile ? "space-y-2" : "space-y-1")}>
                           {item.submenu?.map((sub) => {
                             const isSubActive = pathname === sub.href;
@@ -604,11 +604,11 @@ export function AdminSidebar({
                                     : "min-h-[39px] rounded-[0.95rem] px-3 py-2 text-[13px] leading-[1.2rem]",
                                   isSubActive
                                     ? isMobile
-                                      ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.05)]"
-                                      : "bg-white/88 text-gray-900 shadow-[0_6px_14px_rgba(0,0,0,0.04)]"
+                                      ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.06)]"
+                                      : "bg-white text-gray-900 shadow-[0_6px_14px_rgba(17,24,39,0.05)]"
                                     : isMobile
                                       ? "text-gray-500 hover:bg-white/70 hover:text-gray-900"
-                                      : "text-[#766a60] hover:bg-white/70 hover:text-gray-900",
+                                      : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
                                 )}
                               >
                                 {sub.title}
@@ -625,15 +625,15 @@ export function AdminSidebar({
           })}
         </nav>
 
-        <div className={cn("border-t border-[#e6d7c8]", isMobile ? "space-y-2.5 p-4" : "space-y-1.5 px-2.5 py-3")}>
+        <div className={cn("border-t border-[var(--admin-border)]", isMobile ? "space-y-2.5 p-4" : "space-y-1.5 px-2.5 py-3")}>
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
             className={cn(
               "flex w-full items-center font-medium transition-colors",
               isMobile
-                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-gray-600 hover:bg-red-50 hover:text-red-600"
-                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[#65584f] hover:bg-red-50 hover:text-red-600",
+                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-[var(--admin-text-secondary)] hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]",
             )}
           >
             <LogOut className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
@@ -647,8 +647,8 @@ export function AdminSidebar({
             className={cn(
               "flex items-center font-medium transition-colors",
               isMobile
-                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-gray-600 hover:bg-white/70 hover:text-gray-900"
-                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[#65584f] hover:bg-white/70 hover:text-gray-900",
+                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900"
+                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
             )}
           >
             <Store className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
