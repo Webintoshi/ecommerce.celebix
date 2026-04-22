@@ -4,7 +4,7 @@ const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/pwa/admin-icon.svg",
   "/pwa/admin-icon-maskable.svg",
-  "/branding/celebix-mascot.svg",
+  "/branding/toshi-mascot.png",
   "/branding/celebix-x.svg",
 ];
 

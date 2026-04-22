@@ -29,7 +29,7 @@ const ALERT_CACHE_KEY = `toshi_alerts:${STORE_RUNTIME.slug}`;
 const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
-const TOSHI_MASCOT_SRC = "/branding/celebix-mascot.svg";
+const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 const TOSHI_GRADIENT = "linear-gradient(135deg, #FE6100 0%, #ff8a3d 58%, #f4984d 100%)";
 
 function ToshiMark({
