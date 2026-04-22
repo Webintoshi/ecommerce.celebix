@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight, Clock3, CalendarDays, ShoppingBag, Home, Sparkle
 import { BLOG_CATEGORIES } from "@/lib/blog";
 import { renderBlogContentToHtml } from "@/lib/blog-rich-text";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
 import type { BlogPost } from "@/types/blog";
@@ -19,6 +21,7 @@ export function BlogArticlePage({
   relatedPosts: BlogPost[];
   profile: StorefrontProfile;
 }) {
+  const { locale } = useStorefrontRoute();
   const category = BLOG_CATEGORIES.find((item) => item.id === post.category);
   const imageUrl = resolveStorefrontAssetUrl(post.coverImage);
 
@@ -28,14 +31,14 @@ export function BlogArticlePage({
       <nav className="border-b border-neutral-100">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link 
-            href="/blog" 
+            href={buildLocalizedPath("/blog", locale)}
             className="inline-flex items-center gap-2 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
           >
             <ArrowLeft className="h-4 w-4" />
             Blog
           </Link>
           <Link 
-            href="/urunler" 
+            href={buildLocalizedPath("/urunler", locale)}
             className="text-sm text-neutral-500 transition-colors hover:text-neutral-900"
           >
             Ürünler
@@ -135,7 +138,7 @@ export function BlogArticlePage({
                     El yapımı deri saat kordonları ve premium aksesuarlar.
                   </p>
                   <Link
-                    href="/urunler"
+                    href={buildLocalizedPath("/urunler", locale)}
                     className="mt-4 inline-flex items-center gap-2 text-sm text-white transition-colors hover:text-neutral-300"
                   >
                     Keşfet
@@ -153,7 +156,7 @@ export function BlogArticlePage({
                     Deri Kordon markasının hikayesini ve değerlerini keşfedin.
                   </p>
                   <Link
-                    href="/"
+                    href={buildLocalizedPath("/", locale)}
                     className="mt-4 inline-flex items-center gap-2 text-sm text-neutral-900 transition-colors hover:text-neutral-600"
                   >
                     Keşfet
@@ -171,7 +174,7 @@ export function BlogArticlePage({
                     Deri işçiliği, bakımı ve saat kültürü hakkında içerikler.
                   </p>
                   <Link
-                    href="/blog"
+                    href={buildLocalizedPath("/blog", locale)}
                     className="mt-4 inline-flex items-center gap-2 text-sm text-[#8A6B37] transition-colors hover:text-[#6d5429]"
                   >
                     Keşfet
@@ -197,7 +200,7 @@ export function BlogArticlePage({
                 
                 return (
                   <article key={relatedPost.id} className="group">
-                    <Link href={`/blog/${relatedPost.slug}`} className="block">
+                    <Link href={buildLocalizedPath(`/blog/${relatedPost.slug}`, locale)} className="block">
                       {relatedImage ? (
                         <div className="relative aspect-[3/2] overflow-hidden rounded-lg">
                           <Image

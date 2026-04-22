@@ -1,10 +1,10 @@
 import { getAllProducts } from "@/lib/products";
-import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { INDEXABLE_LOCALES, buildLocalizedPath } from "@/lib/i18n";
 import { getRequestOrigin } from "@/lib/request-origin";
 
 function buildUrl(
   pathname: string,
-  locale: (typeof SUPPORTED_LOCALES)[number],
+  locale: (typeof INDEXABLE_LOCALES)[number],
   origin: string,
 ) {
   return new URL(buildLocalizedPath(pathname, locale), origin).toString();
@@ -12,10 +12,10 @@ function buildUrl(
 
 export async function GET() {
   const requestOrigin = await getRequestOrigin();
-  const products = await getAllProducts();
+  const products = await getAllProducts().catch(() => []);
   const lastMod = new Date().toISOString();
 
-  const productUrls = SUPPORTED_LOCALES.flatMap((locale) =>
+  const productUrls = INDEXABLE_LOCALES.flatMap((locale) =>
     products.map((product) => ({
       url: buildUrl(`/urunler/${product.slug}`, locale, requestOrigin),
       lastMod,

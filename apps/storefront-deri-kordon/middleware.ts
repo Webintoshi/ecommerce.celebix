@@ -8,6 +8,7 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import {
+  DEFAULT_LOCALE,
   LOCALE_COOKIE_NAME,
   buildLocalizedPath,
   detectPreferredLocale,
@@ -245,10 +246,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!locale) {
-    const preferredLocale = detectPreferredLocale(
-      request.cookies.get(LOCALE_COOKIE_NAME)?.value,
-      request.headers.get("accept-language"),
-    );
+    const preferredLocale = isBot
+      ? DEFAULT_LOCALE
+      : detectPreferredLocale(
+          request.cookies.get(LOCALE_COOKIE_NAME)?.value,
+          request.headers.get("accept-language"),
+        );
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = buildLocalizedPath(originalPathname, preferredLocale);
 

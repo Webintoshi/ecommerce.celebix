@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { Product } from "@/types/product";
 import { PremiumProductCard } from "@/components/product/PremiumProductCard";
 
@@ -11,6 +13,7 @@ interface BestSellersSectionProps {
 }
 
 export function BestSellersSection({ initialProducts = [] }: BestSellersSectionProps) {
+  const { locale } = useStorefrontRoute();
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(initialProducts.length === 0);
 
@@ -84,7 +87,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
             </h2>
           </div>
           <Link
-            href="/urunler"
+            href={buildLocalizedPath("/urunler", locale)}
             className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors group"
           >
             Tümünü Gör
@@ -105,7 +108,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
         {/* Mobile: View All Button */}
         <div className="flex sm:hidden justify-center mt-10">
           <Link
-            href="/urunler"
+            href={buildLocalizedPath("/urunler", locale)}
             className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors"
           >
             Tümünü Gör
@@ -117,7 +120,7 @@ export function BestSellersSection({ initialProducts = [] }: BestSellersSectionP
         {hasMore && (
           <div className="hidden sm:flex justify-center mt-14">
             <Link
-              href="/urunler"
+              href={buildLocalizedPath("/urunler", locale)}
               className="inline-flex items-center gap-2 px-8 py-3.5 bg-neutral-900 text-white rounded-full font-medium hover:bg-neutral-800 transition-all"
             >
               Tüm Ürünleri Keşfet

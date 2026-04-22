@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 import { ProductCard } from "./ProductCard";
 
@@ -12,6 +14,8 @@ interface ComplementaryProductsProps {
 }
 
 export function ComplementaryProducts({ title, products, loading }: ComplementaryProductsProps) {
+  const { locale } = useStorefrontRoute();
+
   if (loading) {
     return (
       <section className="py-16 bg-[#F3E0E1]/20">
@@ -41,7 +45,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-semibold text-[#7B1113]">{title}</h2>
           <Link
-            href="/urunler"
+            href={buildLocalizedPath("/urunler", locale)}
             className="flex items-center gap-1 text-[#7B1113] font-medium hover:gap-2 transition-all"
           >
             Tümünü Gör

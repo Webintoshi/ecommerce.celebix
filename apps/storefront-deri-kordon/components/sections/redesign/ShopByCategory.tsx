@@ -6,6 +6,8 @@ import Link from "next/link";
 import { CategoryInfo } from "@/types/product";
 import { fetchCategories } from "@/lib/categories";
 import { ROUTES } from "@/lib/constants";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 interface ShopByCategoryProps {
@@ -13,6 +15,7 @@ interface ShopByCategoryProps {
 }
 
 export default function ShopByCategory({ initialCategories = [] }: ShopByCategoryProps) {
+  const { locale } = useStorefrontRoute();
   const [categories, setCategories] = useState<CategoryInfo[]>(initialCategories);
   const [loading, setLoading] = useState(!initialCategories.length);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -167,7 +170,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <Link
-                  href={ROUTES.category(cat.slug)}
+                  href={buildLocalizedPath(ROUTES.category(cat.slug), locale)}
                   className="group block relative"
                   aria-label={`${cat.name} kategorisini incele`}
                 >
@@ -261,7 +264,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
         {/* View All Link */}
         <div className="text-center mt-12 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]" style={{ animationDelay: '0.4s' }}>
           <Link
-            href="/koleksiyon"
+            href={buildLocalizedPath("/urunler", locale)}
             className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-[#7B1113] font-semibold border border-[#7B1113]/20 shadow-lg hover:shadow-xl hover:bg-[#7B1113] hover:text-white hover:border-[#7B1113] transition-all duration-300 group"
           >
             Tüm Kategorileri Keşfet

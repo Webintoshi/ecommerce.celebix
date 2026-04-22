@@ -1,9 +1,9 @@
-import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { INDEXABLE_LOCALES, buildLocalizedPath } from "@/lib/i18n";
 import { getRequestOrigin } from "@/lib/request-origin";
 
 function buildUrl(
   pathname: string,
-  locale: (typeof SUPPORTED_LOCALES)[number],
+  locale: (typeof INDEXABLE_LOCALES)[number],
   origin: string,
 ) {
   return new URL(buildLocalizedPath(pathname, locale), origin).toString();
@@ -12,18 +12,27 @@ function buildUrl(
 export async function GET() {
   const requestOrigin = await getRequestOrigin();
   const lastMod = new Date().toISOString();
-  const routes = ["", "/hakkimizda", "/iletisim", "/kurumsal-urunler", "/urunler", "/blog"];
+  const routes = [
+    { path: "/", changeFrequency: "daily", priority: 1.0 },
+    { path: "/hakkimizda", changeFrequency: "monthly", priority: 0.7 },
+    { path: "/magazalarimiz", changeFrequency: "monthly", priority: 0.7 },
+    { path: "/iletisim", changeFrequency: "monthly", priority: 0.6 },
+    { path: "/kurumsal-urunler", changeFrequency: "monthly", priority: 0.7 },
+    { path: "/urunler", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/blog", changeFrequency: "weekly", priority: 0.7 },
+    { path: "/sss", changeFrequency: "monthly", priority: 0.6 },
+  ] as const;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${SUPPORTED_LOCALES.flatMap((locale) =>
+  ${INDEXABLE_LOCALES.flatMap((locale) =>
     routes.map(
       (route) => `
   <url>
-    <loc>${buildUrl(route || "/", locale, requestOrigin)}</loc>
+    <loc>${buildUrl(route.path, locale, requestOrigin)}</loc>
     <lastmod>${lastMod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>${route === "" ? 1.0 : 0.8}</priority>
+    <changefreq>${route.changeFrequency}</changefreq>
+    <priority>${route.priority}</priority>
   </url>`,
     ),
   ).join("")}

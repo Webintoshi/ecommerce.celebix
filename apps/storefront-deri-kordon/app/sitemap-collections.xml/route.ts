@@ -1,10 +1,10 @@
 import { createServerClient } from "@/lib/supabase";
-import { SUPPORTED_LOCALES, buildLocalizedPath } from "@/lib/i18n";
+import { INDEXABLE_LOCALES, buildLocalizedPath } from "@/lib/i18n";
 import { getRequestOrigin } from "@/lib/request-origin";
 
 function buildUrl(
   pathname: string,
-  locale: (typeof SUPPORTED_LOCALES)[number],
+  locale: (typeof INDEXABLE_LOCALES)[number],
   origin: string,
 ) {
   return new URL(buildLocalizedPath(pathname, locale), origin).toString();
@@ -12,16 +12,23 @@ function buildUrl(
 
 export async function GET() {
   const requestOrigin = await getRequestOrigin();
-  const supabase = createServerClient();
+  let categories: Array<{ slug: string; updated_at: string | null }> = [];
 
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("slug, updated_at")
-    .eq("is_active", true);
+  try {
+    const supabase = createServerClient();
+    const result = await supabase
+      .from("categories")
+      .select("slug, updated_at")
+      .eq("is_active", true);
+
+    categories = (result.data as Array<{ slug: string; updated_at: string | null }> | null) || [];
+  } catch (error) {
+    console.error("Failed to build collection sitemap", error);
+  }
 
   const collectionUrls =
-    SUPPORTED_LOCALES.flatMap((locale) =>
-      (categories || []).map(
+    INDEXABLE_LOCALES.flatMap((locale) =>
+      categories.map(
         (category) => `
   <url>
     <loc>${buildUrl(`/${category.slug}`, locale, requestOrigin)}</loc>

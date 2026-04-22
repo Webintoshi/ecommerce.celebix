@@ -2,6 +2,7 @@ export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: StorefrontLocale = "tr";
+export const INDEXABLE_LOCALES = [DEFAULT_LOCALE] as const;
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
 
 export const LOCALE_LANGUAGE_CODES: Record<StorefrontLocale, string> = {
@@ -370,15 +371,22 @@ export function buildLocalizedPath(pathname: string, locale: StorefrontLocale): 
   return strippedPath === "/" ? `/${locale}` : `/${locale}${strippedPath}`;
 }
 
+export function isIndexableLocale(locale: StorefrontLocale) {
+  return INDEXABLE_LOCALES.includes(locale);
+}
+
 export function buildLocaleAlternates(pathname: string) {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
 
-  return Object.fromEntries(
-    SUPPORTED_LOCALES.map((locale) => [
-      LOCALE_LANGUAGE_CODES[locale],
-      buildLocalizedPath(normalizedPath, locale),
-    ]),
-  );
+  return {
+    ...Object.fromEntries(
+      INDEXABLE_LOCALES.map((locale) => [
+        LOCALE_LANGUAGE_CODES[locale],
+        buildLocalizedPath(normalizedPath, locale),
+      ]),
+    ),
+    "x-default": buildLocalizedPath(normalizedPath, DEFAULT_LOCALE),
+  };
 }
 
 export function getLocalizedCopy(locale: StorefrontLocale) {

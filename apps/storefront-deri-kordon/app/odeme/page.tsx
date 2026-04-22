@@ -669,7 +669,7 @@ export default function CheckoutPage() {
                               </div>
                               <p className="text-xs text-gray-500">
                                 Hesap oluşturarak{" "}
-                                <Link href="/kullanim-kosullari" className="text-primary hover:underline" target="_blank">
+                        <Link href="/sartlar" className="text-primary hover:underline" target="_blank">
                                   Kullanım Koşulları
                                 </Link>
                                 {" "}ve{" "}

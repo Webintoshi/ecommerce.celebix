@@ -303,7 +303,7 @@ export default function RegisterPage() {
                 className="mt-1 w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                <Link href="/kullanim-kosullari" className="text-primary hover:underline font-medium">
+                  <Link href="/sartlar" className="text-primary hover:underline font-medium">
                   Kullanim Kosullari
                 </Link>
                 {" "}ve{" "}

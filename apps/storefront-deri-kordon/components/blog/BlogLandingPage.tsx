@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3 } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
 import type { BlogPost } from "@/types/blog";
@@ -69,6 +71,7 @@ export function BlogLandingPage({
   profile: StorefrontProfile;
   activeCategorySlug?: string;
 }) {
+  const { locale } = useStorefrontRoute();
   const categorySummaries = buildCategorySummaries(posts);
   const activeCategory = activeCategorySlug
     ? categorySummaries.find((category) => category.slug === activeCategorySlug) || null
@@ -104,7 +107,7 @@ export function BlogLandingPage({
           <div className="mx-auto max-w-6xl px-6 py-6 lg:px-8">
             <div className="flex flex-wrap gap-2">
               <Link
-                href="/blog"
+                href={buildLocalizedPath("/blog", locale)}
                 className={`rounded-full px-4 py-2 text-sm transition-colors ${
                   !activeCategory
                     ? "bg-neutral-900 text-white"
@@ -116,7 +119,7 @@ export function BlogLandingPage({
               {categorySummaries.map((category) => (
                 <Link
                   key={category.id}
-                  href={`/blog/kategori/${category.slug}`}
+                  href={buildLocalizedPath(`/blog/kategori/${category.slug}`, locale)}
                   className={`rounded-full px-4 py-2 text-sm transition-colors ${
                     activeCategory?.slug === category.slug
                       ? "bg-neutral-900 text-white"
@@ -142,7 +145,7 @@ export function BlogLandingPage({
             {/* Featured Post */}
             {featuredPost && (
               <article className="group">
-                <Link href={`/blog/${featuredPost.slug}`} className="block">
+                <Link href={buildLocalizedPath(`/blog/${featuredPost.slug}`, locale)} className="block">
                   <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
                     <BlogCover 
                       post={featuredPost} 
@@ -178,7 +181,7 @@ export function BlogLandingPage({
               <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 {otherPosts.map((post) => (
                   <article key={post.id} className="group">
-                    <Link href={`/blog/${post.slug}`} className="block">
+                    <Link href={buildLocalizedPath(`/blog/${post.slug}`, locale)} className="block">
                       <BlogCover 
                         post={post} 
                         className="aspect-[3/2] rounded-lg"

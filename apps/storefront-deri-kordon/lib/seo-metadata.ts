@@ -4,10 +4,12 @@ import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { getRequestOrigin } from "@/lib/request-origin";
 import {
+  DEFAULT_LOCALE,
   LOCALE_LANGUAGE_CODES,
   buildLocaleAlternates,
   buildLocalizedPath,
   getLocalizedCopy,
+  isIndexableLocale,
   type StorefrontLocale,
 } from "@/lib/i18n";
 import { translateSeoStrings } from "@/lib/translation";
@@ -39,6 +41,20 @@ type StoreSeoContext = {
   robotsIndex: boolean;
   robotsFollow: boolean;
 };
+
+const NON_INDEXABLE_PATH_PREFIXES = [
+  "/favoriler",
+  "/giris",
+  "/hesap",
+  "/kayit",
+  "/odeme",
+  "/sans-carki",
+  "/sepet",
+  "/seo",
+  "/sifre-yenile",
+  "/sifremi-unuttum",
+  "/siparisler",
+] as const;
 
 function normalizeTitle(value?: string | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -107,6 +123,24 @@ function buildPageTitle(title: string, titleSuffix: string) {
   return `${title} | ${titleSuffix}`;
 }
 
+function normalizePathname(pathname: string) {
+  if (!pathname) {
+    return "/";
+  }
+
+  const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return normalizedPath === "/" ? normalizedPath : normalizedPath.replace(/\/+$/, "");
+}
+
+export function isStorefrontPathIndexable(pathname: string) {
+  const normalizedPath = normalizePathname(pathname);
+
+  return !NON_INDEXABLE_PATH_PREFIXES.some(
+    (prefix) =>
+      normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`),
+  );
+}
+
 export async function getStoreSeoContext(locale: StorefrontLocale): Promise<StoreSeoContext> {
   const [storeInfo, seoSettings] = await Promise.all([getStoreInfo(), getSeoSettings()]);
   const copy = getLocalizedCopy(locale);
@@ -143,8 +177,13 @@ export async function buildStoreRootMetadata(
   pathname: string,
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(locale);
+  const pathIsIndexable = isStorefrontPathIndexable(pathname);
+  const localeIsIndexable = isIndexableLocale(locale);
   const requestOrigin = await getRequestOrigin();
-  const localizedPath = buildLocalizedPath(pathname, locale);
+  const canonicalPath = buildLocalizedPath(
+    pathname,
+    localeIsIndexable ? locale : DEFAULT_LOCALE,
+  );
   const ogImageUrl = toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const ogImages = ogImageUrl ? [{ url: ogImageUrl, alt: seo.siteName }] : undefined;
   const [storeInfo, codeIntegrations] = await Promise.all([
@@ -156,6 +195,8 @@ export async function buildStoreRootMetadata(
     ? `/api/favicon?v=${encodeURIComponent(faviconUrl)}`
     : "/api/favicon";
   const title = buildPageTitle(seo.defaultTitle, seo.titleSuffix);
+  const robotsIndex = seo.robotsIndex && pathIsIndexable && localeIsIndexable;
+  const robotsFollow = seo.robotsFollow && pathIsIndexable && localeIsIndexable;
 
   return {
     title,
@@ -170,7 +211,7 @@ export async function buildStoreRootMetadata(
     openGraph: {
       type: "website",
       locale: toOgLocale(locale),
-      url: localizedPath,
+      url: canonicalPath,
       title,
       description: seo.defaultDescription,
       siteName: seo.siteName,
@@ -185,18 +226,18 @@ export async function buildStoreRootMetadata(
       site: seo.twitterHandle || undefined,
     },
     robots: {
-      index: seo.robotsIndex,
-      follow: seo.robotsFollow,
+      index: robotsIndex,
+      follow: robotsFollow,
       googleBot: {
-        index: seo.robotsIndex,
-        follow: seo.robotsFollow,
+        index: robotsIndex,
+        follow: robotsFollow,
         "max-video-preview": -1,
         "max-image-preview": "large",
         "max-snippet": -1,
       },
     },
     alternates: {
-      canonical: localizedPath,
+      canonical: canonicalPath,
       languages: buildLocaleAlternates(pathname),
     },
     verification: {
@@ -212,7 +253,11 @@ export async function buildStorePageMetadata(
 ): Promise<Metadata> {
   const seo = await getStoreSeoContext(input.locale);
   const requestOrigin = await getRequestOrigin();
-  const localizedPath = buildLocalizedPath(input.pathname, input.locale);
+  const localeIsIndexable = isIndexableLocale(input.locale);
+  const canonicalPath = buildLocalizedPath(
+    input.pathname,
+    localeIsIndexable ? input.locale : DEFAULT_LOCALE,
+  );
   const title = buildPageTitle(
     normalizeTitle(input.title) || seo.defaultTitle,
     seo.titleSuffix,
@@ -222,8 +267,11 @@ export async function buildStorePageMetadata(
     toAbsoluteAssetUrl(input.image, requestOrigin) ||
     toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const keywords = dedupeKeywords(normalizeKeywordArray(input.keywords), seo.keywords);
-  const index = input.noIndex ? false : seo.robotsIndex;
-  const follow = input.noIndex ? false : seo.robotsFollow;
+  const pathIsIndexable = isStorefrontPathIndexable(input.pathname);
+  const index =
+    input.noIndex || !pathIsIndexable || !localeIsIndexable ? false : seo.robotsIndex;
+  const follow =
+    input.noIndex || !pathIsIndexable || !localeIsIndexable ? false : seo.robotsFollow;
   const ogImages = imageUrl ? [{ url: imageUrl, alt: title }] : undefined;
 
   return {
@@ -232,7 +280,7 @@ export async function buildStorePageMetadata(
     keywords,
     metadataBase: new URL(requestOrigin),
     alternates: {
-      canonical: localizedPath,
+      canonical: canonicalPath,
       languages: buildLocaleAlternates(input.pathname),
     },
     openGraph: {
@@ -241,7 +289,7 @@ export async function buildStorePageMetadata(
       type: input.type || "website",
       locale: toOgLocale(input.locale),
       siteName: seo.siteName,
-      url: localizedPath,
+      url: canonicalPath,
       images: ogImages,
       publishedTime: input.publishedTime,
       modifiedTime: input.modifiedTime,
