@@ -668,7 +668,7 @@ export default function ToshiAssistant({
                 alt="Toshi mascot"
                 fill
                 sizes="64px"
-                className="object-contain scale-[1.02] -translate-y-px"
+                className="object-contain scale-[1.12] translate-y-px"
                 priority
               />
             </span>
