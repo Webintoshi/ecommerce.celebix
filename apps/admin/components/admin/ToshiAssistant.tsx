@@ -30,6 +30,7 @@ const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
+const TOSHI_LAUNCHER_MASCOT_SRC = "/branding/toshi-mascot-launcher.png";
 const TOSHI_GRADIENT = "linear-gradient(135deg, #FE6100 0%, #ff8a3d 58%, #f4984d 100%)";
 
 function ToshiMark({
@@ -654,20 +655,20 @@ export default function ToshiAssistant({
           }}
         >
           <div
-            className="relative flex h-[4.28rem] w-[4.28rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
+            className="relative flex h-[4.18rem] w-[4.18rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
             style={{
               background: TOSHI_GRADIENT,
-              boxShadow: "0 11px 22px rgba(254,97,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)",
+              boxShadow: "0 10px 20px rgba(254,97,0,0.11), inset 0 1px 0 rgba(255,255,255,0.18)",
             }}
           >
-            <span className="pointer-events-none absolute inset-[4px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.3),rgba(255,255,255,0)_62%)] opacity-60" />
-            <span className="relative block h-[3.96rem] w-[3.96rem] overflow-hidden rounded-full border border-white/82 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_8px_16px_rgba(122,72,28,0.11)]">
+            <span className="pointer-events-none absolute inset-[3px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.26),rgba(255,255,255,0)_62%)] opacity-55" />
+            <span className="relative block h-[3.94rem] w-[3.94rem] overflow-hidden rounded-full border border-white/82 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_7px_14px_rgba(122,72,28,0.1)]">
               <Image
-                src={TOSHI_MASCOT_SRC}
+                src={TOSHI_LAUNCHER_MASCOT_SRC}
                 alt="Toshi mascot"
                 fill
                 sizes="64px"
-                className="object-cover object-[46%_36%] scale-[1.36] -translate-x-px -translate-y-px"
+                className="object-contain scale-[1.02] -translate-y-px"
                 priority
               />
             </span>

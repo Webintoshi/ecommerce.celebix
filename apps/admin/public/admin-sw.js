@@ -1,10 +1,11 @@
-const SHELL_CACHE = "celebix-admin-shell-v2";
-const RUNTIME_CACHE = "celebix-admin-runtime-v2";
+const SHELL_CACHE = "celebix-admin-shell-v3";
+const RUNTIME_CACHE = "celebix-admin-runtime-v3";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/pwa/admin-icon.svg",
   "/pwa/admin-icon-maskable.svg",
   "/branding/toshi-mascot.png",
+  "/branding/toshi-mascot-launcher.png",
   "/branding/celebix-x.svg",
 ];
 
