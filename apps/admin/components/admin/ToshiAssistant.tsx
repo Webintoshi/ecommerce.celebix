@@ -650,23 +650,24 @@ export default function ToshiAssistant({
           aria-label="Toshi AI asistanını aç (Ctrl+K)"
           className="group fixed bottom-6 right-6 z-[9999]"
           style={{
-            filter: "drop-shadow(0 12px 28px rgba(254,97,0,0.32))",
+            filter: "drop-shadow(0 14px 30px rgba(254,97,0,0.22))",
           }}
         >
           <div
-            className="relative flex h-[4.9rem] w-[4.9rem] items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+            className="relative flex h-20 w-20 items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.06] group-active:scale-[0.97]"
             style={{
               background: TOSHI_GRADIENT,
+              boxShadow: "0 18px 34px rgba(254,97,0,0.16), inset 0 1px 0 rgba(255,255,255,0.24)",
             }}
           >
-            <span className="absolute inset-0 rounded-full bg-[#ffb37f] opacity-20 animate-ping" />
-            <span className="relative block h-[4.15rem] w-[4.15rem] overflow-hidden rounded-full border border-white/55 bg-white/14 shadow-[0_12px_24px_rgba(122,72,28,0.18)] ring-4 ring-white/28">
+            <span className="pointer-events-none absolute inset-[6px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.44),rgba(255,255,255,0)_62%)] opacity-80" />
+            <span className="relative block h-[4.35rem] w-[4.35rem] overflow-hidden rounded-full border border-white/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_10px_22px_rgba(122,72,28,0.14)]">
               <Image
                 src={TOSHI_MASCOT_SRC}
                 alt="Toshi mascot"
                 fill
-                sizes="68px"
-                className="object-cover object-center scale-[1.03]"
+                sizes="72px"
+                className="object-cover object-[center_40%] scale-[1.58]"
                 priority
               />
             </span>
