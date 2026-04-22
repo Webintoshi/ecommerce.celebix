@@ -24,12 +24,12 @@ import {
 } from "lucide-react";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
-const QUICK_ACCESS_TITLES = ["Ana Sayfa", "Siparişler", "Ürünler", "Müşteriler", "Ayarlar"] as const;
 
 interface MenuItem {
   title: string;
@@ -43,6 +43,12 @@ interface MenuItem {
   }>;
 }
 
+type MenuGroup = {
+  id: string;
+  label: string;
+  titles: string[];
+};
+
 const MENU_ITEMS: MenuItem[] = [
   { title: "Ana Sayfa", icon: Home, href: "/admin" },
   {
@@ -51,7 +57,7 @@ const MENU_ITEMS: MenuItem[] = [
     href: "/admin/siparisler",
     submenu: [
       { title: "Tüm Siparişler", href: "/admin/siparisler" },
-      { title: "Terkedilen Sepetler", href: "/admin/siparisler/sepet-terk" },
+      { title: "Terk Edilen Sepetler", href: "/admin/siparisler/sepet-terk" },
       { title: "Hızlı Sipariş", href: "/admin/siparisler/hizli-siparis" },
     ],
   },
@@ -138,6 +144,15 @@ const MENU_ITEMS: MenuItem[] = [
   { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
 ];
 
+const MENU_GROUPS: MenuGroup[] = [
+  { id: "general", label: "Genel", titles: ["Ana Sayfa"] },
+  { id: "catalog", label: "Katalog", titles: ["Siparişler", "Ürünler", "İçerik"] },
+  { id: "customers", label: "Müşteri", titles: ["Müşteriler", "İndirimler"] },
+  { id: "marketing", label: "Pazarlama", titles: ["Pazarlama", "SEO Araçları", "Marketplace"] },
+  { id: "reporting", label: "Raporlama", titles: ["Analizler", "Muhasebe"] },
+  { id: "system", label: "Sistem", titles: ["Yöneticiler", "Ayarlar"] },
+];
+
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -158,19 +173,31 @@ type AdminMeResponse =
       error?: string;
     };
 
-function getRoleLabel(role: UserRole | null) {
-  switch (role) {
-    case "super_admin":
-      return "Süper admin";
-    case "product_manager":
-      return "Ürün yöneticisi";
-    case "content_creator":
-      return "İçerik ekibi";
-    case "order_manager":
-      return "Sipariş ekibi";
-    default:
-      return "Admin";
+function pathMatches(pathname: string, href: string) {
+  return pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`));
+}
+
+function deriveAdminName(profile: InitialAdminProfile | null) {
+  const explicitName = profile?.fullName?.trim();
+
+  if (explicitName) {
+    return explicitName;
   }
+
+  const emailPrefix = profile?.email?.split("@")[0]?.trim();
+
+  if (!emailPrefix) {
+    return "Admin Kullanıcı";
+  }
+
+  const normalized = emailPrefix
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized.length > 0
+    ? normalized.replace(/\b\w/g, (char) => char.toLocaleUpperCase("tr"))
+    : "Admin Kullanıcı";
 }
 
 export function AdminSidebar({
@@ -180,6 +207,7 @@ export function AdminSidebar({
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
+  const { storeInfo } = useStoreInfo();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -187,10 +215,11 @@ export function AdminSidebar({
   const [isRecoveringProfile, setIsRecoveringProfile] = useState(false);
   const [hasAttemptedProfileRecovery, setHasAttemptedProfileRecovery] = useState(Boolean(initialProfile?.role));
 
-  const userEmail = resolvedProfile?.email;
-  const userName = resolvedProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanıcı";
   const role: UserRole | null = resolvedProfile?.role || null;
-  const roleLabel = getRoleLabel(role);
+  const adminFullName = deriveAdminName(resolvedProfile);
+  const siteName = (storeInfo?.name || STORE_RUNTIME.name).trim();
+  const siteHeading = /admin/i.test(siteName) ? siteName : `${siteName} Admin`;
+  const siteLogo = storeInfo?.logoUrl || ADMIN_BRAND_LOGO_SRC;
   const mobileMenuOpen = isMobile ? isOpen : true;
 
   useEffect(() => {
@@ -212,9 +241,11 @@ export function AdminSidebar({
   }, []);
 
   useEffect(() => {
-    const autoExpand = MENU_ITEMS.filter((item) => item.submenu?.some((sub) => sub.href === pathname)).map(
-      (item) => item.title,
-    );
+    const autoExpand = MENU_ITEMS.filter(
+      (item) =>
+        item.submenu &&
+        (pathMatches(pathname, item.href) || item.submenu.some((sub) => pathMatches(pathname, sub.href))),
+    ).map((item) => item.title);
 
     if (autoExpand.length === 0) {
       return;
@@ -238,6 +269,7 @@ export function AdminSidebar({
     })
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as AdminMeResponse | null;
+
         if (!active || !response.ok || !payload?.success || !payload.profile?.role) {
           return;
         }
@@ -273,27 +305,55 @@ export function AdminSidebar({
       if (!hasPermission(role, item.href)) {
         return false;
       }
+
       if (item.permission && !hasActionPermission(role, item.permission)) {
         return false;
       }
+
       return true;
     });
   }, [role]);
 
-  const quickAccessItems = useMemo(
-    () => filteredItems.filter((item) => QUICK_ACCESS_TITLES.includes(item.title as (typeof QUICK_ACCESS_TITLES)[number])),
-    [filteredItems],
-  );
+  const groupedItems = useMemo(() => {
+    const byTitle = new Map(filteredItems.map((item) => [item.title, item]));
+    const usedTitles = new Set<string>();
+
+    const groups = MENU_GROUPS.map((group) => {
+      const items = group.titles
+        .map((title) => byTitle.get(title))
+        .filter((item): item is MenuItem => Boolean(item));
+
+      items.forEach((item) => usedTitles.add(item.title));
+
+      return {
+        ...group,
+        items,
+      };
+    }).filter((group) => group.items.length > 0);
+
+    const remainingItems = filteredItems.filter((item) => !usedTitles.has(item.title));
+
+    if (remainingItems.length > 0) {
+      groups.push({
+        id: "other",
+        label: "Diğer",
+        titles: remainingItems.map((item) => item.title),
+        items: remainingItems,
+      });
+    }
+
+    return groups;
+  }, [filteredItems]);
 
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) => {
-      const isExpanded = prev.includes(title);
+      const expanded = prev.includes(title);
 
       if (isMobile) {
-        return isExpanded ? [] : [title];
+        return expanded ? [] : [title];
       }
 
-      return isExpanded ? prev.filter((item) => item !== title) : [...prev, title];
+      return expanded ? prev.filter((item) => item !== title) : [...prev, title];
     });
   };
 
@@ -330,9 +390,9 @@ export function AdminSidebar({
   };
 
   const mobileAsideClassName =
-    "fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[74] h-auto rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.98)_100%)] shadow-[0_24px_60px_rgba(17,24,39,0.16)] backdrop-blur-2xl";
+    "fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[74] h-auto rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[0_28px_70px_rgba(17,24,39,0.14)] backdrop-blur-2xl";
   const desktopAsideClassName =
-    "sticky top-0 z-20 h-screen w-[13.5rem] shrink-0 bg-white xl:w-56 2xl:w-[14.5rem]";
+    "sticky top-0 z-20 h-screen w-[13.75rem] shrink-0 bg-white xl:w-[14rem] 2xl:w-[14.5rem]";
 
   return (
     <>
@@ -355,288 +415,197 @@ export function AdminSidebar({
             : desktopAsideClassName,
         )}
       >
-        <div className={cn("border-b border-[var(--admin-border)]", isMobile ? "px-4 py-4 xl:px-[1.125rem] 2xl:px-5" : "px-3 py-3.5 xl:px-3.5 2xl:px-4")}>
-          <div className={cn("flex items-center", isMobile ? "gap-4" : "gap-3")}>
+        <div className={cn("border-b border-[#EEF1F4]", isMobile ? "px-4 py-4" : "px-3.5 py-4")}>
+          <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex items-center justify-center overflow-hidden bg-white shadow-sm ring-1 ring-black/5",
-                isMobile ? "h-12 w-12 rounded-[1.35rem]" : "h-10 w-10 rounded-[1.05rem]",
+                "flex shrink-0 items-center justify-center overflow-hidden rounded-[1.05rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-[0_10px_24px_rgba(17,24,39,0.05)]",
+                isMobile ? "h-11 w-11" : "h-10 w-10",
               )}
             >
               <Image
-                src={ADMIN_BRAND_LOGO_SRC}
-                alt="Celebix X"
-                width={40}
-                height={40}
-                className={cn("h-full w-full object-contain", isMobile ? "p-[0.4rem]" : "p-[0.34rem]")}
-                priority
+                src={siteLogo}
+                alt={siteName}
+                width={44}
+                height={44}
+                className="h-full w-full object-cover"
                 unoptimized
               />
             </div>
 
             <div className="min-w-0 flex-1">
-              <span
-                className={cn(
-                  "block break-words font-semibold leading-snug text-gray-900",
-                  isMobile ? "text-base" : "text-[15px]",
-                )}
-              >
-                {STORE_RUNTIME.name} Admin
-              </span>
-              <span
-                className={cn(
-                  "mt-1 inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] font-medium uppercase text-[var(--admin-accent-hover)]",
-                  isMobile ? "px-2.5 py-1 text-[11px] tracking-[0.14em]" : "px-2 py-0.5 text-[10px] tracking-[0.12em]",
-                )}
-              >
-                {roleLabel}
-              </span>
+              <p className={cn("truncate font-semibold tracking-[-0.02em] text-[var(--admin-heading)]", isMobile ? "text-[15px]" : "text-[14.5px]")}>
+                {siteHeading}
+              </p>
+              <p className={cn("mt-0.5 truncate text-[var(--admin-text-secondary)]", isMobile ? "text-[13px]" : "text-[12.5px]")}>
+                {adminFullName}
+              </p>
             </div>
 
             {isMobile ? (
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-[1rem] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_18px_rgba(17,24,39,0.06)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[1rem] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_18px_rgba(17,24,39,0.05)]"
                 aria-label="Menüyü kapat"
               >
                 <X className="h-4 w-4" />
               </button>
             ) : null}
           </div>
-
-          <div
-            className={cn(
-              "border border-[var(--admin-border)] bg-[var(--admin-bg)]/65",
-              isMobile ? "mt-4 rounded-[1.4rem] px-3.5 py-3" : "mt-3 rounded-[1.05rem] px-3 py-2.5",
-            )}
-          >
-            <p className={cn("truncate font-semibold text-gray-900", isMobile ? "text-sm" : "text-[13px]")}>{userName}</p>
-            <p className={cn("mt-1 truncate text-[var(--admin-text-secondary)]", isMobile ? "text-sm" : "text-[12px]")}>
-              {userEmail || "Profil bekleniyor"}
-            </p>
-          </div>
         </div>
 
         {!role && !isRecoveringProfile ? (
-          <div className="mx-4 mt-4 rounded-[1.2rem] border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] font-medium leading-5 text-amber-800">
+          <div className="mx-3.5 mt-3 rounded-[1rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-3 py-2.5 text-[13px] font-medium text-[var(--admin-text-secondary)]">
             Yetki bilgisi yüklenemedi.
           </div>
         ) : null}
 
-        {isMobile && quickAccessItems.length > 0 ? (
-          <div className="px-4 pb-3 pt-4">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a5a33]">Hızlı erişim</p>
-              <p className="text-xs text-[#8f7b6d]">En çok kullanılan yüzeyler</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {quickAccessItems.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+        <nav className={cn("flex-1 overflow-y-auto", isMobile ? "space-y-5 px-3.5 py-4" : "space-y-4 px-3 py-4")}>
+          {groupedItems.map((group) => (
+            <section key={group.id} className="space-y-1.5">
+              <div className={cn(isMobile ? "px-1.5" : "px-1")}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-secondary)]">
+                  {group.label}
+                </p>
+              </div>
 
-                return (
-                  <Link
-                    key={item.title}
-                    href={item.href}
-                    onClick={handleLeafClick}
-                    className={cn(
-                      "flex min-h-[60px] items-center gap-3 rounded-[1.3rem] border px-3.5 py-3 transition-all active:scale-[0.99]",
-                      active
-                        ? "border-[#FE6100]/18 bg-[#fff4eb] text-[#d95a08] shadow-[0_12px_22px_rgba(254,97,0,0.08)]"
-                        : "border-[#ead8ca] bg-white/80 text-[#5f5248]",
-                    )}
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-white shadow-[0_8px_16px_rgba(112,73,44,0.06)]">
-                      <item.icon className="h-4.5 w-4.5" />
-                    </span>
-                    <span className="min-w-0 text-sm font-semibold">{item.title}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const hasSubmenu = Boolean(item.submenu?.length);
+                  const isDirectActive = pathMatches(pathname, item.href) && !hasSubmenu;
+                  const isParentActive = hasSubmenu && pathMatches(pathname, item.href);
+                  const isSubmenuActive = item.submenu?.some((sub) => pathMatches(pathname, sub.href)) ?? false;
+                  const isExpanded = expandedMenus.includes(item.title);
+                  const isActive = isDirectActive || isParentActive || isSubmenuActive;
 
-        <nav className={cn("flex-1 overflow-y-auto", isMobile ? "space-y-2.5 px-3.5 py-4" : "space-y-1.5 px-2.5 py-3.5")}>
-          <div className={cn(isMobile ? "px-1" : "px-1.5")}>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a5a33]">Tüm alanlar</p>
-          </div>
+                  const rowClasses = cn(
+                    "group relative flex w-full items-center gap-3 rounded-[1rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.14)]",
+                    isMobile ? "min-h-[54px]" : "min-h-[44px]",
+                    isActive
+                      ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                      : "text-[var(--admin-text)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
+                  );
 
-          {filteredItems.map((item) => {
-            const hasSubmenu = Boolean(item.submenu?.length);
-            const isDirectActive =
-              pathname === item.href ||
-              (!hasSubmenu && item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
-            const isExpanded = expandedMenus.includes(item.title);
-            const isSubmenuActive = item.submenu?.some((sub) => pathname === sub.href) ?? false;
-            const rowActive = isDirectActive || isSubmenuActive;
+                  const iconShellClasses = cn(
+                    "flex shrink-0 items-center justify-center rounded-[0.95rem] border transition-colors",
+                    isMobile ? "h-10 w-10" : "h-9 w-9",
+                    isActive
+                      ? "border-[var(--admin-accent-border)] bg-white text-[var(--admin-accent-hover)]"
+                      : "border-[#EEF1F4] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)] group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]",
+                  );
 
-            return (
-              <div key={item.title} className={cn(isMobile ? "space-y-1.5" : "space-y-1")}>
-                {hasSubmenu ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleMenu(item.title)}
-                    aria-expanded={isExpanded}
-                    aria-controls={`sidebar-group-${item.title}`}
-                    className={cn(
-                      "group flex w-full items-center justify-between text-left font-semibold transition-all active:scale-[0.99]",
-                      isMobile
-                        ? "min-h-[60px] rounded-[1.6rem] px-4 py-3.5 text-base"
-                        : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
-                      rowActive
-                        ? isMobile
-                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(17,24,39,0.07)]"
-                          : "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
-                        : isMobile
-                          ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
-                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
-                    )}
-                  >
-                    <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
+                  const content = (
+                    <>
                       <span
                         className={cn(
-                          "flex shrink-0 items-center justify-center transition-colors",
-                          isMobile
-                            ? "text-current"
-                            : rowActive
-                              ? "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-                              : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
-                        )}
-                      >
-                        <item.icon
-                          className={cn(
-                            "shrink-0 opacity-80",
-                            isMobile ? "h-[1.45rem] w-[1.45rem]" : "h-[1.1rem] w-[1.1rem]",
-                          )}
-                        />
-                      </span>
-                      <span className="min-w-0 truncate leading-snug">{item.title}</span>
-                    </span>
-
-                    <span
-                      className={cn(
-                        "flex shrink-0 items-center justify-center text-[var(--admin-text-secondary)] transition-colors group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]",
-                        isMobile
-                          ? "h-12 w-12 rounded-full border border-[var(--admin-border)] bg-[var(--admin-bg)]"
-                          : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]",
-                      )}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "transition-transform duration-200",
-                          isMobile ? "h-[1.15rem] w-[1.15rem]" : "h-[0.95rem] w-[0.95rem]",
-                          isExpanded ? "rotate-180" : "rotate-0",
+                          "pointer-events-none absolute bottom-2 left-0 top-2 w-[2px] rounded-full bg-[var(--admin-accent)] transition-opacity",
+                          isActive ? "opacity-100" : "opacity-0",
                         )}
                       />
-                    </span>
-                  </button>
-                ) : (
-                  <Link
-                    href={item.href}
-                    onClick={handleLeafClick}
-                    className={cn(
-                      "group flex items-center justify-between font-semibold transition-all active:scale-[0.99]",
-                      isMobile
-                        ? "min-h-[60px] rounded-[1.6rem] px-4 py-3.5 text-base"
-                        : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
-                      rowActive
-                        ? isMobile
-                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(17,24,39,0.07)]"
-                          : "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
-                        : isMobile
-                          ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
-                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
-                    )}
-                  >
-                    <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
-                      <span
-                        className={cn(
-                          "flex shrink-0 items-center justify-center transition-colors",
-                          isMobile
-                            ? "text-current"
-                            : rowActive
-                              ? "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-                              : "h-8 w-8 rounded-[0.95rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
-                        )}
-                      >
-                        <item.icon
+                      <span className={iconShellClasses}>
+                        <item.icon className={cn(isMobile ? "h-[1.15rem] w-[1.15rem]" : "h-[1rem] w-[1rem]")} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.title}</span>
+                      {item.badge ? (
+                        <span className="rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                      {hasSubmenu ? (
+                        <ChevronDown
                           className={cn(
-                            "shrink-0 opacity-80",
-                            isMobile ? "h-[1.45rem] w-[1.45rem]" : "h-[1.1rem] w-[1.1rem]",
+                            "h-4 w-4 shrink-0 text-[var(--admin-text-muted)] transition-transform duration-200 group-hover:text-[var(--admin-accent-hover)]",
+                            isExpanded ? "rotate-180" : "rotate-0",
                           )}
                         />
-                      </span>
-                      <span className="min-w-0 truncate leading-snug">{item.title}</span>
-                    </span>
-                    {item.badge ? (
-                      <span className="rounded-full bg-[var(--admin-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </Link>
-                )}
+                      ) : null}
+                    </>
+                  );
 
-                {hasSubmenu ? (
-                  <div
-                    id={`sidebar-group-${item.title}`}
-                    className={cn(
-                      "grid overflow-hidden transition-all duration-300 ease-out",
-                      isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-                    )}
-                  >
-                    <div className="min-h-0">
-                      <div className={cn(isMobile ? "ml-5 border-l border-[var(--admin-border)] pl-4 pt-1" : "ml-4 border-l border-[var(--admin-border)] pl-3.5 pt-0.5")}>
-                        <div className={cn(isMobile ? "space-y-2" : "space-y-1")}>
-                          {item.submenu?.map((sub) => {
-                            const isSubActive = pathname === sub.href;
-                            return (
-                              <Link
-                                key={sub.href}
-                                href={sub.href}
-                                onClick={handleLeafClick}
-                                className={cn(
-                                  "flex items-center font-medium transition-all active:scale-[0.99]",
-                                  isMobile
-                                    ? "min-h-[52px] rounded-[1.2rem] px-4 py-2.5 text-[0.98rem] leading-5"
-                                    : "min-h-[39px] rounded-[0.95rem] px-3 py-2 text-[13px] leading-[1.2rem]",
-                                  isSubActive
-                                    ? isMobile
-                                      ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(17,24,39,0.06)]"
-                                      : "bg-white text-gray-900 shadow-[0_6px_14px_rgba(17,24,39,0.05)]"
-                                    : isMobile
-                                      ? "text-gray-500 hover:bg-white/70 hover:text-gray-900"
-                                      : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
-                                )}
-                              >
-                                {sub.title}
-                              </Link>
-                            );
-                          })}
+                  return (
+                    <div key={item.title} className="space-y-1">
+                      {hasSubmenu ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleMenu(item.title)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`sidebar-group-${group.id}-${item.title}`}
+                          className={rowClasses}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={handleLeafClick}
+                          className={rowClasses}
+                        >
+                          {content}
+                        </Link>
+                      )}
+
+                      {hasSubmenu ? (
+                        <div
+                          id={`sidebar-group-${group.id}-${item.title}`}
+                          className={cn(
+                            "grid overflow-hidden transition-all duration-200 ease-out",
+                            isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                          )}
+                        >
+                          <div className="min-h-0">
+                            <div className={cn("ml-5 border-l border-[#EEF1F4] pl-3", isMobile ? "pt-1" : "pt-0.5")}>
+                              <div className="space-y-1">
+                                {item.submenu?.map((sub) => {
+                                  const isSubActive = pathMatches(pathname, sub.href);
+
+                                  return (
+                                    <Link
+                                      key={sub.href}
+                                      href={sub.href}
+                                      aria-current={isSubActive ? "page" : undefined}
+                                      onClick={handleLeafClick}
+                                      className={cn(
+                                        "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
+                                        isSubActive
+                                          ? "bg-white text-[var(--admin-accent-hover)] shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
+                                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                                          isSubActive ? "bg-[var(--admin-accent)]" : "bg-[#D1D5DB] group-hover:bg-[var(--admin-accent-border)]",
+                                        )}
+                                      />
+                                      <span className="truncate">{sub.title}</span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
                     </div>
-                  </div>
-                ) : null}
+                  );
+                })}
               </div>
-            );
-          })}
+            </section>
+          ))}
         </nav>
 
-        <div className={cn("border-t border-[var(--admin-border)]", isMobile ? "space-y-2.5 p-4" : "space-y-1.5 px-2.5 py-3")}>
+        <div className={cn("border-t border-[#EEF1F4]", isMobile ? "space-y-1.5 p-3.5" : "space-y-1.5 px-3 py-3.5")}>
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
             className={cn(
-              "flex w-full items-center font-medium transition-colors",
-              isMobile
-                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-[var(--admin-text-secondary)] hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
-                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]",
+              "flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium transition-colors",
+              "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]",
             )}
           >
-            <LogOut className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
+            <LogOut className="h-[1rem] w-[1rem] shrink-0" />
             <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
           </button>
 
@@ -644,14 +613,9 @@ export function AdminSidebar({
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className={cn(
-              "flex items-center font-medium transition-colors",
-              isMobile
-                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900"
-                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-gray-900",
-            )}
+            className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]"
           >
-            <Store className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
+            <Store className="h-[1rem] w-[1rem] shrink-0" />
             <span>Siteye Dön</span>
           </Link>
         </div>
