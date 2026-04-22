@@ -1,42 +1,70 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { getHomepageData } from "@/lib/homepage";
-import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
 import { mapBlogRows } from "@/lib/blog-content";
 import { getPublishedPosts } from "@/lib/db/blog";
 
 const HOME_UI_COPY = {
+  heroEyebrow: "Atolye Seckisi",
+  heroHeading: "Hakiki deriyi gunluk ritminize rafine bir bicimde tasiyin",
+  heroDescription:
+    "El yapimi deri kordonlar, cizgisini koruyan aksesuarlar ve omurlu malzeme secimleriyle kurulan daha sessiz, daha premium bir koleksiyon.",
+  heroPrimaryCta: "Koleksiyonu Kesfet",
+  heroSecondaryCta: "Magazalari Gor",
+  heroStatLabel0: "atolye uretimi",
+  heroStatLabel1: "premium deri secimi",
+  heroStatLabel2: "hizli kargo destegi",
   categoriesEyebrow: "Koleksiyonlar",
   categoriesHeading: "Kategoriler",
-  viewAllLabel: "Tümünü Gör",
-  storesEyebrow: "Mağazalarımız",
-  storesHeading: "Deriye yakından dokunun",
+  categoriesDescription:
+    "Saat kordonlarindan cuzdan ve aksesuarlara uzanan seckiyi, malzeme ve kullanim amacina gore hizlica ayirin.",
+  viewAllLabel: "Tumunu Gor",
+  showcaseDescription:
+    "Gunluk kullanimda patina kazanan, hediye olarak da guclu duran atolyeden secilen parcalar.",
+  storesEyebrow: "Magazalarimiz",
+  storesHeading: "Deriye yakindan dokunun",
   storesDescription:
-    "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
-  storesLinkLabel: "Tüm şubeleri gör",
-  testimonialsHeading: "Müşteri Yorumları",
-  testimonialsCountLabel: "1581 değerlendirmeden",
-  groupTitle0: "Çok Satanlar",
-  groupSubtitle0: "Seçili Koleksiyon",
-  groupTitle1: "Apple Watch Kayışları",
-  groupSubtitle1: "Öne Çıkanlar",
+    "Giresun ve Ordu magazalarimizda koleksiyonlarimizi yakindan inceleyin, dokusunu hissedin ve size en uygun parcayi yerinde secin.",
+  storesLinkLabel: "Tum subeleri gor",
+  testimonialsHeading: "Musteri Yorumlari",
+  testimonialsCountLabel: "1581 degerlendirmeden",
+  groupTitle0: "Cok Satanlar",
+  groupSubtitle0: "Secili Koleksiyon",
+  groupTitle1: "Apple Watch Kayislari",
+  groupSubtitle1: "One Cikanlar",
   groupTitle2: "Aksesuarlar",
-  groupSubtitle2: "Tamamlayıcılar",
-  groupTitle3: "Deri Saat Kayışları",
-  groupSubtitle3: "Klasik Seçim",
+  groupSubtitle2: "Tamamlayicilar",
+  groupTitle3: "Deri Saat Kayislari",
+  groupSubtitle3: "Klasik Secim",
 };
 
 async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
   const translated = await translateUiStrings(HOME_UI_COPY, locale, "homepage-ui");
 
   return {
+    hero: {
+      eyebrow: translated.heroEyebrow,
+      heading: translated.heroHeading,
+      description: translated.heroDescription,
+      primaryCta: translated.heroPrimaryCta,
+      secondaryCta: translated.heroSecondaryCta,
+      stats: [
+        { value: "100%", label: translated.heroStatLabel0 },
+        { value: "Full-grain", label: translated.heroStatLabel1 },
+        { value: "1-3 gun", label: translated.heroStatLabel2 },
+      ],
+    },
     categoriesEyebrow: translated.categoriesEyebrow,
     categoriesHeading: translated.categoriesHeading,
+    categoriesDescription: translated.categoriesDescription,
     viewAllLabel: translated.viewAllLabel,
+    showcaseDescription: translated.showcaseDescription,
     storesEyebrow: translated.storesEyebrow,
     storesHeading: translated.storesHeading,
     storesDescription: translated.storesDescription,
@@ -55,14 +83,15 @@ async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLoc
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
-  const localizedHome = buildLocalizedPath("/", locale);
   const [title, description] = await translateSeoStrings(
     [copy.homeTitle, copy.homeDescription],
     locale,
     "home-seo",
   );
 
-  return {
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/",
     title,
     description,
     keywords: [
@@ -74,24 +103,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "deri bileklik",
       "ozel tasarim kordon",
     ],
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      locale,
-      siteName: "Deri Kordon",
-      url: localizedHome,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-    alternates: {
-      canonical: localizedHome,
-      languages: buildLocaleAlternates("/"),
-    },
-  };
+  });
 }
 
 export default async function Home() {
@@ -112,10 +124,8 @@ export default async function Home() {
     }));
   const blogViewAllHref = buildLocalizedPath("/blog", locale);
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
-  const localizedProductsUrl = new URL(
-    buildLocalizedPath("/urunler", locale),
-    requestOrigin,
-  ).toString();
+  const productsHref = buildLocalizedPath("/urunler", locale);
+  const localizedProductsUrl = new URL(productsHref, requestOrigin).toString();
   const storesHref = buildLocalizedPath("/magazalarimiz", locale);
   const logoUrl = await buildAbsoluteRequestUrl("/logo.png");
 
@@ -123,6 +133,7 @@ export default async function Home() {
     <>
       <RedesignHome
         data={homepageData}
+        productsHref={productsHref}
         uiCopy={uiCopy}
         storesHref={storesHref}
         blogPosts={blogPosts}

@@ -10,7 +10,8 @@ import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { getRequestLocale } from "@/lib/request-locale";
-import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getLocalizedCopy } from "@/lib/i18n";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { translateProductRecord } from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
@@ -20,28 +21,12 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
-  const localizedPath = buildLocalizedPath("/urunler", locale);
-
-  return {
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/urunler",
     title: copy.productsTitle,
     description: copy.productsDescription,
-    alternates: {
-      canonical: localizedPath,
-      languages: buildLocaleAlternates("/urunler"),
-    },
-    openGraph: {
-      title: copy.productsTitle,
-      description: copy.productsDescription,
-      type: "website",
-      locale,
-      url: localizedPath,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: copy.productsTitle,
-      description: copy.productsDescription,
-    },
-  };
+  });
 }
 
 interface DBProduct {

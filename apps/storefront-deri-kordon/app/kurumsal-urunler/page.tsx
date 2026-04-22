@@ -6,7 +6,8 @@ import { runProductsQuery } from "@/lib/products-query-compat";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { Product } from "@/types/product";
 import { getRequestLocale } from "@/lib/request-locale";
-import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import CorporateProductsClient from "./CorporateProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -14,23 +15,12 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
-  const localizedPath = buildLocalizedPath("/kurumsal-urunler", locale);
-
-  return {
+  return buildStorePageMetadata({
+    locale,
+    pathname: "/kurumsal-urunler",
     title: copy.corporateTitle,
     description: copy.corporateDescription,
-    alternates: {
-      canonical: localizedPath,
-      languages: buildLocaleAlternates("/kurumsal-urunler"),
-    },
-    openGraph: {
-      title: copy.corporateTitle,
-      description: copy.corporateDescription,
-      type: "website",
-      locale,
-      url: localizedPath,
-    },
-  };
+  });
 }
 
 interface DBProduct {
