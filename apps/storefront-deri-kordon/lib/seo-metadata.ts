@@ -23,6 +23,8 @@ type BuildStorePageMetadataInput = {
   description?: string | null;
   keywords?: PageKeywords;
   image?: string | null;
+  canonicalUrl?: string | null;
+  robotsDirective?: string | null;
   type?: "website" | "article";
   noIndex?: boolean;
   publishedTime?: string;
@@ -64,6 +66,64 @@ function normalizeDescription(value?: string | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeMetadataUrl(value?: string | null) {
+  const normalizedValue = typeof value === "string" ? value.trim() : "";
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (normalizedValue.startsWith("/")) {
+    return normalizedValue;
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    return ["http:", "https:"].includes(parsedUrl.protocol)
+      ? parsedUrl.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function parseRobotsDirective(value?: string | null) {
+  const tokens = normalizeTitle(value)
+    .split(",")
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length > 0);
+
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  let index: boolean | undefined;
+  let follow: boolean | undefined;
+
+  for (const token of tokens) {
+    if (token === "index") {
+      index = true;
+      continue;
+    }
+
+    if (token === "noindex") {
+      index = false;
+      continue;
+    }
+
+    if (token === "follow") {
+      follow = true;
+      continue;
+    }
+
+    if (token === "nofollow") {
+      follow = false;
+    }
+  }
+
+  return index === undefined && follow === undefined ? null : { index, follow };
+}
+
 function normalizeKeywordArray(value: PageKeywords): string[] {
   if (Array.isArray(value)) {
     return value
@@ -92,7 +152,7 @@ function dedupeKeywords(primary: string[], fallback: string[]) {
 }
 
 function toAbsoluteAssetUrl(source: string | null | undefined, origin: string) {
-  const directUrl = resolveStorefrontDirectAssetUrl(source);
+  const directUrl = resolveStorefrontDirectAssetUrl(normalizeMetadataUrl(source));
 
   if (!directUrl) {
     return "";
@@ -144,7 +204,7 @@ export function isStorefrontPathIndexable(pathname: string) {
 export async function getStoreSeoContext(locale: StorefrontLocale): Promise<StoreSeoContext> {
   const [storeInfo, seoSettings] = await Promise.all([getStoreInfo(), getSeoSettings()]);
   const copy = getLocalizedCopy(locale);
-  const siteName = normalizeTitle(seoSettings.siteName) || storeInfo.name || STOREFRONT_RUNTIME.name;
+  const siteName = normalizeTitle(seoSettings.siteName) || storeInfo?.name || STOREFRONT_RUNTIME.name;
   const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
   const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
   const rawDefaultDescription =
@@ -254,10 +314,12 @@ export async function buildStorePageMetadata(
   const seo = await getStoreSeoContext(input.locale);
   const requestOrigin = await getRequestOrigin();
   const localeIsIndexable = isIndexableLocale(input.locale);
-  const canonicalPath = buildLocalizedPath(
+  const localizedCanonicalPath = buildLocalizedPath(
     input.pathname,
     localeIsIndexable ? input.locale : DEFAULT_LOCALE,
   );
+  const canonicalPath =
+    normalizeMetadataUrl(input.canonicalUrl) || localizedCanonicalPath;
   const title = buildPageTitle(
     normalizeTitle(input.title) || seo.defaultTitle,
     seo.titleSuffix,
@@ -268,10 +330,10 @@ export async function buildStorePageMetadata(
     toAbsoluteAssetUrl(seo.ogImageUrl, requestOrigin);
   const keywords = dedupeKeywords(normalizeKeywordArray(input.keywords), seo.keywords);
   const pathIsIndexable = isStorefrontPathIndexable(input.pathname);
-  const index =
-    input.noIndex || !pathIsIndexable || !localeIsIndexable ? false : seo.robotsIndex;
-  const follow =
-    input.noIndex || !pathIsIndexable || !localeIsIndexable ? false : seo.robotsFollow;
+  const robotsOverride = parseRobotsDirective(input.robotsDirective);
+  const applyNoIndex = input.noIndex || !pathIsIndexable || !localeIsIndexable;
+  const index = applyNoIndex ? false : robotsOverride?.index ?? seo.robotsIndex;
+  const follow = applyNoIndex ? false : robotsOverride?.follow ?? seo.robotsFollow;
   const ogImages = imageUrl ? [{ url: imageUrl, alt: title }] : undefined;
 
   return {

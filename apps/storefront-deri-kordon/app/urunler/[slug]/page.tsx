@@ -1,13 +1,13 @@
 ﻿import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
-import { getProductBySlug, getProductSlug } from "@/lib/products";
+import { getProductBySlug } from "@/lib/products";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex, buildCanonicalUrl } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
 import { getRequestLocale } from "@/lib/request-locale";
-import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
@@ -97,6 +97,12 @@ function extractProductImages(product: any): string[] {
   return [];
 }
 
+function normalizeOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
 function normalizeProductForDetail(product: any) {
   if (!product) {
     return null;
@@ -110,11 +116,84 @@ function normalizeProductForDetail(product: any) {
     new: product.new ?? product.is_new ?? false,
     seoTitle: product.seoTitle ?? product.seo_title ?? undefined,
     seoDescription: product.seoDescription ?? product.seo_description ?? undefined,
+    ogImage: normalizeOptionalString(product.ogImage ?? product.og_image),
+    canonicalUrl: normalizeOptionalString(product.canonicalUrl ?? product.canonical_url),
+    seoRobots: normalizeOptionalString(product.seoRobots ?? product.seo_robots),
     images: extractProductImages(product),
     variants: Array.isArray(product.variants)
       ? product.variants.map((variant: any) => normalizeProductVariant(variant))
       : [],
   };
+}
+
+function normalizeMetadataCandidate(value: unknown) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (normalizedValue.startsWith("/")) {
+    return normalizedValue;
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    return ["http:", "https:"].includes(parsedUrl.protocol)
+      ? parsedUrl.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function resolveProductMetadataImage(product: any) {
+  const candidates = [
+    product?.ogImage,
+    product?.og_image,
+    ...(Array.isArray(product?.images) ? product.images : []),
+  ];
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeMetadataCandidate(candidate);
+    if (normalizedCandidate) {
+      return normalizedCandidate;
+    }
+  }
+
+  return null;
+}
+
+async function fetchProductForMetadata(baseSlug: string) {
+  try {
+    const supabase = createServerClient();
+    const { data: dbProducts, error } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("products")
+        .select("*")
+        .eq("slug", baseSlug);
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query
+        .or("status.eq.published,status.is.null")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+    });
+
+    if (error) {
+      console.error("Product metadata fetch error:", error);
+    } else if (dbProducts?.[0]) {
+      return normalizeProductForDetail(dbProducts[0]);
+    }
+  } catch (error) {
+    console.error("Failed to fetch product metadata from Supabase:", error);
+  }
+
+  return normalizeProductForDetail(await getProductBySlug(baseSlug));
 }
 
 // Generate metadata on the server side
@@ -129,14 +208,15 @@ export async function generateMetadata({
 
   // Parse URL slug to extract base slug
   const { baseSlug } = parseProductSlug(slug);
+  const productPath = buildCanonicalUrl(baseSlug);
 
-  // Get product from static data (fastest)
-  const product = normalizeProductForDetail(await getProductBySlug(baseSlug));
+  // Prefer the live database row so admin SEO overrides are visible in metadata.
+  const product = await fetchProductForMetadata(baseSlug);
   
   if (!product) {
     return buildStorePageMetadata({
       locale,
-      pathname: `/urunler/${baseSlug}`,
+      pathname: productPath,
       title: copy.missingProductTitle,
       description: copy.missingProductDescription,
       noIndex: true,
@@ -147,7 +227,7 @@ export async function generateMetadata({
 
   return buildStorePageMetadata({
     locale,
-    pathname: `/urunler/${baseSlug}`,
+    pathname: productPath,
     title: translatedProduct.seoTitle || translatedProduct.name,
     description:
       translatedProduct.seoDescription ||
@@ -158,7 +238,9 @@ export async function generateMetadata({
       ).slice(0, 160) ||
       "",
     keywords: translatedProduct.tags,
-    image: translatedProduct.images && translatedProduct.images.length > 0 ? translatedProduct.images[0] : null,
+    image: resolveProductMetadataImage(translatedProduct),
+    canonicalUrl: translatedProduct.canonicalUrl ?? translatedProduct.canonical_url,
+    robotsDirective: translatedProduct.seoRobots ?? translatedProduct.seo_robots,
     type: "website",
   });
 
