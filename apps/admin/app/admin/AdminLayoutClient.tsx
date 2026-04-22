@@ -105,34 +105,34 @@ function MobileDockButton({
       aria-current={active ? "page" : undefined}
       aria-label={label}
       className={cn(
-        "group relative flex flex-1 items-center justify-center px-[0.15rem] py-1 text-[#746a62] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
-        active ? "text-[#d95a08]" : "text-[#726861]",
+        "group relative flex flex-1 items-center justify-center px-[0.1rem] py-1 text-[#746a62] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
+        active ? "text-[#d95a08]" : "text-[#70665f]",
       )}
     >
       <span
         className={cn(
-          "absolute left-1/2 top-1 h-[3px] w-5 -translate-x-1/2 rounded-full bg-[linear-gradient(90deg,rgba(254,97,0,0.0)_0%,rgba(254,97,0,0.92)_50%,rgba(254,97,0,0.0)_100%)] transition-all duration-200 ease-out",
-          active ? "opacity-100" : "opacity-0",
-        )}
-      />
-      <span
-        className={cn(
-          "relative flex min-h-[56px] w-full max-w-[4.2rem] flex-col items-center justify-center gap-[0.28rem] rounded-[1.15rem] border border-transparent px-2 py-2.5 transition-all duration-200 ease-out",
+          "relative flex min-h-[56px] w-full max-w-[4.05rem] flex-col items-center justify-center gap-[0.24rem] rounded-[1rem] border border-transparent px-2 py-2.5 transition-all duration-200 ease-out group-active:scale-[0.98]",
           active
-            ? "border-[rgba(254,97,0,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,243,232,0.94)_100%)] shadow-[0_10px_20px_rgba(86,57,30,0.08),inset_0_1px_0_rgba(255,255,255,0.88)]"
-            : "bg-transparent group-active:bg-white/40",
+            ? "border-[rgba(254,97,0,0.10)] bg-[linear-gradient(180deg,rgba(255,251,247,0.98)_0%,rgba(255,244,235,0.9)_100%)] shadow-[0_10px_18px_rgba(73,50,31,0.06),inset_0_1px_0_rgba(255,255,255,0.82)]"
+            : "bg-transparent group-active:bg-white/35",
         )}
       >
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-x-[1.05rem] top-[0.45rem] h-px bg-[linear-gradient(90deg,rgba(254,97,0,0)_0%,rgba(254,97,0,0.5)_50%,rgba(254,97,0,0)_100%)] transition-opacity duration-200 ease-out",
+            active ? "opacity-100" : "opacity-0",
+          )}
+        />
         <Icon
           className={cn(
-            "h-[1.22rem] w-[1.22rem] transition-all duration-200 ease-out",
-            active ? "opacity-100 scale-100" : "opacity-[0.8] scale-[0.94]",
+            "h-[1.12rem] w-[1.12rem] transition-all duration-200 ease-out",
+            active ? "opacity-100 scale-100" : "opacity-[0.78] scale-[0.95]",
           )}
         />
         <span
           className={cn(
-            "text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
-            active ? "opacity-100" : "opacity-[0.78]",
+            "text-[10.5px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
+            active ? "opacity-100" : "opacity-[0.8]",
           )}
         >
           {label}
@@ -158,49 +158,50 @@ function MobileToshiDockButton({
       aria-label={alertCount && alertCount > 0 ? `Toshi asistanı, ${alertCount} yeni uyarı` : "Toshi asistanını aç"}
       aria-haspopup="dialog"
       aria-pressed={active}
-      className="group relative flex min-w-[5.35rem] flex-col items-center justify-end px-1 pb-1 pt-0.5 focus-visible:outline-none"
+      className="group relative flex min-w-[5.1rem] flex-col items-center justify-end px-1 pb-1 pt-0.5 focus-visible:outline-none"
     >
       <span
         className={cn(
-          "pointer-events-none absolute left-1/2 top-1 h-[4.9rem] w-[4.9rem] -translate-x-1/2 rounded-[1.8rem] bg-[radial-gradient(circle_at_top,rgba(254,97,0,0.30),rgba(254,97,0,0.0)_72%)] blur-[15px] transition-opacity duration-200 ease-out",
-          active ? "opacity-100" : "opacity-70",
+          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(254,97,0,0.16),rgba(254,97,0,0)_74%)] blur-[18px] transition-opacity duration-200 ease-out",
+          active ? "opacity-100" : "opacity-45",
         )}
       />
       <span
         className={cn(
-          "relative flex h-[3.95rem] w-[3.95rem] -translate-y-[0.72rem] items-center justify-center rounded-[1.45rem] border p-[0.32rem] shadow-[0_18px_32px_rgba(63,41,22,0.12),0_4px_12px_rgba(63,41,22,0.06)] backdrop-blur-[18px] transition-all duration-200 ease-out group-active:scale-[0.98]",
+          "relative flex h-[3.8rem] w-[3.8rem] -translate-y-[0.68rem] items-center justify-center rounded-full border p-[2px] shadow-[0_18px_30px_rgba(49,34,22,0.14),0_4px_10px_rgba(49,34,22,0.06)] transition-all duration-200 ease-out group-active:scale-[0.98]",
           active
-            ? "border-[rgba(254,97,0,0.26)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,229,0.94)_100%)]"
-            : "border-[rgba(255,255,255,0.72)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,242,236,0.92)_100%)]",
+            ? "border-[rgba(254,97,0,0.26)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,244,235,0.92)_100%)]"
+            : "border-[rgba(255,255,255,0.78)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,239,233,0.94)_100%)]",
         )}
       >
-        <span className="pointer-events-none absolute inset-[1px] rounded-[1.32rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.88)_0%,rgba(255,255,255,0.04)_44%,rgba(255,255,255,0)_100%)]" />
-        <span
-          className={cn(
-            "relative flex h-full w-full items-center justify-center rounded-[1.15rem] bg-[linear-gradient(180deg,#ff9a52_0%,#fe6100_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_22px_rgba(254,97,0,0.28)] transition-transform duration-200 ease-out",
-            active ? "scale-100" : "scale-[0.97]",
-          )}
-        >
+        <span className="pointer-events-none absolute inset-[1px] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_100%)]" />
+        <span className="relative block h-full w-full overflow-hidden rounded-full bg-[#f3ebe3]">
           <Image
             src={TOSHI_MASCOT_SRC}
             alt=""
             aria-hidden="true"
-            width={30}
-            height={30}
-            className="h-[1.9rem] w-[1.9rem] object-contain"
+            fill
+            sizes="64px"
+            className={cn(
+              "object-cover transition-transform duration-200 ease-out",
+              active ? "scale-[1.18]" : "scale-[1.14]",
+            )}
+            style={{ objectPosition: "50% 38%" }}
             priority
           />
+          <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.02)_42%,rgba(16,12,9,0.08)_100%)]" />
+          <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/45" />
         </span>
 
         {alertCount && alertCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border border-white/80 bg-[#1f1611] px-1 text-[10px] font-bold text-white shadow-[0_6px_12px_rgba(31,22,17,0.18)]">
+          <span className="absolute -right-1 -top-0.5 flex h-[1.2rem] min-w-[1.2rem] items-center justify-center rounded-full border border-white/85 bg-[#1f1712] px-1 text-[9px] font-bold text-white shadow-[0_6px_12px_rgba(31,22,17,0.16)]">
             {alertCount > 9 ? "9+" : alertCount}
           </span>
         ) : null}
       </span>
       <span
         className={cn(
-          "mt-[-0.2rem] text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
+          "mt-[-0.08rem] text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
           active ? "text-[#d95a08]" : "text-[#7b7067]",
         )}
       >
@@ -395,10 +396,10 @@ export default function AdminLayoutClient({
     "--admin-mobile-keyboard-offset": `${keyboardInset}px`,
     "--admin-mobile-panel-top": "calc(env(safe-area-inset-top, 0px) + 6.35rem)",
     "--admin-mobile-panel-bottom":
-      "max(calc(env(safe-area-inset-bottom, 0px) + 6.2rem), calc(var(--admin-mobile-keyboard-offset) + 1rem))",
-    "--admin-mobile-dock-floor": "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
+      "max(calc(env(safe-area-inset-bottom, 0px) + 6.9rem), calc(var(--admin-mobile-keyboard-offset) + 1rem))",
+    "--admin-mobile-dock-floor": "max(calc(env(safe-area-inset-bottom, 0px) + 0.3rem), 0.3rem)",
     "--admin-mobile-content-bottom":
-      "max(calc(env(safe-area-inset-bottom, 0px) + 7.5rem), calc(var(--admin-mobile-keyboard-offset) + 1.5rem))",
+      "max(calc(env(safe-area-inset-bottom, 0px) + 8.35rem), calc(var(--admin-mobile-keyboard-offset) + 1.75rem))",
   } as CSSProperties;
 
   return (
@@ -503,16 +504,16 @@ export default function AdminLayoutClient({
       </main>
 
       {isMobile ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[58] px-3 pb-[var(--admin-mobile-dock-floor)] md:hidden">
-          <div className="mx-auto h-9 w-[86%] max-w-[26rem] bg-[radial-gradient(circle_at_center,rgba(121,86,56,0.18),rgba(121,86,56,0)_72%)] blur-2xl" />
-          <nav
-            aria-label="Alt gezinme"
-            className="pointer-events-auto relative mx-auto w-full max-w-[30rem] overflow-visible rounded-[2rem] border border-[rgba(115,101,89,0.12)] bg-[linear-gradient(180deg,rgba(255,252,248,0.98)_0%,rgba(246,239,233,0.96)_100%)] shadow-[0_22px_42px_rgba(48,34,22,0.08),0_6px_14px_rgba(48,34,22,0.04)] backdrop-blur-[28px]"
-          >
-            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_50%,rgba(255,255,255,0)_100%)]" />
-            <span className="pointer-events-none absolute left-1/2 top-0 h-16 w-40 -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(255,255,255,1),rgba(255,255,255,0)_75%)] opacity-90" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-[2rem] bg-[linear-gradient(180deg,rgba(229,220,211,0)_0%,rgba(229,220,211,0.16)_100%)]" />
-            <div className="relative grid w-full grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-x-0.5 px-1.5 pb-1.5 pt-1">
+        <nav
+          aria-label="Alt gezinme"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(108,94,82,0.14)] bg-[linear-gradient(180deg,rgba(252,249,245,0.74)_0%,rgba(248,241,234,0.94)_24%,rgba(243,236,229,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(45,31,19,0.08)] backdrop-blur-[24px] md:hidden"
+        >
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_50%,rgba(255,255,255,0)_100%)]" />
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(180deg,rgba(255,255,255,0.42)_0%,rgba(255,255,255,0)_100%)]" />
+          <div className="relative mx-auto w-full max-w-[30rem]">
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(114,98,86,0.12)] bg-[linear-gradient(180deg,rgba(255,252,248,0.92)_0%,rgba(249,243,237,0.82)_100%)] shadow-[0_-12px_24px_rgba(56,39,26,0.04)]" />
+            <span className="pointer-events-none absolute inset-x-8 top-[1rem] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.88)_50%,rgba(255,255,255,0)_100%)]" />
+            <div className="relative grid w-full grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5">
               <MobileDockButton icon={Home} label="Ana" active={activeDockItem === "home"} onClick={handleHome} />
               <MobileDockButton icon={Package} label="Sipariş" active={activeDockItem === "orders"} onClick={handleOrders} />
               <MobileToshiDockButton
@@ -523,8 +524,8 @@ export default function AdminLayoutClient({
               <MobileDockButton icon={Tag} label="Ürün" active={activeDockItem === "products"} onClick={handleProducts} />
               <MobileDockButton icon={Menu} label="Menü" active={activeDockItem === "menu"} onClick={handleToggleMenu} />
             </div>
-          </nav>
-        </div>
+          </div>
+        </nav>
       ) : null}
 
       <AdminClientBoundary name="ToshiAssistant">
