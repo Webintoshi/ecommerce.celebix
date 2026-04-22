@@ -1,4 +1,4 @@
-import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { buildStorefrontProductUrl, STORE_RUNTIME } from "@/lib/store-runtime";
 
 export const VALID_PRODUCT_ROBOTS = [
   "index,follow",
@@ -55,6 +55,12 @@ export type ProductSeoSuggestion = {
 export type ProductSeoAssessment = {
   score: number;
   issues: string[];
+  titleLength: number;
+  descriptionLength: number;
+  keywordCoverageCount: number;
+  keywordCoverageTotal: number;
+  defaultCanonicalUrl: string;
+  effectiveCanonicalUrl: string;
   hasTitle: boolean;
   hasDescription: boolean;
   hasFocusKeyword: boolean;
@@ -65,7 +71,7 @@ export type ProductSeoAssessment = {
 };
 
 const TITLE_MIN_LENGTH = 35;
-const TITLE_MAX_LENGTH = 70;
+const TITLE_MAX_LENGTH = 60;
 const DESCRIPTION_MIN_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 160;
 const SEO_HEALTH_THRESHOLD = 80;
@@ -92,7 +98,25 @@ const COLOR_TOKENS = [
   "yeşil",
 ] as const;
 
-const DEFAULT_BRAND = STORE_RUNTIME.defaultProductBrand || STORE_RUNTIME.name || "DeryCraft";
+const DEFAULT_BRAND = STORE_RUNTIME.defaultProductBrand || STORE_RUNTIME.name || "Celebix";
+
+export const PRODUCT_SEO_ROBOT_OPTIONS = [
+  { value: "index,follow", label: "Index, follow" },
+  { value: "noindex,follow", label: "Noindex, follow" },
+  { value: "index,nofollow", label: "Index, nofollow" },
+  { value: "noindex,nofollow", label: "Noindex, nofollow" },
+] as const;
+
+export const PRODUCT_SEO_FAMILY_LABELS: Record<ProductSeoFamily, string> = {
+  "apple-watch-strap": "Apple Watch deri kayisi",
+  "watch-strap": "deri saat kayisi",
+  "card-holder": "deri kartlik",
+  wallet: "hakiki deri cuzdan",
+  bag: "deri canta",
+  case: "deri kilif / kese",
+  keychain: "deri anahtarlik",
+  accessory: "diger aksesuar",
+};
 
 function normalizeSpace(value: string | null | undefined) {
   return String(value || "")
@@ -121,30 +145,49 @@ function uniqueKeywords(values: Array<string | null | undefined>) {
   );
 }
 
+function trimTrailingTitlePunctuation(value: string) {
+  return normalizeSpace(value)
+    .replace(/[-|:,;]+$/g, "")
+    .trim();
+}
+
 function buildTitleWithBrand(baseTitle: string) {
-  const normalizedBase = normalizeSpace(baseTitle);
+  const normalizedBase = trimTrailingTitlePunctuation(baseTitle);
   const title = `${normalizedBase} | ${DEFAULT_BRAND}`;
 
   if (title.length <= TITLE_MAX_LENGTH) {
     return title;
   }
 
-  const compactBase = normalizedBase
-    .replace(/\b(Hakiki|El Yapımı|Premium)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  const compactTitle = `${compactBase} | ${DEFAULT_BRAND}`;
+  const compactCandidates = uniqueKeywords([
+    normalizedBase
+      .replace(/\b(Hakiki|El Yapımı|Premium)\b/gi, "")
+      .replace(/\s*-\s*/g, " ")
+      .replace(/\bApple Watch Deri Kayış[ıi]\b/gi, "Apple Watch Kayışı")
+      .replace(/\bDeri Saat Kayış[ıi]\b/gi, "Saat Kayışı")
+      .replace(/\bÇift Katlı\b/gi, "Çift Kat")
+      .replace(/\bTek Katlı\b/gi, "Tek Kat"),
+    normalizedBase
+      .replace(/\s*-\s*/g, " ")
+      .replace(/\bApple Watch Deri Kayış[ıi]\b/gi, "Apple Watch Kayışı"),
+  ]);
 
-  if (compactTitle.length <= TITLE_MAX_LENGTH) {
-    return compactTitle;
+  for (const compactCandidate of compactCandidates) {
+    const compactBase = trimTrailingTitlePunctuation(compactCandidate);
+    const compactTitle = `${compactBase} | ${DEFAULT_BRAND}`;
+
+    if (compactTitle.length <= TITLE_MAX_LENGTH) {
+      return compactTitle;
+    }
   }
 
+  const compactBase = trimTrailingTitlePunctuation(compactCandidates[0] || normalizedBase);
   const allowedBaseLength = Math.max(20, TITLE_MAX_LENGTH - DEFAULT_BRAND.length - 3);
   const truncatedBase = compactBase.slice(0, allowedBaseLength);
   const lastWordBoundary = truncatedBase.lastIndexOf(" ");
   const safeBase =
     lastWordBoundary > 24 ? truncatedBase.slice(0, lastWordBoundary) : truncatedBase;
-  return `${safeBase.trim()} | ${DEFAULT_BRAND}`;
+  return `${trimTrailingTitlePunctuation(safeBase)} | ${DEFAULT_BRAND}`;
 }
 
 function clampDescription(value: string) {
@@ -195,6 +238,30 @@ function isValidCanonicalUrl(value: string | null | undefined) {
   try {
     const url = new URL(normalized);
     return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getCanonicalPath(value: string) {
+  if (value.startsWith("/")) {
+    return value.replace(/\/$/, "") || "/";
+  }
+
+  try {
+    return new URL(value).pathname.replace(/\/$/, "") || "/";
+  } catch {
+    return "";
+  }
+}
+
+function isCanonicalOnStoreDomain(value: string) {
+  if (value.startsWith("/")) {
+    return true;
+  }
+
+  try {
+    return new URL(value).host === new URL(STORE_RUNTIME.storefrontUrl).host;
   } catch {
     return false;
   }
