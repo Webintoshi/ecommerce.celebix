@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Loader2, RotateCcw, Send, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "model";
@@ -23,8 +24,8 @@ interface ToshiAssistantProps {
   onAlertInfoChange?: (info: AlertInfo | null) => void;
 }
 
-const STORAGE_KEY = "toshi_messages";
-const ALERT_CACHE_KEY = "toshi_alerts";
+const STORAGE_KEY = `toshi_messages:${STORE_RUNTIME.slug}`;
+const ALERT_CACHE_KEY = `toshi_alerts:${STORE_RUNTIME.slug}`;
 const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
@@ -91,18 +92,18 @@ function getQuickPrompts(pathname: string): string[] {
 
 function getPageContext(pathname: string): string {
   const map: Record<string, string> = {
-    "/admin": "Admin paneli ana sayfası. Sipariş, ürün ve satış özeti görüntüleniyor.",
-    "/admin/siparisler": "Siparişler sayfası. Tüm siparişlerin listesi ve durum yönetimi.",
-    "/admin/urunler": "Ürünler sayfası. Ürün listesi, stok takibi ve ürün yönetimi.",
-    "/admin/musteriler": "Müşteriler sayfası. Müşteri listesi ve detayları.",
-    "/admin/indirimler": "İndirimler sayfası. Kupon ve kampanya yönetimi.",
-    "/admin/analizler": "Analizler sayfası. Satış grafikleri ve performans verileri.",
-    "/admin/cms": "CMS sayfası. Blog yazıları ve içerik yönetimi.",
-    "/admin/seo-killer": "SEO sayfası. Arama motoru optimizasyon ayarları.",
-    "/admin/pazarlama": "Pazarlama sayfası. Pazarlama araçları ve kampanyalar.",
-    "/admin/ayarlar": "Ayarlar sayfası. Mağaza konfigürasyon ayarları.",
-    "/admin/yoneticiler": "Yöneticiler sayfası. Admin kullanıcı yönetimi.",
-    "/admin/markets": "Marketler sayfası.",
+    "/admin": "Ana panel. Sipariş, ürün ve operasyon özeti burada.",
+    "/admin/siparisler": "Siparişler. Tüm sipariş listesi ve durum yönetimi.",
+    "/admin/urunler": "Ürünler. Katalog, stok ve ürün yönetimi.",
+    "/admin/musteriler": "Müşteriler. Profil, segment ve sipariş geçmişi.",
+    "/admin/indirimler": "İndirimler. Kampanya ve kupon akışı.",
+    "/admin/analizler": "Analizler. Satış trendi ve performans verileri.",
+    "/admin/cms": "CMS. Blog, sayfa ve politika içerikleri.",
+    "/admin/seo-killer": "SEO. Arama görünürlüğü ve içerik optimizasyonu.",
+    "/admin/pazarlama": "Pazarlama. Kampanya araçları ve mesaj akışı.",
+    "/admin/ayarlar": "Ayarlar. Mağaza, cihaz ve entegrasyon ayarları.",
+    "/admin/yoneticiler": "Yöneticiler. Yetki ve ekip yönetimi.",
+    "/admin/markets": "Marketplace. Kanal ve entegrasyon görünümü.",
   };
 
   if (map[pathname]) {
@@ -253,6 +254,7 @@ export default function ToshiAssistant({
 
   const isAdmin = pathname.startsWith("/admin");
   const panelIsOpen = typeof isOpen === "boolean" ? isOpen : internalIsOpen;
+  const contextHint = getPageContext(pathname);
 
   const setPanelOpen = useCallback(
     (next: boolean) => {
@@ -430,7 +432,7 @@ export default function ToshiAssistant({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: history,
-            context: getPageContext(pathname),
+            context: contextHint,
           }),
         });
 
@@ -471,7 +473,7 @@ export default function ToshiAssistant({
         setIsLoading(false);
       }
     },
-    [input, isLoading, messages, pathname],
+    [contextHint, input, isLoading, messages],
   );
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -505,6 +507,36 @@ export default function ToshiAssistant({
   const panelContent = (
     <>
       <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#fff9f4_0%,#f8f2ec_100%)] px-4 py-4">
+        <div className="grid gap-2.5">
+          {alertInfo ? (
+            <div className="rounded-[1.35rem] border border-[#ffd9bc] bg-[#fff3e7] px-4 py-3.5 text-sm text-[#9d4d0f] shadow-[0_12px_24px_rgba(254,97,0,0.08)]">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-white text-[#d95a08]">
+                  <AlertTriangle className="h-4.5 w-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08]">
+                    Operasyon uyarısı
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[#7a4419]">{alertInfo.summary}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-[1.35rem] border border-[#f1dfd0] bg-white px-4 py-3.5 text-sm text-[#6f6258] shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-[#fff3e8] text-[#d95a08]">
+                <Sparkles className="h-4.5 w-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d95a08]">Bağlam</p>
+                <p className="mt-1 text-sm leading-6">{contextHint}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {messages.map((message, index) => (
           <div
             key={`${message.role}-${index}`}
@@ -521,11 +553,12 @@ export default function ToshiAssistant({
             ) : null}
 
             <div
-              className={`max-w-[84%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6 ${
+              className={cn(
+                "max-w-[84%] rounded-[1.35rem] px-3.5 py-2.5 text-[0.95rem] leading-6",
                 message.role === "user"
                   ? "rounded-tr-md bg-gradient-to-br from-[#FE6100] to-[#ff8a3d] text-white shadow-[0_14px_24px_rgba(254,97,0,0.18)]"
-                  : "rounded-tl-md border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]"
-              }`}
+                  : "rounded-tl-md border border-[#f1dfd0] bg-white text-gray-800 shadow-[0_10px_22px_rgba(106,67,37,0.08)]",
+              )}
               style={{ wordBreak: "break-word" }}
             >
               {message.role === "model" ? renderMessage(message.text) : message.text}
@@ -554,12 +587,12 @@ export default function ToshiAssistant({
 
       {showQuickPrompts ? (
         <div className="border-t border-[#f1dfd0] bg-white px-4 py-3">
-          <div className="flex flex-wrap gap-1.5">
+          <div className={cn("gap-2", isMobile ? "grid grid-cols-2" : "flex flex-wrap")}>
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => void sendMessage(prompt)}
-                className="whitespace-nowrap rounded-full border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-2 text-[13px] font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
+                className="min-h-[44px] rounded-[1rem] border border-[#ffd7ba] bg-[#fff8f2] px-3.5 py-2.5 text-[13px] font-medium text-[#c65a0d] transition-colors hover:bg-[#fff0e4]"
               >
                 {prompt}
               </button>
@@ -570,11 +603,7 @@ export default function ToshiAssistant({
 
       <div
         className={`flex-shrink-0 border-t border-[#f1dfd0] bg-white ${isMobile ? "px-4 pt-3.5" : "px-3.5 py-3.5"}`}
-        style={
-          isMobile
-            ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }
-            : undefined
-        }
+        style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" } : undefined}
       >
         <div className="flex items-end gap-2.5 rounded-[1.35rem] border border-[#ecd9c8] bg-[#fbf7f3] px-3.5 py-3 transition-all focus-within:border-[#FE6100]/60 focus-within:ring-2 focus-within:ring-[#ffd8ba]">
           <textarea
@@ -584,6 +613,7 @@ export default function ToshiAssistant({
             onKeyDown={handleKeyDown}
             placeholder="Toshi'ye sor..."
             rows={1}
+            aria-label="Toshi mesaj alanı"
             className="min-h-[24px] max-h-[96px] flex-1 resize-none bg-transparent text-base leading-6 text-gray-800 outline-none placeholder:text-gray-400 md:text-[0.95rem]"
             style={{ overflow: "auto" }}
             disabled={isLoading}
@@ -591,7 +621,8 @@ export default function ToshiAssistant({
           <button
             onClick={() => void sendMessage()}
             disabled={!input.trim() || isLoading}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[1rem] transition-all disabled:opacity-30"
+            aria-label="Mesaj gönder"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[1rem] transition-all disabled:opacity-30"
             style={{
               background: input.trim() && !isLoading ? TOSHI_GRADIENT : "#e5e7eb",
             }}
@@ -654,19 +685,22 @@ export default function ToshiAssistant({
           className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[26px] shadow-2xl"
           style={{
             width: "408px",
-            height: isMinimized ? "60px" : "572px",
+            height: isMinimized ? "60px" : "620px",
             background: "#fff",
             border: "1px solid rgba(254,97,0,0.16)",
             boxShadow: "0 26px 64px rgba(254,97,0,0.18), 0 2px 16px rgba(0,0,0,0.08)",
             transition: "height 0.25s cubic-bezier(.4,0,.2,1)",
           }}
         >
-          <div className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3.5" style={{ background: TOSHI_GRADIENT }}>
+          <div
+            className="flex flex-shrink-0 select-none items-center justify-between px-4 py-3.5"
+            style={{ background: TOSHI_GRADIENT }}
+          >
             <div className="flex items-center gap-2.5">
               <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
               <div>
                 <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan</p>
+                <p className="text-xs leading-tight text-[#ffe2ce]">Operasyon asistanı</p>
               </div>
             </div>
 
@@ -711,15 +745,18 @@ export default function ToshiAssistant({
             className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(40,24,12,0.12)] backdrop-blur-[2px]"
           />
 
-          <div className="fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[#ffd7ba] bg-white shadow-[0_24px_56px_rgba(254,97,0,0.16)]">
-            <div className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4" style={{ background: TOSHI_GRADIENT }}>
+          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[#ffd7ba] bg-white shadow-[0_24px_56px_rgba(254,97,0,0.16)]">
+            <div
+              className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4"
+              style={{ background: TOSHI_GRADIENT }}
+            >
               <div className="absolute left-1/2 top-2 h-1.5 w-14 -translate-x-1/2 rounded-full bg-white/45" />
 
               <div className="flex items-center gap-2.5">
                 <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
                 <div>
                   <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
-                  <p className="text-xs leading-tight text-[#ffe2ce]">AI asistan</p>
+                  <p className="text-xs leading-tight text-[#ffe2ce]">Mobil operasyon asistanı</p>
                 </div>
               </div>
 

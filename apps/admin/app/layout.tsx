@@ -38,7 +38,12 @@ export function generateMetadata(): Metadata {
     appleWebApp: {
       capable: true,
       title: `${storeName} Admin`,
-      statusBarStyle: "default",
+      statusBarStyle: "black-translucent",
+    },
+    formatDetection: {
+      email: false,
+      telephone: false,
+      address: false,
     },
     robots: {
       index: false,

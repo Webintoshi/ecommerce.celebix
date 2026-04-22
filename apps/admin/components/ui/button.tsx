@@ -32,7 +32,7 @@ export function buttonVariants({
   };
 
   const sizes = {
-    sm: "h-10 px-4 text-[0.9rem] rounded-[1.05rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    sm: "h-11 px-4 text-[0.92rem] rounded-[1.1rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
     md: "h-11 px-[1.1rem] text-base rounded-[1.2rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
     lg: "h-12 px-[1.25rem] text-[1.02rem] rounded-[1.45rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };
@@ -64,7 +64,7 @@ export function Button({
   };
 
   const sizes = {
-    sm: "h-10 px-4 text-[0.9rem] rounded-[1.05rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    sm: "h-11 px-4 text-[0.92rem] rounded-[1.1rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
     md: "h-11 px-[1.1rem] text-base rounded-[1.2rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
     lg: "h-12 px-[1.25rem] text-[1.02rem] rounded-[1.45rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };

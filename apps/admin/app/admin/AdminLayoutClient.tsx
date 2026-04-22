@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
+import { ArrowLeft, BellDot, Home, Menu, Package, RefreshCw, Sparkles, Tag, Users } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -11,7 +10,7 @@ import ToshiAssistant from "@/components/admin/ToshiAssistant";
 import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
-const ADMIN_MASCOT_SRC = "/branding/celebix-mascot.svg";
+type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -82,14 +81,21 @@ function MobileDockButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[1.4rem] px-2 py-2.5 transition-all duration-200 active:scale-[0.98]",
-        active
-          ? "bg-[linear-gradient(180deg,#fff5ec_0%,#ffecd8_100%)] text-[#d95a08] shadow-[inset_0_0_0_1px_rgba(254,97,0,0.14),0_10px_20px_rgba(254,97,0,0.08)]"
-          : "text-[#75675c]",
+        "flex flex-1 items-center justify-center px-1 py-1.5 transition-all duration-200 active:scale-[0.98]",
+        active ? "text-[#d95a08]" : "text-[#726861]",
       )}
     >
-      <Icon className={cn("h-[1.38rem] w-[1.38rem]", active ? "opacity-100" : "opacity-78")} />
-      <span className="text-[12px] font-semibold tracking-[0.01em]">{label}</span>
+      <span
+        className={cn(
+          "flex min-h-[54px] w-full max-w-[4.7rem] flex-col items-center justify-center gap-1 rounded-[1.1rem] px-2 py-2 transition-all duration-200",
+          active ? "bg-[#fff1e7]" : "bg-transparent",
+        )}
+      >
+        <Icon className={cn("h-[1.34rem] w-[1.34rem] transition-all duration-200", active ? "opacity-100" : "opacity-80")} />
+        <span className={cn("text-[11px] font-medium tracking-[0.01em] transition-all duration-200", active ? "opacity-100" : "opacity-82")}>
+          {label}
+        </span>
+      </span>
     </button>
   );
 }
@@ -104,9 +110,11 @@ export default function AdminLayoutClient({
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [isMobile, setIsMobile] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isToshiOpen, setIsToshiOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>(null);
+  const [desktopToshiOpen, setDesktopToshiOpen] = useState(false);
+  const [desktopNotificationsOpen, setDesktopNotificationsOpen] = useState(false);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [toshiAlertInfo, setToshiAlertInfo] = useState<{
     count: number;
     summary: string;
@@ -116,47 +124,120 @@ export default function AdminLayoutClient({
   const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
   const isOrdersRoute = pathname.startsWith("/admin/siparisler");
   const isProductsRoute = pathname.startsWith("/admin/urunler");
+  const isCustomersRoute = pathname.startsWith("/admin/musteriler");
+  const isSidebarOpen = isMobile ? activeMobileSurface === "sidebar" : false;
+  const isNotificationsOpen = isMobile ? activeMobileSurface === "notifications" : desktopNotificationsOpen;
+  const isToshiOpen = isMobile ? activeMobileSurface === "toshi" : desktopToshiOpen;
+  const hasToshiAlert = Boolean(toshiAlertInfo?.count && toshiAlertInfo.count > 0);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    if (typeof window === "undefined") {
+      return;
+    }
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncMobileState = () => setIsMobile(mediaQuery.matches);
+
+    syncMobileState();
+    mediaQuery.addEventListener("change", syncMobileState);
+    return () => mediaQuery.removeEventListener("change", syncMobileState);
   }, []);
 
   useEffect(() => {
     if (!isMobile) {
-      setIsSidebarOpen(false);
-      setIsNotificationsOpen(false);
+      setActiveMobileSurface(null);
+      setKeyboardInset(0);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined" || !window.visualViewport) {
+      return;
+    }
+
+    const viewport = window.visualViewport;
+    const syncViewportInset = () => {
+      const nextInset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+      setKeyboardInset(nextInset);
+    };
+
+    syncViewportInset();
+    viewport.addEventListener("resize", syncViewportInset);
+    viewport.addEventListener("scroll", syncViewportInset);
+    return () => {
+      viewport.removeEventListener("resize", syncViewportInset);
+      viewport.removeEventListener("scroll", syncViewportInset);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.body.dataset.adminMobileShell = isMobile ? "true" : "false";
+    return () => {
+      delete document.body.dataset.adminMobileShell;
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    if (isMobile && activeMobileSurface) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeMobileSurface, isMobile]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setActiveMobileSurface(null);
+      return;
+    }
+
+    setDesktopNotificationsOpen(false);
+  }, [isMobile, pathname]);
 
   const handleBack = () => {
     router.back();
   };
 
   const handleHome = () => {
-    setIsSidebarOpen(false);
-    setIsNotificationsOpen(false);
-    setIsToshiOpen(false);
+    setActiveMobileSurface(null);
+    setDesktopNotificationsOpen(false);
+    setDesktopToshiOpen(false);
     router.push("/admin");
   };
 
   const handleOrders = () => {
-    setIsSidebarOpen(false);
-    setIsNotificationsOpen(false);
-    setIsToshiOpen(false);
+    setActiveMobileSurface(null);
+    setDesktopNotificationsOpen(false);
+    setDesktopToshiOpen(false);
     router.push("/admin/siparisler");
   };
 
   const handleProducts = () => {
-    setIsSidebarOpen(false);
-    setIsNotificationsOpen(false);
-    setIsToshiOpen(false);
+    setActiveMobileSurface(null);
+    setDesktopNotificationsOpen(false);
+    setDesktopToshiOpen(false);
     router.push("/admin/urunler");
+  };
+
+  const handleCustomers = () => {
+    setActiveMobileSurface(null);
+    setDesktopNotificationsOpen(false);
+    setDesktopToshiOpen(false);
+    router.push("/admin/musteriler");
   };
 
   const handleRefresh = () => {
@@ -164,22 +245,30 @@ export default function AdminLayoutClient({
   };
 
   const handleToggleMenu = () => {
-    setIsNotificationsOpen(false);
-    setIsToshiOpen(false);
-    setIsSidebarOpen((current) => !current);
+    if (isMobile) {
+      setActiveMobileSurface((current) => (current === "sidebar" ? null : "sidebar"));
+    }
   };
 
   const handleToggleToshi = () => {
-    setIsSidebarOpen(false);
-    setIsNotificationsOpen(false);
-    setIsToshiOpen((current) => !current);
+    if (isMobile) {
+      setActiveMobileSurface((current) => (current === "toshi" ? null : "toshi"));
+      return;
+    }
+
+    setDesktopNotificationsOpen(false);
+    setDesktopToshiOpen((current) => !current);
   };
 
   const handleNotificationsOpenChange = (next: boolean) => {
-    setIsNotificationsOpen(next);
+    if (isMobile) {
+      setActiveMobileSurface(next ? "notifications" : null);
+      return;
+    }
+
+    setDesktopNotificationsOpen(next);
     if (next) {
-      setIsSidebarOpen(false);
-      setIsToshiOpen(false);
+      setDesktopToshiOpen(false);
     }
   };
 
@@ -188,10 +277,13 @@ export default function AdminLayoutClient({
   }
 
   const shellStyle = {
-    "--admin-mobile-panel-top": "calc(env(safe-area-inset-top, 0px) + 6.45rem)",
-    "--admin-mobile-panel-bottom": "calc(env(safe-area-inset-bottom, 0px) + 6.95rem)",
+    "--admin-mobile-keyboard-offset": `${keyboardInset}px`,
+    "--admin-mobile-panel-top": "calc(env(safe-area-inset-top, 0px) + 6.35rem)",
+    "--admin-mobile-panel-bottom":
+      "max(calc(env(safe-area-inset-bottom, 0px) + 5.35rem), calc(var(--admin-mobile-keyboard-offset) + 1rem))",
     "--admin-mobile-dock-floor": "calc(env(safe-area-inset-bottom, 0px) + 0.8rem)",
-    "--admin-mobile-content-bottom": "calc(env(safe-area-inset-bottom, 0px) + 8.5rem)",
+    "--admin-mobile-content-bottom":
+      "max(calc(env(safe-area-inset-bottom, 0px) + 6.6rem), calc(var(--admin-mobile-keyboard-offset) + 1.5rem))",
   } as CSSProperties;
 
   return (
@@ -207,7 +299,7 @@ export default function AdminLayoutClient({
       >
         <AdminSidebar
           isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
+          onClose={() => setActiveMobileSurface(null)}
           initialProfile={initialProfile}
         />
       </AdminClientBoundary>
@@ -237,7 +329,40 @@ export default function AdminLayoutClient({
                   </h1>
                   {!isMobile ? (
                     <p className="mt-2 max-w-2xl text-[15px] leading-6 text-[#6f6258]">{shellMeta.subtitle}</p>
-                  ) : null}
+                  ) : (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleNotificationsOpenChange(!isNotificationsOpen)}
+                        className={cn(
+                          "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-3.5 py-2 text-left text-[12px] font-semibold tracking-[0.01em] transition-all active:scale-[0.99]",
+                          isNotificationsOpen
+                            ? "border-[#FE6100]/20 bg-[#fff2e7] text-[#d95a08]"
+                            : "border-[#ecd7c3] bg-white/88 text-[#6f6258]",
+                        )}
+                      >
+                        <BellDot className="h-4 w-4 shrink-0" />
+                        <span>
+                          {notificationUnreadCount > 0
+                            ? `${notificationUnreadCount} yeni bildirim`
+                            : "Bildirimler temiz"}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleToggleToshi}
+                        className={cn(
+                          "inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-full border px-3.5 py-2 text-left text-[12px] font-semibold tracking-[0.01em] transition-all active:scale-[0.99]",
+                          isToshiOpen
+                            ? "border-[#FE6100]/24 bg-[#fff2e7] text-[#d95a08]"
+                            : "border-[#ecd7c3] bg-white/88 text-[#6f6258]",
+                        )}
+                      >
+                        <Sparkles className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{hasToshiAlert ? toshiAlertInfo?.summary : "Toshi hazır"}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -246,6 +371,7 @@ export default function AdminLayoutClient({
                   isMobile={isMobile}
                   isOpen={isNotificationsOpen}
                   onOpenChange={handleNotificationsOpenChange}
+                  onUnreadCountChange={setNotificationUnreadCount}
                 />
                 <button
                   type="button"
@@ -264,43 +390,14 @@ export default function AdminLayoutClient({
       </main>
 
       {isMobile ? (
-        <div className="fixed inset-x-0 bottom-0 z-[58] px-3 pb-[var(--admin-mobile-dock-floor)] md:hidden">
-          <div className="mx-auto w-full max-w-[32rem]">
-            <div className="relative rounded-[2.15rem] border border-[#ead8ca] bg-[linear-gradient(180deg,rgba(255,251,247,0.98)_0%,rgba(245,235,226,0.96)_100%)] px-3 pb-3 pt-3 shadow-[0_22px_42px_rgba(84,50,25,0.15)] backdrop-blur-2xl">
-              <div className="grid grid-cols-5 items-end gap-1.5">
-                <MobileDockButton icon={Home} label="Ana" active={rootAdmin} onClick={handleHome} />
-                <MobileDockButton icon={Package} label="Sipariş" active={isOrdersRoute} onClick={handleOrders} />
-                <div className="h-[4.8rem]" />
-                <MobileDockButton icon={Tag} label="Ürün" active={isProductsRoute} onClick={handleProducts} />
-                <MobileDockButton icon={Menu} label="Menu" active={isSidebarOpen} onClick={handleToggleMenu} />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleToggleToshi}
-                aria-label="Toshi asistanini ac"
-                className={cn(
-                  "absolute left-1/2 top-0 flex h-[5.95rem] w-[5.95rem] -translate-x-1/2 -translate-y-[32%] items-center justify-center rounded-[2rem] border border-white/70 bg-white shadow-[0_22px_34px_rgba(92,56,30,0.2)] transition-transform duration-200 active:scale-[0.98]",
-                  isToshiOpen ? "ring-4 ring-[#ffd7ba]" : "",
-                )}
-              >
-                <span className="absolute inset-[0.55rem] rounded-[1.55rem] bg-[linear-gradient(180deg,#fffaf6_0%,#fff1e6_100%)]" />
-                <span className="relative flex h-[4.4rem] w-[4.4rem] items-center justify-center rounded-[1.45rem] bg-[radial-gradient(circle_at_30%_20%,#ffb27e_0%,#ff944e_28%,#FE6100_68%,#d75600_100%)] shadow-[0_18px_26px_rgba(254,97,0,0.28)] ring-[6px] ring-white/90">
-                  <Image
-                    src={ADMIN_MASCOT_SRC}
-                    alt="Celebix mascot"
-                    width={54}
-                    height={54}
-                    className="h-[3rem] w-[3rem] drop-shadow-[0_8px_16px_rgba(80,38,9,0.18)]"
-                    priority
-                  />
-                </span>
-                {toshiAlertInfo && toshiAlertInfo.count > 0 ? (
-                  <span className="absolute right-1.5 top-1.5 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#b42318] px-1.5 text-[10px] font-bold text-white shadow-[0_12px_18px_rgba(180,35,24,0.3)]">
-                    {toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}
-                  </span>
-                ) : null}
-              </button>
+        <div className="fixed inset-x-0 bottom-0 z-[58] md:hidden">
+          <div className="border-t border-[#e7ddd3] bg-[rgba(250,247,244,0.94)] shadow-[0_-8px_24px_rgba(61,43,28,0.06)] backdrop-blur-[22px]">
+            <div className="mx-auto flex w-full max-w-[32rem] items-end justify-between px-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-2">
+              <MobileDockButton icon={Home} label="Ana" active={rootAdmin} onClick={handleHome} />
+              <MobileDockButton icon={Package} label="Sipariş" active={isOrdersRoute} onClick={handleOrders} />
+              <MobileDockButton icon={Tag} label="Ürün" active={isProductsRoute} onClick={handleProducts} />
+              <MobileDockButton icon={Users} label="Müşteri" active={isCustomersRoute} onClick={handleCustomers} />
+              <MobileDockButton icon={Menu} label="Menü" active={isSidebarOpen} onClick={handleToggleMenu} />
             </div>
           </div>
         </div>
@@ -310,7 +407,14 @@ export default function AdminLayoutClient({
         <ToshiAssistant
           isMobile={isMobile}
           isOpen={isToshiOpen}
-          onOpenChange={setIsToshiOpen}
+          onOpenChange={(next) => {
+            if (isMobile) {
+              setActiveMobileSurface(next ? "toshi" : null);
+              return;
+            }
+
+            setDesktopToshiOpen(next);
+          }}
           onAlertInfoChange={setToshiAlertInfo}
         />
       </AdminClientBoundary>

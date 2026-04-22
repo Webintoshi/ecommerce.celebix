@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Users,
   Users as AdminsIcon,
+  X,
 } from "lucide-react";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -28,6 +29,7 @@ import { hasActionPermission, hasPermission, type AdminPermission, type UserRole
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
+const QUICK_ACCESS_TITLES = ["Ana Sayfa", "Siparişler", "Ürünler", "Müşteriler", "Ayarlar"] as const;
 
 interface MenuItem {
   title: string;
@@ -156,6 +158,21 @@ type AdminMeResponse =
       error?: string;
     };
 
+function getRoleLabel(role: UserRole | null) {
+  switch (role) {
+    case "super_admin":
+      return "Süper admin";
+    case "product_manager":
+      return "Ürün yöneticisi";
+    case "content_creator":
+      return "İçerik ekibi";
+    case "order_manager":
+      return "Sipariş ekibi";
+    default:
+      return "Admin";
+  }
+}
+
 export function AdminSidebar({
   isOpen = true,
   onClose,
@@ -173,6 +190,7 @@ export function AdminSidebar({
   const userEmail = resolvedProfile?.email;
   const userName = resolvedProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanıcı";
   const role: UserRole | null = resolvedProfile?.role || null;
+  const roleLabel = getRoleLabel(role);
   const mobileMenuOpen = isMobile ? isOpen : true;
 
   useEffect(() => {
@@ -182,21 +200,22 @@ export function AdminSidebar({
   }, [initialProfile]);
 
   useEffect(() => {
-    const checkMobile = () => {
-      if (typeof window !== "undefined") {
-        setIsMobile(window.innerWidth < 768);
-      }
-    };
+    if (typeof window === "undefined") {
+      return;
+    }
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncMobileState = () => setIsMobile(mediaQuery.matches);
+    syncMobileState();
+    mediaQuery.addEventListener("change", syncMobileState);
+    return () => mediaQuery.removeEventListener("change", syncMobileState);
   }, []);
 
   useEffect(() => {
     const autoExpand = MENU_ITEMS.filter((item) => item.submenu?.some((sub) => sub.href === pathname)).map(
       (item) => item.title,
     );
+
     if (autoExpand.length === 0) {
       return;
     }
@@ -261,8 +280,21 @@ export function AdminSidebar({
     });
   }, [role]);
 
+  const quickAccessItems = useMemo(
+    () => filteredItems.filter((item) => QUICK_ACCESS_TITLES.includes(item.title as (typeof QUICK_ACCESS_TITLES)[number])),
+    [filteredItems],
+  );
+
   const toggleMenu = (title: string) => {
-    setExpandedMenus((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]));
+    setExpandedMenus((prev) => {
+      const isExpanded = prev.includes(title);
+
+      if (isMobile) {
+        return isExpanded ? [] : [title];
+      }
+
+      return isExpanded ? prev.filter((item) => item !== title) : [...prev, title];
+    });
   };
 
   const handleLogout = async () => {
@@ -321,23 +353,44 @@ export function AdminSidebar({
             : "sticky top-0 z-20 h-screen w-56 shrink-0 bg-[#eee5dc] xl:w-[15rem] 2xl:w-64",
         )}
       >
-        <div className="flex items-center gap-4 border-b border-[#e6d7c8] px-4 py-4 xl:px-[1.125rem] 2xl:px-5">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white shadow-sm ring-1 ring-black/5">
-            <Image
-              src={ADMIN_BRAND_LOGO_SRC}
-              alt="Celebix X"
-              width={40}
-              height={40}
-              className="h-full w-full object-contain p-[0.4rem]"
-              priority
-              unoptimized
-            />
+        <div className="border-b border-[#e6d7c8] px-4 py-4 xl:px-[1.125rem] 2xl:px-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white shadow-sm ring-1 ring-black/5">
+              <Image
+                src={ADMIN_BRAND_LOGO_SRC}
+                alt="Celebix X"
+                width={40}
+                height={40}
+                className="h-full w-full object-contain p-[0.4rem]"
+                priority
+                unoptimized
+              />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <span className="block break-words text-base font-semibold leading-snug text-gray-900">
+                {STORE_RUNTIME.name} Admin
+              </span>
+              <span className="mt-1 inline-flex items-center rounded-full border border-[#ecd9c6] bg-white/75 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a5a33]">
+                {roleLabel}
+              </span>
+            </div>
+
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[1rem] border border-[#e8d7c8] bg-white/85 text-[#7b6a5f] shadow-[0_10px_18px_rgba(112,73,44,0.08)]"
+                aria-label="Menüyü kapat"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="block break-words text-base font-semibold leading-snug text-gray-900">
-              {STORE_RUNTIME.name} Admin
-            </span>
-            <span className="block truncate text-[0.95rem] font-medium text-gray-500">{userName}</span>
+
+          <div className="mt-4 rounded-[1.4rem] border border-[#ead8ca] bg-white/70 px-3.5 py-3">
+            <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
+            <p className="mt-1 truncate text-sm text-gray-500">{userEmail || "Profil bekleniyor"}</p>
           </div>
         </div>
 
@@ -347,7 +400,46 @@ export function AdminSidebar({
           </div>
         ) : null}
 
+        {isMobile && quickAccessItems.length > 0 ? (
+          <div className="px-4 pb-3 pt-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a5a33]">Hızlı erişim</p>
+              <p className="text-xs text-[#8f7b6d]">En çok kullanılan yüzeyler</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {quickAccessItems.map((item) => {
+                const active =
+                  pathname === item.href ||
+                  (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+
+                return (
+                  <Link
+                    key={item.title}
+                    href={item.href}
+                    onClick={handleLeafClick}
+                    className={cn(
+                      "flex min-h-[60px] items-center gap-3 rounded-[1.3rem] border px-3.5 py-3 transition-all active:scale-[0.99]",
+                      active
+                        ? "border-[#FE6100]/18 bg-[#fff4eb] text-[#d95a08] shadow-[0_12px_22px_rgba(254,97,0,0.08)]"
+                        : "border-[#ead8ca] bg-white/80 text-[#5f5248]",
+                    )}
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-white shadow-[0_8px_16px_rgba(112,73,44,0.06)]">
+                      <item.icon className="h-4.5 w-4.5" />
+                    </span>
+                    <span className="min-w-0 text-sm font-semibold">{item.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <nav className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-4">
+          <div className="px-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a5a33]">Tüm alanlar</p>
+          </div>
+
           {filteredItems.map((item) => {
             const hasSubmenu = Boolean(item.submenu?.length);
             const isDirectActive =
