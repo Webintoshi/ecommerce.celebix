@@ -6,7 +6,7 @@ import { withServerTimeout } from "@/lib/server-timeout";
 
 export const metadata: Metadata = {
   title: "Ana Panel",
-  description: "Yönetim panelinin ana ekranında sipariş, ürün, müşteri ve canlı operasyon verilerini tek bakışta izleyin.",
+  description: "Mağazanızın performansını, trendlerini ve operasyonel durumunu tek ekranda izleyin.",
   robots: {
     index: false,
     follow: false,
@@ -42,23 +42,83 @@ function getEmptyDashboardData(): DashboardBootstrapData {
       },
       recentEvents: [],
     },
+    overview: {
+      timeRange: "week",
+      cards: [
+        {
+          key: "orders",
+          label: "Bu Haftaki Siparişler",
+          value: 0,
+          change: 0,
+          href: "/admin/siparisler",
+          format: "number",
+          tone: "orange",
+          trend: [],
+        },
+        {
+          key: "revenue",
+          label: "Haftalık Ciro",
+          value: 0,
+          change: 0,
+          href: "/admin/analizler",
+          format: "currency",
+          tone: "emerald",
+          trend: [],
+        },
+        {
+          key: "conversion",
+          label: "Dönüşüm Oranı",
+          value: 0,
+          change: 0,
+          href: "/admin/analizler",
+          format: "percent",
+          tone: "violet",
+          trend: [],
+        },
+        {
+          key: "pending",
+          label: "Bekleyen Siparişler",
+          value: 0,
+          change: 0,
+          href: "/admin/siparisler",
+          format: "number",
+          tone: "amber",
+          trend: [],
+        },
+      ],
+    },
+    performance: {
+      timeRange: "week",
+      currentLabel: "Bu hafta",
+      previousLabel: "Geçen hafta",
+      currentRevenue: 0,
+      previousRevenue: 0,
+      currentOrders: 0,
+      previousOrders: 0,
+      chart: [],
+    },
+    analysisSummary: {
+      items: [],
+    },
+    customerActivities: [],
   };
 }
 
 export default async function AdminDashboardPage() {
   try {
     const initialData = await withServerTimeout(
-      getAdminDashboardBootstrapData({ includeLiveData: false }),
+      getAdminDashboardBootstrapData({ includeLiveData: false, timeRange: "week" }),
       7000,
-      "Dashboard ilk açılışta zaman aşımına uğradı."
+      "Dashboard ilk açılışta zaman aşımına uğradı.",
     );
+
     return <AdminDashboardClient initialData={initialData} />;
   } catch (error) {
     console.error("Admin dashboard page bootstrap error:", error);
     return (
       <AdminDashboardClient
         initialData={getEmptyDashboardData()}
-        initialError="Panel verileri şimdilik sınırlı geldi. Arka planda yeniden deneyebilirsiniz."
+        initialError="Panel verileri ilk açılışta sınırlı geldi. Arka planda tekrar deneyebilirsiniz."
       />
     );
   }

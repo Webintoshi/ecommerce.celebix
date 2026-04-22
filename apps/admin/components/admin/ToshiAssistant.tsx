@@ -24,6 +24,10 @@ interface ToshiAssistantProps {
   onAlertInfoChange?: (info: AlertInfo | null) => void;
 }
 
+type ToshiOpenEventDetail = {
+  prompt?: string;
+};
+
 const STORAGE_KEY = `toshi_messages:${STORE_RUNTIME.slug}`;
 const ALERT_CACHE_KEY = `toshi_alerts:${STORE_RUNTIME.slug}`;
 const MAX_STORED_MESSAGES = 50;
@@ -402,6 +406,30 @@ export default function ToshiAssistant({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [isAdmin, panelIsOpen, setPanelOpen]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const handleOpenEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<ToshiOpenEventDetail | undefined>;
+      const prompt = customEvent.detail?.prompt?.trim();
+
+      setPanelOpen(true);
+      setIsMinimized(false);
+
+      if (prompt) {
+        setInput(prompt);
+      }
+    };
+
+    window.addEventListener("celebix:toshi-open", handleOpenEvent as EventListener);
+
+    return () => {
+      window.removeEventListener("celebix:toshi-open", handleOpenEvent as EventListener);
+    };
+  }, [isAdmin, setPanelOpen]);
 
   const handleOpen = () => {
     setPanelOpen(true);
