@@ -654,13 +654,22 @@ export default function ToshiAssistant({
           }}
         >
           <div
-            className="relative flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+            className="relative flex h-[4.9rem] w-[4.9rem] items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
             style={{
               background: TOSHI_GRADIENT,
             }}
           >
             <span className="absolute inset-0 rounded-full bg-[#ffb37f] opacity-20 animate-ping" />
-            <ToshiMark sizeClassName="h-12 w-12" imageClassName="h-7 w-7" shellClassName="border-white/20 bg-white/14" />
+            <span className="relative block h-[4.15rem] w-[4.15rem] overflow-hidden rounded-full border border-white/55 bg-white/14 shadow-[0_12px_24px_rgba(122,72,28,0.18)] ring-4 ring-white/28">
+              <Image
+                src={TOSHI_MASCOT_SRC}
+                alt="Toshi mascot"
+                fill
+                sizes="68px"
+                className="object-cover object-center scale-[1.03]"
+                priority
+              />
+            </span>
 
             {alertInfo && alertInfo.count > 0 ? (
               <span

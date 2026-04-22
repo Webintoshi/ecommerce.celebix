@@ -331,6 +331,8 @@ export function AdminSidebar({
 
   const mobileAsideClassName =
     "fixed inset-x-3 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[74] h-auto rounded-[2rem] border border-[#ead8ca] bg-[linear-gradient(180deg,rgba(250,245,239,0.98)_0%,rgba(244,236,227,0.98)_100%)] shadow-[0_24px_60px_rgba(58,36,18,0.18)] backdrop-blur-2xl";
+  const desktopAsideClassName =
+    "sticky top-0 z-20 h-screen w-[13.5rem] shrink-0 bg-[#eee5dc] xl:w-56 2xl:w-[14.5rem]";
 
   return (
     <>
@@ -350,28 +352,43 @@ export function AdminSidebar({
             ? `${mobileAsideClassName} ${
                 mobileMenuOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
               }`
-            : "sticky top-0 z-20 h-screen w-56 shrink-0 bg-[#eee5dc] xl:w-[15rem] 2xl:w-64",
+            : desktopAsideClassName,
         )}
       >
-        <div className="border-b border-[#e6d7c8] px-4 py-4 xl:px-[1.125rem] 2xl:px-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white shadow-sm ring-1 ring-black/5">
+        <div className={cn("border-b border-[#e6d7c8]", isMobile ? "px-4 py-4 xl:px-[1.125rem] 2xl:px-5" : "px-3 py-3.5 xl:px-3.5 2xl:px-4")}>
+          <div className={cn("flex items-center", isMobile ? "gap-4" : "gap-3")}>
+            <div
+              className={cn(
+                "flex items-center justify-center overflow-hidden bg-white shadow-sm ring-1 ring-black/5",
+                isMobile ? "h-12 w-12 rounded-[1.35rem]" : "h-10 w-10 rounded-[1.05rem]",
+              )}
+            >
               <Image
                 src={ADMIN_BRAND_LOGO_SRC}
                 alt="Celebix X"
                 width={40}
                 height={40}
-                className="h-full w-full object-contain p-[0.4rem]"
+                className={cn("h-full w-full object-contain", isMobile ? "p-[0.4rem]" : "p-[0.34rem]")}
                 priority
                 unoptimized
               />
             </div>
 
             <div className="min-w-0 flex-1">
-              <span className="block break-words text-base font-semibold leading-snug text-gray-900">
+              <span
+                className={cn(
+                  "block break-words font-semibold leading-snug text-gray-900",
+                  isMobile ? "text-base" : "text-[15px]",
+                )}
+              >
                 {STORE_RUNTIME.name} Admin
               </span>
-              <span className="mt-1 inline-flex items-center rounded-full border border-[#ecd9c6] bg-white/75 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a5a33]">
+              <span
+                className={cn(
+                  "mt-1 inline-flex items-center rounded-full border border-[#ecd9c6] bg-white/75 font-medium uppercase text-[#8a5a33]",
+                  isMobile ? "px-2.5 py-1 text-[11px] tracking-[0.14em]" : "px-2 py-0.5 text-[10px] tracking-[0.12em]",
+                )}
+              >
                 {roleLabel}
               </span>
             </div>
@@ -388,9 +405,16 @@ export function AdminSidebar({
             ) : null}
           </div>
 
-          <div className="mt-4 rounded-[1.4rem] border border-[#ead8ca] bg-white/70 px-3.5 py-3">
-            <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
-            <p className="mt-1 truncate text-sm text-gray-500">{userEmail || "Profil bekleniyor"}</p>
+          <div
+            className={cn(
+              "border border-[#ead8ca] bg-white/70",
+              isMobile ? "mt-4 rounded-[1.4rem] px-3.5 py-3" : "mt-3 rounded-[1.05rem] px-3 py-2.5",
+            )}
+          >
+            <p className={cn("truncate font-semibold text-gray-900", isMobile ? "text-sm" : "text-[13px]")}>{userName}</p>
+            <p className={cn("mt-1 truncate text-gray-500", isMobile ? "text-sm" : "text-[12px]")}>
+              {userEmail || "Profil bekleniyor"}
+            </p>
           </div>
         </div>
 
@@ -435,8 +459,8 @@ export function AdminSidebar({
           </div>
         ) : null}
 
-        <nav className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-4">
-          <div className="px-1">
+        <nav className={cn("flex-1 overflow-y-auto", isMobile ? "space-y-2.5 px-3.5 py-4" : "space-y-1.5 px-2.5 py-3.5")}>
+          <div className={cn(isMobile ? "px-1" : "px-1.5")}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a5a33]">Tüm alanlar</p>
           </div>
 
@@ -450,7 +474,7 @@ export function AdminSidebar({
             const rowActive = isDirectActive || isSubmenuActive;
 
             return (
-              <div key={item.title} className="space-y-1.5">
+              <div key={item.title} className={cn(isMobile ? "space-y-1.5" : "space-y-1")}>
                 {hasSubmenu ? (
                   <button
                     type="button"
@@ -458,21 +482,52 @@ export function AdminSidebar({
                     aria-expanded={isExpanded}
                     aria-controls={`sidebar-group-${item.title}`}
                     className={cn(
-                      "group flex min-h-[60px] w-full items-center justify-between rounded-[1.6rem] px-4 py-3.5 text-left text-base font-semibold transition-all active:scale-[0.99]",
+                      "group flex w-full items-center justify-between text-left font-semibold transition-all active:scale-[0.99]",
+                      isMobile
+                        ? "min-h-[60px] rounded-[1.6rem] px-4 py-3.5 text-base"
+                        : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
                       rowActive
-                        ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
-                        : "text-gray-600 hover:bg-white/80 hover:text-gray-900",
+                        ? isMobile
+                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
+                          : "bg-white/92 text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.045)]"
+                        : isMobile
+                          ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
+                          : "text-[#65584f] hover:bg-white/80 hover:text-gray-900",
                     )}
                   >
-                    <span className="flex min-w-0 items-center gap-3.5">
-                      <item.icon className="h-[1.45rem] w-[1.45rem] shrink-0 opacity-80" />
+                    <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
+                      <span
+                        className={cn(
+                          "flex shrink-0 items-center justify-center transition-colors",
+                          isMobile
+                            ? "text-current"
+                            : rowActive
+                              ? "h-8 w-8 rounded-[0.95rem] border border-[#f3ded0] bg-[#fff4eb] text-[#d95a08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+                              : "h-8 w-8 rounded-[0.95rem] border border-[#ece1d7] bg-white/72 text-[#7a6b60]",
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "shrink-0 opacity-80",
+                            isMobile ? "h-[1.45rem] w-[1.45rem]" : "h-[1.1rem] w-[1.1rem]",
+                          )}
+                        />
+                      </span>
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
                     </span>
 
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#efe1d2] bg-[#f8f2eb] text-[#7b6a5f] transition-colors group-hover:border-[#FE6100]/20 group-hover:text-[#d95a08]">
+                    <span
+                      className={cn(
+                        "flex shrink-0 items-center justify-center text-[#7b6a5f] transition-colors group-hover:border-[#FE6100]/20 group-hover:text-[#d95a08]",
+                        isMobile
+                          ? "h-12 w-12 rounded-full border border-[#efe1d2] bg-[#f8f2eb]"
+                          : "h-8 w-8 rounded-[0.95rem] border border-[#eadfd4] bg-white/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]",
+                      )}
+                    >
                       <ChevronDown
                         className={cn(
-                          "h-[1.15rem] w-[1.15rem] transition-transform duration-200",
+                          "transition-transform duration-200",
+                          isMobile ? "h-[1.15rem] w-[1.15rem]" : "h-[0.95rem] w-[0.95rem]",
                           isExpanded ? "rotate-180" : "rotate-0",
                         )}
                       />
@@ -483,14 +538,37 @@ export function AdminSidebar({
                     href={item.href}
                     onClick={handleLeafClick}
                     className={cn(
-                      "group flex min-h-[60px] items-center justify-between rounded-[1.6rem] px-4 py-3.5 text-base font-semibold transition-all active:scale-[0.99]",
+                      "group flex items-center justify-between font-semibold transition-all active:scale-[0.99]",
+                      isMobile
+                        ? "min-h-[60px] rounded-[1.6rem] px-4 py-3.5 text-base"
+                        : "min-h-[46px] rounded-[1.15rem] px-3 py-2 text-[14px]",
                       rowActive
-                        ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
-                        : "text-gray-600 hover:bg-white/80 hover:text-gray-900",
+                        ? isMobile
+                          ? "bg-white text-gray-900 shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
+                          : "bg-white/92 text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.045)]"
+                        : isMobile
+                          ? "text-gray-600 hover:bg-white/80 hover:text-gray-900"
+                          : "text-[#65584f] hover:bg-white/80 hover:text-gray-900",
                     )}
                   >
-                    <span className="flex min-w-0 items-center gap-3.5">
-                      <item.icon className="h-[1.45rem] w-[1.45rem] shrink-0 opacity-80" />
+                    <span className={cn("flex min-w-0 items-center", isMobile ? "gap-3.5" : "gap-2.5")}>
+                      <span
+                        className={cn(
+                          "flex shrink-0 items-center justify-center transition-colors",
+                          isMobile
+                            ? "text-current"
+                            : rowActive
+                              ? "h-8 w-8 rounded-[0.95rem] border border-[#f3ded0] bg-[#fff4eb] text-[#d95a08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+                              : "h-8 w-8 rounded-[0.95rem] border border-[#ece1d7] bg-white/72 text-[#7a6b60]",
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "shrink-0 opacity-80",
+                            isMobile ? "h-[1.45rem] w-[1.45rem]" : "h-[1.1rem] w-[1.1rem]",
+                          )}
+                        />
+                      </span>
                       <span className="min-w-0 truncate leading-snug">{item.title}</span>
                     </span>
                     {item.badge ? (
@@ -510,8 +588,8 @@ export function AdminSidebar({
                     )}
                   >
                     <div className="min-h-0">
-                      <div className="ml-5 border-l border-[#ead8c8] pl-4 pt-1">
-                        <div className="space-y-2">
+                      <div className={cn(isMobile ? "ml-5 border-l border-[#ead8c8] pl-4 pt-1" : "ml-4 border-l border-[#eadfd4] pl-3.5 pt-0.5")}>
+                        <div className={cn(isMobile ? "space-y-2" : "space-y-1")}>
                           {item.submenu?.map((sub) => {
                             const isSubActive = pathname === sub.href;
                             return (
@@ -520,10 +598,17 @@ export function AdminSidebar({
                                 href={sub.href}
                                 onClick={handleLeafClick}
                                 className={cn(
-                                  "flex min-h-[52px] items-center rounded-[1.2rem] px-4 py-2.5 text-[0.98rem] font-medium leading-5 transition-all active:scale-[0.99]",
+                                  "flex items-center font-medium transition-all active:scale-[0.99]",
+                                  isMobile
+                                    ? "min-h-[52px] rounded-[1.2rem] px-4 py-2.5 text-[0.98rem] leading-5"
+                                    : "min-h-[39px] rounded-[0.95rem] px-3 py-2 text-[13px] leading-[1.2rem]",
                                   isSubActive
-                                    ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.05)]"
-                                    : "text-gray-500 hover:bg-white/70 hover:text-gray-900",
+                                    ? isMobile
+                                      ? "bg-white text-gray-900 shadow-[0_8px_18px_rgba(0,0,0,0.05)]"
+                                      : "bg-white/88 text-gray-900 shadow-[0_6px_14px_rgba(0,0,0,0.04)]"
+                                    : isMobile
+                                      ? "text-gray-500 hover:bg-white/70 hover:text-gray-900"
+                                      : "text-[#766a60] hover:bg-white/70 hover:text-gray-900",
                                 )}
                               >
                                 {sub.title}
@@ -540,13 +625,18 @@ export function AdminSidebar({
           })}
         </nav>
 
-        <div className="space-y-2.5 border-t border-[#e6d7c8] p-4">
+        <div className={cn("border-t border-[#e6d7c8]", isMobile ? "space-y-2.5 p-4" : "space-y-1.5 px-2.5 py-3")}>
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="flex min-h-[54px] w-full items-center gap-3.5 rounded-[1.4rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            className={cn(
+              "flex w-full items-center font-medium transition-colors",
+              isMobile
+                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-gray-600 hover:bg-red-50 hover:text-red-600"
+                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[#65584f] hover:bg-red-50 hover:text-red-600",
+            )}
           >
-            <LogOut className="h-[1.4rem] w-[1.4rem] opacity-75" />
+            <LogOut className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
             <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
           </button>
 
@@ -554,9 +644,14 @@ export function AdminSidebar({
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-[54px] items-center gap-3.5 rounded-[1.4rem] px-4 py-3 text-base font-medium text-gray-600 transition-colors hover:bg-white/70 hover:text-gray-900"
+            className={cn(
+              "flex items-center font-medium transition-colors",
+              isMobile
+                ? "min-h-[54px] gap-3.5 rounded-[1.4rem] px-4 py-3 text-base text-gray-600 hover:bg-white/70 hover:text-gray-900"
+                : "min-h-[44px] gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] text-[#65584f] hover:bg-white/70 hover:text-gray-900",
+            )}
           >
-            <Store className="h-[1.4rem] w-[1.4rem] opacity-75" />
+            <Store className={cn("opacity-75", isMobile ? "h-[1.4rem] w-[1.4rem]" : "h-[1.1rem] w-[1.1rem]")} />
             <span>Siteye Dön</span>
           </Link>
         </div>
