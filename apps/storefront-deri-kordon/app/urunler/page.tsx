@@ -10,9 +10,8 @@ import { ProductsPageClient } from "@/components/product/ProductsPageClient";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { getRequestLocale } from "@/lib/request-locale";
-import { getLocalizedCopy } from "@/lib/i18n";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
-import { translateProductRecord } from "@/lib/translation";
+import { translateProductRecord, translateSeoStrings } from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
@@ -20,12 +19,28 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const copy = getLocalizedCopy(locale);
+  const [title, description] = await translateSeoStrings(
+    [
+      "Deri Kordon, Apple Watch Kayışı ve Deri Aksesuarlar | DeryCraft",
+      "El yapımı Apple Watch deri kayışları, kartlık, cüzdan, çanta ve premium deri aksesuarları DeryCraft koleksiyonunda inceleyin.",
+    ],
+    locale,
+    "products-page-seo",
+  );
+
   return buildStorePageMetadata({
     locale,
     pathname: "/urunler",
-    title: copy.productsTitle,
-    description: copy.productsDescription,
+    title,
+    description,
+    keywords: [
+      "deri kordon",
+      "apple watch deri kayışı",
+      "deri kartlık",
+      "deri cüzdan",
+      "deri çanta",
+      "premium deri aksesuar",
+    ],
   });
 }
 

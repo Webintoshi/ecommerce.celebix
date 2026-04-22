@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { getHomepageData } from "@/lib/homepage";
-import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
@@ -9,6 +9,33 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
 import { mapBlogRows } from "@/lib/blog-content";
 import { getPublishedPosts } from "@/lib/db/blog";
+
+const HOME_SEO_KEYWORDS = [
+  "deri kordon",
+  "apple watch deri kayışı",
+  "el yapımı deri kordon",
+  "hakiki deri kayış",
+  "deri kartlık",
+  "deri cüzdan",
+  "premium deri aksesuar",
+] as const;
+
+async function getHomepageSeo(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
+  const [title, description] = await translateSeoStrings(
+    [
+      "DeryCraft | El Yapımı Deri Kordon ve Apple Watch Kayışları",
+      "DeryCraft'ta el yapımı hakiki deri kordon, Apple Watch kayışı, kartlık, cüzdan ve premium deri aksesuarları keşfedin. Atölye üretimi ve hızlı kargo.",
+    ],
+    locale,
+    "home-seo",
+  );
+
+  return {
+    title,
+    description,
+    keywords: [...HOME_SEO_KEYWORDS],
+  };
+}
 
 const HOME_UI_COPY = {
   heroEyebrow: "Atolye Seckisi",
@@ -82,37 +109,25 @@ async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLoc
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const copy = getLocalizedCopy(locale);
-  const [title, description] = await translateSeoStrings(
-    [copy.homeTitle, copy.homeDescription],
-    locale,
-    "home-seo",
-  );
+  const { title, description, keywords } = await getHomepageSeo(locale);
 
   return buildStorePageMetadata({
     locale,
     pathname: "/",
     title,
     description,
-    keywords: [
-      "el yapimi deri kordon",
-      "apple watch deri kayis",
-      "hakiki deri kordon",
-      "premium deri aksesuar",
-      "handmade leather strap",
-      "deri bileklik",
-      "ozel tasarim kordon",
-    ],
+    keywords,
   });
 }
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, uiCopy, requestOrigin, blogRows] = await Promise.all([
+  const [homepageData, uiCopy, requestOrigin, blogRows, seo] = await Promise.all([
     getHomepageData(locale),
     getHomepageUiCopy(locale),
     getRequestOrigin(),
     getPublishedPosts().catch(() => []),
+    getHomepageSeo(locale),
   ]);
   const blogPosts = mapBlogRows(blogRows)
     .slice(0, 3)
@@ -146,9 +161,9 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",
-            name: "Deri Kordon",
+            name: STOREFRONT_RUNTIME.name,
             url: localizedHomeUrl,
-            description: "El yapimi hakiki deri kordonlar ve Apple Watch kayislari",
+            description: seo.description,
             potentialAction: {
               "@type": "SearchAction",
               target: `${localizedProductsUrl}?search={search_term_string}`,
@@ -164,7 +179,7 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Organization",
-            name: "Deri Kordon",
+            name: STOREFRONT_RUNTIME.name,
             url: requestOrigin,
             logo: logoUrl,
             contactPoint: {
@@ -184,8 +199,8 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Store",
-            name: "Deri Kordon",
-            description: "El yapimi deri kordon ve aksesuar magazasi",
+            name: STOREFRONT_RUNTIME.name,
+            description: seo.description,
             url: requestOrigin,
             telephone: STOREFRONT_RUNTIME.supportPhone,
             email: STOREFRONT_RUNTIME.supportEmail,

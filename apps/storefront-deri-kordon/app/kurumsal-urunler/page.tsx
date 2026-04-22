@@ -6,20 +6,35 @@ import { runProductsQuery } from "@/lib/products-query-compat";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { Product } from "@/types/product";
 import { getRequestLocale } from "@/lib/request-locale";
-import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath } from "@/lib/i18n";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
+import { translateSeoStrings } from "@/lib/translation";
 import CorporateProductsClient from "./CorporateProductsClient";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const copy = getLocalizedCopy(locale);
+  const [title, description] = await translateSeoStrings(
+    [
+      "Kurumsal Deri Hediyeler ve Özel Üretim | DeryCraft",
+      "Şirketler için logolu deri hediyeler, kurumsal setler ve özel üretim premium deri ürünler. Teklif ve proje talepleri için DeryCraft ile iletişime geçin.",
+    ],
+    locale,
+    "corporate-products-seo",
+  );
+
   return buildStorePageMetadata({
     locale,
     pathname: "/kurumsal-urunler",
-    title: copy.corporateTitle,
-    description: copy.corporateDescription,
+    title,
+    description,
+    keywords: [
+      "kurumsal deri hediye",
+      "özel üretim deri ürün",
+      "logolu deri hediye",
+      "kurumsal hediye seti",
+    ],
   });
 }
 

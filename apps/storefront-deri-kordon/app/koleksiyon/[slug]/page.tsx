@@ -407,14 +407,25 @@ export async function generateMetadata({
     });
   }
 
+  const [fallbackTitle, fallbackDescription] = await translateTexts(
+    [
+      `${category.name} Modelleri ve Fiyatları | DeryCraft`,
+      `${category.name} modellerini, renk seçeneklerini ve güncel fiyatlarını DeryCraft koleksiyonunda inceleyin. El yapımı hakiki deri seçenekler ve öne çıkan varyantlar burada.`,
+    ],
+    {
+      locale,
+      context: "collection-seo-fallback",
+    },
+  );
+
   return buildStorePageMetadata({
     locale,
     pathname: `/${category.slug}`,
-    title: category.seo_title || category.name,
+    title: category.seo_title || fallbackTitle,
     description:
       category.seo_description ||
       category.description ||
-      `${category.name} kategorisindeki urunleri kesfedin.`,
+      fallbackDescription,
     keywords: category.seo_keywords,
     image: category.image,
     type: "website",
