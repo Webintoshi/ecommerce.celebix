@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { deriveCategoryHierarchyFromProduct, ensureProductCategoryHierarchy } from "@/lib/category-records";
 import { deleteProduct } from "@/lib/db/products";
 import { mirrorImportedProductMediaToR2 } from "@/lib/product-media-import";
+import {
+    normalizeProductCanonicalUrl,
+    normalizeProductSEOKeywords,
+    normalizeProductSEORobots,
+    normalizeProductSEOText,
+} from "@/lib/product-seo";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
@@ -699,6 +705,33 @@ export async function POST(request: NextRequest) {
             }
         );
 
+        const normalizedSeoTitle = normalizeProductSEOText(productData.seo_title);
+        const normalizedSeoDescription = normalizeProductSEOText(productData.seo_description);
+        const normalizedSeoKeywords = normalizeProductSEOKeywords(productData.seo_keywords);
+        const normalizedSeoFocusKeyword = normalizeProductSEOText(productData.seo_focus_keyword);
+        const normalizedCanonicalUrl = normalizeProductCanonicalUrl(productData.canonical_url);
+        const canonicalInputProvided =
+            productData.canonical_url !== undefined &&
+            productData.canonical_url !== null &&
+            String(productData.canonical_url).trim().length > 0;
+        const normalizedOgImage = normalizeProductSEOText(
+            normalizeAssetUrl(productData.og_image) ??
+                (typeof productData.og_image === "string"
+                    ? productData.og_image
+                    : normalizedImages[0]),
+        );
+        const normalizedSeoRobots = normalizeProductSEORobots(
+            productData.seo_robots,
+            productData.is_active !== false,
+        );
+
+        if (canonicalInputProvided && !normalizedCanonicalUrl) {
+            return NextResponse.json(
+                { success: false, error: "Canonical URL gecersiz" },
+                { status: 400 }
+            );
+        }
+
         // 3. Ana ürünü oluştur
         const normalizedStatus =
             typeof productData.status === "string" && productData.status.trim()
@@ -743,13 +776,13 @@ export async function POST(request: NextRequest) {
                 dimensions: productData.dimensions || {},
                 related_products: productData.related_products || [],
                 complementary_products: productData.complementary_products || [],
-                seo_title: productData.seo_title || null,
-                seo_description: productData.seo_description || null,
-                seo_keywords: productData.seo_keywords || [],
-                seo_focus_keyword: productData.seo_focus_keyword || null,
-                og_image: productData.og_image || null,
-                canonical_url: productData.canonical_url || null,
-                seo_robots: productData.seo_robots || 'index,follow',
+                seo_title: normalizedSeoTitle,
+                seo_description: normalizedSeoDescription,
+                seo_keywords: normalizedSeoKeywords,
+                seo_focus_keyword: normalizedSeoFocusKeyword,
+                og_image: normalizedOgImage,
+                canonical_url: normalizedCanonicalUrl,
+                seo_robots: normalizedSeoRobots,
                 track_stock: productData.track_stock !== false,
                 low_stock_threshold: productData.low_stock_threshold || 10,
                 nutrition_basis: productData.nutrition_basis || 'per_100g',
@@ -981,7 +1014,7 @@ export async function PUT(request: NextRequest) {
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
         const { data: existingProduct } = await supabase
             .from("products")
-            .select("images,tags,slug,name,category,subcategory,is_featured,shopify_metadata,shopify_metafields")
+            .select("images,tags,slug,name,category,subcategory,is_featured,is_active,shopify_metadata,shopify_metafields")
             .eq("id", id)
             .single();
 
@@ -1057,6 +1090,10 @@ export async function PUT(request: NextRequest) {
         const effectiveName = updates.name !== undefined ? updates.name : existingProduct?.name;
         const effectiveSlug = updates.slug !== undefined ? updates.slug : existingProduct?.slug;
         const effectiveTags = normalizedUpdatedTags !== undefined ? normalizedUpdatedTags : existingProduct?.tags;
+        const effectiveIsActive =
+            updates.is_active !== undefined
+                ? Boolean(updates.is_active)
+                : existingProduct?.is_active !== false;
         const categoryPathInput = readCategoryPathInput(updates);
         const mergedShopifyMetadata = withCelebixCategoryHierarchyMetadata(
             updates.shopify_metadata !== undefined ? updates.shopify_metadata : existingProduct?.shopify_metadata,
@@ -1093,6 +1130,49 @@ export async function PUT(request: NextRequest) {
                 subcategoryImageUrl: primaryCategoryImage,
             }
         );
+
+        const normalizedSeoTitle =
+            updates.seo_title !== undefined
+                ? normalizeProductSEOText(updates.seo_title)
+                : undefined;
+        const normalizedSeoDescription =
+            updates.seo_description !== undefined
+                ? normalizeProductSEOText(updates.seo_description)
+                : undefined;
+        const normalizedSeoKeywords =
+            updates.seo_keywords !== undefined
+                ? normalizeProductSEOKeywords(updates.seo_keywords)
+                : undefined;
+        const normalizedSeoFocusKeyword =
+            updates.seo_focus_keyword !== undefined
+                ? normalizeProductSEOText(updates.seo_focus_keyword)
+                : undefined;
+        const normalizedCanonicalUrl =
+            updates.canonical_url !== undefined
+                ? normalizeProductCanonicalUrl(updates.canonical_url)
+                : undefined;
+        const canonicalInputProvided =
+            updates.canonical_url !== undefined &&
+            updates.canonical_url !== null &&
+            String(updates.canonical_url).trim().length > 0;
+        const normalizedSeoRobots =
+            updates.seo_robots !== undefined
+                ? normalizeProductSEORobots(updates.seo_robots, effectiveIsActive)
+                : undefined;
+        const normalizedOgImage =
+            updates.og_image !== undefined
+                ? normalizeProductSEOText(
+                    normalizeAssetUrl(updates.og_image) ??
+                        (typeof updates.og_image === "string" ? updates.og_image : null),
+                )
+                : undefined;
+
+        if (canonicalInputProvided && !normalizedCanonicalUrl) {
+            return NextResponse.json(
+                { success: false, error: "Canonical URL gecersiz" },
+                { status: 400 }
+            );
+        }
 
         const updateData: Record<string, unknown> = {};
         
@@ -1132,13 +1212,13 @@ export async function PUT(request: NextRequest) {
         if (updates.complementary_products !== undefined) updateData.complementary_products = updates.complementary_products;
         
         // SEO alanları
-        if (updates.seo_title !== undefined) updateData.seo_title = updates.seo_title;
-        if (updates.seo_description !== undefined) updateData.seo_description = updates.seo_description;
-        if (updates.seo_keywords !== undefined) updateData.seo_keywords = updates.seo_keywords;
-        if (updates.seo_focus_keyword !== undefined) updateData.seo_focus_keyword = updates.seo_focus_keyword;
-        if (updates.og_image !== undefined) updateData.og_image = updates.og_image;
-        if (updates.canonical_url !== undefined) updateData.canonical_url = updates.canonical_url;
-        if (updates.seo_robots !== undefined) updateData.seo_robots = updates.seo_robots;
+        if (updates.seo_title !== undefined) updateData.seo_title = normalizedSeoTitle;
+        if (updates.seo_description !== undefined) updateData.seo_description = normalizedSeoDescription;
+        if (updates.seo_keywords !== undefined) updateData.seo_keywords = normalizedSeoKeywords;
+        if (updates.seo_focus_keyword !== undefined) updateData.seo_focus_keyword = normalizedSeoFocusKeyword;
+        if (updates.og_image !== undefined) updateData.og_image = normalizedOgImage;
+        if (updates.canonical_url !== undefined) updateData.canonical_url = normalizedCanonicalUrl;
+        if (updates.seo_robots !== undefined) updateData.seo_robots = normalizedSeoRobots;
         if (updates.faq !== undefined) updateData.faq = updates.faq;
         if (updates.geo_data !== undefined) updateData.geo_data = updates.geo_data;
         if (

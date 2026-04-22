@@ -1,1022 +1,956 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import {
-    Package,
-    Save,
-    RefreshCw,
-    AlertTriangle,
-    CheckCircle2,
-    Sparkles,
-    Eye,
-    ArrowLeft,
-    Search,
-    Code,
-    HelpCircle,
-    Clock,
-    Type,
-    Bot,
-    Lightbulb,
-    Tag,
-    Loader2,
-    ChevronLeft,
-    ChevronRight
-} from "lucide-react";
 import Link from "next/link";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bot,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  Filter,
+  Globe,
+  ImageIcon,
+  Link2,
+  Loader2,
+  Package,
+  RefreshCw,
+  Save,
+  Search,
+  Sparkles,
+  Tag,
+} from "lucide-react";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
-import type { 
-    ProductWithSEO, 
-    ProductSEOViewModel, 
-    ProductFAQ,
-    ProductApiResponse 
+import type {
+  ProductApiResponse,
+  ProductSEOViewModel,
+  ProductWithSEO,
 } from "@/types/product-seo";
 import { toProductSEOViewModel } from "@/types/product-seo";
 
-// ============================================================================
-// COMPONENT INTERFACES
-// ============================================================================
+type SeoFilter = "all" | "weak" | "missing" | "healthy";
+type BulkMode = "all" | "weak" | "missing";
 
 interface EditFormState {
-    metaTitle: string;
-    metaDescription: string;
-    faq: ProductFAQ[];
-    keyTakeaways: string[];
+  metaTitle: string;
+  metaDescription: string;
+  focusKeyword: string;
+  keywordsText: string;
+  canonicalUrl: string;
+  robots: ProductSEOViewModel["robots"];
+  ogImage: string;
 }
 
 interface MessageState {
-    type: "success" | "error";
-    text: string;
+  type: "success" | "error";
+  text: string;
 }
 
-type SectionType = "meta" | "faq" | "geo";
-
-// ============================================================================
-// DEFAULT VALUES
-// ============================================================================
-
-const DEFAULT_GEO_ENTITIES = ["Product", "Offer", "Organization"];
-
 const EMPTY_FORM_STATE: EditFormState = {
-    metaTitle: "",
-    metaDescription: "",
-    faq: [],
-    keyTakeaways: []
+  metaTitle: "",
+  metaDescription: "",
+  focusKeyword: "",
+  keywordsText: "",
+  canonicalUrl: "",
+  robots: "index,follow",
+  ogImage: "",
 };
 
-// ============================================================================
-// API CLIENT
-// ============================================================================
+const FILTER_LABELS: Record<SeoFilter, string> = {
+  all: "Tüm ürünler",
+  weak: "Zayıf SEO",
+  missing: "Kritik eksik",
+  healthy: "Sağlıklı",
+};
 
-async function fetchProducts(page: number = 1, search: string = ""): Promise<{ products: ProductWithSEO[]; pagination: ProductApiResponse['pagination'] }> {
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("limit", "10");
-    if (search) params.set("search", search);
-    
-    const response = await fetch(`/api/products?${params.toString()}`, {
-        cache: "no-store"
-    });
+const BULK_BUTTONS: Array<{
+  mode: BulkMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    mode: "missing",
+    label: "Eksikleri Doldur",
+    description: "Focus keyword, title, description veya keyword eksiği olan aktif ürünleri tamamlar.",
+  },
+  {
+    mode: "weak",
+    label: "Zayıfları Güçlendir",
+    description: "Skoru düşük aktif ürünlerde title, description, focus ve robots alanlarını yeniden yazar.",
+  },
+  {
+    mode: "all",
+    label: "Tüm Aktiflere Uygula",
+    description: "Tüm aktif katalogda kural bazlı SEO backfill çalıştırır.",
+  },
+];
 
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+function normalizeProductRecord(raw: any): ProductWithSEO {
+  return {
+    ...raw,
+    images: Array.isArray(raw?.images) ? raw.images : [],
+    variants: Array.isArray(raw?.variants) ? raw.variants : [],
+    tags: Array.isArray(raw?.tags) ? raw.tags : [],
+    seo_keywords: Array.isArray(raw?.seo_keywords) ? raw.seo_keywords : [],
+    faq: Array.isArray(raw?.faq) ? raw.faq : [],
+    geo_data:
+      raw?.geo_data && typeof raw.geo_data === "object"
+        ? raw.geo_data
+        : { keyTakeaways: [], entities: [] },
+  };
+}
 
-    const data = await response.json();
-    
-    if (!data.success) {
-        throw new Error(data.error || "Failed to fetch products");
-    }
+function parseKeywordsInput(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]+/g)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
+}
 
-    // Safely map products with null checks
-    const products = (data.products || []).map((p: any) => ({
-        ...p,
-        // Ensure arrays are never null
-        images: p.images || [],
-        variants: p.variants || [],
-        tags: p.tags || [],
-        seo_keywords: p.seo_keywords || [],
-        faq: p.faq || [],
-        geo_data: p.geo_data || { keyTakeaways: [], entities: [] }
-    }));
+function serializeKeywords(value: string[]) {
+  return value.join(", ");
+}
 
-    return { 
-        products, 
-        pagination: data.pagination 
-    };
+async function fetchProducts(): Promise<ProductWithSEO[]> {
+  const response = await fetch("/api/products?all=true&limit=250", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as ProductApiResponse;
+
+  if (!data.success) {
+    throw new Error(data.error || "Ürünler alınamadı.");
+  }
+
+  return (data.products || []).map((product) => normalizeProductRecord(product));
 }
 
 async function updateProduct(
-    id: string, 
-    slug: string,
-    formState: EditFormState
+  productId: string,
+  slug: string,
+  formState: EditFormState,
 ): Promise<ProductWithSEO> {
-    const payload = {
-        id,
-        seo_title: formState.metaTitle,
-        seo_description: formState.metaDescription,
-        faq: formState.faq,
-        geo_data: { 
-            keyTakeaways: formState.keyTakeaways, 
-            entities: DEFAULT_GEO_ENTITIES 
-        }
-    };
+  const response = await fetch("/api/products", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: productId,
+      seo_title: formState.metaTitle,
+      seo_description: formState.metaDescription,
+      seo_keywords: parseKeywordsInput(formState.keywordsText),
+      seo_focus_keyword: formState.focusKeyword.trim() || null,
+      canonical_url: formState.canonicalUrl.trim() || null,
+      seo_robots: formState.robots,
+      og_image: formState.ogImage.trim() || null,
+    }),
+  });
 
-    const response = await fetch("/api/products", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.success || !data.product) {
+    throw new Error(data.error || "Ürün SEO kaydı başarısız.");
+  }
+
+  try {
+    await fetch("/api/revalidate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: `/urunler/${slug}` }),
     });
+  } catch {
+    // Dynamic metadata already reads the latest product row.
+  }
 
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data.success) {
-        throw new Error(data.error || "Failed to update product");
-    }
-
-    if (!data.product) {
-        throw new Error("No product returned from server");
-    }
-
-    // Normalize response
-    const product = {
-        ...data.product,
-        images: data.product.images || [],
-        variants: data.product.variants || [],
-        tags: data.product.tags || [],
-        seo_keywords: data.product.seo_keywords || [],
-        faq: data.product.faq || [],
-        geo_data: data.product.geo_data || { keyTakeaways: [], entities: [] }
-    };
-
-    // Trigger revalidation
-    try {
-        await fetch("/api/revalidate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: `/urunler/${slug}` })
-        });
-    } catch {
-        console.warn("Revalidation failed");
-    }
-
-    return product;
+  return normalizeProductRecord(data.product);
 }
 
-async function generateWithAI(product: ProductSEOViewModel): Promise<{success: boolean, metaTitle: string, metaDescription: string, source: string, error?: string}> {
-    const response = await fetch("/api/seo/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: product.name,
-            description: product.description || product.short_description,
-            category: product.category
-        }),
-    });
+async function runBulkSeo(mode: BulkMode) {
+  const response = await fetch("/api/admin/products/seo-bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, activeOnly: true }),
+  });
 
-    const data = await response.json();
-    
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "AI SEO uzmanı şu anda çalışamıyor");
-    }
-    
-    return {
-        success: true,
-        metaTitle: data.metaTitle,
-        metaDescription: data.metaDescription,
-        source: data.source
-    };
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Toplu SEO işlemi tamamlanamadı.");
+  }
+
+  return data as { updated: number; skipped: number; mode: BulkMode };
 }
 
-async function generateFAQWithAI(product: ProductSEOViewModel): Promise<{success: boolean, faq: ProductFAQ[], source: string, error?: string}> {
-    const response = await fetch("/api/seo/faq", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: product.name,
-            description: product.description || product.short_description,
-            category: product.category
-        }),
-    });
+async function generateMetaWithAI(product: ProductSEOViewModel) {
+  const response = await fetch("/api/seo/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: product.name,
+      description: product.description || product.short_description || "",
+      category: product.category,
+    }),
+  });
 
-    const data = await response.json();
-    
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "Toshi FAQ oluşturamıyor");
-    }
-    
-    return {
-        success: true,
-        faq: data.faq,
-        source: data.source
-    };
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "AI meta üretimi başarısız.");
+  }
+
+  return {
+    metaTitle: String(data.metaTitle || ""),
+    metaDescription: String(data.metaDescription || ""),
+  };
 }
 
-async function generateGEOWithAI(product: ProductSEOViewModel): Promise<{success: boolean, takeaways: string[], source: string, error?: string}> {
-    const response = await fetch("/api/seo/geo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: product.name,
-            description: product.description || product.short_description,
-            category: product.category
-        }),
-    });
+function scoreTone(score: number) {
+  if (score >= 85) {
+    return "bg-emerald-100 text-emerald-700";
+  }
 
-    const data = await response.json();
-    
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "Toshi GEO oluşturamıyor");
-    }
-    
-    return {
-        success: true,
-        takeaways: data.takeaways,
-        source: data.source
-    };
+  if (score >= 65) {
+    return "bg-amber-100 text-amber-700";
+  }
+
+  return "bg-rose-100 text-rose-700";
 }
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
+function summaryTone(ok: boolean) {
+  return ok
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-rose-200 bg-rose-50 text-rose-700";
+}
+
+function ProductSummaryPill({
+  label,
+  value,
+  ok,
+}: {
+  label: string;
+  value: string;
+  ok: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${summaryTone(ok)}`}
+    >
+      {ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+      {label}: {value}
+    </span>
+  );
+}
+
+function FieldLabel({
+  label,
+  hint,
+}: {
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <label className="text-sm font-semibold text-stone-800">{label}</label>
+      {hint ? <span className="text-xs text-stone-500">{hint}</span> : null}
+    </div>
+  );
+}
 
 export default function ProductSEOPage() {
-    // State
-    const storeHost = STORE_RUNTIME.storefrontUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    const [products, setProducts] = useState<ProductSEOViewModel[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [editForm, setEditForm] = useState<EditFormState>(EMPTY_FORM_STATE);
-    const [message, setMessage] = useState<MessageState | null>(null);
-    const [generating, setGenerating] = useState(false);
-    const [generatingFAQ, setGeneratingFAQ] = useState(false);
-    const [generatingGEO, setGeneratingGEO] = useState(false);
-    const [debugInfo, setDebugInfo] = useState<string[]>([]); // Debug için
-    const [aiSource, setAiSource] = useState<string | null>(null); // AI source bilgisi
-    const [activeSection, setActiveSection] = useState<SectionType>("meta");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [page, setPage] = useState(1);
-    const [pagination, setPagination] = useState<ProductApiResponse['pagination']>();
+  const storeHost = STORE_RUNTIME.storefrontUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const [products, setProducts] = useState<ProductSEOViewModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<MessageState | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>(EMPTY_FORM_STATE);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState<BulkMode | null>(null);
+  const [aiGeneratingId, setAiGeneratingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [seoFilter, setSeoFilter] = useState<SeoFilter>("weak");
+  const [activeOnly, setActiveOnly] = useState(true);
+  const deferredSearch = useDeferredValue(searchQuery);
 
-    // Load products
-    const loadProducts = useCallback(async () => {
-        setLoading(true);
-        setMessage(null);
+  async function loadProducts() {
+    setLoading(true);
+    setMessage(null);
 
-        try {
-            const { products: rawProducts, pagination: pag } = await fetchProducts(page, searchQuery);
-            const viewModels = rawProducts.map(p => toProductSEOViewModel(p));
-            setProducts(viewModels);
-            setPagination(pag);
-        } catch (error) {
-            console.error("Error loading products:", error);
-            setMessage({ 
-                type: "error", 
-                text: error instanceof Error ? error.message : "Ürünler yüklenirken hata oluştu." 
-            });
-        } finally {
-            setLoading(false);
+    try {
+      const data = await fetchProducts();
+      setProducts(data.map((product) => toProductSEOViewModel(product)));
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Ürün SEO listesi yüklenemedi.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadProducts();
+  }, []);
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = deferredSearch.trim().toLocaleLowerCase("tr-TR");
+
+    return products.filter((product) => {
+      if (activeOnly && !product.is_active) {
+        return false;
+      }
+
+      if (normalizedSearch) {
+        const haystack = [
+          product.name,
+          product.slug,
+          product.category,
+          product.metaTitle,
+          product.metaDescription,
+          product.focusKeyword,
+        ]
+          .join(" ")
+          .toLocaleLowerCase("tr-TR");
+
+        if (!haystack.includes(normalizedSearch)) {
+          return false;
         }
-    }, [page, searchQuery]);
+      }
 
-    useEffect(() => {
-        loadProducts();
-    }, [loadProducts]);
+      if (seoFilter === "missing") {
+        return !product.hasTitle || !product.hasDescription || !product.hasFocusKeyword || !product.hasKeywords;
+      }
 
-    // Handlers
-    const handleEdit = useCallback((product: ProductSEOViewModel) => {
-        setEditingId(product.id);
-        setEditForm({
-            metaTitle: product.metaTitle,
-            metaDescription: product.metaDescription,
-            faq: product.faq || [],
-            keyTakeaways: product.geo?.keyTakeaways || []
-        });
-        setActiveSection("meta");
-        setMessage(null);
-    }, []);
+      if (seoFilter === "weak") {
+        return product.score < 80;
+      }
 
-    const handleCancel = useCallback(() => {
-        setEditingId(null);
-        setEditForm(EMPTY_FORM_STATE);
-        setMessage(null);
-    }, []);
+      if (seoFilter === "healthy") {
+        return product.score >= 80;
+      }
 
-    const handleSave = useCallback(async (productId: string, productSlug: string) => {
-        setSaving(true);
-        setMessage(null);
-
-        try {
-            const updatedProduct = await updateProduct(productId, productSlug, editForm);
-            
-            setProducts(prev => prev.map(p =>
-                p.id === productId ? toProductSEOViewModel(updatedProduct) : p
-            ));
-            
-            setMessage({ type: "success", text: "Ürün SEO bilgileri kaydedildi! Sayfa cache'i temizlendi." });
-            setEditingId(null);
-            setEditForm(EMPTY_FORM_STATE);
-        } catch (error) {
-            console.error("Save error:", error);
-            setMessage({ 
-                type: "error", 
-                text: error instanceof Error ? error.message : "Kayıt başarısız oldu." 
-            });
-        } finally {
-            setSaving(false);
-        }
-    }, [editForm]);
-
-    // Typewriter effect helper
-    const typewriterEffect = useCallback((text: string, field: "metaTitle" | "metaDescription", speed: number = 30) => {
-        return new Promise<void>((resolve) => {
-            let index = 0;
-            const interval = setInterval(() => {
-                if (index <= text.length) {
-                    setEditForm(prev => ({
-                        ...prev,
-                        [field]: text.slice(0, index)
-                    }));
-                    index++;
-                } else {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, speed);
-        });
-    }, []);
-
-    const handleGenerateAI = useCallback(async (product: ProductSEOViewModel) => {
-        setGenerating(true);
-        setMessage(null);
-        setDebugInfo([]);
-
-        try {
-            // Loading states with dots animation
-            const thinkingStates = [
-                "Toshi analiz ediyor",
-                "Toshi analiz ediyor.",
-                "Toshi analiz ediyor..",
-                "Toshi analiz ediyor...",
-                "Toshi meta başlık oluşturuyor...",
-                "Toshi meta başlık oluşturuyor...",
-                "Toshi meta açıklama yazıyor...",
-                "Toshi meta açıklama yazıyor...",
-                "Toshi son kontrolleri yapıyor..."
-            ];
-            
-            // Show loading animation
-            for (let i = 0; i < thinkingStates.length; i++) {
-                setEditForm(prev => ({
-                    ...prev,
-                    metaTitle: thinkingStates[i],
-                    metaDescription: "Lütfen bekleyin..."
-                }));
-                await new Promise(r => setTimeout(r, 400));
-            }
-
-            const generated = await generateWithAI(product);
-            
-            if (generated.debug) {
-                setDebugInfo(generated.debug);
-            }
-            
-            // Source bilgisini kaydet
-            setAiSource(generated.source || null);
-
-            // Typewriter effect for title
-            await typewriterEffect(generated.metaTitle, "metaTitle", 25);
-            
-            // Small pause before description
-            await new Promise(r => setTimeout(r, 300));
-            
-            // Typewriter effect for description (faster)
-            await typewriterEffect(generated.metaDescription, "metaDescription", 15);
-            
-            if (!generated.success) {
-                throw new Error(generated.error || "AI yanıt vermedi");
-            }
-            
-            // Truncate if needed (safety check)
-            let finalTitle = generated.metaTitle;
-            let finalDesc = generated.metaDescription;
-            
-            if (finalTitle.length > 60) {
-                finalTitle = finalTitle.substring(0, 57) + "...";
-            }
-            if (finalDesc.length > 160) {
-                finalDesc = finalDesc.substring(0, 157) + "...";
-            }
-            
-            setEditForm(prev => ({
-                ...prev,
-                metaTitle: finalTitle,
-                metaDescription: finalDesc
-            }));
-            
-            setMessage({ 
-                type: "success", 
-                text: `Toshi SEO önerisini hazırladı!`
-            });
-        } catch (error) {
-            console.error("AI generation failed:", error);
-            setMessage({ 
-                type: "error", 
-                text: error instanceof Error ? error.message : "AI oluşturma başarısız oldu." 
-            });
-        } finally {
-            setGenerating(false);
-        }
-    }, [typewriterEffect]);
-
-    const handleGenerateFAQ = useCallback(async (product: ProductSEOViewModel) => {
-        setGeneratingFAQ(true);
-        setMessage(null);
-
-        try {
-            const generated = await generateFAQWithAI(product);
-            
-            if (!generated.success) {
-                throw new Error(generated.error || "FAQ oluşturulamadı");
-            }
-            
-            // FAQ'ları form'a ekle (mevcutları koruyarak)
-            setEditForm(prev => ({
-                ...prev,
-                faq: [...prev.faq, ...generated.faq]
-            }));
-            
-            setMessage({ 
-                type: "success", 
-                text: `Toshi ${generated.faq.length} adet FAQ önerisi hazırladı!`
-            });
-        } catch (error) {
-            console.error("FAQ generation failed:", error);
-            setMessage({ 
-                type: "error", 
-                text: error instanceof Error ? error.message : "FAQ oluşturma başarısız oldu." 
-            });
-        } finally {
-            setGeneratingFAQ(false);
-        }
-    }, []);
-
-    const handleGenerateGEO = useCallback(async (product: ProductSEOViewModel) => {
-        setGeneratingGEO(true);
-        setMessage(null);
-
-        try {
-            const generated = await generateGEOWithAI(product);
-            
-            if (!generated.success) {
-                throw new Error(generated.error || "GEO oluşturulamadı");
-            }
-            
-            // Takeaways'leri form'a ekle (mevcutları koruyarak)
-            setEditForm(prev => ({
-                ...prev,
-                keyTakeaways: [...prev.keyTakeaways, ...generated.takeaways]
-            }));
-            
-            setMessage({ 
-                type: "success", 
-                text: `Toshi ${generated.takeaways.length} adet önemli çıkarım hazırladı!`
-            });
-        } catch (error) {
-            console.error("GEO generation failed:", error);
-            setMessage({ 
-                type: "error", 
-                text: error instanceof Error ? error.message : "GEO oluşturma başarısız oldu." 
-            });
-        } finally {
-            setGeneratingGEO(false);
-        }
-    }, []);
-
-    // Form handlers
-    const updateMetaTitle = useCallback((value: string) => {
-        setEditForm(prev => ({ ...prev, metaTitle: value }));
-    }, []);
-
-    const updateMetaDescription = useCallback((value: string) => {
-        setEditForm(prev => ({ ...prev, metaDescription: value }));
-    }, []);
-
-    const addFAQ = useCallback(() => {
-        setEditForm(prev => ({
-            ...prev,
-            faq: [...prev.faq, { question: "", answer: "" }]
-        }));
-    }, []);
-
-    const updateFAQ = useCallback((index: number, field: keyof ProductFAQ, value: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            faq: prev.faq.map((f, i) => i === index ? { ...f, [field]: value } : f)
-        }));
-    }, []);
-
-    const removeFAQ = useCallback((index: number) => {
-        setEditForm(prev => ({
-            ...prev,
-            faq: prev.faq.filter((_, i) => i !== index)
-        }));
-    }, []);
-
-    const addKeyTakeaway = useCallback(() => {
-        setEditForm(prev => ({
-            ...prev,
-            keyTakeaways: [...prev.keyTakeaways, ""]
-        }));
-    }, []);
-
-    const updateKeyTakeaway = useCallback((index: number, value: string) => {
-        setEditForm(prev => ({
-            ...prev,
-            keyTakeaways: prev.keyTakeaways.map((k, i) => i === index ? value : k)
-        }));
-    }, []);
-
-    const removeKeyTakeaway = useCallback((index: number) => {
-        setEditForm(prev => ({
-            ...prev,
-            keyTakeaways: prev.keyTakeaways.filter((_, i) => i !== index)
-        }));
-    }, []);
-
-    // Schema generator
-    const generateSchemaPreview = (product: ProductSEOViewModel) => ({
-        "@context": "https://schema.org",
-        "@type": "Product",
-        "name": product.name,
-        "description": product.metaDescription,
-        "image": product.images?.[0] || "",
-        "offers": {
-            "@type": "Offer",
-            "price": product.variants?.[0]?.price || 0,
-            "priceCurrency": "TRY",
-            "availability": "https://schema.org/InStock"
-        }
+      return true;
     });
+  }, [activeOnly, deferredSearch, products, seoFilter]);
 
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div>
-                <Link href="/admin/seo-killer" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2">
-                    <ArrowLeft className="w-4 h-4" />
-                    SEO Merkezi
-                </Link>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Package className="w-7 h-7 text-purple-600" />
-                    Ürün SEO Yönetimi
-                </h1>
-                <p className="text-gray-500 mt-1">
-                    Her ürün için Product şeması ile meta bilgilerini düzenleyin.
-                </p>
-            </div>
+  const summary = useMemo(() => {
+    const baseProducts = activeOnly ? products.filter((product) => product.is_active) : products;
 
-            {/* Search */}
-            <div className="flex gap-3">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && loadProducts()}
-                        placeholder="Ürün ara..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                </div>
-                <button
-                    onClick={() => { setPage(1); loadProducts(); }}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-            </div>
+    return {
+      total: baseProducts.length,
+      weak: baseProducts.filter((product) => product.score < 80).length,
+      missing: baseProducts.filter(
+        (product) => !product.hasTitle || !product.hasDescription || !product.hasFocusKeyword || !product.hasKeywords,
+      ).length,
+      healthy: baseProducts.filter((product) => product.score >= 80).length,
+    };
+  }, [activeOnly, products]);
 
-            {/* Messages */}
-            {message && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 flex-shrink-0" />}
-                    <span>{message.text}</span>
-                </div>
-            )}
+  function handleEdit(product: ProductSEOViewModel) {
+    setEditingId(product.id);
+    setEditForm({
+      metaTitle: product.metaTitle,
+      metaDescription: product.metaDescription,
+      focusKeyword: product.focusKeyword,
+      keywordsText: serializeKeywords(product.keywords),
+      canonicalUrl: product.canonicalUrl,
+      robots: product.robots,
+      ogImage: product.ogImage,
+    });
+    setMessage(null);
+  }
 
-            {/* Debug Info */}
-            {debugInfo.length > 0 && (
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Debug Bilgileri</h4>
-                    <div className="space-y-1">
-                        {debugInfo.map((info, idx) => (
-                            <div key={idx} className="text-xs font-mono text-gray-600">
-                                {idx + 1}. {info}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+  function handleCancel() {
+    setEditingId(null);
+    setEditForm(EMPTY_FORM_STATE);
+  }
 
-            {/* Loading */}
-            {loading && (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <span className="ml-3 text-gray-600">Ürünler yükleniyor...</span>
-                </div>
-            )}
+  function applyRecommendation(product: ProductSEOViewModel) {
+    setEditForm((prev) => ({
+      ...prev,
+      metaTitle: product.recommendation.title,
+      metaDescription: product.recommendation.description,
+      focusKeyword: product.recommendation.focusKeyword,
+      keywordsText: serializeKeywords(product.recommendation.keywords),
+      canonicalUrl: product.recommendation.canonicalUrl || "",
+      robots: product.recommendation.robots,
+      ogImage: product.recommendation.ogImage || "",
+    }));
+  }
 
-            {/* Products List */}
-            {!loading && products.map((product) => (
-                <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    {/* Card Header */}
-                    <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-start justify-between">
-                            <div className="flex gap-4">
-                                {product.images?.[0] ? (
-                                    <img 
-                                        src={product.images[0]} 
-                                        alt={product.name}
-                                        className="w-16 h-16 rounded-lg object-cover bg-gray-100"
-                                    />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center">
-                                        <Package className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                )}
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                                    <p className="text-sm text-gray-500">/urunler/{product.slug}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${product.score >= 80 ? 'bg-green-100 text-green-700' : product.score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                            SEO: {product.score}/100
-                                        </span>
-                                        {product.issues.length > 0 && (
-                                            <span className="text-xs text-orange-600">
-                                                {product.issues.length} sorun
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
-                                    Product
-                                </span>
-                                {editingId !== product.id && (
-                                    <button
-                                        onClick={() => handleEdit(product)}
-                                        className="px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                    >
-                                        Düzenle
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+  async function handleSave(product: ProductSEOViewModel) {
+    setSavingId(product.id);
+    setMessage(null);
 
-                    {/* Edit Form */}
-                    {editingId === product.id && (
-                        <div className="p-4 space-y-4 bg-gray-50">
-                            {/* Tabs */}
-                            <div className="flex gap-2 border-b border-gray-200">
-                                <TabButton active={activeSection === "meta"} onClick={() => setActiveSection("meta")} label="Meta Bilgileri" />
-                                <TabButton active={activeSection === "faq"} onClick={() => setActiveSection("faq")} label="FAQ Schema" badge={editForm.faq.length} icon={<HelpCircle className="w-4 h-4" />} />
-                                <TabButton active={activeSection === "geo"} onClick={() => setActiveSection("geo")} label="GEO/LLM" icon={<Bot className="w-4 h-4" />} />
-                            </div>
+    try {
+      const updated = await updateProduct(product.id, product.slug, editForm);
+      const nextProduct = toProductSEOViewModel(updated);
 
-                            {/* Meta Section */}
-                            {activeSection === "meta" && (
-                                <MetaSection
-                                    product={product}
-                                    editForm={editForm}
-                                    isGenerating={generating}
-                                    isSaving={saving}
-                                    aiSource={aiSource}
-                                    storeHost={storeHost}
-                                    onUpdateMetaTitle={updateMetaTitle}
-                                    onUpdateMetaDescription={updateMetaDescription}
-                                    onGenerateAI={() => handleGenerateAI(product)}
-                                    onSave={() => handleSave(product.id, product.slug)}
-                                    onCancel={handleCancel}
-                                />
-                            )}
+      setProducts((current) =>
+        current.map((entry) => (entry.id === product.id ? nextProduct : entry)),
+      );
+      setEditingId(null);
+      setEditForm(EMPTY_FORM_STATE);
+      setMessage({
+        type: "success",
+        text: `${product.name} için ürün SEO alanları kaydedildi.`,
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Ürün SEO kaydı başarısız oldu.",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
 
-                            {/* FAQ Section */}
-                            {activeSection === "faq" && (
-                                <FAQSection
-                                    faq={editForm.faq}
-                                    onAdd={addFAQ}
-                                    onUpdate={updateFAQ}
-                                    onRemove={removeFAQ}
-                                    onGenerateAI={() => handleGenerateFAQ(product)}
-                                    isGenerating={generatingFAQ}
-                                    onSave={() => handleSave(product.id, product.slug)}
-                                    onCancel={handleCancel}
-                                    isSaving={saving}
-                                />
-                            )}
+  async function handleBulk(mode: BulkMode) {
+    setBulkRunning(mode);
+    setMessage(null);
 
-                            {/* GEO Section */}
-                            {activeSection === "geo" && (
-                                <GEOSection
-                                    keyTakeaways={editForm.keyTakeaways}
-                                    onAdd={addKeyTakeaway}
-                                    onUpdate={updateKeyTakeaway}
-                                    onRemove={removeKeyTakeaway}
-                                    onGenerateAI={() => handleGenerateGEO(product)}
-                                    isGenerating={generatingGEO}
-                                    onSave={() => handleSave(product.id, product.slug)}
-                                    onCancel={handleCancel}
-                                    isSaving={saving}
-                                />
-                            )}
-                        </div>
-                    )}
-                </div>
-            ))}
+    try {
+      const result = await runBulkSeo(mode);
+      await loadProducts();
+      setMessage({
+        type: "success",
+        text: `${result.updated} aktif ürünün SEO alanı güncellendi. ${result.skipped} ürün atlandı.`,
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Toplu SEO işlemi başarısız oldu.",
+      });
+    } finally {
+      setBulkRunning(null);
+    }
+  }
 
-            {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="flex items-center gap-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                    >
-                        <ChevronLeft className="w-4 h-4" /> Önceki
-                    </button>
-                    <span className="text-sm text-gray-600">
-                        Sayfa {page} / {pagination.totalPages} ({pagination.total} ürün)
-                    </span>
-                    <button
-                        onClick={() => setPage(p => Math.min(pagination.totalPages!, p + 1))}
-                        disabled={page === pagination.totalPages}
-                        className="flex items-center gap-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                    >
-                        Sonraki <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+  async function handleAiGeneration(product: ProductSEOViewModel) {
+    setAiGeneratingId(product.id);
+    setMessage(null);
+
+    try {
+      const generated = await generateMetaWithAI(product);
+      setEditForm((prev) => ({
+        ...prev,
+        metaTitle: generated.metaTitle,
+        metaDescription: generated.metaDescription,
+      }));
+      setMessage({
+        type: "success",
+        text: `${product.name} için AI meta önerisi hazırlandı.`,
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "AI meta üretimi başarısız oldu.",
+      });
+    } finally {
+      setAiGeneratingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <Link href="/admin/seo-killer" className="mb-2 inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-800">
+          <ArrowLeft className="h-4 w-4" />
+          SEO Merkezi
+        </Link>
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-stone-950">
+          <Package className="h-7 w-7 text-orange-600" />
+          Ürün SEO Yönetimi
+        </h1>
+        <p className="mt-1 text-sm text-stone-500">
+          DeryCraft katalogundaki ürünlerde title, description, focus keyword, canonical, robots ve OG alanlarını tek panelden yönetin.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-stone-500">Aktif Katalog</div>
+          <div className="mt-2 text-3xl font-bold text-stone-950">{summary.total}</div>
         </div>
-    );
-}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-amber-700">Zayıf SEO</div>
+          <div className="mt-2 text-3xl font-bold text-amber-800">{summary.weak}</div>
+        </div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-rose-700">Kritik Eksik</div>
+          <div className="mt-2 text-3xl font-bold text-rose-800">{summary.missing}</div>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-emerald-700">Sağlıklı</div>
+          <div className="mt-2 text-3xl font-bold text-emerald-800">{summary.healthy}</div>
+        </div>
+      </div>
 
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-function TabButton({ active, onClick, label, badge, icon }: { active: boolean; onClick: () => void; label: string; badge?: number; icon?: React.ReactNode }) {
-    return (
-        <button
-            onClick={onClick}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${active ? "border-primary text-primary" : "border-transparent text-gray-600 hover:text-gray-900"}`}
-        >
-            <span className="flex items-center gap-1">
-                {icon}
-                {label}
-                {badge !== undefined && badge > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded-full">{badge}</span>
-                )}
-            </span>
-        </button>
-    );
-}
-
-function MetaSection({ product, editForm, isGenerating, isSaving, aiSource, storeHost, onUpdateMetaTitle, onUpdateMetaDescription, onGenerateAI, onSave, onCancel }: any) {
-    const titleLength = editForm.metaTitle.length;
-    const descLength = editForm.metaDescription.length;
-    
-    // AI source badge kontrolü
-    const isAIGenerated = aiSource === "toshi_ai";
-    
-    const generateSchemaPreview = (p: any) => ({
-        "@context": "https://schema.org",
-        "@type": "Product",
-        "name": p.name,
-        "description": editForm.metaDescription || p.description,
-        "image": p.images?.[0] || "",
-        "offers": {
-            "@type": "Offer",
-            "price": p.variants?.[0]?.price || 0,
-            "priceCurrency": "TRY",
-            "availability": "https://schema.org/InStock"
-        }
-    });
-    
-    return (
-        <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Meta Başlık
-                        <span className={`ml-2 text-xs ${titleLength >= 30 && titleLength <= 60 ? 'text-green-600' : 'text-orange-600'}`}>
-                            ({titleLength}/60)
-                        </span>
-                        {isAIGenerated && (
-                            <span className="ml-2 text-xs font-medium text-purple-600">
-                                by Toshi
-                            </span>
-                        )}
-                    </label>
-                    <input
-                        type="text"
-                        value={editForm.metaTitle}
-                        onChange={(e) => onUpdateMetaTitle(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        maxLength={60}
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Meta Açıklama
-                        <span className={`ml-2 text-xs ${descLength >= 120 && descLength <= 160 ? 'text-green-600' : 'text-orange-600'}`}>
-                            ({descLength}/160)
-                        </span>
-                    </label>
-                    <textarea
-                        value={editForm.metaDescription}
-                        onChange={(e) => onUpdateMetaDescription(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                        rows={3}
-                        maxLength={160}
-                    />
-                </div>
+      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3 md:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Ürün, slug, kategori veya focus keyword ara"
+                className="w-full rounded-2xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+              />
             </div>
-
-            {/* Google Preview */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-                    <Eye className="w-3 h-3" /> Google Önizleme
-                </div>
-                <div className="space-y-1">
-                    <div className="text-blue-700 text-lg hover:underline cursor-pointer truncate">
-                        {editForm.metaTitle || product.name}
-                    </div>
-                    <div className="text-green-700 text-sm">{storeHost} › urunler › {product.slug}</div>
-                    <div className="text-gray-600 text-sm line-clamp-2">{editForm.metaDescription}</div>
-                </div>
-            </div>
-
-            {/* Schema Preview */}
-            <details className="bg-white rounded-lg border border-gray-200">
-                <summary className="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <Code className="w-4 h-4" /> Schema.org Önizleme
-                </summary>
-                <pre className="p-4 text-xs overflow-x-auto bg-gray-900 text-green-400 rounded-b-lg max-h-64">
-                    {JSON.stringify(generateSchemaPreview(product), null, 2)}
-                </pre>
-            </details>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2">
-                <button 
-                    onClick={onGenerateAI} 
-                    disabled={isGenerating} 
-                    className="flex items-center gap-2.5 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isGenerating ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Toshi hazırlıyor...</span>
-                        </>
-                    ) : (
-                        <>
-                            <span className="flex items-center justify-center w-5 h-5 bg-white/10 rounded text-xs font-semibold">T</span>
-                            <span>Toshi ile Oluştur</span>
-                        </>
-                    )}
-                </button>
-                <div className="flex gap-2">
-                    <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">İptal</button>
-                    <button onClick={onSave} disabled={isSaving} className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium disabled:opacity-50">
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {isSaving ? "Kaydediliyor..." : "Kaydet"}
-                    </button>
-                </div>
-            </div>
-        </>
-    );
-}
-
-function FAQSection({ faq, onAdd, onUpdate, onRemove, onGenerateAI, isGenerating, onSave, onCancel, isSaving }: any) {
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h4 className="font-medium text-gray-900">Sıkça Sorulan Sorular</h4>
-                    <p className="text-sm text-gray-500">Google FAQ rich snippet için</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={onGenerateAI} 
-                        disabled={isGenerating}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isGenerating ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <span className="flex items-center justify-center w-5 h-5 bg-white/10 rounded text-xs font-semibold">T</span>
-                        )}
-                        <span>{isGenerating ? "Toshi hazırlıyor..." : "Toshi ile Oluştur"}</span>
-                    </button>
-                    <button onClick={onAdd} className="px-3 py-2 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-medium">+ Soru Ekle</button>
-                </div>
-            </div>
-            <div className="space-y-3">
-                {faq.map((item: any, index: number) => (
-                    <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 space-y-3">
-                        <input
-                            type="text"
-                            value={item.question}
-                            onChange={(e) => onUpdate(index, "question", e.target.value)}
-                            placeholder="Soru"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                        />
-                        <textarea
-                            value={item.answer}
-                            onChange={(e) => onUpdate(index, "answer", e.target.value)}
-                            placeholder="Cevap"
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none"
-                        />
-                        <button onClick={() => onRemove(index)} className="text-xs text-red-600">Kaldır</button>
-                    </div>
+            <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3">
+              <Filter className="h-4 w-4 text-stone-500" />
+              <select
+                value={seoFilter}
+                onChange={(event) => setSeoFilter(event.target.value as SeoFilter)}
+                className="h-11 bg-transparent text-sm text-stone-700 outline-none"
+              >
+                {Object.entries(FILTER_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
+              </select>
             </div>
-            {faq.length === 0 && (
-                <div className="text-center py-6 text-gray-500 text-sm bg-gray-100 rounded-lg">Henüz FAQ eklenmemiş.</div>
-            )}
-            
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
-                <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">İptal</button>
-                <button onClick={onSave} disabled={isSaving} className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium disabled:opacity-50">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isSaving ? "Kaydediliyor..." : "Kaydet"}
-                </button>
-            </div>
+            <label className="inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(event) => setActiveOnly(event.target.checked)}
+                className="h-4 w-4 rounded border-stone-300 text-orange-600 focus:ring-orange-200"
+              />
+              Sadece aktif ürünler
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadProducts()}
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-stone-200 px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Yenile
+          </button>
         </div>
-    );
-}
 
-function GEOSection({ keyTakeaways, onAdd, onUpdate, onRemove, onGenerateAI, isGenerating, onSave, onCancel, isSaving }: any) {
-    return (
-        <div className="space-y-4">
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
-                </div>
-            </div>
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-900">Önemli Çıkarımlar</h4>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={onGenerateAI} 
-                            disabled={isGenerating}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isGenerating ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <span className="flex items-center justify-center w-5 h-5 bg-white/10 rounded text-xs font-semibold">T</span>
-                            )}
-                            <span>{isGenerating ? "Toshi hazırlıyor..." : "Toshi ile Oluştur"}</span>
-                        </button>
-                        <button onClick={onAdd} className="px-3 py-2 text-sm bg-primary/10 text-primary rounded-lg font-medium">+ Ekle</button>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    {keyTakeaways.map((takeaway: string, index: number) => (
-                        <div key={index} className="flex gap-2">
-                            <input
-                                type="text"
-                                value={takeaway}
-                                onChange={(e) => onUpdate(index, e.target.value)}
-                                placeholder={`Çıkarım ${index + 1}`}
-                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                            />
-                            <button onClick={() => onRemove(index)} className="px-2 text-red-600">×</button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
-                <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">İptal</button>
-                <button onClick={onSave} disabled={isSaving} className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium disabled:opacity-50">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isSaving ? "Kaydediliyor..." : "Kaydet"}
-                </button>
-            </div>
+        <div className="mt-4 grid gap-3 xl:grid-cols-3">
+          {BULK_BUTTONS.map((button) => (
+            <button
+              key={button.mode}
+              type="button"
+              onClick={() => void handleBulk(button.mode)}
+              disabled={bulkRunning !== null}
+              className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left transition hover:border-orange-300 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <div className="flex items-center gap-2 text-sm font-semibold text-stone-900">
+                <Sparkles className="h-4 w-4 text-orange-600" />
+                {button.label}
+                {bulkRunning === button.mode ? <Loader2 className="h-4 w-4 animate-spin text-orange-600" /> : null}
+              </div>
+              <p className="mt-2 text-sm text-stone-500">{button.description}</p>
+            </button>
+          ))}
         </div>
-    );
+      </div>
+
+      {message ? (
+        <div
+          className={`flex items-center gap-3 rounded-2xl border p-4 text-sm ${
+            message.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
+          }`}
+        >
+          {message.type === "success" ? (
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+          )}
+          {message.text}
+        </div>
+      ) : null}
+
+      <div className="text-sm text-stone-500">
+        {filteredProducts.length} ürün gösteriliyor. Filter: <span className="font-medium text-stone-700">{FILTER_LABELS[seoFilter]}</span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-3 rounded-3xl border border-stone-200 bg-white py-20 text-stone-500">
+          <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+          Ürün SEO listesi yükleniyor...
+        </div>
+      ) : null}
+
+      {!loading && filteredProducts.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-10 text-center text-stone-500">
+          Seçili filtrede ürün bulunamadı.
+        </div>
+      ) : null}
+
+      {!loading &&
+        filteredProducts.map((product) => {
+          const isEditing = editingId === product.id;
+          const previewTitle = isEditing ? editForm.metaTitle : product.metaTitle;
+          const previewDescription = isEditing ? editForm.metaDescription : product.metaDescription;
+          const currentRobots = isEditing ? editForm.robots : product.robots;
+
+          return (
+            <div key={product.id} className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+              <div className="border-b border-stone-100 p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex gap-4">
+                    {product.images[0] ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="h-20 w-20 rounded-2xl border border-stone-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-50">
+                        <Package className="h-8 w-8 text-stone-400" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold text-stone-950">{product.name}</h2>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${scoreTone(product.score)}`}>
+                          SEO {product.score}/100
+                        </span>
+                        <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600">
+                          {product.family}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            product.is_active ? "bg-emerald-100 text-emerald-700" : "bg-stone-200 text-stone-600"
+                          }`}
+                        >
+                          {product.is_active ? "Aktif" : "Pasif"}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-sm text-stone-500">/tr/urunler/{product.slug}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <ProductSummaryPill label="Title" value={product.hasTitle ? "Var" : "Yok"} ok={product.hasTitle} />
+                        <ProductSummaryPill label="Description" value={product.hasDescription ? "Var" : "Yok"} ok={product.hasDescription} />
+                        <ProductSummaryPill label="Focus" value={product.hasFocusKeyword ? "Var" : "Yok"} ok={product.hasFocusKeyword} />
+                        <ProductSummaryPill label="Canonical" value={product.hasCanonicalOverride ? "Override" : "Varsayılan"} ok />
+                        <ProductSummaryPill label="Robots" value={currentRobots} ok={product.hasValidRobots} />
+                        <ProductSummaryPill label="OG" value={product.hasOgImage ? "Var" : "Yok"} ok={product.hasOgImage} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={`${STORE_RUNTIME.storefrontUrl.replace(/\/$/, "")}/tr/urunler/${product.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center rounded-2xl border border-stone-200 px-3 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Ürünü Aç
+                    </a>
+                    {!isEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(product)}
+                        className="inline-flex h-10 items-center rounded-2xl bg-orange-600 px-4 text-sm font-semibold text-white transition hover:bg-orange-700"
+                      >
+                        Düzenle
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="inline-flex h-10 items-center rounded-2xl border border-stone-200 px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                      >
+                        Kapat
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {product.issues.length > 0 ? (
+                    product.issues.slice(0, 4).map((issue) => (
+                      <span
+                        key={issue}
+                        className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700"
+                      >
+                        {issue}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                      Kritik SEO sorunu yok
+                    </span>
+                  )}
+                </div>
+
+                {isEditing ? (
+                  <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+                    <div className="space-y-5">
+                      <div className="grid gap-5 md:grid-cols-2">
+                        <div className="md:col-span-2">
+                          <FieldLabel label="Meta Title" hint={`${editForm.metaTitle.length}/70`} />
+                          <input
+                            type="text"
+                            value={editForm.metaTitle}
+                            onChange={(event) => setEditForm((prev) => ({ ...prev, metaTitle: event.target.value }))}
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <FieldLabel label="Meta Description" hint={`${editForm.metaDescription.length}/160`} />
+                          <textarea
+                            value={editForm.metaDescription}
+                            onChange={(event) =>
+                              setEditForm((prev) => ({ ...prev, metaDescription: event.target.value }))
+                            }
+                            rows={4}
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Focus Keyword" />
+                          <input
+                            type="text"
+                            value={editForm.focusKeyword}
+                            onChange={(event) =>
+                              setEditForm((prev) => ({ ...prev, focusKeyword: event.target.value }))
+                            }
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Robots" />
+                          <select
+                            value={editForm.robots}
+                            onChange={(event) =>
+                              setEditForm((prev) => ({
+                                ...prev,
+                                robots: event.target.value as ProductSEOViewModel["robots"],
+                              }))
+                            }
+                            className="h-[50px] w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                          >
+                            <option value="index,follow">index,follow</option>
+                            <option value="noindex,follow">noindex,follow</option>
+                            <option value="index,nofollow">index,nofollow</option>
+                            <option value="noindex,nofollow">noindex,nofollow</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <FieldLabel label="SEO Keywords" hint="Virgül veya satır sonu ile ayırın" />
+                          <textarea
+                            value={editForm.keywordsText}
+                            onChange={(event) =>
+                              setEditForm((prev) => ({ ...prev, keywordsText: event.target.value }))
+                            }
+                            rows={3}
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel label="Canonical Override" />
+                          <div className="relative">
+                            <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                            <input
+                              type="text"
+                              value={editForm.canonicalUrl}
+                              onChange={(event) =>
+                                setEditForm((prev) => ({ ...prev, canonicalUrl: event.target.value }))
+                              }
+                              placeholder={`${STORE_RUNTIME.storefrontUrl}/tr/urunler/${product.slug}`}
+                              className="w-full rounded-2xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <FieldLabel label="OG Image" />
+                          <div className="relative">
+                            <ImageIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                            <input
+                              type="text"
+                              value={editForm.ogImage}
+                              onChange={(event) =>
+                                setEditForm((prev) => ({ ...prev, ogImage: event.target.value }))
+                              }
+                              placeholder="https://..."
+                              className="w-full rounded-2xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => applyRecommendation(product)}
+                          className="inline-flex h-11 items-center rounded-2xl border border-orange-200 bg-orange-50 px-4 text-sm font-semibold text-orange-700 transition hover:bg-orange-100"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Kural Bazlı Öneriyi Uygula
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleAiGeneration(product)}
+                          disabled={aiGeneratingId === product.id}
+                          className="inline-flex h-11 items-center rounded-2xl border border-stone-200 px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {aiGeneratingId === product.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Bot className="mr-2 h-4 w-4" />
+                          )}
+                          AI Meta Üret
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSave(product)}
+                          disabled={savingId === product.id}
+                          className="inline-flex h-11 items-center rounded-2xl bg-stone-950 px-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {savingId === product.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                          )}
+                          Kaydet
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="rounded-3xl border border-stone-200 bg-stone-50 p-5">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          <Eye className="h-4 w-4" />
+                          Google Önizlemesi
+                        </div>
+                        <div className="space-y-1">
+                          <div className="line-clamp-2 text-lg font-medium text-[#1a0dab]">
+                            {previewTitle || product.name}
+                          </div>
+                          <div className="text-sm text-[#006621]">{storeHost} › tr › urunler › {product.slug}</div>
+                          <div className="text-sm leading-6 text-stone-600">{previewDescription}</div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-3xl border border-stone-200 bg-white p-5">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Önerilen Yapı
+                        </div>
+                        <div className="mt-3 space-y-3 text-sm">
+                          <div>
+                            <div className="font-medium text-stone-800">Focus keyword</div>
+                            <div className="mt-1 text-stone-600">{product.recommendation.focusKeyword}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-stone-800">Keyword seti</div>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {product.recommendation.keywords.map((keyword) => (
+                                <span key={keyword} className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
+                                  {keyword}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="rounded-2xl bg-stone-50 p-3">
+                              <div className="flex items-center gap-2 font-medium text-stone-800">
+                                <Link2 className="h-4 w-4 text-stone-500" />
+                                Canonical
+                              </div>
+                              <div className="mt-1 break-all text-xs text-stone-500">
+                                {editForm.canonicalUrl || "Varsayılan localized canonical kullanılır"}
+                              </div>
+                            </div>
+                            <div className="rounded-2xl bg-stone-50 p-3">
+                              <div className="flex items-center gap-2 font-medium text-stone-800">
+                                <Tag className="h-4 w-4 text-stone-500" />
+                                Robots
+                              </div>
+                              <div className="mt-1 text-xs text-stone-500">{currentRobots}</div>
+                            </div>
+                          </div>
+                          <div className="rounded-2xl bg-stone-50 p-3 text-xs text-stone-600">
+                            FAQ kaydı: {product.faq?.length || 0} | GEO key takeaways: {product.geo.keyTakeaways.length}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Meta Title
+                        </div>
+                        <div className="text-sm text-stone-700">{product.metaTitle}</div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Meta Description
+                        </div>
+                        <div className="text-sm leading-6 text-stone-600">{product.metaDescription}</div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-stone-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Focus keyword
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-stone-800">{product.focusKeyword || "-"}</div>
+                      </div>
+                      <div className="rounded-2xl bg-stone-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Keywords
+                        </div>
+                        <div className="mt-2 text-sm text-stone-600">{product.keywords.length}</div>
+                      </div>
+                      <div className="rounded-2xl bg-stone-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Canonical
+                        </div>
+                        <div className="mt-2 break-all text-sm text-stone-600">
+                          {product.canonicalUrl || "Varsayılan localized canonical"}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-stone-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          OG image
+                        </div>
+                        <div className="mt-2 break-all text-sm text-stone-600">
+                          {product.ogImage || "İlk ürün görseli fallback"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+    </div>
+  );
 }

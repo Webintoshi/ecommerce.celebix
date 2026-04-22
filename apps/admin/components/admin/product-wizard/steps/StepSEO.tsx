@@ -240,10 +240,25 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
                 type="text"
                 value={seo.canonicalUrl || ""}
                 onChange={(e) => onChange({ ...seo, canonicalUrl: e.target.value })}
-                placeholder={`${STORE_RUNTIME.storefrontUrl}/urunler/ornek-urun`}
+                placeholder={`${STORE_RUNTIME.storefrontUrl}/tr/urunler/ornek-urun`}
                 className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] py-3 pl-11 pr-4 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
               />
             </div>
+          </div>
+
+          {/* OG Image */}
+          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+            <label className="text-sm font-semibold text-stone-700">OG Görsel URL (Opsiyonel)</label>
+            <input
+              type="text"
+              value={seo.ogImage || ""}
+              onChange={(e) => onChange({ ...seo, ogImage: e.target.value })}
+              placeholder="https://..."
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+            />
+            <p className="text-xs text-stone-500">
+              Boş bırakılırsa storefront ilk ürün görselini kullanır.
+            </p>
           </div>
         </div>
 
