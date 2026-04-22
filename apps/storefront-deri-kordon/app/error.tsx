@@ -3,6 +3,10 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Home, RefreshCw } from "lucide-react";
+import {
+  attemptAutoRecovery,
+  shouldAutoRecover,
+} from "@/lib/error-recovery";
 
 export default function Error({
   error,
@@ -12,21 +16,11 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // ChunkLoadError — auto-reload once to fetch new assets after deployment
-    const isChunkError =
-      error.name === "ChunkLoadError" ||
-      error.message?.includes("Loading chunk") ||
-      error.message?.includes("Failed to fetch dynamically imported module") ||
-      error.message?.includes("Importing a module script failed");
-
-    if (isChunkError) {
-      const reloaded = sessionStorage.getItem("chunk-reload");
-      if (!reloaded) {
-        sessionStorage.setItem("chunk-reload", "1");
-        window.location.reload();
+    if (shouldAutoRecover(error)) {
+      const recovered = attemptAutoRecovery(error);
+      if (recovered) {
         return;
       }
-      sessionStorage.removeItem("chunk-reload");
     }
 
     console.error(error);
@@ -35,21 +29,18 @@ export default function Error({
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
       <div className="max-w-xl mx-auto px-4 sm:px-6 text-center">
-        {/* Error Code */}
         <h1 className="text-7xl sm:text-8xl font-medium text-neutral-200 mb-6 tracking-tight">
           !
         </h1>
 
-        {/* Message */}
         <h2 className="text-2xl sm:text-3xl font-medium text-neutral-900 mb-4 tracking-tight">
           Bir Hata Oluştu
         </h2>
         <p className="text-base text-neutral-500 mb-10 leading-relaxed max-w-md mx-auto">
-          Üzgünüz, bir şeyler ters gitti. Lütfen sayfayı yenilemeyi deneyin veya
-          ana sayfaya dönün.
+          Üzgünüz, sayfa geçişi sırasında bir sorun oluştu. Lütfen sayfayı
+          yenilemeyi deneyin veya ana sayfaya dönün.
         </p>
 
-        {/* Error Details (Development Only) */}
         {process.env.NODE_ENV === "development" && (
           <div className="mb-8 p-4 bg-white border border-neutral-200 rounded-xl text-left">
             <p className="text-sm font-mono text-neutral-700 break-all">
@@ -58,7 +49,6 @@ export default function Error({
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={reset}
