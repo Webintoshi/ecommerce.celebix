@@ -650,24 +650,24 @@ export default function ToshiAssistant({
           aria-label="Toshi AI asistanını aç (Ctrl+K)"
           className="group fixed right-5 top-1/2 z-[9999] -translate-y-1/2"
           style={{
-            filter: "drop-shadow(0 10px 20px rgba(254,97,0,0.17))",
+            filter: "drop-shadow(0 9px 18px rgba(254,97,0,0.16))",
           }}
         >
           <div
-            className="relative flex h-[4.45rem] w-[4.45rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
+            className="relative flex h-[4.28rem] w-[4.28rem] items-center justify-center rounded-full border border-[#ffd6bb] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
             style={{
               background: TOSHI_GRADIENT,
-              boxShadow: "0 12px 24px rgba(254,97,0,0.13), inset 0 1px 0 rgba(255,255,255,0.2)",
+              boxShadow: "0 11px 22px rgba(254,97,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)",
             }}
           >
-            <span className="pointer-events-none absolute inset-[6px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.34),rgba(255,255,255,0)_62%)] opacity-65" />
-            <span className="relative block h-[3.82rem] w-[3.82rem] overflow-hidden rounded-full border border-white/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_8px_18px_rgba(122,72,28,0.12)]">
+            <span className="pointer-events-none absolute inset-[4px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.3),rgba(255,255,255,0)_62%)] opacity-60" />
+            <span className="relative block h-[3.96rem] w-[3.96rem] overflow-hidden rounded-full border border-white/82 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_8px_16px_rgba(122,72,28,0.11)]">
               <Image
                 src={TOSHI_MASCOT_SRC}
                 alt="Toshi mascot"
                 fill
                 sizes="64px"
-                className="object-cover object-[46%_37%] scale-[1.28] -translate-x-px -translate-y-[2px]"
+                className="object-cover object-[46%_36%] scale-[1.36] -translate-x-px -translate-y-px"
                 priority
               />
             </span>
