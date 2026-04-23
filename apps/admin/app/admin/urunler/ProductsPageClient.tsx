@@ -1562,7 +1562,6 @@ export default function ProductsPageClient({
                     <th className="px-5 py-4">Sıra</th>
                     <th className="px-4 py-4">Seç</th>
                     <th className="px-5 py-4">Ürün</th>
-                    <th className="px-4 py-4">Kategori</th>
                     <th className="px-4 py-4">SKU</th>
                     <th className="px-4 py-4">Fiyat</th>
                     <th className="px-4 py-4">Stok</th>
@@ -1575,7 +1574,7 @@ export default function ProductsPageClient({
                   {loading && sortedProducts.length === 0
                     ? Array.from({ length: 8 }).map((_, index) => (
                         <tr key={`skeleton-${index}`} className="border-b border-[#EEF1F4]">
-                          <td className="px-5 py-5" colSpan={10}>
+                          <td className="px-5 py-5" colSpan={9}>
                             <div className="h-12 animate-pulse rounded-2xl bg-[#F3F4F6]" />
                           </td>
                         </tr>
@@ -1584,7 +1583,7 @@ export default function ProductsPageClient({
 
                   {!loading && sortedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-5 py-14 text-center">
+                      <td colSpan={9} className="px-5 py-14 text-center">
                         <div className="mx-auto max-w-md space-y-3">
                           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB] text-[#9CA3AF]">
                             <Package className="h-6 w-6" />
@@ -1678,18 +1677,20 @@ export default function ProductsPageClient({
                               </div>
                             )}
 
-                            <div className="min-w-0">
+                            <div className="min-w-0 space-y-2">
                               <div className="truncate text-[15px] font-semibold text-[#1F2937]">
                                 {product.name}
                               </div>
+                              <span
+                                className={cn(
+                                  "inline-flex max-w-full rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em]",
+                                  getCategoryColor(product.category),
+                                )}
+                              >
+                                <span className="truncate">{getCategoryLabel(product.category)}</span>
+                              </span>
                             </div>
                           </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span className={cn("inline-flex rounded-full border px-3 py-1.5 text-xs font-medium", getCategoryColor(product.category))}>
-                            {getCategoryLabel(product.category)}
-                          </span>
                         </td>
 
                         <td className="px-4 py-4 text-sm font-medium text-[#374151]">
@@ -1867,6 +1868,14 @@ export default function ProductsPageClient({
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="text-[15px] font-semibold text-[#1F2937]">{product.name}</h3>
+                            <span
+                              className={cn(
+                                "mt-2 inline-flex max-w-full rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em]",
+                                getCategoryColor(product.category),
+                              )}
+                            >
+                              <span className="truncate">{getCategoryLabel(product.category)}</span>
+                            </span>
                           </div>
                           <Switch
                             checked={product.isActive}
@@ -1882,9 +1891,6 @@ export default function ProductsPageClient({
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-medium", getCategoryColor(product.category))}>
-                            {getCategoryLabel(product.category)}
-                          </span>
                           <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-medium", statusMeta.tone)}>
                             {statusMeta.label}
                           </span>
