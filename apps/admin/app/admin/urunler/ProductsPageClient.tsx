@@ -103,24 +103,6 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function formatDate(value?: string | null, includeTime = false) {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    ...(includeTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  }).format(date);
-}
-
 function normalizeCategoryKey(value?: string | null) {
   return String(value || "").trim().toLocaleLowerCase("tr-TR");
 }
@@ -1153,6 +1135,7 @@ export default function ProductsPageClient({
   const lowStockProducts = products.filter((product) => getPrimaryVariant(product).stock <= 10).length;
   const startRow = reorderMode ? (sortedProducts.length > 0 ? 1 : 0) : (pagination.page - 1) * pagination.limit + 1;
   const endRow = reorderMode ? sortedProducts.length : startRow + sortedProducts.length - 1;
+  const desktopProductTableColumnCount = reorderMode ? 9 : 8;
 
   const handleManualReorder = async (productId: string, direction: "up" | "down") => {
     if (!canUseManualReorder) {
@@ -1553,8 +1536,8 @@ export default function ProductsPageClient({
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[#EEF1F4] bg-[#FCFDFE] text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
-                    <th className="px-5 py-4">Sıra</th>
-                    <th className="px-4 py-4">Seç</th>
+                    {reorderMode ? <th className="w-[132px] px-5 py-4">Sırala</th> : null}
+                    <th className="w-[72px] px-5 py-4 text-center">Seç</th>
                     <th className="px-5 py-4">Ürün</th>
                     <th className="px-4 py-4">SKU</th>
                     <th className="px-4 py-4">Fiyat</th>
@@ -1568,7 +1551,7 @@ export default function ProductsPageClient({
                   {loading && sortedProducts.length === 0
                     ? Array.from({ length: 8 }).map((_, index) => (
                         <tr key={`skeleton-${index}`} className="border-b border-[#EEF1F4]">
-                          <td className="px-5 py-5" colSpan={9}>
+                          <td className="px-5 py-5" colSpan={desktopProductTableColumnCount}>
                             <div className="h-12 animate-pulse rounded-2xl bg-[#F3F4F6]" />
                           </td>
                         </tr>
@@ -1577,7 +1560,7 @@ export default function ProductsPageClient({
 
                   {!loading && sortedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-5 py-14 text-center">
+                      <td colSpan={desktopProductTableColumnCount} className="px-5 py-14 text-center">
                         <div className="mx-auto max-w-md space-y-3">
                           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB] text-[#9CA3AF]">
                             <Package className="h-6 w-6" />
@@ -1604,61 +1587,61 @@ export default function ProductsPageClient({
 
                     return (
                       <tr key={product.id} className="border-b border-[#EEF1F4] align-top transition-colors hover:bg-[#FAFBFC]">
-                        <td className="px-5 py-4">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#9CA3AF]">
-                              <GripVertical className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-semibold text-[#1F2937]">{product.sortOrder}</div>
-                              <div className="mt-1 text-xs text-[#9CA3AF]">
-                                {formatDate(product.createdAt, true)}
+                        {reorderMode ? (
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#9CA3AF]">
+                                {reorderingProductId === product.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-[#E85D04]" />
+                                ) : (
+                                  <GripVertical className="h-4 w-4" />
+                                )}
                               </div>
-                              {reorderMode ? (
-                                <div className="mt-3 flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleManualReorder(product.id, "up")}
-                                    disabled={!canMoveUp || reorderingProductId !== null}
-                                    className={cn(
-                                      "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
-                                      SURFACE_FOCUS_RING,
-                                    )}
-                                  >
-                                    <ArrowUp className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleManualReorder(product.id, "down")}
-                                    disabled={!canMoveDown || reorderingProductId !== null}
-                                    className={cn(
-                                      "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
-                                      SURFACE_FOCUS_RING,
-                                    )}
-                                  >
-                                    <ArrowDown className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              ) : null}
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleManualReorder(product.id, "up")}
+                                  disabled={!canMoveUp || reorderingProductId !== null}
+                                  className={cn(
+                                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
+                                    SURFACE_FOCUS_RING,
+                                  )}
+                                  aria-label={`${product.name} ürününü yukarı taşı`}
+                                >
+                                  <ArrowUp className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleManualReorder(product.id, "down")}
+                                  disabled={!canMoveDown || reorderingProductId !== null}
+                                  className={cn(
+                                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
+                                    SURFACE_FOCUS_RING,
+                                  )}
+                                  aria-label={`${product.name} ürününü aşağı taşı`}
+                                >
+                                  <ArrowDown className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
+                        ) : null}
 
-                        <td className="px-4 py-4">
+                        <td className="px-5 py-4 text-center align-middle">
                           <input
                             type="checkbox"
                             checked={selectedProducts.includes(product.id)}
                             onChange={(event) => handleSelectProduct(product.id, event.target.checked)}
                             aria-label={`${product.name} ürününü seç`}
                             className={cn(
-                              "mt-2 h-4 w-4 rounded border-[#D1D5DB] text-[#FF6A00] accent-[#FF6A00]",
+                              "h-4 w-4 rounded border-[#D1D5DB] text-[#FF6A00] accent-[#FF6A00]",
                               SURFACE_FOCUS_RING,
                             )}
                           />
                         </td>
 
                         <td className="px-5 py-4">
-                          <div className="flex min-w-[280px] items-start gap-4">
+                          <div className="flex min-w-[320px] items-start gap-4">
                             {product.images.length > 0 ? (
                               <img
                                 src={product.images[0]}
@@ -1890,37 +1873,44 @@ export default function ProductsPageClient({
                           </div>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-2">
-                          <div className="text-xs text-[#9CA3AF]">
-                            {product.sortOrder} • {formatDate(product.createdAt, true)}
-                          </div>
+                        <div className={cn("mt-4 flex flex-wrap items-center gap-2", reorderMode ? "justify-between" : "justify-end")}>
+                          {reorderMode ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-9 items-center gap-1.5 rounded-2xl border border-[#E7EAF0] bg-white px-3 text-xs font-medium text-[#6B7280]">
+                                {reorderingProductId === product.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#E85D04]" />
+                                ) : (
+                                  <GripVertical className="h-3.5 w-3.5 text-[#9CA3AF]" />
+                                )}
+                                Sırala
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void handleManualReorder(product.id, "up")}
+                                disabled={index === 0 || reorderingProductId !== null}
+                                className={cn(
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
+                                  SURFACE_FOCUS_RING,
+                                )}
+                                aria-label={`${product.name} ürününü yukarı taşı`}
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleManualReorder(product.id, "down")}
+                                disabled={index === sortedProducts.length - 1 || reorderingProductId !== null}
+                                className={cn(
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
+                                  SURFACE_FOCUS_RING,
+                                )}
+                                aria-label={`${product.name} ürününü aşağı taşı`}
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : null}
                           <div className="flex items-center gap-2">
-                            {reorderMode ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => void handleManualReorder(product.id, "up")}
-                                  disabled={index === 0 || reorderingProductId !== null}
-                                  className={cn(
-                                    "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
-                                    SURFACE_FOCUS_RING,
-                                  )}
-                                >
-                                  <ArrowUp className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void handleManualReorder(product.id, "down")}
-                                  disabled={index === sortedProducts.length - 1 || reorderingProductId !== null}
-                                  className={cn(
-                                    "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
-                                    SURFACE_FOCUS_RING,
-                                  )}
-                                >
-                                  <ArrowDown className="h-4 w-4" />
-                                </button>
-                              </>
-                            ) : null}
                             <Link
                               href={`/admin/urunler/${product.id}/duzenle`}
                               className={cn(
