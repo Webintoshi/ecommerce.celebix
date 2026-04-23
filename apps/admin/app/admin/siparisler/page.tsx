@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowDownToLine,
   Ban,
-  Bell,
   CalendarRange,
   CheckCircle2,
   ChevronDown,
@@ -67,6 +66,7 @@ type DisplayOrder = Omit<Order, "items" | "shippingAddress"> & {
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type DateRangeOption = "all" | "today" | "last7" | "last30" | "thisMonth";
 type FulfillmentState = "none" | "waiting" | "preparing" | "shipped" | "delivered";
+type ActiveFilterKey = "search" | "status" | "date" | "payment" | "fulfillment";
 type BulkAction =
   | ""
   | "confirm"
@@ -441,6 +441,13 @@ function formatChangePercent(value: number) {
   return `%${absolute.toFixed(0)}`;
 }
 
+function getOptionLabel<T extends string>(
+  options: readonly { value: T; label: string }[],
+  value: T,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows
     .map((row) =>
@@ -546,6 +553,37 @@ function MetricCard({
   );
 }
 
+function ToolbarMetaChip({
+  icon: Icon,
+  label,
+  value,
+  toneClassName,
+}: {
+  icon: typeof ShoppingBag;
+  label: string;
+  value: string;
+  toneClassName: string;
+}) {
+  return (
+    <div className="inline-flex min-h-[54px] items-center gap-3 rounded-[20px] border border-[#E7EAF0] bg-white px-3.5 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border",
+          toneClassName,
+        )}
+      >
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+          {label}
+        </p>
+        <p className="mt-1 truncate text-sm font-semibold text-[#1F2937]">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 function StatusChip({
   label,
   count,
@@ -563,9 +601,9 @@ function StatusChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+        "inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium whitespace-nowrap transition-all",
         active
-          ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+          ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04] shadow-[0_10px_22px_rgba(255,106,0,0.12)]"
           : "border-[#E7EAF0] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]"
       )}
     >
@@ -578,6 +616,26 @@ function StatusChip({
       >
         {count}
       </span>
+    </button>
+  );
+}
+
+function ActiveFilterChip({
+  label,
+  onClear,
+}: {
+  label: string;
+  onClear: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      className="inline-flex min-h-[34px] items-center gap-2 rounded-full border border-[#E7EAF0] bg-white px-3 py-1.5 text-xs font-medium text-[#374151] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
+      aria-label={`${label} filtresini kaldır`}
+    >
+      <span className="truncate">{label}</span>
+      <XCircle className="h-3.5 w-3.5 text-[#9CA3AF]" />
     </button>
   );
 }
@@ -604,20 +662,6 @@ function ToneBadge({
 function OrdersPageSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="rounded-[28px] border border-[#E7EAF0] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-3">
-            <Skeleton className="h-7 w-28 bg-[#EEF1F4]" />
-            <Skeleton className="h-10 w-48 bg-[#EEF1F4]" />
-            <Skeleton className="h-4 w-72 bg-[#EEF1F4]" />
-          </div>
-          <div className="flex gap-3">
-            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
-            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
-          </div>
-        </div>
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div
@@ -828,7 +872,13 @@ function OrderListRow({
   const customerEmail = getCustomerEmail(order);
 
   return (
-    <article className="border-b border-[#EEF1F4] px-4 py-4 transition-colors hover:bg-[#FBFCFD] md:px-6">
+    <article
+      aria-selected={checked}
+      className={cn(
+        "border-b border-[#EEF1F4] px-4 py-4 transition-colors md:px-6",
+        checked ? "bg-[#FFF8F3]" : "hover:bg-[#FBFCFD]",
+      )}
+    >
       <div className="grid gap-4 xl:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] xl:items-center">
         <div className="flex items-start pt-1">
           <Checkbox
@@ -1103,6 +1153,7 @@ export default function OrdersPage() {
 
   const visibleStart = filteredOrders.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const visibleEnd = Math.min(currentPage * pageSize, filteredOrders.length);
+  const hasSelection = selectedIds.length > 0;
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -1149,6 +1200,67 @@ export default function OrdersPage() {
       "revenue"
     )
   );
+
+  const activeFilterChips = useMemo(
+    () =>
+      [
+        searchQuery.trim()
+          ? {
+              key: "search" as const,
+              label: `Arama: ${searchQuery.trim()}`,
+            }
+          : null,
+        statusFilter !== "all"
+          ? {
+              key: "status" as const,
+              label: `Durum: ${ORDER_STATUS_CONFIG[statusFilter].label}`,
+            }
+          : null,
+        dateRange !== "all"
+          ? {
+              key: "date" as const,
+              label: `Tarih: ${getOptionLabel(DATE_RANGE_OPTIONS, dateRange)}`,
+            }
+          : null,
+        paymentFilter !== "all"
+          ? {
+              key: "payment" as const,
+              label: `Ödeme: ${getOptionLabel(PAYMENT_FILTER_OPTIONS, paymentFilter)}`,
+            }
+          : null,
+        fulfillmentFilter !== "all"
+          ? {
+              key: "fulfillment" as const,
+              label: `Operasyon: ${getOptionLabel(FULFILLMENT_FILTER_OPTIONS, fulfillmentFilter)}`,
+            }
+          : null,
+      ].filter((item): item is { key: ActiveFilterKey; label: string } => item !== null),
+    [dateRange, fulfillmentFilter, paymentFilter, searchQuery, statusFilter],
+  );
+
+  const activeFilterCount = activeFilterChips.length;
+
+  const clearActiveFilter = (key: ActiveFilterKey) => {
+    switch (key) {
+      case "search":
+        setSearchQuery("");
+        break;
+      case "status":
+        setStatusFilter("all");
+        break;
+      case "date":
+        setDateRange("all");
+        break;
+      case "payment":
+        setPaymentFilter("all");
+        break;
+      case "fulfillment":
+        setFulfillmentFilter("all");
+        break;
+    }
+
+    setCurrentPage(1);
+  };
 
   const handleTogglePageSelection = (checked: CheckedState) => {
     if (checked) {
@@ -1256,61 +1368,6 @@ export default function OrdersPage() {
     <main className="min-h-screen bg-[#F7F8FA]">
       <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-6">
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white px-6 py-6 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:px-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
-                <span className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E85D04]">
-                  Celebix Admin
-                </span>
-                <div className="space-y-2">
-                  <h1 className="text-[2rem] font-semibold tracking-[-0.05em] text-[#1F2937]">
-                    Siparişler
-                  </h1>
-                  <p className="max-w-2xl text-sm leading-6 text-[#6B7280] md:text-[0.95rem]">
-                    Sipariş, ödeme ve teslimat akışını tek yerden yönetin.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 lg:justify-end">
-                <Link
-                  href="/admin/ayarlar/bildirimler"
-                  aria-label="Bildirim ayarları"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "relative h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none"
-                  )}
-                >
-                  <Bell className="h-4 w-4" />
-                  {pendingActionableOrders.length > 0 ? (
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#FF6A00]" />
-                  ) : null}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  aria-label="Siparişleri yenile"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none"
-                  )}
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {lastUpdatedAt ? (
-              <p className="mt-4 text-xs font-medium text-[#9CA3AF]">
-                Son güncelleme: {formatDate(lastUpdatedAt)} · {formatTime(lastUpdatedAt)}
-              </p>
-            ) : null}
-          </section>
-
           {loading ? (
             <OrdersPageSkeleton />
           ) : (
@@ -1361,8 +1418,83 @@ export default function OrdersPage() {
               </section>
 
               <section className="rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
-                <div className="border-b border-[#EEF1F4] px-4 py-4 md:px-6">
+                <div className="border-b border-[#EEF1F4] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] px-4 py-4 md:px-6">
                   <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex min-h-[30px] items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#E85D04]">
+                            Sipariş akışı
+                          </span>
+                          {lastUpdatedAt ? (
+                            <span className="text-xs font-medium text-[#9CA3AF]">
+                              Son yenileme: {formatDate(lastUpdatedAt)} · {formatTime(lastUpdatedAt)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2.5">
+                          <ToolbarMetaChip
+                            icon={ShoppingBag}
+                            label="Görünür kayıt"
+                            value={filteredOrders.length.toLocaleString("tr-TR")}
+                            toneClassName="border-[#DCE9FF] bg-[#F1F6FF] text-[#2563EB]"
+                          />
+                          <ToolbarMetaChip
+                            icon={ClipboardList}
+                            label="Bu sayfa"
+                            value={filteredOrders.length === 0 ? "0" : `${visibleStart}-${visibleEnd}`}
+                            toneClassName="border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+                          />
+                          <ToolbarMetaChip
+                            icon={Filter}
+                            label="Aktif filtre"
+                            value={activeFilterCount > 0 ? `${activeFilterCount} filtre` : "Temiz"}
+                            toneClassName="border-[#E6DCF9] bg-[#F3EEFF] text-[#7C3AED]"
+                          />
+                        </div>
+
+                        {activeFilterCount > 0 ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {activeFilterChips.map((filter) => (
+                              <ActiveFilterChip
+                                key={filter.key}
+                                label={filter.label}
+                                onClear={() => clearActiveFilter(filter.key)}
+                              />
+                            ))}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 rounded-full px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                              onClick={handleResetFilters}
+                            >
+                              Tümünü temizle
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[#6B7280]">
+                            Arama ve durum filtreleri temiz. Liste tüm operasyon akışını gösteriyor.
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="min-h-[44px] gap-2 self-start rounded-2xl border-[#E7EAF0] px-4 text-[#374151] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                        onClick={handleRefresh}
+                      >
+                        {isRefreshing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-4 w-4" />
+                        )}
+                        Yenile
+                      </Button>
+                    </div>
+
                     <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_220px_190px_auto_auto]">
                       <label className="relative block">
                         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
@@ -1417,12 +1549,21 @@ export default function OrdersPage() {
                         variant="secondary"
                         className={cn(
                           "justify-center gap-2 rounded-2xl border-[#E7EAF0] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
-                          showAdvancedFilters ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]" : ""
+                          showAdvancedFilters || activeFilterCount > 0
+                            ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+                            : ""
                         )}
                         onClick={() => setShowAdvancedFilters((current) => !current)}
+                        aria-expanded={showAdvancedFilters}
+                        aria-controls="orders-advanced-filters"
                       >
                         <Filter className="h-4 w-4" />
                         Filtreler
+                        {activeFilterCount > 0 ? (
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
+                            {activeFilterCount}
+                          </span>
+                        ) : null}
                       </Button>
 
                       <Button
@@ -1437,7 +1578,10 @@ export default function OrdersPage() {
                     </div>
 
                     {showAdvancedFilters ? (
-                      <div className="grid gap-3 rounded-[22px] border border-[#EEF1F4] bg-[#FBFCFD] p-3 md:grid-cols-2">
+                      <div
+                        id="orders-advanced-filters"
+                        className="grid gap-3 rounded-[22px] border border-[#EEF1F4] bg-[#FBFCFD] p-3 md:grid-cols-2"
+                      >
                         <div className="relative">
                           <select
                             value={paymentFilter}
@@ -1479,19 +1623,21 @@ export default function OrdersPage() {
                     ) : null}
 
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="flex flex-wrap gap-2">
-                        {statusTabs.map((tab) => (
-                          <StatusChip
-                            key={tab.value}
-                            label={tab.label}
-                            count={tab.count}
-                            active={statusFilter === tab.value}
-                            onClick={() => {
-                              setStatusFilter(tab.value as OrderStatus | "all");
-                              setCurrentPage(1);
-                            }}
-                          />
-                        ))}
+                      <div className="-mx-1 overflow-x-auto pb-1">
+                        <div className="flex min-w-max gap-2 px-1 xl:min-w-0 xl:flex-wrap">
+                          {statusTabs.map((tab) => (
+                            <StatusChip
+                              key={tab.value}
+                              label={tab.label}
+                              count={tab.count}
+                              active={statusFilter === tab.value}
+                              onClick={() => {
+                                setStatusFilter(tab.value as OrderStatus | "all");
+                                setCurrentPage(1);
+                              }}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <p className="text-sm font-medium text-[#6B7280]">
                         {filteredOrders.length.toLocaleString("tr-TR")} kayıt bulundu
@@ -1511,36 +1657,54 @@ export default function OrdersPage() {
                           aria-label="Bu sayfadaki siparişleri seç"
                         />
                         <span className="text-sm font-medium text-[#374151]">
-                          {selectedIds.length} sipariş seçildi
+                          {hasSelection
+                            ? `${selectedIds.length} sipariş seçildi`
+                            : "Bu sayfadaki siparişleri seç"}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="relative">
-                          <select
-                            value={bulkAction}
-                            onChange={(event) => setBulkAction(event.target.value as BulkAction)}
-                            className="h-10 appearance-none rounded-xl border border-[#E7EAF0] bg-white px-3 pr-9 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                      {hasSelection ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedIds([]);
+                              setBulkAction("");
+                            }}
+                            className="inline-flex h-10 items-center rounded-xl border border-[#E7EAF0] bg-white px-3 text-sm font-medium text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
                           >
-                            {BULK_ACTION_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                            Seçimi temizle
+                          </button>
+                          <div className="relative">
+                            <select
+                              value={bulkAction}
+                              onChange={(event) => setBulkAction(event.target.value as BulkAction)}
+                              className="h-10 appearance-none rounded-xl border border-[#E7EAF0] bg-white px-3 pr-9 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                            >
+                              {BULK_ACTION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={selectedIds.length === 0 || !bulkAction}
+                            loading={isBulkRunning}
+                            className="rounded-xl"
+                            onClick={runBulkAction}
+                          >
+                            Uygula
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={selectedIds.length === 0 || !bulkAction}
-                          loading={isBulkRunning}
-                          className="rounded-xl"
-                          onClick={runBulkAction}
-                        >
-                          Uygula
-                        </Button>
-                      </div>
+                      ) : (
+                        <p className="text-sm text-[#6B7280]">
+                          Çoklu durum güncelleme ve dışa aktarma için seçim yapın.
+                        </p>
+                      )}
                     </div>
 
                     <p className="text-sm text-[#6B7280]">

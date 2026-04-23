@@ -22,7 +22,7 @@ import {
   Upload,
 } from "lucide-react";
 
-import { Switch } from "@/components/ui/switch";
+import { PublishStatusSwitch } from "@/components/admin/PublishStatusSwitch";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { buildCategoryLabelMap, buildProductCategoryTree } from "@/lib/admin-product-categories";
 import type {
@@ -37,12 +37,6 @@ import type { CategoryInfo } from "@/types/product";
 
 const SURFACE_FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white";
-
-const PRODUCT_VISIBILITY_SWITCH_CLASS =
-  "h-9 w-[62px] rounded-full border border-[#D1D5DB] p-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.72)] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]";
-
-const PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS =
-  "h-7 w-7 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.16)] data-[state=checked]:translate-x-[26px] data-[state=unchecked]:translate-x-0";
 
 const CATEGORY_BADGE_STYLES = [
   "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
@@ -1722,22 +1716,13 @@ export default function ProductsPageClient({
                         </td>
 
                         <td className="px-4 py-4 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <Switch
-                              checked={product.isActive}
-                              onCheckedChange={(checked) => void handleTogglePublished(product, checked)}
-                              disabled={isPublishUpdating}
-                              aria-label={`${product.name} ürününü ${product.isActive ? "yayından kaldır" : "yayına al"}`}
-                              className={cn(
-                                PRODUCT_VISIBILITY_SWITCH_CLASS,
-                                isPublishUpdating ? "opacity-70" : "",
-                              )}
-                              thumbClassName={PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS}
-                            />
-                            <span className={cn("text-xs font-medium", product.isActive ? "text-[#E85D04]" : "text-[#9CA3AF]")}>
-                              {isPublishUpdating ? "Kaydediliyor" : product.isActive ? "Açık" : "Kapalı"}
-                            </span>
-                          </div>
+                          <PublishStatusSwitch
+                            checked={product.isActive}
+                            loading={isPublishUpdating}
+                            onChange={(checked) => void handleTogglePublished(product, checked)}
+                            aria-label={`${product.name} ürününü ${product.isActive ? "yayından kaldır" : "yayına al"}`}
+                            className="mx-auto"
+                          />
                         </td>
 
                         <td className="px-5 py-4">
@@ -1877,16 +1862,11 @@ export default function ProductsPageClient({
                               <span className="truncate">{getCategoryLabel(product.category)}</span>
                             </span>
                           </div>
-                          <Switch
+                          <PublishStatusSwitch
                             checked={product.isActive}
-                            onCheckedChange={(checked) => void handleTogglePublished(product, checked)}
-                            disabled={isPublishUpdating}
+                            loading={isPublishUpdating}
+                            onChange={(checked) => void handleTogglePublished(product, checked)}
                             aria-label={`${product.name} görünürlüğünü değiştir`}
-                            className={cn(
-                              PRODUCT_VISIBILITY_SWITCH_CLASS,
-                              isPublishUpdating ? "opacity-70" : "",
-                            )}
-                            thumbClassName={PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS}
                           />
                         </div>
 
