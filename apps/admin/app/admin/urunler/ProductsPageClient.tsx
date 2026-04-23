@@ -38,6 +38,12 @@ import type { CategoryInfo } from "@/types/product";
 const SURFACE_FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white";
 
+const PRODUCT_VISIBILITY_SWITCH_CLASS =
+  "h-9 w-[62px] rounded-full border border-[#D1D5DB] p-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.72)] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]";
+
+const PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS =
+  "h-7 w-7 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.16)] data-[state=checked]:translate-x-[26px] data-[state=unchecked]:translate-x-0";
+
 const CATEGORY_BADGE_STYLES = [
   "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   "border-[#DCE9FF] bg-[#F1F6FF] text-[#3B82F6]",
@@ -198,7 +204,7 @@ function getProductStatusMeta(product: AdminProductListItem) {
   if (!product.isActive || product.status === "inactive" || product.status === "archived") {
     return {
       label: "Pasif",
-      description: "Vitrinde görünmüyor",
+      description: null,
       tone: "border-[#F5D3D3] bg-[#FDECEC] text-[#EF4444]",
     };
   }
@@ -1722,10 +1728,10 @@ export default function ProductsPageClient({
                               disabled={isPublishUpdating}
                               aria-label={`${product.name} ürününü ${product.isActive ? "yayından kaldır" : "yayına al"}`}
                               className={cn(
-                                "h-8 w-[54px] border border-[#E7EAF0] p-[3px] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]",
+                                PRODUCT_VISIBILITY_SWITCH_CLASS,
                                 isPublishUpdating ? "opacity-70" : "",
                               )}
-                              thumbClassName="h-[22px] w-[22px] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-0"
+                              thumbClassName={PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS}
                             />
                             <span className={cn("text-xs font-medium", product.isActive ? "text-[#E85D04]" : "text-[#9CA3AF]")}>
                               {isPublishUpdating ? "Kaydediliyor" : product.isActive ? "Açık" : "Kapalı"}
@@ -1868,10 +1874,10 @@ export default function ProductsPageClient({
                             disabled={isPublishUpdating}
                             aria-label={`${product.name} görünürlüğünü değiştir`}
                             className={cn(
-                              "h-8 w-[54px] border border-[#E7EAF0] p-[3px] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]",
+                              PRODUCT_VISIBILITY_SWITCH_CLASS,
                               isPublishUpdating ? "opacity-70" : "",
                             )}
-                            thumbClassName="h-[22px] w-[22px] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-0"
+                            thumbClassName={PRODUCT_VISIBILITY_SWITCH_THUMB_CLASS}
                           />
                         </div>
 
