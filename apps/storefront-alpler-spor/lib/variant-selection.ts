@@ -1,4 +1,7 @@
 type VariantRecord = {
+  name?: string | null;
+  group_name?: string | null;
+  groupName?: string | null;
   stock?: number | null;
   attributes?: Array<Record<string, unknown>>;
   raw_attributes?: Array<Record<string, unknown>>;
@@ -77,7 +80,23 @@ function getDisplayOrder(attribute: Record<string, unknown>, fallbackOrder: numb
   return typeof rawDisplayOrder === "number" ? rawDisplayOrder : Number.MAX_SAFE_INTEGER - 1 + fallbackOrder;
 }
 
-function getVariantAttributes(variant: VariantRecord) {
+type InferredAttributeKind = "number" | "size" | "generic";
+
+type InferredAttributeDescriptor = {
+  name: string;
+  kind: InferredAttributeKind;
+};
+
+const GENERIC_VARIANT_NAME_TOKENS = new Set([
+  "default",
+  "defaulttitle",
+  "tekvaryant",
+  "standart",
+  "varsayilan",
+  "varyant",
+]);
+
+function getStoredVariantAttributes(variant: VariantRecord) {
   if (Array.isArray(variant.attributes)) {
     return variant.attributes;
   }
@@ -89,6 +108,131 @@ function getVariantAttributes(variant: VariantRecord) {
   return [];
 }
 
+function getMeaningfulVariantName(value: unknown) {
+  const normalized = toOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const token = normalized
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  if (GENERIC_VARIANT_NAME_TOKENS.has(token)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function isNumericLikeVariantValue(value: string) {
+  return /^(?:eu|us|uk)?\s*\d{1,3}(?:[.,]\d+)?$/i.test(value.trim());
+}
+
+function isSizeLikeVariantValue(value: string) {
+  const token = value.trim().toLowerCase().replace(/\s+/g, "");
+  return [
+    "xxs",
+    "xs",
+    "s",
+    "m",
+    "l",
+    "xl",
+    "xxl",
+    "xxxl",
+    "2xl",
+    "3xl",
+    "4xl",
+    "5xl",
+  ].includes(token);
+}
+
+function getInferredAttributeDescriptor(variants: VariantRecord[]): InferredAttributeDescriptor {
+  const explicitGroupName = variants
+    .map((variant) => toOptionalString(variant.group_name) || toOptionalString(variant.groupName))
+    .find((value): value is string => Boolean(value));
+
+  if (explicitGroupName) {
+    return { name: explicitGroupName, kind: "generic" };
+  }
+
+  const names = variants
+    .map((variant) => getMeaningfulVariantName(variant.name))
+    .filter((value): value is string => Boolean(value));
+
+  if (names.length === 0) {
+    return { name: "Secenek", kind: "generic" };
+  }
+
+  const numericLikeCount = names.filter(isNumericLikeVariantValue).length;
+  const sizeLikeCount = names.filter(isSizeLikeVariantValue).length;
+  const majorityThreshold = Math.max(2, Math.ceil(names.length / 2));
+
+  if (numericLikeCount >= majorityThreshold) {
+    return { name: "Numara", kind: "number" };
+  }
+
+  if (sizeLikeCount >= majorityThreshold) {
+    return { name: "Beden", kind: "size" };
+  }
+
+  return { name: "Secenek", kind: "generic" };
+}
+
+export function getResolvedVariantAttributes(
+  variant: VariantRecord,
+  allVariants: VariantRecord[] = [],
+) {
+  const storedAttributes = getStoredVariantAttributes(variant);
+  if (storedAttributes.length > 0) {
+    return storedAttributes;
+  }
+
+  const inferredValue = getMeaningfulVariantName(variant.name);
+  if (!inferredValue) {
+    return [];
+  }
+
+  const descriptor = getInferredAttributeDescriptor(allVariants.length > 0 ? allVariants : [variant]);
+
+  if (descriptor.kind === "number" && !isNumericLikeVariantValue(inferredValue)) {
+    return [];
+  }
+
+  if (descriptor.kind === "size" && !isSizeLikeVariantValue(inferredValue)) {
+    return [];
+  }
+
+  const attributeId = descriptor.name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+  const valueId = `${attributeId}-${inferredValue
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")}`;
+
+  return [
+    {
+      id: valueId,
+      valueId,
+      attribute_value_id: valueId,
+      attributeId,
+      attribute_id: attributeId,
+      attributeName: descriptor.name,
+      name: descriptor.name,
+      value: inferredValue,
+      displayOrder: 0,
+      display_order: 0,
+      attribute: {
+        id: attributeId,
+        name: descriptor.name,
+      },
+    },
+  ];
+}
+
 export function getOrderedVariantAttributeGroups(
   variants: VariantRecord[],
 ): OrderedVariantAttributeGroup[] {
@@ -96,7 +240,7 @@ export function getOrderedVariantAttributeGroups(
   let sourceIndex = 0;
 
   variants.forEach((variant, variantIndex) => {
-    const attributes = getVariantAttributes(variant);
+    const attributes = getResolvedVariantAttributes(variant, variants);
 
     attributes.forEach((attribute, attributeIndex) => {
       const record =
@@ -174,7 +318,11 @@ export function findPreferredVariantIndex(variants: VariantRecord[]): number {
   }
 
   const preferredGroup = groups.find(isVisualAttributeGroup) ?? groups[0];
-  const preferredValue = preferredGroup.values[0];
+  const preferredValue =
+    preferredGroup.values.find(
+      (value) =>
+        isNumericLikeVariantValue(value.value) || isSizeLikeVariantValue(value.value),
+    ) ?? preferredGroup.values[0];
 
   return preferredValue?.variantIndex ?? 0;
 }

@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
-import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
+import {
+  getOrderedVariantAttributeGroups,
+  getResolvedVariantAttributes,
+} from "@/lib/variant-selection";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -41,14 +44,14 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
   };
 
   const getSelectedValue = (attributeId: string) => {
-    const attributes = Array.isArray(currentVariant?.attributes) ? currentVariant.attributes : [];
+    const attributes = getResolvedVariantAttributes(currentVariant, variants);
     const match = attributes.find((attribute: any) => getAttributeId(attribute) === attributeId);
     return match?.value;
   };
 
   const handleSelect = (attributeId: string, value: string) => {
     const nextIndex = variants.findIndex((variant) =>
-      variant.attributes?.some((attribute: any) => {
+      getResolvedVariantAttributes(variant, variants).some((attribute: any) => {
         const resolvedId = getAttributeId(attribute);
         return resolvedId === attributeId && attribute.value === value;
       }),

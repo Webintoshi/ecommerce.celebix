@@ -30,7 +30,10 @@ import {
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
+import {
+  getOrderedVariantAttributeGroups,
+  getResolvedVariantAttributes,
+} from "@/lib/variant-selection";
 import type { Product, ProductVariant } from "@/types/product";
 import {
   CustomizationSchema,
@@ -250,14 +253,13 @@ function dedupeDetailRows(rows: DetailRow[]) {
   });
 }
 
-function getVariantAttributeRows(variant?: ProductVariant | null): DetailRow[] {
+function getVariantAttributeRows(
+  variant?: ProductVariant | null,
+  allVariants: ProductVariant[] = [],
+): DetailRow[] {
   if (!variant) return [];
 
-  const sourceAttributes = Array.isArray(variant.attributes)
-    ? variant.attributes
-    : Array.isArray(variant.raw_attributes)
-      ? variant.raw_attributes
-      : [];
+  const sourceAttributes = getResolvedVariantAttributes(variant, allVariants);
   const seen = new Set<string>();
 
   return sourceAttributes
@@ -292,8 +294,12 @@ function getProductAttributeRows(product: Product): DetailRow[] {
   );
 }
 
-function getProductSpecificationRows(product: Product, variant?: ProductVariant | null): DetailRow[] {
-  const variantRows = getVariantAttributeRows(variant);
+function getProductSpecificationRows(
+  product: Product,
+  variant?: ProductVariant | null,
+  allVariants: ProductVariant[] = [],
+): DetailRow[] {
+  const variantRows = getVariantAttributeRows(variant, allVariants);
   const productAttributeRows = getProductAttributeRows(product);
   const dimensionParts = [
     product.dimensions?.width ? `${product.dimensions.width} cm genislik` : null,
@@ -628,10 +634,10 @@ export function ProductDetailClient({
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
   const selectedAttributeRows = dedupeDetailRows([
-    ...getVariantAttributeRows(variant),
+    ...getVariantAttributeRows(variant, variants),
     ...getProductAttributeRows(product),
   ]);
-  const specificationRows = getProductSpecificationRows(product, variant);
+  const specificationRows = getProductSpecificationRows(product, variant, variants);
   const variantGroupRows = getVariantGroupRows(variants);
   const trustCards = [
     {
