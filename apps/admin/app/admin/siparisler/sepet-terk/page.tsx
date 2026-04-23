@@ -1,63 +1,75 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Filter,
+  Loader2,
+  Mail,
+  Package2,
+  Phone,
+  RefreshCcw,
+  Search,
+  ShoppingCart,
+  Trash2,
+  UserRound,
+  Wallet,
+  X,
+  XCircle,
+} from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
+import { tr } from "date-fns/locale";
 import {
   getAbandonedCarts,
-  getFilteredAbandonedCarts,
   getAbandonedCartStats,
   markCartAsRecovered,
   deleteAbandonedCart,
   type AbandonedCart,
-  type AbandonedCartFilters,
   type AbandonedCartItem,
   type AbandonedCartSort,
 } from "@/lib/abandoned-carts";
-import { extractAdminStoredAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
-import { buildStorefrontUrl } from "@/lib/store-runtime";
 import {
-  Activity,
-  Calendar,
-  CheckCircle,
-  ChevronDown,
-  Clock,
-  DollarSign,
-  Download,
-  Filter,
-  ListFilter,
-  Mail,
-  Package,
-  Phone,
-  RefreshCw,
-  Search,
-  ShoppingCart,
-  Trash2,
-  User,
-  X,
-  XCircle,
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { format, formatDistanceToNow } from "date-fns";
-import { tr } from "date-fns/locale";
+  extractAdminStoredAssetUrl,
+  resolveAdminDirectAssetUrl,
+} from "@/lib/asset-url";
+import { buildStorefrontUrl } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type AbandonedCartStats = Awaited<ReturnType<typeof getAbandonedCartStats>>;
+type CustomerTypeFilter = "all" | "anonymous" | "registered";
+type StatusFilter = "all" | "abandoned" | "recovered" | "active" | "cleared";
 
 const SORT_OPTIONS: { value: AbandonedCartSort; label: string }[] = [
-  { value: "date-desc", label: "Tarih: yeni olandan eski olana" },
-  { value: "date-asc", label: "Tarih: eski olandan yeni olana" },
-  { value: "total-desc", label: "Tutar: yüksekten düşüğe" },
-  { value: "total-asc", label: "Tutar: düşükten yükseğe" },
+  { value: "date-desc", label: "Sıralama: Yeni olandan eskiye" },
+  { value: "date-asc", label: "Sıralama: Eski olandan yeniye" },
+  { value: "total-desc", label: "Sıralama: Tutar yüksekten düşüğe" },
+  { value: "total-asc", label: "Sıralama: Tutar düşükten yükseğe" },
 ];
 
-const STATUS_OPTIONS: { value: NonNullable<AbandonedCartFilters["status"]>; label: string }[] = [
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Tüm durumlar" },
-  { value: "abandoned", label: "Terk edilen" },
-  { value: "recovered", label: "Kurtarılan" },
+  { value: "abandoned", label: "Terk edildi" },
+  { value: "recovered", label: "Kurtarıldı" },
   { value: "active", label: "Aktif" },
-  { value: "cleared", label: "Temizlenen" },
+  { value: "cleared", label: "Temizlendi" },
 ];
 
-const ANIMATION_EASE = [0.22, 1, 0.36, 1] as const;
+const CUSTOMER_TYPE_OPTIONS: { value: CustomerTypeFilter; label: string }[] = [
+  { value: "all", label: "Tüm müşteri tipleri" },
+  { value: "registered", label: "Kayıtlı kullanıcı" },
+  { value: "anonymous", label: "Anonim kullanıcı" },
+];
+
+const ITEMS_PER_PAGE = 10;
 
 function resolveAbandonedCartImageDirectSource(source?: string | null) {
   const rawSource = typeof source === "string" ? source.trim() : "";
@@ -78,11 +90,9 @@ function resolveAbandonedCartImageDirectSource(source?: string | null) {
 function AbandonedCartItemImage({
   src,
   alt,
-  iconClassName,
 }: {
   src?: string | null;
   alt: string;
-  iconClassName: string;
 }) {
   const initialSource = typeof src === "string" ? src.trim() : "";
   const directSource = resolveAbandonedCartImageDirectSource(initialSource);
@@ -107,7 +117,11 @@ function AbandonedCartItemImage({
   };
 
   if (!currentSource || didFail) {
-    return <Package className={iconClassName} />;
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-[#F7F8FA] text-[#9CA3AF]">
+        <Package2 className="h-5 w-5" />
+      </div>
+    );
   }
 
   return (
@@ -127,7 +141,12 @@ function toDate(value: Date | string | undefined | null) {
 }
 
 function formatCurrency(value: number) {
-  return `₺${value.toLocaleString("tr-TR")}`;
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function formatCartDate(value: Date | string | undefined) {
@@ -135,15 +154,30 @@ function formatCartDate(value: Date | string | undefined) {
 }
 
 function formatCartDateTime(value: Date | string | undefined) {
-  return format(toDate(value), "d MMM yyyy, HH:mm", { locale: tr });
-}
-
-function formatCartTime(value: Date | string | undefined) {
-  return format(toDate(value), "HH:mm", { locale: tr });
+  return format(toDate(value), "d MMM yyyy · HH:mm", { locale: tr });
 }
 
 function formatRelativeTime(value: Date | string | undefined) {
   return formatDistanceToNow(toDate(value), { locale: tr, addSuffix: true });
+}
+
+function getCustomerName(cart: AbandonedCart) {
+  const name = `${cart.firstName || ""} ${cart.lastName || ""}`.trim();
+  return name || "Anonim Kullanıcı";
+}
+
+function getRecoveryLabel(cart: AbandonedCart) {
+  if (cart.recovered || cart.status === "recovered") {
+    return {
+      label: "Kurtarıldı",
+      className: "border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]",
+    };
+  }
+
+  return {
+    label: "Bekliyor",
+    className: "border-[#BFDBFE] bg-[#EAF2FF] text-[#3B82F6]",
+  };
 }
 
 function getCartStatus(cart: AbandonedCart) {
@@ -152,133 +186,392 @@ function getCartStatus(cart: AbandonedCart) {
   const variants = {
     abandoned: {
       label: "Terk edildi",
-      tone: "border-rose-200 bg-rose-100/90 text-rose-700",
+      className: "border-[#FECACA] bg-[#FDECEC] text-[#EF4444]",
       icon: XCircle,
     },
     recovered: {
       label: "Kurtarıldı",
-      tone: "border-emerald-200 bg-emerald-100/90 text-emerald-700",
-      icon: CheckCircle,
+      className: "border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]",
+      icon: CheckCircle2,
     },
     active: {
       label: "Aktif",
-      tone: "border-sky-200 bg-sky-100/90 text-sky-700",
-      icon: Activity,
+      className: "border-[#BFDBFE] bg-[#EAF2FF] text-[#3B82F6]",
+      icon: ShoppingCart,
     },
     cleared: {
       label: "Temizlendi",
-      tone: "border-slate-200 bg-slate-100/90 text-slate-700",
-      icon: CheckCircle,
+      className: "border-[#E5E7EB] bg-[#F7F8FA] text-[#6B7280]",
+      icon: CheckCircle2,
     },
   } as const;
 
   return variants[status] || variants.abandoned;
 }
 
-function HeroMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: string;
-}) {
-  return (
-    <div className={cn("border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6", tone)}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-    </div>
-  );
+function getChangePercent(current: number, previous: number) {
+  if (previous === 0) {
+    if (current === 0) return 0;
+    return 100;
+  }
+
+  return ((current - previous) / previous) * 100;
 }
 
 function MetricCard({
   title,
   value,
+  context,
+  delta,
   icon: Icon,
   tone,
 }: {
   title: string;
   value: string;
-  icon: typeof Package;
+  context: string;
+  delta?: number | null;
+  icon: typeof ShoppingCart;
   tone: string;
 }) {
+  const isPositive = (delta ?? 0) >= 0;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: ANIMATION_EASE }}
-      className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]"
-    >
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
+    <div className="rounded-[26px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-[#6B7280]">{title}</p>
+          <div className="flex items-end gap-3">
+            <p className="text-[1.75rem] font-semibold tracking-[-0.04em] text-[#1F2937]">
+              {value}
+            </p>
+            {typeof delta === "number" ? (
+              <span
+                className={cn(
+                  "inline-flex rounded-full border px-2 py-1 text-xs font-semibold",
+                  isPositive
+                    ? "border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]"
+                    : "border-[#FECACA] bg-[#FDECEC] text-[#EF4444]"
+                )}
+              >
+                {isPositive ? "↑" : "↓"} %{Math.abs(delta).toFixed(0)}
+              </span>
+            ) : null}
           </div>
-          <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm", tone)}>
-            <Icon className="h-5 w-5" />
-          </div>
+          <p className="text-xs font-medium text-[#6B7280]">{context}</p>
+        </div>
+        <div
+          className={cn(
+            "flex h-14 w-14 items-center justify-center rounded-[1.1rem] border",
+            tone
+          )}
+        >
+          <Icon className="h-6 w-6" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
-function LoadingState() {
+function PageSkeleton() {
   return (
-    <div className="space-y-3 p-5 md:p-6">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="animate-pulse rounded-[26px] border border-[#FE6100]/8 bg-white/80 p-5">
-          <div className="grid gap-4 2xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.45fr] 2xl:items-center">
-            <div className="space-y-3">
-              <div className="h-4 w-40 rounded-full bg-gray-200" />
-              <div className="h-3 w-56 rounded-full bg-gray-100" />
-              <div className="h-3 w-44 rounded-full bg-gray-100" />
-            </div>
-            <div className="space-y-3">
-              <div className="h-7 w-28 rounded-full bg-gray-200" />
-              <div className="h-3 w-32 rounded-full bg-gray-100" />
-            </div>
-            <div className="space-y-3">
-              <div className="h-4 w-24 rounded-full bg-gray-200" />
-              <div className="h-3 w-36 rounded-full bg-gray-100" />
-            </div>
-            <div className="flex gap-2 xl:justify-end">
-              <div className="h-11 w-11 rounded-2xl bg-gray-100" />
-              <div className="h-11 w-11 rounded-2xl bg-gray-100" />
-            </div>
+    <div className="space-y-6">
+      <div className="rounded-[28px] border border-[#E7EAF0] bg-white p-6 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-28 bg-[#EEF1F4]" />
+            <Skeleton className="h-10 w-60 bg-[#EEF1F4]" />
+            <Skeleton className="h-4 w-80 bg-[#EEF1F4]" />
+          </div>
+          <div className="flex gap-3">
+            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
+            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
           </div>
         </div>
-      ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-[26px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="w-full space-y-3">
+                <Skeleton className="h-4 w-28 bg-[#EEF1F4]" />
+                <Skeleton className="h-9 w-24 bg-[#EEF1F4]" />
+                <Skeleton className="h-3 w-20 bg-[#EEF1F4]" />
+              </div>
+              <Skeleton className="h-14 w-14 rounded-[1.1rem] bg-[#EEF1F4]" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_220px_220px_260px_auto]">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 rounded-2xl bg-[#EEF1F4]" />
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EEF1F4] px-5 py-4">
+              <div className="flex gap-2">
+                <Skeleton className="h-7 w-24 rounded-full bg-[#EEF1F4]" />
+                <Skeleton className="h-7 w-28 rounded-full bg-[#EEF1F4]" />
+                <Skeleton className="h-7 w-24 rounded-full bg-[#EEF1F4]" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-10 w-40 rounded-xl bg-[#EEF1F4]" />
+                <Skeleton className="h-10 w-32 rounded-xl bg-[#EEF1F4]" />
+                <Skeleton className="h-10 w-10 rounded-xl bg-[#EEF1F4]" />
+              </div>
+            </div>
+            <div className="grid gap-4 px-5 py-5 xl:grid-cols-[1.05fr_0.95fr_1.15fr]">
+              <Skeleton className="h-40 rounded-[22px] bg-[#EEF1F4]" />
+              <Skeleton className="h-40 rounded-[22px] bg-[#EEF1F4]" />
+              <Skeleton className="h-40 rounded-[22px] bg-[#EEF1F4]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({
+  hasFilters,
+  onReset,
+}: {
+  hasFilters: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full border border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]">
+        <CheckCircle2 className="h-9 w-9" />
+      </div>
+      <h3 className="mt-5 text-xl font-semibold text-[#1F2937]">
+        {hasFilters ? "Uygun sepet bulunamadı" : "Terk edilmiş sepet bulunmuyor"}
+      </h3>
+      <p className="mt-2 max-w-md text-sm leading-6 text-[#6B7280]">
+        {hasFilters
+          ? "Arama ve filtreleri değiştirerek tekrar deneyin."
+          : "Bu iyi haber. Şu anda kurtarma gerektiren aktif bir sepet görünmüyor."}
+      </p>
+      {hasFilters ? (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-5"
+          onClick={onReset}
+        >
+          Filtreleri temizle
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function CartDetailModal({
+  cart,
+  onClose,
+}: {
+  cart: AbandonedCart;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="abandoned-cart-modal-title"
+        onClick={(event) => event.stopPropagation()}
+        className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[32px] border border-[#E7EAF0] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)]"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[#EEF1F4] px-6 py-5">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FF6A00]">
+              Sepet Detayı
+            </p>
+            <h3
+              id="abandoned-cart-modal-title"
+              className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#1F2937]"
+            >
+              {getCustomerName(cart)}
+            </h3>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              {formatCartDateTime(cart.createdAt)}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Detay penceresini kapat"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 p-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[22px] border border-[#E7EAF0] bg-[#FBFCFD] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                Sepet toplamı
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[#1F2937]">
+                {formatCurrency(cart.total || 0)}
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-[#E7EAF0] bg-[#FBFCFD] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                Ürün adedi
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[#1F2937]">
+                {cart.itemCount}
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-[#E7EAF0] bg-[#FBFCFD] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                Durum
+              </p>
+              <p className="mt-3 text-base font-semibold text-[#1F2937]">
+                {getCartStatus(cart).label}
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-[#E7EAF0] bg-[#FBFCFD] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                Geri kazanım
+              </p>
+              <p className="mt-3 text-base font-semibold text-[#1F2937]">
+                {getRecoveryLabel(cart).label}
+              </p>
+            </div>
+          </div>
+
+          <section>
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
+              Müşteri Bilgileri
+            </h4>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="rounded-[22px] border border-[#E7EAF0] bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                  Müşteri
+                </p>
+                <p className="mt-2 text-base font-semibold text-[#1F2937]">
+                  {getCustomerName(cart)}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[#E7EAF0] bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                  E-posta
+                </p>
+                <p className="mt-2 text-base font-semibold text-[#1F2937]">
+                  {cart.email || "E-posta bilgisi yok"}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[#E7EAF0] bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                  Telefon
+                </p>
+                <p className="mt-2 text-base font-semibold text-[#1F2937]">
+                  {cart.phone || "Telefon bilgisi yok"}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[#E7EAF0] bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                  Kimlik
+                </p>
+                <p className="mt-2 text-sm font-medium text-[#374151]">
+                  {cart.userId || cart.sessionId || "Davranış verisi"}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
+              Sepet İçeriği
+            </h4>
+            <div className="mt-3 space-y-3">
+              {cart.items.map((item: AbandonedCartItem) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-4 rounded-[24px] border border-[#E7EAF0] bg-white p-4 md:flex-row md:items-center"
+                >
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F7F8FA]">
+                    <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold text-[#1F2937]">
+                      {item.productName}
+                    </p>
+                    <p className="mt-1 text-sm text-[#6B7280]">
+                      {item.variantName || "Varsayılan varyant"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 md:text-right">
+                    <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-3 py-1 text-xs font-semibold text-[#6B7280]">
+                      x{item.quantity}
+                    </span>
+                    <p className="text-lg font-semibold text-[#FF6A00]">
+                      {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function AbandonedCartsPage() {
   const [allCarts, setAllCarts] = useState<AbandonedCart[]>([]);
-  const [carts, setCarts] = useState<AbandonedCart[]>([]);
-  const [filters, setFilters] = useState<AbandonedCartFilters>({});
-  const [sort, setSort] = useState<AbandonedCartSort>("date-desc");
-  const [loading, setLoading] = useState(true);
-  const [selectedCart, setSelectedCart] = useState<AbandonedCart | null>(null);
   const [stats, setStats] = useState<AbandonedCartStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedCart, setSelectedCart] = useState<AbandonedCart | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [customerTypeFilter, setCustomerTypeFilter] =
+    useState<CustomerTypeFilter>("all");
+  const [sort, setSort] = useState<AbandonedCartSort>("date-desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    setErrorMessage("");
     try {
-      const allCartsData = await getAbandonedCarts();
-      const filteredCarts = await getFilteredAbandonedCarts(filters, sort);
-      const cartStats = await getAbandonedCartStats();
-      setAllCarts(allCartsData as AbandonedCart[]);
-      setCarts(filteredCarts as AbandonedCart[]);
+      const [cartsData, cartStats] = await Promise.all([
+        getAbandonedCarts(),
+        getAbandonedCartStats(),
+      ]);
+
+      setAllCarts(cartsData);
       setStats(cartStats);
+      setLastUpdatedAt(new Date());
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error loading abandoned carts:", error);
+      setErrorMessage("Terk edilen sepetler yüklenemedi.");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [filters, sort]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -303,22 +596,70 @@ export default function AbandonedCartsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedCart]);
 
-  const handleMarkRecovered = async (id: string) => {
-    await markCartAsRecovered(id);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
     await loadData();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bu sepeti silmek istediğinizden emin misiniz?")) {
-      return;
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setCustomerTypeFilter("all");
+    setSort("date-desc");
+    setCurrentPage(1);
+  };
+
+  const filteredCarts = useMemo(() => {
+    const searchLower = searchQuery.trim().toLowerCase();
+
+    const filtered = allCarts.filter((cart) => {
+      const name = getCustomerName(cart).toLowerCase();
+      const email = (cart.email || "").toLowerCase();
+      const phone = (cart.phone || "").toLowerCase();
+      const matchesSearch =
+        !searchLower ||
+        name.includes(searchLower) ||
+        email.includes(searchLower) ||
+        phone.includes(searchLower);
+
+      const matchesStatus = statusFilter === "all" ? true : cart.status === statusFilter;
+      const matchesCustomerType =
+        customerTypeFilter === "all"
+          ? true
+          : customerTypeFilter === "anonymous"
+            ? cart.isAnonymous
+            : !cart.isAnonymous;
+
+      return matchesSearch && matchesStatus && matchesCustomerType;
+    });
+
+    return filtered.sort((left, right) => {
+      switch (sort) {
+        case "date-asc":
+          return toDate(left.createdAt).getTime() - toDate(right.createdAt).getTime();
+        case "total-desc":
+          return (right.total || 0) - (left.total || 0);
+        case "total-asc":
+          return (left.total || 0) - (right.total || 0);
+        case "date-desc":
+        default:
+          return toDate(right.createdAt).getTime() - toDate(left.createdAt).getTime();
+      }
+    });
+  }, [allCarts, searchQuery, statusFilter, customerTypeFilter, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCarts.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
-    await deleteAbandonedCart(id);
-    await loadData();
-  };
+  }, [currentPage, totalPages]);
 
-  const handleFilterChange = (key: keyof AbandonedCartFilters, value: AbandonedCartFilters[keyof AbandonedCartFilters]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
+  const paginatedCarts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCarts.slice(start, start + ITEMS_PER_PAGE);
+  }, [currentPage, filteredCarts]);
 
   const safeStats =
     stats ??
@@ -340,652 +681,520 @@ export default function AbandonedCartsPage() {
       },
     } satisfies AbandonedCartStats);
 
-  const anonymousCount = useMemo(() => allCarts.filter((cart) => cart.isAnonymous).length, [allCarts]);
-  const registeredCount = Math.max(allCarts.length - anonymousCount, 0);
-  const activeAbandonedCount = Math.max(safeStats.total - safeStats.recovered, 0);
+  const previousRecovered = Math.max(safeStats.recovered - safeStats.last24h.recovered, 0);
+  const previousActive = Math.max(
+    safeStats.total - safeStats.last24h.abandoned - previousRecovered,
+    0
+  );
+  const previousValue = Math.max(
+    safeStats.totalValue - safeStats.last24h.lostValue,
+    0
+  );
+
+  const totalDelta = getChangePercent(safeStats.last24h.abandoned, previousActive);
+  const activeTerk = Math.max(safeStats.total - safeStats.recovered, 0);
+  const activeDelta = getChangePercent(activeTerk, previousActive);
+  const totalValueDelta = getChangePercent(safeStats.last24h.lostValue, previousValue);
+  const averageDelta = getChangePercent(
+    safeStats.avgValue,
+    previousRecovered > 0 ? previousValue / Math.max(previousRecovered, 1) : 0
+  );
+
   const hasActiveFilters =
-    Boolean(filters.search?.trim()) ||
-    filters.isAnonymous !== undefined ||
-    (filters.status !== undefined && filters.status !== "all");
+    Boolean(searchQuery.trim()) ||
+    statusFilter !== "all" ||
+    customerTypeFilter !== "all";
 
-  const activeFilterSummary = useMemo(() => {
-    const chips: string[] = [];
+  const visibleStart = filteredCarts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const visibleEnd = Math.min(currentPage * ITEMS_PER_PAGE, filteredCarts.length);
 
-    if (filters.search?.trim()) {
-      chips.push(`Arama: ${filters.search}`);
+  const paginationNumbers = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
     }
 
-    if (filters.isAnonymous !== undefined) {
-      chips.push(filters.isAnonymous ? "Anonim sepetler" : "Kayıtlı müşteriler");
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, 5];
     }
 
-    if (filters.status && filters.status !== "all") {
-      const statusLabel = STATUS_OPTIONS.find((option) => option.value === filters.status)?.label;
-      if (statusLabel) chips.push(statusLabel);
+    if (currentPage >= totalPages - 2) {
+      return Array.from({ length: 5 }, (_, index) => totalPages - 4 + index);
     }
 
-    return chips;
-  }, [filters]);
+    return Array.from({ length: 5 }, (_, index) => currentPage - 2 + index);
+  }, [currentPage, totalPages]);
 
-  const visibleCartCount = carts.length;
+  const handleMarkRecovered = async (id: string) => {
+    await markCartAsRecovered(id);
+    await loadData();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Bu sepeti silmek istediğinizden emin misiniz?")) {
+      return;
+    }
+
+    await deleteAbandonedCart(id);
+    await loadData();
+  };
 
   return (
-    <main
-      role="main"
-      aria-busy={loading}
-      className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#f0e8e0]"
-    >
-      <div className="mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
-        <div className="space-y-8">
-          <motion.section
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
-          >
-            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="space-y-0">
-                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
-                    Terk Edilen Sepetler
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => void loadData()}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#FE6100] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30"
-                  >
-                    <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-                    Verileri Yenile
-                  </button>
-
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E85A00] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(254,97,0,0.25)] transition-all hover:from-[#E85A00] hover:to-[#D94F00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30"
-                  >
-                    <Download className="h-4 w-4" />
-                    Raporu Dışa Aktar
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 2xl:grid-cols-4">
-              <HeroMetric
-                label="Son 24 Saatte Terk"
-                value={safeStats.last24h.abandoned.toLocaleString("tr-TR")}
-              />
-              <HeroMetric
-                label="Son 24 Saatte Kurtarılan"
-                value={safeStats.last24h.recovered.toLocaleString("tr-TR")}
-              />
-              <HeroMetric
-                label="Son 24 Saat Kayıp Değer"
-                value={formatCurrency(safeStats.last24h.lostValue)}
-              />
-              <HeroMetric
-                label="Sepetten Satın Alma Oranı"
-                value={`%${safeStats.conversion.rate.toFixed(1)}`}
-              />
-            </div>
-          </motion.section>
-
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
-            <MetricCard
-              title="Toplam sepet"
-              value={safeStats.total.toLocaleString("tr-TR")}
-              icon={ShoppingCart}
-              tone="border-[#FE6100]/15 from-[#fff2e8] to-white text-[#FE6100]"
-            />
-            <MetricCard
-              title="Aktif terk"
-              value={activeAbandonedCount.toLocaleString("tr-TR")}
-              icon={Activity}
-              tone="border-rose-200/60 from-rose-50 to-white text-rose-700"
-            />
-            <MetricCard
-              title="Toplam değer"
-              value={formatCurrency(safeStats.totalValue)}
-              icon={DollarSign}
-              tone="border-amber-200/60 from-amber-50 to-white text-amber-700"
-            />
-            <MetricCard
-              title="Ortalama sepet"
-              value={formatCurrency(Number(safeStats.avgValue.toFixed(2)))}
-              icon={Calendar}
-              tone="border-emerald-200/60 from-emerald-50 to-white text-emerald-700"
-            />
-          </section>
-
-          <section className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-6">
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve Sıralama</h2>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600">
-                  <ListFilter className="h-4 w-4 text-[#FE6100]" />
-                  {carts.length.toLocaleString("tr-TR")} sonuç
+    <main className="min-h-screen bg-[#F7F8FA]">
+      <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
+        <div className="space-y-6">
+          <section className="rounded-[28px] border border-[#E7EAF0] bg-white px-6 py-6 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:px-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <span className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E85D04]">
+                  Celebix Admin
+                </span>
+                <div className="space-y-2">
+                  <h1 className="text-[2rem] font-semibold tracking-[-0.05em] text-[#1F2937]">
+                    Terkedilen Sepetler
+                  </h1>
+                  <p className="max-w-2xl text-sm leading-6 text-[#6B7280] md:text-[0.95rem]">
+                    Terk edilen sepetleri takip edin, kurtarma fırsatlarını yönetin.
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.3fr)_minmax(220px,0.3fr)_minmax(240px,0.34fr)]">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="İsim, e-posta veya telefon ile ara"
-                    value={filters.search || ""}
-                    onChange={(event) => handleFilterChange("search", event.target.value)}
-                    aria-label="Sepet sahibi veya iletişim bilgisine göre ara"
-                    className="w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 py-3 pl-11 pr-11 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FE6100]/20"
-                  />
-                  {filters.search ? (
-                    <button
-                      type="button"
-                      onClick={() => handleFilterChange("search", undefined)}
-                      aria-label="Aramayı temizle"
-                      className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+              <div className="flex items-center gap-3 lg:justify-end">
+                <Link
+                  href="/admin/ayarlar/bildirimler"
+                  aria-label="Bildirim ayarları"
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                    "relative h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none"
+                  )}
+                >
+                  <Bell className="h-4 w-4" />
+                  {activeTerk > 0 ? (
+                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#FF6A00]" />
                   ) : null}
-                </div>
-
-                <div className="relative">
-                  <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={filters.status || "all"}
-                    onChange={(event) =>
-                      handleFilterChange(
-                        "status",
-                        event.target.value === "all"
-                          ? undefined
-                          : (event.target.value as AbandonedCartFilters["status"])
-                      )
-                    }
-                    aria-label="Sepet durumu filtresi"
-                    className="w-full appearance-none rounded-2xl border border-[#FE6100]/12 bg-white/85 px-11 py-3 pr-10 text-sm text-gray-900 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FE6100]/20"
-                  >
-                    {STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                </div>
-
-                <div className="relative">
-                  <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={filters.isAnonymous === undefined ? "all" : filters.isAnonymous ? "anonymous" : "registered"}
-                    onChange={(event) =>
-                      handleFilterChange(
-                        "isAnonymous",
-                        event.target.value === "all"
-                          ? undefined
-                          : event.target.value === "anonymous"
-                      )
-                    }
-                    aria-label="Müşteri tipi filtresi"
-                    className="w-full appearance-none rounded-2xl border border-[#FE6100]/12 bg-white/85 px-11 py-3 pr-10 text-sm text-gray-900 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FE6100]/20"
-                  >
-                    <option value="all">Tüm müşteriler</option>
-                    <option value="registered">Kayıtlı müşteriler</option>
-                    <option value="anonymous">Anonim kullanıcılar</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                </div>
-
-                <div className="relative">
-                  <ListFilter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={sort}
-                    onChange={(event) => setSort(event.target.value as AbandonedCartSort)}
-                    aria-label="Sepetleri sıralama biçimi"
-                    className="w-full appearance-none rounded-2xl border border-[#FE6100]/12 bg-white/85 px-11 py-3 pr-10 text-sm text-gray-900 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FE6100]/20"
-                  >
-                    {SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/10 bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-                    <ShoppingCart className="h-3.5 w-3.5 text-[#FE6100]" />
-                    {allCarts.length.toLocaleString("tr-TR")} toplam sepet
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-                    <User className="h-3.5 w-3.5 text-slate-500" />
-                    {registeredCount.toLocaleString("tr-TR")} kayıtlı müşteri
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-                    <User className="h-3.5 w-3.5 text-amber-600" />
-                    {anonymousCount.toLocaleString("tr-TR")} anonim sepet
-                  </span>
-                </div>
-
+                </Link>
                 <button
                   type="button"
-                  onClick={() => {
-                    setFilters({});
-                    setSort("date-desc");
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-[#FE6100] transition-all hover:border-[#FE6100]/20 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20"
+                  onClick={handleRefresh}
+                  aria-label="Sepetleri yenile"
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                    "h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none"
+                  )}
                 >
-                  Filtreleri Temizle
+                  {isRefreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
                 </button>
               </div>
-
-              {activeFilterSummary.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {activeFilterSummary.map((item) => (
-                    <span
-                      key={item}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-semibold text-[#FE6100]"
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
             </div>
+
+            {lastUpdatedAt ? (
+              <p className="mt-4 text-xs font-medium text-[#9CA3AF]">
+                Son güncelleme: {formatCartDateTime(lastUpdatedAt)}
+              </p>
+            ) : null}
           </section>
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
-            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Sepet Listesi
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Aktif kurtarma fırsatları
-                  </h2>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {loading ? "Sepetler hazırlanıyor" : `${visibleCartCount.toLocaleString("tr-TR")} sepet listeleniyor`}
-                </div>
-              </div>
-            </div>
+          {loading ? (
+            <PageSkeleton />
+          ) : (
+            <>
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard
+                  title="Toplam Sepet"
+                  value={safeStats.total.toLocaleString("tr-TR")}
+                  context="Son 24 saatte"
+                  delta={totalDelta}
+                  icon={ShoppingCart}
+                  tone="border-[#FFD7BF] bg-[#FFF1E8] text-[#FF6A00]"
+                />
+                <MetricCard
+                  title="Aktif Terk"
+                  value={activeTerk.toLocaleString("tr-TR")}
+                  context="Son 24 saatte"
+                  delta={activeDelta}
+                  icon={CalendarClock}
+                  tone="border-[#FDE68A] bg-[#FFF7E8] text-[#F59E0B]"
+                />
+                <MetricCard
+                  title="Toplam Değer"
+                  value={formatCurrency(safeStats.totalValue)}
+                  context="Son 24 saatte"
+                  delta={totalValueDelta}
+                  icon={Wallet}
+                  tone="border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]"
+                />
+                <MetricCard
+                  title="Ortalama Sepet"
+                  value={formatCurrency(Number(safeStats.avgValue.toFixed(2)))}
+                  context="Son 24 saatte"
+                  delta={averageDelta}
+                  icon={Package2}
+                  tone="border-[#DDD6FE] bg-[#F3EEFF] text-[#8B5CF6]"
+                />
+              </section>
 
-            {loading ? (
-              <LoadingState />
-            ) : carts.length === 0 ? (
-              <div className="px-6 py-16 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#fff3e9] to-white text-[#FE6100] shadow-sm">
-                  <ShoppingCart className="h-9 w-9" />
-                </div>
-                <p className="mt-5 text-lg font-semibold text-gray-950">
-                  {hasActiveFilters ? "Uygun sepet bulunamadı" : "Henüz terk edilen sepet bulunmuyor"}
-                </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  {hasActiveFilters
-                    ? "Arama veya filtre kriterlerini değiştirerek tekrar deneyin."
-                    : "Yeni sepet hareketleri oluştuğunda bu ekran otomatik olarak güncellenecektir."}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4 p-5 md:p-6">
-                {carts.map((cart) => {
-                  const status = getCartStatus(cart);
-                  const StatusIcon = status.icon;
-                  const previewItems = cart.items.slice(0, 3);
-                  const remainingItems = Math.max(cart.items.length - previewItems.length, 0);
+              <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_220px_220px_260px_auto]">
+                  <label className="relative block">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(event) => {
+                        setSearchQuery(event.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="İsim, e-posta veya telefon ile ara"
+                      className="h-12 w-full rounded-2xl border border-[#E7EAF0] bg-white pl-11 pr-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                    />
+                  </label>
 
-                  return (
-                    <motion.article
-                      key={cart.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: ANIMATION_EASE }}
-                      className="overflow-hidden rounded-[28px] border border-white/70 bg-white/80 shadow-sm transition-all duration-200 hover:border-[#FE6100]/12 hover:bg-white hover:shadow-[0_18px_35px_rgba(254,97,0,0.08)]"
+                  <div className="relative">
+                    <select
+                      value={statusFilter}
+                      onChange={(event) => {
+                        setStatusFilter(event.target.value as StatusFilter);
+                        setCurrentPage(1);
+                      }}
+                      className="h-12 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
                     >
-                      <div className="border-b border-[#FE6100]/8 px-5 py-4 md:px-6">
-                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold", status.tone)}>
-                              <StatusIcon className="h-3.5 w-3.5" />
-                              {status.label}
-                            </span>
-                            {cart.isAnonymous ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100/90 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                                <User className="h-3.5 w-3.5" />
-                                Anonim kullanıcı
-                              </span>
-                            ) : null}
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-medium text-[#FE6100]">
-                              <Clock className="h-3.5 w-3.5" />
-                              {formatRelativeTime(cart.createdAt)}
-                            </span>
-                          </div>
+                      {STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                  </div>
 
-                          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                            {!cart.recovered ? (
+                  <div className="relative">
+                    <select
+                      value={customerTypeFilter}
+                      onChange={(event) => {
+                        setCustomerTypeFilter(event.target.value as CustomerTypeFilter);
+                        setCurrentPage(1);
+                      }}
+                      className="h-12 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                    >
+                      {CUSTOMER_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                  </div>
+
+                  <div className="relative">
+                    <select
+                      value={sort}
+                      onChange={(event) => setSort(event.target.value as AbandonedCartSort)}
+                      className="h-12 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                    >
+                      {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 xl:justify-end">
+                    <span className="rounded-full border border-[#E7EAF0] bg-[#FBFCFD] px-3 py-2 text-sm font-medium text-[#6B7280]">
+                      {filteredCarts.length} sonuç
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-2xl"
+                      onClick={handleResetFilters}
+                    >
+                      Filtreleri Temizle
+                    </Button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                {errorMessage ? (
+                  <div
+                    role="alert"
+                    className="rounded-[22px] border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+                  >
+                    {errorMessage}
+                  </div>
+                ) : null}
+
+                {filteredCarts.length === 0 ? (
+                  <section className="rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+                    <EmptyState hasFilters={hasActiveFilters} onReset={handleResetFilters} />
+                  </section>
+                ) : (
+                  <>
+                    {paginatedCarts.map((cart) => {
+                      const statusMeta = getCartStatus(cart);
+                      const recoveryMeta = getRecoveryLabel(cart);
+                      const previewItems = cart.items.slice(0, 2);
+                      const remainingItems = Math.max(cart.items.length - previewItems.length, 0);
+                      const StatusIcon = statusMeta.icon;
+
+                      return (
+                        <article
+                          key={cart.id}
+                          className="overflow-hidden rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]"
+                        >
+                          <div className="flex flex-col gap-4 border-b border-[#EEF1F4] px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                                  statusMeta.className
+                                )}
+                              >
+                                <StatusIcon className="h-3.5 w-3.5" />
+                                {statusMeta.label}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                                <UserRound className="h-3.5 w-3.5" />
+                                {cart.isAnonymous ? "Anonim kullanıcı" : "Kayıtlı kullanıcı"}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#FBFCFD] px-3 py-1.5 text-xs font-medium text-[#6B7280]">
+                                <CalendarClock className="h-3.5 w-3.5" />
+                                {formatRelativeTime(cart.createdAt)}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                              {!cart.recovered ? (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  className="rounded-xl border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A] shadow-none hover:border-[#86EFAC] hover:bg-[#DCFCE7]"
+                                  onClick={() => void handleMarkRecovered(cart.id)}
+                                >
+                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  Kurtarıldı Olarak İşaretle
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => setSelectedCart(cart)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Detayları Gör
+                              </Button>
                               <button
                                 type="button"
-                                onClick={() => void handleMarkRecovered(cart.id)}
-                                className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-all hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
+                                onClick={() => void handleDelete(cart.id)}
+                                aria-label="Sepeti sil"
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#FECACA] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]"
                               >
-                                <CheckCircle className="h-4 w-4" />
-                                Kurtarıldı Olarak İşaretle
+                                <Trash2 className="h-4 w-4" />
                               </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCart(cart)}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-2.5 text-sm font-medium text-[#FE6100] transition-all hover:border-[#FE6100]/20 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20"
-                            >
-                              <Package className="h-4 w-4" />
-                              Detayları Gör
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(cart.id)}
-                              aria-label="Sepeti sil"
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-100 bg-white text-rose-600 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </button>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="p-5 md:p-6">
-                        <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1.2fr_0.8fr_0.95fr]">
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                          <div className="grid gap-5 px-5 py-5 xl:grid-cols-[1.05fr_0.95fr_1.15fr]">
+                            <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
                                 Müşteri Bilgileri
                               </p>
-                              {cart.isAnonymous ? (
-                                <div className="mt-3 rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
-                                  Bu sepet anonim bir kullanıcıya aittir. İletişim bilgisi bulunmuyorsa yalnızca davranış verisi izlenebilir.
+                              <div className="mt-4 flex gap-4">
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[#E7EAF0] bg-white text-[#9CA3AF]">
+                                  <UserRound className="h-6 w-6" />
                                 </div>
-                              ) : (
-                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                                      <User className="h-4 w-4 text-[#FE6100]" />
-                                      Müşteri adı
+                                <div className="min-w-0 space-y-2">
+                                  <p className="text-lg font-semibold tracking-[-0.02em] text-[#1F2937]">
+                                    {getCustomerName(cart)}
+                                  </p>
+                                  <div className="space-y-1 text-sm text-[#6B7280]">
+                                    <div className="flex items-center gap-2">
+                                      <Mail className="h-4 w-4 text-[#9CA3AF]" />
+                                      <span>{cart.email || "E-posta bilgisi yok"}</span>
                                     </div>
-                                    <p className="mt-2 text-base font-semibold text-gray-950">
-                                      {cart.firstName || "-"} {cart.lastName || ""}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Phone className="h-4 w-4 text-[#9CA3AF]" />
+                                      <span>{cart.phone || "Telefon bilgisi yok"}</span>
+                                    </div>
                                   </div>
-                                  <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                                      <Mail className="h-4 w-4 text-[#FE6100]" />
-                                      E-posta
-                                    </div>
-                                    <p className="mt-2 text-base font-semibold text-gray-950">{cart.email || "-"}</p>
-                                  </div>
-                                  <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm sm:col-span-2">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                                      <Phone className="h-4 w-4 text-[#FE6100]" />
-                                      Telefon
-                                    </div>
-                                    <p className="mt-2 text-base font-semibold text-gray-950">{cart.phone || "-"}</p>
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    <span className="rounded-full border border-[#E7EAF0] bg-white px-3 py-1 text-xs font-medium text-[#6B7280]">
+                                      {cart.userId
+                                        ? `Müşteri ID: ${cart.userId}`
+                                        : cart.sessionId
+                                          ? `Oturum: ${cart.sessionId.slice(0, 10)}...`
+                                          : "Davranış verisi"}
+                                    </span>
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          </div>
+                              </div>
+                            </section>
 
-                          <div className="space-y-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
-                              Sepet Özeti
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="rounded-[22px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff3e9] to-white p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Sepet değeri</p>
-                                <p className="mt-2 text-xl font-semibold tracking-[-0.04em] text-gray-950">
-                                  {formatCurrency(cart.total || 0)}
-                                </p>
-                              </div>
-                              <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Ürün adedi</p>
-                                <p className="mt-2 text-xl font-semibold tracking-[-0.04em] text-gray-950">
-                                  {cart.itemCount.toLocaleString("tr-TR")}
-                                </p>
-                              </div>
-                              <div className="rounded-[22px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Terk tarihi</p>
-                                <p className="mt-2 text-sm font-semibold text-gray-950">{formatCartDate(cart.createdAt)}</p>
-                                <p className="mt-1 text-xs text-gray-500">{formatCartTime(cart.createdAt)}</p>
-                              </div>
-                              <div className="rounded-[22px] border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Geri kazanım</p>
-                                <p className="mt-2 text-sm font-semibold text-gray-950">
-                                  {cart.recovered ? "Tamamlandı" : "Bekliyor"}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">{formatRelativeTime(cart.createdAt)}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
-                                Sepet İçeriği
+                            <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
+                                Sepet Özeti
                               </p>
-                              <span className="rounded-full border border-[#FE6100]/10 bg-[#fff7f1] px-3 py-1 text-xs font-medium text-[#FE6100]">
-                                {cart.items.length} ürün
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-1">
-                              {previewItems.map((item: AbandonedCartItem) => (
-                                <div key={item.id} className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white p-3 shadow-sm">
-                                  <div className="h-14 w-14 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-                                    {item.productImage ? (
+                              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                                    Sepet Değeri
+                                  </p>
+                                  <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[#1F2937]">
+                                    {formatCurrency(cart.total || 0)}
+                                  </p>
+                                </div>
+                                <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                                    Ürün Adedi
+                                  </p>
+                                  <p className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[#1F2937]">
+                                    {cart.itemCount}
+                                  </p>
+                                </div>
+                                <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                                    Terk Tarihi
+                                  </p>
+                                  <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                                    {formatCartDate(cart.createdAt)}
+                                  </p>
+                                  <p className="mt-1 text-xs text-[#9CA3AF]">
+                                    {format(toDate(cart.createdAt), "HH:mm")}
+                                  </p>
+                                </div>
+                                <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                                    Geri Kazanım
+                                  </p>
+                                  <div className="mt-2">
+                                    <span
+                                      className={cn(
+                                        "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                                        recoveryMeta.className
+                                      )}
+                                    >
+                                      {recoveryMeta.label}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-xs text-[#9CA3AF]">
+                                    {formatRelativeTime(cart.createdAt)}
+                                  </p>
+                                </div>
+                              </div>
+                            </section>
+
+                            <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
+                                  Sepet İçeriği
+                                </p>
+                                <span className="rounded-full border border-[#E7EAF0] bg-white px-3 py-1 text-xs font-medium text-[#6B7280]">
+                                  {cart.items.length} ürün
+                                </span>
+                              </div>
+                              <div className="mt-4 space-y-3">
+                                {previewItems.map((item: AbandonedCartItem) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center gap-3 rounded-[20px] border border-[#E7EAF0] bg-white p-3"
+                                  >
+                                    <div className="h-16 w-16 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F7F8FA]">
                                       <AbandonedCartItemImage
                                         src={item.productImage}
                                         alt={item.productName}
-                                        iconClassName="h-full w-full p-3 text-gray-400"
                                       />
-                                    ) : (
-                                      <Package className="h-full w-full p-3 text-gray-400" />
-                                    )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-[#1F2937]">
+                                        {item.productName}
+                                      </p>
+                                      <p className="mt-1 truncate text-xs text-[#6B7280]">
+                                        {item.variantName || "Varsayılan varyant"}
+                                      </p>
+                                      <p className="mt-1 text-sm font-medium text-[#FF6A00]">
+                                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                                      </p>
+                                    </div>
+                                    <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-1 text-xs font-semibold text-[#6B7280]">
+                                      x{item.quantity}
+                                    </span>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-gray-950">{item.productName}</p>
-                                    <p className="mt-1 truncate text-xs text-gray-500">{item.variantName || "Varsayılan varyant"}</p>
-                                    <p className="mt-1 text-sm font-medium text-[#FE6100]">
-                                      {formatCurrency((item.price || 0) * (item.quantity || 0))}
-                                    </p>
+                                ))}
+                                {remainingItems > 0 ? (
+                                  <div className="rounded-[20px] border border-dashed border-[#E7EAF0] bg-white px-4 py-3 text-sm font-medium text-[#6B7280]">
+                                    +{remainingItems} ürün daha
                                   </div>
-                                  <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
-                                    x{item.quantity}
-                                  </span>
-                                </div>
-                              ))}
-                              {remainingItems > 0 ? (
-                                <div className="flex items-center justify-center rounded-[22px] border border-dashed border-[#FE6100]/20 bg-white/80 px-4 py-5 text-sm font-medium text-gray-500">
-                                  +{remainingItems} ürün daha
-                                </div>
-                              ) : null}
-                            </div>
+                                ) : null}
+                              </div>
+                            </section>
                           </div>
+                        </article>
+                      );
+                    })}
+
+                    <div className="flex flex-col gap-4 rounded-[28px] border border-[#E7EAF0] bg-white px-5 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:flex-row md:items-center md:justify-between">
+                      <p className="text-sm text-[#6B7280]">
+                        {visibleStart} - {visibleEnd} / {filteredCarts.length} sepet gösteriliyor
+                      </p>
+
+                      <div className="flex items-center gap-2 self-end md:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                          disabled={currentPage === 1}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {paginationNumbers.map((pageNumber) => (
+                            <button
+                              key={pageNumber}
+                              type="button"
+                              onClick={() => setCurrentPage(pageNumber)}
+                              className={cn(
+                                "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors",
+                                pageNumber === currentPage
+                                  ? "bg-[#FF6A00] text-white shadow-[0_12px_24px_rgba(255,106,0,0.18)]"
+                                  : "border border-[#E7EAF0] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]"
+                              )}
+                            >
+                              {pageNumber}
+                            </button>
+                          ))}
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage((page) => Math.min(totalPages, page + 1))
+                          }
+                          disabled={currentPage === totalPages}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
-                    </motion.article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
         </div>
       </div>
 
       {selectedCart ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
-          onClick={() => setSelectedCart(null)}
-        >
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="abandoned-cart-modal-title"
-            initial={{ opacity: 0, y: 20, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.25, ease: ANIMATION_EASE }}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_30px_90px_rgba(0,0,0,0.28)]"
-          >
-            <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-7">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Sepet Detayı
-                  </p>
-                  <h3 id="abandoned-cart-modal-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Terk edilen sepet özeti
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">Sepet kimliği: {selectedCart.id}</p>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Detay penceresini kapat"
-                  onClick={() => setSelectedCart(null)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-gray-500 transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-8 p-6 md:p-7">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-                <div className="rounded-[24px] border border-[#FE6100]/15 bg-gradient-to-br from-[#fff3e9] to-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FE6100]">Sepet toplamı</p>
-                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
-                    {formatCurrency(selectedCart.total || 0)}
-                  </p>
-                </div>
-                <div className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Ürün sayısı</p>
-                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
-                    {selectedCart.itemCount.toLocaleString("tr-TR")}
-                  </p>
-                </div>
-                <div className="rounded-[24px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Oluşturulma</p>
-                  <p className="mt-3 text-base font-semibold text-gray-950">
-                    {formatCartDateTime(selectedCart.createdAt)}
-                  </p>
-                </div>
-                <div className="rounded-[24px] border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Durum</p>
-                  <p className="mt-3 text-base font-semibold text-gray-950">
-                    {selectedCart.recovered ? "Kurtarıldı" : "Geri kazanım bekliyor"}
-                  </p>
-                </div>
-              </div>
-
-              <section>
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
-                  <User className="h-4 w-4" />
-                  Müşteri Bilgileri
-                </div>
-
-                {selectedCart.isAnonymous ? (
-                  <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50/90 p-5 text-sm text-slate-600">
-                    Bu sepet anonim bir kullanıcıya aittir. Kimlik bilgisi bulunmuyorsa yalnızca davranış verisi izlenebilir.
-                  </div>
-                ) : (
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Ad</p>
-                      <p className="mt-2 text-base font-semibold text-gray-950">{selectedCart.firstName || "-"}</p>
-                    </div>
-                    <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Soyad</p>
-                      <p className="mt-2 text-base font-semibold text-gray-950">{selectedCart.lastName || "-"}</p>
-                    </div>
-                    <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">E-posta</p>
-                      <p className="mt-2 text-base font-semibold text-gray-950">{selectedCart.email || "-"}</p>
-                    </div>
-                    <div className="rounded-[22px] border border-white/70 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Telefon</p>
-                      <p className="mt-2 text-base font-semibold text-gray-950">{selectedCart.phone || "-"}</p>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
-                  <Package className="h-4 w-4" />
-                  Sepet Ürünleri
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {selectedCart.items.map((item: AbandonedCartItem) => (
-                    <div
-                      key={item.id}
-                      className="flex flex-col gap-4 rounded-[24px] border border-white/70 bg-white p-4 shadow-sm md:flex-row md:items-center"
-                    >
-                      <div className="h-20 w-20 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-                        {item.productImage ? (
-                          <AbandonedCartItemImage
-                            src={item.productImage}
-                            alt={item.productName}
-                            iconClassName="h-full w-full p-4 text-gray-400"
-                          />
-                        ) : (
-                          <Package className="h-full w-full p-4 text-gray-400" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-semibold text-gray-950">{item.productName}</p>
-                        <p className="mt-1 text-sm text-gray-500">{item.variantName || "Varsayılan varyant"}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                          <span className="rounded-full bg-slate-100 px-3 py-1">Adet: {item.quantity}</span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1">Stok: {item.stock ?? 0}</span>
-                        </div>
-                      </div>
-
-                      <div className="md:text-right">
-                        <p className="text-lg font-semibold text-[#FE6100]">
-                          {formatCurrency((item.price || 0) * (item.quantity || 0))}
-                        </p>
-                        {item.originalPrice && item.originalPrice > item.price ? (
-                          <p className="mt-1 text-sm text-gray-400 line-through">
-                            {formatCurrency(item.originalPrice * item.quantity)}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <div className="flex flex-col gap-4 border-t border-[#FE6100]/8 pt-6 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Toplam {selectedCart.itemCount} ürün</p>
-                  <p className="mt-1 text-xs text-gray-500">Oluşturulma: {formatCartDateTime(selectedCart.createdAt)}</p>
-                </div>
-                <div className="text-left md:text-right">
-                  <p className="text-sm text-gray-600">Sepet toplamı</p>
-                  <p className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-[#FE6100]">
-                    {formatCurrency(selectedCart.total || 0)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+        <CartDetailModal cart={selectedCart} onClose={() => setSelectedCart(null)} />
       ) : null}
     </main>
   );
