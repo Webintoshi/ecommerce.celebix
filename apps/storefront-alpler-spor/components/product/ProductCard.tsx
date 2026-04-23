@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingBag, Star } from "lucide-react";
+import { Heart, Ruler, ShoppingBag, Star } from "lucide-react";
 import { toast } from "sonner";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { useCart } from "@/lib/cart-context";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatPrice } from "@/lib/utils";
-import { getProductCardSwatches } from "@/lib/variant-selection";
+import {
+  getOrderedVariantAttributeGroups,
+  getProductCardSwatches,
+} from "@/lib/variant-selection";
 import { useWishlist } from "@/lib/wishlist-context";
-import { Product } from "@/types/product";
+import type { Product, ProductVariant } from "@/types/product";
 
 interface ProductCardProps {
   product: Product;
@@ -19,7 +23,19 @@ interface ProductCardProps {
   viewMode?: "grid" | "list";
 }
 
+type SizeOption = {
+  key: string;
+  label: string;
+  variant: ProductVariant;
+  stock: number;
+};
+
 function getResolvedProductImages(product: Product) {
+  const imagesV2 = Array.isArray(product.imagesV2)
+    ? product.imagesV2
+        .map((image) => image?.url ?? "")
+        .filter((image) => image.length > 0)
+    : [];
   const legacyImagesV2 = Array.isArray(
     (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2,
   )
@@ -31,10 +47,117 @@ function getResolvedProductImages(product: Product) {
     : [];
 
   return (
-    Array.isArray(product.images) && product.images.length > 0 ? product.images : legacyImagesV2
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : imagesV2.length > 0
+        ? imagesV2
+        : legacyImagesV2
   )
     .map((image) => resolveStorefrontAssetUrl(image))
     .filter((image) => image.length > 0);
+}
+
+function formatCategoryLabel(value?: string | null) {
+  return String(value || "Alpler Spor")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
+    .join(" ");
+}
+
+function getDisplayVariant(product: Product) {
+  const variants = product.variants || [];
+  const inStockVariant = variants
+    .filter((variant) => typeof variant.price === "number" && Number(variant.stock || 0) > 0)
+    .sort((left, right) => left.price - right.price)[0];
+
+  return (
+    inStockVariant ||
+    variants
+      .filter((variant) => typeof variant.price === "number")
+      .sort((left, right) => left.price - right.price)[0]
+  );
+}
+
+function isSizeLikeGroupName(name: string) {
+  const normalized = name.toLocaleLowerCase("tr-TR");
+  return (
+    normalized.includes("beden") ||
+    normalized.includes("numara") ||
+    normalized.includes("size") ||
+    normalized.includes("shoe") ||
+    normalized.includes("ayakkabi")
+  );
+}
+
+function isColorLikeGroupName(name: string) {
+  const normalized = name.toLocaleLowerCase("tr-TR");
+  return (
+    normalized.includes("renk") ||
+    normalized.includes("color") ||
+    normalized.includes("rengi")
+  );
+}
+
+function isLikelySizeValue(value?: string | null) {
+  const normalized = String(value || "").trim().toLocaleLowerCase("tr-TR");
+  return (
+    /^\d{2}(?:[.,]5)?$/.test(normalized) ||
+    /^(xs|s|m|l|xl|xxl|xxxl)$/.test(normalized) ||
+    normalized.includes("beden") ||
+    normalized.includes("numara")
+  );
+}
+
+function getSizeOptions(product: Product): SizeOption[] {
+  const variants = product.variants || [];
+  if (variants.length < 2) return [];
+
+  const groups = getOrderedVariantAttributeGroups(variants);
+  const sizeGroup =
+    groups.find((group) => isSizeLikeGroupName(group.name)) ||
+    groups.find(
+      (group) =>
+        !isColorLikeGroupName(group.name) &&
+        group.values.some((value) => isLikelySizeValue(value.value)),
+    );
+
+  if (sizeGroup && sizeGroup.values.length > 1) {
+    const seenLabels = new Set<string>();
+    return sizeGroup.values
+      .map((value) => {
+        const variant = variants[value.variantIndex];
+        if (!variant || seenLabels.has(value.value)) return null;
+        seenLabels.add(value.value);
+        return {
+          key: value.key,
+          label: value.value,
+          variant,
+          stock: Number(variant.stock || 0),
+        };
+      })
+      .filter((option): option is SizeOption => Boolean(option))
+      .slice(0, 6);
+  }
+
+  const namedVariants = variants.filter(
+    (variant) => variant.name && !/^default$/i.test(String(variant.name)),
+  );
+
+  if (
+    namedVariants.length < 2 ||
+    namedVariants.length > 6 ||
+    !namedVariants.every((variant) => isLikelySizeValue(variant.name))
+  ) {
+    return [];
+  }
+
+  return namedVariants.map((variant) => ({
+    key: variant.id,
+    label: variant.name,
+    variant,
+    stock: Number(variant.stock || 0),
+  }));
 }
 
 function ProductCardSwatches({ product }: { product: Product }) {
@@ -43,13 +166,13 @@ function ProductCardSwatches({ product }: { product: Product }) {
   if (swatches.length === 0) return null;
 
   return (
-    <div className="mt-2 flex items-center gap-2">
+    <div className="flex items-center gap-1.5" aria-label="Renk secenekleri">
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
           title={swatch.value}
           aria-label={swatch.value}
-          className="relative h-4 w-4 overflow-hidden rounded-full border border-[#D1D5DB] bg-[#EEF2F7]"
+          className="relative h-4 w-4 overflow-hidden rounded-full border border-[#D1D5DB] bg-[#EEF2F7] ring-2 ring-white"
         >
           {swatch.image_url ? (
             <img
@@ -75,7 +198,7 @@ function ProductCardRating({ product }: { product: Product }) {
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-2 flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5">
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={`${product.id}-rating-${index}`}
@@ -90,25 +213,105 @@ function ProductCardRating({ product }: { product: Product }) {
   );
 }
 
-function formatCategoryLabel(value?: string | null) {
-  return String(value || "Alpler Spor")
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
-    .join(" ");
-}
+function ProductBadges({
+  product,
+  discountPercent,
+  stock,
+  isOutOfStock,
+}: {
+  product: Product;
+  discountPercent: number;
+  stock: number;
+  isOutOfStock: boolean;
+}) {
+  const badges: Array<{ label: string; className: string }> = [];
 
-function getDisplayVariant(product: Product) {
-  const variants = product.variants || [];
-  const inStockVariant = variants
-    .filter((variant) => typeof variant.price === "number" && Number(variant.stock || 0) > 0)
-    .sort((left, right) => left.price - right.price)[0];
+  if (isOutOfStock) {
+    badges.push({
+      label: "Tukendi",
+      className: "bg-[#E5E7EB] text-[#6B7280]",
+    });
+  } else if (discountPercent > 0) {
+    badges.push({
+      label: `%${discountPercent} Indirim`,
+      className: "bg-[#FFF1E8] text-[#EA580C]",
+    });
+  }
+
+  if (product.new) {
+    badges.push({
+      label: "Yeni",
+      className: "bg-[#DCFCE7] text-[#15803D]",
+    });
+  }
+
+  if (product.isBestseller) {
+    badges.push({
+      label: "Cok Satan",
+      className: "bg-[#FEF3C7] text-[#D97706]",
+    });
+  }
+
+  if (!isOutOfStock && stock > 0 && stock <= 5) {
+    badges.push({
+      label: "Sinirli Stok",
+      className: "bg-[#FFF7ED] text-[#EA580C]",
+    });
+  }
 
   return (
-    inStockVariant ||
-    variants
-      .filter((variant) => typeof variant.price === "number")
-      .sort((left, right) => left.price - right.price)[0]
+    <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-4rem)] flex-wrap gap-1.5">
+      {badges.slice(0, 3).map((badge) => (
+        <span
+          key={badge.label}
+          className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] shadow-sm ${badge.className}`}
+        >
+          {badge.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ProductMetaLine({ product }: { product: Product }) {
+  const pieces = [
+    product.subcategory ? formatCategoryLabel(product.subcategory) : formatCategoryLabel(product.category),
+    product.tags?.[0],
+  ].filter(Boolean);
+
+  if (pieces.length === 0) return null;
+
+  return (
+    <p className="line-clamp-1 text-[12px] font-medium leading-5 text-[#6B7280] sm:text-[13px]">
+      {pieces.join(" / ")}
+    </p>
+  );
+}
+
+function StockLine({ stock, isOutOfStock }: { stock: number; isOutOfStock: boolean }) {
+  if (isOutOfStock) {
+    return (
+      <div className="flex items-center gap-2 text-xs font-bold text-[#6B7280]">
+        <span className="h-2 w-2 rounded-full bg-[#9CA3AF]" />
+        Tukendi
+      </div>
+    );
+  }
+
+  if (stock > 0 && stock <= 5) {
+    return (
+      <div className="flex items-center gap-2 text-xs font-bold text-[#EA580C]">
+        <span className="h-2 w-2 rounded-full bg-[#F97316]" />
+        Son {stock} urun
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-bold text-[#15803D]">
+      <span className="h-2 w-2 rounded-full bg-[#16A34A]" />
+      Stokta
+    </div>
   );
 }
 
@@ -116,25 +319,46 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { buildPath } = useStorefrontRoute();
+  const [selectedSizeKey, setSelectedSizeKey] = useState<string | null>(null);
+
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const secondaryImage = productImages[1];
-  const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
+  const usesProxiedPrimaryImage = primaryImage
+    ? isProxiedStorefrontAssetUrl(primaryImage)
+    : false;
   const displayVariant = getDisplayVariant(product);
-  const displayPrice = displayVariant?.price;
+  const sizeOptions = getSizeOptions(product);
+  const selectedSizeOption = sizeOptions.find((option) => option.key === selectedSizeKey);
+  const selectedVariant = selectedSizeOption?.variant || displayVariant;
+  const displayPrice = selectedVariant?.price ?? displayVariant?.price;
   const originalPrice =
-    displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
-      ? displayVariant.originalPrice
-      : undefined;
+    selectedVariant?.originalPrice && selectedVariant.originalPrice > (displayPrice ?? 0)
+      ? selectedVariant.originalPrice
+      : displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
+        ? displayVariant.originalPrice
+        : undefined;
   const productHref = buildPath(ROUTES.product(product.slug));
   const discountPercent = originalPrice && displayPrice
     ? Math.round((1 - displayPrice / originalPrice) * 100)
     : 0;
+  const totalStock = (product.variants || []).reduce(
+    (sum, variant) => sum + Math.max(0, Number(variant.stock || 0)),
+    0,
+  );
+  const activeStock = Number(selectedVariant?.stock ?? displayVariant?.stock ?? totalStock ?? 0);
   const isOutOfStock = (product.variants || []).length > 0
     ? product.variants.every((variant) => Number(variant.stock || 0) <= 0)
     : true;
-  const quickAddAllowed = Boolean(displayVariant && !isOutOfStock && (product.variants || []).length === 1);
   const wishlisted = isInWishlist(product.id);
+  const brandLabel = product.brand || "Alpler Spor";
+  const canQuickAddSingleVariant = Boolean(
+    displayVariant && !isOutOfStock && (product.variants || []).length === 1,
+  );
+  const canQuickAddSelectedSize = Boolean(
+    selectedSizeOption && selectedSizeOption.stock > 0 && selectedSizeOption.variant,
+  );
+  const canQuickAdd = canQuickAddSingleVariant || canQuickAddSelectedSize;
 
   const toggleWishlist = () => {
     if (wishlisted) {
@@ -148,20 +372,51 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   };
 
   const handleQuickAdd = () => {
-    if (!displayVariant || isOutOfStock) return;
-    addToCart(product, displayVariant, 1);
+    if (isOutOfStock) return;
+
+    if (sizeOptions.length > 0 && !selectedSizeOption) {
+      toast.error("Lutfen beden secin");
+      return;
+    }
+
+    const variantToAdd = selectedSizeOption?.variant || displayVariant;
+    if (!variantToAdd || Number(variantToAdd.stock || 0) <= 0) {
+      toast.error("Bu secenek stokta yok");
+      return;
+    }
+
+    addToCart(product, variantToAdd, 1);
     toast.success("Sepete eklendi");
   };
 
+  const favoriteButton = (
+    <button
+      type="button"
+      onClick={toggleWishlist}
+      className={`absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border bg-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.12)] backdrop-blur transition hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#FF6A00]/20 active:scale-95 ${
+        wishlisted
+          ? "border-[#FF6A00]/30 text-[#FF6A00]"
+          : "border-white/80 text-[#374151] hover:text-[#FF6A00]"
+      }`}
+      aria-label={wishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
+    >
+      <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
+    </button>
+  );
+
   const imageBlock = (
-    <Link href={productHref} className="group/image relative block aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-[#EEF2F7]">
+    <Link
+      href={productHref}
+      className="group/image relative block aspect-[1/1.04] overflow-hidden rounded-[1.35rem] bg-[#F8FAFC]"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,106,0,0.10),transparent_32%),linear-gradient(180deg,#FFFFFF_0%,#EEF2F7_100%)]" />
       {primaryImage ? (
         <>
           <Image
             src={primaryImage}
             alt={product.name}
             fill
-            className="object-cover transition duration-500 group-hover/image:scale-105"
+            className="p-4 object-contain transition duration-500 group-hover/image:scale-[1.045] sm:p-5"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             unoptimized={usesProxiedPrimaryImage}
           />
@@ -170,7 +425,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               src={secondaryImage}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover/image:opacity-100"
+              className="absolute inset-0 h-full w-full object-contain p-4 opacity-0 transition duration-500 group-hover/image:opacity-100 sm:p-5"
               loading="lazy"
             />
           ) : null}
@@ -180,73 +435,48 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           Gorsel yok
         </div>
       )}
-
-      <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-        {product.new ? (
-          <span className="rounded-full bg-[#DBEAFE] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]">
-            Yeni
-          </span>
-        ) : null}
-        {discountPercent > 0 ? (
-          <span className="rounded-full bg-[#FEE2E2] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#DC2626]">
-            %{discountPercent}
-          </span>
-        ) : null}
-        {isOutOfStock ? (
-          <span className="rounded-full bg-[#E5E7EB] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B7280]">
-            Tukendi
-          </span>
-        ) : displayVariant && Number(displayVariant.stock || 0) <= 5 ? (
-          <span className="rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#EA580C]">
-            Sinirli Stok
-          </span>
-        ) : null}
-      </div>
     </Link>
-  );
-
-  const favoriteButton = (
-    <button
-      type="button"
-      onClick={toggleWishlist}
-      className={`absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-sm backdrop-blur transition active:scale-95 ${
-        wishlisted ? "text-[#EF4444]" : "text-[#111827] hover:text-[#EF4444]"
-      }`}
-      aria-label={wishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
-    >
-      <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
-    </button>
   );
 
   if (viewMode === "list") {
     return (
       <article className="group rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[#FF6A00]/35 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex gap-4 sm:gap-5">
-          <div className="relative h-32 w-28 flex-shrink-0 sm:h-40 sm:w-32">
+          <div className="relative h-36 w-32 flex-shrink-0 sm:h-44 sm:w-40">
             {imageBlock}
+            <ProductBadges
+              product={product}
+              discountPercent={discountPercent}
+              stock={activeStock}
+              isOutOfStock={isOutOfStock}
+            />
             {favoriteButton}
           </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">
-              {formatCategoryLabel(product.category)}
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+              {brandLabel}
             </p>
             <Link href={productHref} className="store-product-title text-[#111827] transition-colors hover:text-[#FF6A00]">
               {product.name}
             </Link>
-            <ProductCardRating product={product} />
+            <ProductMetaLine product={product} />
+            <div className="flex items-center gap-3">
+              <ProductCardRating product={product} />
+              <ProductCardSwatches product={product} />
+            </div>
             {typeof displayPrice === "number" ? (
-              <div className="mt-2 flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2">
+                <p className={`text-lg font-black ${originalPrice ? "text-[#F97316]" : "text-[#111827]"}`}>
+                  {formatPrice(displayPrice)}
+                </p>
                 {originalPrice ? (
-                  <span className="text-xs text-[#9CA3AF] line-through">
+                  <span className="text-sm font-semibold text-[#9CA3AF] line-through">
                     {formatPrice(originalPrice)}
                   </span>
                 ) : null}
-                <p className={`text-base font-black ${originalPrice ? "text-[#DC2626]" : "text-[#111827]"}`}>
-                  {formatPrice(displayPrice)}
-                </p>
               </div>
             ) : null}
-            <ProductCardSwatches product={product} />
+            <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
           </div>
         </div>
       </article>
@@ -254,46 +484,110 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   }
 
   return (
-    <article className="group relative rounded-[1.5rem] border border-[#E5E7EB] bg-white p-2.5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#FF6A00]/35 hover:shadow-[0_18px_45px_rgba(15,23,42,0.09)]">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-[0_8px_28px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-[#FF6A00]/45 hover:shadow-[0_22px_60px_rgba(15,23,42,0.14)] sm:p-4">
       <div className="relative">
         {imageBlock}
+        <ProductBadges
+          product={product}
+          discountPercent={discountPercent}
+          stock={activeStock}
+          isOutOfStock={isOutOfStock}
+        />
         {favoriteButton}
       </div>
 
-      <div className="px-1 pb-1 pt-3">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">
-          {formatCategoryLabel(product.category)}
-        </p>
+      <div className="flex flex-1 flex-col px-0.5 pb-1 pt-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+            {brandLabel}
+          </p>
+          <ProductCardSwatches product={product} />
+        </div>
 
         <Link href={productHref}>
-          <h3 className="store-product-title line-clamp-2 min-h-[2.4em] text-[#111827] transition-colors group-hover:text-[#FF6A00]">
+          <h3 className="line-clamp-2 min-h-[2.65em] text-[15px] font-black leading-[1.28] tracking-[-0.01em] text-[#111827] transition-colors group-hover:text-[#FF6A00] sm:text-base">
             {product.name}
           </h3>
         </Link>
 
-        <ProductCardRating product={product} />
+        <div className="mt-1.5 min-h-[1.35rem]">
+          <ProductMetaLine product={product} />
+        </div>
+
+        <div className="mt-2 flex min-h-5 items-center justify-between gap-2">
+          <ProductCardRating product={product} />
+          <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
+        </div>
 
         {typeof displayPrice === "number" ? (
-          <div className="mt-2 flex flex-wrap items-baseline gap-2">
-            <p className={`text-[17px] font-black leading-none ${originalPrice ? "text-[#DC2626]" : "text-[#111827]"}`}>
+          <div className="mt-3 flex flex-wrap items-end gap-x-2 gap-y-1">
+            <p className={`text-[19px] font-black leading-none sm:text-[21px] ${originalPrice ? "text-[#F97316]" : "text-[#111827]"}`}>
               {formatPrice(displayPrice)}
             </p>
             {originalPrice ? (
-              <span className="text-xs font-semibold text-[#9CA3AF] line-through">
+              <span className="text-xs font-bold text-[#9CA3AF] line-through sm:text-sm">
                 {formatPrice(originalPrice)}
               </span>
             ) : null}
           </div>
         ) : null}
 
-        <ProductCardSwatches product={product} />
+        {sizeOptions.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#374151]">
+                Beden
+              </span>
+              <Link
+                href={productHref}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FF6A00]"
+              >
+                <Ruler className="h-3.5 w-3.5" />
+                Rehber
+              </Link>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+              {sizeOptions.map((option) => {
+                const isSelected = selectedSizeKey === option.key;
+                const isDisabled = option.stock <= 0;
 
-        <div className="mt-4">
-          {quickAddAllowed ? (
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setSelectedSizeKey(option.key)}
+                    className={`min-h-9 min-w-9 rounded-xl border px-2 text-xs font-black transition focus:outline-none focus:ring-4 focus:ring-[#FF6A00]/20 ${
+                      isSelected
+                        ? "border-[#FF6A00] bg-[#FF6A00] text-white"
+                        : isDisabled
+                          ? "cursor-not-allowed border-[#E5E7EB] bg-white text-[#9CA3AF] line-through"
+                          : "border-[#E5E7EB] bg-white text-[#111827] hover:border-[#FF6A00] hover:text-[#FF6A00]"
+                    }`}
+                    aria-label={`${option.label} beden${isDisabled ? " stokta yok" : ""}`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-auto pt-4">
+          {isOutOfStock ? (
+            <button
+              type="button"
+              disabled
+              className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-2xl bg-[#E5E7EB] px-3 text-xs font-black uppercase tracking-[0.08em] text-[#6B7280]"
+            >
+              Tukendi
+            </button>
+          ) : canQuickAdd || sizeOptions.length > 0 ? (
             <button
               type="button"
               onClick={handleQuickAdd}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#FF6A00] px-3 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#E85F00] active:scale-[0.98]"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF6A00] px-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_12px_24px_rgba(255,106,0,0.24)] transition hover:bg-[#E85F00] active:scale-[0.98]"
             >
               <ShoppingBag className="h-4 w-4" />
               Sepete Ekle
@@ -301,13 +595,9 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           ) : (
             <Link
               href={productHref}
-              className={`flex h-10 w-full items-center justify-center gap-2 rounded-full px-3 text-xs font-black uppercase tracking-[0.08em] transition ${
-                isOutOfStock
-                  ? "bg-[#E5E7EB] text-[#6B7280]"
-                  : "bg-[#111827] text-white hover:bg-[#1F2937]"
-              }`}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#111827] px-3 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#1F2937]"
             >
-              {isOutOfStock ? "Tukendi" : "Beden Sec"}
+              Beden Sec
             </Link>
           )}
         </div>

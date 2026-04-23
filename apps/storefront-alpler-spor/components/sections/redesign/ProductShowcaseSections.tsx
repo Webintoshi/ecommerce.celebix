@@ -217,42 +217,64 @@ export function ProductShowcaseSections({
 
   const effectiveGroups = fallbackGroups.map((group, index) => ({
     ...group,
-    title:
-      (group as { isCategoryDriven?: boolean }).isCategoryDriven
-        ? group.title || humanizeCategory(group.link)
-        : groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
+    title: groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
     subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
   }));
+  const trustItems = [
+    "%100 Orijinal Urun",
+    "Ucretsiz Kargo",
+    "Kolay Iade",
+    "Guvenli Alisveris",
+  ];
 
   return (
     <>
-      {effectiveGroups.map((group) => (
+      {effectiveGroups.map((group, groupIndex) => (
         <section key={group.id} className="bg-[#F5F7FA] py-14 lg:py-20">
           <div className="container-premium">
-            <div className="mb-12 flex items-end justify-between gap-6">
-              <div>
-                <span className="mb-2 block text-xs font-black uppercase tracking-[0.2em] text-[#FF6A00]">
-                  {group.subtitle}
+            <div className="mb-8 flex flex-col gap-5 sm:mb-10 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <span className="mb-3 block text-xs font-black uppercase tracking-[0.24em] text-[#FF6A00]">
+                  ALPLER SPOR
                 </span>
                 <h2 className="text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
                   {group.title}
                 </h2>
+                {group.subtitle ? (
+                  <p className="mt-3 max-w-xl text-sm font-medium leading-7 text-[#6B7280] sm:text-[15px]">
+                    {group.subtitle}
+                  </p>
+                ) : null}
               </div>
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group hidden items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-bold text-[#111827] transition-colors hover:border-[#FF6A00] hover:text-[#FF6A00] sm:inline-flex"
+                className="group inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-black text-[#111827] shadow-sm transition-colors hover:border-[#FF6A00] hover:text-[#FF6A00]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
               {group.products.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
+
+            {groupIndex === 0 ? (
+              <div className="mt-8 grid grid-cols-2 gap-3 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-sm sm:grid-cols-4 sm:p-4">
+                {trustItems.map((item) => (
+                  <div
+                    key={item}
+                    className="flex min-h-11 items-center gap-2 rounded-2xl bg-[#F8FAFC] px-3 text-xs font-black text-[#374151]"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#FF6A00]" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
       ))}

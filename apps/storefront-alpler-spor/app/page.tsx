@@ -13,7 +13,7 @@ const HOME_UI_COPY = {
   categoriesHeading: "Spor stiline hizli giris",
   viewAllLabel: "Tumunu Gor",
   productGroups: [
-    { title: "One Cikan Urunler", subtitle: "Kullanici Favorileri" },
+    { title: "One Cikan Urunler", subtitle: "En yeni ve en cok tercih edilen urunlerimiz." },
     { title: "Sneaker ve Ayakkabi", subtitle: "Performans Secimi" },
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
     { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
