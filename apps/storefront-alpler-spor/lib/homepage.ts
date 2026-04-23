@@ -11,7 +11,11 @@ import {
 } from "@/lib/variant-attribute-hydration";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import type { StorefrontLocale } from "@/lib/i18n";
-import { translateCategoryRecord, translateProductRecord, translateText } from "@/lib/translation";
+import {
+  translateCategoryCollection,
+  translateProductCollection,
+  translateText,
+} from "@/lib/translation";
 
 interface RawHeroSlide {
   id?: string | number;
@@ -576,32 +580,27 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       seo_description: category.seo_description || null,
     }));
 
-  const translatedCategories = await Promise.all(
-    categoryBase.map(async (category) => {
-      const translated = await translateCategoryRecord(category, locale);
-      return {
-        id: translated.id,
-        name: translated.name || category.name,
-        slug: translated.slug,
-        description: translated.description || null,
-        image: translated.image,
-        productCount: translated.productCount,
-      } satisfies HomepageCategory;
-    }),
-  );
-  const translatedFeaturedCategories = await Promise.all(
-    featuredCategoryBase.map(async (category) => {
-      const translated = await translateCategoryRecord(category, locale);
-      return {
-        id: translated.id,
-        name: translated.name || category.name,
-        slug: translated.slug,
-        description: translated.description || null,
-        image: translated.image,
-        productCount: translated.productCount,
-      } satisfies HomepageCategory;
-    }),
-  );
+  const [translatedCategoryRows, translatedFeaturedCategoryRows] = await Promise.all([
+    translateCategoryCollection(categoryBase, locale),
+    translateCategoryCollection(featuredCategoryBase, locale),
+  ]);
+
+  const translatedCategories = translatedCategoryRows.map((category, index) => ({
+    id: category.id,
+    name: category.name || categoryBase[index]?.name || "",
+    slug: category.slug,
+    description: category.description || null,
+    image: category.image,
+    productCount: category.productCount,
+  })) satisfies HomepageCategory[];
+  const translatedFeaturedCategories = translatedFeaturedCategoryRows.map((category, index) => ({
+    id: category.id,
+    name: category.name || featuredCategoryBase[index]?.name || "",
+    slug: category.slug,
+    description: category.description || null,
+    image: category.image,
+    productCount: category.productCount,
+  })) satisfies HomepageCategory[];
 
   const orderedShowcaseProducts = sortProductsByListingOrder(
     (allProductsData || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>,
@@ -609,14 +608,16 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   );
 
   const translatedHeroBanners = await translateHeroBanners(heroBanners, locale);
-  const translatedProducts = await Promise.all(
-    orderedShowcaseProducts
-      .slice(0, 8)
-      .map((product) => translateProductRecord(product, locale)),
-  );
-  const translatedShowcaseProducts = await Promise.all(
-    orderedShowcaseProducts.map((product) => translateProductRecord(product, locale)),
-  );
+  const [translatedProducts, translatedShowcaseProducts] = await Promise.all([
+    translateProductCollection(
+      orderedShowcaseProducts.slice(0, 8) as Array<Record<string, unknown>>,
+      locale,
+    ),
+    translateProductCollection(
+      orderedShowcaseProducts as Array<Record<string, unknown>>,
+      locale,
+    ),
+  ]);
 
   return {
     heroBanners: translatedHeroBanners,

@@ -26,6 +26,8 @@ type OrderWithItems = {
     items?: OrderItemWithCustomizations[];
 } & Record<string, unknown>;
 
+export type OrderSourceType = "storefront_checkout" | "quick_order_link";
+
 // =====================================================
 // ORDER MUTATIONS (Server-side only - all order operations require admin)
 // =====================================================
@@ -110,6 +112,8 @@ export async function createOrder(orderData: {
     contactEmail?: string;
     saveAddress?: boolean;
     abandonedCartSessionId?: string | null;
+    sourceType?: OrderSourceType;
+    sourceRefId?: string | null;
 }) {
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
@@ -153,6 +157,8 @@ export async function createOrder(orderData: {
             payment_method: orderData.paymentMethod,
             payment_status: "pending",
             notes: notesWithCoupon,
+            source_type: orderData.sourceType || "storefront_checkout",
+            source_ref_id: orderData.sourceRefId || null,
         })
         .select()
         .single();
@@ -432,6 +438,36 @@ export async function getOrderByNumber(orderNumber: string) {
       )
     `)
         .eq("order_number", orderNumber)
+        .single();
+
+    if (error) throw error;
+    const typedOrder = data as OrderWithItems;
+    return {
+        ...data,
+        items: (typedOrder.items || []).map((item) => {
+            const typedItem = item as OrderItemWithCustomizations;
+            return {
+                ...item,
+                customizations: normalizeStoredCustomizations(typedItem.customizations),
+            };
+        }),
+    };
+}
+
+export async function getOrderBySourceRef(sourceType: OrderSourceType, sourceRefId: string) {
+    const serverClient = createServerClient();
+
+    const { data, error } = await serverClient
+        .from("orders")
+        .select(`
+      *,
+      items:order_items(
+        *,
+        customizations:order_item_customizations(*)
+      )
+    `)
+        .eq("source_type", sourceType)
+        .eq("source_ref_id", sourceRefId)
         .single();
 
     if (error) throw error;

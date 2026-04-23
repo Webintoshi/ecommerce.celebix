@@ -12,9 +12,9 @@
     "bodyFont": "system-ui, sans-serif"
   },
   "branding": {
-    "tagline": "Ordu'nun bir numaralı websitesi.",
+    "tagline": "Alpler Spor icin ortak Celebix commerce kurulumu",
     "supportEmail": "destek@alplerspor.com",
-    "supportPhone": "+90 541 296 57 76",
+    "supportPhone": "+90 532 000 00 00",
     "senderEmail": "noreply@alplerspor.com",
     "smsSenderTitle": "ALPLERSPOR",
     "defaultProductBrand": "Alpler Spor"
@@ -28,19 +28,21 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "coolify:alpler-spor:qyicsngw8tg5gj1tqrc3dy8f",
+    "projectRef": "coolify:alpler-spor:mn1lfrqa0g2erfk4gnr70uno",
     "url": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
     "storage": "separate-project-per-store",
     "dashboardUrl": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io/project/default"
   },
   "r2": {
-    "provisioning": "pending-owner-env",
-    "provisionedAt": "2026-04-18T07:50:11.204596+00:00",
-    "lastProvisionError": "Self-hosted pg-meta hazir olmadi. Self-hosted pg-meta erisilemedi. studio-url -> fetch failed | runtime-internal-api -> fetch failed | public-url -> HTTP 503: no available server | public-url-8000 -> fetch failed | host-header-studio-http:46.225.183.57 -> HTTP 404: 404 page not found | host-header-http:46.225.183.57 -> HTTP 404: 404 page not found"
+    "bucketName": "alpler-spor-assets",
+    "publicUrl": "https://pub-cbf98b1f112b46afa4a1c4cff56aeccc.r2.dev",
+    "managedDomain": "pub-cbf98b1f112b46afa4a1c4cff56aeccc.r2.dev",
+    "provisionedAt": "2026-04-23T15:35:31.132Z",
+    "provisioning": "configured"
   },
   "bootstrap": {
-    "createdAt": "2026-04-18T07:50:10.529Z",
+    "createdAt": "2026-04-23T15:11:15.848Z",
     "envTemplatePath": "stores/alpler-spor/admin.env.example",
     "adminEnvLocalPath": "stores/alpler-spor/admin.env.local",
     "coolifyProjectName": "Alpler Spor",
@@ -48,27 +50,28 @@
     "adminDeploymentName": "Alpler Spor admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.alplerspor.com",
-    "adminDeploymentStatus": "pending-owner-env",
+    "adminDeploymentResourceId": "fbamy0ystaco84osed67o5dl",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-04-23T15:38:23.000Z",
+    "adminDeploymentDeployedAt": "2026-04-23T15:38:23.000Z",
     "organizationSlug": "alpler-spor",
     "supabaseProvider": "self_hosted_coolify",
     "supabaseProjectName": "alpler-spor-db",
-    "supabaseResourceId": "qyicsngw8tg5gj1tqrc3dy8f",
+    "supabaseResourceId": "mn1lfrqa0g2erfk4gnr70uno",
     "supabaseDashboardUrl": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io/project/default",
-    "provisionedAt": "2026-04-18T07:50:11.204596+00:00",
-    "lastProvisionError": "Self-hosted pg-meta hazir olmadi. Self-hosted pg-meta erisilemedi. studio-url -> fetch failed | runtime-internal-api -> fetch failed | public-url -> HTTP 503: no available server | public-url-8000 -> fetch failed | host-header-studio-http:46.225.183.57 -> HTTP 404: 404 page not found | host-header-http:46.225.183.57 -> HTTP 404: 404 page not found",
-    "supabaseProvisioning": "failed"
+    "provisionedAt": "2026-04-23T15:35:09.724Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
     "appDir": "apps/storefront-alpler-spor",
     "status": "scaffolded",
-    "lastScaffoldedAt": "2026-04-18T08:30:46.918Z",
+    "lastScaffoldedAt": "2026-04-23T15:38:24.116Z",
     "repoSyncStatus": "pending",
     "deploymentProvider": "coolify",
     "deploymentName": "Alpler Spor websitesi",
     "deploymentBranch": "deploy/storefront/alpler-spor",
     "runtimeUrl": "https://alplerspor.com",
-    "deploymentStatus": "pending-repo-sync",
-    "lastDeploymentError": "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
+    "deploymentStatus": "pending-owner-env"
   },
   "features": [
     "catalog",

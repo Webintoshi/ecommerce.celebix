@@ -2,6 +2,7 @@ import { buildGoogleMerchantFeedXml, normalizeGoogleMerchantFeedSettings, normal
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { fetchCategoriesServer } from "@/lib/categories";
 import { buildLocalizedPath } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getAllProducts } from "@/lib/products";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { createServerClient } from "@/lib/supabase";
@@ -128,11 +129,12 @@ async function fetchGoogleMerchantSettings() {
 }
 
 export async function buildGoogleMerchantFeedForStorefront() {
-  const [settings, products, categories, requestOrigin] = await Promise.all([
+  const [settings, products, categories, requestOrigin, localeRouting] = await Promise.all([
     fetchGoogleMerchantSettings(),
     getAllProducts(),
     fetchCategoriesServer(),
     getRequestOrigin(),
+    getLocaleRoutingConfig(),
   ]);
 
   const categoryMap = new Map<string, CategoryRecord>();
@@ -178,7 +180,11 @@ export async function buildGoogleMerchantFeedForStorefront() {
           5000,
         ),
         link: new URL(
-          buildLocalizedPath(`/urunler/${product.slug}`, settings.contentLanguage as never),
+          buildLocalizedPath(
+            `/urunler/${product.slug}`,
+            settings.contentLanguage as never,
+            localeRouting,
+          ),
           requestOrigin,
         ).toString(),
         imageLink: mergedImages[0] || "",

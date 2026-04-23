@@ -10,15 +10,18 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import {
-  DEFAULT_LOCALE,
+  buildLocalizedPath,
   getLocaleFromPathname,
   stripLocaleFromPathname,
+  type LocaleRoutingConfig,
   type StorefrontLocale,
 } from "@/lib/i18n";
 
 type StorefrontRouteContextValue = {
   locale: StorefrontLocale;
   internalPathname: string;
+  routing: LocaleRoutingConfig;
+  buildPath: (pathname: string, locale?: StorefrontLocale) => string;
 };
 
 const StorefrontRouteContext = createContext<StorefrontRouteContextValue | null>(null);
@@ -26,16 +29,21 @@ const StorefrontRouteContext = createContext<StorefrontRouteContextValue | null>
 export function StorefrontRouteProvider({
   initialLocale,
   initialInternalPathname,
+  initialRouting,
   children,
 }: {
   initialLocale: StorefrontLocale;
   initialInternalPathname: string;
+  initialRouting: LocaleRoutingConfig;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const [routeState, setRouteState] = useState<StorefrontRouteContextValue>({
     locale: initialLocale,
     internalPathname: initialInternalPathname,
+    routing: initialRouting,
+    buildPath: (nextPathname: string, locale = initialLocale) =>
+      buildLocalizedPath(nextPathname, locale, initialRouting),
   });
 
   useEffect(() => {
@@ -43,8 +51,17 @@ export function StorefrontRouteProvider({
       return;
     }
 
-    const nextLocale = getLocaleFromPathname(pathname) || DEFAULT_LOCALE;
-    const nextInternalPathname = stripLocaleFromPathname(pathname);
+    const nextLocale =
+      initialRouting.mode === "prefixed"
+        ? (() => {
+            const detectedLocale = getLocaleFromPathname(pathname);
+            return detectedLocale && initialRouting.availableLocales.includes(detectedLocale)
+              ? detectedLocale
+              : initialRouting.sourceLocale;
+          })()
+        : initialRouting.sourceLocale;
+    const nextInternalPathname =
+      initialRouting.mode === "prefixed" ? stripLocaleFromPathname(pathname) : pathname;
 
     setRouteState((current) => {
       if (
@@ -57,9 +74,12 @@ export function StorefrontRouteProvider({
       return {
         locale: nextLocale,
         internalPathname: nextInternalPathname,
+        routing: initialRouting,
+        buildPath: (nextPathname: string, locale = nextLocale) =>
+          buildLocalizedPath(nextPathname, locale, initialRouting),
       };
     });
-  }, [pathname]);
+  }, [pathname, initialRouting]);
 
   const value = useMemo(() => routeState, [routeState]);
 

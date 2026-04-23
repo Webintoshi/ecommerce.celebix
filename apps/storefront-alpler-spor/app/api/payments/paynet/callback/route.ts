@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPaymentWebhookEvent, getPaymentAttemptById, updatePaymentAttempt } from "@/lib/db/payment-attempts";
-import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
 import { isExpectedAmount, verifyAttemptToken } from "@/lib/payment-runtime";
+import { settleFailedPaymentAttempt, settleSuccessfulPaymentAttempt } from "@/lib/payment-attempt-settlement";
 
 function parseBoolean(value: unknown) {
     if (typeof value === "boolean") {
@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
             provider: "paynet",
             gatewayId: attempt.gateway_id,
             paymentAttemptId: attempt.id,
-            orderId: attempt.order_id,
+            orderId: attempt.order_id ?? undefined,
+            quickOrderLinkId: attempt.quick_order_link_id ?? undefined,
             eventType: "confirmation",
             status: isValid ? "received" : "invalid_signature",
             headers: Object.fromEntries(request.headers.entries()),
@@ -87,8 +88,11 @@ export async function POST(request: NextRequest) {
             errorMessage: isSuccess ? null : "Paynet islemi basarisiz oldu.",
         });
 
-        await updatePaymentStatus(attempt.order_id, isSuccess ? "completed" : "failed");
-        await updateOrderStatus(attempt.order_id, isSuccess ? "confirmed" : "cancelled");
+        if (isSuccess) {
+            await settleSuccessfulPaymentAttempt(attempt);
+        } else {
+            await settleFailedPaymentAttempt(attempt);
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

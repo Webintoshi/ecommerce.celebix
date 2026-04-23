@@ -21,7 +21,7 @@ export const STORE_LOCATIONS: StoreLocation[] = [
     summary:
       "Mağaza adresinizi, çalışma saatlerinizi ve destek kanallarınızı adminden girdiğinizde bu alan otomatik olarak markanıza özel bir deneyim kartına dönüşür.",
     address: "Adres bilgisi mağaza ayarlarında tamamlandığında burada gösterilir.",
-    phone: "+90 541 296 57 76",
+    phone: "+90 532 000 00 00",
     email: "destek@magazaadi.com",
     hours: "Pzt - Cmt / 10:00 - 19:00",
     mapUrl: "https://www.google.com/maps",

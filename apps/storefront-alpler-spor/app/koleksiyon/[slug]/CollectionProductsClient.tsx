@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Product } from "@/types/product";
-import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getLocalizedCopy } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface CollectionProductsClientProps {
@@ -16,7 +16,7 @@ const ITEMS_PER_PAGE = 12;
 export default function CollectionProductsClient({
   products,
 }: CollectionProductsClientProps) {
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
   const copy = getLocalizedCopy(locale);
   const [displayedProducts, setDisplayedProducts] = useState<Product[]>(
     products.slice(0, ITEMS_PER_PAGE),
@@ -77,7 +77,7 @@ export default function CollectionProductsClient({
       <div className="rounded-3xl border border-neutral-200 bg-white px-6 py-16 text-center">
         <p className="text-lg text-neutral-600">{copy.missingCategoryDescription}</p>
         <Link
-          href={buildLocalizedPath("/urunler", locale)}
+          href={buildPath("/urunler")}
           className="mt-5 inline-flex rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
         >
           {copy.productsTitle}

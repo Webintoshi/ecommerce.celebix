@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createPaymentWebhookEvent, getPaymentAttemptById, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { getActivePaymentGatewaysByType } from "@/lib/db/payment-gateways";
-import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
-import { enqueueAndProcessInvoiceForOrder } from "@/lib/db/accounting";
 import { createStripeWebhookEvent, getPaymentAttemptByCheckoutToken } from "@/lib/payment-runtime";
+import { settleFailedPaymentAttempt, settleSuccessfulPaymentAttempt } from "@/lib/payment-attempt-settlement";
 
 export async function POST(request: NextRequest) {
     const payload = await request.text();
@@ -42,7 +41,8 @@ export async function POST(request: NextRequest) {
         provider: "stripe",
         gatewayId: matchedGateway.id,
         paymentAttemptId: attempt.id,
-        orderId: attempt.order_id,
+        orderId: attempt.order_id ?? undefined,
+        quickOrderLinkId: attempt.quick_order_link_id ?? undefined,
         eventType: event.type,
         status: "received",
         signature,
@@ -59,13 +59,7 @@ export async function POST(request: NextRequest) {
             callbackReceivedAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
         });
-        await updatePaymentStatus(attempt.order_id, "completed");
-        await updateOrderStatus(attempt.order_id, "confirmed");
-        try {
-            await enqueueAndProcessInvoiceForOrder(attempt.order_id);
-        } catch (accountingError) {
-            console.error("Accounting queue error (stripe):", accountingError);
-        }
+        await settleSuccessfulPaymentAttempt(attempt);
     }
 
     if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
@@ -78,8 +72,7 @@ export async function POST(request: NextRequest) {
             completedAt: new Date().toISOString(),
             errorMessage: event.type === "checkout.session.expired" ? "Stripe checkout oturumu sona erdi." : "Stripe odemesi basarisiz oldu.",
         });
-        await updatePaymentStatus(attempt.order_id, "failed");
-        await updateOrderStatus(attempt.order_id, "cancelled");
+        await settleFailedPaymentAttempt(attempt);
     }
 
     return NextResponse.json({ received: true });

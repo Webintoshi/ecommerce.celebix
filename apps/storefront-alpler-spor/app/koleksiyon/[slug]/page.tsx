@@ -8,6 +8,7 @@ import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { createServerClient } from "@/lib/supabase";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestOrigin } from "@/lib/request-origin";
 import {
@@ -22,6 +23,7 @@ import {
   sortProductsByListingOrder,
 } from "@celebix/platform-config";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+import { translateCategoryRecord, translateProductCollection } from "@/lib/translation";
 import CollectionProductsClient from "./CollectionProductsClient";
 
 export const dynamic = "force-dynamic";
@@ -71,8 +73,15 @@ interface DBProduct {
   variants: DBVariant[] | null;
 }
 
-function buildAbsoluteUrl(path: string, locale: StorefrontLocale, origin: string) {
-  return new URL(buildLocalizedPath(path, locale), origin).toString();
+type ResolvedLocaleRouting = Awaited<ReturnType<typeof getLocaleRoutingConfig>>;
+
+function buildAbsoluteUrl(
+  path: string,
+  locale: StorefrontLocale,
+  origin: string,
+  routing: ResolvedLocaleRouting,
+) {
+  return new URL(buildLocalizedPath(path, locale, routing), origin).toString();
 }
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -108,8 +117,7 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
     const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
       let query = supabase
         .from("categories")
-        .select("slug")
-        .eq("parent_id", category.id)
+        .select("id, slug, parent_id")
         .order("sort_order", { ascending: true });
 
       if (includeIsActiveFilter) {
@@ -124,11 +132,46 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
       return [category.slug];
     }
 
-    const childSlugs = (data || [])
-      .map((item) => item.slug)
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    const childrenByParent = new Map<string, Array<{ id: string; slug: string }>>();
 
-    return Array.from(new Set([category.slug, ...childSlugs]));
+    for (const item of data || []) {
+      if (!item.parent_id || typeof item.slug !== "string" || item.slug.length === 0) {
+        continue;
+      }
+
+      const siblings = childrenByParent.get(item.parent_id) || [];
+      siblings.push({
+        id: item.id,
+        slug: item.slug,
+      });
+      childrenByParent.set(item.parent_id, siblings);
+    }
+
+    const visitedIds = new Set<string>([category.id]);
+    const collectedSlugs = new Set<string>([category.slug]);
+    const queue = [category.id];
+
+    while (queue.length > 0) {
+      const parentId = queue.shift();
+      if (!parentId) {
+        continue;
+      }
+
+      for (const child of childrenByParent.get(parentId) || []) {
+        if (visitedIds.has(child.id)) {
+          continue;
+        }
+
+        visitedIds.add(child.id);
+        queue.push(child.id);
+
+        if (child.slug) {
+          collectedSlugs.add(child.slug);
+        }
+      }
+    }
+
+    return Array.from(collectedSlugs);
   } catch (error) {
     console.error("Unexpected error fetching child categories:", error);
     return [category.slug];
@@ -166,18 +209,29 @@ function transformVariant(
 
 function resolveProductCategorySlugs(product: DBProduct) {
   const storedHierarchy = readCelebixCategoryHierarchyMetadata(product.shopify_metadata);
+  const pathSlugs = storedHierarchy.path
+    .map((segment) => segment.slug)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const category = product.category || storedHierarchy.categorySlug || pathSlugs[0] || "";
+  const subcategory =
+    inferLegacySubcategorySlug({
+      category: category || storedHierarchy.categorySlug,
+      subcategory: product.subcategory,
+      name: product.name,
+      slug: product.slug,
+      tags: product.tags,
+      metadata: product.shopify_metadata,
+    }) ||
+    (pathSlugs.length > 1 ? pathSlugs[pathSlugs.length - 1] || "" : "");
+  const normalizedPathSlugs =
+    pathSlugs.length > 0
+      ? pathSlugs
+      : [category, ...(subcategory && subcategory !== category ? [subcategory] : [])].filter(Boolean);
 
   return {
-    category: product.category || storedHierarchy.categorySlug || "",
-    subcategory:
-      inferLegacySubcategorySlug({
-        category: product.category || storedHierarchy.categorySlug,
-        subcategory: product.subcategory,
-        name: product.name,
-        slug: product.slug,
-        tags: product.tags,
-        metadata: product.shopify_metadata,
-      }) || "",
+    category,
+    subcategory,
+    pathSlugs: normalizedPathSlugs,
   };
 }
 
@@ -220,7 +274,7 @@ function transformProduct(
   };
 }
 
-async function getProductsByCategory(category: Category): Promise<Product[]> {
+async function getProductsByCategory(category: Category, locale: StorefrontLocale): Promise<Product[]> {
   const supabase = createServerClient();
   const categorySlugs = await getCollectionSlugs(category);
   const categorySet = new Set(categorySlugs);
@@ -250,7 +304,11 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
     const matchingProducts = (data as DBProduct[])
       .filter((product) => {
         const resolvedHierarchy = resolveProductCategorySlugs(product);
-        return categorySet.has(resolvedHierarchy.category) || categorySet.has(resolvedHierarchy.subcategory);
+        return (
+          resolvedHierarchy.pathSlugs.some((slug) => categorySet.has(slug)) ||
+          categorySet.has(resolvedHierarchy.category) ||
+          categorySet.has(resolvedHierarchy.subcategory)
+        );
       });
 
     const orderedProducts = sortProductsByListingOrder(matchingProducts, productListingOrder);
@@ -259,8 +317,10 @@ async function getProductsByCategory(category: Category): Promise<Product[]> {
       orderedProducts.map((product) => product.id),
     );
 
-    return orderedProducts
-      .map((product) => transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []))
+    const translatedProducts = await translateProductCollection(orderedProducts as DBProduct[], locale);
+
+    return translatedProducts
+      .map((product) => transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []))
       .filter((product) => product.variants.length > 0);
   } catch (error) {
     console.error("Unexpected error fetching products:", error);
@@ -273,6 +333,7 @@ function generateBreadcrumbSchema(
   locale: StorefrontLocale,
   copy: ReturnType<typeof getLocalizedCopy>,
   origin: string,
+  routing: ResolvedLocaleRouting,
 ) {
   return {
     "@context": "https://schema.org",
@@ -282,19 +343,19 @@ function generateBreadcrumbSchema(
         "@type": "ListItem",
         position: 1,
         name: copy.breadcrumbHome,
-        item: buildAbsoluteUrl("/", locale, origin),
+        item: buildAbsoluteUrl("/", locale, origin, routing),
       },
       {
         "@type": "ListItem",
         position: 2,
         name: copy.breadcrumbProducts,
-        item: buildAbsoluteUrl("/urunler", locale, origin),
+        item: buildAbsoluteUrl("/urunler", locale, origin, routing),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: category.name,
-        item: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
+        item: buildAbsoluteUrl(`/${category.slug}`, locale, origin, routing),
       },
     ],
   };
@@ -305,19 +366,20 @@ function generateCollectionSchema(
   products: Product[],
   locale: StorefrontLocale,
   origin: string,
+  routing: ResolvedLocaleRouting,
 ) {
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: category.seo_title || category.name,
     description: category.seo_description || category.description || category.name,
-    url: buildAbsoluteUrl(`/${category.slug}`, locale, origin),
+    url: buildAbsoluteUrl(`/${category.slug}`, locale, origin, routing),
     mainEntity: {
       "@type": "ItemList",
       itemListElement: products.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale, origin),
+        url: buildAbsoluteUrl(`/urunler/${product.slug}`, locale, origin, routing),
       })),
     },
   };
@@ -371,16 +433,18 @@ export async function generateMetadata({
     });
   }
 
+  const translatedCategory = await translateCategoryRecord(category, locale);
+
   return buildStorePageMetadata({
     locale,
     pathname: `/${category.slug}`,
-    title: category.seo_title || category.name,
+    title: translatedCategory.seo_title || translatedCategory.name,
     description:
-      category.seo_description ||
-      category.description ||
-      `${category.name} kategorisindeki urunleri kesfedin.`,
+      translatedCategory.seo_description ||
+      translatedCategory.description ||
+      `${translatedCategory.name} kategorisindeki urunleri kesfedin.`,
     keywords: category.seo_keywords,
-    image: category.image,
+    image: translatedCategory.image,
     type: "website",
   });
 }
@@ -399,14 +463,29 @@ export default async function CollectionPage({
     notFound();
   }
 
-  const [products, requestOrigin] = await Promise.all([
-    getProductsByCategory(category),
+  const translatedCategory = await translateCategoryRecord(category, locale);
+
+  const [products, requestOrigin, routing] = await Promise.all([
+    getProductsByCategory(category, locale),
     getRequestOrigin(),
+    getLocaleRoutingConfig(),
   ]);
 
-  const breadcrumbSchema = generateBreadcrumbSchema(category, locale, copy, requestOrigin);
-  const collectionSchema = generateCollectionSchema(category, products, locale, requestOrigin);
-  const faqSchema = generateFaqSchema(category.faq);
+  const breadcrumbSchema = generateBreadcrumbSchema(
+    translatedCategory,
+    locale,
+    copy,
+    requestOrigin,
+    routing,
+  );
+  const collectionSchema = generateCollectionSchema(
+    translatedCategory,
+    products,
+    locale,
+    requestOrigin,
+    routing,
+  );
+  const faqSchema = generateFaqSchema(translatedCategory.faq);
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
@@ -435,7 +514,7 @@ export default async function CollectionPage({
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
               <Link
-                href={buildLocalizedPath("/", locale)}
+                href={buildLocalizedPath("/", locale, routing)}
                 className="transition-colors hover:text-neutral-900"
               >
                 {copy.breadcrumbHome}
@@ -444,7 +523,7 @@ export default async function CollectionPage({
             <li aria-hidden="true">/</li>
             <li>
               <Link
-                href={buildLocalizedPath("/urunler", locale)}
+                href={buildLocalizedPath("/urunler", locale, routing)}
                 className="transition-colors hover:text-neutral-900"
               >
                 {copy.breadcrumbProducts}
@@ -452,7 +531,7 @@ export default async function CollectionPage({
             </li>
             <li aria-hidden="true">/</li>
             <li className="font-medium text-neutral-900" aria-current="page">
-              {category.name}
+              {translatedCategory.name}
             </li>
           </ol>
         </div>
@@ -460,10 +539,10 @@ export default async function CollectionPage({
 
       <section className="border-b border-neutral-200 bg-white">
         <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{category.name}</h1>
-          {category.description ? (
+          <h1 className="store-product-title-detail mb-3 text-neutral-900">{translatedCategory.name}</h1>
+          {translatedCategory.description ? (
             <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {category.description}
+              {translatedCategory.description}
             </p>
           ) : null}
           <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
@@ -474,14 +553,14 @@ export default async function CollectionPage({
         <CollectionProductsClient products={products} />
       </main>
 
-      {category.faq && category.faq.length > 0 ? (
+      {translatedCategory.faq && translatedCategory.faq.length > 0 ? (
         <section className="mt-2 border-t border-neutral-200 bg-white">
           <div className="container-premium py-12">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
               {copy.faqHeading}
             </h2>
             <div className="max-w-3xl space-y-4">
-              {category.faq.map((item, index) => (
+              {translatedCategory.faq.map((item, index) => (
                 <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
                   <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}

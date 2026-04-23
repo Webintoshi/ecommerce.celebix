@@ -5,13 +5,14 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
-import { type StorefrontLocale, buildLocalizedPath } from "@/lib/i18n";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 type SearchProductResult = {
   id: string;
   name: string;
   slug: string;
   category?: string | null;
+  categoryLabel?: string | null;
   images?: string[] | null;
   variants?: Array<{
     price?: number | null;
@@ -30,7 +31,6 @@ type HeaderSearchOverlayProps = {
   isOpen: boolean;
   onClose: () => void;
   resolveImageSrc?: (src?: string | null) => string;
-  locale?: StorefrontLocale;
 };
 
 const SEARCH_DELAY_MS = 250;
@@ -65,8 +65,8 @@ export function HeaderSearchOverlay({
   isOpen,
   onClose,
   resolveImageSrc,
-  locale = "tr",
 }: HeaderSearchOverlayProps) {
+  const { locale, buildPath } = useStorefrontRoute();
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchProductResult[]>([]);
@@ -138,7 +138,7 @@ export function HeaderSearchOverlay({
 
       try {
         const response = await fetch(
-          `/api/products?search=${encodeURIComponent(normalizedQuery)}`,
+          `/api/products?search=${encodeURIComponent(normalizedQuery)}&locale=${encodeURIComponent(locale)}`,
           {
             signal: controller.signal,
             cache: "no-store",
@@ -316,7 +316,7 @@ export function HeaderSearchOverlay({
                   return (
                     <Link
                       key={product.id}
-                      href={buildLocalizedPath(ROUTES.product(product.slug), locale)}
+                      href={buildPath(ROUTES.product(product.slug))}
                       onClick={onClose}
                       className="flex items-center gap-4 rounded-[1.5rem] border border-neutral-200 bg-white p-3 transition hover:border-neutral-300 hover:shadow-sm"
                     >
@@ -331,7 +331,7 @@ export function HeaderSearchOverlay({
 
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                          {product.category || "Urun"}
+                          {product.categoryLabel || product.category || "Urun"}
                         </p>
                         <p className="store-product-title mt-1 text-neutral-900">
                           {product.name}

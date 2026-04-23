@@ -13,6 +13,13 @@ import {
 } from "@/lib/product-tags";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getRequestLocale } from "@/lib/request-locale";
+import { isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
+import {
+    translateCategoryCollection,
+    translateProductCollection,
+    translateSearchQueryToSourceLocale,
+} from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 
@@ -136,11 +143,101 @@ async function fetchProductsForListing(
     return query;
 }
 
+async function resolveApiLocale(
+    request: NextRequest,
+    searchParams: URLSearchParams,
+): Promise<StorefrontLocale> {
+    const requestedLocale = searchParams.get("locale");
+    if (isSupportedLocale(requestedLocale)) {
+        return requestedLocale;
+    }
+
+    return getRequestLocale();
+}
+
+async function getCategoryLabelMap(
+    supabase: any,
+    products: Array<Record<string, unknown>>,
+    locale: StorefrontLocale,
+) {
+    const categorySlugs = Array.from(
+        new Set(
+            products
+                .flatMap((product) => [product.category, product.subcategory])
+                .filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+        ),
+    );
+
+    if (categorySlugs.length === 0) {
+        return new Map<string, string>();
+    }
+
+    const { data, error } = await supabase
+        .from("categories")
+        .select("slug, name, description, seo_title, seo_description")
+        .in("slug", categorySlugs);
+
+    if (error) {
+        console.error("Failed to fetch categories for product translation:", error);
+        return new Map<string, string>();
+    }
+
+    const translatedCategories = await translateCategoryCollection(
+        ((data || []) as Array<Record<string, unknown>>),
+        locale,
+    );
+
+    return new Map(
+        translatedCategories.map((category) => [
+            typeof category.slug === "string" ? category.slug : "",
+            typeof category.name === "string" && category.name.trim().length > 0
+                ? category.name
+                : typeof category.slug === "string"
+                    ? category.slug
+                    : "",
+        ]),
+    );
+}
+
+async function localizeProducts(
+    supabase: any,
+    products: Array<Record<string, unknown>>,
+    attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+    rulesMap: Record<string, ProductDiscountRule[]>,
+    locale: StorefrontLocale,
+) {
+    const hydratedProducts = hydrateListingProducts(products, attributeRegistry, rulesMap);
+    const translatedProducts = await translateProductCollection(hydratedProducts, locale);
+    const categoryLabelMap = await getCategoryLabelMap(
+        supabase,
+        translatedProducts as Array<Record<string, unknown>>,
+        locale,
+    );
+
+    return (translatedProducts as Array<Record<string, unknown>>).map((product) => {
+        const categorySlug = typeof product.category === "string" ? product.category : "";
+        const subcategorySlug = typeof product.subcategory === "string" ? product.subcategory : "";
+        const categoryLabel =
+            categoryLabelMap.get(subcategorySlug) ||
+            categoryLabelMap.get(categorySlug) ||
+            subcategorySlug ||
+            categorySlug ||
+            null;
+
+        return {
+            ...product,
+            categoryLabel,
+            subcategoryLabel: categoryLabelMap.get(subcategorySlug) || null,
+        };
+    });
+}
+
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
         const attributeRegistryPromise = getVariantAttributeRegistry();
         const { searchParams } = new URL(request.url);
+        const locale = await resolveApiLocale(request, searchParams);
         const id = searchParams.get("id");
         const featured = searchParams.get("featured");
         const bestseller = searchParams.get("bestseller");
@@ -166,7 +263,15 @@ export async function GET(request: NextRequest) {
             const rulesMap = await getProductDiscountRulesMap(supabase, [id]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(data, await attributeRegistryPromise, rulesMap),
+                product: (
+                    await localizeProducts(
+                        supabase,
+                        data ? [data as Record<string, unknown>] : [],
+                        await attributeRegistryPromise,
+                        rulesMap,
+                        locale,
+                    )
+                )[0] || null,
             });
         } else if (slug) {
             // Fetch single product by slug from Supabase
@@ -188,7 +293,15 @@ export async function GET(request: NextRequest) {
             const rulesMap = await getProductDiscountRulesMap(supabase, [String(data[0].id)]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(data[0], await attributeRegistryPromise, rulesMap),
+                product: (
+                    await localizeProducts(
+                        supabase,
+                        data[0] ? [data[0] as Record<string, unknown>] : [],
+                        await attributeRegistryPromise,
+                        rulesMap,
+                        locale,
+                    )
+                )[0] || null,
             });
         } else if (featured === "true") {
             const { data, error } = await fetchProductsForListing(supabase, { featured: true });
@@ -212,25 +325,43 @@ export async function GET(request: NextRequest) {
                 productListingOrder,
             );
             const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
+            const rulesMap = await getProductDiscountRulesMap(
+                supabase,
+                paginatedProducts.map((product) => String(product.id)),
+            );
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts(
+                products: await localizeProducts(
+                    supabase,
                     paginatedProducts as Record<string, unknown>[],
                     await attributeRegistryPromise,
-                    await getProductDiscountRulesMap(
-                        supabase,
-                        paginatedProducts.map((product) => String(product.id)),
-                    ),
+                    rulesMap,
+                    locale,
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
         } else if (search) {
             const { data, error } = await fetchProductsForListing(supabase, { search });
             if (error) throw error;
-            products = sortProductsByListingOrder(
+            let orderedSearchProducts = sortProductsByListingOrder(
                 ((data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
                 productListingOrder,
             ).slice(0, 20);
+            if (orderedSearchProducts.length === 0) {
+                const translatedSearch = await translateSearchQueryToSourceLocale(search, locale);
+                if (translatedSearch && translatedSearch !== search) {
+                    const fallbackResult = await fetchProductsForListing(supabase, { search: translatedSearch });
+                    if (fallbackResult.error) {
+                        throw fallbackResult.error;
+                    }
+
+                    orderedSearchProducts = sortProductsByListingOrder(
+                        ((fallbackResult.data || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>),
+                        productListingOrder,
+                    ).slice(0, 20);
+                }
+            }
+            products = orderedSearchProducts;
         } else {
             const { data, error } = await fetchProductsForListing(supabase, {});
             if (error) throw error;
@@ -239,30 +370,37 @@ export async function GET(request: NextRequest) {
                 productListingOrder,
             );
             const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
+            const rulesMap = await getProductDiscountRulesMap(
+                supabase,
+                paginatedProducts.map((product) => String(product.id)),
+            );
 
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts(
+                products: await localizeProducts(
+                    supabase,
                     paginatedProducts as Record<string, unknown>[],
                     await attributeRegistryPromise,
-                    await getProductDiscountRulesMap(
-                        supabase,
-                        paginatedProducts.map((product) => String(product.id)),
-                    ),
+                    rulesMap,
+                    locale,
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
         }
 
+        const rulesMap = await getProductDiscountRulesMap(
+            supabase,
+            Array.isArray(products) ? products.map((product) => String(product.id)) : [],
+        );
+
         return NextResponse.json({
             success: true,
-            products: hydrateListingProducts(
+            products: await localizeProducts(
+                supabase,
                 (products || []) as Record<string, unknown>[],
                 await attributeRegistryPromise,
-                await getProductDiscountRulesMap(
-                    supabase,
-                    Array.isArray(products) ? products.map((product) => String(product.id)) : [],
-                ),
+                rulesMap,
+                locale,
             ),
         });
     } catch (error) {
