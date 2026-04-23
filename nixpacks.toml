@@ -1,12 +1,12 @@
 [start]
 runImage = "node:20-bookworm"
 onlyIncludeFiles = [
-  "./package.json",
-  "./package-lock.json",
-  "./node_modules",
-  "./scripts/prepare-next-standalone.cjs",
-  "./scripts/iyzico-runner.cjs",
-  "./packages",
-  "./stores",
-  "./apps",
+  "package.json",
+  "package-lock.json",
+  "node_modules",
+  "scripts/prepare-next-standalone.cjs",
+  "scripts/iyzico-runner.cjs",
+  "packages",
+  "stores",
+  "apps",
 ]
