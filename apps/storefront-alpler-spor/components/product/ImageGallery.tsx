@@ -362,16 +362,18 @@ export function ImageGallery({
               <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
             </div>
           ) : (
-            <img
-              ref={mainImageRef}
-              src={currentImage}
-              alt={productName}
-              draggable={false}
-              className="absolute inset-0 h-full w-full object-contain p-5 transition-transform duration-300 hover:scale-[1.015] sm:p-8"
-              loading="eager"
-              onLoad={() => setStatus(currentImage, 'loaded')}
-              onError={() => setStatus(currentImage, 'error')}
-            />
+            <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-8">
+              <img
+                ref={mainImageRef}
+                src={currentImage}
+                alt={productName}
+                draggable={false}
+                className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.015]"
+                loading="eager"
+                onLoad={() => setStatus(currentImage, 'loaded')}
+                onError={() => setStatus(currentImage, 'error')}
+              />
+            </div>
           )}
         </div>
         {isClient ? createPortal(lightboxContent, document.body) : null}
@@ -465,19 +467,23 @@ export function ImageGallery({
           )}
 
           {/* Main image - always render, opacity based on status */}
-          <img
-            ref={mainImageRef}
-            key={selectedIndex}
-            src={currentImage}
-            alt={`${productName} - Ana Görsel`}
-            draggable={false}
-            className={`absolute inset-0 h-full w-full object-contain p-5 transition-all duration-300 hover:scale-[1.015] sm:p-8 ${
+          <div
+            className={`absolute inset-0 flex items-center justify-center p-5 transition-opacity duration-300 sm:p-8 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
             }`}
-            loading="eager"
-            onLoad={() => setStatus(currentImage, 'loaded')}
-            onError={() => setStatus(currentImage, 'error')}
-          />
+          >
+            <img
+              ref={mainImageRef}
+              key={selectedIndex}
+              src={currentImage}
+              alt={`${productName} - Ana Görsel`}
+              draggable={false}
+              className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.015]"
+              loading="eager"
+              onLoad={() => setStatus(currentImage, 'loaded')}
+              onError={() => setStatus(currentImage, 'error')}
+            />
+          </div>
 
           {/* Navigation arrows */}
           {displayImages.length > 1 && (
