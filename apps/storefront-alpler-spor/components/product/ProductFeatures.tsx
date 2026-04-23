@@ -22,7 +22,7 @@ export function ProductFeatures({ product }: ProductFeaturesProps) {
         />
       ) : (
         <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-5 text-sm font-medium text-[#6B7280]">
-          Bu urun icin aciklama henuz eklenmedi.
+          Bu ürün için açıklama henüz eklenmedi.
         </div>
       )}
     </div>

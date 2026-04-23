@@ -166,7 +166,7 @@ function ProductCardSwatches({ product }: { product: Product }) {
   if (swatches.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5" aria-label="Renk secenekleri">
+    <div className="flex items-center gap-1.5" aria-label="Renk seçenekleri">
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
@@ -228,12 +228,12 @@ function ProductBadges({
 
   if (isOutOfStock) {
     badges.push({
-      label: "Tukendi",
+      label: "Tükendi",
       className: "bg-[#E5E7EB] text-[#6B7280]",
     });
   } else if (discountPercent > 0) {
     badges.push({
-      label: `%${discountPercent} Indirim`,
+      label: `%${discountPercent} İndirim`,
       className: "bg-[#FFF1E8] text-[#EA580C]",
     });
   }
@@ -247,14 +247,14 @@ function ProductBadges({
 
   if (product.isBestseller) {
     badges.push({
-      label: "Cok Satan",
+      label: "Çok Satan",
       className: "bg-[#FEF3C7] text-[#D97706]",
     });
   }
 
   if (!isOutOfStock && stock > 0 && stock <= 5) {
     badges.push({
-      label: "Sinirli Stok",
+      label: "Sınırlı Stok",
       className: "bg-[#FFF7ED] text-[#EA580C]",
     });
   }
@@ -293,7 +293,7 @@ function StockLine({ stock, isOutOfStock }: { stock: number; isOutOfStock: boole
     return (
       <div className="flex items-center gap-2 text-xs font-bold text-[#6B7280]">
         <span className="h-2 w-2 rounded-full bg-[#9CA3AF]" />
-        Tukendi
+        Tükendi
       </div>
     );
   }
@@ -302,7 +302,7 @@ function StockLine({ stock, isOutOfStock }: { stock: number; isOutOfStock: boole
     return (
       <div className="flex items-center gap-2 text-xs font-bold text-[#EA580C]">
         <span className="h-2 w-2 rounded-full bg-[#F97316]" />
-        Son {stock} urun
+        Son {stock} ürün
       </div>
     );
   }
@@ -363,7 +363,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const toggleWishlist = () => {
     if (wishlisted) {
       removeFromWishlist(product.id);
-      toast("Favorilerden cikarildi");
+      toast("Favorilerden çıkarıldı");
       return;
     }
 
@@ -375,13 +375,13 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     if (isOutOfStock) return;
 
     if (sizeOptions.length > 0 && !selectedSizeOption) {
-      toast.error("Lutfen beden secin");
+      toast.error("Lütfen beden seçin");
       return;
     }
 
     const variantToAdd = selectedSizeOption?.variant || displayVariant;
     if (!variantToAdd || Number(variantToAdd.stock || 0) <= 0) {
-      toast.error("Bu secenek stokta yok");
+      toast.error("Bu seçenek stokta yok");
       return;
     }
 
@@ -398,7 +398,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           ? "border-[#FF6A00]/30 text-[#FF6A00]"
           : "border-white/80 text-[#374151] hover:text-[#FF6A00]"
       }`}
-      aria-label={wishlisted ? "Favorilerden cikar" : "Favorilere ekle"}
+      aria-label={wishlisted ? "Favorilerden çıkar" : "Favorilere ekle"}
     >
       <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
     </button>
@@ -432,7 +432,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-[#9CA3AF]">
-          Gorsel yok
+          Görsel yok
         </div>
       )}
     </Link>
@@ -581,7 +581,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               disabled
               className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-2xl bg-[#E5E7EB] px-3 text-xs font-black uppercase tracking-[0.08em] text-[#6B7280]"
             >
-              Tukendi
+              Tükendi
             </button>
           ) : canQuickAdd || sizeOptions.length > 0 ? (
             <button
@@ -597,7 +597,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               href={productHref}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#111827] px-3 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#1F2937]"
             >
-              Beden Sec
+              Beden Seç
             </Link>
           )}
         </div>

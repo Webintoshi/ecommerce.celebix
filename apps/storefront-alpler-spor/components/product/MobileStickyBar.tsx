@@ -50,7 +50,7 @@ export function MobileStickyBar({
               </div>
               {originalPrice ? (
                 <p className="text-xs font-semibold text-[#DC2626]">
-                  %{Math.round((1 - price / originalPrice) * 100)} Indirim
+                  %{Math.round((1 - price / originalPrice) * 100)} İndirim
                 </p>
               ) : null}
             </div>
@@ -66,7 +66,7 @@ export function MobileStickyBar({
                 }`}
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span>{isOutOfStock ? "Tukendi" : "Sepete Ekle"}</span>
+                <span>{isOutOfStock ? "Tükendi" : "Sepete Ekle"}</span>
               </button>
             </div>
           </div>

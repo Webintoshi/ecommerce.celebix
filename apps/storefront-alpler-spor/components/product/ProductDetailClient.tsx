@@ -10,10 +10,6 @@ import {
   Minus,
   Plus,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Hammer,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -308,8 +304,8 @@ function getProductSpecificationRows(
   const variantRows = getVariantAttributeRows(variant, allVariants);
   const productAttributeRows = getProductAttributeRows(product);
   const dimensionParts = [
-    product.dimensions?.width ? `${product.dimensions.width} cm genislik` : null,
-    product.dimensions?.height ? `${product.dimensions.height} cm yukseklik` : null,
+    product.dimensions?.width ? `${product.dimensions.width} cm genişlik` : null,
+    product.dimensions?.height ? `${product.dimensions.height} cm yükseklik` : null,
     product.dimensions?.depth ? `${product.dimensions.depth} cm derinlik` : null,
     product.dimensions?.weight ? `${product.dimensions.weight} g` : null,
   ].filter(Boolean);
@@ -318,18 +314,18 @@ function getProductSpecificationRows(
     product.brand ? { key: "brand", label: "Marka", value: product.brand } : null,
     { key: "category", label: "Kategori", value: product.category },
     { key: "subcategory", label: "Alt Kategori", value: product.subcategory },
-    variantName ? { key: "variant", label: "Secili Varyant", value: variantName } : null,
-    product.sku ? { key: "product-sku", label: "Urun Kodu", value: product.sku } : null,
+    variantName ? { key: "variant", label: "Seçili Varyant", value: variantName } : null,
+    product.sku ? { key: "product-sku", label: "Ürün Kodu", value: product.sku } : null,
     variant?.sku ? { key: "variant-sku", label: "Varyant Kodu", value: variant.sku } : null,
     product.gtin ? { key: "gtin", label: "Barkod", value: product.gtin } : null,
     product.countryOfOrigin
-      ? { key: "origin", label: "Mensei", value: product.countryOfOrigin }
+      ? { key: "origin", label: "Menşei", value: product.countryOfOrigin }
       : null,
     dimensionParts.length > 0
-      ? { key: "dimensions", label: "Olculer", value: dimensionParts.join(" / ") }
+      ? { key: "dimensions", label: "Ölçüler", value: dimensionParts.join(" / ") }
       : null,
     typeof variant?.stock === "number"
-      ? { key: "stock", label: "Stok", value: variant.stock > 0 ? `${variant.stock} adet` : "Tukendi" }
+      ? { key: "stock", label: "Stok", value: variant.stock > 0 ? `${variant.stock} adet` : "Tükendi" }
       : null,
   ].filter((row): row is DetailRow => Boolean(row && toDisplayText(row.value)));
 
@@ -348,7 +344,7 @@ function ProductSpecifications({ rows }: { rows: DetailRow[] }) {
   if (rows.length === 0) {
     return (
       <div className="border-t border-[#E5E7EB] py-5 text-sm font-medium text-[#6B7280]">
-        Bu urun icin teknik nitelik bilgisi henuz eklenmedi.
+        Bu ürün için teknik nitelik bilgisi henüz eklenmedi.
       </div>
     );
   }
@@ -547,7 +543,7 @@ export function ProductDetailClient({
         behavior: "smooth",
         block: "center",
       });
-      toast.error("Lutfen gerekli secimleri tamamlayin");
+      toast.error("Lütfen gerekli seçimleri tamamlayın");
       return;
     }
 
@@ -566,7 +562,7 @@ export function ProductDetailClient({
   const toggleWishlist = () => {
     if (isWishlisted) {
       removeFromWishlist(product.id);
-      toast.success("Favorilerden cikarildi");
+      toast.success("Favorilerden çıkarıldı");
       return;
     }
 
@@ -585,7 +581,7 @@ export function ProductDetailClient({
       });
     } else {
       navigator.clipboard.writeText(window.location.href);
-      toast.success("Urun linki kopyalandi");
+      toast.success("Ürün linki kopyalandı");
     }
   };
 
@@ -608,44 +604,22 @@ export function ProductDetailClient({
       : undefined;
   const specificationRows = getProductSpecificationRows(product, variant, variants);
   const variantGroupRows = getVariantGroupRows(variants);
-  const trustCards = [
-    {
-      title: "%100 Orijinal Urun",
-      text: "Tum urunler garantili ve orijinaldir.",
-      icon: BadgeCheck,
-    },
-    {
-      title: "Ucretsiz Kargo",
-      text: "750 TL ve uzeri siparislerde.",
-      icon: Clock,
-    },
-    {
-      title: "Kolay Iade",
-      text: "14 gun icinde iade kolayligi.",
-      icon: Package,
-    },
-    {
-      title: "Guvenli Alisveris",
-      text: "256-bit SSL ile korunur.",
-      icon: Hammer,
-    },
-  ];
   const detailSections: DetailSection[] = [
     {
       id: "features",
-      label: "Urun Aciklamasi",
+      label: "Ürün Açıklaması",
       content: <ProductFeatures product={product} />,
     },
     {
       id: "specs",
-      label: "Teknik Ozellikler",
+      label: "Teknik Özellikler",
       content: (
         <div className="space-y-5">
           <ProductSpecifications rows={specificationRows} />
           {variantGroupRows.length > 0 ? (
             <div className="border-t border-[#E5E7EB] pt-5">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#111827]">
-                Tum Varyant Nitelikleri
+                Tüm Varyant Nitelikleri
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {variantGroupRows.map((row) => (
@@ -664,12 +638,12 @@ export function ProductDetailClient({
     },
     {
       id: "shipping",
-      label: "Teslimat & Iade",
+      label: "Teslimat & İade",
       content: (
         <div className="grid gap-4 border-t border-[#E5E7EB] pt-5 text-sm leading-6 text-[#6B7280] sm:grid-cols-3">
-          <p><strong className="text-[#111827]">Kargo:</strong> Stoktaki urunler 2-4 is gunu icinde hazirlanir.</p>
-          <p><strong className="text-[#111827]">Iade:</strong> 14 gun icinde kolay iade/degisim talebi olusturulabilir.</p>
-          <p><strong className="text-[#111827]">Destek:</strong> Numara ve varyant uygunlugu icin destek alabilirsiniz.</p>
+          <p><strong className="text-[#111827]">Kargo:</strong> Stoktaki ürünler 2-4 iş günü içinde hazırlanır.</p>
+          <p><strong className="text-[#111827]">İade:</strong> 14 gün içinde kolay iade/değişim talebi oluşturulabilir.</p>
+          <p><strong className="text-[#111827]">Destek:</strong> Numara ve varyant uygunluğu için destek alabilirsiniz.</p>
         </div>
       ),
     },
@@ -850,7 +824,7 @@ export function ProductDetailClient({
                 </span>
                 {discountPercent > 0 ? (
                   <span className="order-3 rounded-full bg-[#FFF1E8] px-3 py-1 text-xs font-black text-[#EA580C]">
-                    %{discountPercent} Indirim
+                    %{discountPercent} İndirim
                   </span>
                 ) : null}
               </div>
@@ -872,26 +846,9 @@ export function ProductDetailClient({
                 </div>
                 {activeSchema && customizationState.extraPrice > 0 ? (
                   <p className="text-sm font-bold text-[#6B7280]">
-                    +{formatPrice(customizationState.extraPrice)} kisisellestirme
+                    +{formatPrice(customizationState.extraPrice)} kişiselleştirme
                   </p>
                 ) : null}
-              </div>
-
-              <div className="hidden grid-cols-3 gap-2 border-y border-[#E5E7EB] py-4 text-center">
-                {[
-                  { label: "Teslimat", value: "2-4 iş günü" },
-                  { label: "İade", value: "14 gün" },
-                  { label: "Ödeme", value: "SSL güvenli" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-[#E5E7EB] bg-white px-2 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
-                      {item.label}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-[#111827] sm:text-sm">
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
               </div>
 
               <div className="hidden flex-wrap gap-2">
@@ -1046,129 +1003,8 @@ export function ProductDetailClient({
                   }`}
                 >
                   <Heart className={`h-5 w-5 ${isWishlisted ? "fill-current" : ""}`} />
-                  {isWishlisted ? "Favorilerden Cikar" : "Favorilere Ekle"}
+                  {isWishlisted ? "Favorilerden Çıkar" : "Favorilere Ekle"}
                 </button>
-              </div>
-
-              <div className="space-y-1 border-t border-[#E5E7EB] pt-3">
-                {trustCards.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <div
-                      key={card.title}
-                      className="flex items-center gap-3 px-1 py-2.5"
-                    >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center text-[#FF6A00]">
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-[#111827]">{card.title}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden">
-                {[
-                  {
-                    id: "features",
-                    label: "Ürün Detayları",
-                    content: <ProductFeatures product={product} />,
-                  },
-                  {
-                    id: "specs",
-                    label: "Ozellikler",
-                    content: (
-                      <div className="space-y-5">
-                        <ProductSpecifications rows={specificationRows} />
-                        {variantGroupRows.length > 0 ? (
-                          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
-                              Tum Varyant Nitelikleri
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {variantGroupRows.map((row) => (
-                                <span
-                                  key={row.key}
-                                  className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#374151]"
-                                >
-                                  {row.label}: {row.value}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    ),
-                  },
-                  {
-                    id: "shipping",
-                    label: "Kargo & İade",
-                    content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
-                          </h4>
-                          <p>
-                            Siparişleriniz stok durumuna göre hazırlanır ve genellikle
-                            2-4 iş günü içerisinde kargoya verilir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
-                          </h4>
-                          <p>
-                            Ürünü teslim aldıktan sonra 14 gün içinde iade veya değişim
-                            talebi oluşturabilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Numara ve Varyant Desteği
-                          </h4>
-                          <p>
-                            Numara, renk veya varyant kararsızlığında destek hattından
-                            ürün uygunluğu hakkında bilgi alabilirsiniz.
-                          </p>
-                        </div>
-                      </div>
-                    ),
-                  },
-                ].map((item) => {
-                  const isOpen = openAccordions.has(item.id);
-                  return (
-                    <div key={item.id} className="border-b border-neutral-200">
-                      <button
-                        onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
-                      >
-                        {item.label}
-                        <ChevronDown
-                          className={`h-4 w-4 text-neutral-500 transition-transform ${
-                            isOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pb-5">{item.content}</div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
               </div>
 
               {product.sku && (
@@ -1178,30 +1014,6 @@ export function ProductDetailClient({
               )}
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="container-premium pb-6">
-        <div className="grid gap-4 border-y border-[#E5E7EB] py-5 sm:grid-cols-2 lg:grid-cols-4">
-          {trustCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <div
-                key={card.title}
-                className="flex items-center gap-3"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-[#111827]">{card.title}</h3>
-                  <p className="mt-0.5 text-xs font-medium leading-5 text-[#6B7280]">
-                    {card.text}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 
