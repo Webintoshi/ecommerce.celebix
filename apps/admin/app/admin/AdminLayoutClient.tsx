@@ -392,13 +392,18 @@ export default function AdminLayoutClient({
 
   return (
     <div
-      className="flex min-h-dvh bg-[var(--admin-bg)] font-sans"
+      className={cn(
+        "bg-[var(--admin-bg)] font-sans",
+        isMobile
+          ? "flex h-dvh min-h-dvh overflow-hidden"
+          : "flex min-h-screen overflow-visible",
+      )}
       style={shellStyle}
     >
       <AdminClientBoundary
         name="AdminSidebar"
         fallback={
-          <div className="hidden h-screen w-[13.5rem] shrink-0 border-l border-[var(--admin-border)] bg-white xl:block xl:w-56 2xl:w-[14.5rem]" />
+          <div className="hidden h-dvh min-h-dvh w-[13.5rem] shrink-0 border-l border-[var(--admin-border)] bg-white xl:block xl:w-56 2xl:w-[14.5rem]" />
         }
       >
         <AdminSidebar
@@ -408,8 +413,18 @@ export default function AdminLayoutClient({
         />
       </AdminClientBoundary>
 
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-        <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 md:px-4 md:pb-5 md:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6">
+      <main
+        className={cn(
+          "min-w-0 flex-1 overflow-x-hidden",
+          isMobile ? "min-h-0 overflow-y-auto overscroll-y-contain" : "overflow-visible",
+        )}
+      >
+        <div
+          className={cn(
+            "px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 md:px-4 md:pb-5 md:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6",
+            isMobile ? "min-h-full" : "",
+          )}
+        >
           {isMobile && !rootAdmin ? (
           <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[1.25rem] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[0_10px_24px_rgba(17,24,39,0.055)] backdrop-blur-xl md:hidden">
             <div className="flex items-center justify-between gap-3">
