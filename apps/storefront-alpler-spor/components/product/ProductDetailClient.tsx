@@ -55,6 +55,28 @@ type DetailRow = {
   value: string;
 };
 
+const PRODUCT_ATTRIBUTE_FIELDS = [
+  "attributes",
+  "raw_attributes",
+  "specifications",
+  "technical_specifications",
+  "technicalSpecifications",
+  "details",
+  "properties",
+  "features",
+] as const;
+
+const SKIPPED_ATTRIBUTE_KEYS = new Set([
+  "id",
+  "uuid",
+  "slug",
+  "product_id",
+  "variant_id",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+]);
+
 function createEmptyCustomizationState(
   basePrice: number,
 ): CustomizationSelectionState {
@@ -104,10 +126,128 @@ function getAttributeLabel(attribute: Record<string, unknown>, fallbackIndex: nu
   const nestedAttribute = getNestedRecord(attribute.attribute);
   return (
     toDisplayText(attribute.attributeName) ||
+    toDisplayText(attribute.attribute_name) ||
+    toDisplayText(attribute.label) ||
+    toDisplayText(attribute.title) ||
+    toDisplayText(attribute.key) ||
     toDisplayText(attribute.name) ||
     toDisplayText(nestedAttribute?.name) ||
     `Nitelik ${fallbackIndex + 1}`
   );
+}
+
+function humanizeAttributeKey(key: string) {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (character) => character.toLocaleUpperCase("tr-TR"));
+}
+
+function getAttributeValue(attribute: Record<string, unknown>): string | null {
+  const nestedValue = getNestedRecord(attribute.value);
+  const values = Array.isArray(attribute.values) ? attribute.values : null;
+
+  if (nestedValue) {
+    return (
+      toDisplayText(nestedValue.value) ||
+      toDisplayText(nestedValue.displayValue) ||
+      toDisplayText(nestedValue.display_value) ||
+      toDisplayText(nestedValue.label) ||
+      toDisplayText(nestedValue.name)
+    );
+  }
+
+  if (values && values.length > 0) {
+    const joinedValues = values
+      .map((value) => {
+        const valueRecord = getNestedRecord(value);
+        return valueRecord
+          ? getAttributeValue(valueRecord)
+          : toDisplayText(value);
+      })
+      .filter((value): value is string => Boolean(value))
+      .join(", ");
+
+    return joinedValues || null;
+  }
+
+  return (
+    toDisplayText(attribute.value) ||
+    toDisplayText(attribute.displayValue) ||
+    toDisplayText(attribute.display_value) ||
+    toDisplayText(attribute.text) ||
+    toDisplayText(attribute.description)
+  );
+}
+
+function createDetailRowsFromAttributeSource(
+  source: unknown,
+  sourceKey: string,
+): DetailRow[] {
+  if (!source) return [];
+
+  if (Array.isArray(source)) {
+    return source
+      .map((attribute, index) => {
+        const record = getNestedRecord(attribute);
+        if (!record) {
+          const value = toDisplayText(attribute);
+          return value
+            ? { key: `${sourceKey}-${index}`, label: `Nitelik ${index + 1}`, value }
+            : null;
+        }
+
+        const label = getAttributeLabel(record, index);
+        const value = getAttributeValue(record);
+        return value ? { key: `${sourceKey}-${label}-${value}`, label, value } : null;
+      })
+      .filter((row): row is DetailRow => Boolean(row));
+  }
+
+  const sourceRecord = getNestedRecord(source);
+  if (!sourceRecord) return [];
+
+  return Object.entries(sourceRecord)
+    .map(([key, value]) => {
+      if (SKIPPED_ATTRIBUTE_KEYS.has(key)) return null;
+
+      const nestedRecord = getNestedRecord(value);
+      if (nestedRecord) {
+        const label = getAttributeLabel({ key: humanizeAttributeKey(key), ...nestedRecord }, 0);
+        const attributeValue = getAttributeValue(nestedRecord);
+        return attributeValue
+          ? { key: `${sourceKey}-${key}`, label, value: attributeValue }
+          : null;
+      }
+
+      const displayValue = Array.isArray(value)
+        ? value
+            .map((item) => {
+              const itemRecord = getNestedRecord(item);
+              return itemRecord ? getAttributeValue(itemRecord) : toDisplayText(item);
+            })
+            .filter((item): item is string => Boolean(item))
+            .join(", ")
+        : toDisplayText(value);
+
+      return displayValue
+        ? { key: `${sourceKey}-${key}`, label: humanizeAttributeKey(key), value: displayValue }
+        : null;
+    })
+    .filter((row): row is DetailRow => Boolean(row));
+}
+
+function dedupeDetailRows(rows: DetailRow[]) {
+  const seen = new Set<string>();
+
+  return rows.filter((row) => {
+    const key = `${row.label}:${row.value}`.toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function getVariantAttributeRows(variant?: ProductVariant | null): DetailRow[] {
@@ -126,7 +266,7 @@ function getVariantAttributeRows(variant?: ProductVariant | null): DetailRow[] {
       if (!record) return null;
 
       const label = getAttributeLabel(record, index);
-      const value = toDisplayText(record.value);
+      const value = getAttributeValue(record);
       if (!value) return null;
 
       const key = `${label}:${value}`.toLocaleLowerCase("tr-TR");
@@ -142,8 +282,19 @@ function getVariantAttributeRows(variant?: ProductVariant | null): DetailRow[] {
     .filter((row): row is DetailRow => Boolean(row));
 }
 
+function getProductAttributeRows(product: Product): DetailRow[] {
+  const productRecord = product as Product & Record<string, unknown>;
+
+  return dedupeDetailRows(
+    PRODUCT_ATTRIBUTE_FIELDS.flatMap((field) =>
+      createDetailRowsFromAttributeSource(productRecord[field], field),
+    ),
+  );
+}
+
 function getProductSpecificationRows(product: Product, variant?: ProductVariant | null): DetailRow[] {
   const variantRows = getVariantAttributeRows(variant);
+  const productAttributeRows = getProductAttributeRows(product);
   const dimensionParts = [
     product.dimensions?.width ? `${product.dimensions.width} cm genislik` : null,
     product.dimensions?.height ? `${product.dimensions.height} cm yukseklik` : null,
@@ -170,13 +321,7 @@ function getProductSpecificationRows(product: Product, variant?: ProductVariant 
       : null,
   ].filter((row): row is DetailRow => Boolean(row && toDisplayText(row.value)));
 
-  const seen = new Set<string>();
-  return [...variantRows, ...baseRows].filter((row) => {
-    const key = `${row.label}:${row.value}`.toLocaleLowerCase("tr-TR");
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return dedupeDetailRows([...variantRows, ...productAttributeRows, ...baseRows]);
 }
 
 function getVariantGroupRows(variants: ProductVariant[]): DetailRow[] {
@@ -480,7 +625,10 @@ export function ProductDetailClient({
       ? variant.originalPrice +
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
-  const selectedAttributeRows = getVariantAttributeRows(variant);
+  const selectedAttributeRows = dedupeDetailRows([
+    ...getVariantAttributeRows(variant),
+    ...getProductAttributeRows(product),
+  ]);
   const specificationRows = getProductSpecificationRows(product, variant);
   const variantGroupRows = getVariantGroupRows(variants);
   const trustCards = [

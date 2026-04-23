@@ -11,6 +11,10 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductCollection, translateProductRecord } from "@/lib/translation";
@@ -146,6 +150,7 @@ export default async function ProductDetailPage({
       );
       const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
+      const attributeRegistry = await getVariantAttributeRegistry();
 
       if (variantsError) {
         console.error("Variants fetch error:", variantsError);
@@ -219,13 +224,36 @@ export default async function ProductDetailPage({
             price: pricing.price,
             originalPrice: pricing.originalPrice,
             attributes: attrs,
+            raw_attributes:
+              Array.isArray(variant.raw_attributes) && variant.raw_attributes.length > 0
+                ? variant.raw_attributes
+                : attrs,
           };
         }) || [];
+
+      const hydratedVariants = hydrateProductVariantSnapshots(
+        transformedVariants,
+        attributeRegistry,
+      ).map((variant, index) => {
+        const fallbackVariant = transformedVariants[index];
+
+        return {
+          ...variant,
+          attributes:
+            Array.isArray(variant.attributes) && variant.attributes.length > 0
+              ? variant.attributes
+              : fallbackVariant.attributes,
+          raw_attributes:
+            Array.isArray(variant.raw_attributes) && variant.raw_attributes.length > 0
+              ? variant.raw_attributes
+              : fallbackVariant.raw_attributes,
+        };
+      });
 
       product = {
         ...dbProduct,
         images,
-        variants: transformedVariants,
+        variants: hydratedVariants,
       } as any;
     }
   } catch (error) {
