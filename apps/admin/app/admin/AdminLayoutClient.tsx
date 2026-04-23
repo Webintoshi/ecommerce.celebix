@@ -409,11 +409,11 @@ export default function AdminLayoutClient({
       </AdminClientBoundary>
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-        <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-3 md:px-4 md:pb-5 md:pt-3 xl:px-5 xl:pb-5 xl:pt-4 2xl:px-6">
-          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[1.35rem] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[0_10px_24px_rgba(17,24,39,0.055)] backdrop-blur-xl md:mb-3 md:rounded-[1.45rem] md:px-4">
+        <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 md:px-4 md:pb-5 md:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6">
+          {isMobile && !rootAdmin ? (
+          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[1.25rem] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[0_10px_24px_rgba(17,24,39,0.055)] backdrop-blur-xl md:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-3">
-                {isMobile && !rootAdmin ? (
                   <button
                     type="button"
                     onClick={handleBack}
@@ -422,7 +422,6 @@ export default function AdminLayoutClient({
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
-                ) : null}
 
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
@@ -455,6 +454,7 @@ export default function AdminLayoutClient({
               </div>
             </div>
           </div>
+          ) : null}
 
           {children}
         </div>
