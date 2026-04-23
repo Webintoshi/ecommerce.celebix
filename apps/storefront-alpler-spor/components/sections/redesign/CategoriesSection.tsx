@@ -45,24 +45,24 @@ export function CategoriesSection({
   }
 
   return (
-    <section className="bg-white py-16 lg:py-24">
+    <section className="bg-white py-14 lg:py-22">
       <div className="container-premium">
         <div className="mb-10 flex flex-col gap-4 lg:mb-14 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-[#F26A21]">{eyebrow}</p>
-            <h2 className="max-w-2xl text-3xl font-bold text-neutral-950 lg:text-4xl">{heading}</h2>
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#FF6A00]">{eyebrow}</p>
+            <h2 className="max-w-2xl text-3xl font-black tracking-tight text-[#111827] lg:text-4xl">{heading}</h2>
           </div>
-          <p className="max-w-md text-sm leading-7 text-[#66746B]">
-            Kategoriler, kullanicinin aradigi ekipmana en kisa yoldan ulasmasi icin sade tutulur.
+          <p className="max-w-md text-sm leading-7 text-[#6B7280]">
+            Dinamik kategoriler kullanicinin aradigi ayakkabi, giyim veya ekipmana en kisa yoldan ulasmasini saglar.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
+        <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2 sm:-mx-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0">
           {displayCategories.map((category) => (
             <Link
               key={category.id}
               href={category.link}
-              className="group relative block aspect-[3/2] overflow-hidden bg-[#EEF2EA]"
+              className="group relative block aspect-[3/2] w-[72vw] shrink-0 overflow-hidden rounded-[1.75rem] bg-[#EEF2F7] shadow-sm sm:w-[44vw] lg:w-auto"
             >
               {category.image && !imageErrors[category.id] ? (
                 <Image
@@ -80,15 +80,16 @@ export function CategoriesSection({
                   }
                 />
               ) : (
-                <div className="absolute inset-0 bg-neutral-100" aria-hidden="true" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#111827] to-[#1E3A8A]" aria-hidden="true" />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/12 to-transparent transition-colors duration-300 group-hover:from-black/68" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14]/78 via-[#0B0F14]/18 to-transparent transition-colors duration-300 group-hover:from-[#0B0F14]/85" />
 
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
-                <p className="category-card-title" style={{ color: "#ffffff" }}>
-                  {category.name}
+              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 lg:p-6">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#B6FF00]">
+                  Kesfet
                 </p>
+                <p className="category-card-title" style={{ color: "#ffffff" }}>{category.name}</p>
               </div>
             </Link>
           ))}

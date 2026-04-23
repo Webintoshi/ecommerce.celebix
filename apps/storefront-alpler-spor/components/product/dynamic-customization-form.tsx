@@ -506,7 +506,7 @@ function FormField({
                   className={cn(
                     "flex cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-sm transition-all",
                     "border-neutral-200 bg-white hover:border-neutral-300",
-                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37]/10",
+                    "peer-data-[state=checked]:border-[#FF6A00] peer-data-[state=checked]:bg-[#FFF1E8]",
                     showError && "border-rose-300"
                   )}
                 >
@@ -542,7 +542,7 @@ function FormField({
                 className={cn(
                   "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all md:max-w-none",
                   value === option.value
-                    ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
+                    ? "border-[#FF6A00] ring-1 ring-[#FF6A00]/30"
                     : "border-neutral-200 hover:border-neutral-300",
                   showError && "border-rose-300"
                 )}
@@ -579,7 +579,7 @@ function FormField({
                   )}
                 </div>
                 {value === option.value && (
-                  <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#8A6B37]">
+                  <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF6A00]">
                     <Check className="h-3 w-3 text-white" />
                   </div>
                 )}

@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   link: "/urunler",
   linkText: "Urunleri Incele",
   enabled: true,
-  backgroundColor: "#173D32",
+  backgroundColor: "#0B0F14",
 };
 
 function normalizeAnnouncementColor(value?: string) {

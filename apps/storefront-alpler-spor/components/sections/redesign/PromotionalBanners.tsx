@@ -30,8 +30,8 @@ function getDefaultBadge(order: number): string {
 }
 
 function getDefaultColor(order: number): string {
-  const colors = ["#7B1113", "#B85E2D", "#2E5A4F"];
-  return colors[order - 1] || "#7B1113";
+  const colors = ["#FF6A00", "#2563EB", "#111827"];
+  return colors[order - 1] || "#FF6A00";
 }
 
 function getDefaultDiscount(order: number): string {
@@ -51,7 +51,7 @@ function getDefaultBanners(): PromoBanner[] {
       buttonLink: "/urunler",
       order: 1,
       badge: "Yeni Tema",
-      color: "#7B1113",
+      color: "#FF6A00",
       discount: "20",
     },
     {
@@ -64,7 +64,7 @@ function getDefaultBanners(): PromoBanner[] {
       buttonLink: "/blog",
       order: 2,
       badge: "Editor Secimi",
-      color: "#B85E2D",
+      color: "#2563EB",
       discount: "15",
     },
     {
@@ -77,7 +77,7 @@ function getDefaultBanners(): PromoBanner[] {
       buttonLink: "/iletisim",
       order: 3,
       badge: "Hazir Kampanya",
-      color: "#2E5A4F",
+      color: "#111827",
       discount: "10",
     },
   ];
@@ -114,7 +114,7 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         return null;
       }
 
-      return {
+      const normalizedBanner: PromoBanner = {
         id: banner.id || index + 1,
         image,
         mobileImage: banner.mobileImage || banner.mobile || image,
@@ -128,8 +128,9 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         discount: banner.discount,
         endDate: banner.endDate,
       };
+      return normalizedBanner;
     })
-    .filter((banner): banner is PromoBanner => Boolean(banner));
+    .filter((banner): banner is PromoBanner => banner !== null);
 }
 
 function withDefaults(banners: PromoBanner[]): PromoBanner[] {

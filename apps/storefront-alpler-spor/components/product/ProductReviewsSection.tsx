@@ -278,7 +278,7 @@ export function ProductReviewsSection({
                 key={value}
                 className={`h-4 w-4 ${
                   value <= Math.round(summary.rating)
-                    ? "fill-[#8A6B37] text-[#8A6B37]"
+                    ? "fill-[#F59E0B] text-[#F59E0B]"
                     : "fill-neutral-200 text-neutral-200"
                 }`}
               />
@@ -319,7 +319,7 @@ export function ProductReviewsSection({
                         key={value}
                         className={`h-4 w-4 ${
                           value <= review.rating
-                            ? "fill-[#8A6B37] text-[#8A6B37]"
+                            ? "fill-[#F59E0B] text-[#F59E0B]"
                             : "fill-neutral-200 text-neutral-200"
                         }`}
                       />
@@ -364,13 +364,13 @@ export function ProductReviewsSection({
                 value={reviewerName}
                 onChange={(event) => setReviewerName(event.target.value)}
                 placeholder="Ad Soyad"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/10"
               />
               <input
                 value={reviewerEmail}
                 onChange={(event) => setReviewerEmail(event.target.value)}
                 placeholder="E-posta (opsiyonel)"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/10"
               />
             </div>
 
@@ -378,7 +378,7 @@ export function ProductReviewsSection({
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Yorum başlığı (opsiyonel)"
-              className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/10"
             />
 
             <div className="space-y-2">
@@ -393,7 +393,7 @@ export function ProductReviewsSection({
                   >
                     <Star
                       className={`h-6 w-6 ${
-                        value <= rating ? "fill-[#8A6B37] text-[#8A6B37]" : "fill-neutral-200 text-neutral-200"
+                        value <= rating ? "fill-[#F59E0B] text-[#F59E0B]" : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
                   </button>
@@ -406,7 +406,7 @@ export function ProductReviewsSection({
               onChange={(event) => setBody(event.target.value)}
               rows={5}
               placeholder="Ürün hakkındaki deneyiminizi yazın..."
-              className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/10"
             />
 
             <div className="space-y-3">
@@ -477,7 +477,7 @@ export function ProductReviewsSection({
               type="button"
               onClick={handleSubmit}
               disabled={isPending || isUploading}
-              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#8A6B37] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#755a2d] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#FF6A00] px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[#E85F00] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
             </button>

@@ -114,22 +114,22 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             </div>
 
             {lastAddedItem ? (
-              <div className="flex items-center gap-4 border-b border-emerald-100 bg-emerald-50 px-6 py-4 animate-in fade-in slide-in-from-top-2">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 shadow-sm">
+              <div className="flex items-center gap-4 border-b border-[#DCFCE7] bg-[#F0FDF4] px-6 py-4 animate-in fade-in slide-in-from-top-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#16A34A] shadow-sm">
                   <Check className="h-5 w-5 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-[#15803D]">
                     Son Eklenen Urun
                   </p>
                   <p className="truncate text-sm font-bold text-gray-900">
                     {lastAddedItem.product.name}
                   </p>
-                  <p className="text-xs font-medium text-emerald-600">
+                  <p className="text-xs font-medium text-[#15803D]">
                     {formatPrice(lastAddedItem.unitPrice * lastAddedItem.quantity)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-white text-2xl shadow-sm">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DCFCE7] bg-white text-2xl shadow-sm">
                   {lastAddedItemImage ? (
                     <img
                       src={lastAddedItemImage}
@@ -151,12 +151,12 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     {formatPrice(remainingForFreeShipping)}
                   </span>{" "}
                   daha harcayip{" "}
-                  <span className="font-bold text-emerald-600">ucretsiz kargo</span>{" "}
+                  <span className="font-bold text-[#16A34A]">ucretsiz kargo</span>{" "}
                   kazanin!
                 </p>
                 <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-[#FF6A00] to-[#FF8A3D] transition-all duration-500"
                     style={{ width: `${freeShippingProgress}%` }}
                   />
                 </div>
@@ -178,7 +178,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <Link
                     href={buildPath("/urunler")}
                     onClick={onClose}
-                    className="bg-[#173D32] px-8 py-3 font-bold text-white transition-colors hover:bg-[#102A23]"
+                    className="rounded-full bg-[#FF6A00] px-8 py-3 font-bold text-white transition-colors hover:bg-[#E85F00]"
                   >
                     Alisverise Basla
                   </Link>
@@ -193,7 +193,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   return (
                     <div
                       key={item.id}
-                    className="flex gap-4 border border-black/5 bg-[#F7F8F5] p-4 transition-colors hover:border-[#173D32]/20"
+                    className="flex gap-4 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4 transition-colors hover:border-[#FF6A00]/40"
                     >
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-white text-2xl shadow-sm">
                         {itemImage ? (
@@ -279,7 +279,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     <span
                       className={cn(
                         "font-bold",
-                        shipping === 0 ? "text-emerald-600" : "text-gray-900",
+                        shipping === 0 ? "text-[#16A34A]" : "text-gray-900",
                       )}
                     >
                       {shipping === 0 ? "Ucretsiz" : formatPrice(shipping)}
@@ -287,9 +287,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border border-[#D6E6DC] bg-[#E7F2EC] p-4">
-                  <span className="font-bold text-[#173D32]">Toplam</span>
-                  <span className="text-2xl font-black tracking-tight text-[#173D32]">
+                <div className="flex items-center justify-between rounded-2xl border border-[#FED7AA] bg-[#FFF7ED] p-4">
+                  <span className="font-bold text-[#C2410C]">Toplam</span>
+                  <span className="text-2xl font-black tracking-tight text-[#111827]">
                     {formatPrice(total)}
                   </span>
                 </div>
@@ -297,7 +297,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 <Link
                   href={buildPath("/odeme")}
                   onClick={onClose}
-                  className="flex h-14 w-full items-center justify-center gap-2 bg-[#173D32] font-bold text-white transition-all hover:bg-[#102A23] active:scale-[0.98]"
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#FF6A00] font-bold text-white transition-all hover:bg-[#E85F00] active:scale-[0.98]"
                 >
                   Odemeye Gec <ArrowRight className="h-5 w-5" />
                 </Link>

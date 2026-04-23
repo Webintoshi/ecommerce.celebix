@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartWrapper } from "@/components/cart/CartWrapper";
 import { AnnouncementBar } from "@/components/sections/AnnouncementBar";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -13,17 +14,26 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="flex min-h-screen flex-col bg-[#F7F8F5]">
+      <div className="flex min-h-screen flex-col bg-[#F5F7FA]">
         {!isAdmin && !isAuthPage && (
           <>
             <AnnouncementBar />
             <Header />
           </>
         )}
-        <main className={isAdmin ? "bg-[#F7F8F5]" : "flex-1 bg-[#F7F8F5]"}>{children}</main>
+        <main
+          className={
+            isAdmin
+              ? "bg-[#F5F7FA]"
+              : "flex-1 bg-[#F5F7FA] pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-0"
+          }
+        >
+          {children}
+        </main>
         {!isAdmin && <Footer />}
       </div>
       {!isAdmin && <CartWrapper />}
+      {!isAdmin && !isAuthPage && <MobileBottomNav />}
     </>
   );
 }

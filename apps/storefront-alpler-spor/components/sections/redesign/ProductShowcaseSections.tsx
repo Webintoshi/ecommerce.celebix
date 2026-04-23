@@ -146,17 +146,17 @@ function EmptyShowcaseState() {
   ];
 
   return (
-    <section className="bg-[#F7F8F5] py-16 lg:py-20">
+    <section className="bg-[#F5F7FA] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 border border-[#173D32]/15 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#173D32]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C2410C]">
             <Sparkles className="h-3.5 w-3.5" />
             Vitrin Hazir
           </span>
-          <h2 className="mt-5 text-3xl font-bold text-[#121713] sm:text-4xl">
+          <h2 className="mt-5 text-3xl font-black text-[#111827] sm:text-4xl">
             Urunler geldikce Alpler Spor vitrini otomatik guclenir
           </h2>
-          <p className="mt-4 text-sm leading-7 text-[#5E6B62] sm:text-[15px]">
+          <p className="mt-4 text-sm leading-7 text-[#6B7280] sm:text-[15px]">
             Urun ve kategori girdileri eklendiginde bu alan satis odakli koleksiyon
             bloklariyla dolar.
           </p>
@@ -166,13 +166,13 @@ function EmptyShowcaseState() {
           {cards.map((card) => (
             <div
               key={card.title}
-              className="border border-black/5 bg-white p-6"
+              className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-6 shadow-sm"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#FF6A00]">
                 Merchandising
               </p>
-              <h3 className="mt-3 text-xl font-semibold text-[#121713]">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#5E6B62]">{card.text}</p>
+              <h3 className="mt-3 text-xl font-black text-[#111827]">{card.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#6B7280]">{card.text}</p>
             </div>
           ))}
         </div>
@@ -227,21 +227,21 @@ export function ProductShowcaseSections({
   return (
     <>
       {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F7F8F5] py-16 lg:py-20">
+        <section key={group.id} className="bg-[#F5F7FA] py-14 lg:py-20">
           <div className="container-premium">
             <div className="mb-12 flex items-end justify-between gap-6">
               <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.2em] text-[#FF6A00]">
                   {group.subtitle}
                 </span>
-                <h2 className="text-3xl font-bold text-neutral-950 sm:text-4xl">
+                <h2 className="text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
                   {group.title}
                 </h2>
               </div>
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
+                className="group hidden items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-bold text-[#111827] transition-colors hover:border-[#FF6A00] hover:text-[#FF6A00] sm:inline-flex"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

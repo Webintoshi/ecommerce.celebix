@@ -92,7 +92,7 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-neutral-50 py-16 lg:py-20">
+    <section className="bg-[#F5F7FA] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 text-center">
           <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
@@ -115,8 +115,8 @@ export function TestimonialsSection({
                   className="grid w-full flex-shrink-0 grid-cols-1 gap-6 lg:grid-cols-2"
                 >
                   {testimonials.slice(slideIndex * 2, slideIndex * 2 + 2).map((review) => (
-                    <div key={review.id} className="flex overflow-hidden bg-white shadow-sm">
-                      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-neutral-100 sm:w-40 lg:w-48">
+                    <div key={review.id} className="flex overflow-hidden rounded-[1.5rem] border border-[#E5E7EB] bg-white shadow-sm">
+                      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-[#EEF2F7] sm:w-40 lg:w-48">
                         {review.image ? (
                           <div className="relative h-20 w-20 overflow-hidden rounded-full">
                             <Image
@@ -128,7 +128,7 @@ export function TestimonialsSection({
                             />
                           </div>
                         ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1E8] text-lg font-semibold tracking-[0.24em] text-[#C2410C]">
                             {getInitials(review.name)}
                           </div>
                         )}
@@ -142,7 +142,7 @@ export function TestimonialsSection({
                               className={cn(
                                 "h-3.5 w-3.5",
                                 index < review.rating
-                                  ? "fill-[#8A6B37] text-[#8A6B37]"
+                                  ? "fill-[#F59E0B] text-[#F59E0B]"
                                   : "fill-neutral-200 text-neutral-200",
                               )}
                             />
@@ -175,7 +175,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
+                className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-[#FF6A00] hover:shadow-lg lg:-translate-x-6"
                 aria-label="Onceki"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -184,7 +184,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
+                className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-[#FF6A00] hover:shadow-lg lg:translate-x-6"
                 aria-label="Sonraki"
               >
                 <ChevronRight className="h-5 w-5" />

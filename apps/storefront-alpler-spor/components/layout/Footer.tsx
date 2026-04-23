@@ -112,7 +112,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="bg-[#101713] text-white">
+    <footer className="bg-[#0B0F14] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
@@ -147,7 +147,7 @@ export function Footer() {
                 <button
                   type="button"
                   onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#101713] transition hover:border-white"
+                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-2xl border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#111827] transition hover:border-[#FF6A00]"
                   aria-expanded={isLocaleMenuOpen}
                   aria-haspopup="listbox"
                 >
@@ -156,12 +156,12 @@ export function Footer() {
                     <span className="text-sm">{locale.toUpperCase()}</span>
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 text-[#374151] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden border border-white/10 bg-[#17251E] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-2xl border border-white/10 bg-[#111827] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                     <div className="space-y-1">
                       {localeSwitchOptions.map((option) => {
                         const isActive = option.locale === locale;
@@ -173,8 +173,8 @@ export function Footer() {
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
                               isActive
-                                ? "bg-white text-[#101713]"
-                                : "text-white/88 hover:bg-white/10 hover:text-white"
+                                ? "bg-white text-[#111827]"
+                                : "text-white/88 hover:bg-white/10 hover:text-[#FF6A00]"
                             }`}
                           >
                             <span className="text-sm font-medium">{option.label}</span>
@@ -194,7 +194,7 @@ export function Footer() {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-[#CBD5E1] transition-all hover:border-[#FF6A00] hover:text-[#FF6A00]"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -203,7 +203,7 @@ export function Footer() {
                 href={youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-[#CBD5E1] transition-all hover:border-[#FF6A00] hover:text-[#FF6A00]"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -220,7 +220,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={buildPath(link.href)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF6A00]"
                   >
                     {link.name}
                   </Link>
@@ -237,8 +237,8 @@ export function Footer() {
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={buildPath(`/${link.slug}`)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    href={buildPath(`/koleksiyon/${link.slug}`)}
+                    className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF6A00]"
                   >
                     {link.name}
                   </Link>
@@ -257,7 +257,7 @@ export function Footer() {
                 <li key={link.slug}>
                   <Link
                     href={buildPath(link.href)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF6A00]"
                   >
                     {link.label}
                   </Link>
@@ -269,16 +269,16 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-gray-800">
+      <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[#94A3B8]">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+            className="text-[10px] uppercase tracking-[0.2em] text-[#94A3B8] transition-colors hover:text-[#FF6A00]"
           >
             Powered by Celebix
           </a>

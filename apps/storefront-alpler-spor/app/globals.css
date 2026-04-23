@@ -1,38 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F7F8F5;
-  --foreground: #121713;
+  --background: #F5F7FA;
+  --foreground: #111827;
 
-  /* Brand Palette */
-  --primary: #173D32;
+  /* Alpler Spor Brand Palette */
+  --primary-dark: #0B0F14;
+  --primary-navy: #111827;
+  --brand-orange: #FF6A00;
+  --brand-orange-hover: #E85F00;
+  --brand-orange-active: #CC5400;
+  --accent-blue: #2563EB;
+  --accent-lime: #B6FF00;
+
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #F8FAFC;
+  --surface-dark: #111827;
+  --surface-dark-elevated: #1F2937;
+
+  --primary: #FF6A00;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #E7F2EC;
-  --secondary-foreground: #173D32;
+  --secondary: #111827;
+  --secondary-foreground: #FFFFFF;
 
-  --muted: #66746B;
-  --muted-foreground: #66746B;
+  --muted: #F8FAFC;
+  --muted-foreground: #6B7280;
 
   /* shadcn/ui required variables */
   --card: #FFFFFF;
-  --card-foreground: #121713;
+  --card-foreground: #111827;
   --popover: #FFFFFF;
-  --popover-foreground: #121713;
-  --accent: #F26A21;
+  --popover-foreground: #111827;
+  --accent: #2563EB;
   --accent-foreground: #FFFFFF;
-  --destructive: #FF3B30;
+  --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #173D32;
+  --input: #D1D5DB;
+  --ring: #FF6A00;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
   --apple-blue-hover: #0077ED;
   --apple-green: #34C759;
-  --apple-orange: #FF9500;
-  --apple-red: #FF3B30;
+  --apple-orange: #FF6A00;
+  --apple-red: #EF4444;
 
   /* Neutral Scale */
   --gray-50: #F9FAFB;
@@ -93,8 +106,8 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --store-font-heading: "Space Grotesk", "Arial Narrow", system-ui, sans-serif;
-  --store-font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --store-font-heading: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
+  --store-font-body: "Manrope", "Plus Jakarta Sans", system-ui, sans-serif;
   --store-font-menu: var(--store-font-body);
   --store-font-product-title: var(--store-font-body);
   --store-font-heading-weight: 700;
@@ -125,7 +138,7 @@
 }
 
 body {
-  background: #F7F8F5;
+  background: #F5F7FA;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
@@ -165,33 +178,33 @@ textarea {
   font-family: var(--store-font-body);
 }
 
-/* Brand color overrides */
+/* Alpler Spor brand color overrides */
 .bg-primary {
-  background-color: #173D32 !important;
+  background-color: #FF6A00 !important;
 }
 
 .text-primary {
-  color: #173D32 !important;
+  color: #FF6A00 !important;
 }
 
 .border-primary {
-  border-color: #173D32 !important;
+  border-color: #FF6A00 !important;
 }
 
 .ring-primary {
-  --tw-ring-color: #173D32 !important;
+  --tw-ring-color: #FF6A00 !important;
 }
 
 .bg-primary\/10 {
-  background-color: rgba(23, 61, 50, 0.1) !important;
+  background-color: rgba(255, 106, 0, 0.1) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(23, 61, 50, 0.1) !important;
+  border-color: rgba(255, 106, 0, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(23, 61, 50, 0.2) !important;
+  border-color: rgba(255, 106, 0, 0.2) !important;
 }
 
 .text-primary-foreground {
@@ -200,15 +213,30 @@ textarea {
 
 .bg-primary-foreground {
   background-color: #FFFFFF !important;
-  color: #173D32 !important;
+  color: #FF6A00 !important;
 }
 
 .text-secondary-foreground {
-  color: #173D32 !important;
+  color: #FFFFFF !important;
 }
 
 .bg-secondary {
-  background-color: #E7F2EC !important;
+  background-color: #111827 !important;
+}
+
+.safe-area-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.alpler-dark-gradient {
+  background:
+    radial-gradient(circle at 12% 16%, rgba(255, 106, 0, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(37, 99, 235, 0.28), transparent 32%),
+    linear-gradient(135deg, #0B0F14 0%, #111827 58%, #1E3A8A 100%);
+}
+
+.alpler-promo-gradient {
+  background: linear-gradient(135deg, #FF6A00 0%, #FF8A3D 100%);
 }
 
 @keyframes marquee {

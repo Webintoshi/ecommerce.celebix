@@ -85,7 +85,7 @@ export default async function RootLayout({
         ) : null}
         <CodeIntegrationMarkup html={codeIntegrations.customHeadHtml} />
       </head>
-      <body className="bg-[#F7F8F5] font-sans antialiased text-[#121713]" suppressHydrationWarning>
+      <body className="bg-[#F5F7FA] font-sans antialiased text-[#111827]" suppressHydrationWarning>
         {gtmId ? (
           <noscript>
             <iframe

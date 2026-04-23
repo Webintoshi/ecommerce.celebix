@@ -96,9 +96,9 @@ export async function generateMetadata({
   return buildStorePageMetadata({
     locale,
     pathname: `/urunler/${baseSlug}`,
-    title: translatedProduct.seo_title || translatedProduct.name,
+    title: translatedProduct.seoTitle || translatedProduct.name,
     description:
-      translatedProduct.seo_description ||
+      translatedProduct.seoDescription ||
       translatedProduct.shortDescription ||
       extractPlainTextFromProductDescription(translatedProduct.description, translatedProduct.name).slice(0, 160) ||
       "",

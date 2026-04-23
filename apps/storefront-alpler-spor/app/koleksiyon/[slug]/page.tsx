@@ -489,7 +489,7 @@ export default async function CollectionPage({
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
-    <div className="min-h-screen bg-[#F7F8F5]">
+    <div className="min-h-screen bg-[#F5F7FA]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -537,25 +537,25 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <section className="border-b border-black/5 bg-white">
+      <section className="border-b border-black/5 bg-[#111827] text-white">
         <div className="container-premium py-10 md:py-14">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#F26A21]">
             Alpler Spor Koleksiyonu
           </p>
-          <h1 className="store-product-title-detail mb-3 max-w-4xl text-neutral-950">{translatedCategory.name}</h1>
+          <h1 className="store-product-title-detail mb-3 max-w-4xl text-white">{translatedCategory.name}</h1>
           {translatedCategory.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
+            <p className="max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
               {translatedCategory.description}
             </p>
           ) : (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
+            <p className="max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
               Bu koleksiyondaki urunleri performans, kullanim senaryosu ve stok durumuna gore hizli tarayin.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
-            <span className="bg-[#E7F2EC] px-3 py-2 text-[#173D32]">{products.length} urun</span>
-            <span className="bg-[#FFF0E8] px-3 py-2 text-[#B54D17]">Hizli kargo</span>
-            <span className="bg-[#F4EEE7] px-3 py-2 text-[#4D4A3F]">Kolay iade</span>
+            <span className="rounded-full bg-white/10 px-3 py-2 text-white">{products.length} urun</span>
+            <span className="rounded-full bg-[#FFF1E8] px-3 py-2 text-[#C2410C]">Hizli kargo</span>
+            <span className="rounded-full bg-[#DBEAFE] px-3 py-2 text-[#1D4ED8]">Kolay iade</span>
           </div>
         </div>
       </section>
@@ -572,7 +572,7 @@ export default async function CollectionPage({
             </h2>
             <div className="max-w-3xl space-y-4">
               {translatedCategory.faq.map((item, index) => (
-                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8F8F8] p-5">
+                <details key={index} className="rounded-2xl border border-neutral-200 bg-[#F8FAFC] p-5">
                   <summary className="cursor-pointer list-none font-medium text-neutral-900">
                     {item.question}
                   </summary>

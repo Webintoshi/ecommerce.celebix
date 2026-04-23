@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES, SITE_NAME } from "@/lib/constants";
+import { ROUTES } from "@/lib/constants";
 import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {
@@ -27,7 +27,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 // Types from PremiumHome
 interface HeroSlide {
-  id: number;
+  id: number | string;
   desktop: string;
   mobile: string;
   alt: string;
@@ -68,54 +68,57 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || !slides || slides.length === 0) {
     return (
-      <section className="relative overflow-hidden bg-[#F7F8F5]">
-        <div className="absolute inset-x-0 top-0 h-2 bg-[#F26A21]" />
-        <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+      <section className="alpler-dark-gradient relative overflow-hidden text-white">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-[#FF6A00]" />
+        <div className="absolute right-8 top-12 hidden rounded-full bg-[#B6FF00] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#0B0F14] lg:block">
+          Sezon Firsatlari
+        </div>
+        <div className="relative mx-auto flex min-h-[560px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="max-w-2xl">
-              <span className="inline-flex border border-[#173D32]/15 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#173D32]">
-                Alpler Spor
+              <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em] text-[#B6FF00] backdrop-blur">
+                Yeni Sezon / Alpler Spor
               </span>
-              <h1 className="mt-6 text-4xl font-bold leading-[0.98] text-[#121713] sm:text-5xl lg:text-6xl">
-                {SITE_NAME}
+              <h1 className="mt-6 text-4xl font-black leading-[0.96] tracking-tight text-white sm:text-5xl lg:text-7xl">
+                Performansini Tarzinla Tamamla
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#5E6B62] sm:text-lg">
-                Spor ayakkabi, giyim ve ekipman vitrinini hizli taranan,
-                mobilde net ve satin almaya hazir bir deneyimde sunar.
+              <p className="mt-5 max-w-xl text-base leading-8 text-[#E5E7EB] sm:text-lg">
+                Sneaker, spor ayakkabi ve aktif giyim koleksiyonlarini hizli,
+                guvenli ve mobil odakli bir Alpler Spor deneyiminde kesfet.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
-                  className="inline-flex items-center justify-center gap-2 bg-[#173D32] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#102A23]"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-black text-white transition hover:bg-[#E85F00]"
                 >
-                  Koleksiyonu Incele
+                  Alisverise Basla
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href={ROUTES.contact}
-                  className="inline-flex items-center justify-center border border-[#173D32]/20 bg-white px-6 py-3.5 text-sm font-semibold text-[#173D32] transition hover:border-[#173D32]/40 hover:bg-[#E7F2EC]"
+                  href={`${ROUTES.products}?sort=discounted`}
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/20 bg-white/10 px-7 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  Destekle Iletisime Gec
+                  Kampanyalari Gor
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { title: "Saha Favorileri", text: "Cok satan ve yeni sezon urunleri ilk bakista ayrisir." },
-                { title: "Net Kategori Akisi", text: "Kullanim senaryosuna gore hizli karar vermeyi destekler." },
+                { title: "Sneaker", text: "Gunluk stil ve sportif rahatlik icin hizli kategori girisi." },
+                { title: "Kosudan Outdoor'a", text: "Kullanim senaryosuna gore sade ve hizli kesif." },
                 { title: "Mobil Satin Alma", text: "Fiyat, stok ve CTA alani kucuk ekranda kaybolmaz." },
-                { title: "Guven Mesajlari", text: "Teslimat, iade ve odeme bilgisi satin alma niyetini guclendirir." },
+                { title: "Guvenli Akis", text: "Teslimat, iade ve odeme bilgisi satin alma kararini netlestirir." },
               ].map((item) => (
                 <div
                   key={item.title}
-                  className="border border-black/5 bg-white p-5"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/8 p-5 backdrop-blur"
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
-                    Vitrin
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#FF6A00]">
+                    Performans
                   </p>
-                  <h2 className="mt-3 text-xl font-semibold text-[#121713]">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#5E6B62]">{item.text}</p>
+                  <h2 className="mt-3 text-xl font-black text-white">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-[#CBD5E1]">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -128,7 +131,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const slide = slides[current];
 
   return (
-    <section className="relative w-full overflow-hidden">
+    <section className="relative w-full overflow-hidden bg-[#0B0F14]">
       {/* Aspect Ratio Container - Mobile: 3/4, Desktop: 16/9 */}
       <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px]">
         <div
@@ -154,7 +157,8 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
               sizes="100vw"
             />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent md:from-black/60 md:via-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B0F14]/90 via-[#111827]/60 to-transparent md:from-[#0B0F14]/82 md:via-[#111827]/45" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(255,106,0,0.24),transparent_30%)]" />
         </div>
 
       <div className="absolute inset-0 z-10 flex items-center">
@@ -165,23 +169,23 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
             >
               {slide.title && (
                 <span
-                  className="inline-block px-3 py-1 sm:px-4 sm:py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs sm:text-sm font-medium rounded-full mb-4 sm:mb-6"
+                  className="mb-4 inline-block rounded-full bg-[#FF6A00] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm sm:mb-6 sm:px-4 sm:py-1.5 sm:text-sm"
                 >
                   {slide.title}
                 </span>
               )}
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight">
-                {slide.alt}
+              <h2 className="mb-3 text-4xl font-black leading-[0.98] tracking-tight text-white sm:mb-4 sm:text-5xl md:text-6xl xl:text-7xl">
+                {slide.alt || "Performansini Tarzinla Tamamla"}
               </h2>
               {slide.subtitle && (
-                <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 max-w-md">
+                <p className="mb-6 max-w-md text-base leading-7 text-[#E5E7EB] sm:mb-8 sm:text-lg md:text-xl">
                   {slide.subtitle}
                 </p>
               )}
               {slide.buttonText && (
                 <Link
                   href={slide.buttonLink || ROUTES.products}
-                  className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-white text-gray-900 text-sm sm:text-base font-bold rounded-full hover:bg-gray-100 transition-all hover:scale-105 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-6 py-3 text-sm font-black text-white transition-all hover:bg-[#E85F00] active:scale-95 sm:px-8 sm:py-4 sm:text-base"
                 >
                   {slide.buttonText}
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />

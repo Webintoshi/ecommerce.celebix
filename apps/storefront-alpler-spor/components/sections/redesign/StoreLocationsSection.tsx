@@ -121,7 +121,7 @@ export function StoreLocationsSection({
 
         <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 lg:grid-cols-4 lg:gap-4">
           {galleryImages.map((image, index) => (
-            <div key={image.id} className="group relative overflow-hidden bg-[#EEF2EA]">
+            <div key={image.id} className="group relative overflow-hidden rounded-[1.5rem] bg-[#EEF2F7]">
               <div className="relative aspect-[5/5.8]">
                 <Image
                   src={image.src}
@@ -132,7 +132,7 @@ export function StoreLocationsSection({
                   className="object-cover transition duration-700 group-hover:scale-[1.02]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/0 to-transparent" />
-                <div className="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#173D32] backdrop-blur">
+                <div className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#111827] backdrop-blur">
                   {image.city}
                 </div>
               </div>
@@ -144,7 +144,7 @@ export function StoreLocationsSection({
           {cards.map((card) => (
             <article
               key={card.id}
-              className="border border-black/5 bg-[#F7F8F5] p-5"
+              className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -156,7 +156,7 @@ export function StoreLocationsSection({
 
                 <a
                   href={card.actionHref}
-                  className="inline-flex items-center gap-2 border border-[#173D32]/20 bg-white px-3.5 py-2 text-sm font-medium text-[#173D32] transition hover:border-[#173D32]/40"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-3.5 py-2 text-sm font-bold text-[#C2410C] transition hover:border-[#FF6A00]/50"
                 >
                   {card.icon}
                   <span>{card.actionLabel}</span>
@@ -167,20 +167,20 @@ export function StoreLocationsSection({
 
               <div className="mt-5 space-y-3 text-sm text-[#4D5A51]">
                 <div className="inline-flex items-center gap-2 bg-white px-3 py-2">
-                  <Clock3 className="size-4 text-[#173D32]" />
+                  <Clock3 className="size-4 text-[#FF6A00]" />
                   <span>{card.hours}</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-1 size-4 text-[#173D32]" />
+                  <MapPin className="mt-1 size-4 text-[#FF6A00]" />
                   <p className="text-sm leading-6 text-[#5E6B62]">{card.address}</p>
                 </div>
                 <div className="flex flex-wrap gap-5 text-[#5E6B62]">
                   <span className="inline-flex items-center gap-2">
-                    <Phone className="size-4 text-[#173D32]" />
+                    <Phone className="size-4 text-[#FF6A00]" />
                     {phone}
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <Mail className="size-4 text-[#173D32]" />
+                    <Mail className="size-4 text-[#FF6A00]" />
                     {email}
                   </span>
                 </div>
@@ -192,7 +192,7 @@ export function StoreLocationsSection({
         <div className="mt-8 flex justify-center">
           <Link
             href={storesHref}
-            className="inline-flex items-center gap-2 border border-[#173D32]/20 bg-white px-5 py-3 text-sm font-semibold text-[#173D32] transition hover:border-[#173D32]/40 hover:bg-[#E7F2EC]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/25 bg-white px-5 py-3 text-sm font-bold text-[#C2410C] transition hover:border-[#FF6A00]/50 hover:bg-[#FFF1E8]"
           >
             <span>{linkLabel}</span>
             <ExternalLink className="size-4" />

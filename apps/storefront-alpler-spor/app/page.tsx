@@ -10,13 +10,13 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Performansa hazir secimler",
+  categoriesHeading: "Spor stiline hizli giris",
   viewAllLabel: "Tumunu Gor",
   productGroups: [
-    { title: "Saha Favorileri", subtitle: "Cok Satanlar" },
-    { title: "Outdoor Hazirligi", subtitle: "Alpler Secimi" },
+    { title: "One Cikan Urunler", subtitle: "Kullanici Favorileri" },
+    { title: "Sneaker ve Ayakkabi", subtitle: "Performans Secimi" },
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
-    { title: "Tamamlayici Ekipman", subtitle: "Akilli Eslesme" },
+    { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
   ],
   storesEyebrow: "Guvenli Alisveris",
   storesHeading: "Dogru ekipman, hizli teslimat ve net destek",

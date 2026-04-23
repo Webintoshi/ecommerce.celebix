@@ -18,8 +18,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
+import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
@@ -34,6 +36,7 @@ import {
   CustomizationStep,
 } from "@/types/product-customization";
 import { formatPrice } from "@/lib/utils";
+import { useWishlist } from "@/lib/wishlist-context";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -96,7 +99,6 @@ export function ProductDetailClient({
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
@@ -114,7 +116,9 @@ export function ProductDetailClient({
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { locale, buildPath } = useStorefrontRoute();
+  const isWishlisted = product ? isInWishlist(product.id) : false;
 
   const toggleAccordion = (id: string) => {
     const next = new Set(openAccordions);
@@ -137,13 +141,6 @@ export function ProductDetailClient({
     setQuantity(1);
     setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && product) {
-      const wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
-      setIsWishlisted(wishlist.includes(product.id));
-    }
-  }, [product]);
 
   useEffect(() => {
     if (product?.category) {
@@ -218,7 +215,7 @@ export function ProductDetailClient({
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA]">
         <div className="animate-pulse text-center">
           <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
           <div className="h-4 w-32 rounded bg-neutral-200" />
@@ -229,7 +226,7 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F5F7FA]">
         <div className="text-center">
           <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
         </div>
@@ -252,10 +249,14 @@ export function ProductDetailClient({
         behavior: "smooth",
         block: "center",
       });
+      toast.error("Lutfen gerekli secimleri tamamlayin");
       return;
     }
 
     addToCart(product, variant, quantity, customizationState.payload || undefined);
+    toast.success("Sepete eklendi", {
+      description: product.name,
+    });
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -265,12 +266,16 @@ export function ProductDetailClient({
   };
 
   const toggleWishlist = () => {
-    const wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
-    const newWishlist = isWishlisted
-      ? wishlist.filter((id: string) => id !== product.id)
-      : [...wishlist, product.id];
-    localStorage.setItem("wishlist", JSON.stringify(newWishlist));
-    setIsWishlisted(!isWishlisted);
+    if (isWishlisted) {
+      removeFromWishlist(product.id);
+      toast.success("Favorilerden cikarildi");
+      return;
+    }
+
+    addToWishlist(product);
+    toast.success("Favorilere eklendi", {
+      description: product.name,
+    });
   };
 
   const handleShare = () => {
@@ -282,6 +287,7 @@ export function ProductDetailClient({
       });
     } else {
       navigator.clipboard.writeText(window.location.href);
+      toast.success("Urun linki kopyalandi");
     }
   };
 
@@ -304,7 +310,7 @@ export function ProductDetailClient({
       : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F7F8F5]">
+    <div className="min-h-screen bg-[#F5F7FA]">
       <div className="border-b border-black/5 bg-white">
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
@@ -373,7 +379,7 @@ export function ProductDetailClient({
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
+                          ? "fill-[#F59E0B] text-[#F59E0B]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
@@ -390,22 +396,22 @@ export function ProductDetailClient({
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className="text-3xl font-bold tracking-tight text-neutral-950 lg:text-4xl">
+                <span className={`text-3xl font-bold tracking-tight lg:text-4xl ${displayOriginalPrice !== undefined ? "text-[#DC2626]" : "text-[#111827]"}`}>
                   {formatPrice(displayPrice)}
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 border-y border-black/5 py-4 text-center">
+              <div className="grid grid-cols-3 gap-2 border-y border-[#E5E7EB] py-4 text-center">
                 {[
                   { label: "Teslimat", value: "2-4 iş günü" },
                   { label: "İade", value: "14 gün" },
                   { label: "Ödeme", value: "SSL güvenli" },
                 ].map((item) => (
-                  <div key={item.label} className="bg-white px-2 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#66746B]">
+                  <div key={item.label} className="rounded-2xl border border-[#E5E7EB] bg-white px-2 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
                       {item.label}
                     </p>
-                    <p className="mt-1 text-xs font-bold text-[#173D32] sm:text-sm">
+                    <p className="mt-1 text-xs font-bold text-[#111827] sm:text-sm">
                       {item.value}
                     </p>
                   </div>
@@ -491,7 +497,7 @@ export function ProductDetailClient({
                     <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
                       Adet
                     </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
+                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8FAFC]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
@@ -520,7 +526,7 @@ export function ProductDetailClient({
                       ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#173D32] text-white hover:bg-[#102A23]"
+                          : "bg-[#FF6A00] text-white hover:bg-[#E85F00]"
                       }
                     `}
                   >
@@ -537,8 +543,8 @@ export function ProductDetailClient({
                       flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
                       ${
                         isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
+                          ? "text-[#FF6A00]"
+                          : "hover:text-[#FF6A00]"
                       }
                     `}
                   >
@@ -550,7 +556,7 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
+                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#FF6A00]"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
@@ -706,7 +712,7 @@ export function ProductDetailClient({
       </div>
 
       <section
-        className="border-t border-black/5 bg-[#F7F8F5] py-16 lg:py-20"
+        className="border-t border-black/5 bg-[#F5F7FA] py-16 lg:py-20"
       >
         <div className="container-premium">
           <div className="mb-10 flex items-center justify-between">
@@ -747,6 +753,13 @@ export function ProductDetailClient({
           )}
         </div>
       </section>
+
+      <MobileStickyBar
+        price={displayPrice}
+        originalPrice={displayOriginalPrice}
+        onAddToCart={handleAddToCart}
+        isOutOfStock={isOutOfStock || isSchemaLoading}
+      />
     </div>
   );
 }

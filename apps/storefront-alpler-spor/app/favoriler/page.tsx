@@ -19,11 +19,11 @@ export default function WishlistPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F7F8F5]">
+      <div className="min-h-screen bg-[#F5F7FA]">
         <div className="container-premium py-16">
-          <div className="mx-auto max-w-2xl bg-white px-6 py-14 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center bg-[#E7F2EC]">
-              <Heart className="h-10 w-10 text-[#173D32]" />
+          <div className="mx-auto max-w-2xl rounded-[2rem] bg-white px-6 py-14 text-center shadow-sm">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1E8]">
+              <Heart className="h-10 w-10 text-[#FF6A00]" />
             </div>
             <h1 className="text-3xl font-bold text-[#121713]">Favori listeniz bos</h1>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#66746B]">
@@ -32,7 +32,7 @@ export default function WishlistPage() {
             </p>
             <Link
               href={buildPath("/urunler")}
-              className="mt-8 inline-flex items-center gap-2 bg-[#173D32] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#102A23]"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#E85F00]"
             >
               Urunleri Kesfet
             </Link>
@@ -43,7 +43,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F5]">
+    <div className="min-h-screen bg-[#F5F7FA]">
       <section className="border-b border-black/5 bg-white">
         <div className="container-premium py-8">
           <div className="flex items-center justify-between gap-4">
@@ -57,7 +57,7 @@ export default function WishlistPage() {
             </div>
             <button
               onClick={clearWishlist}
-              className="border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F7F8F5]"
+              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F8FAFC]"
             >
               Tumunu Temizle
             </button>
@@ -71,9 +71,9 @@ export default function WishlistPage() {
             const itemImage = getPrimaryResolvedProductImage(product, product.variants?.[0]);
 
             return (
-              <article key={product.id} className="group bg-white">
+              <article key={product.id} className="group rounded-3xl border border-[#E5E7EB] bg-white p-2 shadow-sm">
                 <Link href={buildPath(`/urunler/${product.slug}`)} className="block">
-                  <div className="relative aspect-[4/5] overflow-hidden bg-[#EEF2EA]">
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#EEF2F7]">
                     {itemImage ? (
                       <img
                         src={itemImage}
@@ -103,7 +103,7 @@ export default function WishlistPage() {
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66746B]">
                       {String(product.category || "Alpler Spor").replace(/-/g, " ")}
                     </p>
-                    <h3 className="line-clamp-2 text-sm font-semibold text-[#121713] transition-colors group-hover:text-[#173D32] sm:text-base">
+                    <h3 className="line-clamp-2 text-sm font-semibold text-[#121713] transition-colors group-hover:text-[#FF6A00] sm:text-base">
                       {product.name}
                     </h3>
                   </Link>
@@ -122,14 +122,14 @@ export default function WishlistPage() {
                   <div className="mt-4 flex gap-2">
                     <button
                       onClick={() => handleAddToCart(product)}
-                      className="flex flex-1 items-center justify-center gap-2 bg-[#173D32] px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#102A23]"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#FF6A00] px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#E85F00]"
                     >
                       <ShoppingBag className="h-4 w-4" />
                       Sepete Ekle
                     </button>
                     <Link
                       href={buildPath(`/urunler/${product.slug}`)}
-                      className="border border-black/10 px-3 py-2.5 text-xs font-semibold text-[#121713] transition-colors hover:bg-[#F7F8F5]"
+                      className="rounded-full border border-black/10 px-3 py-2.5 text-xs font-semibold text-[#121713] transition-colors hover:bg-[#F8FAFC]"
                     >
                       Detay
                     </Link>

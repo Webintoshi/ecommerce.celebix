@@ -180,28 +180,28 @@ export function HeaderSearchOverlay({
   return createPortal(
     <div className="fixed inset-0 z-[120]">
       <div
-        className="absolute inset-0 bg-neutral-950/25 backdrop-blur-2xl"
+        className="absolute inset-0 bg-[#0B0F14]/70 backdrop-blur-xl"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative flex h-full w-full items-start justify-center p-4 sm:p-8">
+      <div className="relative flex h-full w-full items-start justify-center p-3 sm:p-8">
         <div
-          className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-white/60 bg-[rgba(248,248,248,0.96)] shadow-[0_40px_120px_rgba(15,22,38,0.18)]"
+          className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#F5F7FA] shadow-[0_40px_120px_rgba(0,0,0,0.35)] sm:rounded-[2rem]"
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-label="Urun arama penceresi"
         >
-          <div className="border-b border-neutral-200 px-5 py-5 sm:px-8 sm:py-7">
+          <div className="border-b border-[#E5E7EB] bg-white px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-start gap-4">
-              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-neutral-900 shadow-sm sm:flex">
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#111827] text-[#FF6A00] shadow-sm sm:flex">
                 <Search className="h-5 w-5" />
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500">
-                  Hizli Arama
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#FF6A00]">
+                  Alpler Spor Arama
                 </p>
                 <form
                   className="mt-3"
@@ -214,8 +214,8 @@ export function HeaderSearchOverlay({
                       type="search"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Urun, kategori veya model ara..."
-                      className="h-14 w-full rounded-2xl border border-neutral-200 bg-white pl-12 pr-14 text-base font-medium text-neutral-900 outline-none transition focus:border-neutral-400"
+                      placeholder="Sneaker, forma, ayakkabi veya kategori ara..."
+                      className="h-14 w-full rounded-2xl border border-[#D1D5DB] bg-white pl-12 pr-14 text-base font-semibold text-[#111827] outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/15"
                     />
                     {query ? (
                       <button
@@ -230,14 +230,14 @@ export function HeaderSearchOverlay({
                   </div>
                 </form>
                 <p className="mt-3 text-sm text-neutral-500">
-                  En az 2 karakter yazin. Sonuclar yazdikca otomatik gelir.
+                  En az 2 karakter yazin. Sonuclar dinamik urun verisinden gelir.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-500 transition hover:border-neutral-300 hover:text-neutral-900"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:border-[#FF6A00] hover:text-[#FF6A00]"
                 aria-label="Aramayi kapat"
               >
                 <X className="h-5 w-5" />
@@ -247,44 +247,44 @@ export function HeaderSearchOverlay({
 
           <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
             {normalizedQuery.length < 2 ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-dashed border-neutral-200 bg-white/70 px-6 text-center">
+              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-dashed border-[#D1D5DB] bg-white px-6 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-neutral-900">
+                  <p className="text-lg font-black text-[#111827]">
                     Arama hazir
                   </p>
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Popupta ajax arama acik. Urun ismini yazmaya baslayin.
+                  <p className="mt-2 text-sm text-[#6B7280]">
+                    Urun, model veya kategori ismini yazmaya baslayin.
                   </p>
                 </div>
               </div>
             ) : isLoading ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
+              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-neutral-900">
+                  <p className="text-lg font-black text-[#111827]">
                     Araniyor...
                   </p>
-                  <p className="mt-2 text-sm text-neutral-500">
+                  <p className="mt-2 text-sm text-[#6B7280]">
                     Sonuclar anlik olarak getiriliyor.
                   </p>
                 </div>
               </div>
             ) : errorMessage ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
+              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-neutral-900">
+                  <p className="text-lg font-black text-[#111827]">
                     Arama su an calismiyor
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">{errorMessage}</p>
                 </div>
               </div>
             ) : results.length === 0 ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-neutral-200 bg-white/70 px-6 text-center">
+              <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-neutral-900">
+                  <p className="text-lg font-black text-[#111827]">
                     Sonuc bulunamadi
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Farkli bir urun veya model ismi deneyin.
+                    Aramanizla eslesen urun bulunamadi. Farkli bir urun veya model ismi deneyin.
                   </p>
                 </div>
               </div>
@@ -318,9 +318,9 @@ export function HeaderSearchOverlay({
                       key={product.id}
                       href={buildPath(ROUTES.product(product.slug))}
                       onClick={onClose}
-                      className="flex items-center gap-4 rounded-[1.5rem] border border-neutral-200 bg-white p-3 transition hover:border-neutral-300 hover:shadow-sm"
+                    className="flex items-center gap-4 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 transition hover:border-[#FF6A00]/40 hover:shadow-sm"
                     >
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.25rem] bg-neutral-100">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.25rem] bg-[#EEF2F7]">
                         <img
                           src={getProductImage(product, resolveImageSrc)}
                           alt={product.name}
@@ -330,10 +330,10 @@ export function HeaderSearchOverlay({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
                           {product.categoryLabel || product.category || "Urun"}
                         </p>
-                        <p className="store-product-title mt-1 text-neutral-900">
+                        <p className="store-product-title mt-1 text-[#111827]">
                           {product.name}
                         </p>
                         {priceLabel ? (
@@ -343,7 +343,7 @@ export function HeaderSearchOverlay({
                                 {originalPriceLabel}
                               </p>
                             ) : null}
-                            <p className="text-sm font-medium text-neutral-600">
+                            <p className="text-sm font-black text-[#DC2626]">
                               {priceLabel}
                             </p>
                           </div>
