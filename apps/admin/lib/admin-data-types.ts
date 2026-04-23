@@ -150,6 +150,8 @@ export type AdminProductListItem = {
   name: string;
   slug: string;
   sortOrder: number;
+  createdAt?: string | null;
+  publishedAt?: string | null;
   description: string;
   shortDescription: string;
   images: string[];
@@ -157,6 +159,9 @@ export type AdminProductListItem = {
   subcategory: string;
   tags: string[];
   variants: AdminProductVariant[];
+  isActive: boolean;
+  isDraft: boolean;
+  status: string;
   featured: boolean;
   isNew: boolean;
 };
