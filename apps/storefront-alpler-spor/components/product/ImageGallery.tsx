@@ -367,7 +367,7 @@ export function ImageGallery({
               src={currentImage}
               alt={productName}
               draggable={false}
-              className="h-full w-full object-contain p-5 transition-transform duration-300 hover:scale-[1.015] sm:p-8"
+              className="absolute inset-0 h-full w-full object-contain p-5 transition-transform duration-300 hover:scale-[1.015] sm:p-8"
               loading="eager"
               onLoad={() => setStatus(currentImage, 'loaded')}
               onError={() => setStatus(currentImage, 'error')}
@@ -471,7 +471,7 @@ export function ImageGallery({
             src={currentImage}
             alt={`${productName} - Ana Görsel`}
             draggable={false}
-            className={`h-full w-full object-contain p-5 transition-all duration-300 hover:scale-[1.015] sm:p-8 ${
+            className={`absolute inset-0 h-full w-full object-contain p-5 transition-all duration-300 hover:scale-[1.015] sm:p-8 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
             }`}
             loading="eager"
