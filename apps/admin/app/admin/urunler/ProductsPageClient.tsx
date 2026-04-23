@@ -1210,7 +1210,7 @@ export default function ProductsPageClient({
 
   return (
     <main role="main" aria-busy={loading} className="min-h-screen bg-[#F7F8FA]">
-      <div className="mx-auto max-w-[1680px] px-4 py-4 md:px-6 md:py-6 xl:px-8">
+      <div className="mx-auto max-w-[1680px] px-4 pb-4 pt-1 md:px-6 md:pb-6 md:pt-1 xl:px-8">
         <div className="space-y-5">
           <section className="rounded-[28px] border border-[#E7EAF0] bg-white px-6 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.04)] md:px-8">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">

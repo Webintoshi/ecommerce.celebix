@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, BellDot, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
+import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -65,26 +65,6 @@ function getShellMeta(pathname: string) {
 
 function isAdminRoot(pathname: string) {
   return pathname === "/admin" || pathname === "/admin/";
-}
-
-const COMPACT_SHELL_ROUTES = new Set([
-  "/admin/ayarlar",
-  "/admin/ayarlar/tasarim",
-  "/admin/cms",
-  "/admin/indirimler",
-  "/admin/indirimler/yeni",
-  "/admin/markets",
-  "/admin/muhasebe",
-  "/admin/muhasebe/fatura-entegrasyonu",
-  "/admin/pazarlama",
-  "/admin/seo-killer",
-  "/admin/seo-killer/hizli-index",
-  "/admin/seo-killer/sitemap",
-  "/admin/seo-killer/sosyal-onizleme",
-]);
-
-function shouldUseCompactShell(pathname: string) {
-  return COMPACT_SHELL_ROUTES.has(pathname);
 }
 
 function MobileDockButton({
@@ -242,7 +222,6 @@ export default function AdminLayoutClient({
 
   const shellMeta = useMemo(() => getShellMeta(pathname), [pathname]);
   const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
-  const compactShell = useMemo(() => shouldUseCompactShell(pathname), [pathname]);
   const isOrdersRoute = pathname.startsWith("/admin/siparisler");
   const isProductsRoute = pathname.startsWith("/admin/urunler");
   const isSidebarOpen = isMobile ? activeMobileSurface === "sidebar" : false;
@@ -430,22 +409,15 @@ export default function AdminLayoutClient({
       </AdminClientBoundary>
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-        <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-4 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
-          <div
-            className={cn(
-              "sticky top-[max(0.55rem,env(safe-area-inset-top))] z-30 border border-[var(--admin-border)] bg-[rgba(255,255,255,0.92)] shadow-[var(--shadow-md)] backdrop-blur-xl",
-              compactShell
-                ? "mb-3 rounded-[1.45rem] px-4 py-3 md:mb-4 md:rounded-[1.55rem] md:px-4 md:py-3"
-                : "mb-4 rounded-[1.9rem] px-4 py-4 md:mb-5 md:rounded-[30px] md:px-5 md:py-4",
-            )}
-          >
-            <div className={cn("flex justify-between gap-3", compactShell ? "items-center" : "items-start")}>
-              <div className="min-w-0 flex items-start gap-3.5">
+        <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-3 md:px-4 md:pb-5 md:pt-3 xl:px-5 xl:pb-5 xl:pt-4 2xl:px-6">
+          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[1.35rem] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[0_10px_24px_rgba(17,24,39,0.055)] backdrop-blur-xl md:mb-3 md:rounded-[1.45rem] md:px-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex items-center gap-3">
                 {isMobile && !rootAdmin ? (
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_24px_rgba(17,24,39,0.06)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
                     aria-label="Geri git"
                   >
                     <ArrowLeft className="h-5 w-5" />
@@ -453,39 +425,15 @@ export default function AdminLayoutClient({
                 ) : null}
 
                 <div className="min-w-0">
-                  <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
-                    Celebix Admin
-                  </div>
-                  {!compactShell ? (
-                    <>
-                      <h1 className="mt-3 truncate text-[1.85rem] font-semibold tracking-[-0.05em] text-[var(--admin-heading)] md:text-2xl">
-                        {shellMeta.title}
-                      </h1>
-                      {!isMobile ? (
-                        <p className="mt-2 max-w-2xl text-[15px] leading-6 text-[var(--admin-text-secondary)]">{shellMeta.subtitle}</p>
-                      ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleNotificationsOpenChange(!isNotificationsOpen)}
-                            className={cn(
-                              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-3.5 py-2 text-left text-[12px] font-semibold tracking-[0.01em] transition-all active:scale-[0.99]",
-                              isNotificationsOpen
-                                ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
-                                : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)]",
-                            )}
-                          >
-                            <BellDot className="h-4 w-4 shrink-0" />
-                            <span>
-                              {notificationUnreadCount > 0
-                                ? `${notificationUnreadCount} yeni bildirim`
-                                : "Bildirimler temiz"}
-                            </span>
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  ) : null}
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
+                    Modül
+                  </p>
+                  <h1
+                    className="mt-0.5 truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)] md:text-base"
+                    title={shellMeta.subtitle}
+                  >
+                    {shellMeta.title}
+                  </h1>
                 </div>
               </div>
 
@@ -499,10 +447,10 @@ export default function AdminLayoutClient({
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[0_10px_24px_rgba(17,24,39,0.06)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] md:h-10 md:w-10"
-                  aria-label="Sayfayı yenile"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+                  aria-label="Sayfayi yenile"
                 >
-                  <RefreshCw className="h-5 w-5 md:h-4 md:w-4" />
+                  <RefreshCw className="h-4 w-4" />
                 </button>
               </div>
             </div>

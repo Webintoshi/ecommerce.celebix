@@ -1189,7 +1189,7 @@ export default function AbandonedCartsPage() {
 
   return (
     <main className="min-h-0 bg-[#F7F8FA]">
-      <div className="mx-auto max-w-[1600px] px-3 pb-4 pt-4 md:px-5 md:py-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px] px-3 pb-4 pt-1 md:px-5 md:pb-6 md:pt-1 lg:px-8">
         <div className="space-y-4 md:space-y-6">
           <section className="rounded-[26px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:hidden">
             <div className="flex items-start justify-between gap-3">
