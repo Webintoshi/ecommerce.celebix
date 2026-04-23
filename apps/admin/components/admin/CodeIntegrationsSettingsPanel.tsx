@@ -42,7 +42,7 @@ function IntegrationStatusChip({
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] ${
         active
           ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-[#eadccd] bg-white text-[#9a7c67]"
+          : "border-[var(--admin-border)] bg-white text-[#9a7c67]"
       }`}
     >
       <span
@@ -105,9 +105,9 @@ function TextField({
   onBlur: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#eadccd] bg-white p-5 shadow-[0_8px_24px_rgba(99,67,37,0.05)]">
+    <div className="rounded-[24px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_8px_24px_rgba(17,24,39,0.05)]">
       <div className="space-y-1">
-        <label className="text-sm font-semibold text-[#2f241d]">{label}</label>
+        <label className="text-sm font-semibold text-[var(--admin-heading)]">{label}</label>
         <p className="text-sm leading-6 text-[#8c7564]">{description}</p>
       </div>
       <input
@@ -115,10 +115,10 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`mt-4 w-full rounded-2xl border px-4 py-3 text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:ring-4 ${
+        className={`mt-4 w-full rounded-2xl border px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:ring-4 ${
           error
             ? "border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-rose-500/10"
-            : "border-[#e8d9cb] bg-[#fffdfb] focus:border-[#FE6100]/40 focus:ring-[#FE6100]/12"
+            : "border-[var(--admin-border)] bg-white focus:border-[var(--admin-accent-border)] focus:ring-[rgba(255,106,0,0.12)]"
         }`}
       />
       {error ? <p className="mt-2 text-xs font-medium text-rose-600">{error}</p> : null}
@@ -144,9 +144,9 @@ function TextareaField({
   onBlur: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#eadccd] bg-white p-5 shadow-[0_8px_24px_rgba(99,67,37,0.05)]">
+    <div className="rounded-[24px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_8px_24px_rgba(17,24,39,0.05)]">
       <div className="space-y-1">
-        <label className="text-sm font-semibold text-[#2f241d]">{label}</label>
+        <label className="text-sm font-semibold text-[var(--admin-heading)]">{label}</label>
         <p className="text-sm leading-6 text-[#8c7564]">{description}</p>
       </div>
       <textarea
@@ -155,7 +155,7 @@ function TextareaField({
         onBlur={onBlur}
         placeholder={placeholder}
         rows={rows}
-        className="mt-4 w-full resize-y rounded-2xl border border-[#e8d9cb] bg-[#fffdfb] px-4 py-3 text-sm leading-6 text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+        className="mt-4 w-full resize-y rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
       />
     </div>
   );
@@ -286,26 +286,26 @@ export function CodeIntegrationsSettingsPanel() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-[30px] border border-[#eadccd] bg-white/95 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#eadccd] border-t-[#FE6100]" />
+      <div className="flex min-h-[420px] items-center justify-center rounded-[30px] border border-[var(--admin-border)] bg-white/95 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--admin-border)] border-t-[var(--admin-accent)]" />
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[34px] border border-[#eadccd] bg-gradient-to-br from-[#fff8f2] via-white to-[#f8eee5] p-8 shadow-[0_22px_70px_rgba(99,67,37,0.10)] md:p-10">
+      <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+            <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
               SEO kod entegrasyonlari
             </div>
             <div className="mt-5 flex items-start gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[#ffd7b8] bg-gradient-to-br from-[#FE6100] to-[#d97706] text-white shadow-[0_22px_50px_rgba(254,97,0,0.22)]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
                 <Code2 className="h-8 w-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#2f241d] md:text-4xl">
+                <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)] md:text-4xl">
                   Kod Entegrasyonlari
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-[#7f6858] md:text-base">
@@ -317,13 +317,13 @@ export function CodeIntegrationsSettingsPanel() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-[#eadccd] bg-white/90 p-5 shadow-[0_16px_40px_rgba(99,67,37,0.08)]">
+          <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-[var(--shadow-md)]">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f5d2bc] bg-[#fff4ea] text-[#C54E00]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#2f241d]">
+                <p className="text-sm font-semibold text-[var(--admin-heading)]">
                   {activeCount} aktif entegrasyon
                 </p>
                 <p className="text-sm text-[#8c7564]">
@@ -333,10 +333,10 @@ export function CodeIntegrationsSettingsPanel() {
             </div>
           </div>
         </div>
-        <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/12 blur-3xl" />
+        <div className="hidden" />
       </section>
 
-      <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
         <div className="flex flex-wrap gap-3">
           <IntegrationStatusChip label="GTM" active={Boolean(formData.googleTagManagerId)} />
           <IntegrationStatusChip
@@ -352,13 +352,13 @@ export function CodeIntegrationsSettingsPanel() {
         </div>
       </section>
 
-      <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f5d2bc] bg-[#fff4ea] text-[#C54E00]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
             <Globe className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">
+            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
               Hazir Entegrasyonlar
             </h2>
             <p className="text-sm leading-6 text-[#8c7564]">
@@ -402,13 +402,13 @@ export function CodeIntegrationsSettingsPanel() {
         </div>
       </section>
 
-      <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#eadccd] bg-[#fffaf5] text-[#7d6959]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#FCFDFE] text-[#7d6959]">
             <Share2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">
+            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
               Gelismis Kod Alanlari
             </h2>
             <p className="text-sm leading-6 text-[#8c7564]">
@@ -457,7 +457,7 @@ export function CodeIntegrationsSettingsPanel() {
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition-all duration-300 ease-out hover:from-[#f15c00] hover:to-[#d84f00] hover:translate-y-[-1px] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+          className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
         >
           {saving ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -468,7 +468,7 @@ export function CodeIntegrationsSettingsPanel() {
         </button>
       </div>
 
-      <section className="rounded-[30px] border border-[#eadccd] bg-[#2f241d] p-6 text-white shadow-[0_22px_60px_rgba(47,36,29,0.20)]">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-[#2f241d] p-6 text-white shadow-[var(--shadow-md)]">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 text-[#ffd2af]">
             <CheckCircle2 className="h-5 w-5" />

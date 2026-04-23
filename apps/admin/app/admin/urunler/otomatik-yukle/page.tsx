@@ -92,18 +92,18 @@ export default function AutoImportPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
-        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
-        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-3">
-                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                     Otomatik yukleme
                   </div>
                   <h1 className="sr-only">Shopify Ürün İçe Aktarma</h1>
@@ -113,7 +113,7 @@ export default function AutoImportPage() {
                 </div>
                 <Link
                   href="/admin/urunler"
-                  className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   Geri Don
                 </Link>
@@ -122,20 +122,20 @@ export default function AutoImportPage() {
           </section>
 
         {!result && (
-          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
-                <Upload className="h-10 w-10 text-[#FE6100]" />
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+                <Upload className="h-10 w-10 text-[var(--admin-accent)]" />
               </div>
 
-              <h3 className="mb-2 text-xl font-semibold text-[#2f241d]">
+              <h3 className="mb-2 text-xl font-semibold text-[var(--admin-heading)]">
                 Ürünleri İçe Aktar
               </h3>
 
               <button
                 onClick={handleAutoImport}
                 disabled={importing}
-                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-4 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:pointer-events-none disabled:opacity-60"
+                className="inline-flex items-center gap-3 rounded-2xl bg-[var(--admin-accent)] px-8 py-4 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
               >
                 {importing ? (
                   <>
@@ -158,8 +158,8 @@ export default function AutoImportPage() {
         )}
 
         {result && (
-          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-            <h3 className="mb-4 text-lg font-semibold text-[#2f241d]">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-[var(--admin-heading)]">
               {result.success ? "İçe Aktarma Tamamlandı!" : "İçe Aktarma Başarısız"}
             </h3>
 
@@ -198,10 +198,10 @@ export default function AutoImportPage() {
                 </div>
 
                 <div className="border-t border-[#efdfd1] pt-6">
-                  <h4 className="mb-3 font-medium text-[#2f241d]">Yüklenen Ürünler:</h4>
+                  <h4 className="mb-3 font-medium text-[var(--admin-heading)]">Yüklenen Ürünler:</h4>
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {result.products.map((product) => (
-                      <div key={product.id} className="flex flex-col gap-4 rounded-[24px] border border-[#ecdccd] bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div key={product.id} className="flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           {product.images[0] && (
                             <img 
@@ -214,7 +214,7 @@ export default function AutoImportPage() {
                             />
                           )}
                           <div>
-                            <p className="font-medium text-[#2f241d]">{product.name}</p>
+                            <p className="font-medium text-[var(--admin-heading)]">{product.name}</p>
                             <p className="text-sm text-[#786658]">
                               {product.category} • {product.variants.length} varyant • {product.images.length} görsel
                             </p>
@@ -227,7 +227,7 @@ export default function AutoImportPage() {
                           href={buildStorefrontProductUrl(product.slug)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-sm font-medium text-[#C94E00] transition hover:text-[#a54100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
+                          className="text-sm font-medium text-[var(--admin-accent-hover)] transition hover:text-[#a54100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
                         >
                           Görüntüle
                         </Link>
@@ -253,13 +253,13 @@ export default function AutoImportPage() {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setResult(null)}
-                className="flex-1 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                className="flex-1 rounded-2xl bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 Tekrar Dene
               </button>
               <Link
                 href="/admin/urunler"
-                className="flex-1 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-center text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                className="flex-1 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 Ürün Listesine Git
               </Link>

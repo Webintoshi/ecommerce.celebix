@@ -171,7 +171,7 @@ function MobileToshiDockButton({
     >
       <span
         className={cn(
-          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,106,0,0.14),rgba(255,106,0,0)_74%)] blur-[18px] transition-opacity duration-200 ease-out",
+          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[var(--admin-bg)] blur-[18px] transition-opacity duration-200 ease-out",
           active ? "opacity-100" : "opacity-45",
         )}
       />
@@ -433,7 +433,7 @@ export default function AdminLayoutClient({
         <div className="px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-4 md:px-4 md:py-4 md:pb-6 xl:px-5 xl:py-5 2xl:px-6 2xl:py-6">
           <div
             className={cn(
-              "sticky top-[max(0.55rem,env(safe-area-inset-top))] z-30 border border-[var(--admin-border)] bg-[rgba(255,255,255,0.92)] shadow-[0_18px_40px_rgba(17,24,39,0.07)] backdrop-blur-xl",
+              "sticky top-[max(0.55rem,env(safe-area-inset-top))] z-30 border border-[var(--admin-border)] bg-[rgba(255,255,255,0.92)] shadow-[var(--shadow-md)] backdrop-blur-xl",
               compactShell
                 ? "mb-3 rounded-[1.45rem] px-4 py-3 md:mb-4 md:rounded-[1.55rem] md:px-4 md:py-3"
                 : "mb-4 rounded-[1.9rem] px-4 py-4 md:mb-5 md:rounded-[30px] md:px-5 md:py-4",

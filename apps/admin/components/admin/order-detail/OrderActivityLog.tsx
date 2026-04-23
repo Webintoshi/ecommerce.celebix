@@ -114,11 +114,11 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
   };
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
-      <div className="flex items-center justify-between border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-[#8a5b3c]" />
+          <History className="w-4 h-4 text-[var(--admin-text-secondary)]" />
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-stone-950">Sipariş Geçmişi</h3>
             <span className="text-xs text-stone-400">({activities.length})</span>
@@ -128,7 +128,7 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
         <div className="flex items-center gap-2">
           {/* Filter */}
           {uniqueActions.length > 1 && (
-            <div className="flex items-center gap-1 rounded-full border border-[#eadccd] bg-white px-2 py-1 shadow-sm">
+            <div className="flex items-center gap-1 rounded-full border border-[var(--admin-border)] bg-white px-2 py-1 shadow-sm">
               <Filter className="w-3 h-3 text-stone-400" />
               <select
                 value={filter}
@@ -174,7 +174,7 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
                 const description = formatActivityDescription(activity);
 
                 return (
-                  <div key={activity.id} className="flex items-start gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#fffaf5]">
+                  <div key={activity.id} className="flex items-start gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]">
                     {/* Icon */}
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white text-xs shadow-sm ${actionConfig.bg} ${actionConfig.color}`}>
                       {actionConfig.icon}

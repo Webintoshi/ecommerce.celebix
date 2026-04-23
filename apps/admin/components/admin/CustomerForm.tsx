@@ -52,10 +52,10 @@ interface CustomerFormProps {
 }
 
 const panelClass =
-  "rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]";
+  "rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]";
 
 const inputClass =
-  "w-full rounded-2xl border border-[#e8d8ca] bg-white/90 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
+  "w-full rounded-2xl border border-[#e8d8ca] bg-white/90 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 const statusOptions: Array<{
   value: CustomerFormData["status"];
@@ -241,10 +241,10 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+      <main className="admin-page-root">
         <div className="mx-auto flex min-h-[420px] max-w-[1600px] items-center justify-center px-4 py-10 md:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-3 rounded-full border border-[#FE6100]/15 bg-white/90 px-5 py-3 text-sm font-medium text-[#8a4b22] shadow-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
+          <div className="inline-flex items-center gap-3 rounded-full border border-[var(--admin-accent-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
             Müşteri bilgileri hazırlanıyor
           </div>
         </div>
@@ -253,25 +253,25 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+    <main className="admin-page-root">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-24 right-[-5rem] h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-[-4rem] h-[20rem] w-[20rem] rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="flex flex-col gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6 lg:flex-row lg:items-center lg:justify-between">
+          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="flex flex-col gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3 md:gap-4">
                 <Link
                   href="/admin/musteriler"
                   aria-label="Müşterilere dön"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Link>
-                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                   {pageTitle}
                 </div>
               </div>
@@ -279,7 +279,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Kaydet
@@ -290,9 +290,9 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
             <div className="space-y-6">
               <section className={panelClass}>
-                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                       <User className="h-5 w-5" />
                     </div>
                     <div>
@@ -369,9 +369,9 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               </section>
 
               <section className={panelClass}>
-                <div className="flex flex-col gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                       <MapPin className="h-5 w-5" />
                     </div>
                     <div>
@@ -383,7 +383,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   <button
                     type="button"
                     onClick={handleAddAddress}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <Plus className="h-4 w-4" />
                     Adres Ekle
@@ -400,11 +400,11 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   {formData.addresses.map((address, index) => (
                     <section
                       key={index}
-                      className="rounded-[24px] border border-[#ecdccd] bg-white/80 p-4 shadow-sm sm:p-5"
+                      className="rounded-[24px] border border-[var(--admin-border)] bg-white/80 p-4 shadow-sm sm:p-5"
                       aria-label={`Adres ${index + 1}`}
                     >
                       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/12 bg-[#fff8f3] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                        <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
                           Adres {index + 1}
                         </div>
                         {formData.addresses.length > 1 ? (
@@ -574,9 +574,9 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
 
             <div className="space-y-6">
               <section className={panelClass}>
-                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
@@ -596,8 +596,8 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                           key={option.value}
                           className={`flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border px-4 py-3 transition-all ${
                             checked
-                              ? "border-[#FE6100]/30 bg-[#fff8f3] shadow-sm"
-                              : "border-[#ecdccd] bg-white/80 hover:border-[#FE6100]/15 hover:bg-white"
+                              ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] shadow-sm"
+                              : "border-[var(--admin-border)] bg-white/80 hover:border-[var(--admin-accent-border)] hover:bg-white"
                           }`}
                         >
                           <div>
@@ -612,7 +612,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                             value={option.value}
                             checked={checked}
                             onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerFormData["status"] })}
-                            className="h-4 w-4 border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                            className="h-4 w-4 border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                           />
                         </label>
                       );
@@ -654,9 +654,9 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               </section>
 
               <section className={panelClass}>
-                <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                       <Tags className="h-5 w-5" />
                     </div>
                     <div>
@@ -684,7 +684,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       <button
                         type="button"
                         onClick={handleAddTag}
-                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                       >
                         <Plus className="h-4 w-4" />
                         Ekle
@@ -697,7 +697,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       formData.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-[#fff8f3] px-3 py-1.5 text-sm font-medium text-[#8a4b22]"
+                          className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-sm font-medium text-[var(--admin-accent-hover)]"
                         >
                           {tag}
                           <button
@@ -750,7 +750,7 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border border-[#ecdccd] bg-white/80 px-4 py-3 transition-all hover:border-[#FE6100]/15 hover:bg-white">
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 transition-all hover:border-[var(--admin-accent-border)] hover:bg-white">
       <span className="text-sm font-medium text-gray-800">{label}</span>
       <div className="flex items-center gap-3">
         <span
@@ -766,7 +766,7 @@ function ToggleCard({
           type="checkbox"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+          className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
         />
       </div>
     </label>

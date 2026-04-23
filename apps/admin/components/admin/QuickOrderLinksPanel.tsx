@@ -386,11 +386,11 @@ export function QuickOrderLinksPanel() {
 
   return (
     <div className="space-y-8">
-      <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.08)]">
-        <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8">
+      <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+        <div className="border-b border-[var(--admin-border)] px-6 py-6 md:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/15 bg-[#fff4ec] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
                 <Link2 className="h-3.5 w-3.5" />
                 Hızlı Sipariş
               </div>
@@ -407,22 +407,22 @@ export function QuickOrderLinksPanel() {
 
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.2fr_0.8fr] md:px-8">
           <div className="space-y-6">
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <User className="h-4 w-4 text-[#FE6100]" />
+                <User className="h-4 w-4 text-[var(--admin-accent)]" />
                 Müşteri bilgileri
               </div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <input value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="Müşteri e-postası" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Müşteri adı" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Telefon" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                <input type="number" min={1} value={expiresInHours} onChange={(event) => setExpiresInHours(Math.max(1, Number(event.target.value) || 24))} placeholder="Geçerlilik (saat)" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
+                <input value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="Müşteri e-postası" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Müşteri adı" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Telefon" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                <input type="number" min={1} value={expiresInHours} onChange={(event) => setExpiresInHours(Math.max(1, Number(event.target.value) || 24))} placeholder="Geçerlilik (saat)" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <MapPin className="h-4 w-4 text-[#FE6100]" />
+                <MapPin className="h-4 w-4 text-[var(--admin-accent)]" />
                 Teslimat ve fatura adresi
               </div>
 
@@ -446,7 +446,7 @@ export function QuickOrderLinksPanel() {
                       }))
                     }
                     placeholder={label}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]"
+                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]"
                   />
                 ))}
                 <textarea
@@ -454,7 +454,7 @@ export function QuickOrderLinksPanel() {
                   onChange={(event) => setShippingAddress((current) => ({ ...current, address: event.target.value }))}
                   placeholder="Adres"
                   rows={4}
-                  className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100] md:col-span-2"
+                  className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2"
                 />
               </div>
 
@@ -489,7 +489,7 @@ export function QuickOrderLinksPanel() {
                         }))
                       }
                       placeholder={label}
-                      className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]"
+                      className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]"
                     />
                   ))}
                   <textarea
@@ -497,15 +497,15 @@ export function QuickOrderLinksPanel() {
                     onChange={(event) => setBillingAddress((current) => ({ ...current, address: event.target.value }))}
                     placeholder="Fatura adresi"
                     rows={4}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100] md:col-span-2"
+                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2"
                   />
                 </div>
               ) : null}
             </div>
 
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Package className="h-4 w-4 text-[#FE6100]" />
+                <Package className="h-4 w-4 text-[var(--admin-accent)]" />
                 Ürün seç
               </div>
 
@@ -515,7 +515,7 @@ export function QuickOrderLinksPanel() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Ürün veya varyant ara"
-                  className="w-full rounded-2xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#FE6100]"
+                  className="w-full rounded-2xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[var(--admin-accent)]"
                 />
               </div>
 
@@ -547,7 +547,7 @@ export function QuickOrderLinksPanel() {
                             key={variant.id}
                             type="button"
                             onClick={() => addVariant(product, variant)}
-                            className="flex items-center justify-between rounded-xl border border-white bg-white px-3 py-3 text-left text-sm transition hover:border-[#FE6100]/20 hover:bg-[#fff9f4]"
+                            className="flex items-center justify-between rounded-xl border border-white bg-white px-3 py-3 text-left text-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4]"
                           >
                             <div>
                               <p className="font-medium text-gray-900">{variant.name}</p>
@@ -555,7 +555,7 @@ export function QuickOrderLinksPanel() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="font-semibold text-gray-900">{formatPrice(Number(variant.price) || 0)}</span>
-                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#FE6100] text-white">
+                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--admin-accent)] text-white">
                                 <Plus className="h-4 w-4" />
                               </span>
                             </div>
@@ -578,9 +578,9 @@ export function QuickOrderLinksPanel() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <ShieldCheck className="h-4 w-4 text-[#FE6100]" />
+                <ShieldCheck className="h-4 w-4 text-[var(--admin-accent)]" />
                 İzinli ödeme yöntemleri
               </div>
               <p className="mt-2 text-xs leading-5 text-gray-500">
@@ -610,19 +610,19 @@ export function QuickOrderLinksPanel() {
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Mail className="h-4 w-4 text-[#FE6100]" />
+                <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
                 Tutar ve not
               </div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <input type="number" min={0} value={shippingCost} onChange={(event) => setShippingCost(Number(event.target.value) || 0)} placeholder="Kargo ücreti" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                <input type="number" min={0} value={discount} onChange={(event) => setDiscount(Number(event.target.value) || 0)} placeholder="İndirim" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Yönetici notu" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100] md:col-span-2" />
+                <input type="number" min={0} value={shippingCost} onChange={(event) => setShippingCost(Number(event.target.value) || 0)} placeholder="Kargo ücreti" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                <input type="number" min={0} value={discount} onChange={(event) => setDiscount(Number(event.target.value) || 0)} placeholder="İndirim" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Yönetici notu" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2" />
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Sipariş özeti</p>
@@ -656,8 +656,8 @@ export function QuickOrderLinksPanel() {
                       </div>
 
                       <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <input type="number" min={1} value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: Math.max(1, Number(event.target.value) || 1) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
-                        <input type="number" min={0} value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Math.max(0, Number(event.target.value) || 0) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#FE6100]" />
+                        <input type="number" min={1} value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: Math.max(1, Number(event.target.value) || 1) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
+                        <input type="number" min={0} value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Math.max(0, Number(event.target.value) || 0) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
                       </div>
 
                       <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
@@ -673,7 +673,7 @@ export function QuickOrderLinksPanel() {
                 )}
               </div>
 
-              <div className="mt-4 space-y-2 rounded-2xl bg-[#faf5f0] p-4 text-sm">
+              <div className="mt-4 space-y-2 rounded-2xl bg-[#FCFDFE] p-4 text-sm">
                 <div className="flex items-center justify-between text-gray-600">
                   <span>Ara toplam</span>
                   <span>{formatPrice(subtotal)}</span>
@@ -686,7 +686,7 @@ export function QuickOrderLinksPanel() {
                   <span>İndirim</span>
                   <span>-{formatPrice(discount)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-[#FE6100]/10 pt-3 text-base font-semibold text-gray-950">
+                <div className="flex items-center justify-between border-t border-[var(--admin-border)] pt-3 text-base font-semibold text-gray-950">
                   <span>Toplam</span>
                   <span>{formatPrice(total)}</span>
                 </div>
@@ -696,7 +696,7 @@ export function QuickOrderLinksPanel() {
                 type="button"
                 onClick={handleCreateLink}
                 disabled={saving}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FE6100] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#e85a00] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#e85a00] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
                 {saving ? "Link oluşturuluyor..." : "Hızlı sipariş linki oluştur"}
@@ -706,8 +706,8 @@ export function QuickOrderLinksPanel() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
-        <div className="border-b border-[#FE6100]/8 px-6 py-5 md:px-8">
+      <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
+        <div className="border-b border-[var(--admin-border)] px-6 py-5 md:px-8">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">Oluşturulan linkler</h2>
@@ -736,7 +736,7 @@ export function QuickOrderLinksPanel() {
                 key={link.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-[24px] border border-gray-200 bg-[#fffdfa] p-5"
+                className="rounded-[24px] border border-gray-200 bg-white p-5"
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="space-y-2">

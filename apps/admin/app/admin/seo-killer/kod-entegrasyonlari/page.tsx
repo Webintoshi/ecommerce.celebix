@@ -6,12 +6,12 @@ import { CodeIntegrationsSettingsPanel } from "@/components/admin/CodeIntegratio
 
 export default function CodeIntegrationsPage() {
   return (
-    <div className="min-h-screen bg-[#f6efe8] p-6 md:p-8">
+    <div className="admin-page-root p-6 md:p-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <div className="flex flex-col gap-3">
           <Link
             href="/admin/seo-killer"
-            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-[#7b6656] transition hover:text-[#2f241d]"
+            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-[var(--admin-text-secondary)] transition hover:text-[var(--admin-heading)]"
           >
             <ChevronLeft className="h-4 w-4" />
             SEO araclarina don
@@ -22,7 +22,7 @@ export default function CodeIntegrationsPage() {
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2f241d] text-white">
                 <Code2 className="h-5 w-5" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#2f241d]">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--admin-heading)]">
                 Kod Entegrasyonlari
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-[#7f6858]">

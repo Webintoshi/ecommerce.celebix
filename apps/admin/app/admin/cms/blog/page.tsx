@@ -129,7 +129,7 @@ export default function BlogListingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf3_0%,#f8efe2_40%,#f3eadf_100%)] p-6 md:p-8">
+    <div className="admin-page-root p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[30px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_24px_70px_-34px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -245,12 +245,12 @@ export default function BlogListingPage() {
                   </select>
                 </label>
 
-                <div className="flex items-center justify-center rounded-full border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] px-4 py-3 text-sm font-medium text-stone-600">
+                <div className="flex items-center justify-center rounded-full border border-stone-200 bg-[#FCFDFE] px-4 py-3 text-sm font-medium text-stone-600">
                   {filteredPosts.length} kayıt gösteriliyor
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 items-center justify-end rounded-full border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] px-4 py-3 text-sm font-medium text-stone-600">
+              <div className="flex flex-1 items-center justify-end rounded-full border border-stone-200 bg-[#FCFDFE] px-4 py-3 text-sm font-medium text-stone-600">
                 {suggestedPillars.length} strateji ekseni hazırlandı
               </div>
             )}
@@ -324,7 +324,7 @@ function ListView({
 }) {
   return (
     <section className="overflow-hidden rounded-[26px] border border-stone-200/80 bg-white/92 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
-      <div className="flex flex-col gap-3 border-b border-stone-100 bg-[linear-gradient(180deg,#fffdf8_0%,#faf4ea_100%)] px-6 py-5 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 border-b border-stone-100 bg-[#FCFDFE] px-6 py-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
             İçerik listesi
@@ -546,7 +546,7 @@ function StrategyView({
               className={`rounded-[24px] border p-5 transition-all ${
                 pillar.existingPillarPostId
                   ? "border-emerald-200 bg-emerald-50/40"
-                  : "border-stone-200 bg-[linear-gradient(180deg,#fffdf8_0%,#faf4ea_100%)] hover:border-amber-300"
+                  : "border-stone-200 bg-[#FCFDFE] hover:border-amber-300"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
@@ -676,8 +676,8 @@ function StrategyView({
           </div>
         </div>
 
-        <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-orange-300/10 blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
       </section>
     </div>
   );

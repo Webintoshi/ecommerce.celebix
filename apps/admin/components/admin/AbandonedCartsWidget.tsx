@@ -50,19 +50,19 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
     >
-      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+      <div className="border-b border-[var(--admin-border)] px-6 py-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
               Sepet Performansı
             </p>
             <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">
               Yarım Kalan Sepetler
             </h3>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-gradient-to-r from-[#fff4ea] to-white px-3 py-1.5 text-xs font-semibold text-[#FE6100]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-gradient-to-r from-white to-white px-3 py-1.5 text-xs font-semibold text-[var(--admin-accent)]">
             <ShoppingCart className="h-3.5 w-3.5" />
             Son 24 saat
           </div>
@@ -80,8 +80,8 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-[#FE6100]/15 bg-gradient-to-br from-[#fff3e9] via-[#fffaf6] to-white p-4">
-            <div className="flex items-center gap-2 text-[#FE6100]">
+          <div className="rounded-[24px] border border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e9] via-[#fffaf6] to-white p-4">
+            <div className="flex items-center gap-2 text-[var(--admin-accent)]">
               <DollarSign className="h-4 w-4" />
               <p className="text-xs font-semibold uppercase tracking-[0.18em]">Kayıp Gelir</p>
             </div>
@@ -91,11 +91,11 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-b from-[#fff7f1] to-white p-5">
+        <div className="rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-b from-[#fff7f1] to-white p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-[#FE6100]/70">Bugünkü dönüşüm</p>
-              <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#FE6100]">
+              <p className="text-sm font-medium text-[var(--admin-accent)]/70">Bugünkü dönüşüm</p>
+              <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[var(--admin-accent)]">
                 %{conversionRate}
               </p>
             </div>
@@ -118,16 +118,16 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="flex items-center gap-1.5 font-medium text-gray-600">
-                  <Zap className="h-3.5 w-3.5 text-[#FE6100]" />
+                  <Zap className="h-3.5 w-3.5 text-[var(--admin-accent)]" />
                   Sepete ekleme
                 </span>
-                <span className="font-semibold text-[#FE6100]">{today.addToCart.toLocaleString("tr-TR")}</span>
+                <span className="font-semibold text-[var(--admin-accent)]">{today.addToCart.toLocaleString("tr-TR")}</span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-gray-200">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: "100%" }}
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-[#FE6100]"
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-[#FF6A00]"
                 />
               </div>
             </div>
@@ -155,13 +155,13 @@ export default function AbandonedCartsWidget({ data }: { data: LiveAnalyticsSnap
 
         <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2 text-gray-700">
-            <Target className="h-4 w-4 text-[#FE6100]" />
+            <Target className="h-4 w-4 text-[var(--admin-accent)]" />
             <p className="text-sm font-semibold">Önerilen aksiyon</p>
           </div>
           {abandoned.count > 0 ? (
             <Link
               href="/admin/siparisler/sepet-terk"
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[22px] bg-gradient-to-r from-[#FE6100] to-[#E85A00] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(254,97,0,0.22)] transition-all hover:from-[#E85A00] hover:to-[#D94F00]"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[22px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:bg-[var(--admin-accent-hover)]"
             >
               Sepetleri İncele
               <ArrowRight className="h-4 w-4" />

@@ -203,6 +203,54 @@ html {
     background-color: #F9FAFB;
     color: var(--admin-text-secondary);
   }
+
+  .admin-page-root {
+    @apply min-h-screen font-sans;
+    background: var(--admin-bg);
+    color: var(--admin-heading);
+  }
+
+  .admin-hero-surface {
+    @apply relative overflow-hidden rounded-[32px] border bg-white shadow-[var(--shadow-md)];
+    border-color: var(--admin-border);
+  }
+
+  .admin-card-surface {
+    @apply rounded-[28px] border bg-white shadow-[var(--shadow-md)];
+    border-color: var(--admin-border);
+  }
+
+  .admin-list-surface {
+    @apply overflow-hidden rounded-[30px] border bg-white shadow-[var(--shadow-md)];
+    border-color: var(--admin-border);
+  }
+
+  .admin-soft-surface {
+    @apply rounded-[24px] border bg-[#FCFDFE];
+    border-color: var(--admin-border);
+  }
+
+  .admin-primary-action {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold text-white transition;
+    background: var(--admin-accent);
+    box-shadow: 0 12px 28px rgba(255, 106, 0, 0.18);
+  }
+
+  .admin-primary-action:hover {
+    background: var(--admin-accent-hover);
+  }
+
+  .admin-secondary-action {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm font-medium shadow-sm transition;
+    border-color: var(--admin-border);
+    color: var(--admin-text);
+  }
+
+  .admin-secondary-action:hover {
+    border-color: var(--admin-accent-border);
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent-hover);
+  }
 }
 
 body {

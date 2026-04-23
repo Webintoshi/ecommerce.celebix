@@ -613,7 +613,7 @@ function SalesChartCard({
                     const point = payload[0]?.payload as DashboardPerformancePoint;
 
                     return (
-                      <div className="rounded-[16px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[0_18px_34px_rgba(17,24,39,0.12)]">
+                      <div className="rounded-[16px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
                         <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
                         <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
                           <div className="flex items-center justify-between gap-6">
@@ -757,7 +757,7 @@ function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
         <button
           type="button"
           onClick={() => openToshi()}
-          className="mt-auto inline-flex min-h-[54px] items-center justify-center gap-2 rounded-[18px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_28px_rgba(255,106,0,0.22)] transition-transform active:scale-[0.985]"
+          className="mt-auto inline-flex min-h-[54px] items-center justify-center gap-2 rounded-[18px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-transform active:scale-[0.985]"
         >
           <Sparkles className="h-4.5 w-4.5" />
           Toshi ile Sohbete Başla

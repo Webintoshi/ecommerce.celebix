@@ -44,7 +44,7 @@ function ScoreBadge({ score }: { score: number }) {
         {score}
       </div>
       <div>
-        <div className="text-lg font-semibold tracking-[-0.02em] text-[#2f241d]">{text}</div>
+        <div className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{text}</div>
         <div className="text-sm text-[#8f7765]">Genel SEO puanı</div>
       </div>
     </div>
@@ -80,11 +80,11 @@ function MetricCard({
   tone: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
+    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-[#8f7765]">{title}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#2f241d]">{value}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">{value}</p>
           <p className="mt-2 text-sm text-[#9b816d]">{note}</p>
         </div>
         <div className={`flex h-14 w-14 items-center justify-center rounded-[20px] border ${tone}`}>
@@ -117,26 +117,26 @@ function BigCard({
   return (
     <Link
       href={href}
-      className="group block rounded-[32px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+      className="group block rounded-[32px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
     >
-      <div className="h-full rounded-[32px] border border-[#eadccd] bg-white/95 p-7 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-[#FE6100]/20 group-hover:shadow-[0_24px_60px_rgba(254,97,0,0.12)]">
+      <div className="h-full rounded-[32px] border border-[var(--admin-border)] bg-white/95 p-7 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-[var(--admin-accent-border)] group-hover:shadow-[var(--shadow-md)]">
         <div className="flex items-start justify-between gap-4">
           <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] border shadow-sm ${tone}`}>
             <Icon className="h-7 w-7" />
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#eadccd] bg-[#fffaf5] text-[#8a6f5d] transition-all duration-300 group-hover:border-[#FE6100]/25 group-hover:text-[#C54E00]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] text-[#8a6f5d] transition-all duration-300 group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]">
             <ChevronRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-0.5" />
           </div>
         </div>
 
         <div className="mt-6">
-          <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">{title}</h3>
+          <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{title}</h3>
         </div>
 
         <div className="mt-6 rounded-[24px] border border-[#f0e3d7] bg-[#fcf8f3] p-4">
           <div className="flex items-center justify-between text-sm text-[#826a5b]">
             <span>Tamamlanan</span>
-            <span className="font-semibold text-[#2f241d]">{completed} / {count}</span>
+            <span className="font-semibold text-[var(--admin-heading)]">{completed} / {count}</span>
           </div>
           <div className="mt-3">
             <ProgressBar completed={completed} total={count} />
@@ -245,10 +245,10 @@ export default function SEODashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f6efe8] px-6 py-16">
-        <div className="mx-auto flex max-w-7xl items-center justify-center rounded-[36px] border border-[#eadccd] bg-white/90 px-8 py-20 shadow-[0_24px_70px_rgba(99,67,37,0.08)]">
+      <div className="admin-page-root px-6 py-16">
+        <div className="mx-auto flex max-w-7xl items-center justify-center rounded-[36px] border border-[var(--admin-border)] bg-white/90 px-8 py-20 shadow-[var(--shadow-md)]">
           <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-[#ffd7b8] bg-gradient-to-br from-[#FE6100] to-[#d97706] text-white shadow-[0_22px_50px_rgba(254,97,0,0.22)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
               <Rocket className="h-7 w-7 animate-pulse" />
             </div>
             <p className="mt-5 text-sm font-medium text-[#7f6858]">SEO merkezi hazırlanıyor...</p>
@@ -259,34 +259,34 @@ export default function SEODashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6efe8] text-[#2f241d]">
+    <div className="admin-page-root text-[var(--admin-heading)]">
       <div className="mx-auto max-w-7xl px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[36px] border border-[#eadccd] bg-gradient-to-br from-[#fff8f2] via-white to-[#f8eee5] p-8 shadow-[0_24px_80px_rgba(99,67,37,0.10)] md:p-10">
+        <section className="relative overflow-hidden rounded-[36px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
           <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 SEO operasyon merkezi
               </div>
               <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[#ffd7b8] bg-gradient-to-br from-[#FE6100] to-[#d97706] text-white shadow-[0_22px_50px_rgba(254,97,0,0.22)]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
                   <Rocket className="h-8 w-8" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#2f241d] md:text-4xl">SEO Merkezi</h1>
+                  <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)] md:text-4xl">SEO Merkezi</h1>
                 </div>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[28px] border border-[#eadccd] bg-white/85 p-5 shadow-[0_16px_45px_rgba(99,67,37,0.08)]">
+              <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/85 p-5 shadow-[var(--shadow-md)]">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9d836f]">Genel sağlık</span>
-                  <Target className="h-4 w-4 text-[#C54E00]" />
+                  <Target className="h-4 w-4 text-[var(--admin-accent-hover)]" />
                 </div>
                 <ScoreBadge score={stats.overallScore} />
               </div>
 
-              <div className="rounded-[28px] border border-[#eadccd] bg-[#2f241d] p-5 text-white shadow-[0_20px_55px_rgba(47,36,29,0.20)]">
+              <div className="rounded-[28px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-md)]">
                 <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd8b6]">
                   Bugünün önceliği
                 </div>
@@ -299,8 +299,8 @@ export default function SEODashboard() {
               </div>
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/12 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 left-0 h-40 w-40 rounded-full bg-[#f3cba8]/40 blur-3xl" />
+          <div className="hidden" />
+          <div className="hidden" />
         </section>
 
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -309,7 +309,7 @@ export default function SEODashboard() {
             title="Ürün havuzu"
             value={`${stats.products.total}`}
             note={`${stats.products.completed} ürün SEO eşiğini geçti`}
-            tone="border-[#ffd8b8] bg-gradient-to-br from-[#fff3e7] to-white text-[#C54E00]"
+            tone="border-[#ffd8b8] bg-gradient-to-br from-[#fff3e7] to-white text-[var(--admin-accent-hover)]"
           />
           <MetricCard
             icon={FolderOpen}
@@ -330,13 +330,13 @@ export default function SEODashboard() {
         <section className="mt-10">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Hızlı girişler
               </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">Neyi düzenlemek istiyorsunuz?</h2>
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Neyi düzenlemek istiyorsunuz?</h2>
             </div>
-            <div className="hidden items-center gap-2 rounded-full border border-[#eadccd] bg-white px-4 py-2 text-sm font-medium text-[#856d5c] md:inline-flex">
-              <Zap className="h-4 w-4 text-[#C54E00]" />
+            <div className="hidden items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white px-4 py-2 text-sm font-medium text-[#856d5c] md:inline-flex">
+              <Zap className="h-4 w-4 text-[var(--admin-accent-hover)]" />
               Önce eksik alanları kapatın
             </div>
           </div>
@@ -345,7 +345,7 @@ export default function SEODashboard() {
             <BigCard
               href="/admin/seo-killer/urunler"
               icon={Package}
-              tone="border-[#ffd8b8] bg-gradient-to-br from-[#fff3e7] to-white text-[#C54E00]"
+              tone="border-[#ffd8b8] bg-gradient-to-br from-[#fff3e7] to-white text-[var(--admin-accent-hover)]"
               title="Ürünler"
               count={stats.products.total}
               completed={stats.products.completed}
@@ -375,47 +375,47 @@ export default function SEODashboard() {
         {(stats.products.total - stats.products.completed > 0 ||
           stats.categories.total - stats.categories.completed > 0 ||
           stats.pages.total - stats.pages.completed > 0) && (
-          <section className="mt-10 rounded-[32px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+          <section className="mt-10 rounded-[32px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="inline-flex items-center rounded-full border border-[#f7cfb1] bg-[#fff4ea] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+                <div className="inline-flex items-center rounded-full border border-[#f7cfb1] bg-[#fff4ea] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
                   Öncelikli işler
                 </div>
-                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">Yapılacaklar listesi</h3>
+                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Yapılacaklar listesi</h3>
               </div>
-              <AlertCircle className="hidden h-5 w-5 text-[#C54E00] md:block" />
+              <AlertCircle className="hidden h-5 w-5 text-[var(--admin-accent-hover)] md:block" />
             </div>
 
             <div className="mt-6 space-y-3">
               {stats.products.total - stats.products.completed > 0 && (
                 <Link
                   href="/admin/seo-killer/urunler"
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[#f4d3c0] bg-[#fff7f1] px-5 py-4 transition-all hover:border-[#FE6100]/25 hover:bg-[#fff2e9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[#f4d3c0] bg-[var(--admin-accent-soft)] px-5 py-4 transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff2e9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#ffd8b8] bg-white text-[#C54E00]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#ffd8b8] bg-white text-[var(--admin-accent-hover)]">
                       <Package className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2f241d]">{stats.products.total - stats.products.completed} ürün için SEO alanı eksik</p>
+                      <p className="font-semibold text-[var(--admin-heading)]">{stats.products.total - stats.products.completed} ürün için SEO alanı eksik</p>
                       <p className="text-sm text-[#8f7765]">Başlık, açıklama veya görsel desteği tamamlanmalı.</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-[#C54E00]" />
+                  <ChevronRight className="h-5 w-5 text-[var(--admin-accent-hover)]" />
                 </Link>
               )}
 
               {stats.categories.total - stats.categories.completed > 0 && (
                 <Link
                   href="/admin/seo-killer/kategoriler"
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[#f0debf] bg-[#fffbf3] px-5 py-4 transition-all hover:border-amber-400/40 hover:bg-[#fff7e8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/16"
+                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-5 py-4 transition-all hover:border-amber-400/40 hover:bg-[#fff7e8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/16"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-white text-amber-600">
                       <FolderOpen className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2f241d]">{stats.categories.total - stats.categories.completed} kategori için iyileştirme gerekli</p>
+                      <p className="font-semibold text-[var(--admin-heading)]">{stats.categories.total - stats.categories.completed} kategori için iyileştirme gerekli</p>
                       <p className="text-sm text-[#8f7765]">Kategori açıklamalarını ve başlıklarını netleştirin.</p>
                     </div>
                   </div>
@@ -433,7 +433,7 @@ export default function SEODashboard() {
                       <FileText className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2f241d]">{stats.pages.total - stats.pages.completed} sayfa için metin güncellemesi gerekli</p>
+                      <p className="font-semibold text-[var(--admin-heading)]">{stats.pages.total - stats.pages.completed} sayfa için metin güncellemesi gerekli</p>
                       <p className="text-sm text-[#8f7765]">Kurumsal içeriklerin başlık ve açıklamalarını tamamlayın.</p>
                     </div>
                   </div>

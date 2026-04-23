@@ -99,8 +99,8 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
 
   return (
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
-      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
+      <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <Search className="w-6 h-6" />
         </div>
         <div>
@@ -113,7 +113,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
         {/* Left Column - SEO Inputs */}
         <div className="lg:col-span-2 space-y-6">
           {/* Focus Keyword */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">
               Focus Anahtar Kelime <span className="text-rose-500">*</span>
             </label>
@@ -122,7 +122,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
               value={seo.focusKeyword || ""}
               onChange={(e) => onChange({ ...seo, focusKeyword: e.target.value })}
               placeholder="Ana hedef anahtar kelime (örn: fıstık ezmesi)"
-              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
             />
             <p className="text-xs text-stone-500">
               Bu kelime başlık ve açıklamada geçmeli
@@ -130,7 +130,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Meta Title */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <label className="text-sm font-semibold text-stone-700">
                 Sayfa Başlığı (Meta Title) <span className="text-rose-500">*</span>
@@ -148,7 +148,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
               onChange={(e) => onChange({ ...seo, title: e.target.value })}
               maxLength={70}
               className={cn(
-                "w-full rounded-2xl border bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                "w-full rounded-2xl border bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                 errors.seoTitle ? "border-rose-300" : "border-[#e8dbcf]"
               )}
             />
@@ -158,7 +158,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Meta Description */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <label className="text-sm font-semibold text-stone-700">
                 Meta Açıklaması <span className="text-rose-500">*</span>
@@ -176,7 +176,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
               maxLength={160}
               rows={4}
               className={cn(
-                "w-full resize-none rounded-2xl border bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                "w-full resize-none rounded-2xl border bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                 errors.seoDescription ? "border-rose-300" : "border-[#e8dbcf]"
               )}
             />
@@ -186,7 +186,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Keywords */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">Anahtar Kelimeler</label>
             <input
               type="text"
@@ -194,19 +194,19 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
               onChange={(e) => setKeywordInput(e.target.value)}
               onKeyPress={addKeyword}
               placeholder="Anahtar kelime ekle (Enter)"
-              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
             />
             <div className="flex flex-wrap gap-2">
               {seo.keywords.map((keyword, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1 rounded-full border border-[#FE6100]/12 bg-[#fff4ec] px-3 py-1.5 text-sm font-medium text-[#C94E00]"
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-sm font-medium text-[var(--admin-accent-hover)]"
                 >
                   {keyword}
                   <button
                     type="button"
                     onClick={() => removeKeyword(idx)}
-                    className="transition-colors hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/20"
+                    className="transition-colors hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.20)]"
                     aria-label={`${keyword} anahtar kelimesini kaldır`}
                   >
                     ×
@@ -217,12 +217,12 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Robots Meta */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">Robots Meta</label>
             <select
               value={seo.robots}
               onChange={(e) => onChange({ ...seo, robots: e.target.value as ProductSEO["robots"] })}
-              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
             >
               <option value="index,follow">Index, Follow (Varsayılan)</option>
               <option value="noindex,follow">No Index, Follow</option>
@@ -232,7 +232,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Canonical URL */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">Canonical URL (Opsiyonel)</label>
             <div className="relative">
               <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -241,20 +241,20 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
                 value={seo.canonicalUrl || ""}
                 onChange={(e) => onChange({ ...seo, canonicalUrl: e.target.value })}
                 placeholder={`${STORE_RUNTIME.storefrontUrl}/tr/urunler/ornek-urun`}
-                className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] py-3 pl-11 pr-4 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] py-3 pl-11 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
               />
             </div>
           </div>
 
           {/* OG Image */}
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">OG Görsel URL (Opsiyonel)</label>
             <input
               type="text"
               value={seo.ogImage || ""}
               onChange={(e) => onChange({ ...seo, ogImage: e.target.value })}
               placeholder="https://..."
-              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
             />
             <p className="text-xs text-stone-500">
               Boş bırakılırsa storefront ilk ürün görselini kullanır.
@@ -265,7 +265,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
         {/* Right Column - Score & Preview */}
         <div className="space-y-6">
           {/* SEO Score */}
-          <div className="rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-6 shadow-sm">
+          <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm font-semibold text-stone-700">SEO Skoru</span>
               <span className={cn(
@@ -287,7 +287,7 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
 
             <div className="mt-4 space-y-2">
               {checks.map((check) => (
-                <div key={check.id} className="flex items-center gap-2 rounded-2xl border border-[#FE6100]/8 bg-white/80 px-3 py-2 text-sm">
+                <div key={check.id} className="flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white/80 px-3 py-2 text-sm">
                   {check.status === 'success' ? (
                     <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   ) : (
@@ -302,12 +302,12 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
           </div>
 
           {/* Google Preview */}
-          <div className="rounded-[26px] border border-[#FE6100]/10 bg-white p-5 shadow-sm">
-            <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#FE6100]">Google Önizlemesi</h4>
+          <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">Google Önizlemesi</h4>
             <div className="space-y-1">
               <a
                 href="#"
-                className="line-clamp-2 text-lg font-medium text-[#C94E00] hover:underline"
+                className="line-clamp-2 text-lg font-medium text-[var(--admin-accent-hover)] hover:underline"
               >
                 {seo.title || productName}
               </a>

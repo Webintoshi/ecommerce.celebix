@@ -80,7 +80,7 @@ export default function PagesListingPage() {
   const missingCount = cards.length - readyCount - draftCount;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#f7efe2_45%,#f4ecdf_100%)] p-6 md:p-8">
+    <div className="admin-page-root p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[28px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_20px_60px_-30px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">

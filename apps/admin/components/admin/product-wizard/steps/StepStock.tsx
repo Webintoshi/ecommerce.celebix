@@ -41,8 +41,8 @@ export function StepStock({
 
   return (
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
-      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
+      <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <Package className="w-6 h-6" />
         </div>
         <div>
@@ -52,11 +52,11 @@ export function StepStock({
       </div>
 
       {/* Stock Tracking Toggle */}
-      <div className="rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffaf6] to-[#faf4ed] p-6 shadow-sm">
+      <div className="rounded-[26px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffaf6] to-[#faf4ed] p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
-              <Package className="w-5 h-5 text-[#FE6100]" />
+              <Package className="w-5 h-5 text-[var(--admin-accent)]" />
             </div>
             <div>
               <h4 className="font-semibold text-stone-900">Stok Takibi</h4>
@@ -69,8 +69,8 @@ export function StepStock({
             aria-pressed={trackStock}
             aria-label={trackStock ? "Stok takibini kapat" : "Stok takibini aç"}
             className={cn(
-              "relative h-8 w-14 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fbf4ed]",
-              trackStock ? "bg-[#FE6100]" : "bg-stone-300"
+              "relative h-8 w-14 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fbf4ed]",
+              trackStock ? "bg-[var(--admin-accent)]" : "bg-stone-300"
             )}
           >
             <div
@@ -85,16 +85,16 @@ export function StepStock({
 
       {/* Low Stock Alert */}
       {trackStock && (
-        <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-5 shadow-sm">
+        <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
           <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
-            <BarChartIcon className="w-4 h-4 text-[#FE6100]" />
+            <BarChartIcon className="w-4 h-4 text-[var(--admin-accent)]" />
             Düşük Stok Uyarı Eşiği
           </label>
           <input
             type="number"
             value={lowStockThreshold}
             onChange={(e) => onLowStockThresholdChange(parseInt(e.target.value) || 10)}
-            className="w-32 rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+            className="w-32 rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
           />
           <p className="text-xs text-stone-500" aria-live="polite">
             Stok bu seviyenin altına düştüğünde uyarı alacaksınız.
@@ -108,10 +108,10 @@ export function StepStock({
         
         <div className="grid gap-4">
           {variants.map((variant, index) => (
-            <div key={variant.id} className="space-y-4 rounded-[26px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-4 shadow-sm md:p-5">
+            <div key={variant.id} className="space-y-4 rounded-[26px] border border-[var(--admin-border)] bg-white p-4 shadow-sm md:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h5 className="font-semibold text-stone-900">{variant.name}</h5>
-                <span className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/12 bg-[#fff7f1] px-3 py-1.5 text-xs font-medium text-[#C94E00]">SKU: {variant.sku}</span>
+                <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)]">SKU: {variant.sku}</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -124,7 +124,7 @@ export function StepStock({
                     onChange={(e) => updateVariantStock(index, parseInt(e.target.value) || 0)}
                     disabled={!trackStock}
                     className={cn(
-                      "w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                      "w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                       !trackStock && "opacity-50 cursor-not-allowed"
                     )}
                   />
@@ -141,7 +141,7 @@ export function StepStock({
                     value={variant.warehouseLocation || ""}
                     onChange={(e) => updateVariantWarehouse(index, e.target.value)}
                     placeholder="A-12-3"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
 
@@ -156,7 +156,7 @@ export function StepStock({
                     value={variant.maxPurchaseQuantity || ""}
                     onChange={(e) => updateVariantMaxPurchase(index, parseInt(e.target.value) || undefined)}
                     placeholder="Sınırsız"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
               </div>

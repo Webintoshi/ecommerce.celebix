@@ -174,22 +174,22 @@ function SortablePromoBannerCard({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm ${
+      className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm ${
         isDragging ? "shadow-[0_24px_48px_rgba(73,44,23,0.18)]" : ""
       }`}
     >
-      <div className="flex items-center gap-3 border-b border-[#f0e4d8] bg-[#fcf7f1] px-4 py-4 md:px-5">
+      <div className="flex items-center gap-3 border-b border-[#f0e4d8] bg-[#F9FAFB] px-4 py-4 md:px-5">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
           onClick={onToggle}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[#C54E00]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[var(--admin-accent-hover)]">
             {index + 1}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-semibold text-[#2f241d]">{summary.title}</span>
+              <span className="truncate text-sm font-semibold text-[var(--admin-heading)]">{summary.title}</span>
               <span className="rounded-full bg-[#f6ede5] px-2.5 py-1 text-[11px] font-medium text-[#8d7462]">
                 Sira {banner.order}
               </span>
@@ -198,7 +198,7 @@ function SortablePromoBannerCard({
               {summary.badges.map((badge) => (
                 <span
                   key={badge}
-                  className="rounded-full border border-[#eadccd] bg-white px-2.5 py-1 text-[11px] text-[#7b685b]"
+                  className="rounded-full border border-[var(--admin-border)] bg-white px-2.5 py-1 text-[11px] text-[var(--admin-text-secondary)]"
                 >
                   {badge}
                 </span>
@@ -223,7 +223,7 @@ function SortablePromoBannerCard({
           </button>
           <button
             type="button"
-            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[#7b685b] active:cursor-grabbing"
+            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[var(--admin-text-secondary)] active:cursor-grabbing"
             aria-label={`Banner ${index + 1} sirala`}
             {...attributes}
             {...listeners}
@@ -242,8 +242,8 @@ function SortablePromoBannerCard({
                 onClick={() => onTabChange("desktop")}
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                   activeImageTab === "desktop"
-                    ? "bg-white text-[#2f241d] shadow-sm"
-                    : "text-[#7b685b] hover:text-[#2f241d]"
+                    ? "bg-white text-[var(--admin-heading)] shadow-sm"
+                    : "text-[var(--admin-text-secondary)] hover:text-[var(--admin-heading)]"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -256,8 +256,8 @@ function SortablePromoBannerCard({
                 onClick={() => onTabChange("mobile")}
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                   activeImageTab === "mobile"
-                    ? "bg-white text-[#2f241d] shadow-sm"
-                    : "text-[#7b685b] hover:text-[#2f241d]"
+                    ? "bg-white text-[var(--admin-heading)] shadow-sm"
+                    : "text-[var(--admin-text-secondary)] hover:text-[var(--admin-heading)]"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -267,7 +267,7 @@ function SortablePromoBannerCard({
               </button>
             </div>
 
-            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[#e7d6c8] bg-[#faf5ef] transition-colors hover:border-[#FE6100]/40">
+            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[var(--admin-border)] bg-[#faf5ef] transition-colors hover:border-[var(--admin-accent-border)]">
               {currentImage ? (
                 <>
                   <Image
@@ -279,7 +279,7 @@ function SortablePromoBannerCard({
                     unoptimized
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/upload:opacity-100">
-                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#2f241d] shadow-lg hover:bg-[#f8f3ed]">
+                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--admin-heading)] shadow-lg hover:bg-[#f8f3ed]">
                       Degistir
                       <input
                         type="file"
@@ -303,7 +303,7 @@ function SortablePromoBannerCard({
                           <ImageIcon className="h-6 w-6 text-[#c8b5a7]" />
                         )}
                       </div>
-                      <span className="text-sm font-medium text-[#7b685b]">
+                      <span className="text-sm font-medium text-[var(--admin-text-secondary)]">
                         {activeImageTab === "mobile" ? "Mobil gorsel yukle" : "Masaustu gorsel yukle"}
                       </span>
                     </>
@@ -326,7 +326,7 @@ function SortablePromoBannerCard({
                 onChange={(event) =>
                   onUpdateBanner(activeImageTab === "mobile" ? "mobileImage" : "image", event.target.value)
                 }
-                className="flex-1 rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-xs focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="flex-1 rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-xs focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               />
               {currentImage && !currentStats ? (
                 <button
@@ -370,14 +370,14 @@ function SortablePromoBannerCard({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
+              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--admin-heading)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Rozet
               </label>
               <select
                 value={banner.badge || ""}
                 onChange={(event) => onUpdateBanner("badge", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               >
                 {BADGE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -387,14 +387,14 @@ function SortablePromoBannerCard({
               </select>
             </div>
             <div>
-              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#2f241d]">
+              <label className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--admin-heading)]">
                 <Palette className="h-3.5 w-3.5" />
                 Renk
               </label>
               <select
                 value={banner.color || "from-primary to-primary/80"}
                 onChange={(event) => onUpdateBanner("color", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               >
                 {COLOR_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -407,42 +407,42 @@ function SortablePromoBannerCard({
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Baslik</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--admin-heading)]">Baslik</label>
               <input
                 type="text"
                 value={banner.title}
                 onChange={(event) => onUpdateBanner("title", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Orn: Dogal fistik ezmesi"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Aciklama</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--admin-heading)]">Aciklama</label>
               <input
                 type="text"
                 value={banner.subtitle}
                 onChange={(event) => onUpdateBanner("subtitle", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Orn: Her gun taze"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Buton metni</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--admin-heading)]">Buton metni</label>
               <input
                 type="text"
                 value={banner.buttonText}
                 onChange={(event) => onUpdateBanner("buttonText", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Incele"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-[#2f241d]">Link</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--admin-heading)]">Link</label>
               <input
                 type="text"
                 value={banner.buttonLink}
                 onChange={(event) => onUpdateBanner("buttonLink", event.target.value)}
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="/kategori-slug"
               />
             </div>
@@ -687,13 +687,13 @@ export function DesignPromoBannerSection() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
             Promosyon banner
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
             Orta alan kampanya kartlari
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#7b685b]">
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
             Bannerlari kapali kartlar olarak yonetin. Acmak istediginiz karti secin, sira degistirmek icin surukleyin.
           </p>
         </div>
@@ -708,7 +708,7 @@ export function DesignPromoBannerSection() {
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-[#ecdccd] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[#7b685b]">
+      <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
         Bannerlari acmadan bile durumunu gorun. Siralamayi surukleyerek degistirdiginizde kaydettikten sonra storefront ayni sira ile akar.
       </div>
 
@@ -749,7 +749,7 @@ export function DesignPromoBannerSection() {
         <button
           type="button"
           onClick={handleAddBanner}
-          className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#e7d6c8] py-4 font-medium text-[#7b685b] transition-all hover:border-[#FE6100]/40 hover:bg-[#fff7f0] hover:text-[#C54E00]"
+          className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
         >
           <Plus className="h-5 w-5" />
           Yeni Banner Ekle

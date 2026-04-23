@@ -119,18 +119,18 @@ export default async function BrandsManagementPage() {
 
     return (
       <div className="space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-          <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-7">
+        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-7">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-3">
-                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                   Marka Yönetimi
                 </div>
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[#2f241d] md:text-3xl">
+                  <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)] md:text-3xl">
                     Ürünlerde kullanılan markaları tek yerde izle
                   </h1>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7b685b] md:text-[15px]">
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)] md:text-[15px]">
                     Ürün kartlarından ve toplu yükleme sonrası gelen marka alanları burada otomatik görünür.
                     Ayrı bir tablo yönetimi yerine mevcut ürün verisi baz alınır.
                   </p>
@@ -140,13 +140,13 @@ export default async function BrandsManagementPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/admin/urunler/toplu-yukle"
-                  className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   Toplu Yükle
                 </Link>
                 <Link
                   href="/admin/urunler"
-                  className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex items-center justify-center rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   Ürün Yönetimine Dön
                 </Link>
@@ -154,7 +154,7 @@ export default async function BrandsManagementPage() {
             </div>
           </div>
 
-          <div className="grid gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3">
+          <div className="grid gap-px bg-[#EEF1F4] md:grid-cols-3">
             {[
               { label: "Toplam Marka", value: String(brands.length), icon: Tag },
               { label: "Markalı Ürün", value: String(brandedProductCount), icon: Package2 },
@@ -162,12 +162,12 @@ export default async function BrandsManagementPage() {
             ].map((item) => (
               <div key={item.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff3e9] text-[#FE6100] shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff3e9] text-[var(--admin-accent)] shadow-sm">
                     <item.icon className="h-5 w-5" />
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{item.label}</p>
-                    <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">{item.value}</p>
+                    <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{item.value}</p>
                   </div>
                 </div>
               </div>
@@ -175,16 +175,16 @@ export default async function BrandsManagementPage() {
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+        <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
           {brands.length === 0 ? (
-            <div className="rounded-[24px] border border-[#eadccd] bg-white/90 px-5 py-8 text-center shadow-sm">
-              <p className="text-lg font-semibold text-[#2f241d]">Henüz marka bulunmuyor</p>
-              <p className="mt-2 text-sm text-[#7b685b]">
+            <div className="rounded-[24px] border border-[var(--admin-border)] bg-white/90 px-5 py-8 text-center shadow-sm">
+              <p className="text-lg font-semibold text-[var(--admin-heading)]">Henüz marka bulunmuyor</p>
+              <p className="mt-2 text-sm text-[var(--admin-text-secondary)]">
                 Ürünlerde veya toplu yükleme sonrası gelen marka alanları doldukça burada listelenecek.
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/90 shadow-sm">
+            <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/90 shadow-sm">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead className="bg-[#f9f3ed] text-[#6c584b]">
@@ -200,7 +200,7 @@ export default async function BrandsManagementPage() {
                     {brands.map((brand) => (
                       <tr key={brand.key} className="border-t border-[#f2e7dc] align-top">
                         <td className="px-4 py-4">
-                          <div className="font-semibold text-[#2f241d]">{brand.label}</div>
+                          <div className="font-semibold text-[var(--admin-heading)]">{brand.label}</div>
                         </td>
                         <td className="px-4 py-4 text-[#6c584b]">{brand.productCount}</td>
                         <td className="px-4 py-4">
@@ -209,7 +209,7 @@ export default async function BrandsManagementPage() {
                               brand.categories.slice(0, 4).map((category) => (
                                 <span
                                   key={`${brand.key}-${category}`}
-                                  className="rounded-full border border-[#ead9cb] bg-[#fff7f1] px-2.5 py-1 text-xs font-medium text-[#8a4b22]"
+                                  className="rounded-full border border-[#ead9cb] bg-[var(--admin-accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--admin-accent-hover)]"
                                 >
                                   {category}
                                 </span>
@@ -225,7 +225,7 @@ export default async function BrandsManagementPage() {
                               <Link
                                 key={`${brand.key}-${product.id}`}
                                 href={`/admin/urunler/${product.id}/duzenle`}
-                                className="block font-medium text-[#8a4b22] transition hover:text-[#FE6100]"
+                                className="block font-medium text-[var(--admin-accent-hover)] transition hover:text-[var(--admin-accent)]"
                               >
                                 {product.name}
                               </Link>

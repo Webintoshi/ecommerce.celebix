@@ -30,7 +30,7 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   add_to_cart: {
     icon: ShoppingCart,
     label: "Sepete eklendi",
-    color: "text-[#FE6100]",
+    color: "text-[var(--admin-accent)]",
     bgColor: "bg-[#fff1e7]",
   },
   remove_from_cart: {
@@ -133,12 +133,12 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
     >
-      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+      <div className="border-b border-[var(--admin-border)] px-6 py-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
               Canlı Aktivite
             </p>
             <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">
@@ -156,7 +156,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       </div>
 
       {eventTypes.length > 0 ? (
-        <div className="border-b border-[#FE6100]/8 px-5 py-4">
+        <div className="border-b border-[var(--admin-border)] px-5 py-4">
           <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
             <button
               type="button"
@@ -164,8 +164,8 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
               className={cn(
                 "inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                 filter === null
-                  ? "border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100] to-[#E85A00] text-white shadow-[0_10px_20px_rgba(254,97,0,0.18)]"
-                  : "border-[#FE6100]/10 bg-white text-gray-600 hover:border-[#FE6100]/20 hover:text-[#FE6100]"
+                  ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[0_10px_20px_rgba(255,106,0,0.18)]"
+                  : "border-[var(--admin-border)] bg-white text-gray-600 hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
               )}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -185,8 +185,8 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                   className={cn(
                     "inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                     filter === type
-                      ? "border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100] to-[#E85A00] text-white shadow-[0_10px_20px_rgba(254,97,0,0.18)]"
-                      : "border-[#FE6100]/10 bg-white text-gray-600 hover:border-[#FE6100]/20 hover:text-[#FE6100]"
+                      ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[0_10px_20px_rgba(255,106,0,0.18)]"
+                      : "border-[var(--admin-border)] bg-white text-gray-600 hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -201,7 +201,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       <div className="max-h-[360px] overflow-y-auto">
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-            <TrendingUp className="h-10 w-10 text-[#FE6100]/30" />
+            <TrendingUp className="h-10 w-10 text-[var(--admin-accent)]/30" />
             <p className="mt-4 text-sm font-medium text-gray-600">Henüz gösterilecek canlı hareket bulunmuyor.</p>
             <p className="mt-1 text-xs text-gray-500">Yeni kullanıcı aksiyonları burada listelenecek.</p>
           </div>
@@ -226,7 +226,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="flex items-start gap-3 rounded-[22px] border border-white/70 bg-white/75 px-4 py-4 shadow-sm transition-all duration-200 hover:border-[#FE6100]/10 hover:bg-white"
+                    className="flex items-start gap-3 rounded-[22px] border border-white/70 bg-white/75 px-4 py-4 shadow-sm transition-all duration-200 hover:border-[var(--admin-border)] hover:bg-white"
                   >
                     <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl", config.bgColor)}>
                       <Icon className={cn("h-[18px] w-[18px]", config.color)} />
@@ -254,12 +254,12 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
       </div>
 
       {events.length > 0 ? (
-        <div className="border-t border-[#FE6100]/8 bg-[#fff8f3] px-5 py-3 text-xs font-medium text-gray-500">
+        <div className="border-t border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-5 py-3 text-xs font-medium text-gray-500">
           <div className="flex items-center justify-between">
             <span>
               Son <span className="font-semibold text-gray-700">{Math.min(events.length, 6)}</span> hareket gösteriliyor
             </span>
-            <span className="text-[#FE6100]">Otomatik güncelleniyor</span>
+            <span className="text-[var(--admin-accent)]">Otomatik güncelleniyor</span>
           </div>
         </div>
       ) : null}

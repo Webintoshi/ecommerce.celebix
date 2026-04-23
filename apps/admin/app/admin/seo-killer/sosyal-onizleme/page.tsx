@@ -18,10 +18,10 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16 ${
+      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${
         active
-          ? "border-[#f6c9aa] bg-[#fff4ea] text-[#C54E00] shadow-sm"
-          : "border-[#eadccd] bg-white text-[#7b6656] hover:border-[#FE6100]/20 hover:bg-[#fff9f4] hover:text-[#C54E00]"
+          ? "border-[#f6c9aa] bg-[#fff4ea] text-[var(--admin-accent-hover)] shadow-sm"
+          : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)]"
       }`}
     >
       {icon}
@@ -72,16 +72,16 @@ export default function SocialPreviewPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6efe8] text-[#2f241d]">
+    <div className="admin-page-root text-[var(--admin-heading)]">
       <div className="mx-auto max-w-7xl space-y-8 px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[34px] border border-[#eadccd] bg-gradient-to-br from-[#fff8f2] via-white to-[#f8eee5] p-8 shadow-[0_22px_70px_rgba(99,67,37,0.10)] md:p-10">
+        <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Sosyal önizleme
               </div>
               <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[#ffd7b8] bg-gradient-to-br from-[#FE6100] to-[#d97706] text-white shadow-[0_22px_50px_rgba(254,97,0,0.22)]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
                   <Share2 className="h-8 w-8" />
                 </div>
                 <div>
@@ -90,7 +90,7 @@ export default function SocialPreviewPage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-[#eadccd] bg-[#2f241d] p-5 text-white shadow-[0_22px_60px_rgba(47,36,29,0.20)]">
+            <div className="rounded-[28px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-md)]">
               <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
                 Editör modu
               </div>
@@ -99,13 +99,13 @@ export default function SocialPreviewPage() {
               </p>
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/12 blur-3xl" />
+          <div className="hidden" />
         </section>
 
-        <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 URL ve meta alanları
               </div>
 
@@ -117,12 +117,12 @@ export default function SocialPreviewPage() {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder={`Örn: ${STORE_RUNTIME.storefrontUrl}/urunler/ornek-urun`}
-                    className="min-w-0 flex-1 rounded-2xl border border-[#e8d9cb] bg-white px-4 py-3 text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                    className="min-w-0 flex-1 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                   <button
                     onClick={fetchMetadata}
                     disabled={loading}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d97706] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(254,97,0,0.22)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                   >
                     {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <RefreshCw className="h-4 w-4" />}
                     Önizlemeyi getir
@@ -137,7 +137,7 @@ export default function SocialPreviewPage() {
                     type="text"
                     value={ogTitle}
                     onChange={(e) => setOgTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-[#e8d9cb] bg-[#fffdfb] px-4 py-3 text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                    className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                 </div>
 
@@ -147,7 +147,7 @@ export default function SocialPreviewPage() {
                     value={ogDesc}
                     onChange={(e) => setOgDesc(e.target.value)}
                     rows={4}
-                    className="w-full resize-none rounded-2xl border border-[#e8d9cb] bg-[#fffdfb] px-4 py-3 text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                    className="w-full resize-none rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                 </div>
 
@@ -158,9 +158,9 @@ export default function SocialPreviewPage() {
                       type="text"
                       value={ogImage}
                       onChange={(e) => setOgImage(e.target.value)}
-                      className="min-w-0 flex-1 rounded-2xl border border-[#e8d9cb] bg-[#fffdfb] px-4 py-3 text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                      className="min-w-0 flex-1 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                     />
-                    <button className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#eadccd] bg-white text-[#8a6f5d] transition-all hover:border-[#FE6100]/20 hover:bg-[#fff9f4] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16">
+                    <button className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]">
                       <ImageIcon className="h-5 w-5" />
                     </button>
                   </div>
@@ -170,7 +170,7 @@ export default function SocialPreviewPage() {
             </div>
 
             <div className="lg:col-span-7">
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Canlı platform görünümü
               </div>
 
@@ -181,7 +181,7 @@ export default function SocialPreviewPage() {
                 <TabButton active={activeTab === "whatsapp"} onClick={() => setActiveTab("whatsapp")} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
               </div>
 
-              <div className="mt-5 flex min-h-[460px] items-center justify-center rounded-[30px] border border-[#eadccd] bg-gradient-to-br from-[#fbf5ef] to-[#f4ebe2] p-6 md:p-10">
+              <div className="mt-5 flex min-h-[460px] items-center justify-center rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-[#fbf5ef] to-[#f4ebe2] p-6 md:p-10">
                 {activeTab === "facebook" && (
                   <div className="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-[#d6dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.16)]">
                     <div className="h-[260px] bg-[#d9dee4]">

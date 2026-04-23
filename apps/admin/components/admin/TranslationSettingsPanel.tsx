@@ -103,7 +103,7 @@ function ToggleCard({
       onClick={onToggle}
       className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
         enabled
-          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[0_18px_34px_rgba(255,106,0,0.18)]"
+          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]"
           : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
       }`}
     >
@@ -387,7 +387,7 @@ export function TranslationSettingsPanel() {
                       onClick={() => toggleLocale(option.locale)}
                       className={`rounded-2xl border px-4 py-3 text-left transition ${
                         enabled
-                          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[0_18px_34px_rgba(255,106,0,0.18)]"
+                          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]"
                           : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
                       }`}
                     >
@@ -611,7 +611,7 @@ export function TranslationSettingsPanel() {
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[0_18px_34px_rgba(255,106,0,0.18)] transition hover:bg-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Ceviri ayarlarini kaydet

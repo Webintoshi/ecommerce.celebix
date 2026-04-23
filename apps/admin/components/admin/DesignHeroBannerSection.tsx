@@ -160,22 +160,22 @@ function SortableHeroSlideCard({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm ${
+      className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm ${
         isDragging ? "shadow-[0_24px_48px_rgba(73,44,23,0.18)]" : ""
       }`}
     >
-      <div className="flex items-center gap-3 border-b border-[#f0e4d8] bg-[#fcf7f1] px-4 py-4 md:px-5">
+      <div className="flex items-center gap-3 border-b border-[#f0e4d8] bg-[#F9FAFB] px-4 py-4 md:px-5">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
           onClick={onToggle}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[#C54E00]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[var(--admin-accent-hover)]">
             {index + 1}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-semibold text-[#2f241d]">{summary.title}</span>
+              <span className="truncate text-sm font-semibold text-[var(--admin-heading)]">{summary.title}</span>
               <span className="rounded-full bg-[#f6ede5] px-2.5 py-1 text-[11px] font-medium text-[#8d7462]">
                 {slide.transition}
               </span>
@@ -184,7 +184,7 @@ function SortableHeroSlideCard({
               {summary.badges.map((badge) => (
                 <span
                   key={badge}
-                  className="rounded-full border border-[#eadccd] bg-white px-2.5 py-1 text-[11px] text-[#7b685b]"
+                  className="rounded-full border border-[var(--admin-border)] bg-white px-2.5 py-1 text-[11px] text-[var(--admin-text-secondary)]"
                 >
                   {badge}
                 </span>
@@ -209,7 +209,7 @@ function SortableHeroSlideCard({
           </button>
           <button
             type="button"
-            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[#7b685b] active:cursor-grabbing"
+            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[var(--admin-text-secondary)] active:cursor-grabbing"
             aria-label={`Slayt ${index + 1} sirala`}
             {...attributes}
             {...listeners}
@@ -222,13 +222,13 @@ function SortableHeroSlideCard({
       {isExpanded ? (
         <div className="grid grid-cols-1 gap-8 p-6 lg:grid-cols-2">
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-[#2f241d]">Masaustu gorseli</label>
-            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[#e7d6c8] bg-[#faf5ef] transition-colors hover:border-[#FE6100]/40">
+            <label className="block text-sm font-medium text-[var(--admin-heading)]">Masaustu gorseli</label>
+            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[var(--admin-border)] bg-[#faf5ef] transition-colors hover:border-[var(--admin-accent-border)]">
               {slide.desktop ? (
                 <>
                   <Image src={slide.desktop} alt="Desktop Preview" fill className="object-cover" unoptimized />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
-                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#2f241d] transition-colors hover:bg-[#f8f3ed]">
+                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--admin-heading)] transition-colors hover:bg-[#f8f3ed]">
                       Degistir
                       <input
                         type="file"
@@ -246,7 +246,7 @@ function SortableHeroSlideCard({
                   ) : (
                     <>
                       <ImageIcon className="mb-2 h-8 w-8 text-[#c8b5a7]" />
-                      <span className="text-sm text-[#7b685b]">Görsel yukle</span>
+                      <span className="text-sm text-[var(--admin-text-secondary)]">Görsel yukle</span>
                     </>
                   )}
                   <input
@@ -265,13 +265,13 @@ function SortableHeroSlideCard({
           </div>
 
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-[#2f241d]">Mobil gorseli</label>
-            <div className="group/upload relative aspect-[4/5] max-w-[240px] overflow-hidden rounded-2xl border-2 border-dashed border-[#e7d6c8] bg-[#faf5ef] transition-colors hover:border-[#FE6100]/40 md:max-w-full md:aspect-video">
+            <label className="block text-sm font-medium text-[var(--admin-heading)]">Mobil gorseli</label>
+            <div className="group/upload relative aspect-[4/5] max-w-[240px] overflow-hidden rounded-2xl border-2 border-dashed border-[var(--admin-border)] bg-[#faf5ef] transition-colors hover:border-[var(--admin-accent-border)] md:max-w-full md:aspect-video">
               {slide.mobile ? (
                 <>
                   <Image src={slide.mobile} alt="Mobile Preview" fill className="object-cover" unoptimized />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/upload:opacity-100">
-                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#2f241d] transition-colors hover:bg-[#f8f3ed]">
+                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--admin-heading)] transition-colors hover:bg-[#f8f3ed]">
                       Degistir
                       <input
                         type="file"
@@ -289,7 +289,7 @@ function SortableHeroSlideCard({
                   ) : (
                     <>
                       <Smartphone className="mb-2 h-8 w-8 text-[#c8b5a7]" />
-                      <span className="text-sm text-[#7b685b]">Mobil gorsel yukle</span>
+                      <span className="text-sm text-[var(--admin-text-secondary)]">Mobil gorsel yukle</span>
                     </>
                   )}
                   <input
@@ -309,29 +309,29 @@ function SortableHeroSlideCard({
 
           <div className="grid grid-cols-1 gap-4 lg:col-span-2 md:grid-cols-2">
             <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Görsel aciklamasi</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Görsel aciklamasi</label>
               <input
                 type="text"
                 value={slide.alt}
                 onChange={(event) => onUpdateSlide("alt", event.target.value)}
                 placeholder="Orn: Ana sayfa kampanya gorseli"
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#2f241d]">Tiklaninca gidecek sayfa</label>
+              <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Tiklaninca gidecek sayfa</label>
               <input
                 type="text"
                 value={slide.link || ""}
                 onChange={(event) => onUpdateSlide("link", event.target.value)}
                 placeholder="/urunler/fistik-ezmesi"
-                className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               />
             </div>
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-[#2f241d]">Gecis efekti</label>
+            <label className="mb-2 block text-sm font-medium text-[var(--admin-heading)]">Gecis efekti</label>
             <div className="flex flex-wrap gap-2">
               {(["fade", "slide", "zoom", "blur"] as const).map((type) => (
                 <button
@@ -341,7 +341,7 @@ function SortableHeroSlideCard({
                   className={`rounded-xl px-4 py-2 text-sm font-medium capitalize transition-all ${
                     slide.transition === type
                       ? "bg-[#2f241d] text-white"
-                      : "bg-[#f7efe8] text-[#7b685b] hover:bg-[#efe2d6]"
+                      : "bg-[#f7efe8] text-[var(--admin-text-secondary)] hover:bg-[#efe2d6]"
                   }`}
                 >
                   {type}
@@ -351,50 +351,50 @@ function SortableHeroSlideCard({
           </div>
 
           <div className="rounded-2xl bg-[#faf5ef] p-5 lg:col-span-2">
-            <h4 className="mb-3 text-sm font-semibold text-[#2f241d]">Gorselin ustundeki yazilar</h4>
+            <h4 className="mb-3 text-sm font-semibold text-[var(--admin-heading)]">Gorselin ustundeki yazilar</h4>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Baslik</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Baslik</label>
                 <input
                   type="text"
                   value={slide.overlay?.title || ""}
                   onChange={(event) => onUpdateOverlay("title", event.target.value)}
                   placeholder="Dogal lezzetin yeni yuzu"
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Aciklama</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Aciklama</label>
                 <input
                   type="text"
                   value={slide.overlay?.subtitle || ""}
                   onChange={(event) => onUpdateOverlay("subtitle", event.target.value)}
                   placeholder="Katkisiz, taze ve guvenilir"
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Buton metni</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Buton metni</label>
                 <input
                   type="text"
                   value={slide.overlay?.ctaText || ""}
                   onChange={(event) => onUpdateOverlay("ctaText", event.target.value)}
                   placeholder="Kesfet"
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Buton linki</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Buton linki</label>
                 <input
                   type="text"
                   value={slide.overlay?.ctaLink || ""}
                   onChange={(event) => onUpdateOverlay("ctaLink", event.target.value)}
                   placeholder="/urunler"
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-[#2f241d]">Yazinin duracagi taraf</label>
+                <label className="mb-2 block text-sm font-medium text-[var(--admin-heading)]">Yazinin duracagi taraf</label>
                 <div className="flex gap-2">
                   {(["left", "center", "right"] as const).map((position) => (
                     <button
@@ -403,8 +403,8 @@ function SortableHeroSlideCard({
                       onClick={() => onUpdateOverlay("position", position)}
                       className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                         slide.overlay?.position === position
-                          ? "bg-[#FE6100] text-white"
-                          : "border border-[#e7d6c8] bg-white text-[#7b685b] hover:bg-[#f8f3ed]"
+                          ? "bg-[var(--admin-accent)] text-white"
+                          : "border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:bg-[#f8f3ed]"
                       }`}
                     >
                       {position === "left" ? "Sol" : position === "center" ? "Orta" : "Sag"}
@@ -598,13 +598,13 @@ export function DesignHeroBannerSection() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
             Hero banner
           </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
             Ana sayfa ust manseti
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#7b685b]">
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
             Slaytlari kapali kartlar halinde yonetin. Ihtiyaciniz olan slaydi acin, siralamayi surukleyip birakin.
           </p>
         </div>
@@ -619,7 +619,7 @@ export function DesignHeroBannerSection() {
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-[#ecdccd] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[#7b685b]">
+      <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
         Slaytlar varsayilan olarak kapali gelir. Acmak istediginiz karti secin; sira degistirmek icin sagdaki tutacagi kullanin.
       </div>
 
@@ -650,7 +650,7 @@ export function DesignHeroBannerSection() {
       <button
         type="button"
         onClick={handleAddSlide}
-        className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#e7d6c8] py-4 font-medium text-[#7b685b] transition-all hover:border-[#FE6100]/40 hover:bg-[#fff7f0] hover:text-[#C54E00]"
+        className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
       >
         <Plus className="h-5 w-5" />
         Yeni Slayt Ekle
@@ -668,7 +668,7 @@ function UrlInput({ placeholder, onAdd }: { placeholder: string; onAdd: (value: 
         type="text"
         value={value}
         placeholder={placeholder}
-        className="flex-1 rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+        className="flex-1 rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && value.trim()) {
@@ -679,7 +679,7 @@ function UrlInput({ placeholder, onAdd }: { placeholder: string; onAdd: (value: 
       />
       <button
         type="button"
-        className="rounded-xl bg-[#f7efe8] px-4 py-2.5 text-sm font-medium text-[#7b685b] hover:bg-[#efe2d6]"
+        className="rounded-xl bg-[#f7efe8] px-4 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] hover:bg-[#efe2d6]"
         onClick={() => {
           if (!value.trim()) {
             return;

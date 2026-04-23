@@ -21,7 +21,7 @@ const SETTINGS_SECTIONS = [
     description: "Magaza adi, iletisim bilgileri, para birimi ve zaman dilimi.",
     icon: Store,
     href: "/admin/ayarlar/genel",
-    tone: "from-[#fff2e8] to-white text-[#FE6100] border-[#FE6100]/12",
+    tone: "from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]",
   },
   {
     title: "Kargo ve Teslimat",
@@ -56,33 +56,33 @@ const SETTINGS_SECTIONS = [
     description: "Magaza dili ve bolgesel ayarlar.",
     icon: Globe2,
     href: "/admin/ayarlar/dil",
-    tone: "from-[#fff4ea] to-white text-[#c56a1f] border-[#efceae]",
+    tone: "from-white to-white text-[#c56a1f] border-[#efceae]",
   },
   {
     title: "Tasarım Ayarları",
     description: "Hero banner, promosyon banner ve kayan yazı alanlarını tek yerden yönetin.",
     icon: ImageIcon,
     href: "/admin/ayarlar/tasarim",
-    tone: "from-[#fff3ec] to-white text-[#d55e2d] border-[#f1c5b2]",
+    tone: "from-white to-white text-[#d55e2d] border-[#f1c5b2]",
   },
   {
     title: "Yapay Zeka",
     description: "Toshi AI asistanı ve SEO araçları için provider ve API key ayarları.",
     icon: Brain,
     href: "/admin/ayarlar/yapay-zeka",
-    tone: "from-[#fff2eb] to-white text-[#b85c3a] border-[#ebc8b8]",
+    tone: "from-white to-white text-[#b85c3a] border-[#ebc8b8]",
   },
 ];
 
 export default function SettingsPage() {
   return (
-    <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
-          <div className="inline-flex items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold tracking-[0.18em] text-[#C54E00] uppercase">
+        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+          <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold tracking-[0.18em] text-[var(--admin-accent-hover)] uppercase">
             Ayarlar
           </div>
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+          <div className="hidden" />
         </section>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -90,7 +90,7 @@ export default function SettingsPage() {
             <Link
               key={section.href}
               href={section.href}
-              className="group flex min-h-[240px] flex-col justify-between rounded-[28px] border border-[#eadccd] bg-white/90 p-6 text-left shadow-[0_18px_40px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-1 hover:border-[#FE6100]/22 hover:bg-white hover:shadow-[0_24px_55px_rgba(254,97,0,0.12)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+              className="group flex min-h-[240px] flex-col justify-between rounded-[28px] border border-[var(--admin-border)] bg-white/90 p-6 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
             >
               <div>
                 <div
@@ -101,13 +101,13 @@ export default function SettingsPage() {
                 >
                   <section.icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-semibold tracking-[-0.02em] text-[#2f241d] transition-colors group-hover:text-[#C54E00]">
+                <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)] transition-colors group-hover:text-[var(--admin-accent-hover)]">
                   {section.title}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-[#7d6959]">{section.description}</p>
               </div>
 
-              <div className="mt-6 flex items-center justify-between rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3 text-sm font-semibold text-[#8a5b3c] transition-all group-hover:border-[#FE6100]/16 group-hover:bg-[#fff7f0] group-hover:text-[#C54E00]">
+              <div className="mt-6 flex items-center justify-between rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition-all group-hover:border-[var(--admin-accent-border)] group-hover:bg-[var(--admin-accent-soft)] group-hover:text-[var(--admin-accent-hover)]">
                 <span>Ayari ac</span>
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -115,7 +115,7 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[0_24px_70px_rgba(47,36,29,0.22)] md:p-8">
+        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[var(--shadow-md)] md:p-8">
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffcfaa]">Ek Büyüme Alanı</p>
@@ -124,12 +124,12 @@ export default function SettingsPage() {
                 Mağazanızı mobil uygulamaya dönüştürmek için ihtiyaç duyulan tasarım ve teslim akışını tek alanda toplar.
               </p>
             </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#3d2b1f] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
+            <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
               Incelemeye Basla
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
-          <div className="pointer-events-none absolute -bottom-24 right-0 h-52 w-52 rounded-full bg-[#FE6100]/20 blur-3xl" />
+          <div className="hidden" />
         </section>
       </div>
     </div>

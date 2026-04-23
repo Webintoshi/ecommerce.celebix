@@ -103,7 +103,7 @@ export function OrderStatusSection({
       id: "print",
       label: "Yazdır",
       icon: Printer,
-      color: "border border-[#eadccd] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#fffaf5] hover:text-[#8a4b22]",
+      color: "border border-[var(--admin-border)] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#FCFDFE] hover:text-[var(--admin-accent-hover)]",
       onClick: () => handleAction("print", () => {
         window.open(`/admin/siparisler/${orderId}/yazdir`, "_blank");
       }),
@@ -112,7 +112,7 @@ export function OrderStatusSection({
       id: "invoice",
       label: "Fatura",
       icon: Download,
-      color: "border border-[#eadccd] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#fffaf5] hover:text-[#8a4b22]",
+      color: "border border-[var(--admin-border)] bg-white text-[#6f5a49] hover:border-[#dcc5b1] hover:bg-[#FCFDFE] hover:text-[var(--admin-accent-hover)]",
       onClick: () => handleAction("invoice", () => {
         alert("Fatura PDF indiriliyor...");
       }),
@@ -122,8 +122,8 @@ export function OrderStatusSection({
   // Eğer iptal veya iade durumundaysa, özel mesaj göster
   if (currentStatus === "cancelled" || currentStatus === "refunded") {
     return (
-      <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
-        <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white p-5 md:p-6">
+      <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+        <div className="border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white p-5 md:p-6">
           <div className="flex items-center gap-3">
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
               currentStatus === "cancelled"
@@ -137,7 +137,7 @@ export function OrderStatusSection({
               )}
             </div>
             <div className="flex-1">
-              <div className="mb-1 inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+              <div className="mb-1 inline-flex rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
                 Sipariş Akışı
               </div>
               <p className="text-lg font-semibold tracking-[-0.02em] text-stone-950">
@@ -194,12 +194,12 @@ export function OrderStatusSection({
   }
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Timeline Row */}
-      <div className="border-b border-[#f1e6dc] bg-gradient-to-br from-[#fffaf5] via-white to-[#fdf6ef] p-5 pb-4 md:p-6">
+      <div className="border-b border-[var(--admin-border)] bg-gradient-to-br from-[#fffaf5] via-white to-[#fdf6ef] p-5 pb-4 md:p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <div className="inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+            <div className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
               Sipariş Akışı
             </div>
             <p className="mt-3 text-sm font-semibold text-stone-900">
@@ -220,7 +220,7 @@ export function OrderStatusSection({
           {/* Progress Line */}
           <div className="absolute left-0 right-0 top-4 h-1.5 rounded-full bg-[#efe1d3]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#FE6100] via-[#f18b2b] to-[#d56d16] transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-[#FF6A00] via-[#f18b2b] to-[#d56d16] transition-all duration-500"
               style={{
                 width: `${Math.max(0, (currentIndex / (ORDER_TIMELINE_STEPS.length - 1)) * 100)}%`,
               }}
@@ -240,9 +240,9 @@ export function OrderStatusSection({
                   <div
                     className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-300 ${
                       isCompleted
-                        ? "border-[#FE6100] bg-[#FE6100] text-white shadow-[0_10px_22px_rgba(254,97,0,0.25)]"
+                        ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white shadow-[0_10px_22px_rgba(255,106,0,0.25)]"
                         : isCurrent
-                          ? "scale-110 border-[#FE6100]/30 bg-white text-[#FE6100] shadow-[0_12px_26px_rgba(254,97,0,0.15)] ring-4 ring-[#fff3e8]"
+                          ? "scale-110 border-[var(--admin-accent-border)] bg-white text-[var(--admin-accent)] shadow-[0_12px_26px_rgba(255,106,0,0.15)] ring-4 ring-[#fff3e8]"
                           : "border-[#e6d9cd] bg-[#f8f1ea] text-[#b8a08c]"
                     }`}
                   >
@@ -277,7 +277,7 @@ export function OrderStatusSection({
           {/* Current Status */}
           <div className="flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
-              currentIndex >= 0 ? "border-[#ffd8b4] bg-[#fff1e4] text-[#FE6100]" : "border-[#e6d9cd] bg-white text-stone-400"
+              currentIndex >= 0 ? "border-[#ffd8b4] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]" : "border-[#e6d9cd] bg-white text-stone-400"
             }`}>
               <CheckCircle className="w-5 h-5" />
             </div>
@@ -292,7 +292,7 @@ export function OrderStatusSection({
           </div>
 
             <div className="hidden sm:block">
-              <span className="rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-[#8a5b3c] shadow-sm">
+              <span className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--admin-text-secondary)] shadow-sm">
                 Hızlı işlemler aşağıda yer alır
               </span>
             </div>

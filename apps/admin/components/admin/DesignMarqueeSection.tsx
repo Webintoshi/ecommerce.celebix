@@ -156,9 +156,9 @@ export function DesignMarqueeSection() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Kayan yazi</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#2f241d]">Hizli bilgi seridi</h2>
-          <p className="mt-2 text-sm leading-6 text-[#7b685b]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Kayan yazi</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Hizli bilgi seridi</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
             Ustte kayan bilgi metinlerini, hizini ve gorunurluk ayarlarini bu bolumden yonetin.
           </p>
         </div>
@@ -172,14 +172,14 @@ export function DesignMarqueeSection() {
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-[#ecdccd] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[#7b685b]">
+      <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
         Bu alan magazanin en hizli duyuru serididir. Kisa, net ve tekrar kullanilabilir mesajlar yazin.
       </div>
 
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm">
-          <div className="border-b border-[#f0e4d8] bg-[#fcf7f1] p-6">
-            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[#2f241d]">
+        <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm">
+          <div className="border-b border-[#f0e4d8] bg-[#F9FAFB] p-6">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--admin-heading)]">
               <Settings2 className="h-4 w-4 text-[#9d816d]" />
               Genel ayarlar
             </h3>
@@ -193,18 +193,18 @@ export function DesignMarqueeSection() {
                 onChange={(e) => setSettings((prev) => ({ ...prev, enabled: e.target.checked }))}
                 className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
               />
-              <label htmlFor="enabled" className="text-sm font-medium text-[#2f241d]">
+              <label htmlFor="enabled" className="text-sm font-medium text-[var(--admin-heading)]">
                 Kayan yazi bolumunu goster
               </label>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Hiz</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Hiz</label>
                 <select
                   value={settings.speed}
                   onChange={(e) => setSettings((prev) => ({ ...prev, speed: e.target.value as MarqueeSpeed }))}
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {SPEED_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -215,11 +215,11 @@ export function DesignMarqueeSection() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Yon</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Yon</label>
                 <select
                   value={settings.direction}
                   onChange={(e) => setSettings((prev) => ({ ...prev, direction: e.target.value as MarqueeDirection }))}
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {DIRECTION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -230,11 +230,11 @@ export function DesignMarqueeSection() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#2f241d]">Animasyon</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--admin-heading)]">Animasyon</label>
                 <select
                   value={settings.animation}
                   onChange={(e) => setSettings((prev) => ({ ...prev, animation: e.target.value as MarqueeAnimation }))}
-                  className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {ANIMATION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -246,7 +246,7 @@ export function DesignMarqueeSection() {
             </div>
 
             <div className="flex flex-wrap gap-5">
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-[#2f241d]">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-[var(--admin-heading)]">
                 <input
                   type="checkbox"
                   checked={settings.pauseOnHover}
@@ -259,7 +259,7 @@ export function DesignMarqueeSection() {
                 </span>
               </label>
 
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-[#2f241d]">
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-[var(--admin-heading)]">
                 <input
                   type="checkbox"
                   checked={settings.showStars}
@@ -275,15 +275,15 @@ export function DesignMarqueeSection() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-[#eadccd] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#f0e4d8] bg-[#fcf7f1] p-6">
-            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[#2f241d]">
+        <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#f0e4d8] bg-[#F9FAFB] p-6">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--admin-heading)]">
               <Sparkles className="h-4 w-4 text-[#9d816d]" />
               Yazi ogeleri
             </h3>
             <button
               onClick={addItem}
-              className="inline-flex items-center gap-1 rounded-xl bg-[#FE6100] px-3 py-2 text-xs font-medium text-white hover:bg-[#e45700]"
+              className="inline-flex items-center gap-1 rounded-xl bg-[var(--admin-accent)] px-3 py-2 text-xs font-medium text-white hover:bg-[#e45700]"
             >
               <Plus className="h-3.5 w-3.5" />
               Oge Ekle
@@ -296,27 +296,27 @@ export function DesignMarqueeSection() {
                 key={item.id}
                 className="flex items-start gap-3 rounded-2xl border border-[#efe3d7] bg-[#faf5ef] p-4"
               >
-                <div className="mt-2 cursor-grab text-[#b8977f] hover:text-[#7b685b]">
+                <div className="mt-2 cursor-grab text-[#b8977f] hover:text-[var(--admin-text-secondary)]">
                   <GripVertical className="h-4 w-4" />
                 </div>
 
                 <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-4">
                   <div>
-                    <label className="mb-1 block text-xs text-[#7b685b]">Metin</label>
+                    <label className="mb-1 block text-xs text-[var(--admin-text-secondary)]">Metin</label>
                     <input
                       type="text"
                       value={item.text}
                       onChange={(e) => updateItem(item.id, { text: e.target.value })}
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs text-[#7b685b]">Ikon</label>
+                    <label className="mb-1 block text-xs text-[var(--admin-text-secondary)]">Ikon</label>
                     <select
                       value={item.icon}
                       onChange={(e) => updateItem(item.id, { icon: e.target.value as MarqueeIcon })}
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     >
                       {ICON_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -327,24 +327,24 @@ export function DesignMarqueeSection() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs text-[#7b685b]">Etiket</label>
+                    <label className="mb-1 block text-xs text-[var(--admin-text-secondary)]">Etiket</label>
                     <input
                       type="text"
                       value={item.badge || ""}
                       onChange={(e) => updateItem(item.id, { badge: e.target.value })}
                       placeholder="Ozel"
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs text-[#7b685b]">Link (opsiyonel)</label>
+                    <label className="mb-1 block text-xs text-[var(--admin-text-secondary)]">Link (opsiyonel)</label>
                     <input
                       type="text"
                       value={item.link || ""}
                       onChange={(e) => updateItem(item.id, { link: e.target.value })}
                       placeholder="/sayfa"
-                      className="w-full rounded-xl border border-[#e7d6c8] bg-white px-3 py-2.5 text-sm focus:border-[#FE6100]/40 focus:outline-none focus:ring-2 focus:ring-[#FE6100]/10"
+                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
                 </div>

@@ -38,11 +38,11 @@ export function CustomerInfoCard({
   const customerName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "Bilinmiyor";
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[#eadccd] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Header */}
-      <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fffaf5] to-white px-6 py-5">
+      <div className="border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-6 py-5">
         <h3 className="flex items-center gap-2 text-base font-semibold tracking-[-0.02em] text-stone-950">
-          <User className="h-4 w-4 text-[#8a5b3c]" />
+          <User className="h-4 w-4 text-[var(--admin-text-secondary)]" />
           Müşteri Bilgileri
         </h3>
       </div>
@@ -55,7 +55,7 @@ export function CustomerInfoCard({
             {customer.id && (
               <Link
                 href={`/admin/musteriler/${customer.id}`}
-                className="flex items-center gap-1 rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-medium text-[#8a4b22] transition-all hover:border-[#FE6100]/20 hover:text-[#C54E00]"
+                className="flex items-center gap-1 rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
               >
                 Profili Gör
                 <ExternalLink className="w-3 h-3" />
@@ -114,7 +114,7 @@ export function CustomerInfoCard({
 
         {/* Stats */}
         {(customer.totalOrders !== undefined || customer.totalSpent !== undefined) && (
-          <div className="border-t border-[#f1e6dc] pt-4">
+          <div className="border-t border-[var(--admin-border)] pt-4">
             <div className="grid grid-cols-2 gap-3">
               {customer.totalOrders !== undefined && (
                 <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
@@ -128,7 +128,7 @@ export function CustomerInfoCard({
               {customer.totalSpent !== undefined && (
                 <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
                   <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Harcama</p>
-                  <p className="text-lg font-semibold text-[#C54E00]">
+                  <p className="text-lg font-semibold text-[var(--admin-accent-hover)]">
                     {new Intl.NumberFormat("tr-TR", {
                       style: "currency",
                       currency: "TRY",
@@ -144,7 +144,7 @@ export function CustomerInfoCard({
 
         {/* Recent Orders */}
         {customerOrders && customerOrders.length > 0 && (
-          <div className="border-t border-[#f1e6dc] pt-6">
+          <div className="border-t border-[var(--admin-border)] pt-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Diğer Siparişler
@@ -152,7 +152,7 @@ export function CustomerInfoCard({
               {customer.id && (
                 <Link
                   href={`/admin/musteriler/${customer.id}?tab=orders`}
-                  className="text-xs font-semibold text-[#C54E00] hover:text-[#a84300]"
+                  className="text-xs font-semibold text-[var(--admin-accent-hover)] hover:text-[#a84300]"
                 >
                   Tümünü Gör
                 </Link>
@@ -164,10 +164,10 @@ export function CustomerInfoCard({
                 <Link
                   key={order.id}
                   href={`/admin/siparisler/${order.id}`}
-                  className="group flex items-center justify-between rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#fffaf5]"
+                  className="group flex items-center justify-between rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-stone-900 transition-colors group-hover:text-[#C54E00]">
+                    <p className="text-sm font-semibold text-stone-900 transition-colors group-hover:text-[var(--admin-accent-hover)]">
                       #{order.orderNumber}
                     </p>
                     <p className="text-xs text-stone-500">

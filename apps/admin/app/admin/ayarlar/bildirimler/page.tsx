@@ -284,8 +284,8 @@ export default function NotificationSettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-3 rounded-2xl border border-[#FE6100]/10 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
-          <Loader2 className="h-4 w-4 animate-spin text-[#FE6100]" />
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
           Bildirim ayarları yükleniyor...
         </div>
       </div>
@@ -500,9 +500,9 @@ export default function NotificationSettingsPage() {
         }
       >
         <div className="grid gap-4 xl:grid-cols-2">
-          <div className="space-y-4 rounded-[22px] border border-[#FE6100]/10 bg-[#fff8f3] p-4">
+          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-4">
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-[#FE6100]" />
+              <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
               <h3 className="text-base font-semibold text-gray-950">E-posta</h3>
             </div>
             <div className="grid gap-4">
@@ -545,9 +545,9 @@ export default function NotificationSettingsPage() {
             </Button>
           </div>
 
-          <div className="space-y-4 rounded-[22px] border border-[#FE6100]/10 bg-white p-4">
+          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-white p-4">
             <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-[#FE6100]" />
+              <MessageSquare className="h-4 w-4 text-[var(--admin-accent)]" />
               <h3 className="text-base font-semibold text-gray-950">SMS</h3>
             </div>
             <div className="grid gap-4">
@@ -606,17 +606,17 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-[22px] border border-[#FE6100]/10 bg-white p-4 shadow-sm transition-all hover:border-[#FE6100]/20">
+    <label className="flex cursor-pointer items-start gap-3 rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-sm transition-all hover:border-[var(--admin-accent-border)]">
       <input
         type="checkbox"
-        className="mt-1 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+        className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />
       <div>
         <p className="text-sm font-semibold text-gray-950">{title}</p>
         <p className="mt-1 hidden text-sm text-gray-500 md:block">{description}</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#fff6f1] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#FE6100]">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--admin-accent-soft)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent)]">
           {checked ? <CheckCircle className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
           {checked ? "Açık" : "Kapalı"}
         </div>

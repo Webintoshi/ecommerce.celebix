@@ -689,7 +689,7 @@ export default function ToshiAssistant({
               boxShadow: "0 10px 20px rgba(255,106,0,0.11), inset 0 1px 0 rgba(255,255,255,0.18)",
             }}
           >
-            <span className="pointer-events-none absolute inset-[3px] rounded-full bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.26),rgba(255,255,255,0)_62%)] opacity-55" />
+            <span className="pointer-events-none absolute inset-[3px] rounded-full bg-[var(--admin-bg)] opacity-55" />
             <span className="relative block h-[3.94rem] w-[3.94rem] overflow-hidden rounded-full border border-white/82 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_7px_14px_rgba(122,72,28,0.1)]">
               <Image
                 src={TOSHI_LAUNCHER_MASCOT_SRC}
@@ -784,7 +784,7 @@ export default function ToshiAssistant({
             className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(17,24,39,0.12)] backdrop-blur-[2px]"
           />
 
-          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[0_24px_56px_rgba(17,24,39,0.16)]">
+          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
             <div
               className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4"
               style={{ background: TOSHI_GRADIENT }}
