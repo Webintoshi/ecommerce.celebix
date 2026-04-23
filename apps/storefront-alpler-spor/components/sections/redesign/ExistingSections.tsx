@@ -73,7 +73,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
         <div className="absolute right-8 top-12 hidden rounded-full bg-[#B6FF00] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#0B0F14] lg:block">
           Sezon Firsatlari
         </div>
-        <div className="relative mx-auto flex min-h-[560px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+        <div className="container-premium relative flex min-h-[560px] flex-col justify-center py-20 lg:py-28">
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="max-w-2xl">
               <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em] text-[#B6FF00] backdrop-blur">
@@ -162,7 +162,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
         </div>
 
       <div className="absolute inset-0 z-10 flex items-center">
-        <div className="container mx-auto px-4 sm:px-6">
+        <div className="container-premium">
         <div className="max-w-lg sm:max-w-xl md:max-w-2xl">
             <div
               className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]"

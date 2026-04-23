@@ -106,7 +106,7 @@ export function StoreLocationsSection({
 
   return (
     <section className="bg-white py-16 sm:py-20">
-      <div className="mx-auto max-w-[1500px] px-5 sm:px-8 lg:px-12">
+      <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#F26A21]">
             {eyebrow}
