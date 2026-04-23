@@ -30,7 +30,8 @@ import {
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { Product } from "@/types/product";
+import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
+import type { Product, ProductVariant } from "@/types/product";
 import {
   CustomizationSchema,
   CustomizationStep,
@@ -46,6 +47,12 @@ const ProductCard = React.lazy(() =>
 
 type ResolvedCustomizationSchema = CustomizationSchema & {
   steps: CustomizationStep[];
+};
+
+type DetailRow = {
+  key: string;
+  label: string;
+  value: string;
 };
 
 function createEmptyCustomizationState(
@@ -76,6 +83,169 @@ async function fetchAssignedSchema(productId: string) {
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
 }
 
+function toDisplayText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "boolean") return value ? "Var" : "Yok";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : null;
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim();
+  if (!normalized || normalized.toLowerCase() === "default") return null;
+  return normalized;
+}
+
+function getNestedRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getAttributeLabel(attribute: Record<string, unknown>, fallbackIndex: number) {
+  const nestedAttribute = getNestedRecord(attribute.attribute);
+  return (
+    toDisplayText(attribute.attributeName) ||
+    toDisplayText(attribute.name) ||
+    toDisplayText(nestedAttribute?.name) ||
+    `Nitelik ${fallbackIndex + 1}`
+  );
+}
+
+function getVariantAttributeRows(variant?: ProductVariant | null): DetailRow[] {
+  if (!variant) return [];
+
+  const sourceAttributes = Array.isArray(variant.attributes)
+    ? variant.attributes
+    : Array.isArray(variant.raw_attributes)
+      ? variant.raw_attributes
+      : [];
+  const seen = new Set<string>();
+
+  return sourceAttributes
+    .map((attribute, index) => {
+      const record = getNestedRecord(attribute);
+      if (!record) return null;
+
+      const label = getAttributeLabel(record, index);
+      const value = toDisplayText(record.value);
+      if (!value) return null;
+
+      const key = `${label}:${value}`.toLocaleLowerCase("tr-TR");
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        key,
+        label,
+        value,
+      };
+    })
+    .filter((row): row is DetailRow => Boolean(row));
+}
+
+function getProductSpecificationRows(product: Product, variant?: ProductVariant | null): DetailRow[] {
+  const variantRows = getVariantAttributeRows(variant);
+  const dimensionParts = [
+    product.dimensions?.width ? `${product.dimensions.width} cm genislik` : null,
+    product.dimensions?.height ? `${product.dimensions.height} cm yukseklik` : null,
+    product.dimensions?.depth ? `${product.dimensions.depth} cm derinlik` : null,
+    product.dimensions?.weight ? `${product.dimensions.weight} g` : null,
+  ].filter(Boolean);
+  const variantName = toDisplayText(variant?.name);
+  const baseRows = [
+    product.brand ? { key: "brand", label: "Marka", value: product.brand } : null,
+    { key: "category", label: "Kategori", value: product.category },
+    { key: "subcategory", label: "Alt Kategori", value: product.subcategory },
+    variantName ? { key: "variant", label: "Secili Varyant", value: variantName } : null,
+    product.sku ? { key: "product-sku", label: "Urun Kodu", value: product.sku } : null,
+    variant?.sku ? { key: "variant-sku", label: "Varyant Kodu", value: variant.sku } : null,
+    product.gtin ? { key: "gtin", label: "Barkod", value: product.gtin } : null,
+    product.countryOfOrigin
+      ? { key: "origin", label: "Mensei", value: product.countryOfOrigin }
+      : null,
+    dimensionParts.length > 0
+      ? { key: "dimensions", label: "Olculer", value: dimensionParts.join(" / ") }
+      : null,
+    typeof variant?.stock === "number"
+      ? { key: "stock", label: "Stok", value: variant.stock > 0 ? `${variant.stock} adet` : "Tukendi" }
+      : null,
+  ].filter((row): row is DetailRow => Boolean(row && toDisplayText(row.value)));
+
+  const seen = new Set<string>();
+  return [...variantRows, ...baseRows].filter((row) => {
+    const key = `${row.label}:${row.value}`.toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getVariantGroupRows(variants: ProductVariant[]): DetailRow[] {
+  return getOrderedVariantAttributeGroups(variants).map((group) => ({
+    key: group.id,
+    label: group.name,
+    value: group.values.map((value) => value.value).join(" / "),
+  }));
+}
+
+function ProductAttributeSummary({ rows }: { rows: DetailRow[] }) {
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-[1.4rem] border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#374151]">
+          Secili Nitelikler
+        </span>
+        <span className="text-[11px] font-bold text-[#FF6A00]">Admin verisi</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {rows.slice(0, 6).map((row) => (
+          <div
+            key={row.key}
+            className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9CA3AF]">
+              {row.label}
+            </p>
+            <p className="mt-1 truncate text-sm font-black text-[#111827]">{row.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductSpecifications({ rows }: { rows: DetailRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-5 text-sm font-medium text-[#6B7280]">
+        Bu urun icin teknik nitelik bilgisi henuz eklenmedi.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {rows.map((row) => (
+        <div
+          key={`${row.label}-${row.value}`}
+          className="flex items-start gap-3 rounded-2xl border border-[#E5E7EB] bg-white p-4"
+        >
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
+            <Package className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6B7280]">
+              {row.label}
+            </p>
+            <p className="mt-1 text-sm font-bold leading-6 text-[#111827]">{row.value}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface ProductDetailClientProps {
   slug: string;
   initialProduct: Product | null;
@@ -98,7 +268,9 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
+    new Set(["specs"]),
+  );
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
@@ -139,7 +311,7 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
+    setOpenAccordions(new Set(["specs"]));
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -308,6 +480,31 @@ export function ProductDetailClient({
       ? variant.originalPrice +
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
+  const selectedAttributeRows = getVariantAttributeRows(variant);
+  const specificationRows = getProductSpecificationRows(product, variant);
+  const variantGroupRows = getVariantGroupRows(variants);
+  const trustCards = [
+    {
+      title: "%100 Orijinal Urun",
+      text: "Admin tarafindan yayinlanan urun ve varyant bilgileriyle listelenir.",
+      icon: BadgeCheck,
+    },
+    {
+      title: "Hizli Kargo",
+      text: "Stokta olan secenekler siparis akisinda net gorunur.",
+      icon: Clock,
+    },
+    {
+      title: "Kolay Iade",
+      text: "Teslimat ve iade sureci satin alma oncesinde acik sunulur.",
+      icon: Package,
+    },
+    {
+      title: "Guvenli Odeme",
+      text: "Odeme adimi mevcut guvenli checkout akisi ile devam eder.",
+      icon: Hammer,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
@@ -355,10 +552,10 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-5 rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:sticky lg:top-28">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                  {product.category}
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-[#FF6A00]">
+                  {product.brand || product.subcategory || product.category}
                 </span>
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured && (
@@ -372,6 +569,7 @@ export function ProductDetailClient({
                 {product.name}
               </h1>
 
+              {(product.rating || 0) > 0 ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-0.5">
                   {[...Array(5)].map((_, i) => (
@@ -389,16 +587,22 @@ export function ProductDetailClient({
                   ({product.reviewCount || 0} değerlendirme)
                 </span>
               </div>
+              ) : null}
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-end gap-3 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
                 {displayOriginalPrice !== undefined && (
                   <span className="text-sm text-neutral-400 line-through lg:text-base">
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className={`text-3xl font-bold tracking-tight lg:text-4xl ${displayOriginalPrice !== undefined ? "text-[#DC2626]" : "text-[#111827]"}`}>
+                <span className={`text-3xl font-black tracking-tight lg:text-4xl ${displayOriginalPrice !== undefined ? "text-[#FF6A00]" : "text-[#111827]"}`}>
                   {formatPrice(displayPrice)}
                 </span>
+                {discountPercent > 0 ? (
+                  <span className="rounded-full bg-[#FFF1E8] px-3 py-1 text-xs font-black text-[#EA580C]">
+                    %{discountPercent} Indirim
+                  </span>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-3 gap-2 border-y border-[#E5E7EB] py-4 text-center">
@@ -441,6 +645,8 @@ export function ProductDetailClient({
                 selectedIndex={selectedVariant}
                 onSelect={setSelectedVariant}
               />
+
+              <ProductAttributeSummary rows={selectedAttributeRows} />
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
@@ -572,53 +778,27 @@ export function ProductDetailClient({
                   },
                   {
                     id: "specs",
-                    label: "Özellikler",
+                    label: "Ozellikler",
                     content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
+                      <div className="space-y-5">
+                        <ProductSpecifications rows={specificationRows} />
+                        {variantGroupRows.length > 0 ? (
+                          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+                              Tum Varyant Nitelikleri
                             </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Teknik spor standardı
-                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {variantGroupRows.map((row) => (
+                                <span
+                                  key={row.key}
+                                  className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#374151]"
+                                >
+                                  {row.label}: {row.value}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Kullanım
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Antrenman ve günlük performans
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Teslimat
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              2-4 iş günü
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Değişim & İade
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              14 gün destek
-                            </p>
-                          </div>
-                        </div>
+                        ) : null}
                       </div>
                     ),
                   },
@@ -701,6 +881,28 @@ export function ProductDetailClient({
         </div>
       </section>
 
+      <section className="container-premium pb-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {trustCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.title}
+                className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-4 shadow-sm"
+              >
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-sm font-black text-[#111827]">{card.title}</h3>
+                <p className="mt-2 text-xs font-medium leading-5 text-[#6B7280]">
+                  {card.text}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="container-premium py-4 lg:py-6">
         <ProductReviewsSection
           productId={product.id}
@@ -712,7 +914,9 @@ export function ProductDetailClient({
       </div>
 
       <section
-        className="border-t border-black/5 bg-[#F5F7FA] py-16 lg:py-20"
+        className={`border-t border-black/5 bg-[#F5F7FA] py-16 lg:py-20 ${
+          !isLoadingRelated && relatedProducts.length === 0 ? "hidden" : ""
+        }`}
       >
         <div className="container-premium">
           <div className="mb-10 flex items-center justify-between">
