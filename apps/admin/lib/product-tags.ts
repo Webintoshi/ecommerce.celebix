@@ -1,3 +1,5 @@
+import { normalizeVisibleText } from "@/lib/text-encoding";
+
 type ProductTagSuggestionRow = {
   id: string;
   value: string;
@@ -15,7 +17,7 @@ function collapseWhitespace(value: string): string {
 }
 
 export function normalizeProductTag(value: string): string {
-  return collapseWhitespace(value).toLocaleLowerCase("tr-TR");
+  return normalizeVisibleText(collapseWhitespace(value), { collapseWhitespace: true }).toLocaleLowerCase("tr-TR");
 }
 
 export function normalizeProductTags(values: string[]): string[] {

@@ -17,11 +17,11 @@ export async function fetchAndParseXmlProductFeed(feedUrl: string) {
   try {
     parsedUrl = new URL(normalizedFeedUrl);
   } catch {
-    throw new Error("Gecerli bir feed URL girin.");
+    throw new Error("Geçerli bir feed URL girin.");
   }
 
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("Feed URL yalnizca http veya https olabilir.");
+    throw new Error("Feed URL yalnızca http veya https olabilir.");
   }
 
   const controller = new AbortController();
@@ -38,13 +38,13 @@ export async function fetchAndParseXmlProductFeed(feedUrl: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`Feed alinamadi: ${response.status} ${response.statusText || ""}`.trim());
+      throw new Error(`Feed alınamadı: ${response.status} ${response.statusText || ""}`.trim());
     }
 
     const contentLengthHeader = response.headers.get("content-length");
     const declaredLength = contentLengthHeader ? Number.parseInt(contentLengthHeader, 10) : Number.NaN;
     if (Number.isFinite(declaredLength) && declaredLength > MAX_FEED_BYTES) {
-      throw new Error(`Feed cok buyuk. Su an en fazla ${MAX_FEED_SIZE_MB} MB destekleniyor.`);
+      throw new Error(`Feed çok büyük. Şu an en fazla ${MAX_FEED_SIZE_MB} MB destekleniyor.`);
     }
 
     const buffer = await readResponseBufferWithLimit(response, controller);
@@ -56,7 +56,7 @@ export async function fetchAndParseXmlProductFeed(feedUrl: string) {
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Feed zaman asimina ugradi. Lutfen tekrar deneyin.");
+      throw new Error("Feed zaman aşımına uğradı. Lütfen tekrar deneyin.");
     }
 
     throw error;
@@ -87,7 +87,7 @@ async function readResponseBufferWithLimit(
     totalBytes += chunk.byteLength;
     if (totalBytes > MAX_FEED_BYTES) {
       controller.abort();
-      throw new Error(`Feed cok buyuk. Su an en fazla ${MAX_FEED_SIZE_MB} MB destekleniyor.`);
+      throw new Error(`Feed çok büyük. Şu an en fazla ${MAX_FEED_SIZE_MB} MB destekleniyor.`);
     }
 
     chunks.push(chunk);

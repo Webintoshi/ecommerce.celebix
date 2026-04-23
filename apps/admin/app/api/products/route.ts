@@ -10,6 +10,7 @@ import {
 } from "@/lib/product-seo";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { normalizeVisibleText, normalizeVisibleTextFields, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
     diffProductTags,
@@ -37,7 +38,7 @@ function toNullableString(value: unknown): string | null {
         return null;
     }
 
-    const normalized = value.trim();
+    const normalized = normalizeVisibleText(value, { collapseWhitespace: true });
     return normalized ? normalized : null;
 }
 
@@ -49,6 +50,67 @@ function toJsonObject(value: unknown): Record<string, unknown> {
 
 function toJsonArray(value: unknown): unknown[] {
     return Array.isArray(value) ? value : [];
+}
+
+const PRODUCT_VISIBLE_TEXT_KEYS = [
+    "name",
+    "short_description",
+    "brand",
+    "country_of_origin",
+    "ingredients",
+    "storage_conditions",
+    "seo_title",
+    "seo_description",
+    "seo_focus_keyword",
+    "og_image",
+];
+
+function normalizeProductInputFields<T extends Record<string, unknown>>(record: T): T {
+    const normalized = normalizeVisibleTextFields(record, {
+        keys: PRODUCT_VISIBLE_TEXT_KEYS,
+        collapseWhitespace: true,
+    }) as Record<string, unknown>;
+
+    if (typeof normalized.description === "string") {
+        normalized.description = normalizeVisibleText(normalized.description, { trim: false });
+    }
+
+    return normalized as T;
+}
+
+function normalizeVariantAttributeInput(value: unknown): unknown {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return value;
+    }
+
+    const record = value as Record<string, unknown>;
+    return normalizeVisibleTextFields(record, {
+        keys: ["name", "label", "value"],
+        collapseWhitespace: true,
+    });
+}
+
+function normalizeVariantInputRecords<T>(variants: T[] | undefined): T[] | undefined {
+    if (!Array.isArray(variants)) {
+        return variants;
+    }
+
+    return variants.map((variant) => {
+        if (!variant || typeof variant !== "object" || Array.isArray(variant)) {
+            return variant;
+        }
+
+        const record = normalizeVisibleTextFields(variant as Record<string, unknown>, {
+            keys: ["name", "group_name", "unit", "warehouse_location"],
+            collapseWhitespace: true,
+        });
+
+        if (Array.isArray(record.attributes)) {
+            record.attributes = record.attributes.map(normalizeVariantAttributeInput);
+        }
+
+        return record as T;
+    });
 }
 
 function readCategoryPathInput(value: Record<string, unknown>): unknown {
@@ -214,6 +276,7 @@ function normalizeImagesV2(value: unknown): unknown[] {
         return {
             ...record,
             url: normalizeAssetUrl(record.url) || record.url,
+            alt: normalizeVisibleText(record.alt, { collapseWhitespace: true }),
         };
     });
 }
@@ -228,7 +291,10 @@ function normalizeVariantAttributes(value: unknown): unknown[] {
             return item;
         }
 
-        const record = item as Record<string, unknown>;
+        const record = normalizeVisibleTextFields(item as Record<string, unknown>, {
+            keys: ["name", "label", "value"],
+            collapseWhitespace: true,
+        });
         return {
             ...record,
             image_url: normalizeAssetUrl(record.image_url),
@@ -259,7 +325,9 @@ function normalizeVariantRecord(value: unknown, rules: ProductDiscountRule[] = [
 }
 
 function normalizeStoredProductDescription(value: unknown): string | null {
-    const normalized = normalizeProductDescriptionHtml(typeof value === "string" ? value : "");
+    const normalized = normalizeProductDescriptionHtml(
+        repairMojibakeIfNeeded(typeof value === "string" ? value : ""),
+    );
     return normalized || null;
 }
 
@@ -589,8 +657,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { variants, discount_rules, ...productData } = body;
-        let preparedVariants: any[] = Array.isArray(variants) ? variants : [];
+        const { variants, discount_rules, ...rawProductData } = body;
+        const productData = normalizeProductInputFields(rawProductData);
+        let preparedVariants: any[] = normalizeVariantInputRecords(Array.isArray(variants) ? variants : []) || [];
 
         console.log('POST /api/products - productData.images:', productData.images);
         console.log('POST /api/products - body images count:', body.images?.length);
@@ -648,7 +717,7 @@ export async function POST(request: NextRequest) {
         if (normalizedImagesV2.length > 0) {
             normalizedImagesV2 = normalizedImagesV2.map((img: Record<string, unknown>, idx: number) => ({
                 url: img.url,
-                alt: img.alt || "",
+                alt: normalizeVisibleText(img.alt, { collapseWhitespace: true }),
                 is_primary: img.isPrimary !== undefined ? img.isPrimary : (idx === 0),
                 sort_order: img.sortOrder !== undefined ? img.sortOrder : idx,
             }));
@@ -669,7 +738,7 @@ export async function POST(request: NextRequest) {
 
         normalizedImages = mirroredMedia.imageUrls ?? normalizedImages;
         normalizedImagesV2 = mirroredMedia.imagesV2 ?? normalizedImagesV2;
-        preparedVariants = mirroredMedia.variants ?? preparedVariants;
+        preparedVariants = normalizeVariantInputRecords(mirroredMedia.variants ?? preparedVariants) || [];
 
         const primaryCategoryImage =
             normalizedImages.find((image: unknown): image is string => typeof image === "string" && Boolean(image.trim())) || null;
@@ -965,8 +1034,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { id, variants, discount_rules, deleted_images, ...updates } = body;
-        let preparedVariants: any[] | undefined = Array.isArray(variants) ? variants : undefined;
+        const { id, variants, discount_rules, deleted_images, ...rawUpdates } = body;
+        const updates = normalizeProductInputFields(rawUpdates);
+        let preparedVariants: any[] | undefined = normalizeVariantInputRecords(
+            Array.isArray(variants) ? variants : undefined,
+        );
         let normalizedUpdatedTags: string[] | undefined;
         const normalizedDescription =
             updates.description !== undefined
@@ -1037,7 +1109,7 @@ export async function PUT(request: NextRequest) {
             if (normalizedImagesV2.length > 0) {
                 normalizedImagesV2 = normalizedImagesV2.map((img: Record<string, unknown>, idx: number) => ({
                     url: img.url,
-                    alt: img.alt || "",
+                    alt: normalizeVisibleText(img.alt, { collapseWhitespace: true }),
                     is_primary: img.isPrimary !== undefined ? img.isPrimary : (idx === 0),
                     sort_order: img.sortOrder !== undefined ? img.sortOrder : idx,
                 }));
@@ -1078,7 +1150,7 @@ export async function PUT(request: NextRequest) {
                 normalizedImagesV2 = mirroredMedia.imagesV2;
             }
             if (mirroredMedia.variants !== undefined) {
-                preparedVariants = mirroredMedia.variants;
+                preparedVariants = normalizeVariantInputRecords(mirroredMedia.variants);
             }
         }
 

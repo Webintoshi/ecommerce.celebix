@@ -3,6 +3,7 @@ import {
   buildStorefrontUrl,
   STORE_RUNTIME,
 } from "@/lib/store-runtime";
+import { normalizeVisibleText } from "@/lib/text-encoding";
 import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
 export type ProductSEORobots =
@@ -151,7 +152,7 @@ function toNullableText(value: unknown) {
     return null;
   }
 
-  const normalized = collapseWhitespace(value);
+  const normalized = normalizeVisibleText(value, { collapseWhitespace: true });
   return normalized.length > 0 ? normalized : null;
 }
 

@@ -4,6 +4,7 @@ import { isValidPage } from "@/types/page";
 import { isManagedContentPageSlug } from "@celebix/platform-config/src/content-pages";
 import { isPolicyPageSlug } from "@celebix/platform-config/src/policy-pages";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
+import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 
 // ============================================================================
 // ERROR HANDLING
@@ -57,12 +58,12 @@ function validateSlug(slug: unknown): boolean {
 
 function sanitizeString(input: unknown, maxLength: number): string {
   if (typeof input !== "string") return "";
-  return input.trim().slice(0, maxLength).replace(/[<>]/g, "");
+  return normalizeVisibleText(input).slice(0, maxLength).replace(/[<>]/g, "");
 }
 
 function sanitizeContent(input: unknown, maxLength: number): string {
   if (typeof input !== "string") return "";
-  return normalizeProductDescriptionHtml(input.trim().slice(0, maxLength));
+  return normalizeProductDescriptionHtml(repairMojibakeIfNeeded(input).trim().slice(0, maxLength));
 }
 
 function isAllowedManagedPageSlug(value: unknown): value is string {

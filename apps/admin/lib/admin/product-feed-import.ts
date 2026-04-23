@@ -2,6 +2,7 @@ import "server-only";
 
 import { XMLParser } from "fast-xml-parser";
 import { buildGeneratedSku } from "@/lib/sku";
+import { normalizeVisibleText } from "@/lib/text-encoding";
 import type {
   BulkImportParseResult,
   ParsedProduct,
@@ -70,31 +71,6 @@ const FEED_HEADERS = [
   "image_link",
   "additional_image_link",
 ] as const;
-
-const HTML_ENTITY_MAP: Record<string, string> = {
-  amp: "&",
-  apos: "'",
-  quot: "\"",
-  lt: "<",
-  gt: ">",
-  nbsp: " ",
-  uuml: "ü",
-  Uuml: "Ü",
-  ouml: "ö",
-  Ouml: "Ö",
-  auml: "ä",
-  Auml: "Ä",
-  ccedil: "ç",
-  Ccedil: "Ç",
-  iuml: "ï",
-  Iuml: "Ï",
-  rsquo: "'",
-  lsquo: "'",
-  rdquo: "\"",
-  ldquo: "\"",
-  ndash: "–",
-  mdash: "—",
-};
 
 export function parseXmlProductFeed(
   xmlContent: string,
@@ -595,38 +571,8 @@ function buildVariantKey(variant: ParsedVariant): string {
 }
 
 function cleanText(value: string): string {
-  return decodeHtmlEntities(value)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function decodeHtmlEntities(value: string): string {
-  if (!value) {
-    return "";
-  }
-
-  let decoded = value;
-
-  for (let iteration = 0; iteration < 4; iteration += 1) {
-    const next = decoded.replace(/&(#x?[0-9a-f]+|[a-z][a-z0-9]+);/gi, (entity, token) => {
-      if (token[0] === "#") {
-        const isHex = token[1]?.toLowerCase() === "x";
-        const numericValue = Number.parseInt(token.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-        return Number.isFinite(numericValue) ? String.fromCodePoint(numericValue) : entity;
-      }
-
-      return HTML_ENTITY_MAP[token] ?? entity;
-    });
-
-    if (next === decoded) {
-      break;
-    }
-
-    decoded = next;
-  }
-
-  return decoded;
+  const decoded = normalizeVisibleText(value, { decodeEntities: true, trim: false });
+  return normalizeVisibleText(decoded.replace(/<[^>]+>/g, " "), { collapseWhitespace: true });
 }
 
 function normalize(value: string): string {
