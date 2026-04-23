@@ -178,7 +178,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <Link
                     href={buildPath("/urunler")}
                     onClick={onClose}
-                    className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
+                    className="bg-[#173D32] px-8 py-3 font-bold text-white transition-colors hover:bg-[#102A23]"
                   >
                     Alisverise Basla
                   </Link>
@@ -193,7 +193,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   return (
                     <div
                       key={item.id}
-                      className="flex gap-4 rounded-2xl border border-gray-100/50 bg-gray-50 p-4 transition-colors hover:border-gray-200"
+                    className="flex gap-4 border border-black/5 bg-[#F7F8F5] p-4 transition-colors hover:border-[#173D32]/20"
                     >
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-white text-2xl shadow-sm">
                         {itemImage ? (
@@ -287,9 +287,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl border border-[#eecfc2] bg-[#F5E6E0] p-4">
-                  <span className="font-bold text-[#7B1113]">Toplam</span>
-                  <span className="text-2xl font-black tracking-tight text-[#7B1113]">
+                <div className="flex items-center justify-between border border-[#D6E6DC] bg-[#E7F2EC] p-4">
+                  <span className="font-bold text-[#173D32]">Toplam</span>
+                  <span className="text-2xl font-black tracking-tight text-[#173D32]">
                     {formatPrice(total)}
                   </span>
                 </div>
@@ -297,7 +297,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 <Link
                   href={buildPath("/odeme")}
                   onClick={onClose}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
+                  className="flex h-14 w-full items-center justify-center gap-2 bg-[#173D32] font-bold text-white transition-all hover:bg-[#102A23] active:scale-[0.98]"
                 >
                   Odemeye Gec <ArrowRight className="h-5 w-5" />
                 </Link>

@@ -41,7 +41,7 @@ function buildHeaders(credentials: Record<string, string>) {
     accept: "application/json",
     "x-app-key": appKey,
     "x-app-secret": appSecret,
-    "user-agent": process.env.MARKETPLACE_INTEGRATION_NAME || "Deri KordonMarketplace",
+    "user-agent": process.env.MARKETPLACE_INTEGRATION_NAME || "Alpler Spor Marketplace",
   };
 }
 

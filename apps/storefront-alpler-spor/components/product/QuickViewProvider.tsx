@@ -160,10 +160,8 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                   priority
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-7xl md:text-8xl">
-                  {product.category === "fistik-ezmesi" && "🥜"}
-                  {product.category === "findik-ezmesi" && "🌰"}
-                  {product.category === "kuruyemis" && "🥔"}
+                <div className="flex h-full w-full items-center justify-center bg-[#EEF2EA]">
+                  <ShoppingCart className="h-14 w-14 text-[#9AA69E]" />
                 </div>
               )}
 

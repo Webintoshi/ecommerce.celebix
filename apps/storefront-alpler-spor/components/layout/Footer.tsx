@@ -106,13 +106,13 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
+    { name: copy.productsTitle, href: "/urunler" },
+    { name: copy.faqHeading, href: "/sss" },
     { name: copy.footerContact, href: "/iletisim" },
   ];
 
   return (
-    <footer className="bg-[#0B1120] text-white">
+    <footer className="bg-[#101713] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
@@ -147,7 +147,7 @@ export function Footer() {
                 <button
                   type="button"
                   onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                  className="flex min-w-[132px] items-center justify-between gap-3 border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#101713] transition hover:border-white"
                   aria-expanded={isLocaleMenuOpen}
                   aria-haspopup="listbox"
                 >
@@ -161,7 +161,7 @@ export function Footer() {
                 </button>
 
                 {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden border border-white/10 bg-[#17251E] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                     <div className="space-y-1">
                       {localeSwitchOptions.map((option) => {
                         const isActive = option.locale === locale;
@@ -173,7 +173,7 @@ export function Footer() {
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
                               isActive
-                                ? "bg-white text-[#0B1120]"
+                                ? "bg-white text-[#101713]"
                                 : "text-white/88 hover:bg-white/10 hover:text-white"
                             }`}
                           >

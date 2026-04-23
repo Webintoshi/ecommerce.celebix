@@ -68,54 +68,54 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || !slides || slides.length === 0) {
     return (
-      <section className="relative overflow-hidden bg-[#F4ECE5]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(123,17,19,0.14),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(31,41,55,0.14),_transparent_35%)]" />
+      <section className="relative overflow-hidden bg-[#F7F8F5]">
+        <div className="absolute inset-x-0 top-0 h-2 bg-[#F26A21]" />
         <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="max-w-2xl">
-              <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
-                Premium Starter Theme
+              <span className="inline-flex border border-[#173D32]/15 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#173D32]">
+                Alpler Spor
               </span>
-              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 text-4xl font-bold leading-[0.98] text-[#121713] sm:text-5xl lg:text-6xl">
                 {SITE_NAME}
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
-                Magaza ayarlarinizi, hero bannerlarinizi, kategorilerinizi ve urunlerinizi
-                adminden girdiginizde bu alan otomatik olarak gercek vitrininize donusur.
+              <p className="mt-5 max-w-xl text-base leading-8 text-[#5E6B62] sm:text-lg">
+                Spor ayakkabi, giyim ve ekipman vitrinini hizli taranan,
+                mobilde net ve satin almaya hazir bir deneyimde sunar.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
+                  className="inline-flex items-center justify-center gap-2 bg-[#173D32] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#102A23]"
                 >
                   Koleksiyonu Incele
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href={ROUTES.contact}
-                  className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
+                  className="inline-flex items-center justify-center border border-[#173D32]/20 bg-white px-6 py-3.5 text-sm font-semibold text-[#173D32] transition hover:border-[#173D32]/40 hover:bg-[#E7F2EC]"
                 >
-                  Iletisim Bilgilerini Tamamla
+                  Destekle Iletisime Gec
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { title: "Hero Bannerlar", text: "Adminden eklenen ilk bannerlar burada tam ekran mercek alir." },
-                { title: "Kategori Vitrini", text: "Aktif kategoriler, sira ayarina gore anasayfaya tasinir." },
-                { title: "Urun Gruplari", text: "Yayinlanan urunler kategori bazli bloklarda otomatik sergilenir." },
-                { title: "Musteri Guveni", text: "Onayli yorumlar ve magaza bilgileri sayfaya otomatik baglanir." },
+                { title: "Saha Favorileri", text: "Cok satan ve yeni sezon urunleri ilk bakista ayrisir." },
+                { title: "Net Kategori Akisi", text: "Kullanim senaryosuna gore hizli karar vermeyi destekler." },
+                { title: "Mobil Satin Alma", text: "Fiyat, stok ve CTA alani kucuk ekranda kaybolmaz." },
+                { title: "Guven Mesajlari", text: "Teslimat, iade ve odeme bilgisi satin alma niyetini guclendirir." },
               ].map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)] backdrop-blur"
+                  className="border border-black/5 bg-white p-5"
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                    Hazir
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+                    Vitrin
                   </p>
-                  <h2 className="mt-3 text-xl font-semibold text-[#18110B]">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{item.text}</p>
+                  <h2 className="mt-3 text-xl font-semibold text-[#121713]">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-[#5E6B62]">{item.text}</p>
                 </div>
               ))}
             </div>

@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF5F5;
-  --foreground: #7B1113;
+  --background: #F7F8F5;
+  --foreground: #121713;
 
   /* Brand Palette */
-  --primary: #7B1113;
+  --primary: #173D32;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #F1DADB;
-  --secondary-foreground: #7B1113;
+  --secondary: #E7F2EC;
+  --secondary-foreground: #173D32;
 
-  --muted: #6b4b4c;
-  --muted-foreground: #6b4b4c;
+  --muted: #66746B;
+  --muted-foreground: #66746B;
 
   /* shadcn/ui required variables */
   --card: #FFFFFF;
-  --card-foreground: #7B1113;
+  --card-foreground: #121713;
   --popover: #FFFFFF;
-  --popover-foreground: #7B11113;
-  --accent: #F1DADB;
-  --accent-foreground: #7B1113;
+  --popover-foreground: #121713;
+  --accent: #F26A21;
+  --accent-foreground: #FFFFFF;
   --destructive: #FF3B30;
   --destructive-foreground: #FFFFFF;
   --border: #E5E7EB;
   --input: #E5E7EB;
-  --ring: #7B1113;
+  --ring: #173D32;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
@@ -93,8 +93,8 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --store-font-heading: "Playfair Display", Georgia, serif;
-  --store-font-body: "Inter", system-ui, sans-serif;
+  --store-font-heading: "Space Grotesk", "Arial Narrow", system-ui, sans-serif;
+  --store-font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
   --store-font-menu: var(--store-font-body);
   --store-font-product-title: var(--store-font-body);
   --store-font-heading-weight: 700;
@@ -106,7 +106,7 @@
   --store-font-product-card-size: 16px;
   --store-font-product-page-size: 44px;
   --store-font-heading-scale: 1.12;
-  --store-font-heading-tracking: -0.015em;
+  --store-font-heading-tracking: 0em;
   --store-font-body-tracking: 0em;
   --font-sans: var(--store-font-body);
   --font-serif: var(--store-font-heading);
@@ -125,7 +125,7 @@
 }
 
 body {
-  background: #FAFAFA;
+  background: #F7F8F5;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
@@ -167,31 +167,31 @@ textarea {
 
 /* Brand color overrides */
 .bg-primary {
-  background-color: #7B1113 !important;
+  background-color: #173D32 !important;
 }
 
 .text-primary {
-  color: #7B1113 !important;
+  color: #173D32 !important;
 }
 
 .border-primary {
-  border-color: #7B1113 !important;
+  border-color: #173D32 !important;
 }
 
 .ring-primary {
-  --tw-ring-color: #7B1113 !important;
+  --tw-ring-color: #173D32 !important;
 }
 
 .bg-primary\/10 {
-  background-color: rgba(123, 17, 19, 0.1) !important;
+  background-color: rgba(23, 61, 50, 0.1) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(123, 17, 19, 0.1) !important;
+  border-color: rgba(23, 61, 50, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(123, 17, 19, 0.2) !important;
+  border-color: rgba(23, 61, 50, 0.2) !important;
 }
 
 .text-primary-foreground {
@@ -200,15 +200,15 @@ textarea {
 
 .bg-primary-foreground {
   background-color: #FFFFFF !important;
-  color: #7B1113 !important;
+  color: #173D32 !important;
 }
 
 .text-secondary-foreground {
-  color: #7B1113 !important;
+  color: #173D32 !important;
 }
 
 .bg-secondary {
-  background-color: #F3E0E1 !important;
+  background-color: #E7F2EC !important;
 }
 
 @keyframes marquee {

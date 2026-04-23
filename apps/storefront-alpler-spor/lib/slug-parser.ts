@@ -10,12 +10,12 @@ export interface ParsedSlug {
  * Parse a product slug to extract base slug and variant information
  *
  * Examples:
- * - "sekersiz-fistik-ezmesi-450g" -> { baseSlug: "sekersiz-fistik-ezmesi", variantWeight: "450" }
- * - "sekersiz-fistik-ezmesi" -> { baseSlug: "sekersiz-fistik-ezmesi" }
- * - "balli-fistik-ezmesi-900g" -> { baseSlug: "balli-fistik-ezmesi", variantWeight: "900" }
+ * - "sporcu-sulugu-500ml" -> { baseSlug: "sporcu-sulugu", variantWeight: "500" }
+ * - "outdoor-mont" -> { baseSlug: "outdoor-mont" }
+ * - "fitness-eldiveni-l" -> { baseSlug: "fitness-eldiveni-l" }
  * - "product-v-abc123" -> { baseSlug: "product", variantId: "abc123" }
  *
- * @param slug - URL slug (e.g., "sekersiz-fistik-ezmesi-450g")
+ * @param slug - URL slug (e.g., "sporcu-sulugu-500ml")
  * @returns ParsedSlug object with base slug and optional variant info
  */
 export function parseProductSlug(slug: string): ParsedSlug {

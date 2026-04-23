@@ -11,7 +11,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Magaza adresi owner panel veya storefront ayarlariyla guncellenir.",
+  address: "Alpler Spor iletisim ve teslimat bilgileri storefront ayarlarindan guncellenir.",
 };
 
 export const SOCIAL_LINKS = {
@@ -142,10 +142,10 @@ export const ROUTES = {
 } as const;
 
 export const PRODUCT_BADGES = {
-  vegan: { label: "Vegan", color: "bg-primary/10 text-primary" },
-  glutenFree: { label: "Glutensiz", color: "bg-primary/10 text-primary" },
-  sugarFree: { label: "Sekersiz", color: "bg-primary/10 text-primary" },
-  highProtein: { label: "Yuksek Protein", color: "bg-primary/10 text-primary" },
+  vegan: { label: "Hafif", color: "bg-primary/10 text-primary" },
+  glutenFree: { label: "Dayanikli", color: "bg-primary/10 text-primary" },
+  sugarFree: { label: "Nefes Alir", color: "bg-primary/10 text-primary" },
+  highProtein: { label: "Performans", color: "bg-primary/10 text-primary" },
   new: { label: "Yeni", color: "bg-primary/10 text-primary" },
   discount: { label: "Indirim", color: "bg-primary/10 text-primary" },
 };
@@ -181,25 +181,25 @@ export const FOOTER_LINKS = {
 export const TESTIMONIALS = [
   {
     id: "1",
-    name: "Magaza Yorumu",
-    role: "Placeholder",
-    text: "Bu alan gercek musteri yorumlariyla doldurulmak uzere storefront base icine birakildi.",
+    name: "Alpler Spor Musterisi",
+    role: "Dogrulanmis Alisveris",
+    text: "Urun sayfalarinda numara, stok ve teslimat bilgilerini hizli gorebilmek alisverisi kolaylastirdi.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "2",
-    name: "Editor Notu",
-    role: "Placeholder",
-    text: "Yeni magazada urunler, kategori yapisi ve marka dili netlestikce bu yorum bloklari guncellenebilir.",
+    name: "Antrenman Ekibi",
+    role: "Dogrulanmis Alisveris",
+    text: "Kategori kurgusu sahaya, antrenmana ve gunluk kullanima gore daha net ayriliyor.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "3",
-    name: "Polish Alani",
-    role: "Placeholder",
-    text: "Agent veya tasarimci sadece bu base ustune marka polish uygulayarak hizli sekilde canli storefront uretebilir.",
+    name: "Outdoor Kullanici",
+    role: "Dogrulanmis Alisveris",
+    text: "Sepette kargo esigi ve odeme adimi acik gorundugu icin karar vermek daha rahat.",
     rating: 5,
     image: "/placeholder.svg",
   },

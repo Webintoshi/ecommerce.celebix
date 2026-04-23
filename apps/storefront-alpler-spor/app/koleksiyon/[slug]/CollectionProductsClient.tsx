@@ -74,11 +74,14 @@ export default function CollectionProductsClient({
 
   if (products.length === 0) {
     return (
-      <div className="rounded-3xl border border-neutral-200 bg-white px-6 py-16 text-center">
-        <p className="text-lg text-neutral-600">{copy.missingCategoryDescription}</p>
+      <div className="border border-black/5 bg-white px-6 py-16 text-center">
+        <p className="text-lg font-semibold text-[#121713]">Bu koleksiyon hazirlaniyor.</p>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#66746B]">
+          Alpler Spor panelinde bu kategoriye urun eklendiginde vitrin otomatik olarak dolar.
+        </p>
         <Link
           href={buildPath("/urunler")}
-          className="mt-5 inline-flex rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          className="mt-5 inline-flex bg-[#173D32] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#102A23]"
         >
           {copy.productsTitle}
         </Link>
@@ -88,7 +91,7 @@ export default function CollectionProductsClient({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-6 lg:grid-cols-3 lg:gap-8">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
         {displayedProducts.map((product, index) => (
           <ProductCard key={product.id} product={product} index={index} />
         ))}

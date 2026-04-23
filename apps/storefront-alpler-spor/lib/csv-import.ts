@@ -63,44 +63,28 @@ function stripHtml(html: string): string {
 }
 
 function determineCategory(handle: string, title: string): ProductCategory {
-  const lowerHandle = handle.toLowerCase();
-  const lowerTitle = title.toLowerCase();
-  
-  if (lowerHandle.includes("findik-kremasi") || lowerHandle.includes("findik-ezmesi") || lowerHandle.includes("kakaolu-findik")) {
-    return "findik-ezmesi";
-  }
-  if (lowerHandle.includes("fistik-ezmesi")) {
-    return "fistik-ezmesi";
-  }
-  if (
-    lowerHandle.includes("cig-") || 
-    lowerHandle.includes("kavrulmus-") ||
-    lowerHandle.includes("yer-fistigi") ||
-    lowerHandle.includes("badem") ||
-    lowerHandle.includes("ceviz") ||
-    lowerTitle.includes("kuruyemiş") ||
-    (lowerTitle.includes("500g") && !lowerTitle.includes("ezmesi"))
-  ) {
-    return "kuruyemis";
-  }
-  
-  return "fistik-ezmesi";
+  const value = `${handle} ${title}`.toLowerCase();
+
+  if (/ayakkabi|sneaker|kosu|futbol|krampon/.test(value)) return "spor-ayakkabi";
+  if (/outdoor|kamp|trekking|dag|mont/.test(value)) return "outdoor";
+  if (/fitness|antrenman|agirlik|mat|eldiven/.test(value)) return "fitness";
+  if (/forma|sort|tayt|tshirt|giyim/.test(value)) return "giyim";
+  if (/top|basketbol|voleybol|tenis|takim/.test(value)) return "takim-sporlari";
+  if (/aksesuar|canta|suluk|corap|sapka/.test(value)) return "aksesuar";
+
+  return "spor-ekipmanlari";
 }
 
 function determineSubcategory(handle: string, title: string): ProductSubcategory {
-  const lowerHandle = handle.toLowerCase();
-  const lowerTitle = title.toLowerCase();
-  
-  if (lowerHandle.includes("sekersiz") || lowerTitle.includes("şekersiz")) return "sekersiz";
-  if (lowerHandle.includes("hurmali") || lowerTitle.includes("hurmalı")) return "hurmalı";
-  if (lowerHandle.includes("balli") || lowerTitle.includes("ballı")) return "balli";
-  if (lowerHandle.includes("klasik") || lowerTitle.includes("klasik")) return "klasik";
-  if (lowerHandle.includes("sutlu") || lowerTitle.includes("sütlü")) return "sutlu-findik-kremasi";
-  if (lowerHandle.includes("kakaolu") || lowerTitle.includes("kakaolu")) return "kakaolu";
-  if (lowerHandle.includes("cig") || lowerTitle.includes("çiğ")) return "cig";
-  if (lowerHandle.includes("kavrulmus") || lowerTitle.includes("kavrulmuş")) return "kavrulmus";
-  
-  return "klasik";
+  const value = `${handle} ${title}`.toLowerCase();
+
+  if (/kadin|women/.test(value)) return "kadin";
+  if (/erkek|men/.test(value)) return "erkek";
+  if (/cocuk|junior|kids/.test(value)) return "cocuk";
+  if (/outdoor|trekking|kamp/.test(value)) return "outdoor";
+  if (/antrenman|fitness/.test(value)) return "antrenman";
+
+  return "genel";
 }
 
 function parseDietaryPreferences(dietary: string): {
@@ -138,25 +122,15 @@ function generateTags(title: string, dietary: string, category: ProductCategory)
   const tags: string[] = [];
   const lowerTitle = title.toLowerCase();
   const lowerDietary = dietary?.toLowerCase() || "";
-  
-  if (lowerDietary.includes("vegan")) tags.push("vegan");
-  if (lowerDietary.includes("gluten-free")) tags.push("glutensiz");
-  if (lowerDietary.includes("keto")) tags.push("keto");
-  if (lowerDietary.includes("high-protein")) tags.push("yüksek protein");
-  if (lowerDietary.includes("halal")) tags.push("helal");
-  if (lowerDietary.includes("dairy-free")) tags.push("süt içermez");
-  
-  if (category === "kuruyemis") {
-    tags.push("kuruyemiş");
-    if (lowerTitle.includes("çiğ") || lowerTitle.includes("cig")) tags.push("çiğ");
-    if (lowerTitle.includes("kavrulmuş") || lowerTitle.includes("kavrulmus")) tags.push("kavrulmuş");
-  }
-  
-  if (category === "fistik-ezmesi") tags.push("fıstık ezmesi");
-  if (category === "findik-ezmesi") tags.push("fındık ezmesi");
-  
-  tags.push("doğal", "katkısız");
-  
+
+  if (lowerDietary.includes("waterproof") || lowerTitle.includes("su gecirmez")) tags.push("su gecirmez");
+  if (lowerDietary.includes("lightweight") || lowerTitle.includes("hafif")) tags.push("hafif");
+  if (lowerDietary.includes("breathable") || lowerTitle.includes("nefes")) tags.push("nefes alir");
+  if (lowerTitle.includes("outdoor")) tags.push("outdoor");
+  if (lowerTitle.includes("fitness") || lowerTitle.includes("antrenman")) tags.push("antrenman");
+
+  tags.push(String(category), "alpler-spor");
+
   return [...new Set(tags)];
 }
 
@@ -295,7 +269,7 @@ export function parseShopifyCSV(csvContent: string): Product[] {
       highProtein: highProtein,
       rating: 5,
       reviewCount: 0,
-      featured: category !== "kuruyemis",
+      featured: category !== "aksesuar",
       new: false,
     };
     

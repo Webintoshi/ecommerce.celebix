@@ -408,7 +408,7 @@ function generateOrganizationSchema(origin: string) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Celebix Storefront",
+    name: "Alpler Spor",
     url: origin,
   };
 }
@@ -442,7 +442,7 @@ export async function generateMetadata({
     description:
       translatedCategory.seo_description ||
       translatedCategory.description ||
-      `${translatedCategory.name} kategorisindeki urunleri kesfedin.`,
+      `Alpler Spor ${translatedCategory.name} koleksiyonundaki urunleri, stok ve teslimat bilgileriyle kesfedin.`,
     keywords: category.seo_keywords,
     image: translatedCategory.image,
     type: "website",
@@ -489,7 +489,7 @@ export default async function CollectionPage({
   const organizationSchema = generateOrganizationSchema(requestOrigin);
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#F7F8F5]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -509,7 +509,7 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
+      <nav className="border-b border-black/5 bg-white" aria-label="Breadcrumb">
         <div className="container-premium py-3">
           <ol className="flex items-center gap-2 text-sm text-neutral-500">
             <li>
@@ -537,15 +537,26 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{translatedCategory.name}</h1>
+      <section className="border-b border-black/5 bg-white">
+        <div className="container-premium py-10 md:py-14">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#F26A21]">
+            Alpler Spor Koleksiyonu
+          </p>
+          <h1 className="store-product-title-detail mb-3 max-w-4xl text-neutral-950">{translatedCategory.name}</h1>
           {translatedCategory.description ? (
             <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
               {translatedCategory.description}
             </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
+          ) : (
+            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
+              Bu koleksiyondaki urunleri performans, kullanim senaryosu ve stok durumuna gore hizli tarayin.
+            </p>
+          )}
+          <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
+            <span className="bg-[#E7F2EC] px-3 py-2 text-[#173D32]">{products.length} urun</span>
+            <span className="bg-[#FFF0E8] px-3 py-2 text-[#B54D17]">Hizli kargo</span>
+            <span className="bg-[#F4EEE7] px-3 py-2 text-[#4D4A3F]">Kolay iade</span>
+          </div>
         </div>
       </section>
 

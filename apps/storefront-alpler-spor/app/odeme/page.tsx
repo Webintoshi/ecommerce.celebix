@@ -78,7 +78,7 @@ export default function CheckoutPage() {
   // Update abandoned cart with customer info when they enter details
   const updateAbandonedCartWithCustomerInfo = async (email: string, firstName: string, lastName: string, phone: string) => {
     if (typeof window === "undefined") return;
-    
+
     const sessionId = localStorage.getItem("celebix_storefront_session_id");
     if (!sessionId) return;
 
@@ -129,7 +129,7 @@ export default function CheckoutPage() {
           .select("*")
           .eq("user_id", user.id)
           .single();
-        
+
         if (customer) {
           setContactEmail(user.email || "");
           setShippingInfo(prev => ({
@@ -309,7 +309,7 @@ export default function CheckoutPage() {
 
         if (registerResult.user) {
           userId = registerResult.user.id;
-          
+
           // Create customer record linked to the new user
           const { data: customerData, error: customerError } = await supabase
             .from("customers")
@@ -337,7 +337,7 @@ export default function CheckoutPage() {
           .select("id")
           .eq("user_id", user.id)
           .single();
-        
+
         if (customer) {
           customerId = customer.id;
         }
@@ -394,8 +394,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      toast.success(createAccount 
-        ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu." 
+      toast.success(createAccount
+        ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu."
         : "Siparişiniz başarıyla alındı!"
       );
       clearCart({ preserveServerCart: true });
@@ -912,11 +912,7 @@ export default function CheckoutPage() {
                           {item.product.images && item.product.images.length > 0 ? (
                             <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
                           ) : (
-                            <>
-                              {item.product.category === "fistik-ezmesi" && "🥜"}
-                              {item.product.category === "findik-ezmesi" && "🌰"}
-                              {item.product.category === "kuruyemis" && "🥔"}
-                            </>
+                            <Package className="h-7 w-7 text-gray-300" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0 py-1">

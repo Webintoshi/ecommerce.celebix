@@ -52,7 +52,7 @@ function buildHeaders(credentials: Record<string, string>, settings?: Record<str
   const integrationName =
     (typeof settings?.integrationName === "string" && settings.integrationName.trim()) ||
     process.env.MARKETPLACE_INTEGRATION_NAME ||
-    "Deri KordonMarketplace";
+    "Alpler Spor Marketplace";
 
   return {
     authorization: encodeBasicAuth(apiKey, apiSecret),

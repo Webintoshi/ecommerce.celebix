@@ -126,8 +126,8 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
-          : "bg-[#F8F8F8F8]"
+          ? "border-b border-black/5 bg-white/95 backdrop-blur-sm"
+          : "bg-white"
       }`}
     >
       <div className="container-premium">
@@ -170,7 +170,7 @@ export function Header() {
                   <Link
                     key={category.id}
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-[#173D32] after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#F26A21] after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                   </Link>
@@ -181,14 +181,14 @@ export function Header() {
                 <div key={category.id} className="group relative">
                   <Link
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-[#173D32] after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#F26A21] after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                     <ChevronDown className="h-4 w-4" />
                   </Link>
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                    <div className="border border-black/5 bg-white/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
                       <div className="space-y-1">
                         {category.children.map((subcategory) => (
                           <Link
@@ -229,7 +229,7 @@ export function Header() {
             >
               <ShoppingBag className="h-5 w-5 text-neutral-600" />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F26A21] text-[10px] text-white">
                   {cartItemCount}
                 </span>
               ) : null}
@@ -239,7 +239,7 @@ export function Header() {
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
+        <div className="border-t border-black/5 bg-white lg:hidden">
           <nav className="container-premium space-y-4 py-4">
             {headerCategories.map((category) => (
               <div key={category.id} className="space-y-2">

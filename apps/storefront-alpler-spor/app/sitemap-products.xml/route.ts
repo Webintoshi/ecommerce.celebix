@@ -11,13 +11,7 @@ export async function GET() {
     lastMod,
   }));
 
-  const categories = ["fistik-ezmesi", "findik-ezmesi", "kuruyemis"];
-  const categoryUrls = categories.map((category) => ({
-    url: new URL(`/urunler/kategori/${category}`, baseUrl).toString(),
-    lastMod,
-  }));
-
-  const allUrls = [...categoryUrls, ...productUrls];
+  const allUrls = productUrls;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

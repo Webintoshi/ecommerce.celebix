@@ -57,17 +57,17 @@ function buildGalleryImages({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Magaza Deneyimi",
-  heading = "Markanizi fiziksel temas noktalariyla guclendirin",
-  description = "Genel ayarlara girdiginiz iletisim ve adres verileri, bu alanda otomatik olarak premium bir sunuma donusur.",
-  linkLabel = "Magaza detaylarini gor",
+  eyebrow = "Guvenli Alisveris",
+  heading = "Dogru urun, net destek, hizli teslimat",
+  description = "Alpler Spor iletisim ve teslimat bilgileri bu alanda satin alma kararini kolaylastiracak sekilde sunulur.",
+  linkLabel = "Destekle Iletisime Gec",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi admin genel ayarlarda tanimlandiginda burada otomatik gorunur.";
+  const address = storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarinda guncellendiginde burada gorunur.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
@@ -78,13 +78,13 @@ export function StoreLocationsSection({
   const cards = [
     {
       id: "main",
-      badge: "Magaza & Deneyim",
-      name: `${storeName} Studio`,
+      badge: "Teslimat & Destek",
+      name: `${storeName} Destek`,
       summary:
         storeInfo?.address
-          ? `${storeName} icin girdiginiz adres ve iletisim bilgileri burada premium bir vitrinde gosterilir.`
-          : `${storeName} icin adres ve iletisim bilgilerini adminden tamamladiginizda bu alan tam magaza deneyimine donusur.`,
-      hours: "Pzt - Cmt / 10:00 - 19:00",
+          ? `${storeName} icin adres ve iletisim bilgileri satin alma oncesi guven sinyali olarak sunulur.`
+          : `${storeName} icin adres ve iletisim bilgileri tamamlandiginda bu alan net destek merkezine donusur.`,
+      hours: "Hafta ici hizli geri donus",
       address,
       actionHref: mapUrl,
       actionLabel: storeInfo?.address ? "Harita" : "Detaylari Ac",
@@ -93,9 +93,9 @@ export function StoreLocationsSection({
     {
       id: "support",
       badge: "Iletisim",
-      name: "Destek ve Teklif Hatti",
+      name: "Musteri Destek Hatti",
       summary:
-        "Kurumsal talepler, teslimat sorulari ve musteri destek akislari ayarlardan gelen telefon ve e-posta ile otomatik guncellenir.",
+        "Numara, varyant, teslimat ve iade sorulari ayarlardan gelen telefon ve e-posta ile yonlendirilir.",
       hours: "Hafta ici hizli geri donus",
       address: `${phone} • ${email}`,
       actionHref: `mailto:${email}`,
@@ -108,20 +108,20 @@ export function StoreLocationsSection({
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-[1500px] px-5 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#F26A21]">
             {eyebrow}
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
+          <h2 className="mt-4 text-3xl font-bold text-[#121713] sm:text-4xl">
             {heading}
           </h2>
-          <p className="mt-4 text-sm leading-7 text-[#69584A] sm:text-[15px]">
+          <p className="mt-4 text-sm leading-7 text-[#5E6B62] sm:text-[15px]">
             {description}
           </p>
         </div>
 
         <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 lg:grid-cols-4 lg:gap-4">
           {galleryImages.map((image, index) => (
-            <div key={image.id} className="group relative overflow-hidden bg-[#E7DED3]">
+            <div key={image.id} className="group relative overflow-hidden bg-[#EEF2EA]">
               <div className="relative aspect-[5/5.8]">
                 <Image
                   src={image.src}
@@ -132,7 +132,7 @@ export function StoreLocationsSection({
                   className="object-cover transition duration-700 group-hover:scale-[1.02]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/0 to-transparent" />
-                <div className="absolute bottom-3 left-3 rounded-full bg-white/88 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-[#4F3A27] backdrop-blur">
+                <div className="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#173D32] backdrop-blur">
                   {image.city}
                 </div>
               </div>
@@ -144,43 +144,43 @@ export function StoreLocationsSection({
           {cards.map((card) => (
             <article
               key={card.id}
-              className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
+              className="border border-black/5 bg-[#F7F8F5] p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#F26A21]">
                     {card.badge}
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{card.name}</h3>
+                  <h3 className="mt-2 text-2xl font-semibold text-[#121713]">{card.name}</h3>
                 </div>
 
                 <a
                   href={card.actionHref}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
+                  className="inline-flex items-center gap-2 border border-[#173D32]/20 bg-white px-3.5 py-2 text-sm font-medium text-[#173D32] transition hover:border-[#173D32]/40"
                 >
                   {card.icon}
                   <span>{card.actionLabel}</span>
                 </a>
               </div>
 
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{card.summary}</p>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5E6B62]">{card.summary}</p>
 
-              <div className="mt-5 space-y-3 text-sm text-[#4D3C2F]">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
-                  <Clock3 className="size-4 text-[#8C6D4C]" />
+              <div className="mt-5 space-y-3 text-sm text-[#4D5A51]">
+                <div className="inline-flex items-center gap-2 bg-white px-3 py-2">
+                  <Clock3 className="size-4 text-[#173D32]" />
                   <span>{card.hours}</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-1 size-4 text-[#8C6D4C]" />
-                  <p className="text-sm leading-6 text-[#6A5A4E]">{card.address}</p>
+                  <MapPin className="mt-1 size-4 text-[#173D32]" />
+                  <p className="text-sm leading-6 text-[#5E6B62]">{card.address}</p>
                 </div>
-                <div className="flex flex-wrap gap-5 text-[#6A5A4E]">
+                <div className="flex flex-wrap gap-5 text-[#5E6B62]">
                   <span className="inline-flex items-center gap-2">
-                    <Phone className="size-4 text-[#8C6D4C]" />
+                    <Phone className="size-4 text-[#173D32]" />
                     {phone}
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <Mail className="size-4 text-[#8C6D4C]" />
+                    <Mail className="size-4 text-[#173D32]" />
                     {email}
                   </span>
                 </div>
@@ -192,7 +192,7 @@ export function StoreLocationsSection({
         <div className="mt-8 flex justify-center">
           <Link
             href={storesHref}
-            className="inline-flex items-center gap-2 rounded-full border border-[#B99874] bg-white px-5 py-3 text-sm font-medium text-[#3F2E22] transition hover:border-[#8B6A48] hover:bg-[#FFF9F2]"
+            className="inline-flex items-center gap-2 border border-[#173D32]/20 bg-white px-5 py-3 text-sm font-semibold text-[#173D32] transition hover:border-[#173D32]/40 hover:bg-[#E7F2EC]"
           >
             <span>{linkLabel}</span>
             <ExternalLink className="size-4" />

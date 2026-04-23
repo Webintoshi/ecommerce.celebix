@@ -42,7 +42,7 @@ function ProductCardSwatches({ product }: { product: Product }) {
   }
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-2">
+    <div className="mt-2 flex items-center gap-2">
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
@@ -77,7 +77,7 @@ function ProductCardRating({ product }: { product: Product }) {
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-0.5">
+    <div className="mt-2 flex items-center gap-0.5">
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={`${product.id}-rating-${index}`}
@@ -92,24 +92,38 @@ function ProductCardRating({ product }: { product: Product }) {
   );
 }
 
+function formatCategoryLabel(value?: string | null) {
+  return String(value || "Alpler Spor")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
+    .join(" ");
+}
+
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const { buildPath } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
-  const displayVariant = product.variants?.[0];
+  const displayVariant = [...(product.variants || [])]
+    .filter((variant) => typeof variant.price === "number")
+    .sort((left, right) => left.price - right.price)[0];
   const displayPrice = displayVariant?.price;
   const originalPrice =
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
       : undefined;
   const productHref = buildPath(ROUTES.product(product.slug));
+  const discountPercent = originalPrice && displayPrice
+    ? Math.round((1 - displayPrice / originalPrice) * 100)
+    : 0;
+  const isOutOfStock = product.variants?.every((variant) => Number(variant.stock || 0) <= 0);
 
   if (viewMode === "list") {
     return (
       <Link href={productHref} className="group block">
-        <div className="flex gap-6 bg-white p-4">
-          <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
+        <div className="flex gap-4 border border-black/5 bg-white p-3 transition-colors hover:border-[#173D32]/25 sm:gap-6 sm:p-4">
+          <div className="relative h-32 w-28 flex-shrink-0 overflow-hidden bg-[#EEF2EA] sm:h-40 sm:w-32">
             {primaryImage ? (
               <Image
                 src={primaryImage}
@@ -125,7 +139,10 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex flex-1 flex-col justify-center">
-            <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66746B]">
+              {formatCategoryLabel(product.category)}
+            </p>
+            <h3 className="store-product-title text-neutral-950 transition-colors group-hover:text-[#173D32]">
               {product.name}
             </h3>
             <ProductCardRating product={product} />
@@ -148,14 +165,14 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
   return (
     <Link href={productHref} className="group block">
-      <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
+      <div className="relative mb-3 aspect-[4/5] overflow-hidden bg-[#EEF2EA]">
         {primaryImage ? (
           <Image
             src={primaryImage}
             alt={product.name}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             unoptimized={usesProxiedPrimaryImage}
           />
         ) : (
@@ -163,22 +180,43 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             Gorsel yok
           </div>
         )}
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {product.new ? (
+            <span className="bg-white/92 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#173D32] backdrop-blur">
+              Yeni
+            </span>
+          ) : null}
+          {discountPercent > 0 ? (
+            <span className="bg-[#F26A21] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+              %{discountPercent}
+            </span>
+          ) : null}
+          {isOutOfStock ? (
+            <span className="bg-neutral-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+              Tukendi
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66746B]">
+        {formatCategoryLabel(product.category)}
+      </p>
+
+      <h3 className="store-product-title line-clamp-2 text-neutral-950 transition-colors group-hover:text-[#173D32]">
         {product.name}
       </h3>
 
       <ProductCardRating product={product} />
 
       {typeof displayPrice === "number" ? (
-        <div className="mt-1 flex items-baseline justify-center gap-2">
+        <div className="mt-2 flex items-baseline gap-2">
           {originalPrice ? (
             <span className="text-xs text-neutral-400 line-through">
               {formatPrice(originalPrice)}
             </span>
           ) : null}
-          <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
+          <p className="text-[15px] font-bold text-neutral-950">{formatPrice(displayPrice)}</p>
         </div>
       ) : null}
 

@@ -53,7 +53,7 @@ function buildHeaders(credentials: Record<string, string>) {
 
   return {
     authorization: encodeBasicAuth(merchantId, serviceKey),
-    "user-agent": integrationUsername || "Deri KordonMarketplace",
+    "user-agent": integrationUsername || "Alpler Spor Marketplace",
     accept: "application/json",
   };
 }
@@ -220,7 +220,7 @@ export function createHepsiburadaAdapter(): MarketplaceProviderAdapter {
           url: `${listingBase}/listings/merchantid/${encodeURIComponent(merchantId)}/inventory-uploads`,
           headers,
           body: {
-            integrator: integrationUsername || "Deri Kordon",
+      integrator: integrationUsername || "Alpler Spor",
             items,
           },
           timeoutMs: 30_000,
@@ -272,7 +272,7 @@ export function createHepsiburadaAdapter(): MarketplaceProviderAdapter {
         url: `${listingBase}/listings/merchantid/${encodeURIComponent(merchantId)}/inventory-uploads`,
         headers,
         body: {
-          integrator: integrationUsername || "Deri Kordon",
+      integrator: integrationUsername || "Alpler Spor",
           items: inventory.map((item) => ({
             merchantSku: item.sku,
             hbSku: item.externalListingId || null,

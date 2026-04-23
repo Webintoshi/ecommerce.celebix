@@ -20,7 +20,6 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
-import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
@@ -199,7 +198,7 @@ export function ProductDetailClient({
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
   const displayImages = React.useMemo(() => {
-    const baseImages = product.images || [];
+    const baseImages = product?.images || [];
 
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter(
@@ -305,8 +304,8 @@ export function ProductDetailClient({
       : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#F7F8F5]">
+      <div className="border-b border-black/5 bg-white">
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
@@ -363,7 +362,7 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
+              <h1 className="store-product-title-detail tracking-tight text-neutral-950">
                 {product.name}
               </h1>
 
@@ -391,9 +390,26 @@ export function ProductDetailClient({
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
+                <span className="text-3xl font-bold tracking-tight text-neutral-950 lg:text-4xl">
                   {formatPrice(displayPrice)}
                 </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 border-y border-black/5 py-4 text-center">
+                {[
+                  { label: "Teslimat", value: "2-4 iş günü" },
+                  { label: "İade", value: "14 gün" },
+                  { label: "Ödeme", value: "SSL güvenli" },
+                ].map((item) => (
+                  <div key={item.label} className="bg-white px-2 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#66746B]">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#173D32] sm:text-sm">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -409,7 +425,7 @@ export function ProductDetailClient({
                 )}
                 {product.vegan && (
                   <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
-                    Vegan
+                    Hafif
                   </span>
                 )}
               </div>
@@ -499,12 +515,12 @@ export function ProductDetailClient({
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
                     className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300
+                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-semibold uppercase tracking-wide transition-all duration-300
                       flex items-center justify-center gap-2
                       ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                          : "bg-[#173D32] text-white hover:bg-[#102A23]"
                       }
                     `}
                   >
@@ -541,12 +557,6 @@ export function ProductDetailClient({
                 </div>
               </div>
 
-              <PersonalizationPreview
-                category={product.category}
-                subcategory={product.subcategory}
-                productName={product.name}
-              />
-
               <div className="border-t border-neutral-200 pt-1">
                 {[
                   {
@@ -566,7 +576,7 @@ export function ProductDetailClient({
                               Malzeme
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
+                              Teknik spor standardı
                             </p>
                           </div>
                         </div>
@@ -574,10 +584,10 @@ export function ProductDetailClient({
                           <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
+                              Kullanım
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
+                              Antrenman ve günlük performans
                             </p>
                           </div>
                         </div>
@@ -585,10 +595,10 @@ export function ProductDetailClient({
                           <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
+                              Teslimat
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
+                              2-4 iş günü
                             </p>
                           </div>
                         </div>
@@ -596,10 +606,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
+                              Değişim & İade
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
+                              14 gün destek
                             </p>
                           </div>
                         </div>
@@ -616,8 +626,8 @@ export function ProductDetailClient({
                             Kargo Bilgileri
                           </h4>
                           <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
+                            Siparişleriniz stok durumuna göre hazırlanır ve genellikle
+                            2-4 iş günü içerisinde kargoya verilir.
                           </p>
                         </div>
                         <div>
@@ -625,18 +635,18 @@ export function ProductDetailClient({
                             İade Politikası
                           </h4>
                           <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
+                            Ürünü teslim aldıktan sonra 14 gün içinde iade veya değişim
+                            talebi oluşturabilirsiniz. Ürünün kullanılmamış ve orijinal
+                            ambalajında olması gerekir.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
+                            Numara ve Varyant Desteği
                           </h4>
                           <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
+                            Numara, renk veya varyant kararsızlığında destek hattından
+                            ürün uygunluğu hakkında bilgi alabilirsiniz.
                           </p>
                         </div>
                       </div>
@@ -696,17 +706,16 @@ export function ProductDetailClient({
       </div>
 
       <section
-        className="border-t border-neutral-200 py-16 lg:py-20"
-        style={{ backgroundColor: "#f8f8f8f8" }}
+        className="border-t border-black/5 bg-[#F7F8F5] py-16 lg:py-20"
       >
         <div className="container-premium">
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
+                Tamamlayın
               </span>
               <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Ürünler
+                Benzer Spor Ürünleri
               </h2>
             </div>
             <Link

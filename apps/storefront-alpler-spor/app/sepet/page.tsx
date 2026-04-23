@@ -1,11 +1,13 @@
 "use client";
 
-import { useCart } from "@/lib/cart-context";
-import { Trash2, ShoppingBag, Plus, Minus } from "lucide-react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/utils";
-import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
+import { ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from "lucide-react";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
+import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
+import { useCart } from "@/lib/cart-context";
+import { getPrimaryResolvedProductImage } from "@/lib/product-images";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { formatPrice } from "@/lib/utils";
 
 export default function CartPage() {
   const {
@@ -19,26 +21,37 @@ export default function CartPage() {
     total,
     getTotalItems,
   } = useCart();
-  const SHIPPING_THRESHOLD = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
+  const { buildPath } = useStorefrontRoute();
+  const effectiveShippingThreshold = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
+  const remainingForFreeShipping = Math.max(
+    0,
+    freeShippingRemaining ?? effectiveShippingThreshold - subtotal,
+  );
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="w-12 h-12 text-primary" />
+      <div className="min-h-screen bg-[#F7F8F5]">
+        <div className="container-premium py-16 sm:py-24">
+          <div className="mx-auto max-w-2xl bg-white px-6 py-14 text-center sm:px-10">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center bg-[#E7F2EC]">
+              <ShoppingBag className="h-10 w-10 text-[#173D32]" />
             </div>
-            <h1 className="text-3xl font-bold text-primary mb-4">Sepetiniz Boş</h1>
-            <p className="text-muted mb-8">
-              Sepetinizde henüz ürün bulunmamaktadır. Alışverişe devam etmek
-              için ürünlerimize göz atın.
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+              Sepet bos
+            </p>
+            <h1 className="text-3xl font-bold text-[#121713] sm:text-4xl">
+              Alpler Spor sepetiniz hazir
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#66746B]">
+              Antrenman, outdoor veya gunluk spor ihtiyaclariniz icin urunleri
+              kesfedin; karar verdiginizde guvenli odeme akisina gecin.
             </p>
             <Link
-              href="/urunler"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-all"
+              href={buildPath("/urunler")}
+              className="mt-8 inline-flex items-center gap-2 bg-[#173D32] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#102A23]"
             >
-              Alışverişe Başla
+              Urunleri Kesfet
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -47,148 +60,161 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="bg-primary text-primary-foreground py-8">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            Sepetim ({getTotalItems()} ürün)
-          </h1>
+    <div className="min-h-screen bg-[#F7F8F5]">
+      <section className="border-b border-black/5 bg-white">
+        <div className="container-premium py-8 sm:py-10">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+            Satin alma adimi
+          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-[#121713] sm:text-4xl">
+                Sepetim
+              </h1>
+              <p className="mt-2 text-sm text-[#66746B]">
+                {getTotalItems()} urun secildi. Odeme oncesi adet, varyant ve teslimat bilgisini kontrol edin.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
+              <span className="inline-flex items-center gap-2 bg-[#E7F2EC] px-3 py-2 text-[#173D32]">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                SSL guvenli odeme
+              </span>
+              <span className="inline-flex items-center gap-2 bg-[#FFF0E8] px-3 py-2 text-[#B54D17]">
+                <Truck className="h-3.5 w-3.5" />
+                Hizli kargo
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-primary/10"
-              >
-                <div className="flex gap-4">
-                  <div className="w-20 h-20 md:w-24 md:h-24 bg-primary/5 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-4xl">
-                    {item.product.images && item.product.images.length > 0 ? (
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <>
-                        {item.product.category === "fistik-ezmesi" && "🥜"}
-                        {item.product.category === "findik-ezmesi" && "🌰"}
-                        {item.product.category === "kuruyemis" && "🥔"}
-                      </>
-                    )}
-                  </div>
+      <div className="container-premium py-8 lg:py-10">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-4">
+            {items.map((item) => {
+              const itemImage = getPrimaryResolvedProductImage(item.product, item.variant);
 
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/urunler/${item.product.slug}`}
-                      className="font-semibold text-primary hover:underline block mb-2"
-                    >
-                      {item.product.name}
-                    </Link>
-                    <p className="text-sm text-muted mb-2">{item.variant.name}</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {formatPrice(item.unitPrice)}
-                      </span>
-                    </div>
-                    {item.customization && (
-                      <CartItemCustomizationDisplay customization={item.customization} />
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <div className="flex items-center border border-primary/20 rounded-lg">
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
-                        aria-label="Azalt"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-12 text-center font-medium">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
-                        aria-label="Arttır"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+              return (
+                <div key={item.id} className="border border-black/5 bg-white p-4 md:p-5">
+                  <div className="flex gap-4">
+                    <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden bg-[#EEF2EA] md:h-28 md:w-24">
+                      {itemImage ? (
+                        <img
+                          src={itemImage}
+                          alt={item.product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingBag className="h-8 w-8 text-[#9AA69E]" />
+                      )}
                     </div>
 
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                      aria-label="Sepetten kaldır"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={buildPath(`/urunler/${item.product.slug}`)}
+                        className="block text-base font-semibold leading-snug text-[#121713] transition-colors hover:text-[#173D32]"
+                      >
+                        {item.product.name}
+                      </Link>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#66746B]">
+                        {item.variant.name}
+                      </p>
+                      <div className="mt-3 flex items-baseline gap-2">
+                        <span className="text-lg font-bold text-[#121713]">
+                          {formatPrice(item.unitPrice)}
+                        </span>
+                        <span className="text-xs text-[#66746B]">/ adet</span>
+                      </div>
+                      {item.customization ? (
+                        <CartItemCustomizationDisplay customization={item.customization} />
+                      ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end justify-between gap-3">
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="p-2 text-[#9AA69E] transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Sepetten kaldir"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                      <div className="flex items-center border border-black/10 bg-[#F7F8F5]">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-white"
+                          aria-label="Azalt"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-10 text-center text-sm font-bold">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-white"
+                          aria-label="Arttir"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end border-t border-black/5 pt-4">
+                    <span className="text-sm font-bold text-[#173D32]">
+                      Satir toplamı: {formatPrice(item.unitPrice * item.quantity)}
+                    </span>
                   </div>
                 </div>
-
-                <div className="mt-4 pt-4 border-t border-primary/10 flex justify-end">
-                  <span className="font-semibold text-primary">
-                    Toplam: {formatPrice(item.unitPrice * item.quantity)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-primary/10 sticky top-24">
-              <h2 className="text-xl font-bold text-primary mb-6">Sipariş Özeti</h2>
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="border border-black/5 bg-white p-6">
+              <h2 className="text-xl font-bold text-[#121713]">Sipariş özeti</h2>
 
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between">
-                  <span className="text-muted">Ara Toplam</span>
-                  <span className="font-medium">{formatPrice(subtotal)}</span>
+              {shipping > 0 && shippingThreshold != null ? (
+                <div className="mt-5 bg-[#E7F2EC] p-4">
+                  <p className="text-sm leading-6 text-[#173D32]">
+                    {formatPrice(remainingForFreeShipping)} daha ekleyerek ücretsiz kargoya yaklaşın.
+                  </p>
                 </div>
+              ) : null}
 
-                <div className="flex justify-between">
-                  <span className="text-muted">Kargo</span>
-                  <span className="font-medium">
-                    {shipping === 0 ? (
-                      <span className="text-primary">Ücretsiz</span>
-                    ) : (
-                      formatPrice(shipping)
-                    )}
+              <div className="mt-6 space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#66746B]">Ara toplam</span>
+                  <span className="font-semibold text-[#121713]">{formatPrice(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#66746B]">Kargo</span>
+                  <span className="font-semibold text-[#121713]">
+                    {shipping === 0 ? "Ücretsiz" : formatPrice(shipping)}
                   </span>
                 </div>
-
-                {shipping > 0 && shippingThreshold != null && (
-                  <div className="text-xs text-muted bg-primary/5 p-3 rounded-lg">
-                    {formatPrice(SHIPPING_THRESHOLD - subtotal)} daha alırsanız
-                    kargo ücretsiz!
-                  </div>
-                )}
-
-                <div className="flex justify-between text-lg font-bold pt-4 border-t border-primary/10">
+                <div className="flex justify-between border-t border-black/5 pt-5 text-lg font-bold">
                   <span>Toplam</span>
-                  <span className="text-primary">{formatPrice(total)}</span>
+                  <span className="text-[#173D32]">{formatPrice(total)}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="mt-6 space-y-3">
                 <Link
-                  href="/odeme"
-                  className="block w-full text-center px-6 py-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all"
+                  href={buildPath("/odeme")}
+                  className="flex w-full items-center justify-center gap-2 bg-[#173D32] px-6 py-4 text-center text-sm font-semibold text-white transition-colors hover:bg-[#102A23]"
                 >
                   Siparişi Tamamla
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/urunler"
-                  className="block w-full text-center px-6 py-4 border border-primary/20 rounded-lg font-medium hover:bg-primary/5 transition-all"
+                  href={buildPath("/urunler")}
+                  className="block w-full border border-black/10 px-6 py-4 text-center text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F7F8F5]"
                 >
                   Alışverişe Devam Et
                 </Link>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>

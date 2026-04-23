@@ -134,13 +134,13 @@ export function generateFallbackSEO(productName: string, category?: string) {
       keywords: [name.toLowerCase(), `${name} fiyat`, `${name} satin al`],
     }),
     accessory: (name) => ({
-      title: `${name} | Zamansiz Tasarim | ${brand}`,
-      desc: `${name} icin kaliteli malzeme, guclu sunum ve hizli siparis akisi. Koleksiyonu ${brand} uzerinden inceleyin.`,
-      keywords: [name.toLowerCase(), `${name} tasarim`, `${name} koleksiyon`],
+      title: `${name} | Spor Aksesuar | ${brand}`,
+      desc: `${name} icin kullanim odakli bilgi, net fiyat ve hizli siparis akisi. Koleksiyonu ${brand} uzerinden inceleyin.`,
+      keywords: [name.toLowerCase(), `${name} spor`, `${name} aksesuar`],
     }),
   };
 
-  const categoryKey = /aksesuar|canta|saat|kartlik|kayis|deri/.test(normalizedCategory)
+  const categoryKey = /aksesuar|fitness|outdoor|ekipman|antrenman/.test(normalizedCategory)
     ? "accessory"
     : "default";
 

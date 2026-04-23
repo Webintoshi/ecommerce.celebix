@@ -10,21 +10,21 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
+  categoriesHeading: "Performansa hazir secimler",
   viewAllLabel: "Tumunu Gor",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+    { title: "Saha Favorileri", subtitle: "Cok Satanlar" },
+    { title: "Outdoor Hazirligi", subtitle: "Alpler Secimi" },
+    { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
+    { title: "Tamamlayici Ekipman", subtitle: "Akilli Eslesme" },
   ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  storesEyebrow: "Guvenli Alisveris",
+  storesHeading: "Dogru ekipman, hizli teslimat ve net destek",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Alpler Spor vitrini urunu merkeze alir: stok, varyant, teslimat ve iade mesajlari satin alma kararini kolaylastiracak sekilde sunulur.",
+  storesLinkLabel: "Destekle Iletisime Gec",
+  testimonialsHeading: "Sporcularin Tercihleri",
+  testimonialsCountLabel: "Onayli yorumlar geldikce burada urun deneyimi one cikar",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -67,14 +67,14 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
+    ? `${siteName} magazasinin spor ekipmani vitrini, iletisim ve teslimat bilgileri tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
+  const storesHref = buildLocalizedPath("/iletisim", locale, routing);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)

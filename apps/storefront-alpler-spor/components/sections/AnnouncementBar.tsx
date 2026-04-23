@@ -13,11 +13,11 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Ilk siparisinizde %10 indirim!",
-  link: "/kampanyalar",
-  linkText: "Hemen Kesfet",
+  message: "Alpler Spor'da guvenli odeme, hizli kargo ve kolay iade",
+  link: "/urunler",
+  linkText: "Urunleri Incele",
   enabled: true,
-  backgroundColor: "#7B1113",
+  backgroundColor: "#173D32",
 };
 
 function normalizeAnnouncementColor(value?: string) {

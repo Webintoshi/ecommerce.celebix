@@ -42,7 +42,7 @@ KURALLAR:
 1. Meta baslik: 50-60 karakter arasi (Google 60'ta keser)
 2. Meta aciklama: 150-160 karakter arasi (Google 160'ta keser)  
 3. Marka | ${brand} olarak SONDA olmali
-4. Urun neyse onu yaz: fistik ezmesi ise fistik, recel ise meyve
+4. Urun neyse onu yaz: spor ayakkabi ise ayakkabi, ekipman ise ekipman, giyim ise giyim
 5. Kesinlikle karakter limitlerini asma
 
 CIKTI FORMATI (SADECE JSON, baska hicbir sey yazma):

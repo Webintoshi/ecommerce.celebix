@@ -1,19 +1,8 @@
-// Ürün Kategorileri
-export type ProductCategory =
-  | "fistik-ezmesi"
-  | "findik-ezmesi"
-  | "kuruyemis";
+// Urun kategorileri store verisinden dinamik gelir.
+export type ProductCategory = string;
 
-// Ürün Alt Kategorileri
-export type ProductSubcategory =
-  | "sekersiz"
-  | "hurmalı"
-  | "balli"
-  | "klasik"
-  | "sutlu-findik-kremasi"
-  | "kakaolu"
-  | "cig"
-  | "kavrulmus";
+// Urun alt kategorileri store verisinden dinamik gelir.
+export type ProductSubcategory = string;
 
 // Ürün Durumu
 export type ProductStatus = "draft" | "published" | "archived" | "scheduled";
@@ -24,16 +13,8 @@ export type NutritionBasis = "per_100g" | "per_serving";
 // KDV Oranları
 export type TaxRate = 0 | 1 | 8 | 10 | 20;
 
-// Alerjenler
-export type Allergen = 
-  | "fistik" 
-  | "sut" 
-  | "yumurta" 
-  | "gluten" 
-  | "yerfistigi" 
-  | "badem" 
-  | "kaju" 
-  | "ceviz";
+// Store-specific import/attribute verileri dinamik tutulur.
+export type Allergen = string;
 
 // Görsel Yapısı (Alt text + sıralama)
 export interface ProductImage {
@@ -103,6 +84,8 @@ export interface ProductVariant {
   barcode?: string;
   groupName?: string; // "Gramaj", "Renk"
   images?: string[];
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
   unit?: "adet" | "kg" | "g" | "lt" | "ml" | "paket" | "kutu";
   maxPurchaseQuantity?: number;
   warehouseLocation?: string;
@@ -176,7 +159,7 @@ export interface Product {
   seoTitle?: string;
   seoDescription?: string;
   discount?: number;
-  
+
   // Yeni Alanlar
   status?: ProductStatus;
   isDraft?: boolean;
@@ -248,22 +231,22 @@ export interface ProductWizardState {
   tags: string[];
   brand: string;
   countryOfOrigin: string;
-  
+
   // Adım 2: Görseller
   images: ProductImage[];
-  
+
   // Adım 3: Fiyatlandırma
   variants: ProductVariant[];
   taxRate: TaxRate;
   discountRules: DiscountRule[];
-  
+
   // Adım 4: Stok
   trackStock: boolean;
   lowStockThreshold: number;
-  
+
   // Adım 5: SEO
   seo: ProductSEO;
-  
+
   // Adım 6: Besin Değerleri
   nutritionalInfo: NutritionalInfo;
   nutritionSettings: NutritionSettings;
@@ -271,7 +254,7 @@ export interface ProductWizardState {
   glutenFree: boolean;
   sugarFree: boolean;
   highProtein: boolean;
-  
+
   // Adım 7: Yayın
   status: ProductStatus;
   publishedAt?: string;

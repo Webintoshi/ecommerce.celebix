@@ -45,11 +45,16 @@ export function CategoriesSection({
   }
 
   return (
-    <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
+    <section className="bg-white py-16 lg:py-24">
       <div className="container-premium">
-        <div className="mb-12 text-center lg:mb-16">
-          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
-          <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
+        <div className="mb-10 flex flex-col gap-4 lg:mb-14 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-[#F26A21]">{eyebrow}</p>
+            <h2 className="max-w-2xl text-3xl font-bold text-neutral-950 lg:text-4xl">{heading}</h2>
+          </div>
+          <p className="max-w-md text-sm leading-7 text-[#66746B]">
+            Kategoriler, kullanicinin aradigi ekipmana en kisa yoldan ulasmasi icin sade tutulur.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
@@ -57,7 +62,7 @@ export function CategoriesSection({
             <Link
               key={category.id}
               href={category.link}
-              className="group relative block aspect-[3/2] overflow-hidden"
+              className="group relative block aspect-[3/2] overflow-hidden bg-[#EEF2EA]"
             >
               {category.image && !imageErrors[category.id] ? (
                 <Image
@@ -78,7 +83,7 @@ export function CategoriesSection({
                 <div className="absolute inset-0 bg-neutral-100" aria-hidden="true" />
               )}
 
-              <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/12 to-transparent transition-colors duration-300 group-hover:from-black/68" />
 
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
                 <p className="category-card-title" style={{ color: "#ffffff" }}>

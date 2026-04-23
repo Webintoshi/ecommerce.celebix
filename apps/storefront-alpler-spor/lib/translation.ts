@@ -559,9 +559,9 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
       testimonialsCountLabel: "1581 değerlendirmeden",
       productGroups: [
         { title: "Çok Satanlar", subtitle: "Seçili Koleksiyon" },
-        { title: "Apple Watch Kayışları", subtitle: "Öne Çıkanlar" },
-        { title: "Aksesuarlar", subtitle: "Tamamlayıcılar" },
-        { title: "Deri Saat Kayışları", subtitle: "Klasik Seçim" },
+        { title: "Outdoor Hazirligi", subtitle: "Alpler Secimi" },
+        { title: "Aksesuarlar", subtitle: "Tamamlayici Ekipman" },
+        { title: "Yeni Sezon", subtitle: "Klasik Secim" },
       ],
     };
   }
@@ -590,12 +590,12 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
     [
       "Çok Satanlar",
       "Seçili Koleksiyon",
-      "Apple Watch Kayışları",
-      "Öne Çıkanlar",
+      "Outdoor Hazirligi",
+      "Alpler Secimi",
       "Aksesuarlar",
-      "Tamamlayıcılar",
-      "Deri Saat Kayışları",
-      "Klasik Seçim",
+      "Tamamlayici Ekipman",
+      "Yeni Sezon",
+      "Klasik Secim",
     ],
     {
       locale,

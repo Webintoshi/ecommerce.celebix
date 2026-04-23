@@ -103,7 +103,7 @@ async function buildHeaders(credentials: Record<string, string>) {
     "x-amz-access-token": accessToken,
     accept: "application/json",
     "content-type": "application/json",
-    "user-agent": process.env.MARKETPLACE_INTEGRATION_NAME || "Deri KordonMarketplace",
+    "user-agent": process.env.MARKETPLACE_INTEGRATION_NAME || "Alpler Spor Marketplace",
   };
 }
 

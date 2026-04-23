@@ -1,14 +1,17 @@
 "use client";
 
-import { useWishlist } from "@/lib/wishlist-context";
-import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/utils";
+import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { getPrimaryResolvedProductImage } from "@/lib/product-images";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import { useWishlist } from "@/lib/wishlist-context";
+import { formatPrice } from "@/lib/utils";
 
 export default function WishlistPage() {
   const { items, removeFromWishlist, clearWishlist, getTotalItems } = useWishlist();
   const { addToCart } = useCart();
+  const { buildPath } = useStorefrontRoute();
 
   const handleAddToCart = (product: any) => {
     addToCart(product, product.variants[0], 1);
@@ -16,23 +19,22 @@ export default function WishlistPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Heart className="w-12 h-12 text-primary" />
+      <div className="min-h-screen bg-[#F7F8F5]">
+        <div className="container-premium py-16">
+          <div className="mx-auto max-w-2xl bg-white px-6 py-14 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center bg-[#E7F2EC]">
+              <Heart className="h-10 w-10 text-[#173D32]" />
             </div>
-            <h1 className="text-3xl font-bold text-primary mb-4">
-              Favori Listeniz Boş
-            </h1>
-            <p className="text-muted mb-8">
-              Beğendiğiniz ürünleri favorilere ekleyerek daha sonra kolayca ulaşabilirsiniz.
+            <h1 className="text-3xl font-bold text-[#121713]">Favori listeniz bos</h1>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#66746B]">
+              Begendiginiz Alpler Spor urunlerini favorilere ekleyerek daha sonra
+              hizli sekilde sepetinize tasiyabilirsiniz.
             </p>
             <Link
-              href="/urunler"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-all"
+              href={buildPath("/urunler")}
+              className="mt-8 inline-flex items-center gap-2 bg-[#173D32] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#102A23]"
             >
-              Ürünleri Keşfet
+              Urunleri Kesfet
             </Link>
           </div>
         </div>
@@ -41,101 +43,101 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Page Header */}
-      <div className="bg-primary text-primary-foreground py-8">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#F7F8F5]">
+      <section className="border-b border-black/5 bg-white">
+        <div className="container-premium py-8">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">
-                Favorilerim ({getTotalItems()} ürün)
-              </h1>
-              <p className="text-primary-foreground/80 mt-2">
-                Beğendiğiniz ürünler
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+                Kaydedilenler
               </p>
+              <h1 className="text-3xl font-bold text-[#121713]">
+                Favorilerim ({getTotalItems()} urun)
+              </h1>
             </div>
-            {items.length > 0 && (
-              <button
-                onClick={clearWishlist}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition-colors"
-              >
-                Tümünü Temizle
-              </button>
-            )}
+            <button
+              onClick={clearWishlist}
+              className="border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F7F8F5]"
+            >
+              Tumunu Temizle
+            </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {items.map((product) => (
-            <div
-              key={product.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden group"
-            >
-              {/* Product Image */}
-              <Link href={`/urunler/${product.slug}`} className="block">
-                <div className="aspect-square bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center text-6xl relative overflow-hidden">
-                  {product.category === "fistik-ezmesi" && "🥜"}
-                  {product.category === "findik-ezmesi" && "🌰"}
-                  {product.category === "kuruyemis" && "🥔"}
-                  
-                  {/* Remove Button */}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      removeFromWishlist(product.id);
-                    }}
-                    className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
-                    aria-label="Favorilerden çıkar"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </button>
-                </div>
-              </Link>
+      <div className="container-premium py-8">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
+          {items.map((product) => {
+            const itemImage = getPrimaryResolvedProductImage(product, product.variants?.[0]);
 
-              {/* Product Info */}
-              <div className="p-4">
-                <Link href={`/urunler/${product.slug}`}>
-                  <p className="text-xs text-muted mb-1 capitalize">
-                    {product.category.replace("-", " ")}
-                  </p>
-                  <h3 className="font-semibold text-primary mb-2 line-clamp-2 hover:underline">
-                    {product.name}
-                  </h3>
+            return (
+              <article key={product.id} className="group bg-white">
+                <Link href={buildPath(`/urunler/${product.slug}`)} className="block">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-[#EEF2EA]">
+                    {itemImage ? (
+                      <img
+                        src={itemImage}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ShoppingBag className="h-12 w-12 text-[#9AA69E]" />
+                      </div>
+                    )}
+                    <button
+                      onClick={(event) => {
+                        event.preventDefault();
+                        removeFromWishlist(product.id);
+                      }}
+                      className="absolute right-3 top-3 bg-white p-2 text-red-600 shadow-sm transition-colors hover:bg-red-50"
+                      aria-label="Favorilerden cikar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </Link>
 
-                {/* Price */}
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-lg font-bold text-primary">
-                    {formatPrice(product.variants[0].price)}
-                  </span>
-                  {product.variants[0].originalPrice && (
-                    <span className="text-sm text-muted line-through">
-                      {formatPrice(product.variants[0].originalPrice)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAddToCart(product)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    Sepete Ekle
-                  </button>
-                  <Link
-                    href={`/urunler/${product.slug}`}
-                    className="px-4 py-2 border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors"
-                  >
-                    Detay
+                <div className="pt-3">
+                  <Link href={buildPath(`/urunler/${product.slug}`)}>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66746B]">
+                      {String(product.category || "Alpler Spor").replace(/-/g, " ")}
+                    </p>
+                    <h3 className="line-clamp-2 text-sm font-semibold text-[#121713] transition-colors group-hover:text-[#173D32] sm:text-base">
+                      {product.name}
+                    </h3>
                   </Link>
+
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-base font-bold text-[#121713]">
+                      {formatPrice(product.variants[0].price)}
+                    </span>
+                    {product.variants[0].originalPrice ? (
+                      <span className="text-xs text-[#9AA69E] line-through">
+                        {formatPrice(product.variants[0].originalPrice)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      className="flex flex-1 items-center justify-center gap-2 bg-[#173D32] px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#102A23]"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      Sepete Ekle
+                    </button>
+                    <Link
+                      href={buildPath(`/urunler/${product.slug}`)}
+                      className="border border-black/10 px-3 py-2.5 text-xs font-semibold text-[#121713] transition-colors hover:bg-[#F7F8F5]"
+                    >
+                      Detay
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </div>
     </div>

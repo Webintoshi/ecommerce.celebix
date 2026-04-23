@@ -119,12 +119,12 @@ function hydrateHomepageProducts(
 }
 
 const HOMEPAGE_CATEGORY_ORDER = [
-  { slug: "cuzdan-kartlik", name: "Cüzdan & Kartlık" },
-  { slug: "apple-watch-saat-kayislari", name: "Apple Watch Kayışları" },
-  { slug: "saat-kayislari", name: "Deri Saat Kayışları" },
-  { slug: "canta-organizer", name: "Çanta & Organizer" },
+  { slug: "spor-ayakkabi", name: "Spor Ayakkabi" },
+  { slug: "outdoor", name: "Outdoor" },
+  { slug: "fitness", name: "Fitness" },
+  { slug: "giyim", name: "Spor Giyim" },
+  { slug: "takim-sporlari", name: "Takim Sporlari" },
   { slug: "aksesuar", name: "Aksesuar" },
-  { slug: "gunluk-yasam", name: "Günlük Yaşam" },
 ] as const;
 
 function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {

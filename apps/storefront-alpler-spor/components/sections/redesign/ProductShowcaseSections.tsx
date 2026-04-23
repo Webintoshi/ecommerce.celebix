@@ -133,32 +133,32 @@ function EmptyShowcaseState() {
   const cards = [
     {
       title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
+      text: "Alpler Spor panelinde yayinlanan urunler kategori bazli vitrine dogrudan tasinir.",
     },
     {
-      title: "Manuel Sirayi Kullan",
-      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
+      title: "Satis Sirasi Kur",
+      text: "Cok satanlar, yeni sezon ve kampanya urunleri vitrinde daha guclu hiyerarsi kazanir.",
     },
     {
       title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
+      text: "Aktif kategoriler antrenman, outdoor ve ekipman odakli koleksiyon baglantilarina donusur.",
     },
   ];
 
   return (
-    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
+    <section className="bg-[#F7F8F5] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
+          <span className="inline-flex items-center gap-2 border border-[#173D32]/15 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#173D32]">
             <Sparkles className="h-3.5 w-3.5" />
             Vitrin Hazir
           </span>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
+          <h2 className="mt-5 text-3xl font-bold text-[#121713] sm:text-4xl">
+            Urunler geldikce Alpler Spor vitrini otomatik guclenir
           </h2>
-          <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Ekstra frontend eforu gerektirmeden admin panelindeki urun ve kategori
-            girdileri, baslangic temasinin section duzenini otomatik doldurur.
+          <p className="mt-4 text-sm leading-7 text-[#5E6B62] sm:text-[15px]">
+            Urun ve kategori girdileri eklendiginde bu alan satis odakli koleksiyon
+            bloklariyla dolar.
           </p>
         </div>
 
@@ -166,13 +166,13 @@ function EmptyShowcaseState() {
           {cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              className="border border-black/5 bg-white p-6"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                Otomatik
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
+                Merchandising
               </p>
-              <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
+              <h3 className="mt-3 text-xl font-semibold text-[#121713]">{card.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#5E6B62]">{card.text}</p>
             </div>
           ))}
         </div>
@@ -227,14 +227,14 @@ export function ProductShowcaseSections({
   return (
     <>
       {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
+        <section key={group.id} className="bg-[#F7F8F5] py-16 lg:py-20">
           <div className="container-premium">
             <div className="mb-12 flex items-end justify-between gap-6">
               <div>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
                   {group.subtitle}
                 </span>
-                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+                <h2 className="text-3xl font-bold text-neutral-950 sm:text-4xl">
                   {group.title}
                 </h2>
               </div>
@@ -248,7 +248,7 @@ export function ProductShowcaseSections({
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
               {group.products.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
