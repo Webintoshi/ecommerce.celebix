@@ -58,6 +58,12 @@ type DetailRow = {
   value: string;
 };
 
+type DetailSection = {
+  id: string;
+  label: string;
+  content: React.ReactNode;
+};
+
 const PRODUCT_ATTRIBUTE_FIELDS = [
   "attributes",
   "raw_attributes",
@@ -338,59 +344,26 @@ function getVariantGroupRows(variants: ProductVariant[]): DetailRow[] {
   }));
 }
 
-function ProductAttributeSummary({ rows }: { rows: DetailRow[] }) {
-  if (rows.length === 0) return null;
-
-  return (
-    <div className="rounded-[1.4rem] border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#374151]">
-          Secili Nitelikler
-        </span>
-        <span className="text-[11px] font-bold text-[#FF6A00]">Admin verisi</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {rows.slice(0, 6).map((row) => (
-          <div
-            key={row.key}
-            className="rounded-2xl border border-[#E5E7EB] bg-white px-3 py-2"
-          >
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9CA3AF]">
-              {row.label}
-            </p>
-            <p className="mt-1 truncate text-sm font-black text-[#111827]">{row.value}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ProductSpecifications({ rows }: { rows: DetailRow[] }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-5 text-sm font-medium text-[#6B7280]">
+      <div className="border-t border-[#E5E7EB] py-5 text-sm font-medium text-[#6B7280]">
         Bu urun icin teknik nitelik bilgisi henuz eklenmedi.
       </div>
     );
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid border-t border-[#E5E7EB] sm:grid-cols-2 sm:gap-x-8">
       {rows.map((row) => (
         <div
           key={`${row.label}-${row.value}`}
-          className="flex items-start gap-3 rounded-2xl border border-[#E5E7EB] bg-white p-4"
+          className="grid grid-cols-[minmax(92px,0.42fr)_1fr] gap-4 border-b border-[#E5E7EB] py-4"
         >
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
-            <Package className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6B7280]">
-              {row.label}
-            </p>
-            <p className="mt-1 text-sm font-bold leading-6 text-[#111827]">{row.value}</p>
-          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#6B7280]">
+            {row.label}
+          </p>
+          <p className="min-w-0 text-sm font-black leading-6 text-[#111827]">{row.value}</p>
         </div>
       ))}
     </div>
@@ -633,10 +606,6 @@ export function ProductDetailClient({
       ? variant.originalPrice +
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
-  const selectedAttributeRows = dedupeDetailRows([
-    ...getVariantAttributeRows(variant, variants),
-    ...getProductAttributeRows(product),
-  ]);
   const specificationRows = getProductSpecificationRows(product, variant, variants);
   const variantGroupRows = getVariantGroupRows(variants);
   const trustCards = [
@@ -661,20 +630,7 @@ export function ProductDetailClient({
       icon: Hammer,
     },
   ];
-  const galleryBadges = [
-    discountPercent > 0
-      ? { label: `%${discountPercent} Indirim`, tone: "discount" as const }
-      : null,
-    product.new ? { label: "Yeni", tone: "new" as const } : null,
-    isOutOfStock
-      ? { label: "Tukendi", tone: "neutral" as const }
-      : variant.stock <= 5
-        ? { label: "Sinirli Stok", tone: "stock" as const }
-        : null,
-  ].filter((badge): badge is { label: string; tone: "discount" | "new" | "stock" | "neutral" } =>
-    Boolean(badge),
-  );
-  const detailSections = [
+  const detailSections: DetailSection[] = [
     {
       id: "features",
       label: "Urun Aciklamasi",
@@ -687,15 +643,15 @@ export function ProductDetailClient({
         <div className="space-y-5">
           <ProductSpecifications rows={specificationRows} />
           {variantGroupRows.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+            <div className="border-t border-[#E5E7EB] pt-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#111827]">
                 Tum Varyant Nitelikleri
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {variantGroupRows.map((row) => (
                   <span
                     key={row.key}
-                    className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#374151]"
+                    className="rounded-full bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#374151]"
                   >
                     {row.label}: {row.value}
                   </span>
@@ -710,42 +666,22 @@ export function ProductDetailClient({
       id: "shipping",
       label: "Teslimat & Iade",
       content: (
-        <div className="space-y-4 text-sm leading-6 text-[#6B7280]">
-          <div>
-            <h4 className="mb-1 font-black text-[#111827]">Kargo Bilgileri</h4>
-            <p>
-              Siparisler stok durumuna gore hazirlanir ve genellikle 2-4 is gunu
-              icinde kargoya verilir.
-            </p>
-          </div>
-          <div>
-            <h4 className="mb-1 font-black text-[#111827]">Iade Politikasi</h4>
-            <p>
-              Urunu teslim aldiktan sonra 14 gun icinde iade veya degisim talebi
-              olusturabilirsiniz. Urunun kullanilmamis ve orijinal ambalajinda
-              olmasi gerekir.
-            </p>
-          </div>
-          <div>
-            <h4 className="mb-1 font-black text-[#111827]">Numara ve Varyant Destegi</h4>
-            <p>
-              Numara, renk veya varyant kararsizliginda destek hattindan urun
-              uygunlugu hakkinda bilgi alabilirsiniz.
-            </p>
-          </div>
+        <div className="grid gap-4 border-t border-[#E5E7EB] pt-5 text-sm leading-6 text-[#6B7280] sm:grid-cols-3">
+          <p><strong className="text-[#111827]">Kargo:</strong> Stoktaki urunler 2-4 is gunu icinde hazirlanir.</p>
+          <p><strong className="text-[#111827]">Iade:</strong> 14 gun icinde kolay iade/degisim talebi olusturulabilir.</p>
+          <p><strong className="text-[#111827]">Destek:</strong> Numara ve varyant uygunlugu icin destek alabilirsiniz.</p>
         </div>
       ),
     },
-    {
-      id: "reviews",
-      label: product.reviewCount ? `Yorumlar (${product.reviewCount})` : "Yorumlar",
-      content: (
-        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-5 text-sm font-medium leading-6 text-[#6B7280]">
-          Yorum sistemi destekleniyorsa onayli yorumlar sayfanin altindaki yorum
-          bolumunde listelenir.
-        </div>
-      ),
-    },
+    ...(product.reviewCount
+      ? [
+          {
+            id: "reviews",
+            label: `Yorumlar (${product.reviewCount})`,
+            content: null,
+          },
+        ]
+      : []),
   ];
   const activeDetailSection =
     detailSections.find((section) => section.id === activeDetailTab) ||
@@ -790,18 +726,17 @@ export function ProductDetailClient({
         <div className="container-premium">
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.58fr)_minmax(360px,0.92fr)] lg:gap-5">
             <div className="space-y-4 lg:self-start">
-              <div className="rounded-[1.6rem] border border-[#E5E7EB] bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-4">
+              <div className="rounded-[1.8rem] bg-white p-2 sm:p-3">
                 <ImageGallery
                   key={`${product.id}-${selectedVariant}`}
                   images={displayImages}
                   productName={product.name}
-                  badges={galleryBadges}
                   isWishlisted={isWishlisted}
                   onToggleWishlist={toggleWishlist}
                 />
               </div>
 
-              <div className="rounded-[1.6rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)] sm:p-5">
+              <div className="rounded-[1.8rem] bg-white px-4 py-5 sm:px-6">
                 <div className="hidden border-b border-[#E5E7EB] md:flex">
                   {detailSections.map((section) => (
                     <button
@@ -863,7 +798,7 @@ export function ProductDetailClient({
               </div>
             </div>
 
-            <div className="space-y-5 rounded-[1.6rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:sticky lg:top-24">
+            <div className="space-y-5 rounded-[1.8rem] bg-white p-5 sm:p-6 lg:sticky lg:top-24">
               <div className="flex items-center gap-3">
                 {product.brand ? (
                   <span className="text-xs font-black uppercase tracking-[0.18em] text-[#111827]">
@@ -982,8 +917,6 @@ export function ProductDetailClient({
                 selectedIndex={selectedVariant}
                 onSelect={setSelectedVariant}
               />
-
-              <ProductAttributeSummary rows={selectedAttributeRows} />
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
@@ -1123,16 +1056,14 @@ export function ProductDetailClient({
                   return (
                     <div
                       key={card.title}
-                      className="flex items-center gap-3 rounded-2xl px-1 py-2.5 transition hover:bg-[#F8FAFC]"
+                      className="flex items-center gap-3 px-1 py-2.5"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#374151]">
-                        <Icon className="h-5 w-5" />
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center text-[#FF6A00]">
+                        <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-black text-[#111827]">{card.title}</p>
-                        <p className="text-xs font-medium text-[#6B7280]">{card.text}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-[#9CA3AF]" />
                     </div>
                   );
                 })}
@@ -1251,21 +1182,23 @@ export function ProductDetailClient({
       </section>
 
       <section className="container-premium pb-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 border-y border-[#E5E7EB] py-5 sm:grid-cols-2 lg:grid-cols-4">
           {trustCards.map((card) => {
             const Icon = card.icon;
             return (
               <div
                 key={card.title}
-                className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-4 shadow-sm"
+                className="flex items-center gap-3"
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6A00]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-sm font-black text-[#111827]">{card.title}</h3>
-                <p className="mt-2 text-xs font-medium leading-5 text-[#6B7280]">
-                  {card.text}
-                </p>
+                <div>
+                  <h3 className="text-sm font-black text-[#111827]">{card.title}</h3>
+                  <p className="mt-0.5 text-xs font-medium leading-5 text-[#6B7280]">
+                    {card.text}
+                  </p>
+                </div>
               </div>
             );
           })}

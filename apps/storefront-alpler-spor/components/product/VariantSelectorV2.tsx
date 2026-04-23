@@ -19,6 +19,13 @@ function getAttributeId(attribute: any) {
   return attribute?.attribute?.id || attribute?.attribute_id || attribute?.attributeId || attribute?.name;
 }
 
+function getDisplayValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return null;
+}
+
 export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) {
   const [mounted, setMounted] = useState(false);
 
@@ -46,7 +53,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
   const getSelectedValue = (attributeId: string) => {
     const attributes = getResolvedVariantAttributes(currentVariant, variants);
     const match = attributes.find((attribute: any) => getAttributeId(attribute) === attributeId);
-    return match?.value;
+    return getDisplayValue(match?.value);
   };
 
   const handleSelect = (attributeId: string, value: string) => {
