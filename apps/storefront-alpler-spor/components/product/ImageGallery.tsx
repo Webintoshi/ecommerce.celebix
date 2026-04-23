@@ -37,12 +37,14 @@ export function ImageGallery({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [imageStatus, setImageStatus] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
   const [isClient, setIsClient] = useState(false);
+  const [mainImageScale, setMainImageScale] = useState(1);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
   const hasTouchGesture = useRef(false);
   const mainImageRef = useRef<HTMLImageElement | null>(null);
+  const mainStageRef = useRef<HTMLDivElement | null>(null);
 
   // Ensure images is an array
   const safeImages = Array.isArray(images) ? images : [];
@@ -57,6 +59,7 @@ export function ImageGallery({
   useEffect(() => {
     setSelectedIndex(0);
     setImageStatus({});
+    setMainImageScale(1);
   }, [images]);
 
   useEffect(() => {
@@ -67,6 +70,43 @@ export function ImageGallery({
   const setStatus = useCallback((imageUrl: string, status: 'loading' | 'loaded' | 'error') => {
     if (!imageUrl) return;
     setImageStatus(prev => ({ ...prev, [imageUrl]: status }));
+  }, []);
+
+  const updateMainImageScale = useCallback(() => {
+    const stage = mainStageRef.current;
+    const image = mainImageRef.current;
+
+    if (!stage || !image || !image.naturalWidth || !image.naturalHeight) {
+      setMainImageScale(1);
+      return;
+    }
+
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+
+    if (!stageWidth || !stageHeight) {
+      setMainImageScale(1);
+      return;
+    }
+
+    const imageRatio = image.naturalWidth / image.naturalHeight;
+    const stageRatio = stageWidth / stageHeight;
+
+    if (!Number.isFinite(imageRatio) || !Number.isFinite(stageRatio) || imageRatio >= stageRatio) {
+      setMainImageScale(1);
+      return;
+    }
+
+    const widthRatio = imageRatio / stageRatio;
+    const targetWidthRatio = stageWidth < 640 ? 0.74 : 0.68;
+
+    if (widthRatio >= targetWidthRatio) {
+      setMainImageScale(1);
+      return;
+    }
+
+    const nextScale = Math.min(1.42, Math.max(1, targetWidthRatio / widthRatio));
+    setMainImageScale(Number(nextScale.toFixed(3)));
   }, []);
 
   if (displayImages.length === 0) {
@@ -230,6 +270,7 @@ export function ImageGallery({
       if (prev[currentImage]) return prev;
       return { ...prev, [currentImage]: "loading" };
     });
+    setMainImageScale(1);
   }, [currentImage]);
 
   useEffect(() => {
@@ -238,8 +279,16 @@ export function ImageGallery({
     if (!img || !currentImage) return;
     if (img.complete && img.naturalWidth > 0) {
       setStatus(currentImage, "loaded");
+      updateMainImageScale();
     }
-  }, [currentImage, setStatus]);
+  }, [currentImage, setStatus, updateMainImageScale]);
+
+  useEffect(() => {
+    const handleResize = () => updateMainImageScale();
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [currentImage, updateMainImageScale]);
   const lightboxContent = (
     <AnimatePresence>
       {isLightboxOpen && (
@@ -362,17 +411,26 @@ export function ImageGallery({
               <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
             </div>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center p-5 sm:p-8">
-              <img
-                ref={mainImageRef}
-                src={currentImage}
-                alt={productName}
-                draggable={false}
-                className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.015]"
-                loading="eager"
-                onLoad={() => setStatus(currentImage, 'loaded')}
-                onError={() => setStatus(currentImage, 'error')}
-              />
+            <div className="absolute inset-0 p-5 sm:p-8">
+              <div
+                ref={mainStageRef}
+                className="flex h-full w-full items-center justify-center overflow-hidden"
+              >
+                <img
+                  ref={mainImageRef}
+                  src={currentImage}
+                  alt={productName}
+                  draggable={false}
+                  className="max-h-full max-w-full origin-center object-contain transition-transform duration-300"
+                  style={{ transform: `scale(${mainImageScale})` }}
+                  loading="eager"
+                  onLoad={() => {
+                    setStatus(currentImage, 'loaded');
+                    requestAnimationFrame(updateMainImageScale);
+                  }}
+                  onError={() => setStatus(currentImage, 'error')}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -468,21 +526,30 @@ export function ImageGallery({
 
           {/* Main image - always render, opacity based on status */}
           <div
-            className={`absolute inset-0 flex items-center justify-center p-5 transition-opacity duration-300 sm:p-8 ${
+            className={`absolute inset-0 p-5 transition-opacity duration-300 sm:p-8 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <img
-              ref={mainImageRef}
-              key={selectedIndex}
-              src={currentImage}
-              alt={`${productName} - Ana Görsel`}
-              draggable={false}
-              className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.015]"
-              loading="eager"
-              onLoad={() => setStatus(currentImage, 'loaded')}
-              onError={() => setStatus(currentImage, 'error')}
-            />
+            <div
+              ref={mainStageRef}
+              className="flex h-full w-full items-center justify-center overflow-hidden"
+            >
+              <img
+                ref={mainImageRef}
+                key={selectedIndex}
+                src={currentImage}
+                alt={`${productName} - Ana Görsel`}
+                draggable={false}
+                className="max-h-full max-w-full origin-center object-contain transition-transform duration-300"
+                style={{ transform: `scale(${mainImageScale})` }}
+                loading="eager"
+                onLoad={() => {
+                  setStatus(currentImage, 'loaded');
+                  requestAnimationFrame(updateMainImageScale);
+                }}
+                onError={() => setStatus(currentImage, 'error')}
+              />
+            </div>
           </div>
 
           {/* Navigation arrows */}
