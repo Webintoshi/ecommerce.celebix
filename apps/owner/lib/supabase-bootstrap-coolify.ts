@@ -849,10 +849,6 @@ function shouldAllowDisposableStoreRecreate(
   store: StoreConfig,
   ownerRow: OwnerStoreBootstrapRow | null,
 ): boolean {
-  if (store.slug === "alpler-spor") {
-    return true;
-  }
-
   if (!ownerRow) {
     return false;
   }
