@@ -10,7 +10,7 @@ export function ResponsiveListSurface({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fbfcfe] to-[var(--admin-bg)] shadow-[0_14px_40px_rgba(17,24,39,0.07)] md:rounded-[28px]",
+        "overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-md)] md:rounded-[28px]",
         className,
       )}
     >
