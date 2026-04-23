@@ -92,11 +92,17 @@ function MobileDockButton({
   label,
   active,
   onClick,
+  ariaControls,
+  ariaExpanded,
+  ariaHaspopup,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
   onClick: () => void;
+  ariaControls?: string;
+  ariaExpanded?: boolean;
+  ariaHaspopup?: "dialog";
 }) {
   return (
     <button
@@ -104,6 +110,9 @@ function MobileDockButton({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       aria-label={label}
+      aria-controls={ariaControls}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHaspopup}
       className={cn(
         "group relative flex flex-1 items-center justify-center px-[0.1rem] py-1 text-[var(--admin-text-secondary)] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
         active ? "text-[var(--admin-accent-hover)]" : "text-[var(--admin-text-secondary)]",
@@ -522,7 +531,15 @@ export default function AdminLayoutClient({
                 onClick={handleToggleToshi}
               />
               <MobileDockButton icon={Tag} label="Ürün" active={activeDockItem === "products"} onClick={handleProducts} />
-              <MobileDockButton icon={Menu} label="Menü" active={activeDockItem === "menu"} onClick={handleToggleMenu} />
+              <MobileDockButton
+                icon={Menu}
+                label="Menü"
+                active={activeDockItem === "menu"}
+                onClick={handleToggleMenu}
+                ariaControls="admin-mobile-drawer"
+                ariaExpanded={isSidebarOpen}
+                ariaHaspopup="dialog"
+              />
             </div>
           </div>
         </nav>
