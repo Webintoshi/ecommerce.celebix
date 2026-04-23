@@ -205,7 +205,7 @@ function getProductStatusMeta(product: AdminProductListItem) {
 
   return {
     label: "Aktif",
-    description: product.publishedAt ? `Yayında • ${formatDate(product.publishedAt)}` : "Satışta",
+    description: null,
     tone: "border-[#CFECD7] bg-[#EAF8EF] text-[#16A34A]",
   };
 }
@@ -1672,15 +1672,9 @@ export default function ProductsPageClient({
                               </div>
                             )}
 
-                            <div className="min-w-0 space-y-1">
+                            <div className="min-w-0">
                               <div className="truncate text-[15px] font-semibold text-[#1F2937]">
                                 {product.name}
-                              </div>
-                              <div className="text-sm text-[#6B7280]">{primaryVariant.name}</div>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-[#9CA3AF]">
-                                <span>{product.variants.length} varyant</span>
-                                <span>•</span>
-                                <span className="truncate">{product.slug}</span>
                               </div>
                             </div>
                           </div>
@@ -1699,7 +1693,12 @@ export default function ProductsPageClient({
                         <td className="px-4 py-4">{renderPrice(primaryVariant)}</td>
 
                         <td className="px-4 py-4">
-                          <span className={cn("inline-flex rounded-full border px-3 py-1.5 text-sm font-medium", stockMeta.tone)}>
+                          <span
+                            className={cn(
+                              "inline-flex min-w-[88px] items-center justify-center whitespace-nowrap rounded-full border px-3 py-1.5 text-center text-sm font-medium leading-none",
+                              stockMeta.tone,
+                            )}
+                          >
                             {stockMeta.label}
                           </span>
                         </td>
@@ -1709,7 +1708,9 @@ export default function ProductsPageClient({
                             <span className={cn("inline-flex rounded-full border px-3 py-1.5 text-xs font-medium", statusMeta.tone)}>
                               {statusMeta.label}
                             </span>
-                            <div className="text-xs text-[#6B7280]">{statusMeta.description}</div>
+                            {statusMeta.description ? (
+                              <div className="text-xs text-[#6B7280]">{statusMeta.description}</div>
+                            ) : null}
                           </div>
                         </td>
 
@@ -1721,9 +1722,10 @@ export default function ProductsPageClient({
                               disabled={isPublishUpdating}
                               aria-label={`${product.name} ürününü ${product.isActive ? "yayından kaldır" : "yayına al"}`}
                               className={cn(
-                                "h-7 w-12 border-0 data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#D1D5DB]",
+                                "h-8 w-[54px] border border-[#E7EAF0] p-[3px] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]",
                                 isPublishUpdating ? "opacity-70" : "",
                               )}
+                              thumbClassName="h-[22px] w-[22px] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-0"
                             />
                             <span className={cn("text-xs font-medium", product.isActive ? "text-[#E85D04]" : "text-[#9CA3AF]")}>
                               {isPublishUpdating ? "Kaydediliyor" : product.isActive ? "Açık" : "Kapalı"}
@@ -1859,7 +1861,6 @@ export default function ProductsPageClient({
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="text-[15px] font-semibold text-[#1F2937]">{product.name}</h3>
-                            <p className="mt-1 text-sm text-[#6B7280]">{primaryVariant.name}</p>
                           </div>
                           <Switch
                             checked={product.isActive}
@@ -1867,9 +1868,10 @@ export default function ProductsPageClient({
                             disabled={isPublishUpdating}
                             aria-label={`${product.name} görünürlüğünü değiştir`}
                             className={cn(
-                              "h-7 w-12 border-0 data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#D1D5DB]",
+                              "h-8 w-[54px] border border-[#E7EAF0] p-[3px] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00] data-[state=unchecked]:bg-[#E5E7EB]",
                               isPublishUpdating ? "opacity-70" : "",
                             )}
+                            thumbClassName="h-[22px] w-[22px] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.18)] data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-0"
                           />
                         </div>
 
