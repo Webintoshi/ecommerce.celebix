@@ -414,8 +414,9 @@ export function ProductDetailClient({
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(
-    new Set(["specs"]),
+    new Set(["features"]),
   );
+  const [activeDetailTab, setActiveDetailTab] = useState("features");
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
@@ -456,7 +457,8 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set(["specs"]));
+    setOpenAccordions(new Set(["features"]));
+    setActiveDetailTab("features");
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -634,25 +636,114 @@ export function ProductDetailClient({
   const trustCards = [
     {
       title: "%100 Orijinal Urun",
-      text: "Admin tarafindan yayinlanan urun ve varyant bilgileriyle listelenir.",
+      text: "Tum urunler garantili ve orijinaldir.",
       icon: BadgeCheck,
     },
     {
-      title: "Hizli Kargo",
-      text: "Stokta olan secenekler siparis akisinda net gorunur.",
+      title: "Ucretsiz Kargo",
+      text: "750 TL ve uzeri siparislerde.",
       icon: Clock,
     },
     {
       title: "Kolay Iade",
-      text: "Teslimat ve iade sureci satin alma oncesinde acik sunulur.",
+      text: "14 gun icinde iade kolayligi.",
       icon: Package,
     },
     {
-      title: "Guvenli Odeme",
-      text: "Odeme adimi mevcut guvenli checkout akisi ile devam eder.",
+      title: "Guvenli Alisveris",
+      text: "256-bit SSL ile korunur.",
       icon: Hammer,
     },
   ];
+  const galleryBadges = [
+    discountPercent > 0
+      ? { label: `%${discountPercent} Indirim`, tone: "discount" as const }
+      : null,
+    product.new ? { label: "Yeni", tone: "new" as const } : null,
+    isOutOfStock
+      ? { label: "Tukendi", tone: "neutral" as const }
+      : variant.stock <= 5
+        ? { label: "Sinirli Stok", tone: "stock" as const }
+        : null,
+  ].filter((badge): badge is { label: string; tone: "discount" | "new" | "stock" | "neutral" } =>
+    Boolean(badge),
+  );
+  const detailSections = [
+    {
+      id: "features",
+      label: "Urun Aciklamasi",
+      content: <ProductFeatures product={product} />,
+    },
+    {
+      id: "specs",
+      label: "Teknik Ozellikler",
+      content: (
+        <div className="space-y-5">
+          <ProductSpecifications rows={specificationRows} />
+          {variantGroupRows.length > 0 ? (
+            <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+                Tum Varyant Nitelikleri
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {variantGroupRows.map((row) => (
+                  <span
+                    key={row.key}
+                    className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#374151]"
+                  >
+                    {row.label}: {row.value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "shipping",
+      label: "Teslimat & Iade",
+      content: (
+        <div className="space-y-4 text-sm leading-6 text-[#6B7280]">
+          <div>
+            <h4 className="mb-1 font-black text-[#111827]">Kargo Bilgileri</h4>
+            <p>
+              Siparisler stok durumuna gore hazirlanir ve genellikle 2-4 is gunu
+              icinde kargoya verilir.
+            </p>
+          </div>
+          <div>
+            <h4 className="mb-1 font-black text-[#111827]">Iade Politikasi</h4>
+            <p>
+              Urunu teslim aldiktan sonra 14 gun icinde iade veya degisim talebi
+              olusturabilirsiniz. Urunun kullanilmamis ve orijinal ambalajinda
+              olmasi gerekir.
+            </p>
+          </div>
+          <div>
+            <h4 className="mb-1 font-black text-[#111827]">Numara ve Varyant Destegi</h4>
+            <p>
+              Numara, renk veya varyant kararsizliginda destek hattindan urun
+              uygunlugu hakkinda bilgi alabilirsiniz.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "reviews",
+      label: product.reviewCount ? `Yorumlar (${product.reviewCount})` : "Yorumlar",
+      content: (
+        <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-5 text-sm font-medium leading-6 text-[#6B7280]">
+          Yorum sistemi destekleniyorsa onayli yorumlar sayfanin altindaki yorum
+          bolumunde listelenir.
+        </div>
+      ),
+    },
+  ];
+  const activeDetailSection =
+    detailSections.find((section) => section.id === activeDetailTab) ||
+    detailSections[0];
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
@@ -689,31 +780,101 @@ export function ProductDetailClient({
         </div>
       </div>
 
-      <section className="py-8 lg:py-12">
+      <section className="py-5 lg:py-8">
         <div className="container-premium">
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
-            <div className="lg:sticky lg:top-28 lg:self-start">
-              <ImageGallery
-                key={`${product.id}-${selectedVariant}`}
-                images={displayImages}
-                productName={product.name}
-              />
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.58fr)_minmax(360px,0.92fr)] lg:gap-5">
+            <div className="space-y-4 lg:self-start">
+              <div className="rounded-[1.6rem] border border-[#E5E7EB] bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-4">
+                <ImageGallery
+                  key={`${product.id}-${selectedVariant}`}
+                  images={displayImages}
+                  productName={product.name}
+                  badges={galleryBadges}
+                  isWishlisted={isWishlisted}
+                  onToggleWishlist={toggleWishlist}
+                />
+              </div>
+
+              <div className="rounded-[1.6rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)] sm:p-5">
+                <div className="hidden border-b border-[#E5E7EB] md:flex">
+                  {detailSections.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => setActiveDetailTab(section.id)}
+                      className={`relative px-5 py-3 text-sm font-black transition ${
+                        activeDetailTab === section.id
+                          ? "text-[#FF6A00]"
+                          : "text-[#6B7280] hover:text-[#111827]"
+                      }`}
+                    >
+                      {section.label}
+                      {activeDetailTab === section.id ? (
+                        <span className="absolute inset-x-4 -bottom-px h-0.5 rounded-full bg-[#FF6A00]" />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="hidden pt-5 md:block">
+                  {activeDetailSection.content}
+                </div>
+
+                <div className="md:hidden">
+                  {detailSections.map((item) => {
+                    const isOpen = openAccordions.has(item.id);
+                    return (
+                      <div key={item.id} className="border-b border-[#E5E7EB] last:border-b-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleAccordion(item.id)}
+                          className="flex w-full items-center justify-between py-4 text-sm font-black text-[#111827]"
+                        >
+                          {item.label}
+                          <ChevronDown
+                            className={`h-4 w-4 text-[#6B7280] transition-transform ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {isOpen && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pb-5">{item.content}</div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-5 rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:sticky lg:top-28">
+            <div className="space-y-5 rounded-[1.6rem] border border-[#E5E7EB] bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:sticky lg:top-24">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-[#FF6A00]">
-                  {product.brand || product.subcategory || product.category}
-                </span>
-                <span className="h-px w-8 bg-neutral-300" />
+                {product.brand ? (
+                  <span className="text-xs font-black uppercase tracking-[0.18em] text-[#111827]">
+                    {product.brand}
+                  </span>
+                ) : null}
+                {product.brand && product.featured ? (
+                  <span className="h-px w-8 bg-neutral-300" />
+                ) : null}
                 {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
+                  <span className="rounded-full bg-[#FFF1E8] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#EA580C]">
                     Öne Çıkan
                   </span>
                 )}
               </div>
 
-              <h1 className="store-product-title-detail tracking-tight text-neutral-950">
+              <h1 className="text-2xl font-black leading-tight tracking-tight text-[#111827] sm:text-3xl">
                 {product.name}
               </h1>
 
@@ -737,23 +898,45 @@ export function ProductDetailClient({
               </div>
               ) : null}
 
-              <div className="flex flex-wrap items-end gap-3 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+              <div className="flex flex-wrap items-center gap-3">
                 {displayOriginalPrice !== undefined && (
-                  <span className="text-sm text-neutral-400 line-through lg:text-base">
+                  <span className="order-2 text-sm font-bold text-[#9CA3AF] line-through lg:text-base">
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className={`text-3xl font-black tracking-tight lg:text-4xl ${displayOriginalPrice !== undefined ? "text-[#FF6A00]" : "text-[#111827]"}`}>
+                <span className={`order-1 text-3xl font-black tracking-tight lg:text-4xl ${displayOriginalPrice !== undefined ? "text-[#FF6A00]" : "text-[#111827]"}`}>
                   {formatPrice(displayPrice)}
                 </span>
                 {discountPercent > 0 ? (
-                  <span className="rounded-full bg-[#FFF1E8] px-3 py-1 text-xs font-black text-[#EA580C]">
+                  <span className="order-3 rounded-full bg-[#FFF1E8] px-3 py-1 text-xs font-black text-[#EA580C]">
                     %{discountPercent} Indirim
                   </span>
                 ) : null}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 border-y border-[#E5E7EB] py-4 text-center">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isOutOfStock
+                        ? "bg-[#EF4444]"
+                        : variant.stock <= 5
+                          ? "bg-[#F59E0B]"
+                          : "bg-[#16A34A]"
+                    }`}
+                  />
+                  <span className={`text-sm font-black ${stockStatus.color}`}>
+                    {stockStatus.text}
+                  </span>
+                </div>
+                {activeSchema && customizationState.extraPrice > 0 ? (
+                  <p className="text-sm font-bold text-[#6B7280]">
+                    +{formatPrice(customizationState.extraPrice)} kisisellestirme
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="hidden grid-cols-3 gap-2 border-y border-[#E5E7EB] py-4 text-center">
                 {[
                   { label: "Teslimat", value: "2-4 iş günü" },
                   { label: "İade", value: "14 gün" },
@@ -770,7 +953,7 @@ export function ProductDetailClient({
                 ))}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="hidden flex-wrap gap-2">
                 {discountPercent > 0 && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
                     %{discountPercent} İndirim
@@ -823,8 +1006,8 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="space-y-5 border-y border-neutral-200 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-3 border-t border-[#E5E7EB] pt-4">
+                <div className="hidden flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-2 h-2 rounded-full ${
@@ -846,7 +1029,7 @@ export function ProductDetailClient({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="grid gap-3 sm:grid-cols-[154px_1fr_auto]">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
                       Adet
@@ -875,12 +1058,12 @@ export function ProductDetailClient({
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
                     className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-semibold uppercase tracking-wide transition-all duration-300
+                      flex h-14 rounded-xl text-sm font-black transition-all duration-300
                       flex items-center justify-center gap-2
                       ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#FF6A00] text-white hover:bg-[#E85F00]"
+                          : "bg-[#FF6A00] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)] hover:bg-[#E85F00]"
                       }
                     `}
                   >
@@ -894,7 +1077,7 @@ export function ProductDetailClient({
                   <button
                     onClick={toggleWishlist}
                     className={`
-                      flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
+                      hidden h-10 w-10 items-center justify-center text-neutral-900 transition-all
                       ${
                         isWishlisted
                           ? "text-[#FF6A00]"
@@ -910,14 +1093,46 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#FF6A00]"
+                    className="flex h-14 w-14 items-center justify-center rounded-xl border border-[#E5E7EB] text-neutral-900 transition-colors hover:border-[#FF6A00] hover:text-[#FF6A00]"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={toggleWishlist}
+                  className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] bg-white text-sm font-black transition hover:border-[#FF6A00] hover:text-[#FF6A00] ${
+                    isWishlisted ? "text-[#FF6A00]" : "text-[#374151]"
+                  }`}
+                >
+                  <Heart className={`h-5 w-5 ${isWishlisted ? "fill-current" : ""}`} />
+                  {isWishlisted ? "Favorilerden Cikar" : "Favorilere Ekle"}
+                </button>
               </div>
 
-              <div className="border-t border-neutral-200 pt-1">
+              <div className="space-y-1 border-t border-[#E5E7EB] pt-3">
+                {trustCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div
+                      key={card.title}
+                      className="flex items-center gap-3 rounded-2xl px-1 py-2.5 transition hover:bg-[#F8FAFC]"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#374151]">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-[#111827]">{card.title}</p>
+                        <p className="text-xs font-medium text-[#6B7280]">{card.text}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[#9CA3AF]" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden">
                 {[
                   {
                     id: "features",

@@ -36,14 +36,14 @@ export function MobileStickyBar({
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 p-4 shadow-[0_-8px_28px_rgba(15,23,42,0.14)] backdrop-blur-lg safe-area-pb lg:hidden"
+          className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-50 border-t border-[#E5E7EB] bg-white/95 p-3 shadow-[0_-8px_28px_rgba(15,23,42,0.14)] backdrop-blur-lg sm:bottom-0 sm:p-4 lg:hidden"
         >
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-[#111827]">{formatPrice(price)}</span>
+                <span className="text-xl font-black text-[#111827] sm:text-2xl">{formatPrice(price)}</span>
                 {originalPrice ? (
-                  <span className="text-sm text-[#9CA3AF] line-through">
+                  <span className="hidden text-sm text-[#9CA3AF] line-through sm:inline">
                     {formatPrice(originalPrice)}
                   </span>
                 ) : null}
