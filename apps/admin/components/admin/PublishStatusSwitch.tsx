@@ -25,12 +25,43 @@ export function PublishStatusSwitch({
   onChange,
   labelVisible = true,
   className,
+  style,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
   ...props
 }: PublishStatusSwitchProps) {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isFocused, setIsFocused] = React.useState(false);
   const effectiveDisabled = disabled || loading;
   const isInteractive = !effectiveDisabled;
 
   const statusLabel = loading ? "Yükleniyor" : checked ? "Açık" : disabled ? "Pasif" : "Kapalı";
+  const activeHover = isHovered && isInteractive;
+  const trackColor = loading
+    ? "#FFD9C2"
+    : disabled
+      ? "#E5E7EB"
+      : checked
+        ? activeHover
+          ? "#E85D04"
+          : "#FF6A00"
+        : activeHover
+          ? "#DDE1E7"
+          : "#E5E7EB";
+  const trackShadow = loading
+    ? "0 4px 10px rgba(255, 106, 0, 0.12)"
+    : checked
+      ? activeHover
+        ? "0 6px 14px rgba(255, 106, 0, 0.18)"
+        : "0 3px 8px rgba(255, 106, 0, 0.12)"
+      : activeHover
+        ? "inset 0 1px 2px rgba(148, 163, 184, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06)"
+        : "inset 0 1px 2px rgba(148, 163, 184, 0.14)";
+  const effectiveTrackShadow = isFocused
+    ? `${trackShadow}, 0 0 0 4px rgba(255, 106, 0, 0.20)`
+    : trackShadow;
 
   return (
     <div className={cn("inline-flex w-fit min-w-[44px] flex-col items-center gap-2", className)}>
@@ -39,23 +70,57 @@ export function PublishStatusSwitch({
         disabled={effectiveDisabled}
         onCheckedChange={onChange}
         aria-busy={loading}
+        onMouseEnter={(event) => {
+          setIsHovered(true);
+          onMouseEnter?.(event);
+        }}
+        onMouseLeave={(event) => {
+          setIsHovered(false);
+          onMouseLeave?.(event);
+        }}
+        onFocus={(event) => {
+          setIsFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setIsFocused(false);
+          onBlur?.(event);
+        }}
+        style={{
+          ...style,
+          width: 44,
+          minWidth: 44,
+          maxWidth: 44,
+          height: 24,
+          minHeight: 24,
+          maxHeight: 24,
+          padding: 3,
+          borderRadius: 999,
+          backgroundColor: trackColor,
+          boxShadow: effectiveTrackShadow,
+          boxSizing: "border-box",
+        }}
         className={cn(
-          "group peer relative inline-flex h-6 w-11 shrink-0 items-center rounded-full p-[3px] transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
-          loading
-            ? "cursor-progress bg-[#FFD9C2] shadow-[0_6px_14px_rgba(255,106,0,0.14)]"
-            : checked
-              ? "bg-[#FF6A00] shadow-[0_6px_16px_rgba(255,106,0,0.18)] hover:bg-[#E85D04]"
-              : disabled
-                ? "cursor-not-allowed bg-[#E5E7EB] opacity-80"
-                : "bg-[#E5E7EB] shadow-[inset_0_1px_2px_rgba(148,163,184,0.14)] hover:bg-[#DDE1E7]",
+          "group peer relative inline-flex shrink-0 items-center border border-transparent transition-all duration-200 ease-in-out focus-visible:outline-none",
+          loading ? "cursor-progress" : "",
+          disabled ? "cursor-not-allowed opacity-80" : "",
           isInteractive ? "cursor-pointer active:scale-[0.98]" : "",
         )}
         {...props}
       >
         <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
         <SwitchPrimitives.Thumb
+          style={{
+            width: 18,
+            minWidth: 18,
+            maxWidth: 18,
+            height: 18,
+            minHeight: 18,
+            maxHeight: 18,
+            transform: checked ? "translateX(20px)" : "translateX(0)",
+          }}
           className={cn(
-            "pointer-events-none relative z-[1] flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.10)] transition-all duration-200 ease-in-out will-change-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0",
+            "pointer-events-none relative z-[1] flex items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.10)] transition-all duration-200 ease-in-out will-change-transform",
             loading ? "scale-[0.96]" : "",
           )}
         >
