@@ -30,6 +30,41 @@ function getMissingTableColumn(error: unknown, tableName: string): string | null
   return relationMatch?.[1] ?? null;
 }
 
+function getErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return null;
+  }
+
+  const code = String(error.code ?? "").trim();
+  return code.length > 0 ? code : null;
+}
+
+function containsIsActiveReference(error: unknown, tableName: string): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const parts = [
+    "message" in error ? String(error.message ?? "") : "",
+    "details" in error ? String(error.details ?? "") : "",
+    "hint" in error ? String(error.hint ?? "") : "",
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  if (!parts) {
+    return false;
+  }
+
+  return (
+    parts.includes(`${tableName}.is_active`) ||
+    parts.includes(`'is_active' column of '${tableName}'`) ||
+    parts.includes(`relation "${tableName}"`) ||
+    parts.includes(`relation '${tableName}'`)
+  );
+}
+
 function hasBlankErrorMessage(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
     return false;
@@ -39,7 +74,10 @@ function hasBlankErrorMessage(error: unknown): boolean {
 }
 
 export function isMissingCategoriesIsActiveColumn(error: unknown): boolean {
-  return getMissingTableColumn(error, "categories") === "is_active";
+  return (
+    getMissingTableColumn(error, "categories") === "is_active" ||
+    (getErrorCode(error) === "42703" && containsIsActiveReference(error, "categories"))
+  );
 }
 
 export async function runCategoriesQuery<T>(

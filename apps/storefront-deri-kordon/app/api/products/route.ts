@@ -39,6 +39,10 @@ function logMarketplaceQueueError(error: unknown, context: string) {
     console.error(`Marketplace queue sync failed (${context}):`, error);
 }
 
+function logProductsApiCompatibilityError(error: unknown, context: string) {
+    console.error(`Products API compatibility fallback (${context}):`, error);
+}
+
 function hydrateListingProducts(
     products: Record<string, unknown>[],
     attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
@@ -171,7 +175,10 @@ async function translateListingProduct(
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
-        const attributeRegistryPromise = getVariantAttributeRegistry();
+        const attributeRegistryPromise = getVariantAttributeRegistry().catch((error) => {
+            logProductsApiCompatibilityError(error, "variant-attribute-registry");
+            return [];
+        });
         const locale = resolveRequestedLocale(request);
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
@@ -184,7 +191,63 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(searchParams.get("limit") || "20");
         const { createServerClient } = await import("@/lib/supabase");
         const supabase = createServerClient();
-        const productListingOrder = await getProductListingOrderPositions();
+        const productListingOrder = await getProductListingOrderPositions().catch((error) => {
+            logProductsApiCompatibilityError(error, "product-listing-order");
+            return {};
+        });
+
+        async function resolveRulesMap(productIds: string[]) {
+            try {
+                return await getProductDiscountRulesMap(supabase, productIds);
+            } catch (error) {
+                logProductsApiCompatibilityError(error, "discount-rules");
+                return {};
+            }
+        }
+
+        async function translateProductsForLocale(products: Record<string, unknown>[]) {
+            try {
+                return await translateListingProducts(products, locale);
+            } catch (error) {
+                logProductsApiCompatibilityError(error, "translate-products");
+                return products;
+            }
+        }
+
+        async function translateProductForLocale(product: Record<string, unknown> | null) {
+            try {
+                return await translateListingProduct(product, locale);
+            } catch (error) {
+                logProductsApiCompatibilityError(error, "translate-product");
+                return product;
+            }
+        }
+
+        function safeHydrateProducts(
+            products: Record<string, unknown>[],
+            attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+            rulesMap: Record<string, ProductDiscountRule[]> = {},
+        ) {
+            try {
+                return hydrateListingProducts(products, attributeRegistry, rulesMap);
+            } catch (error) {
+                logProductsApiCompatibilityError(error, "hydrate-products");
+                return products;
+            }
+        }
+
+        function safeHydrateProduct(
+            product: Record<string, unknown> | null,
+            attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
+            rulesMap: Record<string, ProductDiscountRule[]> = {},
+        ) {
+            try {
+                return hydrateListingProduct(product, attributeRegistry, rulesMap);
+            } catch (error) {
+                logProductsApiCompatibilityError(error, "hydrate-product");
+                return product;
+            }
+        }
 
         let products;
 
@@ -196,11 +259,11 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            const translatedProduct = await translateListingProduct(data, locale);
-            const rulesMap = await getProductDiscountRulesMap(supabase, [id]);
+            const translatedProduct = await translateProductForLocale(data);
+            const rulesMap = await resolveRulesMap([id]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
+                product: safeHydrateProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
             });
         } else if (slug) {
             // Fetch single product by slug from Supabase
@@ -226,11 +289,11 @@ export async function GET(request: NextRequest) {
                     error: error ? getErrorMessage(error) : "Product not found"
                 }, { status: 404 });
             }
-            const translatedProduct = await translateListingProduct(data[0], locale);
-            const rulesMap = await getProductDiscountRulesMap(supabase, [String(data[0].id)]);
+            const translatedProduct = await translateProductForLocale(data[0]);
+            const rulesMap = await resolveRulesMap([String(data[0].id)]);
             return NextResponse.json({
                 success: true,
-                product: hydrateListingProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
+                product: safeHydrateProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
             });
         } else if (featured === "true") {
             const { data, error } = await fetchProductsForListing(supabase, { featured: true });
@@ -256,13 +319,10 @@ export async function GET(request: NextRequest) {
             const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts(
-                    await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
+                products: safeHydrateProducts(
+                    await translateProductsForLocale(paginatedProducts as Record<string, unknown>[]),
                     await attributeRegistryPromise,
-                    await getProductDiscountRulesMap(
-                        supabase,
-                        paginatedProducts.map((product) => String(product.id)),
-                    ),
+                    await resolveRulesMap(paginatedProducts.map((product) => String(product.id))),
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -284,13 +344,10 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: hydrateListingProducts(
-                    await translateListingProducts(paginatedProducts as Record<string, unknown>[], locale),
+                products: safeHydrateProducts(
+                    await translateProductsForLocale(paginatedProducts as Record<string, unknown>[]),
                     await attributeRegistryPromise,
-                    await getProductDiscountRulesMap(
-                        supabase,
-                        paginatedProducts.map((product) => String(product.id)),
-                    ),
+                    await resolveRulesMap(paginatedProducts.map((product) => String(product.id))),
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -298,11 +355,10 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            products: hydrateListingProducts(
-                await translateListingProducts((products || []) as Record<string, unknown>[], locale),
+            products: safeHydrateProducts(
+                await translateProductsForLocale((products || []) as Record<string, unknown>[]),
                 await attributeRegistryPromise,
-                await getProductDiscountRulesMap(
-                    supabase,
+                await resolveRulesMap(
                     Array.isArray(products) ? products.map((product) => String(product.id)) : [],
                 ),
             ),
