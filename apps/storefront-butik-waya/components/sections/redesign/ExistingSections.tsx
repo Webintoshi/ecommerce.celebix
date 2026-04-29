@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import {
   Check,
   Leaf,
@@ -31,7 +32,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 interface HeroSlide {
-  id: number;
+  id: number | string;
   desktop: string;
   mobile: string;
   alt: string;
@@ -56,6 +57,10 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
       {slides.map((slide, index) => {
         const href = slide.buttonLink || slide.link;
         const BannerTag = href ? "a" : "div";
+        const desktopImage = resolveStorefrontAssetUrl(slide.desktop);
+        const mobileImage = resolveStorefrontAssetUrl(slide.mobile || slide.desktop);
+        const isProxiedDesktopImage = isProxiedStorefrontAssetUrl(desktopImage);
+        const isProxiedMobileImage = isProxiedStorefrontAssetUrl(mobileImage);
 
         return (
           <BannerTag
@@ -73,22 +78,24 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
             <div className="relative aspect-[5/7] w-full sm:aspect-[4/5] md:aspect-[16/9] xl:aspect-[2.35/1]">
               <div className="absolute inset-0 hidden md:block">
                 <Image
-                  src={slide.desktop}
+                  src={desktopImage}
                   alt={slide.alt}
                   fill
                   className="object-cover"
                   priority={index === 0}
                   sizes="100vw"
+                  unoptimized={isProxiedDesktopImage}
                 />
               </div>
               <div className="absolute inset-0 block md:hidden">
                 <Image
-                  src={slide.mobile || slide.desktop}
+                  src={mobileImage}
                   alt={slide.alt}
                   fill
                   className="object-cover"
                   priority={index === 0}
                   sizes="100vw"
+                  unoptimized={isProxiedMobileImage}
                 />
               </div>
             </div>
