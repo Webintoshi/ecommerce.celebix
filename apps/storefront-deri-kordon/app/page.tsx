@@ -57,7 +57,7 @@ const HOME_UI_COPY = {
   storesEyebrow: "Magazalarimiz",
   storesHeading: "Deriye yakindan dokunun",
   storesDescription:
-    "Giresun ve Ordu magazalarimizda koleksiyonlarimizi yakindan inceleyin, dokusunu hissedin ve size en uygun parcayi yerinde secin.",
+    "Giresun ve Ordu magazalarimizda deri koleksiyonlarimizi yakindan inceleyin.",
   storesLinkLabel: "Tum subeleri gor",
   testimonialsHeading: "Musteri Yorumlari",
   testimonialsCountLabel: "1581 degerlendirmeden",
