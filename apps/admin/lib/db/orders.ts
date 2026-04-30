@@ -27,6 +27,144 @@ type OrderWithItems = {
     items?: OrderItemWithCustomizations[];
 } & Record<string, unknown>;
 
+type MarketplaceOrderSourceRow = {
+    provider?: string | null;
+    external_order_id?: string | null;
+    order_status?: string | null;
+    import_status?: string | null;
+    normalized_payload?: Record<string, unknown> | null;
+    updated_at?: string | null;
+    created_at?: string | null;
+};
+
+type OrderWithMarketplaceSources = OrderWithItems & {
+    marketplace_orders?: MarketplaceOrderSourceRow[] | MarketplaceOrderSourceRow | null;
+};
+
+const ORDER_SELECT = `
+      *,
+      items:order_items(
+        *,
+        customizations:order_item_customizations(*)
+      )
+    `;
+
+const ORDER_SELECT_WITH_MARKETPLACE = `
+      *,
+      items:order_items(
+        *,
+        customizations:order_item_customizations(*)
+      ),
+      marketplace_orders(
+        provider,
+        external_order_id,
+        order_status,
+        import_status,
+        normalized_payload,
+        updated_at,
+        created_at
+      )
+    `;
+
+const MARKETPLACE_ORDER_SOURCE_META = {
+    trendyol: {
+        providerLabel: "Trendyol",
+        logoPath: "/marketplace-logos/trendyol.png",
+    },
+    hepsiburada: {
+        providerLabel: "Hepsiburada",
+        logoPath: "/marketplace-logos/hepsiburada.png",
+    },
+    n11: {
+        providerLabel: "n11",
+        logoPath: "/marketplace-logos/n11.png",
+    },
+    amazon_tr: {
+        providerLabel: "Amazon TR",
+        logoPath: "/marketplace-logos/amazon-tr.png",
+    },
+} as const;
+
+function normalizeMarketplaceOrdersRelation(
+    relation: OrderWithMarketplaceSources["marketplace_orders"]
+) {
+    if (!relation) return [];
+    return Array.isArray(relation) ? relation : [relation];
+}
+
+function getMarketplaceExternalOrderNumber(row: MarketplaceOrderSourceRow) {
+    const payload = row.normalized_payload || {};
+    const candidates = [
+        payload.orderNumber,
+        payload.order_number,
+        payload.packageNumber,
+        payload.package_number,
+        payload.orderId,
+        payload.order_id,
+        row.external_order_id,
+    ];
+
+    return candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function buildMarketplaceSource(order: OrderWithMarketplaceSources) {
+    const linkedMarketplaceOrder = normalizeMarketplaceOrdersRelation(order.marketplace_orders)
+        .find((row) => row.provider && row.provider in MARKETPLACE_ORDER_SOURCE_META);
+
+    if (!linkedMarketplaceOrder?.provider || !linkedMarketplaceOrder.external_order_id) {
+        return null;
+    }
+
+    const meta =
+        MARKETPLACE_ORDER_SOURCE_META[
+            linkedMarketplaceOrder.provider as keyof typeof MARKETPLACE_ORDER_SOURCE_META
+        ];
+
+    return {
+        provider: linkedMarketplaceOrder.provider,
+        providerLabel: meta.providerLabel,
+        logoPath: meta.logoPath,
+        externalOrderId: linkedMarketplaceOrder.external_order_id,
+        externalOrderNumber: getMarketplaceExternalOrderNumber(linkedMarketplaceOrder),
+        marketplaceStatus: linkedMarketplaceOrder.order_status || null,
+        importStatus: linkedMarketplaceOrder.import_status || null,
+        updatedAt: linkedMarketplaceOrder.updated_at || linkedMarketplaceOrder.created_at || null,
+    };
+}
+
+function normalizeOrderRow(order: Record<string, unknown>) {
+    const typedOrder = order as OrderWithMarketplaceSources;
+    const publicOrder = { ...order };
+    delete publicOrder.marketplace_orders;
+
+    return {
+        ...publicOrder,
+        marketplaceSource: buildMarketplaceSource(typedOrder),
+        items: (typedOrder.items || []).map((item) => {
+            const typedItem = item as OrderItemWithCustomizations;
+            return {
+                ...item,
+                customizations: normalizeStoredCustomizations(typedItem.customizations),
+            };
+        }),
+    };
+}
+
+function isMarketplaceRelationError(error: unknown) {
+    const maybeError = error as { message?: string; details?: string; hint?: string; code?: string } | null;
+    const text = [
+        maybeError?.message,
+        maybeError?.details,
+        maybeError?.hint,
+        maybeError?.code,
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return text.includes("marketplace_orders");
+}
+
 // =====================================================
 // ORDER MUTATIONS (Server-side only - all order operations require admin)
 // =====================================================
@@ -335,7 +473,7 @@ export async function createOrder(orderData: {
         await emitAdminNotificationEvent({
             type: "new_order",
             title: `Yeni siparis #${order.order_number || "---"}`,
-            body: `${orderItems.length} kalem iceren yeni siparis olustu.`,
+            body: `${orderItems.length} kalem iceren yeni siparis oluştu.`,
             href: `/admin/siparisler/${order.id}`,
             entityType: "order",
             entityId: String(order.id),
@@ -363,45 +501,38 @@ export async function getOrders(options?: {
 }) {
     const serverClient = createServerClient();
 
-    let query = serverClient
-        .from("orders")
-        .select(`
-      *,
-      items:order_items(
-        *,
-        customizations:order_item_customizations(*)
-      )
-    `)
-        .order("created_at", { ascending: false });
+    const buildQuery = (selectClause: string) => {
+        let query = serverClient
+            .from("orders")
+            .select(selectClause)
+            .order("created_at", { ascending: false });
 
-    if (options?.status) {
-        query = query.eq("status", options.status);
+        if (options?.status) {
+            query = query.eq("status", options.status);
+        }
+
+        if (options?.limit) {
+            query = query.limit(options.limit);
+        }
+
+        if (options?.offset) {
+            query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+        }
+
+        return query;
+    };
+
+    let { data, error } = await buildQuery(ORDER_SELECT_WITH_MARKETPLACE);
+
+    if (error && isMarketplaceRelationError(error)) {
+        const fallback = await buildQuery(ORDER_SELECT);
+        data = fallback.data;
+        error = fallback.error;
     }
-
-    if (options?.limit) {
-        query = query.limit(options.limit);
-    }
-
-    if (options?.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-    }
-
-    const { data, error } = await query;
 
     if (error) throw error;
-    return (data || []).map((order) => {
-        const typedOrder = order as OrderWithItems;
-        return {
-            ...order,
-            items: (typedOrder.items || []).map((item) => {
-                const typedItem = item as OrderItemWithCustomizations;
-                return {
-                    ...item,
-                    customizations: normalizeStoredCustomizations(typedItem.customizations),
-                };
-            }),
-        };
-    });
+    const orders = (data || []) as unknown as Record<string, unknown>[];
+    return orders.map((order) => normalizeOrderRow(order));
 }
 
 /**
@@ -410,30 +541,23 @@ export async function getOrders(options?: {
 export async function getOrderById(id: string) {
     const serverClient = createServerClient();
 
-    const { data, error } = await serverClient
-        .from("orders")
-        .select(`
-      *,
-      items:order_items(
-        *,
-        customizations:order_item_customizations(*)
-      )
-    `)
-        .eq("id", id)
-        .single();
+    const buildQuery = (selectClause: string) =>
+        serverClient
+            .from("orders")
+            .select(selectClause)
+            .eq("id", id)
+            .single();
+
+    let { data, error } = await buildQuery(ORDER_SELECT_WITH_MARKETPLACE);
+
+    if (error && isMarketplaceRelationError(error)) {
+        const fallback = await buildQuery(ORDER_SELECT);
+        data = fallback.data;
+        error = fallback.error;
+    }
 
     if (error) throw error;
-    const typedOrder = data as OrderWithItems;
-    return {
-        ...data,
-        items: (typedOrder.items || []).map((item) => {
-            const typedItem = item as OrderItemWithCustomizations;
-            return {
-                ...item,
-                customizations: normalizeStoredCustomizations(typedItem.customizations),
-            };
-        }),
-    };
+    return normalizeOrderRow(data as unknown as Record<string, unknown>);
 }
 
 /**
@@ -442,30 +566,23 @@ export async function getOrderById(id: string) {
 export async function getOrderByNumber(orderNumber: string) {
     const serverClient = createServerClient();
 
-    const { data, error } = await serverClient
-        .from("orders")
-        .select(`
-      *,
-      items:order_items(
-        *,
-        customizations:order_item_customizations(*)
-      )
-    `)
-        .eq("order_number", orderNumber)
-        .single();
+    const buildQuery = (selectClause: string) =>
+        serverClient
+            .from("orders")
+            .select(selectClause)
+            .eq("order_number", orderNumber)
+            .single();
+
+    let { data, error } = await buildQuery(ORDER_SELECT_WITH_MARKETPLACE);
+
+    if (error && isMarketplaceRelationError(error)) {
+        const fallback = await buildQuery(ORDER_SELECT);
+        data = fallback.data;
+        error = fallback.error;
+    }
 
     if (error) throw error;
-    const typedOrder = data as OrderWithItems;
-    return {
-        ...data,
-        items: (typedOrder.items || []).map((item) => {
-            const typedItem = item as OrderItemWithCustomizations;
-            return {
-                ...item,
-                customizations: normalizeStoredCustomizations(typedItem.customizations),
-            };
-        }),
-    };
+    return normalizeOrderRow(data as unknown as Record<string, unknown>);
 }
 
 /**

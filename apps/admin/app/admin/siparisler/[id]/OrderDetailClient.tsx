@@ -26,6 +26,17 @@ import type { OrderItemCustomization } from "@/types/product-customization";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import "./print.css";
 
+type MarketplaceSource = {
+    provider: "trendyol" | "hepsiburada" | "n11" | "amazon_tr";
+    providerLabel: string;
+    logoPath: string;
+    externalOrderId: string;
+    externalOrderNumber?: string;
+    marketplaceStatus?: string | null;
+    importStatus?: string | null;
+    updatedAt?: string | null;
+};
+
 interface Order {
     id: string;
     order_number: string;
@@ -51,6 +62,7 @@ interface Order {
         email?: string;
     };
     billing_address?: unknown;
+    marketplaceSource?: MarketplaceSource | null;
     created_at: string;
     updated_at: string;
 }
@@ -98,6 +110,89 @@ interface OrderDetailClientProps {
     paymentMethodName: string;
     statusConfig: { label: string; color: string };
     accountingSnapshot: AccountingOrderSnapshot | null;
+}
+
+const marketplaceImportStatusLabels: Record<string, string> = {
+    imported: "İçe aktarıldı",
+    synced: "Senkronlandı",
+    pending: "Bekliyor",
+    queued: "Kuyrukta",
+    syncing: "Senkron ediliyor",
+    failed: "Hata",
+    manual_action_required: "Manuel işlem gerekli",
+};
+
+function formatMarketplaceDate(value?: string | null) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("tr-TR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
+function MarketplaceInfoCard({ source }: { source?: MarketplaceSource | null }) {
+    if (!source) return null;
+
+    const externalNumber = source.externalOrderNumber || source.externalOrderId;
+    const importStatusLabel =
+        marketplaceImportStatusLabels[source.importStatus || ""] || source.importStatus || "-";
+
+    return (
+        <div className="rounded-[28px] border border-[#E7EAF0] bg-white/90 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur md:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F7F8FA]">
+                        <img
+                            src={source.logoPath}
+                            alt=""
+                            className="h-7 w-7 object-contain"
+                            loading="lazy"
+                        />
+                    </div>
+                    <div>
+                        <div className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#E85D04]">
+                            Pazaryeri Bilgisi
+                        </div>
+                        <p className="mt-2 text-base font-semibold text-stone-950">{source.providerLabel}</p>
+                    </div>
+                </div>
+                <div className="rounded-2xl border border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3 text-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                        Dış Sipariş No
+                    </p>
+                    <p className="mt-1 font-semibold text-[#1F2937]">{externalNumber}</p>
+                </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                <div className="rounded-[20px] border border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                        Pazaryeri Durumu
+                    </p>
+                    <p className="mt-2 font-semibold text-[#374151]">{source.marketplaceStatus || "-"}</p>
+                </div>
+                <div className="rounded-[20px] border border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                        Import Durumu
+                    </p>
+                    <p className="mt-2 font-semibold text-[#374151]">{importStatusLabel}</p>
+                </div>
+                <div className="rounded-[20px] border border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                        Son Sync
+                    </p>
+                    <p className="mt-2 font-semibold text-[#374151]">
+                        {formatMarketplaceDate(source.updatedAt)}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 
@@ -272,12 +367,12 @@ export function OrderDetailClient({
             if (!response.ok || !result.success) {
                 throw new Error(result?.error || "Fatura islemi basarisiz.");
             }
-            window.alert("Fatura adayi olusturuldu ve senkron tetiklendi.");
+            window.alert("Fatura adayi oluşturuldu ve senkron tetiklendi.");
             startTransition(() => {
                 router.refresh();
             });
         } catch (error) {
-            window.alert(error instanceof Error ? error.message : "Fatura olusturulamadi.");
+            window.alert(error instanceof Error ? error.message : "Fatura oluşturulamadı.");
         } finally {
             setIsAccountingActionLoading(false);
         }
@@ -383,6 +478,8 @@ export function OrderDetailClient({
                 customerPhone={order.shipping_address?.phone}
                 onStatusChange={handleStatusChange}
             />
+
+            <MarketplaceInfoCard source={order.marketplaceSource} />
 
             {/* Accounting Snapshot */}
                     <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">

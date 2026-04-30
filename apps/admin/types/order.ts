@@ -128,6 +128,23 @@ export type PaymentStatus =
   | "failed"
   | "refunded";
 
+export type MarketplaceOrderProvider =
+  | "trendyol"
+  | "hepsiburada"
+  | "n11"
+  | "amazon_tr";
+
+export interface MarketplaceOrderSource {
+  provider: MarketplaceOrderProvider;
+  providerLabel: string;
+  logoPath: string;
+  externalOrderId: string;
+  externalOrderNumber?: string;
+  marketplaceStatus?: string | null;
+  importStatus?: string | null;
+  updatedAt?: string | null;
+}
+
 // Ödeme Durumu Konfigürasyonu
 export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, {
   label: string;
@@ -178,6 +195,7 @@ export interface Order {
   shippingInfo: ShippingInfo;
   couponCode?: string;
   notes?: string;
+  marketplaceSource?: MarketplaceOrderSource | null;
   createdAt: Date;
   updatedAt: Date;
 }

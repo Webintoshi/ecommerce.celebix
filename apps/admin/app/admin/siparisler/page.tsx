@@ -66,7 +66,8 @@ type DisplayOrder = Omit<Order, "items" | "shippingAddress"> & {
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type DateRangeOption = "all" | "today" | "last7" | "last30" | "thisMonth";
 type FulfillmentState = "none" | "waiting" | "preparing" | "shipped" | "delivered";
-type ActiveFilterKey = "search" | "status" | "date" | "payment" | "fulfillment";
+type SourceFilterOption = "all" | "web" | NonNullable<Order["marketplaceSource"]>["provider"];
+type ActiveFilterKey = "search" | "status" | "date" | "payment" | "fulfillment" | "source";
 type BulkAction =
   | ""
   | "confirm"
@@ -109,6 +110,15 @@ const FULFILLMENT_FILTER_OPTIONS: { value: FulfillmentState | "all"; label: stri
   { value: "shipped", label: "Kargolandı" },
   { value: "delivered", label: "Teslim edildi" },
   { value: "none", label: "Yok" },
+];
+
+const SOURCE_FILTER_OPTIONS: { value: SourceFilterOption; label: string }[] = [
+  { value: "all", label: "Tüm kaynaklar" },
+  { value: "web", label: "Web Mağaza" },
+  { value: "trendyol", label: "Trendyol" },
+  { value: "hepsiburada", label: "Hepsiburada" },
+  { value: "n11", label: "n11" },
+  { value: "amazon_tr", label: "Amazon TR" },
 ];
 
 const BULK_ACTION_OPTIONS: { value: BulkAction; label: string }[] = [
@@ -272,6 +282,8 @@ function transformOrder(dbOrder: Record<string, unknown>): DisplayOrder {
     notes: typeof dbOrder.notes === "string" ? dbOrder.notes : undefined,
     couponCode:
       typeof dbOrder.coupon_code === "string" ? dbOrder.coupon_code : undefined,
+    marketplaceSource:
+      (dbOrder.marketplaceSource as Order["marketplaceSource"]) || null,
   };
 }
 
@@ -348,6 +360,22 @@ function getFulfillmentState(status: OrderStatus): FulfillmentState {
 
 function getFulfillmentLabel(status: OrderStatus) {
   return FULFILLMENT_STATUS_META[getFulfillmentState(status)];
+}
+
+function getOrderSourceKey(order: DisplayOrder): SourceFilterOption {
+  return order.marketplaceSource?.provider || "web";
+}
+
+function getOrderSourceLabel(order: DisplayOrder) {
+  return order.marketplaceSource?.providerLabel || "Web Mağaza";
+}
+
+function getOrderExternalSourceNumber(order: DisplayOrder) {
+  return (
+    order.marketplaceSource?.externalOrderNumber ||
+    order.marketplaceSource?.externalOrderId ||
+    ""
+  );
 }
 
 function matchesDateRange(order: DisplayOrder, range: DateRangeOption) {
@@ -472,6 +500,8 @@ function exportOrdersCsv(orders: DisplayOrder[]) {
   const rows = [
     [
       "Sipariş No",
+      "Kaynak",
+      "Dış Sipariş No",
       "Tarih",
       "Müşteri",
       "E-posta",
@@ -484,6 +514,8 @@ function exportOrdersCsv(orders: DisplayOrder[]) {
     ],
     ...orders.map((order) => [
       order.orderNumber,
+      getOrderSourceLabel(order),
+      getOrderExternalSourceNumber(order),
       `${formatDate(order.createdAt)} ${formatTime(order.createdAt)}`,
       getCustomerName(order),
       getCustomerEmail(order),
@@ -497,6 +529,34 @@ function exportOrdersCsv(orders: DisplayOrder[]) {
   ];
 
   downloadCsv("siparisler.csv", rows);
+}
+
+function MarketplaceSourceBadge({ order }: { order: DisplayOrder }) {
+  const source = order.marketplaceSource;
+
+  if (!source) {
+    return (
+      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2.5 py-1 text-xs font-semibold text-[#6B7280]">
+        Web Mağaza
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-[#E7EAF0] bg-white px-2.5 py-1 text-xs font-semibold text-[#374151] shadow-sm">
+      <img
+        src={source.logoPath}
+        alt=""
+        className="h-4 w-4 shrink-0 rounded-sm object-contain"
+        loading="lazy"
+      />
+      <span>{source.providerLabel}</span>
+      <span className="text-[#9CA3AF]">·</span>
+      <span className="truncate text-[#6B7280]">
+        {source.externalOrderNumber || source.externalOrderId}
+      </span>
+    </span>
+  );
 }
 
 function MetricCard({
@@ -903,6 +963,8 @@ function OrderListRow({
             <span>{formatTime(order.createdAt)}</span>
           </div>
 
+          <MarketplaceSourceBadge order={order} />
+
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-[#374151]">
               <UserRound className="h-4 w-4 text-[#9CA3AF]" />
@@ -1014,6 +1076,7 @@ export default function OrdersPage() {
   const [dateRange, setDateRange] = useState<DateRangeOption>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | "all">("all");
   const [fulfillmentFilter, setFulfillmentFilter] = useState<FulfillmentState | "all">("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterOption>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1063,6 +1126,7 @@ export default function OrdersPage() {
     setDateRange("all");
     setPaymentFilter("all");
     setFulfillmentFilter("all");
+    setSourceFilter("all");
     setSortBy("newest");
     setCurrentPage(1);
   };
@@ -1073,11 +1137,20 @@ export default function OrdersPage() {
     return orders.filter((order) => {
       const fullName = getCustomerName(order).toLowerCase();
       const email = getCustomerEmail(order).toLowerCase();
+      const sourceText = [
+        getOrderSourceLabel(order),
+        order.marketplaceSource?.externalOrderId,
+        order.marketplaceSource?.externalOrderNumber,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       const searchMatches =
         searchLower.length === 0 ||
         order.orderNumber.toLowerCase().includes(searchLower) ||
         fullName.includes(searchLower) ||
-        email.includes(searchLower);
+        email.includes(searchLower) ||
+        sourceText.includes(searchLower);
 
       const dateMatches = matchesDateRange(order, dateRange);
       const paymentMatches =
@@ -1085,10 +1158,12 @@ export default function OrdersPage() {
       const fulfillmentMatches =
         fulfillmentFilter === "all" ||
         getFulfillmentState(order.status) === fulfillmentFilter;
+      const sourceMatches =
+        sourceFilter === "all" || getOrderSourceKey(order) === sourceFilter;
 
-      return searchMatches && dateMatches && paymentMatches && fulfillmentMatches;
+      return searchMatches && dateMatches && paymentMatches && fulfillmentMatches && sourceMatches;
     });
-  }, [dateRange, fulfillmentFilter, orders, paymentFilter, searchQuery]);
+  }, [dateRange, fulfillmentFilter, orders, paymentFilter, searchQuery, sourceFilter]);
 
   const statusTabs = useMemo(() => {
     const counts = ORDER_STATUS_SEQUENCE.map((status) => ({
@@ -1160,7 +1235,8 @@ export default function OrdersPage() {
     statusFilter !== "all" ||
     dateRange !== "all" ||
     paymentFilter !== "all" ||
-    fulfillmentFilter !== "all";
+    fulfillmentFilter !== "all" ||
+    sourceFilter !== "all";
 
   const totalOrders = orders.length;
   const todayComparison = getPeriodComparison("today");
@@ -1234,8 +1310,14 @@ export default function OrdersPage() {
               label: `Operasyon: ${getOptionLabel(FULFILLMENT_FILTER_OPTIONS, fulfillmentFilter)}`,
             }
           : null,
+        sourceFilter !== "all"
+          ? {
+              key: "source" as const,
+              label: `Kaynak: ${getOptionLabel(SOURCE_FILTER_OPTIONS, sourceFilter)}`,
+            }
+          : null,
       ].filter((item): item is { key: ActiveFilterKey; label: string } => item !== null),
-    [dateRange, fulfillmentFilter, paymentFilter, searchQuery, statusFilter],
+    [dateRange, fulfillmentFilter, paymentFilter, searchQuery, sourceFilter, statusFilter],
   );
 
   const activeFilterCount = activeFilterChips.length;
@@ -1256,6 +1338,9 @@ export default function OrdersPage() {
         break;
       case "fulfillment":
         setFulfillmentFilter("all");
+        break;
+      case "source":
+        setSourceFilter("all");
         break;
     }
 
@@ -1580,7 +1665,7 @@ export default function OrdersPage() {
                     {showAdvancedFilters ? (
                       <div
                         id="orders-advanced-filters"
-                        className="grid gap-3 rounded-[22px] border border-[#EEF1F4] bg-[#FBFCFD] p-3 md:grid-cols-2"
+                        className="grid gap-3 rounded-[22px] border border-[#EEF1F4] bg-[#FBFCFD] p-3 md:grid-cols-3"
                       >
                         <div className="relative">
                           <select
@@ -1612,6 +1697,24 @@ export default function OrdersPage() {
                             className="h-11 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
                           >
                             {FULFILLMENT_FILTER_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                        </div>
+
+                        <div className="relative">
+                          <select
+                            value={sourceFilter}
+                            onChange={(event) => {
+                              setSourceFilter(event.target.value as SourceFilterOption);
+                              setCurrentPage(1);
+                            }}
+                            className="h-11 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                          >
+                            {SOURCE_FILTER_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
                               </option>
