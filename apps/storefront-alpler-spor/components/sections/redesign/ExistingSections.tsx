@@ -2,11 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
+import { Leaf, Shield, Check, Truck, Sparkles, Mail, Send, Award, Heart } from "lucide-react";
 import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {
@@ -41,16 +38,6 @@ interface HeroSlide {
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const [current, setCurrent] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     if (slides && slides.length > 0) {
@@ -68,168 +55,76 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || !slides || slides.length === 0) {
     return (
-      <section className="alpler-dark-gradient relative overflow-hidden text-white">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-[#FF6A00]" />
-        <div className="absolute right-8 top-12 hidden rounded-full bg-[#B6FF00] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#0B0F14] lg:block">
-          Sezon Firsatlari
-        </div>
-        <div className="container-premium relative flex min-h-[560px] flex-col justify-center py-20 lg:py-28">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="max-w-2xl">
-              <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.28em] text-[#B6FF00] backdrop-blur">
-                Yeni Sezon / Alpler Spor
-              </span>
-              <h1 className="mt-6 text-4xl font-black leading-[0.96] tracking-tight text-white sm:text-5xl lg:text-7xl">
-                Performansini Tarzinla Tamamla
-              </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#E5E7EB] sm:text-lg">
-                Sneaker, spor ayakkabi ve aktif giyim koleksiyonlarini hizli,
-                guvenli ve mobil odakli bir Alpler Spor deneyiminde kesfet.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={ROUTES.products}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-black text-white transition hover:bg-[#E85F00]"
-                >
-                  Alisverise Basla
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href={`${ROUTES.products}?sort=discounted`}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/20 bg-white/10 px-7 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15"
-                >
-                  Kampanyalari Gor
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { title: "Sneaker", text: "Gunluk stil ve sportif rahatlik icin hizli kategori girisi." },
-                { title: "Kosudan Outdoor'a", text: "Kullanim senaryosuna gore sade ve hizli kesif." },
-                { title: "Mobil Satin Alma", text: "Fiyat, stok ve CTA alani kucuk ekranda kaybolmaz." },
-                { title: "Guvenli Akis", text: "Teslimat, iade ve odeme bilgisi satin alma kararini netlestirir." },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-[1.5rem] border border-white/10 bg-white/8 p-5 backdrop-blur"
-                >
-                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#FF6A00]">
-                    Performans
-                  </p>
-                  <h2 className="mt-3 text-xl font-black text-white">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#CBD5E1]">{item.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <section className="w-full overflow-hidden bg-white">
+        <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px] bg-[#F8FAFC]" />
       </section>
     );
   }
 
   const slide = slides[current];
+  const desktopImage = slide.desktop || slide.mobile;
+  const mobileImage = slide.mobile || slide.desktop;
+  const altText = slide.alt || slide.title || "Hero banner";
+
+  if (!desktopImage && !mobileImage) {
+    return (
+      <section className="w-full overflow-hidden bg-white">
+        <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px] bg-[#F8FAFC]" />
+      </section>
+    );
+  }
 
   return (
-    <section className="relative w-full overflow-hidden bg-[#0B0F14]">
-      {/* Aspect Ratio Container - Mobile: 3/4, Desktop: 16/9 */}
-      <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px]">
-        <div
-          className="absolute inset-0 transition-opacity duration-700"
-        >
+    <section className="w-full overflow-hidden bg-white">
+      <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px] bg-white">
+        {desktopImage ? (
           <div className="absolute inset-0 hidden md:block">
             <Image
-              src={slide.desktop}
-              alt={slide.alt}
+              src={desktopImage}
+              alt={altText}
               fill
-              className="object-cover"
+              className="object-contain"
               priority
               sizes="100vw"
             />
           </div>
-          <div className="absolute inset-0 block md:hidden">
+        ) : null}
+        {mobileImage ? (
+          <div className="absolute inset-0 md:hidden">
             <Image
-              src={slide.mobile || slide.desktop}
-              alt={slide.alt}
+              src={mobileImage}
+              alt={altText}
               fill
-              className="object-cover"
+              className="object-contain"
               priority
               sizes="100vw"
             />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B0F14]/90 via-[#111827]/60 to-transparent md:from-[#0B0F14]/82 md:via-[#111827]/45" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(255,106,0,0.24),transparent_30%)]" />
-        </div>
-
-      <div className="absolute inset-0 z-10 flex items-center">
-        <div className="container-premium">
-        <div className="max-w-lg sm:max-w-xl md:max-w-2xl">
-            <div
-              className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]"
-            >
-              {slide.title && (
-                <span
-                  className="mb-4 inline-block rounded-full bg-[#FF6A00] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm sm:mb-6 sm:px-4 sm:py-1.5 sm:text-sm"
-                >
-                  {slide.title}
-                </span>
-              )}
-              <h2 className="mb-3 text-4xl font-black leading-[0.98] tracking-tight text-white sm:mb-4 sm:text-5xl md:text-6xl xl:text-7xl">
-                {slide.alt || "Performansini Tarzinla Tamamla"}
-              </h2>
-              {slide.subtitle && (
-                <p className="mb-6 max-w-md text-base leading-7 text-[#E5E7EB] sm:mb-8 sm:text-lg md:text-xl">
-                  {slide.subtitle}
-                </p>
-              )}
-              {slide.buttonText && (
-                <Link
-                  href={slide.buttonLink || ROUTES.products}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-6 py-3 text-sm font-black text-white transition-all hover:bg-[#E85F00] active:scale-95 sm:px-8 sm:py-4 sm:text-base"
-                >
-                  {slide.buttonText}
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                </Link>
-              )}
-            </div>
-        </div>
-      </div>
-      </div>
-
-      {slides.length > 1 && (
-        <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-          {slides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrent(idx)}
-              className={cn(
-                "w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all",
-                idx === current ? "bg-white w-6 sm:w-8" : "bg-white/50 hover:bg-white/80"
-              )}
-              aria-label={`Slide ${idx + 1}`}
+        ) : null}
+        {!desktopImage && mobileImage ? (
+          <div className="absolute inset-0 hidden md:block">
+            <Image
+              src={mobileImage}
+              alt={altText}
+              fill
+              className="object-contain"
+              priority
+              sizes="100vw"
             />
-          ))}
-        </div>
-      )}
-
-      {slides.length > 1 && (
-        <>
-          <button
-            onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
-            className="hidden sm:flex absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Önceki slide"
-          >
-            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
-          <button
-            onClick={() => setCurrent((current + 1) % slides.length)}
-            className="hidden sm:flex absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Sonraki slide"
-          >
-            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
-        </>
-      )}
+          </div>
+        ) : null}
+        {!mobileImage && desktopImage ? (
+          <div className="absolute inset-0 md:hidden">
+            <Image
+              src={desktopImage}
+              alt={altText}
+              fill
+              className="object-contain"
+              priority
+              sizes="100vw"
+            />
+          </div>
+        ) : null}
       </div>
     </section>
   );
