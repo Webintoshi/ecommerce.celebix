@@ -1,22 +1,32 @@
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
-
 export default function Loading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8] px-6">
-      <div className="w-full max-w-md rounded-[32px] border border-black/5 bg-white p-10 text-center shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF1E8]">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FF6A00]/20 border-t-[#FF6A00]" />
-        </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
-          Premium Storefront
-        </p>
-        <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#18110B]">
-          {STOREFRONT_RUNTIME.name}
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
-          Sayfa hazirlaniyor. Admin panelinden gelen icerikler ve vitrin bloklari yukleniyor.
-        </p>
+    <>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[110] h-[3px] overflow-hidden bg-[#FF6A00]/10"
+      >
+        <div className="absolute inset-y-0 left-0 w-[38%] animate-[alpler-route-progress_1.05s_ease-in-out_infinite] rounded-full bg-[#FF6A00] shadow-[0_0_12px_rgba(255,106,0,0.45)]" />
       </div>
-    </div>
+
+      <div className="pointer-events-none fixed inset-x-0 top-[3px] z-[109] h-6 bg-gradient-to-b from-[#FF6A00]/8 to-transparent" />
+
+      <div className="sr-only" aria-live="polite">
+        Sayfa yükleniyor.
+      </div>
+
+      <style>{`
+        @keyframes alpler-route-progress {
+          0% {
+            transform: translateX(-115%);
+          }
+          55% {
+            transform: translateX(105%);
+          }
+          100% {
+            transform: translateX(205%);
+          }
+        }
+      `}</style>
+    </>
   );
 }
