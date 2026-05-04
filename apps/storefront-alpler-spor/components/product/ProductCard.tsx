@@ -57,14 +57,6 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
-function formatCategoryLabel(value?: string | null) {
-  return String(value || "Alpler Spor")
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
-    .join(" ");
-}
-
 function getDisplayVariant(product: Product) {
   const variants = product.variants || [];
   const inStockVariant = variants
@@ -273,21 +265,6 @@ function ProductBadges({
   );
 }
 
-function ProductMetaLine({ product }: { product: Product }) {
-  const pieces = [
-    product.subcategory ? formatCategoryLabel(product.subcategory) : formatCategoryLabel(product.category),
-    product.tags?.[0],
-  ].filter(Boolean);
-
-  if (pieces.length === 0) return null;
-
-  return (
-    <p className="line-clamp-1 text-[11px] font-medium leading-4 text-[#6B7280] sm:text-[12px]">
-      {pieces.join(" / ")}
-    </p>
-  );
-}
-
 function StockLine({ stock, isOutOfStock }: { stock: number; isOutOfStock: boolean }) {
   if (isOutOfStock) {
     return (
@@ -455,13 +432,12 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             <Link href={productHref} className="store-product-title text-[#111827] transition-colors hover:text-[#FF6A00]">
               {product.name}
             </Link>
-            <ProductMetaLine product={product} />
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 pt-1">
               <ProductCardRating product={product} />
               <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
             </div>
             {typeof displayPrice === "number" ? (
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 pt-0.5">
                 <p className={`text-lg font-black ${originalPrice ? "text-[#F97316]" : "text-[#111827]"}`}>
                   {formatPrice(displayPrice)}
                 </p>
@@ -493,7 +469,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
       </div>
 
       <div className="flex flex-1 flex-col px-0.5 pb-0.5 pt-3">
-        <div className="mb-1.5 flex min-h-4 items-center justify-end">
+        <div className="mb-1 flex min-h-4 items-center justify-end">
           <ProductCardSwatches product={product} />
         </div>
 
@@ -503,17 +479,13 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           </h3>
         </Link>
 
-        <div className="mt-1 min-h-4">
-          <ProductMetaLine product={product} />
-        </div>
-
         <div className="mt-1.5 flex min-h-5 items-center justify-between gap-2">
           <ProductCardRating product={product} />
           <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
         </div>
 
         {typeof displayPrice === "number" ? (
-          <div className="mt-2 flex flex-wrap items-end gap-x-2 gap-y-0.5">
+          <div className="mt-1.5 flex flex-wrap items-end gap-x-2 gap-y-0.5">
             <p className={`text-[19px] font-black leading-none sm:text-[21px] ${originalPrice ? "text-[#F97316]" : "text-[#111827]"}`}>
               {formatPrice(displayPrice)}
             </p>
@@ -526,7 +498,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         ) : null}
 
         {sizeOptions.length > 0 ? (
-          <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-2">
+          <div className="mt-2.5 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-2">
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#374151]">
                 Beden
@@ -567,7 +539,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           </div>
         ) : null}
 
-        <div className="mt-auto pt-3">
+        <div className="mt-auto pt-2.5">
           {isOutOfStock ? (
             <button
               type="button"
