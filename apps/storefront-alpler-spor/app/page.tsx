@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
@@ -10,16 +10,16 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Spor stiline hizli giris",
-  viewAllLabel: "Tumunu Gor",
+  categoriesHeading: "Spor stiline h?zl? giri?",
+  viewAllLabel: "T?m?n? G?r",
   productGroups: [
-    { title: "One Cikan Urunler", subtitle: "En yeni ve en cok tercih edilen urunlerimiz." },
-    { title: "Sneaker ve Ayakkabi", subtitle: "Performans Secimi" },
+    { title: "?ne ??kan ?r?nler", subtitle: "En yeni ve en ?ok tercih edilen ?r?nlerimiz." },
+    { title: "Sneaker ve Ayakkab?", subtitle: "Performans Se?imi" },
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
     { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
   ],
-  testimonialsHeading: "Sporcularin Tercihleri",
-  testimonialsCountLabel: "Onayli yorumlar geldikce burada urun deneyimi one cikar",
+  testimonialsHeading: "Sporcular?n Tercihleri",
+  testimonialsCountLabel: "Onayl? yorumlar geldik?e burada ?r?n deneyimi ?ne ??kar",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -62,7 +62,7 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin spor ekipmani vitrini, iletisim ve teslimat bilgileri tek deneyimde sunulur.`
+    ? `${siteName} ma?azas?n?n spor ekipman? vitrini, ileti?im ve teslimat bilgileri tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
@@ -123,3 +123,4 @@ export default async function Home() {
     </>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Heart, ShoppingBag, Trash2 } from "lucide-react";
@@ -25,16 +25,16 @@ export default function WishlistPage() {
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1E8]">
               <Heart className="h-10 w-10 text-[#FF6A00]" />
             </div>
-            <h1 className="text-3xl font-bold text-[#121713]">Favori listeniz bos</h1>
+            <h1 className="text-3xl font-bold text-[#121713]">Favori listeniz bo?</h1>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#66746B]">
-              Begendiginiz Alpler Spor urunlerini favorilere ekleyerek daha sonra
-              hizli sekilde sepetinize tasiyabilirsiniz.
+              Be?endi?iniz Alpler Spor ?r?nlerini favorilere ekleyerek daha sonra
+              h?zl? ?ekilde sepetinize ta??yabilirsiniz.
             </p>
             <Link
               href={buildPath("/urunler")}
               className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#E85F00]"
             >
-              Urunleri Kesfet
+              ?r?nleri Ke?fet
             </Link>
           </div>
         </div>
@@ -52,14 +52,14 @@ export default function WishlistPage() {
                 Kaydedilenler
               </p>
               <h1 className="text-3xl font-bold text-[#121713]">
-                Favorilerim ({getTotalItems()} urun)
+                Favorilerim ({getTotalItems()} ?r?n)
               </h1>
             </div>
             <button
               onClick={clearWishlist}
               className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F8FAFC]"
             >
-              Tumunu Temizle
+              T?m?n? Temizle
             </button>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function WishlistPage() {
                         removeFromWishlist(product.id);
                       }}
                       className="absolute right-3 top-3 bg-white p-2 text-red-600 shadow-sm transition-colors hover:bg-red-50"
-                      aria-label="Favorilerden cikar"
+                      aria-label="Favorilerden ??kar"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -143,3 +143,4 @@ export default function WishlistPage() {
     </div>
   );
 }
+

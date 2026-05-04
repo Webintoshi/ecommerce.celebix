@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -13,9 +13,9 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Alpler Spor'da guvenli odeme, hizli kargo ve kolay iade",
+  message: "Alpler Spor'da g?venli ?deme, h?zl? kargo ve kolay iade",
   link: "/urunler",
-  linkText: "Urunleri Incele",
+  linkText: "?r?nleri ?ncele",
   enabled: true,
   backgroundColor: "#0B0F14",
 };
@@ -109,7 +109,7 @@ export function AnnouncementBar() {
                 className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
               >
                 {settings.linkText}
-                <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
+                <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">â†’</span>
               </Link>
             ) : null}
           </p>
@@ -126,3 +126,4 @@ export function AnnouncementBar() {
     </div>
   );
 }
+

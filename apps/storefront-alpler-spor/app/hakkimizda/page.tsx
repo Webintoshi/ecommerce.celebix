@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
@@ -16,10 +16,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/hakkimizda",
-    title: managedPage?.seoTitle || `Hakkimizda | ${profile.name}`,
+    title: managedPage?.seoTitle || `Hakk?m?zda | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} marka hikayesi, magaza bilgileri ve kurumsal detaylari.`,
+      `${profile.name} marka hik?yesi, ma?aza bilgileri ve kurumsal detaylar?.`,
   });
 }
 
@@ -34,7 +34,7 @@ export default async function AboutPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Hakkimizda
+            Hakk?m?zda
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
             {profile.name}
@@ -56,13 +56,13 @@ export default async function AboutPage() {
             ) : (
               <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
                 <p>
-                  Bu alan admin panelindeki <strong>Hakkimizda</strong> sayfasindan yonetilir.
-                  Icerik girildiginde magaza hikayeniz, uretim anlayisiniz ve kurumsal anlatiminiz
-                  burada yayinlanir.
+                  Bu alan admin panelindeki <strong>Hakk?m?zda</strong> sayfas?ndan y?netilir.
+                  ??erik girildi?inde ma?aza hik?yeniz, ?retim anlay???n?z ve kurumsal anlat?m?n?z
+                  burada yay?nlan?r.
                 </p>
                 <p>
-                  Simdilik bu sayfa magaza genel ayarlarindaki marka bilgilerini referans aliyor.
-                  Musteriye gosterilecek son metni admin panelinden duzenlemeniz gerekir.
+                  ?imdilik bu sayfa ma?aza genel ayarlar?ndaki marka bilgilerini referans al?yor.
+                  M??teriye g?sterilecek son metni admin panelinden d?zenlemeniz gerekir.
                 </p>
               </div>
             )}
@@ -70,18 +70,18 @@ export default async function AboutPage() {
 
           <aside className="rounded-[28px] bg-[#11192D] px-6 py-8 text-white">
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-              Iletisim
+              ?leti?im
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Markanizi acik ve guvenli anlatin</h2>
+            <h2 className="mt-3 text-3xl font-semibold">Markan?z? a??k ve g?venli anlat?n</h2>
             <p className="mt-4 text-sm leading-7 text-white/78">
-              Destek, teklif ve kurumsal talepler icin iletisim sayfasini da bu akisla birlikte guncelleyebilirsiniz.
+              Destek, teklif ve kurumsal talepler i?in ileti?im sayfas?n? da bu ak??la birlikte g?ncelleyebilirsiniz.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={buildLocalizedPath("/iletisim", locale, routing)}
                 className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
               >
-                Iletisim sayfasina git
+                ?leti?im sayfasina git
               </Link>
               <a
                 href={`mailto:${profile.email}`}
@@ -96,3 +96,4 @@ export default async function AboutPage() {
     </div>
   );
 }
+
