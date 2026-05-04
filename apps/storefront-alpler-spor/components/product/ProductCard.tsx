@@ -282,7 +282,7 @@ function ProductMetaLine({ product }: { product: Product }) {
   if (pieces.length === 0) return null;
 
   return (
-    <p className="line-clamp-1 text-[12px] font-medium leading-5 text-[#6B7280] sm:text-[13px]">
+    <p className="line-clamp-1 text-[11px] font-medium leading-4 text-[#6B7280] sm:text-[12px]">
       {pieces.join(" / ")}
     </p>
   );
@@ -351,7 +351,6 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     ? product.variants.every((variant) => Number(variant.stock || 0) <= 0)
     : true;
   const wishlisted = isInWishlist(product.id);
-  const brandLabel = product.brand || "Alpler Spor";
   const canQuickAddSingleVariant = Boolean(
     displayVariant && !isOutOfStock && (product.variants || []).length === 1,
   );
@@ -407,7 +406,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const imageBlock = (
     <Link
       href={productHref}
-      className="group/image relative block aspect-[1/1.04] overflow-hidden rounded-[1.35rem] bg-[#F8FAFC]"
+      className="group/image relative block aspect-square overflow-hidden rounded-[1.3rem] bg-[#F8FAFC]"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,106,0,0.10),transparent_32%),linear-gradient(180deg,#FFFFFF_0%,#EEF2F7_100%)]" />
       {primaryImage ? (
@@ -416,7 +415,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             src={primaryImage}
             alt={product.name}
             fill
-            className="p-4 object-contain transition duration-500 group-hover/image:scale-[1.045] sm:p-5"
+            className="p-3.5 object-contain transition duration-500 group-hover/image:scale-[1.03] sm:p-4"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             unoptimized={usesProxiedPrimaryImage}
           />
@@ -425,7 +424,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               src={secondaryImage}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-contain p-4 opacity-0 transition duration-500 group-hover/image:opacity-100 sm:p-5"
+              className="absolute inset-0 h-full w-full object-contain p-3.5 opacity-0 transition duration-500 group-hover/image:opacity-100 sm:p-4"
               loading="lazy"
             />
           ) : null}
@@ -440,8 +439,8 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
   if (viewMode === "list") {
     return (
-      <article className="group rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[#FF6A00]/35 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-        <div className="flex gap-4 sm:gap-5">
+      <article className="group rounded-[1.5rem] border border-[#E5E7EB] bg-white p-[14px] shadow-sm transition hover:-translate-y-0.5 hover:border-[#FF6A00]/35 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-4">
+        <div className="flex gap-3.5 sm:gap-4">
           <div className="relative h-36 w-32 flex-shrink-0 sm:h-44 sm:w-40">
             {imageBlock}
             <ProductBadges
@@ -452,17 +451,14 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             />
             {favoriteButton}
           </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
-              {brandLabel}
-            </p>
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
             <Link href={productHref} className="store-product-title text-[#111827] transition-colors hover:text-[#FF6A00]">
               {product.name}
             </Link>
             <ProductMetaLine product={product} />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
               <ProductCardRating product={product} />
-              <ProductCardSwatches product={product} />
+              <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
             </div>
             {typeof displayPrice === "number" ? (
               <div className="flex items-baseline gap-2">
@@ -476,7 +472,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 ) : null}
               </div>
             ) : null}
-            <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
+            <ProductCardSwatches product={product} />
           </div>
         </div>
       </article>
@@ -484,7 +480,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   }
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-[0_8px_28px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-[#FF6A00]/45 hover:shadow-[0_22px_60px_rgba(15,23,42,0.14)] sm:p-4">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#E5E7EB] bg-white p-[14px] shadow-[0_8px_28px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-[#FF6A00]/45 hover:shadow-[0_22px_60px_rgba(15,23,42,0.14)] sm:p-4">
       <div className="relative">
         {imageBlock}
         <ProductBadges
@@ -496,31 +492,28 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         {favoriteButton}
       </div>
 
-      <div className="flex flex-1 flex-col px-0.5 pb-1 pt-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
-            {brandLabel}
-          </p>
+      <div className="flex flex-1 flex-col px-0.5 pb-0.5 pt-3">
+        <div className="mb-1.5 flex min-h-4 items-center justify-end">
           <ProductCardSwatches product={product} />
         </div>
 
         <Link href={productHref}>
-          <h3 className="line-clamp-2 min-h-[2.65em] text-[15px] font-black leading-[1.28] tracking-[-0.01em] text-[#111827] transition-colors group-hover:text-[#FF6A00] sm:text-base">
+          <h3 className="line-clamp-2 min-h-[2.35em] text-[15px] font-black leading-[1.16] tracking-[-0.01em] text-[#111827] transition-colors group-hover:text-[#FF6A00] sm:text-base">
             {product.name}
           </h3>
         </Link>
 
-        <div className="mt-1.5 min-h-[1.35rem]">
+        <div className="mt-1 min-h-4">
           <ProductMetaLine product={product} />
         </div>
 
-        <div className="mt-2 flex min-h-5 items-center justify-between gap-2">
+        <div className="mt-1.5 flex min-h-5 items-center justify-between gap-2">
           <ProductCardRating product={product} />
           <StockLine stock={activeStock} isOutOfStock={isOutOfStock} />
         </div>
 
         {typeof displayPrice === "number" ? (
-          <div className="mt-3 flex flex-wrap items-end gap-x-2 gap-y-1">
+          <div className="mt-2 flex flex-wrap items-end gap-x-2 gap-y-0.5">
             <p className={`text-[19px] font-black leading-none sm:text-[21px] ${originalPrice ? "text-[#F97316]" : "text-[#111827]"}`}>
               {formatPrice(displayPrice)}
             </p>
@@ -533,8 +526,8 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         ) : null}
 
         {sizeOptions.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-2.5">
-            <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="mt-3 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-2">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#374151]">
                 Beden
               </span>
@@ -557,7 +550,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                     type="button"
                     disabled={isDisabled}
                     onClick={() => setSelectedSizeKey(option.key)}
-                    className={`min-h-9 min-w-9 rounded-xl border px-2 text-xs font-black transition focus:outline-none focus:ring-4 focus:ring-[#FF6A00]/20 ${
+                    className={`min-h-[2.2rem] min-w-[2.2rem] rounded-xl border px-2 text-[11px] font-black transition focus:outline-none focus:ring-4 focus:ring-[#FF6A00]/20 ${
                       isSelected
                         ? "border-[#FF6A00] bg-[#FF6A00] text-white"
                         : isDisabled
@@ -574,7 +567,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           </div>
         ) : null}
 
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-3">
           {isOutOfStock ? (
             <button
               type="button"
