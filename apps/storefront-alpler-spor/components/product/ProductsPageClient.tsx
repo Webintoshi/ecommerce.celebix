@@ -402,7 +402,7 @@ function ProductsPageContent({
               <>
                 <motion.div
                   layout
-                  className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-5 md:grid-cols-3 xl:grid-cols-4 xl:gap-x-6 xl:gap-y-9"
+                  className="mx-auto grid max-w-[1240px] grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 sm:gap-x-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 xl:gap-x-6 xl:gap-y-9"
                 >
                   <AnimatePresence mode="popLayout">
                     {visibleProducts.map((product, index) => (
@@ -414,7 +414,7 @@ function ProductsPageContent({
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ delay: Math.min(index * 0.02, 0.2) }}
                       >
-                        <ProductCard product={product} index={index} />
+                        <ProductCard product={product} index={index} cardVariant="catalog" />
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -460,7 +460,7 @@ export function ProductsPageClient(props: ProductsPageClientProps) {
             </div>
           </section>
           <div className="container-premium py-8 sm:py-12">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
+            <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-7 lg:gap-y-10">
               {[...Array(8)].map((_, index) => (
                 <ProductCardSkeleton key={index} />
               ))}

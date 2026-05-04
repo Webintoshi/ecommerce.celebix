@@ -21,6 +21,7 @@ interface ProductCardProps {
   product: Product;
   index?: number;
   viewMode?: "grid" | "list";
+  cardVariant?: "default" | "catalog";
 }
 
 type SizeOption = {
@@ -292,7 +293,11 @@ function StockLine({ stock, isOutOfStock }: { stock: number; isOutOfStock: boole
   );
 }
 
-export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  viewMode = "grid",
+  cardVariant = "default",
+}: ProductCardProps) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { buildPath } = useStorefrontRoute();
@@ -335,6 +340,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     selectedSizeOption && selectedSizeOption.stock > 0 && selectedSizeOption.variant,
   );
   const canQuickAdd = canQuickAddSingleVariant || canQuickAddSelectedSize;
+  const isCatalogCard = cardVariant === "catalog";
 
   const toggleWishlist = () => {
     if (wishlisted) {
@@ -383,7 +389,9 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const imageBlock = (
     <Link
       href={productHref}
-      className="group/image relative block aspect-square overflow-hidden rounded-[1.3rem] bg-[#F8FAFC]"
+      className={`group/image relative block overflow-hidden rounded-[1.3rem] bg-[#F8FAFC] ${
+        isCatalogCard ? "aspect-[1/1.08] sm:aspect-[1/1.06]" : "aspect-square"
+      }`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,106,0,0.10),transparent_32%),linear-gradient(180deg,#FFFFFF_0%,#EEF2F7_100%)]" />
       {primaryImage ? (
@@ -392,7 +400,9 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             src={primaryImage}
             alt={product.name}
             fill
-            className="p-3.5 object-contain transition duration-500 group-hover/image:scale-[1.03] sm:p-4"
+            className={`object-contain transition duration-500 group-hover/image:scale-[1.03] ${
+              isCatalogCard ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4"
+            }`}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             unoptimized={usesProxiedPrimaryImage}
           />
@@ -401,7 +411,9 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               src={secondaryImage}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-contain p-3.5 opacity-0 transition duration-500 group-hover/image:opacity-100 sm:p-4"
+              className={`absolute inset-0 h-full w-full object-contain opacity-0 transition duration-500 group-hover/image:opacity-100 ${
+                isCatalogCard ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4"
+              }`}
               loading="lazy"
             />
           ) : null}

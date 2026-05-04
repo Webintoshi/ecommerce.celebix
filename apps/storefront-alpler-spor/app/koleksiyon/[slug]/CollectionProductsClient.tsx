@@ -311,9 +311,9 @@ export default function CollectionProductsClient({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 lg:gap-x-7 lg:gap-y-10">
+            <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 lg:gap-x-7 lg:gap-y-10">
               {displayedProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
+                <ProductCard key={product.id} product={product} index={index} cardVariant="catalog" />
               ))}
             </div>
           )}
