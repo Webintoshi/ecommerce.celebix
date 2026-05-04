@@ -1,7 +1,11 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
-import { getProductBySlug } from "@/lib/products";
+import {
+  getProductBySlug,
+  getProductGroupsForProduct,
+  type ProductGroupDisplayGroup,
+} from "@/lib/products";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
@@ -96,9 +100,9 @@ export async function generateMetadata({
   return buildStorePageMetadata({
     locale,
     pathname: `/urunler/${baseSlug}`,
-    title: translatedProduct.seo_title || translatedProduct.name,
+    title: translatedProduct.seoTitle || translatedProduct.name,
     description:
-      translatedProduct.seo_description ||
+      translatedProduct.seoDescription ||
       translatedProduct.shortDescription ||
       extractPlainTextFromProductDescription(translatedProduct.description, translatedProduct.name).slice(0, 160) ||
       "",
@@ -123,6 +127,7 @@ export default async function ProductDetailPage({
 
   let product = null;
   let relatedProducts: any[] = [];
+  let groupedProducts: ProductGroupDisplayGroup[] = [];
 
   try {
     const supabase = createServerClient();
@@ -259,6 +264,50 @@ export default async function ProductDetailPage({
 
   relatedProducts = await translateProductCollection(relatedProducts, locale);
 
+  if (product?.id) {
+    try {
+      groupedProducts = await getProductGroupsForProduct(product.id);
+      groupedProducts = await Promise.all(
+        groupedProducts.map(async (group) => ({
+          ...group,
+          items: await Promise.all(
+            group.items.map(async (item) => {
+              const translated = await translateProductRecord(
+                {
+                  id: item.productId,
+                  name: item.name,
+                  slug: item.slug,
+                  description: "",
+                  shortDescription: "",
+                  category: product.category,
+                  subcategory: product.subcategory,
+                  variants: [],
+                  images: item.image ? [item.image] : [],
+                  tags: [],
+                  vegan: false,
+                  glutenFree: false,
+                  sugarFree: false,
+                  highProtein: false,
+                  rating: 0,
+                  reviewCount: 0,
+                },
+                locale,
+              );
+
+              return {
+                ...item,
+                name: translated.name,
+              };
+            }),
+          ),
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to fetch grouped products for storefront product detail:", error);
+      groupedProducts = [];
+    }
+  }
+
   const variant = product.variants?.[selectedVariantIndex || 0];
   const storeName = STOREFRONT_RUNTIME.name;
   const copy = getLocalizedCopy(locale);
@@ -355,6 +404,7 @@ export default async function ProductDetailPage({
         slug={baseSlug}
         initialProduct={product}
         initialRelatedProducts={relatedProducts}
+        groupedProducts={groupedProducts}
         initialVariantIndex={selectedVariantIndex}
       />
     </>
