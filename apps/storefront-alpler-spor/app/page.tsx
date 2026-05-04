@@ -18,11 +18,6 @@ const HOME_UI_COPY = {
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
     { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
   ],
-  storesEyebrow: "Guvenli Alisveris",
-  storesHeading: "Dogru ekipman, hizli teslimat ve net destek",
-  storesDescription:
-    "Alpler Spor vitrini urunu merkeze alir: stok, varyant, teslimat ve iade mesajlari satin alma kararini kolaylastiracak sekilde sunulur.",
-  storesLinkLabel: "Destekle Iletisime Gec",
   testimonialsHeading: "Sporcularin Tercihleri",
   testimonialsCountLabel: "Onayli yorumlar geldikce burada urun deneyimi one cikar",
 };
@@ -74,7 +69,6 @@ export default async function Home() {
     buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/iletisim", locale, routing);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
@@ -82,7 +76,7 @@ export default async function Home() {
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} storesHref={storesHref} />
+      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} />
 
       <script
         type="application/ld+json"
