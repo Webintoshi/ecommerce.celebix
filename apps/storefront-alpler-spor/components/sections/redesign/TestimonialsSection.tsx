@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Quote, Star } from "lucide-react";
 import type { HomepageTestimonial } from "@/lib/homepage";
 import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ type TestimonialItem = {
   rating: number;
   text: string;
   image?: string | null;
+  title?: string | null;
   verified?: boolean;
 };
 
@@ -35,6 +36,7 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
       rating: item.rating,
       text: item.text,
       image: item.image,
+      title: item.role,
       verified: true,
     }));
   }
@@ -47,13 +49,14 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
       rating: Math.max(1, Math.min(5, item.rating || 5)),
       text: item.body,
       image: item.image,
+      title: item.title || null,
       verified: true,
     }));
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "Onayli degerlendirmeler geldikce bu alan otomatik guncellenir",
+  heading = "Müşteri Yorumları",
+  countLabel = "Onaylı değerlendirmeler geldikçe bu alan otomatik güncellenir",
   items,
 }: {
   heading?: string;
@@ -92,11 +95,22 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-[#F5F7FA] py-16 lg:py-20">
+    <section className="relative overflow-hidden bg-[#F5F7FA] py-16 lg:py-20">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(255,106,0,0.12),transparent_72%)]" />
       <div className="container-premium">
-        <div className="mb-10 text-center">
-          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
-          <p className="text-sm text-neutral-500">{countLabel}</p>
+        <div className="mb-8 text-center lg:mb-10">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/15 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#C2410C] shadow-sm">
+            Gerçek Deneyimler
+          </span>
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
+            {heading}
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#6B7280] sm:text-[15px]">
+            Alpler Spor&apos;dan alışveriş yapan müşterilerin ürün, teslimat ve deneyim yorumları.
+          </p>
+          <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-[#9CA3AF]">
+            {countLabel}
+          </p>
         </div>
 
         <div
@@ -112,30 +126,17 @@ export function TestimonialsSection({
               {Array.from({ length: totalSlides }).map((_, slideIndex) => (
                 <div
                   key={`testimonial-slide-${slideIndex}`}
-                  className="grid w-full flex-shrink-0 grid-cols-1 gap-6 lg:grid-cols-2"
+                  className="grid w-full flex-shrink-0 grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6"
                 >
                   {testimonials.slice(slideIndex * 2, slideIndex * 2 + 2).map((review) => (
-                    <div key={review.id} className="flex overflow-hidden rounded-[1.5rem] border border-[#E5E7EB] bg-white shadow-sm">
-                      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-[#EEF2F7] sm:w-40 lg:w-48">
-                        {review.image ? (
-                          <div className="relative h-20 w-20 overflow-hidden rounded-full">
-                            <Image
-                              src={review.image}
-                              alt={review.name}
-                              fill
-                              className="object-cover"
-                              sizes="80px"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF1E8] text-lg font-semibold tracking-[0.24em] text-[#C2410C]">
-                            {getInitials(review.name)}
-                          </div>
-                        )}
-                      </div>
+                    <article
+                      key={review.id}
+                      className="group relative overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-[#FF6A00]/30 hover:shadow-[0_24px_50px_rgba(15,23,42,0.10)] sm:p-6"
+                    >
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF6A00] via-[#FF8A3D] to-transparent" />
 
-                      <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-                        <div className="mb-3 flex items-center gap-0.5">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }).map((_, index) => (
                             <Star
                               key={`${review.id}-${index}`}
@@ -148,22 +149,58 @@ export function TestimonialsSection({
                             />
                           ))}
                         </div>
-
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="text-sm font-semibold uppercase text-neutral-900">
-                            {review.name}
+                        {review.verified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF1E8] px-3 py-1 text-[11px] font-bold text-[#C2410C]">
+                            <Check className="h-3.5 w-3.5" />
+                            Doğrulanmış Alışveriş
                           </span>
-                          {review.verified ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-                              <Check className="h-3 w-3" />
-                              Dogrulanmis
-                            </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mb-4 flex items-start gap-4">
+                        {review.image ? (
+                          <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-full border border-[#E5E7EB] bg-[#F8FAFC]">
+                            <Image
+                              src={review.image}
+                              alt={review.name}
+                              fill
+                              className="object-cover"
+                              sizes="56px"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[#111827] text-sm font-black uppercase tracking-[0.2em] text-white">
+                            {getInitials(review.name)}
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-[0.14em] text-[#111827]">
+                                {review.name}
+                              </p>
+                              <p className="mt-1 text-xs font-medium text-[#6B7280]">
+                                Alpler Spor müşterisi
+                              </p>
+                            </div>
+                            <Quote className="hidden h-5 w-5 flex-shrink-0 text-[#FF6A00] sm:block" />
+                          </div>
+
+                          {review.title ? (
+                            <div className="mt-3">
+                              <span className="inline-flex items-center rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1 text-[11px] font-bold text-[#374151]">
+                                {review.title}
+                              </span>
+                            </div>
                           ) : null}
                         </div>
-
-                        <p className="text-sm leading-relaxed text-neutral-600">{review.text}</p>
                       </div>
-                    </div>
+
+                      <p className="text-sm leading-7 text-[#4B5563] sm:text-[15px]">
+                        {review.text}
+                      </p>
+                    </article>
                   ))}
                 </div>
               ))}
@@ -175,8 +212,8 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-[#FF6A00] hover:shadow-lg lg:-translate-x-6"
-                aria-label="Onceki"
+                className="absolute left-0 top-1/2 hidden h-11 w-11 -translate-x-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#374151] shadow-md transition-all hover:border-[#FF6A00] hover:text-[#FF6A00] hover:shadow-lg lg:flex"
+                aria-label="Önceki"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -184,12 +221,31 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-[#FF6A00] hover:shadow-lg lg:translate-x-6"
+                className="absolute right-0 top-1/2 hidden h-11 w-11 translate-x-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#374151] shadow-md transition-all hover:border-[#FF6A00] hover:text-[#FF6A00] hover:shadow-lg lg:flex"
                 aria-label="Sonraki"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
             </>
+          ) : null}
+
+          {totalSlides > 1 ? (
+            <div className="mt-6 flex items-center justify-center gap-2 lg:hidden">
+              {Array.from({ length: totalSlides }).map((_, dotIndex) => (
+                <button
+                  key={`testimonial-dot-${dotIndex}`}
+                  type="button"
+                  onClick={() => setCurrentIndex(dotIndex)}
+                  className={cn(
+                    "h-2.5 rounded-full transition-all",
+                    dotIndex === currentIndex
+                      ? "w-7 bg-[#FF6A00]"
+                      : "w-2.5 bg-[#D1D5DB] hover:bg-[#9CA3AF]",
+                  )}
+                  aria-label={`Yorum grubu ${dotIndex + 1}`}
+                />
+              ))}
+            </div>
           ) : null}
         </div>
       </div>
