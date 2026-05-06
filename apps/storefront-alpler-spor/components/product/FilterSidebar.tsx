@@ -198,7 +198,7 @@ export function FilterSidebar({
           />
         </FilterSection>
 
-        <FilterSection title="Ozellikler">
+        <FilterSection title="Özellikler">
           <FilterCheckbox
             label="Hafif"
             checked={filters.vegan}
@@ -221,14 +221,14 @@ export function FilterSidebar({
           />
         </FilterSection>
 
-        <FilterSection title="Stok & Indirim" defaultOpen={false}>
+        <FilterSection title="Stok & İndirim" defaultOpen={false}>
           <FilterCheckbox
             label="Stokta olanlar"
             checked={filters.inStock}
             onCheckedChange={(checked) => onFilterChange({ inStock: checked })}
           />
           <FilterCheckbox
-            label="Indirimli urunler"
+            label="İndirimli ürünler"
             checked={filters.onSale}
             onCheckedChange={(checked) => onFilterChange({ onSale: checked })}
           />
@@ -275,7 +275,7 @@ export function ActiveFilters({
     [filters.highProtein, "Performans", { highProtein: false }],
     [filters.glutenFree, "Dayanikli", { glutenFree: false }],
     [filters.inStock, "Stokta", { inStock: false }],
-    [filters.onSale, "Indirimli", { onSale: false }],
+    [filters.onSale, "İndirimli", { onSale: false }],
     [filters.isNew, "Yeni", { isNew: false }],
   ].forEach(([enabled, label, reset]) => {
     if (!enabled) return;

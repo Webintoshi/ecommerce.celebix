@@ -53,7 +53,7 @@ export function BlogArticlePage({
             Blog'a don
           </Link>
           <Link href="/urunler" className="text-sm font-medium text-[#8A6847] transition-colors hover:text-[#140D08]">
-            Urunleri kesfet
+            Ürünleri keşfet
           </Link>
         </div>
       </div>
@@ -134,7 +134,7 @@ export function BlogArticlePage({
               </p>
               <div className="mt-6 flex flex-col gap-3">
                 <Link href="/urunler" className="rounded-full bg-[#140D08] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
-                  Urunleri incele
+                  Ürünleri incele
                 </Link>
                 <Link href="/blog" className="rounded-full border border-black/10 bg-white px-4 py-3 text-center text-sm font-semibold text-[#140D08] transition-colors hover:border-[#140D08]">
                   Diger yazilari gor

@@ -10,16 +10,21 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Spor stiline h?zl? giri?",
-  viewAllLabel: "T?m?n? G?r",
+  categoriesHeading: "Spor stiline hızlı giriş",
+  viewAllLabel: "Tümünü Gör",
   productGroups: [
-    { title: "?ne ??kan ?r?nler", subtitle: "En yeni ve en ?ok tercih edilen ?r?nlerimiz." },
-    { title: "Sneaker ve Ayakkab?", subtitle: "Performans Se?imi" },
+    { title: "Öne Çıkan Ürünler", subtitle: "En yeni ve en çok tercih edilen ürünlerimiz." },
+    { title: "Sneaker ve Ayakkabı", subtitle: "Performans Seçimi" },
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
     { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
   ],
-  testimonialsHeading: "Sporcular?n Tercihleri",
-  testimonialsCountLabel: "Onayl? yorumlar geldik?e burada ?r?n deneyimi ?ne ??kar",
+  storesEyebrow: "Güvenli Alışveriş",
+  storesHeading: "Doğru ekipman, hızlı teslimat ve net destek",
+  storesDescription:
+    "Alpler Spor vitrini ürünü merkeze alır: stok, varyant, teslimat ve iade mesajları satın alma kararını kolaylaştıracak şekilde sunulur.",
+  storesLinkLabel: "Destekle İletişime Geç",
+  testimonialsHeading: "Sporcuların Tercihleri",
+  testimonialsCountLabel: "Onaylı yorumlar geldikçe burada ürün deneyimi öne çıkar",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -62,13 +67,14 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} ma?azas?n?n spor ekipman? vitrini, ileti?im ve teslimat bilgileri tek deneyimde sunulur.`
+    ? `${siteName} mağazasının spor ekipmanı vitrini, iletişim ve teslimat bilgileri tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
+  const storesHref = buildLocalizedPath("/iletisim", locale, routing);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
@@ -76,7 +82,7 @@ export default async function Home() {
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} />
+      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} storesHref={storesHref} />
 
       <script
         type="application/ld+json"
@@ -123,4 +129,3 @@ export default async function Home() {
     </>
   );
 }
-

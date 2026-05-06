@@ -13,9 +13,9 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Alpler Spor'da g?venli ?deme, h?zl? kargo ve kolay iade",
+  message: "Alpler Spor'da güvenli ödeme, hızlı kargo ve kolay iade",
   link: "/urunler",
-  linkText: "?r?nleri ?ncele",
+  linkText: "Ürünleri İncele",
   enabled: true,
   backgroundColor: "#0B0F14",
 };
@@ -126,4 +126,3 @@ export function AnnouncementBar() {
     </div>
   );
 }
-
