@@ -96,7 +96,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
       const payload = (await response.json()) as QuickOrderResponse & { error?: string };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Hizli siparis linki yuklenemedi.");
+        throw new Error(payload.error || "Hızlı sipariş linki yüklenemedi.");
       }
 
       setLink(payload.link);
@@ -110,7 +110,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
       });
       setError("");
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Hizli siparis linki yuklenemedi.");
+      setError(loadError instanceof Error ? loadError.message : "Hızlı sipariş linki yüklenemedi.");
     } finally {
       if (!silent) {
         setLoading(false);
@@ -142,13 +142,13 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
     return [
       { label: "Ara toplam", value: formatPrice(link.subtotal) },
       { label: "Kargo", value: formatPrice(link.shipping_cost) },
-      { label: "Indirim", value: `-${formatPrice(link.discount)}` },
+      { label: "İndirim", value: `-${formatPrice(link.discount)}` },
     ];
   }, [link]);
 
   const handleStartPayment = async () => {
     if (!selectedGatewayId) {
-      toast.error("Lutfen bir odeme yontemi secin.");
+      toast.error("Lütfen bir ödeme yöntemi seçin.");
       return;
     }
 
@@ -168,7 +168,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; payment?: { action?: string; redirectUrl?: string } } | null;
 
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || "Odeme baslatilamadi.");
+        throw new Error(payload?.error || "Ödeme başlatılamadı.");
       }
 
       if (payload.payment?.action === "redirect" && payload.payment.redirectUrl) {
@@ -178,7 +178,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
       await loadLink({ silent: true });
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : "Odeme baslatilamadi.");
+      toast.error(submitError instanceof Error ? submitError.message : "Ödeme başlatılamadı.");
     } finally {
       setSubmitting(false);
     }
@@ -201,8 +201,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="flex items-start gap-3 text-rose-700">
             <AlertCircle className="mt-0.5 h-5 w-5" />
             <div>
-              <h1 className="text-lg font-semibold">Hizli siparis linki acilamadi</h1>
-              <p className="mt-2 text-sm">{error || "Baglanti kurulurken bir hata olustu."}</p>
+              <h1 className="text-lg font-semibold">Hızlı sipariş linki açılamadı</h1>
+              <p className="mt-2 text-sm">{error || "Bağlantı kurulurken bir hata oluştu."}</p>
             </div>
           </div>
         </div>
@@ -220,24 +220,24 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="flex flex-wrap items-center gap-3">
             <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-600">
               <Lock className="h-3.5 w-3.5" />
-              Hizli Odeme Linki
+              Hızlı Ödeme Linki
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Guvenli odeme
+              Güvenli ödeme
             </div>
           </div>
 
           <div className="mt-6 space-y-4">
             {paymentState === "pending" && !isPaid ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Odeme sonucu kontrol ediliyor. Bu sayfa otomatik olarak yenileniyor.
+                Ödeme sonucu kontrol ediliyor. Bu sayfa otomatik olarak yenileniyor.
               </div>
             ) : null}
 
             {paymentState === "failed" ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                Odeme tamamlanamadi. Link suresi dolmadiysa ayni siparisi tekrar deneyebilirsiniz.
+                Ödeme tamamlanamadı. Link süresi dolmadıysa aynı siparişi tekrar deneyebilirsiniz.
               </div>
             ) : null}
 
@@ -246,14 +246,14 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">Odeme basariyla tamamlandi.</p>
-                    <p className="mt-1 text-sm">Siparisiniz olusturuldu. Siparis detayina asagidan ulasabilirsiniz.</p>
+                    <p className="font-semibold">Ödeme başarıyla tamamlandı.</p>
+                    <p className="mt-1 text-sm">Siparişiniz oluşturuldu. Sipariş detayına aşağıdan ulaşabilirsiniz.</p>
                     {link.order_id ? (
                       <Link
                         href={`/siparisler/${link.order_id}`}
                         className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
                       >
-                        Siparis detayini ac
+                        Sipariş detayını aç
                       </Link>
                     ) : null}
                   </div>
@@ -297,7 +297,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                  toast.success("Odeme linki kopyalandi.");
+                  toast.success("Ödeme linki kopyalandı.");
                 }}
                 className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
               >
@@ -333,9 +333,9 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="mt-8 rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <CreditCard className="h-4 w-4 text-gray-500" />
-              Odeme yontemi sec
+              Ödeme yöntemi seç
             </div>
-            <p className="mt-2 text-sm text-gray-500">Bu linkte yalnizca yonetici tarafindan izin verilen online odeme yontemleri kullanilabilir.</p>
+            <p className="mt-2 text-sm text-gray-500">Bu linkte yalnızca yönetici tarafından izin verilen online ödeme yöntemleri kullanılabilir.</p>
 
             <div className="mt-5 space-y-3">
               {gateways.map((gateway) => (
@@ -368,7 +368,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
             {!gateways.length && !isPaid && !isBlocked ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Bu link icin kullanilabilir online odeme yontemi bulunamadi.
+                Bu link için kullanılabilir online ödeme yöntemi bulunamadı.
               </div>
             ) : null}
 
@@ -379,7 +379,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-950 px-5 py-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              {submitting ? "Odeme baslatiliyor..." : `${formatPrice(link.total)} ode`}
+              {submitting ? "Ödeme başlatılıyor..." : `${formatPrice(link.total)} öde`}
             </button>
           </div>
         </section>

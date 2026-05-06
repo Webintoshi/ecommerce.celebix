@@ -324,11 +324,11 @@ export default function RegisterPage() {
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 <Link href="/kullanim-kosullari" className="text-primary hover:underline font-medium">
-                  Kullanim Kosullari
+                  Kullanım Koşulları
                 </Link>
                 {" "}ve{" "}
                 <Link href="/gizlilik" className="text-primary hover:underline font-medium">
-                  Gizlilik Politikasi
+                  Gizlilik Politikası
                 </Link>
                 {" "}ni okudum ve kabul ediyorum.
               </label>
@@ -347,7 +347,7 @@ export default function RegisterPage() {
                 </>
               ) : (
                 <>
-                  Kayit Ol
+                  Kayıt Ol
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -356,9 +356,9 @@ export default function RegisterPage() {
 
           {/* Login Link */}
           <div className="mt-6 text-center text-gray-600">
-            Zaten hesabiniz var mi?{" "}
+            Zaten hesabınız var mı?{" "}
             <Link href="/giris" className="text-primary font-bold hover:underline">
-              Giris Yap
+              Giriş Yap
             </Link>
           </div>
         </motion.div>
@@ -374,7 +374,7 @@ export default function RegisterPage() {
             href="/" 
             className="text-sm text-gray-500 hover:text-primary transition-colors"
           >
-            Ana Sayfaya Don
+            Ana Sayfaya Dön
           </Link>
         </motion.div>
       </div>

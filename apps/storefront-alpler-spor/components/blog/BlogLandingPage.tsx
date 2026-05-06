@@ -134,7 +134,7 @@ export function BlogLandingPage({
                 : "border-black/10 bg-white text-[#5F5147] hover:border-[#140D08] hover:text-[#140D08]"
             }`}
           >
-            Tum yazilar
+            Tüm yazılar
           </Link>
           {categorySummaries.map((category) => (
             <Link
@@ -166,7 +166,7 @@ export function BlogLandingPage({
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/urunler" className="rounded-full bg-[#140D08] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
-                Urunleri incele
+                Ürünleri incele
               </Link>
               <Link href="/iletisim" className="rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-[#140D08] transition-colors hover:border-[#140D08]">
                 Iletisime gec

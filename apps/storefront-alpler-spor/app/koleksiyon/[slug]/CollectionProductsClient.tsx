@@ -322,12 +322,12 @@ export default function CollectionProductsClient({
             {isLoading && (
               <div className="flex items-center gap-2 text-neutral-500">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-[#FF6A00]" />
-                <span className="text-sm">Yukleniyor...</span>
+                <span className="text-sm">Yükleniyor...</span>
               </div>
             )}
             {!hasMore && displayedProducts.length > 0 && (
               <p className="text-sm text-neutral-400">
-                Tum urunler goruntulendi ({filteredProducts.length} urun)
+                Tüm ürünler görüntülendi ({filteredProducts.length} ürün)
               </p>
             )}
           </div>

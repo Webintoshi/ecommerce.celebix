@@ -15,7 +15,7 @@ interface AnnouncementSettings {
 const DEFAULT_SETTINGS: AnnouncementSettings = {
   message: "Alpler Spor'da guvenli odeme, hizli kargo ve kolay iade",
   link: "/urunler",
-  linkText: "Urunleri Incele",
+  linkText: "Ürünleri İncele",
   enabled: true,
   backgroundColor: "#0B0F14",
 };

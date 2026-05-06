@@ -37,20 +37,20 @@ export default function CartPage() {
               <ShoppingBag className="h-10 w-10 text-[#FF6A00]" />
             </div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
-              Sepet bos
+              Sepet boş
             </p>
             <h1 className="text-3xl font-bold text-[#121713] sm:text-4xl">
               Alpler Spor sepetiniz hazir
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#66746B]">
-              Antrenman, outdoor veya gunluk spor ihtiyaclariniz icin urunleri
-              kesfedin; karar verdiginizde guvenli odeme akisina gecin.
+              Antrenman, outdoor veya günlük spor ihtiyaçlarınız için ürünleri
+              keşfedin; karar verdiğinizde güvenli ödeme akışına geçin.
             </p>
             <Link
               href={buildPath("/urunler")}
               className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#E85F00]"
             >
-              Urunleri Kesfet
+              Ürünleri Keşfet
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -64,7 +64,7 @@ export default function CartPage() {
       <section className="border-b border-black/5 bg-white">
         <div className="container-premium py-8 sm:py-10">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#F26A21]">
-            Satin alma adimi
+            Satın alma adımı
           </p>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -72,17 +72,17 @@ export default function CartPage() {
                 Sepetim
               </h1>
               <p className="mt-2 text-sm text-[#66746B]">
-                {getTotalItems()} urun secildi. Odeme oncesi adet, varyant ve teslimat bilgisini kontrol edin.
+                {getTotalItems()} ürün seçildi. Ödeme öncesi adet, varyant ve teslimat bilgisini kontrol edin.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
               <span className="inline-flex items-center gap-2 rounded-full bg-[#DBEAFE] px-3 py-2 text-[#1D4ED8]">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                SSL guvenli odeme
+                SSL güvenli ödeme
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF1E8] px-3 py-2 text-[#C2410C]">
                 <Truck className="h-3.5 w-3.5" />
-                Hizli kargo
+                Hızlı kargo
               </span>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function CartPage() {
                       <button
                         onClick={() => removeFromCart(item.id)}
                         className="p-2 text-[#9AA69E] transition-colors hover:bg-red-50 hover:text-red-600"
-                        aria-label="Sepetten kaldir"
+                        aria-label="Sepetten kaldır"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
@@ -151,7 +151,7 @@ export default function CartPage() {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-white"
-                          aria-label="Arttir"
+                          aria-label="Arttır"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -161,7 +161,7 @@ export default function CartPage() {
 
                   <div className="mt-4 flex justify-end border-t border-black/5 pt-4">
                     <span className="text-sm font-bold text-[#111827]">
-                      Satir toplamı: {formatPrice(item.unitPrice * item.quantity)}
+                      Satır toplamı: {formatPrice(item.unitPrice * item.quantity)}
                     </span>
                   </div>
                 </div>

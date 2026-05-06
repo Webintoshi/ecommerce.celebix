@@ -10,21 +10,21 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Spor stiline hizli giris",
-  viewAllLabel: "Tumunu Gor",
+  categoriesHeading: "Spor stiline hızlı giriş",
+  viewAllLabel: "Tümünü Gör",
   productGroups: [
-    { title: "One Cikan Urunler", subtitle: "En yeni ve en cok tercih edilen urunlerimiz." },
-    { title: "Sneaker ve Ayakkabi", subtitle: "Performans Secimi" },
+    { title: "Öne Çıkan Ürünler", subtitle: "En yeni ve en çok tercih edilen ürünlerimiz." },
+    { title: "Sneaker ve Ayakkabı", subtitle: "Performans Seçimi" },
     { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
     { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
   ],
-  storesEyebrow: "Guvenli Alisveris",
-  storesHeading: "Dogru ekipman, hizli teslimat ve net destek",
+  storesEyebrow: "Güvenli Alışveriş",
+  storesHeading: "Doğru ekipman, hızlı teslimat ve net destek",
   storesDescription:
-    "Alpler Spor vitrini urunu merkeze alir: stok, varyant, teslimat ve iade mesajlari satin alma kararini kolaylastiracak sekilde sunulur.",
-  storesLinkLabel: "Destekle Iletisime Gec",
-  testimonialsHeading: "Sporcularin Tercihleri",
-  testimonialsCountLabel: "Onayli yorumlar geldikce burada urun deneyimi one cikar",
+    "Alpler Spor vitrini ürünü merkeze alır: stok, varyant, teslimat ve iade mesajları satın alma kararını kolaylaştıracak şekilde sunulur.",
+  storesLinkLabel: "Destekle İletişime Geç",
+  testimonialsHeading: "Sporcuların Tercihleri",
+  testimonialsCountLabel: "Onaylı yorumlar geldikçe burada ürün deneyimi öne çıkar",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -67,7 +67,7 @@ export default async function Home() {
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin spor ekipmani vitrini, iletisim ve teslimat bilgileri tek deneyimde sunulur.`
+    ? `${siteName} mağazasının spor ekipmanı vitrini, iletişim ve teslimat bilgileri tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(

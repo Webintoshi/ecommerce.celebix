@@ -275,7 +275,7 @@ function ProductsPageContent({
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 { icon: SlidersHorizontal, label: "Kategori", value: categoryTotal || "Canli" },
-                { icon: Package, label: "Urun", value: initialProducts.length },
+                { icon: Package, label: "Ürün", value: initialProducts.length },
                 { icon: Truck, label: "Teslimat", value: "2-4 gun" },
               ].map((item) => {
                 const Icon = item.icon;
@@ -312,7 +312,7 @@ function ProductsPageContent({
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Urun, marka veya kategori ara"
+                placeholder="Ürün, marka veya kategori ara"
                 className="h-12 w-full rounded-2xl border border-[#D1D5DB] bg-white pl-12 pr-4 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/15"
               />
             </label>
@@ -329,7 +329,7 @@ function ProductsPageContent({
                 <option value="price-asc">En Dusuk Fiyat</option>
                 <option value="price-desc">En Yuksek Fiyat</option>
                 <option value="popular">Cok Satanlar</option>
-                <option value="discounted">Indirimdekiler</option>
+                <option value="discounted">İndirimdekiler</option>
               </select>
             </label>
 

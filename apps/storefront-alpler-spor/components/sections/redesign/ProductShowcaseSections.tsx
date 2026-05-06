@@ -96,12 +96,12 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Secili Koleksiyon"
+          ? "Seçili Koleksiyon"
           : index === 1
-            ? "One Cikanlar"
-            : index === 2
-              ? "Editorden"
-              : "Kesfet",
+            ? "Öne Çıkanlar"
+          : index === 2
+              ? "Editörden"
+              : "Keşfet",
       isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
@@ -132,16 +132,16 @@ function buildProductGroups(
 function EmptyShowcaseState() {
   const cards = [
     {
-      title: "Urunleri Yayina Al",
-      text: "Alpler Spor panelinde yayinlanan urunler kategori bazli vitrine dogrudan tasinir.",
+      title: "Ürünleri Yayına Al",
+      text: "Alpler Spor panelinde yayınlanan ürünler kategori bazlı vitrine doğrudan taşınır.",
     },
     {
-      title: "Satis Sirasi Kur",
-      text: "Cok satanlar, yeni sezon ve kampanya urunleri vitrinde daha guclu hiyerarsi kazanir.",
+      title: "Satış Sırası Kur",
+      text: "Çok satanlar, yeni sezon ve kampanya ürünleri vitrinde daha güçlü hiyerarşi kazanır.",
     },
     {
       title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler antrenman, outdoor ve ekipman odakli koleksiyon baglantilarina donusur.",
+      text: "Aktif kategoriler antrenman, outdoor ve ekipman odaklı koleksiyon bağlantılarına dönüşür.",
     },
   ];
 
@@ -154,11 +154,11 @@ function EmptyShowcaseState() {
             Vitrin Hazir
           </span>
           <h2 className="mt-5 text-3xl font-black text-[#111827] sm:text-4xl">
-            Urunler geldikce Alpler Spor vitrini otomatik guclenir
+            Ürünler geldikçe Alpler Spor vitrini otomatik güçlenir
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B7280] sm:text-[15px]">
-            Urun ve kategori girdileri eklendiginde bu alan satis odakli koleksiyon
-            bloklariyla dolar.
+            Ürün ve kategori girdileri eklendiğinde bu alan satış odaklı koleksiyon
+            bloklarıyla dolar.
           </p>
         </div>
 
@@ -186,7 +186,7 @@ export function ProductShowcaseSections({
   allProducts,
   homepageCuration,
   groupCopy,
-  viewAllLabel = "Tumunu Gor",
+  viewAllLabel = "Tümünü Gör",
 }: ProductShowcaseSectionsProps) {
   const { buildPath } = useStorefrontRoute();
 
@@ -202,14 +202,14 @@ export function ProductShowcaseSections({
           {
             id: "latest",
             title: "Yeni Gelenler",
-            subtitle: "Canli Secki",
+            subtitle: "Canlı Seçki",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
           {
             id: "featured",
-            title: "One Cikanlar",
-            subtitle: "Editor Secimi",
+            title: "Öne Çıkanlar",
+            subtitle: "Editör Seçimi",
             link: ROUTES.products,
             products: allProducts.slice(4, 8),
           },
@@ -221,10 +221,10 @@ export function ProductShowcaseSections({
     subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
   }));
   const trustItems = [
-    "%100 Orijinal Urun",
-    "Ucretsiz Kargo",
-    "Kolay Iade",
-    "Guvenli Alisveris",
+    "%100 Orijinal Ürün",
+    "Ücretsiz Kargo",
+    "Kolay İade",
+    "Güvenli Alışveriş",
   ];
 
   return (

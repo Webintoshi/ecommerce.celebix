@@ -34,7 +34,7 @@ export default function WishlistPage() {
               href={buildPath("/urunler")}
               className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#FF6A00] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#E85F00]"
             >
-              Urunleri Kesfet
+              Ürünleri Keşfet
             </Link>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function WishlistPage() {
               onClick={clearWishlist}
               className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#121713] transition-colors hover:bg-[#F8FAFC]"
             >
-              Tumunu Temizle
+              Tümünü Temizle
             </button>
           </div>
         </div>
