@@ -117,7 +117,7 @@ function sanitizeReference(value: string) {
 }
 
 function buildBuyerName(address: CheckoutAddressInput) {
-    return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Musteri";
+    return `${address.firstName ?? ""} ${address.lastName ?? ""}`.trim() || "Misafir Müşteri";
 }
 
 function formatIyzicoDate(date: Date) {
@@ -386,7 +386,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         buyer: {
             id: paymentAttempt.id,
             name: context.shippingAddress.firstName || "Misafir",
-            surname: context.shippingAddress.lastName || "Musteri",
+            surname: context.shippingAddress.lastName || "Müşteri",
             gsmNumber: context.shippingAddress.phone || "",
             email: context.customerEmail,
             identityNumber: "11111111111",

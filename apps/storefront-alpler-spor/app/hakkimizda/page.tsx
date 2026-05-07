@@ -1,10 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import { repairDisplayText } from "@/lib/display-text";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/hakkimizda",
-    title: managedPage?.seoTitle || `Hakk?m?zda | ${profile.name}`,
+    title: managedPage?.seoTitle || `Hakkımızda | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} marka hik?yesi, ma?aza bilgileri ve kurumsal detaylar?.`,
+      `${profile.name} marka hikayesi, mağaza bilgileri ve kurumsal detayları.`,
   });
 }
 
@@ -34,13 +35,13 @@ export default async function AboutPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Hakk?m?zda
+            Hakkımızda
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
             {profile.name}
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText || profile.tagline}
+            {repairDisplayText(managedPage?.plainText || profile.tagline)}
           </p>
         </div>
       </section>
@@ -51,18 +52,18 @@ export default async function AboutPage() {
             {managedPage?.contentHtml ? (
               <div
                 className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-                dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+                dangerouslySetInnerHTML={{ __html: repairDisplayText(managedPage.contentHtml) }}
               />
             ) : (
               <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
                 <p>
-                  Bu alan admin panelindeki <strong>Hakk?m?zda</strong> sayfas?ndan y?netilir.
-                  ??erik girildi?inde ma?aza hik?yeniz, ?retim anlay???n?z ve kurumsal anlat?m?n?z
-                  burada yay?nlan?r.
+                  Bu alan admin panelindeki <strong>Hakkımızda</strong> sayfasından yönetilir.
+                  İçerik girildiğinde mağaza hikâyeniz, üretim anlayışınız ve kurumsal
+                  anlatımınız burada yayınlanır.
                 </p>
                 <p>
-                  ?imdilik bu sayfa ma?aza genel ayarlar?ndaki marka bilgilerini referans al?yor.
-                  M??teriye g?sterilecek son metni admin panelinden d?zenlemeniz gerekir.
+                  Şimdilik bu sayfa mağaza genel ayarlarındaki marka bilgilerini referans alıyor.
+                  Müşteriye gösterilecek son metni admin panelinden düzenlemeniz gerekir.
                 </p>
               </div>
             )}
@@ -70,18 +71,18 @@ export default async function AboutPage() {
 
           <aside className="rounded-[28px] bg-[#11192D] px-6 py-8 text-white">
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-              ?leti?im
+              İletişim
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Markan?z? a??k ve g?venli anlat?n</h2>
+            <h2 className="mt-3 text-3xl font-semibold">Markanızı açık ve güvenli anlatın</h2>
             <p className="mt-4 text-sm leading-7 text-white/78">
-              Destek, teklif ve kurumsal talepler i?in ileti?im sayfas?n? da bu ak??la birlikte g?ncelleyebilirsiniz.
+              Destek, teklif ve kurumsal talepler için iletişim sayfasını da bu akışla birlikte güncelleyebilirsiniz.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href={buildLocalizedPath("/iletisim", locale, routing)}
                 className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
               >
-                ?leti?im sayfasina git
+                İletişim sayfasına git
               </Link>
               <a
                 href={`mailto:${profile.email}`}
@@ -96,4 +97,3 @@ export default async function AboutPage() {
     </div>
   );
 }
-

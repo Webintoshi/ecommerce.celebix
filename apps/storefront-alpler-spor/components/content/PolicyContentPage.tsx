@@ -1,6 +1,7 @@
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import type { PublishedPolicyPage } from "@/lib/policy-pages";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
+import { repairDisplayText } from "@/lib/display-text";
 
 interface PolicyContentPageProps {
   page: PublishedPolicyPage;
@@ -8,7 +9,7 @@ interface PolicyContentPageProps {
 
 export async function PolicyContentPage({ page }: PolicyContentPageProps) {
   const profile = await getStorefrontProfile();
-  const contentHtml = normalizeProductDescriptionHtml(page.content);
+  const contentHtml = repairDisplayText(normalizeProductDescriptionHtml(page.content));
   const formattedDate = new Intl.DateTimeFormat("tr-TR", {
     year: "numeric",
     month: "long",
@@ -23,7 +24,7 @@ export async function PolicyContentPage({ page }: PolicyContentPageProps) {
             Politikalar
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            {page.name}
+            {repairDisplayText(page.name)}
           </h1>
           <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
             Bu içerik admin panelindeki politika ekranından yönetilir. Yayından kaldırıldığında storefront footerından da düşer.

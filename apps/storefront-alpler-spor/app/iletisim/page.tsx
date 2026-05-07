@@ -1,8 +1,9 @@
-﻿import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import { repairDisplayText } from "@/lib/display-text";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/iletisim",
-    title: managedPage?.seoTitle || `?leti?im | ${profile.name}`,
+    title: managedPage?.seoTitle || `İletişim | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} ile destek, teklif, toptan sat?? ve proje talepleri i?in ileti?ime ge?in.`,
+      `${profile.name} ile destek, teklif, toptan satış ve proje talepleri için iletişime geçin.`,
   });
 }
 
@@ -31,14 +32,14 @@ export default async function ContactPage() {
       value: profile.address,
       href: profile.mapSearchUrl,
       icon: MapPin,
-      linkLabel: "Haritada A?",
+      linkLabel: "Haritada Aç",
     },
     {
       title: "E-posta",
       value: profile.email,
       href: `mailto:${profile.email}`,
       icon: Mail,
-      linkLabel: "Mail G?nder",
+      linkLabel: "Mail Gönder",
     },
     {
       title: "Telefon",
@@ -55,14 +56,16 @@ export default async function ContactPage() {
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-              ?leti?im
+              İletişim
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-              {profile.name} ile ba?lant? kurun
+              {profile.name} ile bağlantı kurun
             </h1>
             <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
-              {managedPage?.plainText ||
-                "?leti?im kartlari genel ayarlardan, govde icerigi ise admin panelindeki ?leti?im sayfasindan yonetilir."}
+              {repairDisplayText(
+                managedPage?.plainText ||
+                  "İletişim kartları genel ayarlardan, gövde içeriği ise admin panelindeki İletişim sayfasından yönetilir.",
+              )}
             </p>
           </div>
         </div>
@@ -73,7 +76,7 @@ export default async function ContactPage() {
           <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
             <div
               className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+              dangerouslySetInnerHTML={{ __html: repairDisplayText(managedPage.contentHtml) }}
             />
           </article>
         ) : null}
@@ -108,4 +111,3 @@ export default async function ContactPage() {
     </div>
   );
 }
-
