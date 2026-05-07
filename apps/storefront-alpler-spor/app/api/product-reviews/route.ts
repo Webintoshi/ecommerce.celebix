@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, reviews: [] });
     }
 
-    const message = getErrorMessage(error, "Yorumlar yuklenemedi");
+    const message = getErrorMessage(error, "Yorumlar yüklenemedi");
 
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (productError || !product) {
-      return NextResponse.json({ success: false, error: "Urun bulunamadi" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Ürün bulunamadı" }, { status: 404 });
     }
 
     const payload = {
@@ -128,17 +128,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Yorumunuz onay icin alindi. Onaylandiginda urunde yayinlanacak.",
+      message: "Yorumunuz onay için alındı. Onaylandığında üründe yayınlanacak.",
     });
   } catch (error: unknown) {
     if (isMissingProductReviewsTableError(error)) {
       return NextResponse.json(
-        { success: false, error: "Yorum sistemi henuz hazir degil. Lutfen biraz sonra tekrar deneyin." },
+        { success: false, error: "Yorum sistemi henüz hazır değil. Lütfen biraz sonra tekrar deneyin." },
         { status: 503 },
       );
     }
 
-    const message = getErrorMessage(error, "Yorum gonderilemedi");
+    const message = getErrorMessage(error, "Yorum gönderilemedi");
 
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }

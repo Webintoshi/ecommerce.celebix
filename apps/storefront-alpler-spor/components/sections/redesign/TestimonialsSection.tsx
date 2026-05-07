@@ -52,8 +52,8 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "Onayli degerlendirmeler geldikce bu alan otomatik guncellenir",
+  heading = "Müşteri Yorumları",
+  countLabel = "Onaylı değerlendirmeler geldikçe bu alan otomatik güncellenir",
   items,
 }: {
   heading?: string;
@@ -156,7 +156,7 @@ export function TestimonialsSection({
                           {review.verified ? (
                             <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
                               <Check className="h-3 w-3" />
-                              Dogrulanmis
+                              Doğrulanmış
                             </span>
                           ) : null}
                         </div>
@@ -176,7 +176,7 @@ export function TestimonialsSection({
                 type="button"
                 onClick={prevSlide}
                 className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-[#FF6A00] hover:shadow-lg lg:-translate-x-6"
-                aria-label="Onceki"
+                aria-label="Önceki"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>

@@ -57,17 +57,17 @@ function buildGalleryImages({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Guvenli Alisveris",
-  heading = "Dogru urun, net destek, hizli teslimat",
-  description = "Alpler Spor iletisim ve teslimat bilgileri bu alanda satin alma kararini kolaylastiracak sekilde sunulur.",
-  linkLabel = "Destekle Iletisime Gec",
+  eyebrow = "Güvenli Alışveriş",
+  heading = "Doğru ürün, net destek, hızlı teslimat",
+  description = "Alpler Spor iletişim ve teslimat bilgileri bu alanda satın alma kararını kolaylaştıracak şekilde sunulur.",
+  linkLabel = "Destekle İletişime Geç",
   storesHref,
   heroBanners = [],
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarinda guncellendiginde burada gorunur.";
+  const address = storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarında güncellendiğinde burada görünür.";
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
@@ -82,21 +82,21 @@ export function StoreLocationsSection({
       name: `${storeName} Destek`,
       summary:
         storeInfo?.address
-          ? `${storeName} icin adres ve iletisim bilgileri satin alma oncesi guven sinyali olarak sunulur.`
-          : `${storeName} icin adres ve iletisim bilgileri tamamlandiginda bu alan net destek merkezine donusur.`,
-      hours: "Hafta ici hizli geri donus",
+          ? `${storeName} için adres ve iletişim bilgileri satın alma öncesi güven sinyali olarak sunulur.`
+          : `${storeName} için adres ve iletişim bilgileri tamamlandığında bu alan net destek merkezine dönüşür.`,
+      hours: "Hafta içi hızlı geri dönüş",
       address,
       actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Harita" : "Detaylari Ac",
+      actionLabel: storeInfo?.address ? "Harita" : "Detayları Aç",
       icon: <MapPin className="size-4" />,
     },
     {
       id: "support",
-      badge: "Iletisim",
-      name: "Musteri Destek Hatti",
+      badge: "İletişim",
+      name: "Müşteri Destek Hattı",
       summary:
-        "Numara, varyant, teslimat ve iade sorulari ayarlardan gelen telefon ve e-posta ile yonlendirilir.",
-      hours: "Hafta ici hizli geri donus",
+        "Numara, varyant, teslimat ve iade soruları ayarlardan gelen telefon ve e-posta ile yönlendirilir.",
+      hours: "Hafta içi hızlı geri dönüş",
       address: `${phone} • ${email}`,
       actionHref: `mailto:${email}`,
       actionLabel: "E-Posta",
