@@ -267,7 +267,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                   <Ban className="mt-0.5 h-5 w-5" />
                   <div>
                     <p className="font-semibold">Bu link iptal edildi.</p>
-                    <p className="mt-1 text-sm">Yeni odeme linki icin magaza yoneticinizle iletisime gecin.</p>
+                    <p className="mt-1 text-sm">Yeni ödeme linki için mağaza yöneticinizle iletişime geçin.</p>
                   </div>
                 </div>
               </div>
@@ -278,8 +278,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <Timer className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">Bu linkin suresi doldu.</p>
-                    <p className="mt-1 text-sm">Yenilenmis bir odeme linki istemeniz gerekir.</p>
+                    <p className="font-semibold">Bu linkin süresi doldu.</p>
+                    <p className="mt-1 text-sm">Yenilenmiş bir ödeme linki istemeniz gerekir.</p>
                   </div>
                 </div>
               </div>
@@ -289,7 +289,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="mt-8 rounded-[26px] border border-gray-100 bg-[#fafafa] p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-gray-500">Musteri</p>
+                <p className="text-sm font-medium text-gray-500">Müşteri</p>
                 <p className="mt-1 text-lg font-semibold text-gray-950">{link.customer_name || link.customer_email}</p>
                 <p className="mt-1 text-sm text-gray-500">{link.customer_email}</p>
               </div>

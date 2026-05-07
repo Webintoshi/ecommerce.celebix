@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { repairDisplayText } from "@/lib/display-text";
 
 interface AnnouncementSettings {
   message: string;
@@ -13,7 +14,7 @@ interface AnnouncementSettings {
 }
 
 const DEFAULT_SETTINGS: AnnouncementSettings = {
-  message: "Alpler Spor'da guvenli odeme, hizli kargo ve kolay iade",
+  message: "Alpler Spor'da güvenli ödeme, hızlı kargo ve kolay iade",
   link: "/urunler",
   linkText: "Ürünleri İncele",
   enabled: true,
@@ -75,6 +76,8 @@ export function AnnouncementBar() {
 
   const backgroundColor = normalizeAnnouncementColor(settings.backgroundColor);
   const textColor = getAnnouncementTextColor(backgroundColor);
+  const announcementMessage = repairDisplayText(settings.message);
+  const announcementLinkText = repairDisplayText(settings.linkText);
   const isDarkTheme = textColor === "#FFFFFF";
   const buttonClass = isDarkTheme
     ? "bg-white/12 hover:bg-white/20 text-white"
@@ -97,18 +100,18 @@ export function AnnouncementBar() {
         <div className="flex items-center justify-center">
           <p className="text-xs sm:text-sm text-center font-medium tracking-wide" style={{ color: textColor }}>
             <span className="relative">
-              <span className="relative z-10">{settings.message}</span>
+              <span className="relative z-10">{announcementMessage}</span>
               <span
                 className="absolute inset-0 blur-sm scale-110 animate-pulse"
                 style={{ backgroundColor: isDarkTheme ? "rgba(255,255,255,0.18)" : "rgba(11,17,32,0.08)" }}
               />
             </span>
-            {settings.link && settings.linkText ? (
+            {settings.link && announcementLinkText ? (
               <Link
                 href={settings.link}
                 className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
               >
-                {settings.linkText}
+                {announcementLinkText}
                 <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
               </Link>
             ) : null}

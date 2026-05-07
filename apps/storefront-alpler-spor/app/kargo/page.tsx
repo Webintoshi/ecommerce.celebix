@@ -14,7 +14,7 @@ export async function generateMetadata() {
     pathname: "/kargo",
     title: `Kargo ve Teslimat | ${profile.name}`,
     description:
-      `${profile.name} siparislerinde teslimat akislarinin nasil isledigini, kargo sureclerini ve destek adimlarini inceleyin.`,
+      `${profile.name} siparişlerinde teslimat akışlarının nasıl işlediğini, kargo süreçlerini ve destek adımlarını inceleyin.`,
   });
 }
 
@@ -23,18 +23,18 @@ export default async function ShippingPage() {
 
   const cards = [
     {
-      title: "Hazirlama",
-      text: "Yayindaki urunler ve siparisler admin panelinden takip edilir. Siparis onayi sonrasinda hazirlama sureci otomatik kayit altina alinir.",
+      title: "Hazırlama",
+      text: "Yayındaki ürünler ve siparişler admin panelinden takip edilir. Sipariş onayı sonrasında hazırlama süreci otomatik kayıt altına alınır.",
       icon: PackageCheck,
     },
     {
       title: "Teslimat",
-      text: "Kargo sureleri sehir, yogunluk ve resmi tatil etkilerine gore degisebilir. Guncel durum siparis akisi ve bildirimlerle desteklenir.",
+      text: "Kargo süreleri şehir, yoğunluk ve resmî tatil etkilerine göre değişebilir. Güncel durum sipariş akışı ve bildirimlerle desteklenir.",
       icon: Truck,
     },
     {
       title: "Destek",
-      text: "Eksik adres, teslimat sorusu veya hasar kaydi gibi durumlarda destek ekibiyle hizli sekilde baglanti kurulabilir.",
+      text: "Eksik adres, teslimat sorusu veya hasar kaydı gibi durumlarda destek ekibiyle hızlı şekilde bağlantı kurulabilir.",
       icon: ShieldCheck,
     },
   ];
@@ -44,10 +44,10 @@ export default async function ShippingPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Lojistik Akisi
+            Lojistik Akışı
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Kargo ve teslimat sureci net, premium ve guvenli
+            Kargo ve teslimat süreci net, premium ve güvenli
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
             {profile.name} siparislerinde teslimat akislarini, iletisim noktasini ve operasyon
@@ -78,13 +78,13 @@ export default async function ShippingPage() {
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <article className="rounded-[32px] border border-black/5 bg-[#FBF8F4] p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.35)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-              Operasyon Notlari
+              Operasyon Notları
             </p>
             <ul className="mt-4 space-y-4 text-sm leading-7 text-[#5F5147]">
-              <li>Siparis onayi alinan urunler operasyon durumuna gore hazirlanir ve sevk edilir.</li>
-              <li>Teslimat hizi; lokasyon, kargo firmasi yogunlugu ve resmi tatil takvimine bagli olarak degisebilir.</li>
-              <li>Adres eksikligi veya teslimat istisnalarinda musteriyle dogrudan baglanti kurulur.</li>
-              <li>Hasarli paketler icin teslim aninda tutanak tutturulmasi tavsiye edilir.</li>
+              <li>Sipariş onayı alınan ürünler operasyon durumuna göre hazırlanır ve sevk edilir.</li>
+              <li>Teslimat hızı; lokasyon, kargo firması yoğunluğu ve resmî tatil takvimine bağlı olarak değişebilir.</li>
+              <li>Adres eksikliği veya teslimat istisnalarında müşteriyle doğrudan bağlantı kurulur.</li>
+              <li>Hasarlı paketler için teslim anında tutanak tutturulması tavsiye edilir.</li>
             </ul>
           </article>
 
@@ -95,7 +95,7 @@ export default async function ShippingPage() {
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
-                  Destek Noktasi
+                  Destek Noktası
                 </p>
                 <h2 className="mt-1 text-2xl font-semibold">{profile.name}</h2>
               </div>

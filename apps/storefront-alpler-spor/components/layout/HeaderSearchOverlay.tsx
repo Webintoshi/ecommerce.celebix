@@ -261,10 +261,10 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
                   <p className="text-lg font-black text-[#111827]">
-                    Araniyor...
+                    Aranıyor...
                   </p>
                   <p className="mt-2 text-sm text-[#6B7280]">
-                    Sonuclar anlik olarak getiriliyor.
+                    Sonuçlar anlık olarak getiriliyor.
                   </p>
                 </div>
               </div>
@@ -272,7 +272,7 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
                   <p className="text-lg font-black text-[#111827]">
-                    Arama su an calismiyor
+                    Arama şu an çalışmıyor
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">{errorMessage}</p>
                 </div>
@@ -281,10 +281,10 @@ export function HeaderSearchOverlay({
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-[#E5E7EB] bg-white px-6 text-center">
                 <div>
                   <p className="text-lg font-black text-[#111827]">
-                    Sonuc bulunamadi
+                    Sonuç bulunamadı
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Aramanizla eslesen urun bulunamadi. Farkli bir urun veya model ismi deneyin.
+                    Aramanızla eşleşen ürün bulunamadı. Farklı bir ürün veya model ismi deneyin.
                   </p>
                 </div>
               </div>
@@ -292,10 +292,10 @@ export function HeaderSearchOverlay({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
-                    Sonuclar
+                    Sonuçlar
                   </p>
                   <p className="text-sm text-neutral-500">
-                    {Math.min(results.length, MAX_RESULTS)} urun
+                    {Math.min(results.length, MAX_RESULTS)} ürün
                   </p>
                 </div>
 

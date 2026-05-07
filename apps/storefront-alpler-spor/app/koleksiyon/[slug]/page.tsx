@@ -442,7 +442,7 @@ export async function generateMetadata({
     description:
       translatedCategory.seo_description ||
       translatedCategory.description ||
-      `Alpler Spor ${translatedCategory.name} koleksiyonundaki urunleri, stok ve teslimat bilgileriyle kesfedin.`,
+      `Alpler Spor ${translatedCategory.name} koleksiyonundaki ürünleri, stok ve teslimat bilgileriyle keşfedin.`,
     keywords: category.seo_keywords,
     image: translatedCategory.image,
     type: "website",
@@ -549,12 +549,12 @@ export default async function CollectionPage({
             </p>
           ) : (
             <p className="max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-              Bu koleksiyondaki urunleri performans, kullanim senaryosu ve stok durumuna gore hizli tarayin.
+              Bu koleksiyondaki ürünleri performans, kullanım senaryosu ve stok durumuna göre hızlı tarayın.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
-            <span className="rounded-full bg-white/10 px-3 py-2 text-white">{products.length} urun</span>
-            <span className="rounded-full bg-[#FFF1E8] px-3 py-2 text-[#C2410C]">Hizli kargo</span>
+            <span className="rounded-full bg-white/10 px-3 py-2 text-white">{products.length} ürün</span>
+            <span className="rounded-full bg-[#FFF1E8] px-3 py-2 text-[#C2410C]">Hızlı kargo</span>
             <span className="rounded-full bg-[#DBEAFE] px-3 py-2 text-[#1D4ED8]">Kolay iade</span>
           </div>
         </div>

@@ -82,13 +82,13 @@ export function BlogLandingPage({
   const supportingPosts = posts.slice(1, 4);
   const archivePosts = posts.slice(4);
 
-  const eyebrow = activeCategory ? `${activeCategory.name} arsivi` : `${profile.name} Journal`;
+  const eyebrow = activeCategory ? `${activeCategory.name} arşivi` : `${profile.name} Journal`;
   const title = activeCategory
-    ? `${activeCategory.name} yazilari`
-    : "Marka notlari, urun rehberleri ve editor yazilari";
+    ? `${activeCategory.name} yazıları`
+    : "Marka notları, ürün rehberleri ve editör yazıları";
   const description = activeCategory
     ? activeCategory.description
-    : `${profile.name} tarafinda yayinlanan blog yazilari, koleksiyon hikayeleri ve karar surecini kolaylastiran editor notlari burada toplanir.`;
+    : `${profile.name} tarafinda yayinlanan blog yazıları, koleksiyon hikayeleri ve karar surecini kolaylastiran editor notlari burada toplanir.`;
 
   return (
     <div className="min-h-screen bg-[#F6F1EB] text-[#1A120D]">
@@ -109,7 +109,7 @@ export function BlogLandingPage({
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Yazi Sayisi</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Yazı Sayısı</p>
               <p className="mt-3 font-serif text-4xl text-[#140D08]">{posts.length}</p>
             </div>
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
@@ -134,7 +134,7 @@ export function BlogLandingPage({
                 : "border-black/10 bg-white text-[#5F5147] hover:border-[#140D08] hover:text-[#140D08]"
             }`}
           >
-            Tüm yazılar
+            Tüm Yazılar
           </Link>
           {categorySummaries.map((category) => (
             <Link
@@ -159,17 +159,17 @@ export function BlogLandingPage({
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-6 font-serif text-4xl tracking-[-0.04em] text-[#140D08]">
-              Henuz yayinlanmis yazi yok
+              Henüz yayınlanmış yazı yok
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#5F5147]">
-              Blog yazilari admin panelinde yayinlandiginda bu alan otomatik dolar. Ilk yazi yayinlandiginda kategori ve editorial akisi da beraber gelir.
+              Blog yazıları admin panelinde yayinlandiginda bu alan otomatik dolar. Ilk yazi yayinlandiginda kategori ve editorial akisi da beraber gelir.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/urunler" className="rounded-full bg-[#140D08] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
                 Ürünleri incele
               </Link>
               <Link href="/iletisim" className="rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-[#140D08] transition-colors hover:border-[#140D08]">
-                Iletisime gec
+                İletişime geç
               </Link>
             </div>
           </div>
@@ -185,7 +185,7 @@ export function BlogLandingPage({
                         <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.28em] text-[#8A6847]">
                           <span>{BLOG_CATEGORIES.find((item) => item.id === featuredPost.category)?.name || "Blog"}</span>
                           <span className="h-1 w-1 rounded-full bg-[#8A6847]/50" />
-                          <span>One cikan yazi</span>
+                          <span>Öne çıkan yazı</span>
                         </div>
                         <h2 className="mt-5 font-serif text-4xl leading-[1] tracking-[-0.05em] text-[#140D08]">
                           {featuredPost.title}
@@ -209,7 +209,7 @@ export function BlogLandingPage({
                             <p className="mt-2 text-sm font-semibold text-[#140D08]">{featuredPost.author.name}</p>
                           </div>
                           <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]">
-                            Yaziyi ac
+                            Yazıyı aç
                             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                           </span>
                         </div>
@@ -253,11 +253,11 @@ export function BlogLandingPage({
               <div className="space-y-8">
                 <div className="flex items-end justify-between gap-6">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#8A6847]">Arsiv</p>
-                    <h2 className="mt-3 font-serif text-4xl tracking-[-0.05em] text-[#140D08]">Daha fazla yazi</h2>
+                    <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#8A6847]">Arşiv</p>
+                    <h2 className="mt-3 font-serif text-4xl tracking-[-0.05em] text-[#140D08]">Daha fazla yazı</h2>
                   </div>
                   <p className="max-w-xl text-sm leading-7 text-[#5F5147]">
-                    Blog akisi admin panelindeki yayinlanan yazilarla otomatik beslenir. Bu alan ek editorial yazilar geldikce kendiliginden buyur.
+                    Blog akışı admin panelindeki yayınlanan yazılarla otomatik beslenir. Bu alan ek editoryal yazılar geldikçe kendiliğinden büyür.
                   </p>
                 </div>
                 <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">

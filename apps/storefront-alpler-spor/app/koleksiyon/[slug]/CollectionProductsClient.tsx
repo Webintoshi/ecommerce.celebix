@@ -218,9 +218,9 @@ export default function CollectionProductsClient({
   if (products.length === 0) {
     return (
       <div className="rounded-[2rem] border border-[#E5E7EB] bg-white px-6 py-16 text-center shadow-sm">
-        <p className="text-lg font-bold text-[#111827]">Bu koleksiyon hazirlaniyor.</p>
+        <p className="text-lg font-bold text-[#111827]">Bu koleksiyon hazırlanıyor.</p>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#6B7280]">
-          Alpler Spor panelinde bu kategoriye urun eklendiginde vitrin otomatik olarak dolar.
+          Alpler Spor panelinde bu kategoriye ürün eklendiğinde vitrin otomatik olarak dolar.
         </p>
         <Link
           href={buildPath("/urunler")}
@@ -241,7 +241,7 @@ export default function CollectionProductsClient({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Bu koleksiyonda urun, marka veya kategori ara"
+              placeholder="Bu koleksiyonda ürün, marka veya kategori ara"
               className="h-12 w-full rounded-full border border-[#D1D5DB] bg-[#F8FAFC] pl-11 pr-4 text-sm font-medium text-[#111827] outline-none transition focus:border-[#FF6A00] focus:bg-white focus:ring-4 focus:ring-[#FF6A00]/15"
             />
           </div>
@@ -260,19 +260,19 @@ export default function CollectionProductsClient({
               onChange={(event) => setSort(event.target.value)}
               className="h-12 rounded-full border border-[#D1D5DB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/15"
             >
-              <option value="recommended">Onerilen</option>
+              <option value="recommended">Önerilen</option>
               <option value="newest">Yeni Gelenler</option>
-              <option value="price-asc">En Dusuk Fiyat</option>
-              <option value="price-desc">En Yuksek Fiyat</option>
-              <option value="popular">Populer</option>
-              <option value="discounted">Indirimdekiler</option>
+              <option value="price-asc">En Düşük Fiyat</option>
+              <option value="price-desc">En Yüksek Fiyat</option>
+              <option value="popular">Popüler</option>
+              <option value="discounted">İndirimdekiler</option>
             </select>
           </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-[#E5E7EB] pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-medium text-[#6B7280]">
-            {filteredProducts.length} urun listeleniyor
+            {filteredProducts.length} ürün listeleniyor
           </p>
           <ActiveFilters
             filters={filters}
@@ -298,9 +298,9 @@ export default function CollectionProductsClient({
         <div>
           {filteredProducts.length === 0 ? (
             <div className="rounded-[2rem] border border-[#E5E7EB] bg-white px-6 py-16 text-center shadow-sm">
-              <p className="text-lg font-bold text-[#111827]">Bu filtrelere uygun urun bulunamadi.</p>
+              <p className="text-lg font-bold text-[#111827]">Bu filtrelere uygun ürün bulunamadı.</p>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#6B7280]">
-                Arama veya filtre secimlerini temizleyerek koleksiyondaki diger urunleri gorebilirsiniz.
+                Arama veya filtre seçimlerini temizleyerek koleksiyondaki diğer ürünleri görebilirsiniz.
               </p>
               <button
                 type="button"

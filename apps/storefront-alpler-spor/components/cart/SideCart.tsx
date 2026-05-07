@@ -282,7 +282,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                         shipping === 0 ? "text-[#16A34A]" : "text-gray-900",
                       )}
                     >
-                      {shipping === 0 ? "Ucretsiz" : formatPrice(shipping)}
+                      {shipping === 0 ? "Ücretsiz" : formatPrice(shipping)}
                     </span>
                   </div>
                 </div>
@@ -299,12 +299,12 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   onClick={onClose}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#FF6A00] font-bold text-white transition-all hover:bg-[#E85F00] active:scale-[0.98]"
                 >
-                  Odemeye Gec <ArrowRight className="h-5 w-5" />
+                  Ödemeye Geç <ArrowRight className="h-5 w-5" />
                 </Link>
 
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
                   <Lock className="h-3 w-3" />
-                  <span>256-bit SSL ile guvenli odeme</span>
+                  <span>256-bit SSL ile güvenli ödeme</span>
                 </div>
               </div>
             ) : null}

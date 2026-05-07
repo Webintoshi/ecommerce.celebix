@@ -151,7 +151,7 @@ function EmptyShowcaseState() {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C2410C]">
             <Sparkles className="h-3.5 w-3.5" />
-            Vitrin Hazir
+            Vitrin Hazır
           </span>
           <h2 className="mt-5 text-3xl font-black text-[#111827] sm:text-4xl">
             Ürünler geldikçe Alpler Spor vitrini otomatik güçlenir

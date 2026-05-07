@@ -233,7 +233,7 @@ export function FilterSidebar({
             onCheckedChange={(checked) => onFilterChange({ onSale: checked })}
           />
           <FilterCheckbox
-            label="Yeni urunler"
+            label="Yeni ürünler"
             checked={filters.isNew}
             onCheckedChange={(checked) => onFilterChange({ isNew: checked })}
           />

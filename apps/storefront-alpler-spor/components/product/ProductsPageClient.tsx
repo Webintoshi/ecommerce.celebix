@@ -264,11 +264,11 @@ function ProductsPageContent({
                 Alpler Spor Vitrini
               </p>
               <h1 className="max-w-4xl text-4xl font-black leading-[0.98] tracking-tight sm:text-5xl lg:text-6xl">
-                Performansa hazir spor urunleri
+                Performansa hazır spor ürünleri
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5E7EB]">
-                Sneaker, spor ayakkabi, aktif giyim ve aksesuar koleksiyonlarini stok,
-                fiyat ve indirim bilgisiyle hizli tarayin.
+                Sneaker, spor ayakkabı, aktif giyim ve aksesuar koleksiyonlarını stok,
+                fiyat ve indirim bilgisiyle hızlı tarayın.
               </p>
             </div>
 
@@ -276,7 +276,7 @@ function ProductsPageContent({
               {[
                 { icon: SlidersHorizontal, label: "Kategori", value: categoryTotal || "Canli" },
                 { icon: Package, label: "Ürün", value: initialProducts.length },
-                { icon: Truck, label: "Teslimat", value: "2-4 gun" },
+                { icon: Truck, label: "Teslimat", value: "2-4 gün" },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -295,10 +295,10 @@ function ProductsPageContent({
           <div className="mt-8 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.16em]">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[#E5E7EB]">
               <ShieldCheck className="h-3.5 w-3.5 text-[#16A34A]" />
-              Guvenli odeme
+              Güvenli ödeme
             </span>
             <span className="rounded-full bg-white/10 px-3 py-2 text-[#E5E7EB]">Kolay iade</span>
-            <span className="rounded-full bg-[#FF6A00] px-3 py-2 text-white">Hizli kargo</span>
+            <span className="rounded-full bg-[#FF6A00] px-3 py-2 text-white">Hızlı kargo</span>
           </div>
         </div>
       </section>
@@ -324,11 +324,11 @@ function ProductsPageContent({
                 onChange={(event) => setSort(event.target.value as SortOption)}
                 className="h-12 w-full appearance-none rounded-2xl border border-[#D1D5DB] bg-white pl-11 pr-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#FF6A00] focus:ring-4 focus:ring-[#FF6A00]/15"
               >
-                <option value="recommended">Onerilen</option>
+                <option value="recommended">Önerilen</option>
                 <option value="newest">Yeni Gelenler</option>
-                <option value="price-asc">En Dusuk Fiyat</option>
-                <option value="price-desc">En Yuksek Fiyat</option>
-                <option value="popular">Cok Satanlar</option>
+                <option value="price-asc">En Düşük Fiyat</option>
+                <option value="price-desc">En Yüksek Fiyat</option>
+                <option value="popular">Çok Satanlar</option>
                 <option value="discounted">İndirimdekiler</option>
               </select>
             </label>
@@ -361,10 +361,10 @@ function ProductsPageContent({
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-[#374151]">
-                  {filteredProducts.length} urun listeleniyor
+                  {filteredProducts.length} ürün listeleniyor
                 </p>
                 <p className="mt-1 text-xs text-[#6B7280]">
-                  Filtre, stok ve fiyat bilgileri mevcut urun verisi uzerinden hesaplanir.
+                  Filtre, stok ve fiyat bilgileri mevcut ürün verisi üzerinden hesaplanır.
                 </p>
               </div>
               <ActiveFilters
@@ -385,10 +385,10 @@ function ProductsPageContent({
                   <Package className="h-8 w-8 text-[#6B7280]" />
                 </div>
                 <h3 className="mb-2 text-xl font-black text-[#111827]">
-                  Bu filtrelere uygun urun bulunamadi.
+                  Bu filtrelere uygun ürün bulunamadı.
                 </h3>
                 <p className="mx-auto max-w-lg text-sm leading-7 text-[#6B7280]">
-                  Arama kelimesini veya filtreleri degistirerek Alpler Spor urunlerini tekrar tarayin.
+                  Arama kelimesini veya filtreleri değiştirerek Alpler Spor ürünlerini tekrar tarayın.
                 </p>
                 <button
                   type="button"
@@ -424,7 +424,7 @@ function ProductsPageContent({
                   {hasMore ? (
                     <div className="flex items-center gap-2 text-[#6B7280]">
                       <Loader2 className="h-5 w-5 animate-spin text-[#FF6A00]" />
-                      <span className="text-sm">Daha fazla urun yukleniyor...</span>
+                      <span className="text-sm">Daha fazla ürün yükleniyor...</span>
                     </div>
                   ) : null}
                 </div>
