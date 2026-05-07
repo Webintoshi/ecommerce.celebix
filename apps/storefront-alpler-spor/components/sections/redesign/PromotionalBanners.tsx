@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Percent, Sparkles } from "lucide-react";
+import { repairDisplayText } from "@/lib/display-text";
 
 export interface PromoBanner {
   id: number | string;
@@ -26,7 +27,7 @@ interface PromotionalBannersProps {
 
 function getDefaultBadge(order: number): string {
   const badges = ["Yeni Tema", "Editör Seçimi", "Hazır Kampanya"];
-  return badges[order - 1] || "Placeholder";
+  return badges[order - 1] || "Hazır Alan";
 }
 
 function getDefaultColor(order: number): string {
@@ -118,12 +119,12 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         id: banner.id || index + 1,
         image,
         mobileImage: banner.mobileImage || banner.mobile || image,
-        title: banner.title || `Kampanya ${index + 1}`,
-        subtitle: banner.subtitle || "",
-        buttonText: banner.buttonText || "İncele",
+        title: repairDisplayText(banner.title || `Kampanya ${index + 1}`),
+        subtitle: repairDisplayText(banner.subtitle || ""),
+        buttonText: repairDisplayText(banner.buttonText || "İncele"),
         buttonLink: banner.buttonLink || "/urunler",
         order: typeof banner.order === "number" ? banner.order : index + 1,
-        badge: banner.badge,
+        badge: banner.badge ? repairDisplayText(banner.badge) : undefined,
         color: banner.color,
         discount: banner.discount,
         endDate: banner.endDate,
@@ -205,11 +206,11 @@ export default function PromotionalBanners({
             Hazır kampanya alanı
           </span>
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-[#7B1113] md:text-5xl">
-            Storefront base promo slotları
+            Kampanya alanları
           </h2>
           <p className="mx-auto max-w-2xl text-base text-[#6b4b4c] md:text-lg">
-            Bu bloklar yeni magazada admin ayarlariyla doldurulur. Placeholder gorseller,
-            tasarim ve polish surecini hizlandirmak icin birakildi.
+            Bu bloklar yeni mağazada admin ayarlarıyla doldurulur. Placeholder görseller,
+            tasarım ve polish sürecini hızlandırmak için bırakıldı.
           </p>
         </div>
 

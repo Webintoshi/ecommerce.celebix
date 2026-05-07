@@ -20,7 +20,7 @@ export async function settleSuccessfulPaymentAttempt(attempt: PaymentAttempt) {
   }
 
   if (!attempt.order_id) {
-    throw new Error("Odeme denemesi bagli bir siparis icermiyor.");
+    throw new Error("Ödeme denemesi bağlı bir sipariş içermiyor.");
   }
 
   await updatePaymentStatus(attempt.order_id, "completed");

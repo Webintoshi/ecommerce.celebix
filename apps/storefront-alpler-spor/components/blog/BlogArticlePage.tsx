@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CalendarDays, Clock3, FolderOpen } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
+import { repairDisplayText } from "@/lib/display-text";
 import { renderBlogContentToHtml } from "@/lib/blog-rich-text";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { formatDate } from "@/lib/utils";
@@ -11,11 +12,13 @@ import type { BlogPost } from "@/types/blog";
 function BlogHeroImage({ post }: { post: BlogPost }) {
   const imageUrl = resolveStorefrontAssetUrl(post.coverImage);
   const category = BLOG_CATEGORIES.find((item) => item.id === post.category);
+  const safeTitle = repairDisplayText(post.title);
+  const safeCategoryName = repairDisplayText(category?.name || "Blog");
 
   if (imageUrl) {
     return (
       <div className="relative aspect-[1.7/1] overflow-hidden rounded-[30px] border border-black/5">
-        <Image src={imageUrl} alt={post.title} fill priority unoptimized className="object-cover" />
+        <Image src={imageUrl} alt={safeTitle} fill priority unoptimized className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#130D08]/85 via-[#130D08]/18 to-transparent" />
       </div>
     );
@@ -26,7 +29,7 @@ function BlogHeroImage({ post }: { post: BlogPost }) {
       <div className="text-center">
         <div>{category?.icon || "•"}</div>
         <p className="mt-4 text-xs uppercase tracking-[0.38em] text-white/70">
-          {category?.name || "Blog"}
+          {safeCategoryName}
         </p>
       </div>
     </div>
@@ -43,6 +46,12 @@ export function BlogArticlePage({
   profile: StorefrontProfile;
 }) {
   const category = BLOG_CATEGORIES.find((item) => item.id === post.category);
+  const safeCategoryName = repairDisplayText(category?.name || "Blog");
+  const safeTitle = repairDisplayText(post.title);
+  const safeExcerpt = repairDisplayText(post.excerpt);
+  const safeAuthorName = repairDisplayText(post.author.name);
+  const safeTagline = repairDisplayText(profile.tagline);
+  const safeContent = repairDisplayText(post.content || "");
 
   return (
     <div className="min-h-screen bg-[#F6F1EB] text-[#1A120D]">
@@ -66,15 +75,15 @@ export function BlogArticlePage({
               className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-[11px] font-semibold transition-colors hover:border-[#140D08] hover:text-[#140D08]"
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              {category?.name || "Blog"}
+              {safeCategoryName}
             </Link>
             <span>{formatDate(post.publishedAt)}</span>
           </div>
 
           <h1 className="mt-6 font-serif text-5xl leading-[0.94] tracking-[-0.055em] text-[#140D08] sm:text-6xl">
-            {post.title}
+            {safeTitle}
           </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-9 text-[#5F5147]">{post.excerpt}</p>
+          <p className="mt-6 max-w-3xl text-lg leading-9 text-[#5F5147]">{safeExcerpt}</p>
 
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[#5F5147]">
             <span className="inline-flex items-center gap-2">
@@ -87,9 +96,9 @@ export function BlogArticlePage({
             </span>
             <span className="inline-flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#140D08] text-xs font-semibold text-white">
-                {post.author.name.charAt(0)}
+                {safeAuthorName.charAt(0)}
               </span>
-              {post.author.name}
+              {safeAuthorName}
             </span>
           </div>
         </div>
@@ -102,14 +111,14 @@ export function BlogArticlePage({
           <div className="min-w-0">
             <div
               className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:tracking-[-0.03em] prose-headings:text-[#140D08] prose-p:text-[#43372E] prose-p:leading-8 prose-a:text-[#8A6847] prose-a:no-underline hover:prose-a:text-[#140D08] prose-strong:text-[#140D08] prose-li:text-[#43372E] prose-blockquote:border-l-[#8A6847] prose-blockquote:text-[#5F5147]"
-              dangerouslySetInnerHTML={{ __html: renderBlogContentToHtml(post.content || "") }}
+              dangerouslySetInnerHTML={{ __html: renderBlogContentToHtml(safeContent) }}
             />
 
             {post.tags.length > 0 ? (
               <div className="mt-12 flex flex-wrap gap-2 border-t border-black/5 pt-8">
                 {post.tags.map((tag) => (
                   <span key={tag} className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-medium text-[#5F5147]">
-                    #{tag}
+                    #{repairDisplayText(tag)}
                   </span>
                 ))}
               </div>
@@ -120,7 +129,7 @@ export function BlogArticlePage({
             <div className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_70px_-58px_rgba(24,17,11,0.35)]">
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Editör Notu</p>
               <p className="mt-4 font-serif text-3xl leading-tight tracking-[-0.04em] text-[#140D08]">{profile.name}</p>
-              <p className="mt-4 text-sm leading-7 text-[#5F5147]">{profile.tagline}</p>
+              <p className="mt-4 text-sm leading-7 text-[#5F5147]">{safeTagline}</p>
               <Link href="/iletisim" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]">
                 İletişime geç
                 <ArrowRight className="h-4 w-4" />
@@ -158,7 +167,7 @@ export function BlogArticlePage({
                       {resolveStorefrontAssetUrl(relatedPost.coverImage) ? (
                         <Image
                           src={resolveStorefrontAssetUrl(relatedPost.coverImage)}
-                          alt={relatedPost.title}
+                          alt={repairDisplayText(relatedPost.title)}
                           fill
                           unoptimized
                           className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
@@ -172,12 +181,18 @@ export function BlogArticlePage({
                   </Link>
                   <div className="p-6">
                     <p className="text-[11px] uppercase tracking-[0.28em] text-[#8A6847]">
-                      {BLOG_CATEGORIES.find((item) => item.id === relatedPost.category)?.name || "Blog"}
+                      {repairDisplayText(
+                        BLOG_CATEGORIES.find((item) => item.id === relatedPost.category)?.name || "Blog",
+                      )}
                     </p>
                     <Link href={`/blog/${relatedPost.slug}`}>
-                      <h3 className="mt-3 font-serif text-2xl leading-tight tracking-[-0.04em] text-[#140D08]">{relatedPost.title}</h3>
+                      <h3 className="mt-3 font-serif text-2xl leading-tight tracking-[-0.04em] text-[#140D08]">
+                        {repairDisplayText(relatedPost.title)}
+                      </h3>
                     </Link>
-                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#5F5147]">{relatedPost.excerpt}</p>
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#5F5147]">
+                      {repairDisplayText(relatedPost.excerpt)}
+                    </p>
                     <div className="mt-5 flex items-center justify-between text-xs text-[#5F5147]">
                       <span>{formatDate(relatedPost.publishedAt)}</span>
                       <span>{relatedPost.readTime} dk</span>

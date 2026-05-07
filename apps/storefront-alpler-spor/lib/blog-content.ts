@@ -1,5 +1,6 @@
 import { BLOG_CATEGORIES, calculateSEOScore } from "@/lib/blog";
 import { extractBlogPlainText } from "@/lib/blog-rich-text";
+import { repairDisplayText } from "@/lib/display-text";
 import type { BlogPost as BlogRow } from "@/lib/supabase";
 import type { BlogCategory, BlogPost } from "@/types/blog";
 
@@ -100,15 +101,15 @@ export function mapBlogRow(row: BlogRow): BlogPost {
 
   return {
     id: row.id,
-    title: row.title,
+    title: repairDisplayText(row.title),
     slug: row.slug,
-    excerpt,
-    content,
+    excerpt: repairDisplayText(excerpt),
+    content: repairDisplayText(content),
     coverImage: row.featured_image || "",
     author: {
-      name: row.author || "Admin",
+      name: repairDisplayText(row.author || "Admin"),
       avatar: "",
-      role: "Editor",
+      role: "Editör",
     },
     category,
     tags,

@@ -5,6 +5,7 @@ import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import { repairDisplayText } from "@/lib/display-text";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,10 @@ export default async function FAQPage() {
             Sıkça sorulan sorular
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText ||
-              `${profile.name} için sipariş, teslimat, iade ve destek akışları hakkındaki içerikleri admin panelinden yönetebilirsiniz.`}
+            {repairDisplayText(
+              managedPage?.plainText ||
+                `${profile.name} için sipariş, teslimat, iade ve destek akışları hakkındaki içerikleri admin panelinden yönetebilirsiniz.`,
+            )}
           </p>
         </div>
       </section>
@@ -51,13 +54,14 @@ export default async function FAQPage() {
           {managedPage?.contentHtml ? (
             <div
               className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+              dangerouslySetInnerHTML={{ __html: repairDisplayText(managedPage.contentHtml) }}
             />
           ) : (
             <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
               <p>
-                Bu sayfa admin panelindeki <strong>SSS</strong> iceriginden beslenir. Musteriye gostermek istediginiz
-                soru-cevap, operasyon notlari veya yardim akisini burada zengin metin olarak yonetebilirsiniz.
+                Bu sayfa admin panelindeki <strong>SSS</strong> içeriğinden beslenir.
+                Müşteriye göstermek istediğiniz soru-cevap, operasyon notları veya yardım
+                akışını burada zengin metin olarak yönetebilirsiniz.
               </p>
               <p>
                 İçerik eklenene kadar bu alan temel bir bilgilendirme olarak kalır.

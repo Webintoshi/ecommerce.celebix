@@ -132,7 +132,7 @@ export function validatePaymentGatewayConfig(
     const definition = getPaymentProviderDefinition(gateway);
 
     if (!config.name?.trim()) {
-        errors.push("Odeme yontemi adi gereklidir.");
+        errors.push("Ödeme yöntemi adı gereklidir.");
     }
 
     definition.credentialFields.forEach((field) => {
@@ -144,7 +144,7 @@ export function validatePaymentGatewayConfig(
 
     if (gateway === "bank_transfer") {
         if (!config.bankAccount?.bankName?.trim()) {
-            errors.push("Banka adi gereklidir.");
+            errors.push("Banka adı gereklidir.");
         }
         if (!config.bankAccount?.iban?.trim()) {
             errors.push("IBAN gereklidir.");
@@ -155,13 +155,13 @@ export function validatePaymentGatewayConfig(
     }
 
     if (gateway === "cod" && (config.codSettings?.maxOrderAmount ?? 0) < (config.codSettings?.minOrderAmount ?? 0)) {
-        errors.push("Kapida odeme maksimum tutari minimum tutardan kucuk olamaz.");
+        errors.push("Kapıda ödeme maksimum tutarı minimum tutardan küçük olamaz.");
     }
 
     if (config.environment === "production" && config.status === "active") {
         const missingRequiredCredentials = definition.credentialFields.some((field) => field.required && !config.credentials?.[field.key]?.trim());
         if (missingRequiredCredentials) {
-            errors.push("Canli ortamda aktif etmek icin zorunlu API bilgileri doldurulmalidir.");
+            errors.push("Canlı ortamda aktif etmek için zorunlu API bilgileri doldurulmalıdır.");
         }
     }
 

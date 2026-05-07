@@ -3,6 +3,7 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import { repairDisplayText } from "@/lib/display-text";
 
 export const dynamic = "force-dynamic";
 
@@ -61,8 +62,10 @@ export default async function ContactPage() {
               {profile.name} ile bağlantı kurun
             </h1>
             <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
-              {managedPage?.plainText ||
-                "İletişim kartları genel ayarlardan, gövde içeriği ise admin panelindeki İletişim sayfasından yönetilir."}
+              {repairDisplayText(
+                managedPage?.plainText ||
+                  "İletişim kartları genel ayarlardan, gövde içeriği ise admin panelindeki İletişim sayfasından yönetilir.",
+              )}
             </p>
           </div>
         </div>
@@ -73,7 +76,7 @@ export default async function ContactPage() {
           <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
             <div
               className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+              dangerouslySetInnerHTML={{ __html: repairDisplayText(managedPage.contentHtml) }}
             />
           </article>
         ) : null}

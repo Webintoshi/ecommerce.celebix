@@ -1,5 +1,6 @@
 import { getStoreInfo } from "@/lib/db/settings";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { repairDisplayText } from "@/lib/display-text";
 
 export type StorefrontProfile = {
   name: string;
@@ -19,14 +20,14 @@ export type StorefrontProfile = {
 };
 
 const DEFAULT_ADDRESS =
-  "Magaza adresi ve fiziksel deneyim bilgileri admin genel ayarlarindan girildiginde bu alan otomatik guncellenir.";
+  "Mağaza adresi ve fiziksel deneyim bilgileri admin genel ayarlarından girildiğinde bu alan otomatik güncellenir.";
 
 export async function getStorefrontProfile(): Promise<StorefrontProfile> {
   const storeInfo = await getStoreInfo();
-  const name = storeInfo?.name || STOREFRONT_RUNTIME.name;
+  const name = repairDisplayText(storeInfo?.name || STOREFRONT_RUNTIME.name);
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const address = storeInfo?.address || DEFAULT_ADDRESS;
+  const address = repairDisplayText(storeInfo?.address || DEFAULT_ADDRESS);
 
   return {
     name,
@@ -40,8 +41,8 @@ export async function getStorefrontProfile(): Promise<StorefrontProfile> {
     faviconUrl: storeInfo?.faviconUrl,
     socialInstagram: storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram,
     socialTwitter: storeInfo?.socialTwitter || STOREFRONT_RUNTIME.socialTwitter,
-    tagline: STOREFRONT_RUNTIME.tagline,
-    description: STOREFRONT_RUNTIME.description,
+    tagline: repairDisplayText(STOREFRONT_RUNTIME.tagline),
+    description: repairDisplayText(STOREFRONT_RUNTIME.description),
     mapSearchUrl: storeInfo?.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
       : STOREFRONT_RUNTIME.siteUrl,

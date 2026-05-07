@@ -5,6 +5,7 @@ import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import { repairDisplayText } from "@/lib/display-text";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function AboutPage() {
             {profile.name}
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText || profile.tagline}
+            {repairDisplayText(managedPage?.plainText || profile.tagline)}
           </p>
         </div>
       </section>
@@ -51,18 +52,18 @@ export default async function AboutPage() {
             {managedPage?.contentHtml ? (
               <div
                 className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-                dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
+                dangerouslySetInnerHTML={{ __html: repairDisplayText(managedPage.contentHtml) }}
               />
             ) : (
               <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
                 <p>
-                  Bu alan admin panelindeki <strong>Hakkımızda</strong> sayfasindan yonetilir.
-                  Icerik girildiginde magaza hikayeniz, uretim anlayisiniz ve kurumsal anlatiminiz
-                  burada yayinlanir.
+                  Bu alan admin panelindeki <strong>Hakkımızda</strong> sayfasından yönetilir.
+                  İçerik girildiğinde mağaza hikâyeniz, üretim anlayışınız ve kurumsal
+                  anlatımınız burada yayınlanır.
                 </p>
                 <p>
-                  Simdilik bu sayfa magaza genel ayarlarindaki marka bilgilerini referans aliyor.
-                  Musteriye gosterilecek son metni admin panelinden duzenlemeniz gerekir.
+                  Şimdilik bu sayfa mağaza genel ayarlarındaki marka bilgilerini referans alıyor.
+                  Müşteriye gösterilecek son metni admin panelinden düzenlemeniz gerekir.
                 </p>
               </div>
             )}

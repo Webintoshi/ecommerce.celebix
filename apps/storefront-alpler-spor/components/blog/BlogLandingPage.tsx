@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3, FolderOpen, Sparkles } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
+import { repairDisplayText } from "@/lib/display-text";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
@@ -19,6 +20,8 @@ type CategorySummary = {
 function buildCategorySummaries(posts: BlogPost[]): CategorySummary[] {
   return BLOG_CATEGORIES.map((category) => ({
     ...category,
+    name: repairDisplayText(category.name),
+    description: repairDisplayText(category.description),
     count: posts.filter((post) => post.category === category.id).length,
   })).filter((category) => category.count > 0);
 }
@@ -34,13 +37,15 @@ function BlogCover({
 }) {
   const imageUrl = resolveStorefrontAssetUrl(post.coverImage);
   const category = BLOG_CATEGORIES.find((item) => item.id === post.category);
+  const safeTitle = repairDisplayText(post.title);
+  const safeCategoryName = repairDisplayText(category?.name || "Blog");
 
   if (imageUrl) {
     return (
       <div className={`relative overflow-hidden ${className || ""}`}>
         <Image
           src={imageUrl}
-          alt={post.title}
+          alt={safeTitle}
           fill
           priority={priority}
           unoptimized
@@ -58,7 +63,7 @@ function BlogCover({
       <div className="flex flex-col items-center gap-3">
         <span>{category?.icon || "•"}</span>
         <span className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
-          {category?.name || "Blog"}
+          {safeCategoryName}
         </span>
       </div>
     </div>
@@ -82,13 +87,15 @@ export function BlogLandingPage({
   const supportingPosts = posts.slice(1, 4);
   const archivePosts = posts.slice(4);
 
-  const eyebrow = activeCategory ? `${activeCategory.name} arşivi` : `${profile.name} Journal`;
+  const safeProfileName = repairDisplayText(profile.name);
+  const safeTagline = repairDisplayText(profile.tagline);
+  const eyebrow = activeCategory ? `${activeCategory.name} arşivi` : `${safeProfileName} Journal`;
   const title = activeCategory
     ? `${activeCategory.name} yazıları`
     : "Marka notları, ürün rehberleri ve editör yazıları";
   const description = activeCategory
     ? activeCategory.description
-    : `${profile.name} tarafinda yayinlanan blog yazıları, koleksiyon hikayeleri ve karar surecini kolaylastiran editor notlari burada toplanir.`;
+    : `${safeProfileName} tarafında yayınlanan blog yazıları, koleksiyon hikâyeleri ve karar sürecini kolaylaştıran editör notları burada toplanır.`;
 
   return (
     <div className="min-h-screen bg-[#F6F1EB] text-[#1A120D]">
@@ -118,7 +125,7 @@ export function BlogLandingPage({
             </div>
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
               <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Odak</p>
-              <p className="mt-3 text-sm leading-7 text-[#5F5147]">{profile.tagline}</p>
+              <p className="mt-3 text-sm leading-7 text-[#5F5147]">{safeTagline}</p>
             </div>
           </div>
         </div>
@@ -162,7 +169,8 @@ export function BlogLandingPage({
               Henüz yayınlanmış yazı yok
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#5F5147]">
-              Blog yazıları admin panelinde yayinlandiginda bu alan otomatik dolar. Ilk yazi yayinlandiginda kategori ve editorial akisi da beraber gelir.
+              Blog yazıları admin panelinde yayınlandığında bu alan otomatik dolar. İlk yazı
+              yayınlandığında kategori ve editoryal akış da beraber gelir.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/urunler" className="rounded-full bg-[#140D08] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
@@ -183,14 +191,20 @@ export function BlogLandingPage({
                     <div className="flex flex-col justify-between p-7">
                       <div>
                         <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.28em] text-[#8A6847]">
-                          <span>{BLOG_CATEGORIES.find((item) => item.id === featuredPost.category)?.name || "Blog"}</span>
+                          <span>
+                            {repairDisplayText(
+                              BLOG_CATEGORIES.find((item) => item.id === featuredPost.category)?.name || "Blog",
+                            )}
+                          </span>
                           <span className="h-1 w-1 rounded-full bg-[#8A6847]/50" />
                           <span>Öne çıkan yazı</span>
                         </div>
                         <h2 className="mt-5 font-serif text-4xl leading-[1] tracking-[-0.05em] text-[#140D08]">
-                          {featuredPost.title}
+                          {repairDisplayText(featuredPost.title)}
                         </h2>
-                        <p className="mt-5 text-sm leading-7 text-[#5F5147]">{featuredPost.excerpt}</p>
+                        <p className="mt-5 text-sm leading-7 text-[#5F5147]">
+                          {repairDisplayText(featuredPost.excerpt)}
+                        </p>
                       </div>
                       <div className="mt-8 space-y-6">
                         <div className="flex flex-wrap items-center gap-4 text-sm text-[#5F5147]">
@@ -206,7 +220,9 @@ export function BlogLandingPage({
                         <div className="flex items-center justify-between border-t border-black/5 pt-5">
                           <div>
                             <p className="text-xs uppercase tracking-[0.28em] text-[#8A6847]">Yazar</p>
-                            <p className="mt-2 text-sm font-semibold text-[#140D08]">{featuredPost.author.name}</p>
+                            <p className="mt-2 text-sm font-semibold text-[#140D08]">
+                              {repairDisplayText(featuredPost.author.name)}
+                            </p>
                           </div>
                           <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]">
                             Yazıyı aç
@@ -226,13 +242,15 @@ export function BlogLandingPage({
                         <div className="flex flex-col justify-between p-5">
                           <div>
                             <p className="text-[11px] uppercase tracking-[0.28em] text-[#8A6847]">
-                              {BLOG_CATEGORIES.find((item) => item.id === post.category)?.name || "Blog"}
+                              {repairDisplayText(
+                                BLOG_CATEGORIES.find((item) => item.id === post.category)?.name || "Blog",
+                              )}
                             </p>
                             <h3 className="mt-3 font-serif text-2xl leading-tight tracking-[-0.04em] text-[#140D08]">
-                              {post.title}
+                              {repairDisplayText(post.title)}
                             </h3>
                             <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#5F5147]">
-                              {post.excerpt}
+                              {repairDisplayText(post.excerpt)}
                             </p>
                           </div>
                           <div className="mt-5 flex items-center justify-between text-xs text-[#5F5147]">
@@ -269,14 +287,20 @@ export function BlogLandingPage({
                       <div className="p-6">
                         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-[#8A6847]">
                           <FolderOpen className="h-3.5 w-3.5" />
-                          <span>{BLOG_CATEGORIES.find((item) => item.id === post.category)?.name || "Blog"}</span>
+                          <span>
+                            {repairDisplayText(
+                              BLOG_CATEGORIES.find((item) => item.id === post.category)?.name || "Blog",
+                            )}
+                          </span>
                         </div>
                         <Link href={`/blog/${post.slug}`}>
                           <h3 className="mt-4 font-serif text-[1.85rem] leading-[1.02] tracking-[-0.045em] text-[#140D08] transition-colors group-hover:text-[#8A6847]">
-                            {post.title}
+                            {repairDisplayText(post.title)}
                           </h3>
                         </Link>
-                        <p className="mt-4 line-clamp-3 text-sm leading-7 text-[#5F5147]">{post.excerpt}</p>
+                        <p className="mt-4 line-clamp-3 text-sm leading-7 text-[#5F5147]">
+                          {repairDisplayText(post.excerpt)}
+                        </p>
                         <div className="mt-6 flex items-center justify-between border-t border-black/5 pt-4 text-xs text-[#5F5147]">
                           <span>{formatDate(post.publishedAt)}</span>
                           <span>{post.readTime} dk</span>

@@ -63,14 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         return {
-          error: new Error(payload.error || "Giris yapilamadi."),
+          error: new Error(payload.error || "Giriş yapılamadı."),
         };
       }
 
       const session = payload.session;
       if (!session?.access_token || !session?.refresh_token) {
         return {
-          error: new Error("Giris oturumu olusturulamadi."),
+          error: new Error("Giriş oturumu oluşturulamadı."),
         };
       }
 
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error, data };
     } catch (error) {
       return {
-        error: error instanceof Error ? error : new Error("Giris yapilamadi."),
+        error: error instanceof Error ? error : new Error("Giriş yapılamadı."),
       };
     }
   };
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         return {
-          error: new Error(payload.error || "Kayit olusturulamadi."),
+          error: new Error(payload.error || "Kayıt oluşturulamadı."),
           data: null,
         };
       }
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     } catch (error) {
       return {
-        error: error instanceof Error ? error : new Error("Kayit olusturulamadi."),
+        error: error instanceof Error ? error : new Error("Kayıt oluşturulamadı."),
         data: null,
       };
     }

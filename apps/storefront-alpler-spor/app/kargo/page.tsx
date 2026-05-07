@@ -50,8 +50,8 @@ export default async function ShippingPage() {
             Kargo ve teslimat süreci net, premium ve güvenli
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {profile.name} siparislerinde teslimat akislarini, iletisim noktasini ve operasyon
-            guvencelerini bu sayfadan yonetebilirsiniz.
+            {profile.name} siparişlerinde teslimat akışlarını, iletişim noktasını ve operasyon
+            güvencelerini bu sayfadan yönetebilirsiniz.
           </p>
         </div>
       </section>

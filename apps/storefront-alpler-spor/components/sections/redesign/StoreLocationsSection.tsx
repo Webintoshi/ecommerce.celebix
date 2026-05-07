@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { repairDisplayText } from "@/lib/display-text";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
@@ -28,7 +29,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `hero-${index}-${imageIndex}`,
           src: image,
-          alt: banner.alt || `${storeName} vitrin gorunumu`,
+          alt: repairDisplayText(banner.alt || `${storeName} vitrin görünümü`),
           city: "Vitrin",
         })),
     ),
@@ -38,7 +39,7 @@ function buildGalleryImages({
         .map((image, imageIndex) => ({
           id: `promo-${index}-${imageIndex}`,
           src: image,
-          alt: banner.title || `${storeName} koleksiyon gorseli`,
+          alt: repairDisplayText(banner.title || `${storeName} koleksiyon görseli`),
           city: "Koleksiyon",
         })),
     ),
@@ -49,10 +50,10 @@ function buildGalleryImages({
   }
 
   return [
-    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak gorunum 1`, city: "Studio" },
-    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak gorunum 2`, city: "Showroom" },
-    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak gorunum 3`, city: "Atolye" },
-    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak gorunum 4`, city: "Marka" },
+    { id: "placeholder-1", src: "/placeholders/promo-banner-1.svg", alt: `${storeName} taslak görünüm 1`, city: "Stüdyo" },
+    { id: "placeholder-2", src: "/placeholders/promo-banner-2.svg", alt: `${storeName} taslak görünüm 2`, city: "Showroom" },
+    { id: "placeholder-3", src: "/placeholders/promo-banner-3.svg", alt: `${storeName} taslak görünüm 3`, city: "Atölye" },
+    { id: "placeholder-4", src: "/placeholder.svg", alt: `${storeName} taslak görünüm 4`, city: "Marka" },
   ];
 }
 
@@ -66,9 +67,11 @@ export function StoreLocationsSection({
   promoBanners = [],
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
-  const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarında güncellendiğinde burada görünür.";
-  const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
+  const storeName = repairDisplayText(storeInfo?.name || STOREFRONT_RUNTIME.name);
+  const address = repairDisplayText(
+    storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarında güncellendiğinde burada görünür.",
+  );
+  const phone = repairDisplayText(storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone);
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
   const mapUrl = storeInfo?.address
@@ -107,15 +110,15 @@ export function StoreLocationsSection({
   return (
     <section className="bg-white py-16 sm:py-20">
       <div className="container-premium">
-        <div className="mx-auto max-w-3xl text-center">
+            <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[#F26A21]">
-            {eyebrow}
+            {repairDisplayText(eyebrow)}
           </p>
           <h2 className="mt-4 text-3xl font-bold text-[#121713] sm:text-4xl">
-            {heading}
+            {repairDisplayText(heading)}
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#5E6B62] sm:text-[15px]">
-            {description}
+            {repairDisplayText(description)}
           </p>
         </div>
 
@@ -149,9 +152,11 @@ export function StoreLocationsSection({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#F26A21]">
-                    {card.badge}
+                    {repairDisplayText(card.badge)}
                   </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[#121713]">{card.name}</h3>
+                  <h3 className="mt-2 text-2xl font-semibold text-[#121713]">
+                    {repairDisplayText(card.name)}
+                  </h3>
                 </div>
 
                 <a
@@ -159,20 +164,22 @@ export function StoreLocationsSection({
                   className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-3.5 py-2 text-sm font-bold text-[#C2410C] transition hover:border-[#FF6A00]/50"
                 >
                   {card.icon}
-                  <span>{card.actionLabel}</span>
+                  <span>{repairDisplayText(card.actionLabel)}</span>
                 </a>
               </div>
 
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5E6B62]">{card.summary}</p>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5E6B62]">
+                {repairDisplayText(card.summary)}
+              </p>
 
               <div className="mt-5 space-y-3 text-sm text-[#4D5A51]">
                 <div className="inline-flex items-center gap-2 bg-white px-3 py-2">
                   <Clock3 className="size-4 text-[#FF6A00]" />
-                  <span>{card.hours}</span>
+                  <span>{repairDisplayText(card.hours)}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="mt-1 size-4 text-[#FF6A00]" />
-                  <p className="text-sm leading-6 text-[#5E6B62]">{card.address}</p>
+                  <p className="text-sm leading-6 text-[#5E6B62]">{repairDisplayText(card.address)}</p>
                 </div>
                 <div className="flex flex-wrap gap-5 text-[#5E6B62]">
                   <span className="inline-flex items-center gap-2">
@@ -194,7 +201,7 @@ export function StoreLocationsSection({
             href={storesHref}
             className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/25 bg-white px-5 py-3 text-sm font-bold text-[#C2410C] transition hover:border-[#FF6A00]/50 hover:bg-[#FFF1E8]"
           >
-            <span>{linkLabel}</span>
+            <span>{repairDisplayText(linkLabel)}</span>
             <ExternalLink className="size-4" />
           </Link>
         </div>
