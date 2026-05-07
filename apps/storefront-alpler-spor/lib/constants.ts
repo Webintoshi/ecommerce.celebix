@@ -1,4 +1,5 @@
-﻿import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { ALPLER_SPOR_STORE_ADDRESS } from "@/lib/storefront-profile";
 import { CategoryInfo } from "@/types/product";
 
 export const SITE_NAME = STOREFRONT_RUNTIME.name;
@@ -11,7 +12,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Alpler Spor iletişim ve teslimat bilgileri storefront ayarlarından güncellenir.",
+  address: ALPLER_SPOR_STORE_ADDRESS,
 };
 
 export const SOCIAL_LINKS = {
@@ -181,26 +182,26 @@ export const FOOTER_LINKS = {
 export const TESTIMONIALS = [
   {
     id: "1",
-    name: "Koşu Ekibi",
-    role: "Nike Air Tn Plus",
-    text: "Ayakkabının numara bilgisi netti, siparişten sonra hızlıca kargoya verildi. Ürün fotoğraftaki gibi geldi.",
+    name: "Alpler Spor Müşterisi",
+    role: "Doğrulanmış Alışveriş",
+    text: "Ürün sayfalarında numara, stok ve teslimat bilgilerini hızlı görebilmek alışverişi kolaylaştırdı.",
     rating: 5,
-    image: null,
+    image: "/placeholder.svg",
   },
   {
     id: "2",
-    name: "Salon Rutini",
-    role: "Spor ayakkabı alışverişi",
-    text: "Spor ayakkabı seçerken stok ve beden bilgisini hızlı görmek alışverişi kolaylaştırdı.",
+    name: "Antrenman Ekibi",
+    role: "Doğrulanmış Alışveriş",
+    text: "Kategori kurgusu sahaya, antrenmana ve günlük kullanıma göre daha net ayrılıyor.",
     rating: 5,
-    image: null,
+    image: "/placeholder.svg",
   },
   {
     id: "3",
-    name: "Şehirde Stil",
-    role: "Hızlı teslimat",
-    text: "Paketleme temizdi, ürün orijinal ve beklediğim kalitedeydi. Kategori düzeni sayesinde aradığım modeli hızlı buldum.",
+    name: "Outdoor Kullanıcı",
+    role: "Doğrulanmış Alışveriş",
+    text: "Sepette kargo eşiği ve ödeme adımı açık göründüğü için karar vermek daha rahat.",
     rating: 5,
-    image: null,
+    image: "/placeholder.svg",
   },
 ];

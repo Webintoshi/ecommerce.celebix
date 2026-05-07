@@ -19,15 +19,39 @@ export type StorefrontProfile = {
   mapSearchUrl: string;
 };
 
-const DEFAULT_ADDRESS =
-  "Mağaza adresi ve fiziksel deneyim bilgileri admin genel ayarlarından girildiğinde bu alan otomatik güncellenir.";
+export const ALPLER_SPOR_STORE_ADDRESS = "Ordu, Altınordu, Zübeyde Hanım Cad., 46A";
+
+const ADDRESS_PLACEHOLDER_PATTERNS = [
+  "mağaza adresi",
+  "magaza adresi",
+  "admin genel ayar",
+  "storefront ayar",
+  "otomatik güncellen",
+  "burada görün",
+  "adres bilgisi",
+];
+
+export function resolveStoreAddress(rawAddress: string | null | undefined) {
+  const normalized = repairDisplayText(rawAddress || "").trim();
+
+  if (!normalized) {
+    return ALPLER_SPOR_STORE_ADDRESS;
+  }
+
+  const lowered = normalized.toLocaleLowerCase("tr-TR");
+  if (ADDRESS_PLACEHOLDER_PATTERNS.some((pattern) => lowered.includes(pattern))) {
+    return ALPLER_SPOR_STORE_ADDRESS;
+  }
+
+  return normalized;
+}
 
 export async function getStorefrontProfile(): Promise<StorefrontProfile> {
   const storeInfo = await getStoreInfo();
   const name = repairDisplayText(storeInfo?.name || STOREFRONT_RUNTIME.name);
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const address = repairDisplayText(storeInfo?.address || DEFAULT_ADDRESS);
+  const address = resolveStoreAddress(storeInfo?.address);
 
   return {
     name,
@@ -43,8 +67,6 @@ export async function getStorefrontProfile(): Promise<StorefrontProfile> {
     socialTwitter: storeInfo?.socialTwitter || STOREFRONT_RUNTIME.socialTwitter,
     tagline: repairDisplayText(STOREFRONT_RUNTIME.tagline),
     description: repairDisplayText(STOREFRONT_RUNTIME.description),
-    mapSearchUrl: storeInfo?.address
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
-      : STOREFRONT_RUNTIME.siteUrl,
+    mapSearchUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
   };
 }
