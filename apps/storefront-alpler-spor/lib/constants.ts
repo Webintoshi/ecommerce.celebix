@@ -1,4 +1,5 @@
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { ALPLER_SPOR_STORE_ADDRESS } from "@/lib/storefront-profile";
 import { CategoryInfo } from "@/types/product";
 
 export const SITE_NAME = STOREFRONT_RUNTIME.name;
@@ -11,7 +12,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Alpler Spor iletişim ve teslimat bilgileri storefront ayarlarından güncellenir.",
+  address: ALPLER_SPOR_STORE_ADDRESS,
 };
 
 export const SOCIAL_LINKS = {

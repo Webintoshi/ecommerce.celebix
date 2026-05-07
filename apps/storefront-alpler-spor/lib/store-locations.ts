@@ -1,3 +1,5 @@
+import { ALPLER_SPOR_STORE_ADDRESS } from "@/lib/storefront-profile";
+
 export interface StoreLocation {
   id: string;
   name: string;
@@ -16,15 +18,15 @@ export const STORE_LOCATIONS: StoreLocation[] = [
   {
     id: "studio",
     name: "Merkez Stüdyo",
-    city: "İstanbul",
+    city: "Ordu",
     badge: "Atölye & Deneyim",
     summary:
       "Mağaza adresinizi, çalışma saatlerinizi ve destek kanallarınızı adminden girdiğinizde bu alan otomatik olarak markanıza özel bir deneyim kartına dönüşür.",
-    address: "Adres bilgisi mağaza ayarlarında tamamlandığında burada gösterilir.",
+    address: ALPLER_SPOR_STORE_ADDRESS,
     phone: "+90 532 000 00 00",
     email: "destek@magazaadi.com",
     hours: "Pzt - Cmt / 10:00 - 19:00",
-    mapUrl: "https://www.google.com/maps",
+    mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ALPLER_SPOR_STORE_ADDRESS)}`,
     images: [
       "/placeholders/promo-banner-1.svg",
       "/placeholders/promo-banner-2.svg",

@@ -6,6 +6,7 @@ import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 import { repairDisplayText } from "@/lib/display-text";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { resolveStoreAddress } from "@/lib/storefront-profile";
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -68,15 +69,12 @@ export function StoreLocationsSection({
 }: StoreLocationsSectionProps) {
   const { storeInfo } = useStoreInfo();
   const storeName = repairDisplayText(storeInfo?.name || STOREFRONT_RUNTIME.name);
-  const address = repairDisplayText(
-    storeInfo?.address || "Teslimat ve destek bilgileri storefront ayarlarında güncellendiğinde burada görünür.",
-  );
+  const rawAddress = repairDisplayText(storeInfo?.address || "");
+  const address = resolveStoreAddress(storeInfo?.address);
   const phone = repairDisplayText(storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone);
   const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const galleryImages = buildGalleryImages({ heroBanners, promoBanners, storeName });
-  const mapUrl = storeInfo?.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
-    : storesHref;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
   const cards = [
     {
@@ -84,13 +82,13 @@ export function StoreLocationsSection({
       badge: "Teslimat & Destek",
       name: `${storeName} Destek`,
       summary:
-        storeInfo?.address
+        rawAddress && rawAddress === address
           ? `${storeName} için adres ve iletişim bilgileri satın alma öncesi güven sinyali olarak sunulur.`
-          : `${storeName} için adres ve iletişim bilgileri tamamlandığında bu alan net destek merkezine dönüşür.`,
+          : `${storeName} için resmi mağaza adresi ve iletişim bilgileri güven sinyali olarak burada gösterilir.`,
       hours: "Hafta içi hızlı geri dönüş",
       address,
       actionHref: mapUrl,
-      actionLabel: storeInfo?.address ? "Harita" : "Detayları Aç",
+      actionLabel: "Harita",
       icon: <MapPin className="size-4" />,
     },
     {

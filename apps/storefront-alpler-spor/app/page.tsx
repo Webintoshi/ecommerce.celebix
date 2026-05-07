@@ -7,6 +7,7 @@ import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { ALPLER_SPOR_STORE_ADDRESS } from "@/lib/storefront-profile";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
@@ -66,9 +67,7 @@ export default async function Home() {
     getLocaleRoutingConfig(),
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const siteDescription = storeInfo?.address
-    ? `${siteName} mağazasının spor ekipmanı vitrini, iletişim ve teslimat bilgileri tek deneyimde sunulur.`
-    : STOREFRONT_RUNTIME.description;
+  const siteDescription = `${siteName} mağazasının spor ekipmanı vitrini, iletişim ve teslimat bilgileri ${ALPLER_SPOR_STORE_ADDRESS} adresiyle tek deneyimde sunulur.`;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale, routing),
@@ -117,6 +116,13 @@ export default async function Home() {
               email: storeInfo?.email || STOREFRONT_RUNTIME.supportEmail,
               contactType: "customer service",
               availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
+            },
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: "Zübeyde Hanım Cad., 46A",
+              addressLocality: "Altınordu",
+              addressRegion: "Ordu",
+              addressCountry: "TR",
             },
             sameAs: [
               storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram,
