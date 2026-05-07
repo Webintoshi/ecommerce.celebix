@@ -1,8 +1,8 @@
-﻿const DEFAULT_SITE_URL = "https://store.celebix.co";
+const DEFAULT_SITE_URL = "https://store.celebix.co";
 const DEFAULT_STORE_NAME = "Premium Storefront";
-const DEFAULT_TAGLINE = "Adminden y?netilen premium ma?aza deneyimi.";
+const DEFAULT_TAGLINE = "Adminden yönetilen premium mağaza deneyimi.";
 const DEFAULT_DESCRIPTION =
-  "Celebix ile y?netilen premium e-ticaret deneyimi. ?r?nlerinizi, kategorilerinizi ve i?eriklerinizi adminden y?netin; storefront otomatik olarak g?ncellensin.";
+  "Celebix ile yönetilen premium e-ticaret deneyimi. Ürünlerinizi, kategorilerinizi ve içeriklerinizi adminden yönetin; storefront otomatik olarak güncellensin.";
 const DEFAULT_SUPPORT_EMAIL = "destek@store.celebix.co";
 const DEFAULT_SUPPORT_PHONE = "+90 532 000 00 00";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
@@ -46,11 +46,10 @@ export const STOREFRONT_RUNTIME = {
     process.env.NEXT_PUBLIC_STORE_TWITTER || "https://twitter.com/celebixco",
   shippingMessage:
     process.env.NEXT_PUBLIC_FREE_SHIPPING_TEXT ||
-    "?lk koleksiyonunuz birka? ayar sonra burada canlan?r",
+    "İlk koleksiyonunuz birkaç ayar sonra burada canlanır",
   gtmId: process.env.NEXT_PUBLIC_GTM_ID || "",
 } as const;
 
 export function absoluteStorefrontUrl(pathname = "/"): string {
   return new URL(pathname, STOREFRONT_RUNTIME.siteUrl).toString();
 }
-

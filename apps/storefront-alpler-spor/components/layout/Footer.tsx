@@ -16,6 +16,7 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { repairDisplayText } from "@/lib/display-text";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
 import { LOCALE_LABELS, getLocalizedCopy } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
@@ -97,7 +98,7 @@ export function Footer() {
           .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
           .map((category) => ({
             id: category.id,
-            name: category.name,
+            name: repairDisplayText(category.name),
             slug: category.slug,
           }));
 
@@ -106,7 +107,14 @@ export function Footer() {
           const payload = (await policyResponse.json()) as {
             pages?: PolicyFooterLink[];
           };
-          setPolicyLinks(Array.isArray(payload.pages) ? payload.pages : []);
+          setPolicyLinks(
+            Array.isArray(payload.pages)
+              ? payload.pages.map((page) => ({
+                  ...page,
+                  label: repairDisplayText(page.label),
+                }))
+              : [],
+          );
         } else {
           setPolicyLinks([]);
         }
@@ -137,7 +145,7 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.productsTitle, href: "/urunler" },
+    { name: copy.breadcrumbProducts, href: "/urunler" },
     { name: copy.faqHeading, href: "/sss" },
     { name: copy.footerContact, href: "/iletisim" },
   ];

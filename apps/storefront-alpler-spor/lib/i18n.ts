@@ -1,4 +1,4 @@
-﻿import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -99,26 +99,26 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       };
     default:
       return {
-        siteTitle: `${name} | Premium Ma?aza Deneyimi`,
+        siteTitle: `${name} | Premium Mağaza Deneyimi`,
         siteDescription:
-          "Adminden y?netilen ?r?nler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine d?n??en modern storefront deneyimi.",
-        homeTitle: `${name} | Premium Ma?aza Deneyimi`,
+          "Adminden yönetilen ürünler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine dönüşen modern storefront deneyimi.",
+        homeTitle: `${name} | Premium Mağaza Deneyimi`,
         homeDescription:
-          "Adminden y?netilen ?r?nler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine d?n??en modern storefront deneyimi.",
-        productsTitle: `T?m ?r?nler | ${name}`,
+          "Adminden yönetilen ürünler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine dönüşen modern storefront deneyimi.",
+        productsTitle: `Tüm Ürünler | ${name}`,
         productsDescription:
-          "Yay?ndaki ?r?nleri, se?ili koleksiyonlar? ve premium vitrin bloklar?n? tek bir ak??ta ke?fedin.",
-        contactTitle: `?leti?im | ${name}`,
+          "Yayındaki ürünleri, seçili koleksiyonları ve premium vitrin bloklarını tek bir akışta keşfedin.",
+        contactTitle: `İletişim | ${name}`,
         contactDescription:
-          "Destek, toptan sat?? ve ?zel proje talepleriniz i?in bizimle ileti?ime ge?in.",
-        corporateTitle: `Kurumsal ?r?nler | ${name}`,
+          "Destek, toptan satış ve özel proje talepleriniz için bizimle iletişime geçin.",
+        corporateTitle: `Kurumsal Ürünler | ${name}`,
         corporateDescription:
-          "Markan?z? premium ?r?nler, ?zel hediye setleri ve admin y?netimli kurumsal vitrinle g??lendirin.",
-        missingProductTitle: `?r?n Bulunamad? | ${name}`,
-        missingProductDescription: "Arad???n?z ?r?n bulunamad?.",
-        missingCategoryTitle: `Kategori Bulunamad? | ${name}`,
+          "Markanızı premium ürünler, özel hediye setleri ve admin yönetimli kurumsal vitrinle güçlendirin.",
+        missingProductTitle: `Ürün Bulunamadı | ${name}`,
+        missingProductDescription: "Aradığınız ürün bulunamadı.",
+        missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
         missingCategoryDescription:
-          "?stenen koleksiyon hen?z haz?r de?il. Yay?nlanan kategoriler otomatik olarak burada listelenecek.",
+          "İstenen koleksiyon henüz hazır değil. Yayınlanan kategoriler otomatik olarak burada listelenecek.",
       };
   }
 }
@@ -127,23 +127,23 @@ const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnTy
   tr: {
     menuLabel: "Menu",
     searchLabel: "Ara",
-    cartLabel: "Sepeti a?",
+    cartLabel: "Sepeti aç",
     categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Tan?y?n",
+    aboutHeading: "Bizi Tanıyın",
     policiesHeading: "Politikalar",
     footerHome: "Ana Sayfa",
-    footerAbout: "Hakk?m?zda",
-    footerStores: "Ma?azalar?m?z",
-    footerCorporate: "Kurumsal ?r?nler",
-    footerContact: "?leti?im",
-    footerDistanceSales: "Mesafeli Sat?? S?zle?mesi",
-    footerReturns: "Teslimat ve ?ade Politikas?",
+    footerAbout: "Hakkımızda",
+    footerStores: "Mağazalarımız",
+    footerCorporate: "Kurumsal Ürünler",
+    footerContact: "İletişim",
+    footerDistanceSales: "Mesafeli Satış Sözleşmesi",
+    footerReturns: "Teslimat ve İade Politikası",
     footerPrivacy: "Gizlilik Politikasi",
     footerKvkk: "KVKK",
-    footerRights: "T?m haklar? sakl?d?r.",
+    footerRights: "Tüm hakları saklıdır.",
     breadcrumbHome: "Ana Sayfa",
-    breadcrumbProducts: "?r?nler",
-    faqHeading: "S?k?a sorulan sorular",
+    breadcrumbProducts: "Ürünler",
+    faqHeading: "Sıkça sorulan sorular",
   },
   en: {
     menuLabel: "Menu",
@@ -190,7 +190,7 @@ const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnTy
   ru: {
     menuLabel: "Menu",
     searchLabel: "Poisk",
-    cartLabel: "KorzinĞ°",
+    cartLabel: "Korzinа",
     categoriesHeading: "Kategorii",
     aboutHeading: "O nas",
     policiesHeading: "Politiki",
@@ -352,4 +352,3 @@ export function detectPreferredLocale(
 
   return fallbackLocale;
 }
-

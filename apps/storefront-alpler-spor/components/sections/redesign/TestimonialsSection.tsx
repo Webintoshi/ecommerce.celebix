@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Quote, Star } from "lucide-react";
+import { repairDisplayText } from "@/lib/display-text";
 import type { HomepageTestimonial } from "@/lib/homepage";
 import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -32,11 +33,11 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
   if (!Array.isArray(items) || items.length === 0) {
     return TESTIMONIALS.map((item) => ({
       id: String(item.id),
-      name: item.name,
+      name: repairDisplayText(item.name),
       rating: item.rating,
-      text: item.text,
+      text: repairDisplayText(item.text),
       image: item.image,
-      title: item.role,
+      title: repairDisplayText(item.role),
       verified: true,
     }));
   }
@@ -45,11 +46,11 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
     .filter((item) => item.body && item.name)
     .map((item) => ({
       id: item.id,
-      name: item.name,
+      name: repairDisplayText(item.name),
       rating: Math.max(1, Math.min(5, item.rating || 5)),
-      text: item.body,
+      text: repairDisplayText(item.body),
       image: item.image,
-      title: item.title || null,
+      title: repairDisplayText(item.title || null) || null,
       verified: true,
     }));
 }
