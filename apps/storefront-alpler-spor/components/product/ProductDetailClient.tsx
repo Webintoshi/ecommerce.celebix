@@ -789,7 +789,7 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              <h1 className="text-2xl font-black leading-tight tracking-tight text-[#111827] sm:text-3xl">
+              <h1 className="text-[36px] font-black leading-[1.02] tracking-[-0.03em] text-[#111827]">
                 {product.name}
               </h1>
 

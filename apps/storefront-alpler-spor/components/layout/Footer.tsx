@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Youtube,
 } from "lucide-react";
-import { SITE_DESCRIPTION, SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
+import { SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
@@ -41,7 +41,12 @@ export function Footer() {
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
-  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
+  const shouldUsePlaceholderLogo =
+    !storeInfo?.logoUrl &&
+    typeof SITE_LOGO_PATH === "string" &&
+    SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+  const preferredLogoPath = shouldUsePlaceholderLogo ? "/logo.webp" : SITE_LOGO_PATH;
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || preferredLogoPath);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
   const localeSwitchOptions = routing.availableLocales.map((entryLocale) => ({
@@ -161,13 +166,13 @@ export function Footer() {
             <div className="space-y-4">
               <Link href={buildPath("/")} className="inline-flex max-w-full items-center">
                 {logoSrc ? (
-                  <div className="relative h-10 w-[168px] sm:h-11 sm:w-[182px]">
+                  <div className="relative h-11 w-[182px] sm:h-12 sm:w-[198px] lg:h-[52px] lg:w-[212px]">
                     <Image
                       src={logoSrc}
                       alt={logoAlt}
                       fill
                       className="object-contain object-left brightness-0 invert"
-                      sizes="182px"
+                      sizes="(max-width: 640px) 182px, (max-width: 1024px) 198px, 212px"
                       unoptimized={usesProxiedLogo}
                     />
                   </div>
