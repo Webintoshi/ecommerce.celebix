@@ -51,9 +51,8 @@ export function Header() {
     !storeInfo?.logoUrl &&
     typeof SITE_LOGO_PATH === "string" &&
     SITE_LOGO_PATH.includes("placeholder-storefront-logo");
-  const logoSrc = shouldUsePlaceholderLogo
-    ? ""
-    : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
+  const preferredLogoPath = shouldUsePlaceholderLogo ? "/logo.webp" : SITE_LOGO_PATH;
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || preferredLogoPath);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
 
@@ -148,14 +147,14 @@ export function Header() {
 
           <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
-              <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
+              <div className="relative h-8 w-[118px] sm:h-9 sm:w-[138px] lg:h-10 lg:w-[156px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 104px, (max-width: 1024px) 118px, 128px"
+                  sizes="(max-width: 640px) 118px, (max-width: 1024px) 138px, 156px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>

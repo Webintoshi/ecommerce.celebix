@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, Instagram, Youtube } from "lucide-react";
-import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
+import { SITE_LOGO_PATH, SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
@@ -32,7 +32,12 @@ export function Footer() {
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
-  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
+  const shouldUsePlaceholderLogo =
+    !storeInfo?.logoUrl &&
+    typeof SITE_LOGO_PATH === "string" &&
+    SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+  const preferredLogoPath = shouldUsePlaceholderLogo ? "/logo.webp" : SITE_LOGO_PATH;
+  const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || preferredLogoPath);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
   const localeSwitchOptions = routing.availableLocales.map((entryLocale) => ({
@@ -126,13 +131,13 @@ export function Footer() {
           <div className="lg:col-span-1">
             <Link href={buildPath("/")} className="mb-6 inline-block">
               {logoSrc ? (
-                <div className="relative h-10 w-[150px]">
+                <div className="relative h-11 w-[170px] sm:h-12 sm:w-[184px]">
                   <Image
                     src={logoSrc}
                     alt={logoAlt}
                     fill
                     className="object-contain object-left brightness-0 invert"
-                    sizes="150px"
+                    sizes="(max-width: 640px) 170px, 184px"
                     unoptimized={usesProxiedLogo}
                   />
                 </div>
