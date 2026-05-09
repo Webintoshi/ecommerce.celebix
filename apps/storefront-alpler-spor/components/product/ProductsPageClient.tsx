@@ -5,11 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
   Loader2,
-  Package,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
-  Truck,
 } from "lucide-react";
 import { ActiveFilters, FilterCategoryOption, FilterSidebar, FilterState } from "@/components/product/FilterSidebar";
 import { FilterDrawer } from "@/components/product/FilterDrawer";
@@ -242,8 +239,6 @@ function ProductsPageContent({
 
   const visibleProducts = filteredProducts.slice(0, displayCount);
   const hasMore = displayCount < filteredProducts.length;
-  const categoryTotal = categoryOptions.length;
-
   const updateFilters = (nextFilters: Partial<FilterState>) => {
     setFilters((current) => ({ ...current, ...nextFilters }));
   };
@@ -256,53 +251,6 @@ function ProductsPageContent({
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
-      <section className="border-b border-[#1F2937]/20 bg-[#111827] text-white">
-        <div className="container-premium py-8 sm:py-12 lg:py-14">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-end">
-            <div>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.28em] text-[#B6FF00]">
-                Alpler Spor Vitrini
-              </p>
-              <h1 className="max-w-4xl text-4xl font-black leading-[0.98] tracking-tight sm:text-5xl lg:text-6xl">
-                Performansa hazir spor urunleri
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5E7EB]">
-                Sneaker, spor ayakkabi, aktif giyim ve aksesuar koleksiyonlarini stok,
-                fiyat ve indirim bilgisiyle hizli tarayin.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {[
-                { icon: SlidersHorizontal, label: "Kategori", value: categoryTotal || "Canli" },
-                { icon: Package, label: "Ürün", value: initialProducts.length },
-                { icon: Truck, label: "Teslimat", value: "2-4 gun" },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.label} className="rounded-3xl border border-white/10 bg-white/8 p-3 backdrop-blur sm:p-4">
-                    <Icon className="mb-3 h-4 w-4 text-[#FF6A00]" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9CA3AF]">
-                      {item.label}
-                    </p>
-                    <p className="mt-1 text-lg font-black text-white">{item.value}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.16em]">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[#E5E7EB]">
-              <ShieldCheck className="h-3.5 w-3.5 text-[#16A34A]" />
-              Guvenli odeme
-            </span>
-            <span className="rounded-full bg-white/10 px-3 py-2 text-[#E5E7EB]">Kolay iade</span>
-            <span className="rounded-full bg-[#FF6A00] px-3 py-2 text-white">Hizli kargo</span>
-          </div>
-        </div>
-      </section>
-
       <section className="container-premium py-6 sm:py-8 lg:py-10">
         <div className="mb-6 rounded-[2rem] border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_170px]">

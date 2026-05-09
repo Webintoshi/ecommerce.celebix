@@ -537,29 +537,6 @@ export default async function CollectionPage({
         </div>
       </nav>
 
-      <section className="border-b border-black/5 bg-[#111827] text-white">
-        <div className="container-premium py-10 md:py-14">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#F26A21]">
-            Alpler Spor Koleksiyonu
-          </p>
-          <h1 className="store-product-title-detail mb-3 max-w-4xl text-white">{translatedCategory.name}</h1>
-          {translatedCategory.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-              {translatedCategory.description}
-            </p>
-          ) : (
-            <p className="max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-              Bu koleksiyondaki urunleri performans, kullanim senaryosu ve stok durumuna gore hizli tarayin.
-            </p>
-          )}
-          <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
-            <span className="rounded-full bg-white/10 px-3 py-2 text-white">{products.length} urun</span>
-            <span className="rounded-full bg-[#FFF1E8] px-3 py-2 text-[#C2410C]">Hizli kargo</span>
-            <span className="rounded-full bg-[#DBEAFE] px-3 py-2 text-[#1D4ED8]">Kolay iade</span>
-          </div>
-        </div>
-      </section>
-
       <main className="container-premium py-10 md:py-12">
         <CollectionProductsClient products={products} />
       </main>
