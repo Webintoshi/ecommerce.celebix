@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ShieldCheck, Truck, X } from "lucide-react";
 import { repairDisplayText } from "@/lib/display-text";
 
 interface AnnouncementSettings {
@@ -80,43 +80,37 @@ export function AnnouncementBar() {
   const announcementLinkText = repairDisplayText(settings.linkText);
   const isDarkTheme = textColor === "#FFFFFF";
   const buttonClass = isDarkTheme
-    ? "bg-white/12 hover:bg-white/20 text-white"
-    : "bg-[#0B1120]/10 hover:bg-[#0B1120]/15 text-[#0B1120]";
+    ? "border-white/15 bg-white/10 hover:bg-white/20 text-white"
+    : "border-[#0B1120]/10 bg-[#0B1120]/8 hover:bg-[#0B1120]/12 text-[#0B1120]";
   const closeButtonClass = isDarkTheme
     ? "text-white/70 hover:text-white hover:bg-white/10"
     : "text-[#0B1120]/70 hover:text-[#0B1120] hover:bg-[#0B1120]/8";
-  const shimmerOverlay = isDarkTheme
-    ? "linear-gradient(45deg,transparent 25%,rgba(255,255,255,0.08) 50%,transparent 75%,transparent 100%)"
-    : "linear-gradient(45deg,transparent 25%,rgba(11,17,32,0.05) 50%,transparent 75%,transparent 100%)";
+  const dividerColor = isDarkTheme ? "rgba(255,255,255,0.2)" : "rgba(11,17,32,0.14)";
 
   return (
-    <div className="relative" style={{ backgroundColor }}>
-      <div
-        className="absolute inset-0 bg-[length:250%_250%] animate-[shimmer_3s_ease-in-out_infinite]"
-        style={{ backgroundImage: shimmerOverlay }}
-      />
-
-      <div className="container-premium relative px-4 py-[max(0.55rem,env(safe-area-inset-top))] sm:px-6">
-        <div className="flex min-h-[2.5rem] items-center justify-center pr-10 sm:pr-12">
+    <div className="relative border-b border-white/10" style={{ backgroundColor }}>
+      <div className="container-premium relative px-4 py-[max(0.5rem,env(safe-area-inset-top))] sm:px-6">
+        <div className="flex min-h-[2.35rem] items-center justify-center pr-10 sm:pr-12">
           <div
-            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-medium tracking-wide sm:text-sm"
+            className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-center text-[11px] font-medium tracking-wide sm:text-sm"
             style={{ color: textColor }}
           >
-            <span className="relative">
-              <span className="relative z-10">{announcementMessage}</span>
-              <span
-                className="absolute inset-0 blur-sm scale-110 animate-pulse"
-                style={{ backgroundColor: isDarkTheme ? "rgba(255,255,255,0.18)" : "rgba(11,17,32,0.08)" }}
-              />
+            <span className="inline-flex min-w-0 items-center justify-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[#FF8A3D]" />
+              <span className="min-w-0 break-words leading-5">{announcementMessage}</span>
             </span>
             {settings.link && announcementLinkText ? (
-              <Link
-                href={settings.link}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
-              >
-                {announcementLinkText}
-                <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
-              </Link>
+              <>
+                <span className="hidden h-3.5 w-px sm:inline-block" style={{ backgroundColor: dividerColor }} />
+                <Truck className="hidden h-3.5 w-3.5 shrink-0 text-[#FF8A3D] sm:block" />
+                <Link
+                  href={settings.link}
+                  className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold leading-5 transition-colors sm:text-xs ${buttonClass}`}
+                >
+                  <span className="truncate">{announcementLinkText}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </>
             ) : null}
           </div>
         </div>
@@ -124,7 +118,7 @@ export function AnnouncementBar() {
 
       <button
         onClick={() => setIsVisible(false)}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 transition-all duration-200 hover:rotate-90 sm:right-4 ${closeButtonClass}`}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 transition-colors duration-200 sm:right-4 ${closeButtonClass}`}
         aria-label="Kapat"
       >
         <X className="h-3.5 w-3.5" />

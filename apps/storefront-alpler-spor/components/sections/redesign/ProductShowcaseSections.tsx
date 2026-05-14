@@ -132,33 +132,33 @@ function buildProductGroups(
 function EmptyShowcaseState() {
   const cards = [
     {
-      title: "Ürünleri Yayına Al",
-      text: "Alpler Spor panelinde yayınlanan ürünler kategori bazlı vitrine doğrudan taşınır.",
+      title: "Yeni Koleksiyonlar Yakında",
+      text: "Alpler Spor seçkileri hazırlandığında sneaker, giyim ve ekipman ürünleri burada öne çıkar.",
     },
     {
-      title: "Satış Sırası Kur",
-      text: "Çok satanlar, yeni sezon ve kampanya ürünleri vitrinde daha güçlü hiyerarşi kazanır.",
+      title: "Spor Stilini Tamamla",
+      text: "Antrenman, outdoor ve günlük kullanım için ürün grupları mağaza vitriniyle birlikte güncellenir.",
     },
     {
-      title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler antrenman, outdoor ve ekipman odaklı koleksiyon bağlantılarına dönüşür.",
+      title: "Kategorileri Takip Et",
+      text: "Ayakkabı, aktif giyim ve aksesuar seçenekleri yayına geldikçe kolay keşif akışı burada görünür.",
     },
   ];
 
   return (
-    <section className="bg-[#F5F7FA] py-16 lg:py-20">
+    <section className="bg-[linear-gradient(180deg,#F5F7FA_0%,#FFFFFF_100%)] py-14 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C2410C]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF6A00]/20 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C2410C] shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
-            Vitrin Hazir
+            Alpler Spor Seçkisi
           </span>
           <h2 className="mt-5 text-3xl font-black text-[#111827] sm:text-4xl">
-            Ürünler geldikçe Alpler Spor vitrini otomatik güçlenir
+            Yeni ürünler yakında burada
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B7280] sm:text-[15px]">
-            Ürün ve kategori girdileri eklendiğinde bu alan satış odaklı koleksiyon
-            bloklarıyla dolar.
+            Alpler Spor koleksiyonları güncellendikçe ürünler, kategoriler ve öne çıkan seçimler
+            bu alanda müşteriler için düzenli şekilde sunulur.
           </p>
         </div>
 
@@ -166,10 +166,10 @@ function EmptyShowcaseState() {
           {cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-6 shadow-sm"
+              className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]"
             >
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#FF6A00]">
-                Merchandising
+                Keşif
               </p>
               <h3 className="mt-3 text-xl font-black text-[#111827]">{card.title}</h3>
               <p className="mt-3 text-sm leading-7 text-[#6B7280]">{card.text}</p>
@@ -228,13 +228,16 @@ export function ProductShowcaseSections({
   ];
 
   return (
-    <>
+    <div className="bg-[#F5F7FA]">
       {effectiveGroups.map((group, groupIndex) => (
-        <section key={group.id} className="bg-[#F5F7FA] py-14 lg:py-20">
+        <section
+          key={group.id}
+          className={`py-14 lg:py-20 ${groupIndex % 2 === 0 ? "bg-[#F5F7FA]" : "bg-white"}`}
+        >
           <div className="container-premium">
             <div className="mb-8 flex flex-col gap-5 sm:mb-10 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
-                <span className="mb-3 block text-xs font-black uppercase tracking-[0.24em] text-[#FF6A00]">
+                <span className="mb-3 inline-flex rounded-full bg-[#FFF1E8] px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-[#C2410C]">
                   ALPLER SPOR
                 </span>
                 <h2 className="text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
@@ -249,7 +252,7 @@ export function ProductShowcaseSections({
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-black text-[#111827] shadow-sm transition-colors hover:border-[#FF6A00] hover:text-[#FF6A00]"
+                className="group inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-5 py-3 text-sm font-black text-[#111827] shadow-sm transition-colors hover:border-[#FF6A00] hover:bg-[#FFF7F1] hover:text-[#C2410C]"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -263,7 +266,7 @@ export function ProductShowcaseSections({
             </div>
 
             {groupIndex === 0 ? (
-              <div className="mt-8 grid grid-cols-2 gap-3 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-sm sm:grid-cols-4 sm:p-4">
+              <div className="mt-8 grid grid-cols-2 gap-3 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-3 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:grid-cols-4 sm:p-4">
                 {trustItems.map((item) => (
                   <div
                     key={item}
@@ -278,6 +281,6 @@ export function ProductShowcaseSections({
           </div>
         </section>
       ))}
-    </>
+    </div>
   );
 }

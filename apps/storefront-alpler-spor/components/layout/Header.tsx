@@ -344,7 +344,7 @@ export function Header() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2.5">
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent text-[#374151] transition hover:border-[#E5E7EB] hover:bg-[#F3F4F6] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15"
@@ -372,7 +372,7 @@ export function Header() {
 
             <button
               type="button"
-              className="relative flex h-11 w-11 items-center justify-center rounded-full text-[#374151] transition hover:bg-[#F3F4F6] hover:text-[#FF6A00]"
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent text-[#374151] transition hover:border-[#E5E7EB] hover:bg-[#F3F4F6] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15"
               aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
@@ -384,11 +384,11 @@ export function Header() {
               ) : null}
             </button>
 
-            <span className="mx-0.5 hidden h-8 w-px bg-[#E5E7EB] sm:block lg:hidden" aria-hidden="true" />
+            <span className="mx-0.5 h-8 w-px bg-[#E5E7EB] lg:hidden" aria-hidden="true" />
 
             <button
               ref={menuButtonRef}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white/90 text-[#111827] shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition hover:border-[#FF6A00] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15 lg:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition hover:border-[#FF6A00] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15 lg:hidden"
               onClick={() => setIsMenuOpen((open) => !open)}
               aria-expanded={isMenuOpen}
               aria-controls="alpler-spor-mobile-menu"
