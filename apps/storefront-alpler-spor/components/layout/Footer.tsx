@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  ArrowRight,
   ChevronDown,
   CreditCard,
   Instagram,
@@ -133,11 +134,38 @@ export function Footer() {
   }, []);
 
   const aboutLinks = [
-    { name: copy.footerHome, href: "/" },
-    { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.breadcrumbProducts, href: "/urunler" },
-    { name: copy.faqHeading, href: "/sss" },
-    { name: copy.footerContact, href: "/iletisim" },
+    { name: "Ana Sayfa", href: "/" },
+    { name: "Tüm Ürünler", href: "/urunler" },
+    { name: "Favoriler", href: "/favoriler" },
+    { name: "Sepet", href: "/sepet" },
+  ];
+  const accountLinks = [
+    { name: "Giriş", href: "/giris" },
+    { name: "Kayıt", href: "/kayit" },
+    { name: "Hesabım", href: "/hesap" },
+  ];
+  const supportLinks = [
+    { name: "İletişim", href: "/iletisim" },
+    { name: "Hakkımızda", href: "/hakkimizda" },
+    { name: "Sıkça Sorulan Sorular", href: "/sss" },
+    { name: "İade / Değişim", href: "/iade" },
+  ];
+  const legalLinks = policyLinks.length > 0
+    ? policyLinks.slice(0, 5).map((link) => ({ name: link.label, href: link.href }))
+    : [
+        { name: "Gizlilik", href: "/gizlilik" },
+        { name: "Şartlar", href: "/sartlar" },
+        { name: "Kargo Politikası", href: "/kargo" },
+      ];
+  const socialLinks = [
+    instagramUrl ? { label: "Instagram", href: instagramUrl, icon: Instagram } : null,
+    youtubeUrl ? { label: "YouTube", href: youtubeUrl, icon: Youtube } : null,
+  ].filter((item): item is { label: string; href: string; icon: typeof Instagram } => Boolean(item));
+  const linkGroups = [
+    { title: "Mağaza", links: aboutLinks },
+    { title: "Hesap", links: accountLinks },
+    { title: "Destek", links: supportLinks },
+    { title: "Yasal", links: legalLinks },
   ];
   const trustItems = [
     { label: "Güvenli Ödeme", text: "SSL korumalı alışveriş", icon: ShieldCheck },
@@ -154,7 +182,40 @@ export function Footer() {
       />
 
       <div className="container-premium relative py-12 sm:py-14 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.55fr)] lg:gap-12">
+        <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,106,0,0.18)_0%,rgba(255,255,255,0.07)_42%,rgba(10,16,28,0.86)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.22)] sm:p-6 lg:mb-10 lg:p-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#FF9A4C]">
+                Alpler Spor Vitrini
+              </p>
+              <h2 className="mt-3 max-w-3xl text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
+                Alpler Spor ile stilini tamamla
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-[#D6DEE9] sm:text-[15px]">
+                Yeni sezon spor ve sneaker seçkilerini keşfet; favorilerini kaydet,
+                sepetini hızla tamamla.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 min-[420px]:flex-row lg:justify-end">
+              <Link
+                href={buildPath("/urunler")}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#FF6A00] px-5 text-sm font-black text-white transition hover:bg-[#E85F00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/30"
+              >
+                Ürünleri Keşfet
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href={buildPath("/urunler")}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/14 bg-white/8 px-5 text-sm font-black text-white transition hover:border-[#FF8A3D] hover:bg-white/12 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
+              >
+                Kategorilere Göz At
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.7fr)] lg:gap-8">
           <section className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur sm:p-6">
             <Link href={buildPath("/")} className="inline-flex" aria-label={logoAlt}>
               {logoSrc ? (
@@ -174,8 +235,8 @@ export function Footer() {
             </Link>
 
             <p className="mt-5 max-w-md text-sm leading-7 text-[#B8C3D3]">
-              Orijinal spor ayakkabı, aktif giyim ve performans ürünlerinde hızlı,
-              güvenli ve temiz alışveriş deneyimi.
+              Spor giyim, sneaker ve günlük stil ürünlerinde hızlı, güvenli ve sade
+              alışveriş deneyimi.
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -229,90 +290,50 @@ export function Footer() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href={instagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-[#CBD5E1] transition-all hover:border-[#FF6A00] hover:text-[#FF6A00]"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a
-                href={youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-[#CBD5E1] transition-all hover:border-[#FF6A00] hover:text-[#FF6A00]"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-4 w-4" />
-              </a>
+              {socialLinks.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-[#CBD5E1] transition-all hover:border-[#FF6A00] hover:text-[#FF6A00]"
+                    aria-label={item.label}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                );
+              })}
             </div>
           </section>
 
           <section className="grid gap-5">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5">
-                <p className="mb-5 text-[11px] font-black uppercase tracking-[0.28em] text-white">
-                  Bizi Tanıyın
-                </p>
-                <ul className="space-y-3">
-                  {aboutLinks.map((link) => (
-                    <li key={link.href}>
-                      <Link
-                        href={buildPath(link.href)}
-                        className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF8A3D]"
-                      >
-                        {repairDisplayText(link.name)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5">
-                <p className="mb-5 text-[11px] font-black uppercase tracking-[0.28em] text-white">
-                  Kategoriler
-                </p>
-                <ul className="space-y-3">
-                  {categoryLinks.slice(0, 6).map((link) => (
-                    <li key={link.id}>
-                      <Link
-                        href={buildPath(`/koleksiyon/${link.slug}`)}
-                        className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF8A3D]"
-                      >
-                        {link.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5 sm:col-span-2 xl:col-span-1">
-                <p className="mb-5 text-[11px] font-black uppercase tracking-[0.28em] text-white">
-                  Alışveriş
-                </p>
-                <ul className="space-y-3">
-                  {(policyLinks.length > 0
-                    ? policyLinks.slice(0, 5).map((link) => ({ name: link.label, href: link.href }))
-                    : [
-                        { name: "Tüm Ürünler", href: "/urunler" },
-                        { name: "Sepet", href: "/sepet" },
-                        { name: "Favoriler", href: "/favoriler" },
-                        { name: "İletişim", href: "/iletisim" },
-                      ]
-                  ).map((link) => (
-                    <li key={link.href}>
-                      <Link
-                        href={buildPath(link.href)}
-                        className="text-sm text-[#CBD5E1] transition-colors hover:text-[#FF8A3D]"
-                      >
-                        {repairDisplayText(link.name)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {linkGroups.map((group) => (
+                <nav
+                  key={group.title}
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5"
+                  aria-label={group.title}
+                >
+                  <p className="mb-5 text-[11px] font-black uppercase tracking-[0.28em] text-white">
+                    {group.title}
+                  </p>
+                  <ul className="space-y-3">
+                    {group.links.map((link) => (
+                      <li key={link.href}>
+                        <Link
+                          href={buildPath(link.href)}
+                          className="inline-flex min-h-8 items-center text-sm text-[#CBD5E1] transition-colors hover:text-[#FF8A3D] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/20"
+                        >
+                          {repairDisplayText(link.name)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ))}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -322,7 +343,7 @@ export function Footer() {
                 return (
                   <div
                     key={item.label}
-                    className="rounded-[1.25rem] border border-white/10 bg-white/[0.045] p-4"
+                    className="rounded-[1.25rem] border border-white/10 bg-white/[0.045] p-4 transition hover:border-[#FF6A00]/35 hover:bg-white/[0.065]"
                   >
                     <Icon className="h-4 w-4 text-[#FF7A1A]" />
                     <p className="mt-3 text-sm font-bold text-white">{item.label}</p>
