@@ -185,7 +185,7 @@ export function HeaderSearchOverlay({
         aria-hidden="true"
       />
 
-      <div className="relative flex h-full w-full items-start justify-center p-3 sm:p-8">
+      <div className="relative flex h-full w-full items-start justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-8">
         <div
           className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#F5F7FA] shadow-[0_40px_120px_rgba(0,0,0,0.35)] sm:rounded-[2rem]"
           onClick={(event) => event.stopPropagation()}
@@ -193,7 +193,7 @@ export function HeaderSearchOverlay({
           aria-modal="true"
           aria-label="Ürün arama penceresi"
         >
-          <div className="border-b border-[#E5E7EB] bg-white px-5 py-5 sm:px-8 sm:py-7">
+          <div className="border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-8 sm:py-7">
             <div className="flex items-start gap-4">
               <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#111827] text-[#FF6A00] shadow-sm sm:flex">
                 <Search className="h-5 w-5" />
@@ -245,7 +245,7 @@ export function HeaderSearchOverlay({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-8 sm:py-7">
             {normalizedQuery.length < 2 ? (
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-[1.75rem] border border-dashed border-[#D1D5DB] bg-white px-6 text-center">
                 <div>
