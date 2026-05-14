@@ -12,12 +12,12 @@ import { ALPLER_SPOR_STORE_ADDRESS } from "@/lib/storefront-profile";
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
   categoriesHeading: "Spor stiline hızlı giriş",
-  viewAllLabel: "Tümünü Gör",
+  viewAllLabel: "Koleksiyonu İncele",
   productGroups: [
-    { title: "Öne Çıkan Ürünler", subtitle: "En yeni ve en çok tercih edilen ürünlerimiz." },
-    { title: "Sneaker ve Ayakkabı", subtitle: "Performans Seçimi" },
-    { title: "Yeni Sezon", subtitle: "Yeni Gelenler" },
-    { title: "Giyim ve Aksesuar", subtitle: "Stili Tamamla" },
+    { title: "Öne Çıkan Ürünler", subtitle: "Spor stilini tamamlayan seçili ürünleri keşfet." },
+    { title: "Sneaker ve Ayakkabı", subtitle: "Günlük tempo ve performans için güçlü seçimler." },
+    { title: "Yeni Sezon", subtitle: "Mağaza vitrinine eklenen güncel parçalar." },
+    { title: "Giyim ve Aksesuar", subtitle: "Antrenman sonrası stile de eşlik eden tamamlayıcılar." },
   ],
   storesEyebrow: "Güvenli Alışveriş",
   storesHeading: "Doğru ekipman, hızlı teslimat ve net destek",

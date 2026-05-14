@@ -53,7 +53,7 @@ export function CategoriesSection({
             <h2 className="max-w-2xl text-3xl font-black tracking-tight text-[#111827] lg:text-4xl">{heading}</h2>
           </div>
           <p className="max-w-md text-sm leading-7 text-[#6B7280]">
-            Dinamik kategoriler kullanicinin aradigi ayakkabi, giyim veya ekipmana en kisa yoldan ulasmasini saglar.
+            Dinamik kategoriler kullanıcının aradığı ayakkabı, giyim veya ekipmana en kısa yoldan ulaşmasını sağlar.
           </p>
         </div>
 
@@ -87,7 +87,7 @@ export function CategoriesSection({
 
               <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 lg:p-6">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#B6FF00]">
-                  Kesfet
+                  Keşfet
                 </p>
                 <p className="category-card-title" style={{ color: "#ffffff" }}>{category.name}</p>
               </div>
