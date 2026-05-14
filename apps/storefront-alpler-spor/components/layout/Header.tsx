@@ -257,29 +257,17 @@ export function Header() {
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-[4.25rem] items-center justify-between gap-3 lg:h-20">
-          <button
-            ref={menuButtonRef}
-            className="-ml-1 flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white/90 text-[#111827] shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition hover:border-[#FF6A00] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15 lg:hidden"
-            onClick={() => setIsMenuOpen((open) => !open)}
-            aria-expanded={isMenuOpen}
-            aria-controls="alpler-spor-mobile-menu"
-            aria-label={copy.menuLabel}
-            type="button"
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-
-          <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
+        <div className="flex h-[4.25rem] items-center gap-3 lg:h-20">
+          <Link href={buildPath(ROUTES.home)} className="mr-auto flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
-              <div className="relative h-8 w-[118px] sm:h-9 sm:w-[138px] lg:h-10 lg:w-[156px]">
+              <div className="relative h-9 w-[132px] sm:h-10 sm:w-[150px] lg:h-10 lg:w-[156px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 118px, (max-width: 1024px) 138px, 156px"
+                  sizes="(max-width: 640px) 132px, (max-width: 1024px) 150px, 156px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
@@ -356,7 +344,7 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent text-[#374151] transition hover:border-[#E5E7EB] hover:bg-[#F3F4F6] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15"
@@ -394,6 +382,20 @@ export function Header() {
                   {cartItemCount}
                 </span>
               ) : null}
+            </button>
+
+            <span className="mx-0.5 hidden h-8 w-px bg-[#E5E7EB] sm:block lg:hidden" aria-hidden="true" />
+
+            <button
+              ref={menuButtonRef}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white/90 text-[#111827] shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition hover:border-[#FF6A00] hover:text-[#FF6A00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FF6A00]/15 lg:hidden"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-expanded={isMenuOpen}
+              aria-controls="alpler-spor-mobile-menu"
+              aria-label={copy.menuLabel}
+              type="button"
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
