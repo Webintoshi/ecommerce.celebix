@@ -96,9 +96,12 @@ export function AnnouncementBar() {
         style={{ backgroundImage: shimmerOverlay }}
       />
 
-      <div className="container mx-auto px-4 py-2.5 relative">
-        <div className="flex items-center justify-center">
-          <p className="text-xs sm:text-sm text-center font-medium tracking-wide" style={{ color: textColor }}>
+      <div className="container-premium relative px-4 py-[max(0.55rem,env(safe-area-inset-top))] sm:px-6">
+        <div className="flex min-h-[2.5rem] items-center justify-center pr-10 sm:pr-12">
+          <div
+            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-medium tracking-wide sm:text-sm"
+            style={{ color: textColor }}
+          >
             <span className="relative">
               <span className="relative z-10">{announcementMessage}</span>
               <span
@@ -109,13 +112,13 @@ export function AnnouncementBar() {
             {settings.link && announcementLinkText ? (
               <Link
                 href={settings.link}
-                className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
               >
                 {announcementLinkText}
                 <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
               </Link>
             ) : null}
-          </p>
+          </div>
         </div>
       </div>
 
