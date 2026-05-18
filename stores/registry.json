@@ -21,6 +21,13 @@
     "status": "active"
   },
   {
+    "slug": "derycraftcomtr",
+    "name": "DeryCraft 2",
+    "domain": "derycraft.com.tr",
+    "theme": "leather",
+    "status": "draft"
+  },
+  {
     "slug": "ezmeo",
     "name": "Ezmeo",
     "domain": "ezmeo.com",
