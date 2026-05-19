@@ -1,0 +1,94 @@
+{
+  "storeSlug": "derycraftcomtr",
+  "databaseMode": "light_postgres",
+  "targetModel": {
+    "strategy": "shared_cluster_per_database",
+    "resourceNameSuggestion": "celebix-light-postgres",
+    "databaseName": "derycraftcomtr"
+  },
+  "envPlan": {
+    "provisioningKeys": [
+      "LIGHT_POSTGRES_DATABASE_NAME",
+      "LIGHT_POSTGRES_DATABASE_URL",
+      "LIGHT_POSTGRES_DATABASE_SSLMODE"
+    ],
+    "cutoverKeys": [
+      "DATABASE_MODE",
+      "LIGHT_POSTGRES_DATABASE_URL",
+      "LIGHT_POSTGRES_DATABASE_SSLMODE"
+    ]
+  },
+  "tables": [
+    {
+      "name": "products",
+      "required": true,
+      "uniqueChecks": ["slug", "sku"]
+    },
+    {
+      "name": "product_variants",
+      "required": true,
+      "uniqueChecks": ["sku", "barcode"]
+    },
+    {
+      "name": "categories",
+      "required": true,
+      "uniqueChecks": ["slug"]
+    },
+    {
+      "name": "settings",
+      "required": true
+    },
+    {
+      "name": "pages",
+      "required": true,
+      "uniqueChecks": ["slug"]
+    }
+  ],
+  "validation": {
+    "spotCheckCounts": {
+      "products": 3,
+      "categories": 2,
+      "settingsKeys": 3,
+      "pages": 2
+    },
+    "requiredSettingsKeys": [
+      "store_info",
+      "seo_settings",
+      "announcement_bar",
+      "marquee_settings",
+      "hero_banners",
+      "promo_banners",
+      "product_listing_order"
+    ],
+    "requiredFields": {
+      "products": [
+        "images",
+        "images_v2",
+        "seo_title",
+        "seo_description",
+        "seo_keywords",
+        "tags"
+      ],
+      "categories": [
+        "seo_title",
+        "seo_description",
+        "seo_keywords"
+      ],
+      "pages": [
+        "seo_title",
+        "seo_description",
+        "seo_keywords"
+      ]
+    }
+  },
+  "cutoverGuards": [
+    "target_db_created",
+    "subset_schema_applied",
+    "dry_run_import_passed",
+    "row_counts_matched",
+    "spot_checks_passed",
+    "storefront_adapter_ready",
+    "shadow_read_compare_passed",
+    "atlas_cutover_approval"
+  ]
+}
