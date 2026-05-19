@@ -5,15 +5,21 @@ import path from "node:path";
 import {
   getRepoRoot,
   getStoreConfig,
+  requireStoreConfig,
   getStores,
-  type StoreConfig,
-  type StoreRegistryEntry,
+  updateStoreConfig,
 } from "@celebix/platform-config";
-import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import {
-  getDefaultAdminDeploymentBranch,
-  getDefaultStorefrontDeploymentBranch,
-} from "@/lib/platform-config-owner";
+  applyStorefrontAuthorityPatchToConfig,
+  getExpectedStorefrontAppDir,
+  resolveAuthorityRepositoryBranch,
+  resolveStorefrontRepositoryBranch,
+  type StoreConfig,
+  type StorefrontStatus,
+  type StoreRegistryEntry,
+  type StorefrontAuthorityPatchInput,
+} from "../../../packages/platform-config/src/index";
+import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 
 interface OwnerStoreAuthorityRow {
   slug: string;
@@ -56,6 +62,45 @@ function readStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
 }
 
+function readStorefrontStatus(value: unknown): StorefrontStatus | null {
+  return value === "not_started" || value === "scaffolded" || value === "active" ? value : null;
+}
+
+function scoreStorefrontStatus(value: StorefrontStatus | null | undefined): number {
+  switch (value) {
+    case "active":
+      return 2;
+    case "scaffolded":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function resolveRecoveredStorefrontAppDir(
+  row: Pick<OwnerStoreAuthorityRow, "slug" | "storefront_app_dir">,
+  storefrontMetadata: Record<string, unknown>,
+): string | null {
+  return (
+    readOptionalString(row.storefront_app_dir) ??
+    readOptionalString(storefrontMetadata.appDir) ??
+    (readStorefrontStatus(storefrontMetadata.status) === "scaffolded" ||
+    readStorefrontStatus(storefrontMetadata.status) === "active"
+      ? getExpectedStorefrontAppDir(row.slug)
+      : null)
+  );
+}
+
+function resolveRecoveredStorefrontStatus(
+  row: Pick<OwnerStoreAuthorityRow, "storefront_status">,
+  storefrontMetadata: Record<string, unknown>,
+): StorefrontStatus {
+  const metadataStatus = readStorefrontStatus(storefrontMetadata.status);
+  return scoreStorefrontStatus(metadataStatus) > scoreStorefrontStatus(row.storefront_status)
+    ? (metadataStatus ?? row.storefront_status)
+    : row.storefront_status;
+}
+
 function inferSupabaseProvider(row: OwnerStoreAuthorityRow): "managed" | "self_hosted_coolify" {
   if (
     row.supabase_project_ref?.startsWith("coolify:") ||
@@ -76,14 +121,12 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   const themeKey = readOptionalString(row.theme_key) ?? "atelier";
   const themeLabel = readOptionalString(row.theme_label) ?? themeKey[0].toUpperCase() + themeKey.slice(1);
   const supabaseProvider = inferSupabaseProvider(row);
+  const recoveredStorefrontAppDir = resolveRecoveredStorefrontAppDir(row, storefront);
+  const recoveredStorefrontStatus = resolveRecoveredStorefrontStatus(row, storefront);
   const storefrontRuntimeUrl =
     readOptionalString(storefront.runtimeUrl) ?? `https://${row.storefront_domain}`;
   const adminRuntimeUrl =
     readOptionalString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${row.admin_domain}`;
-  const adminDeploymentBranch =
-    readOptionalString(bootstrap.adminDeploymentBranch) ?? getDefaultAdminDeploymentBranch();
-  const storefrontDeploymentBranch =
-    readOptionalString(storefront.deploymentBranch) ?? getDefaultStorefrontDeploymentBranch(row.slug);
 
   return {
     name: row.name,
@@ -137,7 +180,8 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       adminEnvLocalPath: readOptionalString(bootstrap.adminEnvLocalPath) ?? `stores/${row.slug}/admin.env.local`,
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
-      adminDeploymentBranch,
+      adminDeploymentBranch:
+        readOptionalString(bootstrap.adminDeploymentBranch) ?? resolveAuthorityRepositoryBranch(),
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:
@@ -165,18 +209,23 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
           | null) ?? (row.supabase_project_ref ? "configured" : "pending-owner-env"),
     },
     storefront: {
-      appDir: row.storefront_app_dir ?? undefined,
-      status: row.storefront_status,
+      appDir: recoveredStorefrontAppDir ?? undefined,
+      status: recoveredStorefrontStatus,
       lastScaffoldedAt: readOptionalString(storefront.lastScaffoldedAt) ?? row.updated_at,
       lastScaffoldError: readOptionalString(storefront.lastScaffoldError) ?? undefined,
       repoSyncStatus:
         (readOptionalString(storefront.repoSyncStatus) as "pending" | "synced" | "failed" | null) ?? "pending",
       repoSyncedAt: readOptionalString(storefront.repoSyncedAt) ?? undefined,
+      lastRepoSyncedAt:
+        readOptionalString(storefront.lastRepoSyncedAt) ??
+        readOptionalString(storefront.repoSyncedAt) ??
+        undefined,
       repoCommitSha: readOptionalString(storefront.repoCommitSha) ?? undefined,
       lastRepoSyncError: readOptionalString(storefront.lastRepoSyncError) ?? undefined,
       deploymentProvider: "coolify",
       deploymentName: readOptionalString(storefront.deploymentName) ?? `${row.slug}-storefront`,
-      deploymentBranch: storefrontDeploymentBranch,
+      deploymentBranch:
+        readOptionalString(storefront.deploymentBranch) ?? resolveStorefrontRepositoryBranch(row.slug),
       runtimeUrl: storefrontRuntimeUrl,
       resourceId: readOptionalString(storefront.resourceId) ?? undefined,
       deploymentStatus:
@@ -187,7 +236,14 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
           | "configured"
           | "failed"
           | null) ?? "pending-owner-env",
-      preparedAt: readOptionalString(storefront.preparedAt) ?? undefined,
+      preparedAt:
+        readOptionalString(storefront.preparedAt) ??
+        readOptionalString(storefront.lastDeploymentPreparedAt) ??
+        undefined,
+      lastDeploymentPreparedAt:
+        readOptionalString(storefront.lastDeploymentPreparedAt) ??
+        readOptionalString(storefront.preparedAt) ??
+        undefined,
       deployedAt: readOptionalString(storefront.deployedAt) ?? undefined,
       lastDeploymentError: readOptionalString(storefront.lastDeploymentError) ?? undefined,
     },
@@ -195,84 +251,6 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       features.length > 0
         ? features
         : ["catalog", "orders", "customers", "discounts", "cms", "frontend_from_existing_store"],
-  };
-}
-
-function mergeRecoveredAuthorityIntoExistingConfig(
-  existing: StoreConfig,
-  recovered: StoreConfig,
-): StoreConfig {
-  return {
-    ...existing,
-    name: recovered.name,
-    slug: recovered.slug,
-    status: recovered.status,
-    theme: {
-      ...existing.theme,
-      key: recovered.theme.key || existing.theme.key,
-      label: recovered.theme.label || existing.theme.label,
-    },
-    branding: {
-      ...(existing.branding ?? {}),
-      supportEmail: recovered.branding?.supportEmail ?? existing.branding?.supportEmail,
-      supportPhone: recovered.branding?.supportPhone ?? existing.branding?.supportPhone,
-      tagline: recovered.branding?.tagline ?? existing.branding?.tagline,
-      senderEmail: existing.branding?.senderEmail ?? recovered.branding?.senderEmail,
-      smsSenderTitle: existing.branding?.smsSenderTitle ?? recovered.branding?.smsSenderTitle,
-      defaultProductBrand:
-        existing.branding?.defaultProductBrand ?? recovered.branding?.defaultProductBrand,
-    },
-    domains: recovered.domains,
-    owner: existing.owner ?? recovered.owner,
-    supabase: {
-      ...existing.supabase,
-      ...recovered.supabase,
-      dashboardUrl: recovered.supabase.dashboardUrl ?? existing.supabase.dashboardUrl,
-    },
-    r2: {
-      ...(existing.r2 ?? {}),
-      ...(recovered.r2 ?? {}),
-      bucketName: recovered.r2?.bucketName ?? existing.r2?.bucketName,
-      publicUrl: recovered.r2?.publicUrl ?? existing.r2?.publicUrl,
-      managedDomain: recovered.r2?.managedDomain ?? existing.r2?.managedDomain,
-      provisionedAt: recovered.r2?.provisionedAt ?? existing.r2?.provisionedAt,
-      lastProvisionError: recovered.r2?.lastProvisionError ?? existing.r2?.lastProvisionError,
-      provisioning: recovered.r2?.provisioning ?? existing.r2?.provisioning,
-    },
-    bootstrap: recovered.bootstrap
-      ? {
-          ...(existing.bootstrap ?? {}),
-          ...recovered.bootstrap,
-          createdAt: existing.bootstrap?.createdAt ?? recovered.bootstrap.createdAt,
-          envTemplatePath:
-            existing.bootstrap?.envTemplatePath ?? recovered.bootstrap.envTemplatePath,
-          adminEnvLocalPath:
-            existing.bootstrap?.adminEnvLocalPath ?? recovered.bootstrap.adminEnvLocalPath,
-          coolifyProjectName:
-            existing.bootstrap?.coolifyProjectName ?? recovered.bootstrap.coolifyProjectName,
-          adminDeploymentLastError:
-            recovered.bootstrap.adminDeploymentLastError ??
-            existing.bootstrap?.adminDeploymentLastError,
-          lastProvisionError:
-            recovered.bootstrap.lastProvisionError ?? existing.bootstrap?.lastProvisionError,
-        }
-      : existing.bootstrap,
-    storefront: recovered.storefront
-      ? {
-          ...(existing.storefront ?? {}),
-          ...recovered.storefront,
-          appDir: recovered.storefront.appDir ?? existing.storefront?.appDir,
-          lastScaffoldedAt:
-            recovered.storefront.lastScaffoldedAt ?? existing.storefront?.lastScaffoldedAt,
-          lastScaffoldError:
-            recovered.storefront.lastScaffoldError ?? existing.storefront?.lastScaffoldError,
-          lastRepoSyncError:
-            recovered.storefront.lastRepoSyncError ?? existing.storefront?.lastRepoSyncError,
-          lastDeploymentError:
-            recovered.storefront.lastDeploymentError ?? existing.storefront?.lastDeploymentError,
-        }
-      : existing.storefront,
-    features: existing.features.length > 0 ? existing.features : recovered.features,
   };
 }
 
@@ -317,6 +295,12 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
 }
 
 export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise<StoreConfig> {
+  const existing = getStoreConfig(slug);
+
+  if (existing) {
+    return existing;
+  }
+
   const serviceClient = createOwnerServiceClient();
   const { data, error } = await serviceClient
     .from("owner_stores")
@@ -334,11 +318,7 @@ export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise
     throw new Error(`"${slug}" icin owner authority kaydi bulunamadi.`);
   }
 
-  const existing = getStoreConfig(slug);
-  const recovered = buildRecoveredStoreConfig(data);
-  const config = existing
-    ? mergeRecoveredAuthorityIntoExistingConfig(existing, recovered)
-    : recovered;
+  const config = buildRecoveredStoreConfig(data);
   const repoRoot = getRepoRoot();
   const storeDirectory = path.join(repoRoot, "stores", slug);
   const configPath = path.join(storeDirectory, "store.config.json");
@@ -349,4 +329,88 @@ export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise
   ensureAdminEnvTemplate(config);
 
   return config;
+}
+
+interface StorefrontAuthorityRowSnapshot {
+  storefront_app_dir: string | null;
+  storefront_status: StorefrontStatus;
+  metadata: Record<string, unknown> | null;
+}
+
+export async function applyStorefrontAuthorityPatch(
+  slug: string,
+  patch: StorefrontAuthorityPatchInput,
+): Promise<StoreConfig> {
+  const originalConfig = requireStoreConfig(slug);
+  const serviceClient = createOwnerServiceClient();
+  const { data: existingRow, error: readError } = await serviceClient
+    .from("owner_stores")
+    .select("storefront_app_dir, storefront_status, metadata")
+    .eq("slug", slug)
+    .maybeSingle<StorefrontAuthorityRowSnapshot>();
+
+  if (readError) {
+    throw new Error(readError.message);
+  }
+
+  if (!existingRow) {
+    throw new Error(`"${slug}" icin owner store authority satiri bulunamadi.`);
+  }
+
+  const nextConfig = applyStorefrontAuthorityPatchToConfig(slug, patch);
+  const currentMetadata = asRecord(existingRow.metadata);
+  const currentStorefrontMetadata = asRecord(currentMetadata.storefront);
+  const nextStorefront = nextConfig.storefront;
+  const recoveredAppDir =
+    nextStorefront?.appDir ??
+    readOptionalString(existingRow.storefront_app_dir) ??
+    readOptionalString(currentStorefrontMetadata.appDir) ??
+    null;
+  const nextStatus =
+    nextStorefront?.status ??
+    readStorefrontStatus(currentStorefrontMetadata.status) ??
+    existingRow.storefront_status;
+  const nextStorefrontMetadata = nextStorefront
+    ? {
+        ...currentStorefrontMetadata,
+        ...nextStorefront,
+        appDir: recoveredAppDir ?? undefined,
+        status: nextStatus,
+        lastRepoSyncedAt:
+          nextStorefront.lastRepoSyncedAt ??
+          nextStorefront.repoSyncedAt ??
+          readOptionalString(currentStorefrontMetadata.lastRepoSyncedAt) ??
+          readOptionalString(currentStorefrontMetadata.repoSyncedAt) ??
+          undefined,
+        lastDeploymentPreparedAt:
+          nextStorefront.lastDeploymentPreparedAt ??
+          nextStorefront.preparedAt ??
+          readOptionalString(currentStorefrontMetadata.lastDeploymentPreparedAt) ??
+          readOptionalString(currentStorefrontMetadata.preparedAt) ??
+          undefined,
+      }
+    : currentStorefrontMetadata;
+
+  try {
+    const { error: updateError } = await serviceClient
+      .from("owner_stores")
+      .update({
+        storefront_app_dir: recoveredAppDir,
+        storefront_status: nextStatus,
+        metadata: {
+          ...currentMetadata,
+          storefront: nextStorefrontMetadata,
+        },
+      })
+      .eq("slug", slug);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return nextConfig;
+  } catch (error) {
+    updateStoreConfig(slug, () => originalConfig);
+    throw error;
+  }
 }

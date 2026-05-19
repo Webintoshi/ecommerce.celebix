@@ -4,13 +4,18 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   getRepoRoot,
+  getStoreConfig,
   requireStoreConfig,
-  updateStoreStorefrontRepoSyncConfig,
 } from "@celebix/platform-config";
 import {
   getOwnerRepositoryBranch,
   getStoreDeploymentBranches,
-} from "@/lib/platform-config-owner";
+  getExpectedStorefrontAppDir,
+  getExpectedStorefrontPackageName,
+  resolveAuthorityRepositoryBranch,
+  resolveStorefrontRepositoryBranch,
+} from "../../../packages/platform-config/src/index";
+import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 export interface StorefrontRepoSyncResult {
   repository: string;
@@ -76,6 +81,11 @@ export interface GitHubRepoSyncReadiness {
   baseBranch: string | null;
   authorityBranch: string | null;
   message: string | null;
+}
+
+interface GitHubContentFileResponse {
+  content?: string;
+  encoding?: string;
 }
 
 const EXCLUDED_DIRECTORY_NAMES = new Set([".next", "node_modules"]);
@@ -153,8 +163,12 @@ function getGitHubBaseBranch(): string {
   );
 }
 
+function getAuthorityBranch(): string {
+  return normalizeBranchName(resolveAuthorityRepositoryBranch()) || getGitHubBaseBranch();
+}
+
 function getAuthorityGitHubBranch(): string {
-  return normalizeBranchName(getOwnerRepositoryBranch()) || getGitHubBaseBranch();
+  return normalizeBranchName(getOwnerRepositoryBranch()) || getAuthorityBranch();
 }
 
 function getStorefrontGitHubBranch(slug: string): string {
@@ -351,10 +365,14 @@ function pushRepoFile(
 function normalizeRelativeAppDir(value: string | null | undefined, slug: string): string {
   const trimmed = value?.trim();
   if (!trimmed) {
-    return `apps/storefront-${slug}`;
+    return getExpectedStorefrontAppDir(slug);
   }
 
   return trimmed.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function resolveStorefrontBranch(slug: string): string {
+  return getStoreConfig(slug)?.storefront?.deploymentBranch?.trim() || resolveStorefrontRepositoryBranch(slug);
 }
 
 function resolveAuthorityFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
@@ -517,37 +535,19 @@ async function syncGitHubFiles(input: {
       }),
     });
 
-    if (input.trackStorefrontSync) {
-      updateStoreStorefrontRepoSyncConfig(input.slug, {
-        syncStatus: "synced",
-        commitSha: commit.sha,
-        syncedAt,
-        lastError: undefined,
-      });
-    }
-
     return {
       repository,
       branch,
       status: "synced",
       commitSha: commit.sha,
       syncedAt,
-      message: `${input.files.length} dosya GitHub repositorysine senkronlandi.`,
+      message: `${input.files.length} dosya ${branch} branch'ine senkronlandi.`,
       committedPaths: input.files.map((file) => file.relativePath),
       createdBranch: branchRef.createdBranch,
       baseBranch: branchRef.baseBranch,
     };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Storefront repo senkronu basarisiz oldu.";
-
-    if (input.trackStorefrontSync) {
-      updateStoreStorefrontRepoSyncConfig(input.slug, {
-        syncStatus: "failed",
-        syncedAt,
-        lastError: message,
-      });
-    }
+    const message = error instanceof Error ? error.message : "Storefront repo senkronu basarisiz oldu.";
 
     return {
       repository,
@@ -626,6 +626,175 @@ export async function validateGitHubRepoSyncReadiness(): Promise<GitHubRepoSyncR
         error instanceof Error
           ? error.message
           : "GitHub repo sync authority dogrulanamadi.",
+    };
+  }
+}
+
+async function getBranchHeadSha(repository: string, branch: string): Promise<string | null> {
+  try {
+    const ref = await githubFetch<GitHubRefResponse>(`/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`);
+    return ref.object?.sha ?? null;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("GitHub API hatasi (404)")) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function getBranchBlobPaths(
+  repository: string,
+  branch: string,
+): Promise<{ headSha: string; paths: Set<string> }> {
+  const headSha = await getBranchHeadSha(repository, branch);
+
+  if (!headSha) {
+    throw new Error(`GitHub branch bulunamadi: ${branch}`);
+  }
+
+  const headCommit = await githubFetch<GitHubCommitResponse>(
+    `/repos/${repository}/git/commits/${headSha}`,
+  );
+  const baseTreeSha = headCommit.tree?.sha;
+
+  if (!baseTreeSha) {
+    throw new Error("GitHub base tree okunamadi.");
+  }
+
+  const tree = await githubFetch<GitHubTreeResponse>(
+    `/repos/${repository}/git/trees/${baseTreeSha}?recursive=1`,
+  );
+  const paths = new Set(
+    (tree.tree ?? [])
+      .filter((entry) => entry.type === "blob" && typeof entry.path === "string")
+      .map((entry) => entry.path as string),
+  );
+
+  return {
+    headSha,
+    paths,
+  };
+}
+
+async function readGitHubTextFile(
+  repository: string,
+  branch: string,
+  filePath: string,
+): Promise<string | null> {
+  try {
+    const payload = await githubFetch<GitHubContentFileResponse>(
+      `/repos/${repository}/contents/${filePath}?ref=${encodeURIComponent(branch)}`,
+    );
+
+    if (payload.encoding !== "base64" || !payload.content) {
+      return null;
+    }
+
+    return Buffer.from(payload.content.replace(/\n/g, ""), "base64").toString("utf8");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("GitHub API hatasi (404)")) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export interface StorefrontBranchVerificationResult {
+  repository: string;
+  branch: string;
+  headSha: string | null;
+  expectedAppDir: string;
+  appDir: string | null;
+  appDirMatches: boolean;
+  storeConfigExists: boolean;
+  packageJsonExists: boolean;
+  packageName: string | null;
+  packageNameMatches: boolean;
+  verified: boolean;
+  message: string | null;
+}
+
+export async function verifyStorefrontBranchState(
+  slug: string,
+): Promise<StorefrontBranchVerificationResult> {
+  const store = requireStoreConfig(slug);
+  const repository = getGitHubRepository();
+  const branch = resolveStorefrontBranch(slug);
+  const expectedAppDir = getExpectedStorefrontAppDir(slug);
+  const expectedPackageName = getExpectedStorefrontPackageName(slug);
+  const appDir = store.storefront?.appDir?.trim() || null;
+  const appDirMatches = appDir === expectedAppDir;
+  const storeConfigPath = `stores/${slug}/store.config.json`;
+  const packageJsonPath = `${expectedAppDir}/package.json`;
+
+  try {
+    const { headSha, paths } = await getBranchBlobPaths(repository, branch);
+    const storeConfigExists = paths.has(storeConfigPath);
+    const packageJsonExists = paths.has(packageJsonPath);
+    let packageName: string | null = null;
+
+    if (packageJsonExists) {
+      const packageText = await readGitHubTextFile(repository, branch, packageJsonPath);
+
+      if (packageText) {
+        const packageJson = JSON.parse(packageText) as { name?: string };
+        packageName = typeof packageJson.name === "string" ? packageJson.name.trim() : null;
+      }
+    }
+
+    const packageNameMatches = packageName === expectedPackageName;
+    const issues: string[] = [];
+
+    if (!appDir) {
+      issues.push("storefront appDir authority tanimli degil");
+    } else if (!appDirMatches) {
+      issues.push(`storefront appDir beklenen dizinle uyusmuyor: ${appDir}`);
+    }
+
+    if (!storeConfigExists) {
+      issues.push(`target branch store config icermiyor: ${storeConfigPath}`);
+    }
+
+    if (!packageJsonExists) {
+      issues.push(`target branch package.json icermiyor: ${packageJsonPath}`);
+    } else if (!packageNameMatches) {
+      issues.push(
+        `package name uyusmuyor: ${packageName || "bos"} (beklenen ${expectedPackageName})`,
+      );
+    }
+
+    return {
+      repository,
+      branch,
+      headSha,
+      expectedAppDir,
+      appDir,
+      appDirMatches,
+      storeConfigExists,
+      packageJsonExists,
+      packageName,
+      packageNameMatches,
+      verified: issues.length === 0,
+      message: issues.length > 0 ? issues.join(" / ") : null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Storefront branch dogrulamasi basarisiz oldu.";
+
+    return {
+      repository,
+      branch,
+      headSha: null,
+      expectedAppDir,
+      appDir,
+      appDirMatches,
+      storeConfigExists: false,
+      packageJsonExists: false,
+      packageName: null,
+      packageNameMatches: false,
+      verified: false,
+      message,
     };
   }
 }
@@ -864,52 +1033,8 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
     return false;
   }
 
-  try {
-    const store = requireStoreConfig(slug);
-    const relativeAppDir = store.storefront?.appDir?.trim();
-
-    if (!relativeAppDir) {
-      return false;
-    }
-
-    const repository = getGitHubRepository();
-    const branch = getStorefrontGitHubBranch(slug);
-    const ref = await readGitHubRef(repository, branch);
-    const headSha = ref?.object?.sha;
-
-    if (!headSha) {
-      return false;
-    }
-
-    const headCommit = await githubFetch<GitHubCommitResponse>(
-      `/repos/${repository}/git/commits/${headSha}`,
-    );
-    const baseTreeSha = headCommit.tree?.sha;
-
-    if (!baseTreeSha) {
-      return false;
-    }
-
-    const tree = await githubFetch<GitHubTreeResponse>(
-      `/repos/${repository}/git/trees/${baseTreeSha}?recursive=1`,
-    );
-    const paths = new Set(
-      (tree.tree ?? [])
-        .filter((entry) => entry.type === "blob" && typeof entry.path === "string")
-        .map((entry) => entry.path as string),
-    );
-    const sharedPaths = resolveStorefrontSharedFiles().map((file) => file.relativePath);
-
-    return [
-      "stores/registry.json",
-      `stores/${slug}/store.config.json`,
-      `stores/${slug}/admin.env.example`,
-      `${relativeAppDir.replace(/\\/g, "/")}/package.json`,
-      ...sharedPaths,
-    ].every((requiredPath) => paths.has(requiredPath));
-  } catch {
-    return false;
-  }
+  const verification = await verifyStorefrontBranchState(slug);
+  return verification.verified;
 }
 
 export async function syncStoreAuthorityRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
@@ -924,12 +1049,60 @@ export async function syncStoreAuthorityRepoForStore(slug: string): Promise<Stor
 }
 
 export async function syncStorefrontRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
-  return syncGitHubFiles({
+  const branch = resolveStorefrontBranch(slug);
+  const result = await syncGitHubFiles({
     slug,
-    branch: getStorefrontGitHubBranch(slug),
-    baseBranch: getGitHubBaseBranch(),
+    branch,
+    baseBranch: getAuthorityGitHubBranch(),
     files: resolveRepoFiles(slug),
     commitMessage: `chore: sync storefront scaffold for ${slug}`,
     trackStorefrontSync: true,
   });
+
+  if (result.status !== "synced") {
+    await applyStorefrontAuthorityPatch(slug, {
+      deploymentBranch: branch,
+      repoSyncStatus: "failed",
+      lastRepoSyncError: result.message,
+      deploymentStatus: "pending-repo-sync",
+    });
+    return result;
+  }
+
+  const verification = await verifyStorefrontBranchState(slug);
+
+  if (!verification.verified) {
+    const message = verification.message || "Storefront branch dogrulamasi basarisiz oldu.";
+
+    await applyStorefrontAuthorityPatch(slug, {
+      deploymentBranch: branch,
+      repoSyncStatus: "failed",
+      repoCommitSha: result.commitSha,
+      repoSyncedAt: result.syncedAt,
+      lastRepoSyncError: message,
+      deploymentStatus: "pending-repo-sync",
+    });
+
+    return {
+      ...result,
+      status: "failed",
+      message,
+    };
+  }
+
+  await applyStorefrontAuthorityPatch(slug, {
+    appDir: verification.appDir ?? verification.expectedAppDir,
+    deploymentBranch: branch,
+    repoSyncStatus: "synced",
+    repoCommitSha: verification.headSha ?? result.commitSha,
+    repoSyncedAt: result.syncedAt,
+    lastRepoSyncError: null,
+    status: "scaffolded",
+  });
+
+  return {
+    ...result,
+    commitSha: verification.headSha ?? result.commitSha,
+    message: verification.message ?? result.message,
+  };
 }

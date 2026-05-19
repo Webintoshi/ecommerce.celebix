@@ -37,15 +37,38 @@ Bu dokuman, Celebix monorepo icinde calisan baska agentlerin owner, admin, store
 
 ## Source Of Truth
 
-Bir store icin dogru bilgiler su kaynaklardan okunur:
+Bir store icin dogru bilgiler su sirayla okunur:
 
-1. `stores/<slug>/store.config.json`
-2. owner DB:
+1. owner DB
    - `owner_stores`
-   - `owner_store_secrets`
-3. canli runtime health endpointleri
+   - provisioning / metadata / secrets authority
+2. `deploy/owner`
+   - file-backed authority branch
+3. `deploy/storefront/<slug>`
+   - store-specific storefront deploy input
+4. canli runtime health endpointleri
+   - recovery ve drift gozlemi icin
+5. `main`
+   - runtime-created store icin authority degildir
 
 Tek basina `.env` authoritative degildir.
+
+## Branch Modeli
+
+- Owner/admin authority sync:
+  - `deploy/owner`
+- Storefront code sync:
+  - `deploy/storefront/<slug>`
+- Development branch:
+  - `main` veya ilgili `codex/...` branch'i
+
+Yanlis varsayim:
+
+- "Storefront deploy branch'i global bir branch olabilir"
+
+Dogru varsayim:
+
+- "Her store icin storefront deploy branch'i explicit ve store-specific olmalidir"
 
 ## Supabase Kurallari
 
@@ -79,20 +102,39 @@ Yeni proje owner panelden acildiginda hedef akis su sekildedir:
 2. `stores/<slug>/store.config.json` yazilir
 3. `stores/registry.json` guncellenir
 4. `stores/<slug>/admin.env.example` uretilir
-5. Self-hosted Supabase provisioning denenir
-6. R2 bucket provisioning denenir
-7. Admin deployment blueprint hazirlanir
-8. Admin deployment Coolify uzerinden create/update edilir
-9. Storefront scaffold olusturulur
-10. Scaffold dosyalari GitHub'a sync edilmeye calisilir
-11. Storefront deployment blueprint hazirlanir
-12. Storefront deployment Coolify uzerinden create/update edilir
-13. Runtime health sonradan owner health ekranindan izlenir
+5. owner DB authority satiri olusur / guncellenir
+6. Self-hosted Supabase provisioning denenir
+7. R2 bucket provisioning denenir
+8. Admin deployment blueprint hazirlanir
+9. Admin deployment Coolify uzerinden create/update edilir
+10. Storefront scaffold olusturulur
+11. Scaffold sonrasi kalici dogrulama yapilir
+12. Store authority `deploy/owner` branch'ine sync edilir
+13. Storefront code `deploy/storefront/<slug>` branch'ine sync edilir
+14. Exact branch verification gecerse storefront deployment blueprint hazirlanir
+15. Storefront deployment Coolify uzerinden create/update edilir
+16. Runtime health sonradan owner health ekranindan izlenir
 
 Onemli:
 
 - Store create request'i artik runtime'in ayaga kalkmasini bloklayarak beklememelidir.
 - Runtime consistency asenkron health/consistency ekranindan izlenir.
+- Storefront deployment, target branch icinde `apps/storefront-<slug>/package.json` dogrulanmadan baslatilmaz.
+- `storefront.appDir`, `repoSyncStatus`, `deploymentStatus` file authority ile owner DB'de ayni anda ilerler.
+
+## Repair Preflight
+
+Repair baslamadan once su katmanlar birlikte kontrol edilmelidir:
+
+- owner DB authority
+- `deploy/owner` file authority
+- live admin/storefront resources
+- Supabase readiness
+- R2 readiness
+- GitHub target branch varligi
+- `appDir` / package / deployment branch tutarliligi
+
+Bu preflight fail ise repair durur.
 
 ## Theme Standardi
 
@@ -183,6 +225,25 @@ Yanlis.
 Dogru:
 
 - consistency endpoint'i kontrol edilir
+- stale file config owner DB'yi downgrade etmemelidir
+
+### 6. Storefront branch'i local scaffold ile karistirmak
+
+Yanlis.
+
+Dogru:
+
+- local `apps/storefront-<slug>` varligi tek basina yeterli degildir
+- `deploy/storefront/<slug>` icinde ayni app ve store config dogrulanmalidir
+
+### 7. `lastScaffoldedAt` var ama `appDir` yok durumunu yok saymak
+
+Yanlis.
+
+Dogru:
+
+- bu bir authority/persistence arizasidir
+- provisioning veya repair success sayilmaz
 
 ## Agent Icin Pratik Kurallar
 
@@ -210,5 +271,13 @@ Eger owner create akisi yeni store acarken tekrar timeout vermeye baslarsa ilk b
 3. `apps/owner/lib/storefront-repo-sync.ts`
 4. `apps/owner/lib/admin-deployment-coolify.ts`
 5. `apps/owner/lib/storefront-deployment-coolify.ts`
+
+Eger vaka DeryCraft 2 benzeri yarim provisioning ise ilk bakilacak yerler:
+
+1. owner DB `storefront_app_dir` / `metadata.storefront`
+2. `deploy/owner` store authority
+3. `deploy/storefront/<slug>` branch varligi
+4. target branch icinde `apps/storefront-<slug>/package.json`
+5. exact branch verification sonucu
 
 Bu dokuman yeni degisiklik geldikce guncellenmelidir.

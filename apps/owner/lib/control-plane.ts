@@ -18,6 +18,10 @@ import {
   type StoreConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
+import type {
+  StorefrontDeploymentStatus,
+  StorefrontRepoSyncStatus,
+} from "../../../packages/platform-config/src/index";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import {
   createDefaultProvisioningSteps,
@@ -71,9 +75,12 @@ interface OwnerStoreRow {
 
 interface OwnerStoreAuthorityFields {
   metadata: Record<string, unknown> | null;
+  supabase_url: string | null;
   r2_bucket_name: string | null;
   r2_public_url: string | null;
   r2_managed_domain: string | null;
+  storefront_app_dir: string | null;
+  storefront_status: StorefrontStatus;
 }
 
 interface OwnerMetricRow {
@@ -1416,6 +1423,247 @@ function buildNextMetadata(
   };
 }
 
+function readStorefrontStatusValue(value: unknown): StorefrontStatus | null {
+  return value === "not_started" || value === "scaffolded" || value === "active" ? value : null;
+}
+
+function readStorefrontRepoSyncStatusValue(value: unknown): StorefrontRepoSyncStatus | null {
+  return value === "pending" || value === "synced" || value === "failed" ? value : null;
+}
+
+function readStorefrontDeploymentStatusValue(value: unknown): StorefrontDeploymentStatus | null {
+  return value === "pending-owner-env" ||
+    value === "pending-repo-sync" ||
+    value === "prepared" ||
+    value === "configured" ||
+    value === "failed"
+    ? value
+    : null;
+}
+
+function scoreStorefrontStatusValue(value: StorefrontStatus | null | undefined): number {
+  switch (value) {
+    case "active":
+      return 2;
+    case "scaffolded":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function scoreSupabaseAuthority(store: StoreConfig): number {
+  return store.bootstrap?.supabaseProvisioning === "configured" ||
+    (store.supabase.projectRef !== "pending-owner-bootstrap" && store.supabase.url !== "configure-in-env")
+    ? 2
+    : 0;
+}
+
+function scoreSupabaseRuntimeAuthority(existingAuthority: OwnerStoreAuthorityFields | null): number {
+  if (!existingAuthority) {
+    return 0;
+  }
+
+  const bootstrap = asRecord(existingAuthority.metadata?.bootstrap);
+  return readOptionalString(bootstrap.supabaseProvisioning) === "configured" || Boolean(existingAuthority.supabase_url)
+    ? 2
+    : 0;
+}
+
+function scoreR2Authority(store: StoreConfig): number {
+  return store.r2?.provisioning === "configured" || Boolean(store.r2?.bucketName || store.r2?.publicUrl) ? 2 : 0;
+}
+
+function scoreR2RuntimeAuthority(existingAuthority: OwnerStoreAuthorityFields | null): number {
+  if (!existingAuthority) {
+    return 0;
+  }
+
+  return Boolean(existingAuthority.r2_bucket_name || existingAuthority.r2_public_url) ? 2 : 0;
+}
+
+function scoreAdminDeploymentAuthority(store: StoreConfig): number {
+  switch (store.bootstrap?.adminDeploymentStatus) {
+    case "configured":
+      return 3;
+    case "prepared":
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+function scoreAdminRuntimeAuthority(existingAuthority: OwnerStoreAuthorityFields | null): number {
+  if (!existingAuthority) {
+    return 0;
+  }
+
+  const bootstrap = asRecord(existingAuthority.metadata?.bootstrap);
+  const status = readOptionalString(bootstrap.adminDeploymentStatus);
+
+  if (status === "configured") {
+    return 3;
+  }
+
+  if (status === "prepared") {
+    return 2;
+  }
+
+  return readOptionalString(bootstrap.adminDeploymentRuntimeUrl) || readOptionalString(bootstrap.adminDeploymentResourceId)
+    ? 3
+    : 0;
+}
+
+function scoreStorefrontAuthority(store: StoreConfig): number {
+  const storefront = store.storefront;
+
+  if (!storefront) {
+    return 0;
+  }
+
+  if (storefront.deploymentStatus === "configured" || storefront.status === "active") {
+    return 5;
+  }
+
+  if (storefront.deploymentStatus === "prepared") {
+    return 4;
+  }
+
+  if (storefront.repoSyncStatus === "synced") {
+    return 3;
+  }
+
+  if (storefront.appDir || storefront.status === "scaffolded") {
+    return 2;
+  }
+
+  return 0;
+}
+
+function scoreExistingStorefrontAuthority(existingAuthority: OwnerStoreAuthorityFields | null): number {
+  if (!existingAuthority) {
+    return 0;
+  }
+
+  const storefront = asRecord(existingAuthority.metadata?.storefront);
+  const deploymentStatus = readStorefrontDeploymentStatusValue(storefront.deploymentStatus);
+  const repoSyncStatus = readStorefrontRepoSyncStatusValue(storefront.repoSyncStatus);
+  const appDir =
+    readOptionalString(existingAuthority.storefront_app_dir) ?? readOptionalString(storefront.appDir);
+  const status =
+    readStorefrontStatusValue(storefront.status) ?? existingAuthority.storefront_status;
+
+  if (deploymentStatus === "configured" || status === "active") {
+    return 5;
+  }
+
+  if (deploymentStatus === "prepared") {
+    return 4;
+  }
+
+  if (repoSyncStatus === "synced") {
+    return 3;
+  }
+
+  if (appDir || status === "scaffolded") {
+    return 2;
+  }
+
+  return 0;
+}
+
+function resolveEffectiveStorefrontAppDir(
+  store: StoreConfig,
+  existingAuthority: OwnerStoreAuthorityFields | null,
+): string | null {
+  const metadataStorefront = asRecord(existingAuthority?.metadata?.storefront);
+  return (
+    store.storefront?.appDir ??
+    readOptionalString(existingAuthority?.storefront_app_dir) ??
+    readOptionalString(metadataStorefront.appDir) ??
+    null
+  );
+}
+
+function resolveEffectiveStorefrontStatus(
+  store: StoreConfig,
+  existingAuthority: OwnerStoreAuthorityFields | null,
+): StorefrontStatus {
+  const metadataStorefront = asRecord(existingAuthority?.metadata?.storefront);
+  const authorityStatus =
+    readStorefrontStatusValue(metadataStorefront.status) ??
+    existingAuthority?.storefront_status ??
+    "not_started";
+  const storeStatus = store.storefront?.status ?? "not_started";
+
+  return scoreStorefrontStatusValue(storeStatus) >= scoreStorefrontStatusValue(authorityStatus)
+    ? storeStatus
+    : authorityStatus;
+}
+
+function resolveOwnerStorefrontAppDir(
+  row: Pick<OwnerStoreRow, "storefront_app_dir" | "metadata">,
+): string | null {
+  const storefront = asRecord(row.metadata?.storefront);
+  return readOptionalString(row.storefront_app_dir) ?? readOptionalString(storefront.appDir);
+}
+
+function resolveOwnerStorefrontStatus(
+  row: Pick<OwnerStoreRow, "storefront_status" | "metadata">,
+): StorefrontStatus {
+  const storefront = asRecord(row.metadata?.storefront);
+  const metadataStatus = readStorefrontStatusValue(storefront.status);
+  return scoreStorefrontStatusValue(metadataStatus) > scoreStorefrontStatusValue(row.storefront_status)
+    ? (metadataStatus ?? row.storefront_status)
+    : row.storefront_status;
+}
+
+function assertStoreAuthorityNotStale(
+  store: StoreConfig,
+  existingAuthority: OwnerStoreAuthorityFields | null,
+): void {
+  if (!existingAuthority) {
+    return;
+  }
+
+  const issues: string[] = [];
+  const existingStorefrontMetadata = asRecord(existingAuthority.metadata?.storefront);
+
+  if (scoreSupabaseRuntimeAuthority(existingAuthority) > scoreSupabaseAuthority(store)) {
+    issues.push("Supabase authority dosya state'inden daha ileride");
+  }
+
+  if (scoreR2RuntimeAuthority(existingAuthority) > scoreR2Authority(store)) {
+    issues.push("R2 authority dosya state'inden daha ileride");
+  }
+
+  if (scoreAdminRuntimeAuthority(existingAuthority) > scoreAdminDeploymentAuthority(store)) {
+    issues.push("Admin deployment authority dosya state'inden daha ileride");
+  }
+
+  if (scoreExistingStorefrontAuthority(existingAuthority) > scoreStorefrontAuthority(store)) {
+    issues.push("Storefront authority dosya state'inden daha ileride");
+  }
+
+  if (
+    (readOptionalString(existingAuthority.storefront_app_dir) || readOptionalString(existingStorefrontMetadata.appDir)) &&
+    !store.storefront?.appDir
+  ) {
+    issues.push("storefront appDir owner authority'de var ama store.config'te yok");
+  }
+
+  if (
+    readOptionalString(existingStorefrontMetadata.deploymentBranch) &&
+    !store.storefront?.deploymentBranch
+  ) {
+    issues.push("storefront deployment branch owner authority'de var ama store.config'te yok");
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`${store.slug} authority stale gorunuyor: ${issues.join(" / ")}`);
+  }
+}
+
 function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string, unknown> | null): Record<string, unknown> {
   const current = asRecord(existingMetadata);
   const owner = asRecord(current.owner);
@@ -1429,6 +1677,7 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
       ...bootstrap,
       ...(store.bootstrap ?? {}),
     },
+    r2: store.r2 ?? current.r2 ?? null,
     storefront: {
       ...storefront,
       ...(store.storefront ?? {}),
@@ -1657,7 +1906,7 @@ function isSuspiciousZeroMetrics(metric: OwnerMetricRow | undefined, store: Owne
     Number(metric.customer_count ?? 0) +
     Number(metric.pending_order_count ?? 0);
 
-  return totalActivity === 0 && store.status === "active" && store.storefront_status === "active";
+  return totalActivity === 0 && store.status === "active" && resolveOwnerStorefrontStatus(store) === "active";
 }
 
 function buildOwnerStoreRow(
@@ -1667,6 +1916,9 @@ function buildOwnerStoreRow(
     supabaseUrl?: string | null;
   }
 ) {
+  const storefrontAppDir = resolveEffectiveStorefrontAppDir(store, existingAuthority);
+  const storefrontStatus = resolveEffectiveStorefrontStatus(store, existingAuthority);
+
   return {
     slug: store.slug,
     name: store.name,
@@ -1685,8 +1937,8 @@ function buildOwnerStoreRow(
     r2_bucket_name: store.r2?.bucketName ?? existingAuthority?.r2_bucket_name ?? null,
     r2_public_url: store.r2?.publicUrl ?? existingAuthority?.r2_public_url ?? null,
     r2_managed_domain: store.r2?.managedDomain ?? existingAuthority?.r2_managed_domain ?? null,
-    storefront_app_dir: store.storefront?.appDir ?? null,
-    storefront_status: store.storefront?.status ?? "not_started",
+    storefront_app_dir: storefrontAppDir,
+    storefront_status: storefrontStatus,
     metadata: mergeStoreMetadata(store, existingAuthority?.metadata ?? null)
   };
 }
@@ -1703,14 +1955,17 @@ export async function ensureOwnerStoreAuthorityForSlug(slug: string): Promise<vo
   const serviceClient = createOwnerServiceClient();
   const { data: existingRowData, error: existingRowError } = await serviceClient
     .from("owner_stores")
-    .select("id, metadata, r2_bucket_name, r2_public_url, r2_managed_domain")
+    .select("id, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain, storefront_app_dir, storefront_status")
     .eq("slug", slug)
     .maybeSingle<{
       id: string;
       metadata: Record<string, unknown> | null;
+      supabase_url: string | null;
       r2_bucket_name: string | null;
       r2_public_url: string | null;
       r2_managed_domain: string | null;
+      storefront_app_dir: string | null;
+      storefront_status: StorefrontStatus;
     }>();
 
   if (existingRowError) {
@@ -1720,9 +1975,12 @@ export async function ensureOwnerStoreAuthorityForSlug(slug: string): Promise<vo
   const existingAuthority: OwnerStoreAuthorityFields | null = existingRowData
     ? {
         metadata: existingRowData.metadata ?? null,
+        supabase_url: existingRowData.supabase_url ?? null,
         r2_bucket_name: existingRowData.r2_bucket_name ?? null,
         r2_public_url: existingRowData.r2_public_url ?? null,
         r2_managed_domain: existingRowData.r2_managed_domain ?? null,
+        storefront_app_dir: existingRowData.storefront_app_dir ?? null,
+        storefront_status: existingRowData.storefront_status,
       }
     : null;
 
@@ -1912,9 +2170,10 @@ function buildStoreHealth(
   adminRuntimeHealth: AdminRuntimeHealth
 ): StoreHealthSummary {
   const finalReadiness = readStoreFinalReadiness(store.metadata);
+  const storefrontStatus = resolveOwnerStorefrontStatus(store);
   const supabaseReady = Boolean(store.supabase_project_ref && store.supabase_url);
   const r2Ready = Boolean(store.r2_bucket_name && store.r2_public_url);
-  const storefrontRuntimeConsistent = finalReadiness.storefrontRuntimeOk ?? (store.storefront_status === "active");
+  const storefrontRuntimeConsistent = finalReadiness.storefrontRuntimeOk ?? (storefrontStatus === "active");
   const homepageOk = finalReadiness.homepageOk ?? storefrontRuntimeConsistent;
   const categoriesOk = finalReadiness.categoriesOk ?? storefrontRuntimeConsistent;
   const productsOk = finalReadiness.productsOk ?? storefrontRuntimeConsistent;
@@ -2381,8 +2640,8 @@ async function buildDashboardStoreSummaries(
         themeLabel: store.theme_label ?? store.theme_key,
         storefrontDomain: store.storefront_domain,
         adminDomain: store.admin_domain,
-        storefrontAppDir: store.storefront_app_dir,
-        storefrontStatus: store.storefront_status,
+        storefrontAppDir: resolveOwnerStorefrontAppDir(store),
+        storefrontStatus: resolveOwnerStorefrontStatus(store),
         supabaseDashboardUrl: resolveSupabaseDashboardUrl(
           storeConfig?.supabase.dashboardUrl ?? null,
           storeConfig?.supabase.url ?? store.supabase_url
@@ -2400,7 +2659,7 @@ async function buildDashboardStoreSummaries(
         storeAdminCount: resolvedStoreAdminCount,
         management: parseStoreManagementProfile(store.metadata, {
           storeStatus: normalizedStatus,
-          storefrontStatus: store.storefront_status
+          storefrontStatus: resolveOwnerStorefrontStatus(store)
         }),
         provisioning,
         domainMigration,
@@ -2435,7 +2694,9 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
 
     const { data: existingStoreRows, error: existingStoreRowsError } = await serviceClient
       .from("owner_stores")
-      .select("id, slug, status, storefront_domain, admin_domain, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain");
+      .select(
+        "id, slug, status, storefront_domain, admin_domain, metadata, supabase_url, r2_bucket_name, r2_public_url, r2_managed_domain, storefront_app_dir, storefront_status",
+      );
 
     if (existingStoreRowsError) {
       throw new Error(existingStoreRowsError.message);
@@ -2452,6 +2713,8 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
       r2_bucket_name: string | null;
       r2_public_url: string | null;
       r2_managed_domain: string | null;
+      storefront_app_dir: string | null;
+      storefront_status: StorefrontStatus;
     }>) ?? [];
     const activeStoreSlugs = new Set(storeConfigs.map((store) => store.slug));
     const orphanedSmokeRows = allExistingRows.filter((row) => {
@@ -2490,16 +2753,20 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
         row.slug,
         {
           metadata: row.metadata ?? null,
+          supabase_url: row.supabase_url ?? null,
           r2_bucket_name: row.r2_bucket_name ?? null,
           r2_public_url: row.r2_public_url ?? null,
           r2_managed_domain: row.r2_managed_domain ?? null,
-        }
-      ])
+          storefront_app_dir: row.storefront_app_dir ?? null,
+          storefront_status: row.storefront_status,
+        },
+      ]),
     );
     const storeIdBySlug = new Map(existingRows.map((row) => [row.slug, row.id]));
     const secretUrlBySlug = new Map<string, string>();
 
     for (const store of storeConfigs) {
+      assertStoreAuthorityNotStale(store, authorityMap.get(store.slug) ?? null);
       const storeId = storeIdBySlug.get(store.slug);
 
       if (!storeId) {
@@ -2520,9 +2787,9 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
         storeConfigs.map((store) =>
           buildOwnerStoreRow(store, authorityMap.get(store.slug) ?? null, {
             supabaseUrl: secretUrlBySlug.get(store.slug) ?? null,
-          })
+          }),
         ),
-        { onConflict: "slug" }
+        { onConflict: "slug" },
       );
 
     if (upsertStoresError) {
@@ -2534,7 +2801,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
       .select("id, slug")
       .in(
         "slug",
-        storeConfigs.map((store) => store.slug)
+        storeConfigs.map((store) => store.slug),
       );
 
     if (storeReadError) {
@@ -2580,7 +2847,7 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
             pendingOrderCount: existingMetric.pending_order_count ?? 0,
             totalRevenue: Number(existingMetric.total_revenue ?? 0),
             averageOrderValue: Number(existingMetric.average_order_value ?? 0),
-            lastSyncedAt: existingMetric.last_synced_at ?? new Date().toISOString()
+            lastSyncedAt: existingMetric.last_synced_at ?? new Date().toISOString(),
           };
         }
 
@@ -2593,15 +2860,15 @@ export async function syncOwnerStoresAndMetrics(): Promise<void> {
             pending_order_count: metrics.pendingOrderCount,
             total_revenue: metrics.totalRevenue,
             average_order_value: metrics.averageOrderValue,
-            last_synced_at: metrics.lastSyncedAt
+            last_synced_at: metrics.lastSyncedAt,
           },
-          { onConflict: "store_id" }
+          { onConflict: "store_id" },
         );
 
         if (error) {
           throw new Error(error.message);
         }
-      })
+      }),
     );
 
     clearDashboardStoreSummaryCaches();
