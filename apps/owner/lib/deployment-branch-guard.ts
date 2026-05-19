@@ -1,14 +1,16 @@
 import "server-only";
 
 import {
-  getDefaultAdminDeploymentBranch,
-  getDefaultStorefrontDeploymentBranch,
-  getOwnerRepositoryBranch,
   getStoreConfig,
-  getStoreDeploymentBranches,
   getStores,
   type StoreConfig,
 } from "@celebix/platform-config";
+import {
+  getDefaultAdminDeploymentBranch,
+  getDefaultStorefrontDeploymentBranch,
+  getOwnerRepositoryBranch,
+  getStoreDeploymentBranches,
+} from "@/lib/platform-config-owner";
 
 export interface DeploymentBranchPreview {
   ownerBranch: string;
@@ -116,4 +118,3 @@ export function validateNewStoreDeploymentBranches(slug: string): DeploymentBran
 export function validateConfiguredStoreDeploymentBranches(store: StoreConfig): DeploymentBranchValidation {
   return buildValidation(getStoreDeploymentBranches(store.slug, store), store.slug);
 }
-

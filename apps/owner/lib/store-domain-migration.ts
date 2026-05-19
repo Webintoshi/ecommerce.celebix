@@ -1,9 +1,7 @@
 import "server-only";
 
 import {
-  getStoreAdminDomainForStorefrontDomain,
   requireStoreConfig,
-  updateStoreDomains,
 } from "@celebix/platform-config";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
 import {
@@ -25,6 +23,10 @@ import {
   validateGitHubRepoSyncReadiness,
 } from "@/lib/storefront-repo-sync";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
+import {
+  getStoreAdminDomainForStorefrontDomain,
+  updateStoreDomains,
+} from "@/lib/platform-config-owner";
 
 interface DomainMigrationInput {
   storefrontDomain: string;

@@ -1,7 +1,7 @@
 import {
   getDefaultAdminDeploymentBranch,
   getStorefrontDeploymentBranchPrefix,
-} from "@celebix/platform-config";
+} from "@/lib/platform-config-owner";
 import { CreateStoreForm } from "@/components/CreateStoreForm";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getSupabaseBootstrapStatus } from "@/lib/supabase-bootstrap";

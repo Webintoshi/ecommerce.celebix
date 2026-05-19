@@ -1,7 +1,8 @@
 import "server-only";
 
-import { getStores, getStoreDeploymentBranches, requireStoreConfig } from "@celebix/platform-config";
+import { getStores, requireStoreConfig } from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 
 interface CoolifyApplication {

@@ -3,12 +3,14 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  getOwnerRepositoryBranch,
   getRepoRoot,
-  getStoreDeploymentBranches,
   requireStoreConfig,
   updateStoreStorefrontRepoSyncConfig,
 } from "@celebix/platform-config";
+import {
+  getOwnerRepositoryBranch,
+  getStoreDeploymentBranches,
+} from "@/lib/platform-config-owner";
 
 export interface StorefrontRepoSyncResult {
   repository: string;

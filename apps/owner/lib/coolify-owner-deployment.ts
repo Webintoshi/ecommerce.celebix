@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getOwnerRepositoryBranch } from "@celebix/platform-config";
+import { getOwnerRepositoryBranch } from "@/lib/platform-config-owner";
 
 interface CoolifyApplication {
   uuid?: string;

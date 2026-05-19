@@ -2,7 +2,6 @@ import "server-only";
 
 import type { StoreConfig } from "@celebix/platform-config";
 import {
-  getStoreDeploymentBranches,
   requireStoreConfig,
   updateStoreStorefrontConfig,
   updateStoreStorefrontDeploymentConfig,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/storefront-deployment";
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
+import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
 
 interface CoolifyProject {
   uuid?: string;

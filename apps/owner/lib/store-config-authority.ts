@@ -3,8 +3,6 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  getDefaultAdminDeploymentBranch,
-  getDefaultStorefrontDeploymentBranch,
   getRepoRoot,
   getStoreConfig,
   getStores,
@@ -12,6 +10,10 @@ import {
   type StoreRegistryEntry,
 } from "@celebix/platform-config";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import {
+  getDefaultAdminDeploymentBranch,
+  getDefaultStorefrontDeploymentBranch,
+} from "@/lib/platform-config-owner";
 
 interface OwnerStoreAuthorityRow {
   slug: string;
