@@ -9,3 +9,4 @@ export * from "./categories";
 export * from "./blog";
 export * from "./coupons";
 export * from "./abandoned-carts";
+export * from "./light-postgres-public-read";
