@@ -28,14 +28,17 @@
     "notes": "Merkezi owner panel uzerinden olusturuldu."
   },
   "supabase": {
-    "projectRef": "pending-owner-bootstrap",
-    "url": "configure-in-env",
-    "provider": "managed",
+    "projectRef": "coolify:derycraftcomtr:ay5xmnd0cu2mwveiswxwrw1p",
+    "url": "https://supabasekong-derycraftcomtr.46.225.183.57.sslip.io",
+    "provider": "self_hosted_coolify",
     "storage": "separate-project-per-store"
   },
   "r2": {
-    "provisioning": "pending-owner-env",
-    "provisionedAt": "2026-05-18T21:06:07.671427+00:00"
+    "bucketName": "derycraftcomtr-assets",
+    "publicUrl": "https://pub-9f7377974ec94d2aad53ff327582935f.r2.dev",
+    "managedDomain": "pub-9f7377974ec94d2aad53ff327582935f.r2.dev",
+    "provisionedAt": "2026-05-19T12:59:28.317Z",
+    "provisioning": "configured"
   },
   "bootstrap": {
     "createdAt": "2026-05-18T21:06:07.520Z",
@@ -46,21 +49,27 @@
     "adminDeploymentName": "DeryCraft 2 admin",
     "adminDeploymentBranch": "deploy/owner",
     "adminDeploymentRuntimeUrl": "https://admin.derycraft.com.tr",
-    "adminDeploymentStatus": "pending-owner-env",
-    "supabaseProvider": "managed",
+    "adminDeploymentResourceId": "h1476oheippkjbxoiwhtbd14",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-05-19T12:59:28.318Z",
+    "adminDeploymentDeployedAt": "2026-05-19T12:59:28.292Z",
+    "supabaseProvider": "self_hosted_coolify",
     "supabaseProjectName": "DeryCraft 2",
-    "provisionedAt": "2026-05-18T21:06:07.671427+00:00",
-    "supabaseProvisioning": "pending-owner-env"
+    "supabaseResourceId": "ay5xmnd0cu2mwveiswxwrw1p",
+    "provisionedAt": "2026-05-19T12:59:28.295Z",
+    "supabaseProvisioning": "configured"
   },
   "storefront": {
     "status": "not_started",
-    "lastScaffoldedAt": "2026-05-18T21:06:07.671427+00:00",
+    "lastScaffoldError": "Previous scaffold state incomplete; storefront appDir/package bulunamadi.",
     "repoSyncStatus": "pending",
+    "lastRepoSyncError": "Storefront branch/appDir missing; authority admin/supabase/r2 ile reconcile edildi.",
     "deploymentProvider": "coolify",
     "deploymentName": "DeryCraft 2 websitesi",
     "deploymentBranch": "deploy/storefront/derycraftcomtr",
     "runtimeUrl": "https://derycraft.com.tr",
-    "deploymentStatus": "pending-owner-env"
+    "deploymentStatus": "pending-repo-sync",
+    "lastDeploymentError": "Storefront branch/appDir missing; authority admin/supabase/r2 ile reconcile edildi."
   },
   "features": [
     "catalog",
