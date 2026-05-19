@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { getStoreConfig, repairStoreConfig, updateStoreStorefrontConfig } from "@celebix/platform-config";
+import { getStoreConfig, repairStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
@@ -53,19 +53,20 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
           relativeAppDirectory,
         };
 
-    if (result.relativeAppDirectory) {
-      updateStoreStorefrontConfig(slug, {
-        appDir: result.relativeAppDirectory,
-        status: "scaffolded",
-      });
-    }
-
     let repoSync = null;
     let blueprint = await prepareStorefrontDeployment(slug);
 
     if (blueprint.status === "pending-repo-sync") {
       repoSync = await syncStorefrontRepoForStore(slug);
       blueprint = await prepareStorefrontDeployment(slug);
+    }
+
+    if (
+      blueprint.status === "pending-owner-env" ||
+      blueprint.status === "pending-repo-sync" ||
+      blueprint.status === "failed"
+    ) {
+      throw new Error(blueprint.runtimeMessage || "Storefront deployment authority henuz hazir degil.");
     }
 
     const deploymentWindow: DeploymentWindowHandle = await reserveGeneratedDeploymentWindow({

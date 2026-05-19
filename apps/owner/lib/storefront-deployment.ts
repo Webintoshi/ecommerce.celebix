@@ -2,20 +2,22 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import {
   getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
   resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
-  updateStoreStorefrontDeploymentConfig,
 } from "@celebix/platform-config";
+import {
+  getExpectedStorefrontAppDir,
+  getExpectedStorefrontPackageName,
+} from "../../../packages/platform-config/src/index";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import {
-  checkStorefrontRepoSyncOnGithub,
-  isGitHubRepoSyncConfigured,
+  verifyStorefrontBranchState,
 } from "@/lib/storefront-repo-sync";
+import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -179,36 +181,6 @@ function readWorkspaceServerPort(store: StoreConfig): string {
   }
 
   return "3000";
-}
-
-function hasGitMetadata(): boolean {
-  return fs.existsSync(path.join(getRepoRoot(), ".git"));
-}
-
-async function isRepoSynced(store: StoreConfig, relativeAppDir: string | null): Promise<boolean> {
-  if (store.storefront?.repoSyncStatus === "synced" && store.storefront?.repoSyncedAt) {
-    return true;
-  }
-
-  if (!relativeAppDir?.trim()) {
-    return false;
-  }
-
-  if (!hasGitMetadata()) {
-    return checkStorefrontRepoSyncOnGithub(store.slug);
-  }
-
-  const packageJsonPath = `${relativeAppDir.replace(/\\/g, "/")}/package.json`;
-
-  try {
-    execFileSync("git", ["ls-files", "--error-unmatch", packageJsonPath], {
-      cwd: getRepoRoot(),
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function buildPublicEnvEntries(store: StoreConfig): Record<string, string> {
@@ -413,29 +385,70 @@ export async function getStorefrontDeploymentBlueprint(
   const appDirectory = resolveAppDirectory(store);
   const packageJsonPath = resolvePackageJsonPath(store);
   const relativeAppDir = store.storefront?.appDir ?? null;
-  const repoSynced = await isRepoSynced(store, relativeAppDir);
   const requiredEnvReady = hasRequiredEnv(envEntries);
+  const expectedAppDir = getExpectedStorefrontAppDir(store.slug);
+  const expectedPackageName = getExpectedStorefrontPackageName(store.slug);
   const workspace = readWorkspaceName(store);
   const serverPort = readWorkspaceServerPort(store);
 
-  let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed";
+  let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed" =
+    "pending-repo-sync";
   let runtimeConsistent = false;
   let runtimeMessage: string | null = null;
+  let repoSynced = false;
 
-  if (!requiredEnvReady) {
+  if (!relativeAppDir) {
+    if (store.storefront?.lastScaffoldedAt) {
+      status = "failed";
+      runtimeMessage = "Storefront scaffold zamani yazilmis ama appDir authority kaybolmus.";
+    } else {
+      status = "pending-repo-sync";
+      runtimeMessage = "Storefront scaffold authority henuz yazilmamis.";
+    }
+  } else if (relativeAppDir !== expectedAppDir) {
+    status = "failed";
+    runtimeMessage = `Storefront appDir beklenen dizinle uyusmuyor: ${relativeAppDir}`;
+  } else if (!appDirectory || !packageJsonPath) {
+    status = "failed";
+    runtimeMessage = "Storefront scaffold dosyalari eksik: app dizini veya package.json bulunamadi.";
+  } else {
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { name?: string };
+
+      if (packageJson.name?.trim() !== expectedPackageName) {
+        status = "failed";
+        runtimeMessage = `Storefront package name uyusmuyor: ${packageJson.name || "bos"}`;
+      }
+    } catch {
+      status = "failed";
+      runtimeMessage = "Storefront package.json okunamadi.";
+    }
+  }
+
+  if (status === "failed") {
+    // keep the earlier failure reason
+  } else if (!requiredEnvReady) {
     status = "pending-owner-env";
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
-  } else if (!packageJsonPath || !repoSynced) {
-    status = "pending-repo-sync";
-    runtimeMessage = isGitHubRepoSyncConfigured()
-      ? "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
-      : "Storefront app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
   } else {
-    status = "prepared";
-    const runtime = await readRuntimeConsistency(store, runtimeUrl);
-    runtimeConsistent = runtime.consistent;
-    runtimeMessage = runtime.message;
-    status = runtime.configured && runtime.consistent ? "configured" : "prepared";
+    const branchVerification = await verifyStorefrontBranchState(store.slug);
+    repoSynced = branchVerification.verified;
+
+    if (!branchVerification.verified) {
+      status =
+        !branchVerification.appDirMatches || !branchVerification.packageNameMatches
+          ? "failed"
+          : "pending-repo-sync";
+      runtimeMessage =
+        branchVerification.message ||
+        "Storefront deploy branch'i hedef package ve authority dosyalarini henuz icermiyor.";
+    } else {
+      status = "prepared";
+      const runtime = await readRuntimeConsistency(store, runtimeUrl);
+      runtimeConsistent = runtime.consistent;
+      runtimeMessage = runtime.message;
+      status = runtime.configured && runtime.consistent ? "configured" : "prepared";
+    }
   }
 
   return {
@@ -464,11 +477,11 @@ export async function prepareStorefrontDeployment(
 ): Promise<StorefrontDeploymentBlueprint> {
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
 
-  updateStoreStorefrontDeploymentConfig(slug, {
+  await applyStorefrontAuthorityPatch(slug, {
     deploymentStatus: blueprint.status,
     deploymentName: blueprint.appName,
     runtimeUrl: blueprint.runtimeUrl,
-    lastError: blueprint.runtimeMessage ?? undefined,
+    lastDeploymentError: blueprint.runtimeMessage ?? null,
   });
 
   return blueprint;

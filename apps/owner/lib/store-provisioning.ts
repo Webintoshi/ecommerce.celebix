@@ -6,6 +6,7 @@ import {
   type StoreConfig,
 } from "@celebix/platform-config";
 import {
+  getStoreConsistencyForSlug,
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
   updateOwnerStoreR2Authority,
@@ -39,6 +40,7 @@ import {
   isGitHubRepoSyncConfigured,
   syncStoreAuthorityRepoForStore,
   syncStorefrontRepoForStore,
+  verifyStorefrontBranchState,
 } from "@/lib/storefront-repo-sync";
 import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
@@ -248,6 +250,45 @@ async function runWorkflowStep(
   }
 }
 
+async function runRepairAuthorityPreflight(input: StoreProvisioningWorkflowInput): Promise<void> {
+  const consistency = await getStoreConsistencyForSlug(input.auth, input.slug);
+
+  if (!consistency) {
+    throw new Error("Repair authority preflight store consistency bilgisini okuyamadi.");
+  }
+
+  if (consistency.blocking) {
+    const message = consistency.issues
+      .filter((issue) => issue.severity === "blocking")
+      .map((issue) => issue.message)
+      .slice(0, 3)
+      .join(" / ");
+
+    throw new Error(`Repair authority preflight bloklandi: ${message || "store drift mevcut"}`);
+  }
+
+  const store = repairStoreConfig(input.slug);
+
+  if (store.storefront?.lastScaffoldedAt && !store.storefront?.appDir) {
+    throw new Error("Repair authority preflight bloklandi: lastScaffoldedAt var ama storefront appDir yok.");
+  }
+
+  if (
+    store.storefront?.appDir &&
+    (store.storefront.repoSyncStatus === "synced" ||
+      store.storefront.deploymentStatus === "prepared" ||
+      store.storefront.deploymentStatus === "configured")
+  ) {
+    const verification = await verifyStorefrontBranchState(input.slug);
+
+    if (!verification.verified) {
+      throw new Error(
+        `Repair authority preflight bloklandi: ${verification.message || "storefront branch authority eksik."}`,
+      );
+    }
+  }
+}
+
 async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: ProvisioningTracker): Promise<void> {
   await runPreflightStep(tracker, "owner_supabase_auth", async () => {
     const serviceClient = createOwnerServiceClient();
@@ -303,6 +344,11 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   await runPreflightStep(tracker, "github_preflight", async () => {
     if (!isGitHubRepoSyncConfigured()) {
       throw new Error("GitHub repo write-back authority eksik.");
+    }
+
+    if (input.mode === "repair") {
+      await runRepairAuthorityPreflight(input);
+      return "GitHub repo sync authority ve repair preflight hazir.";
     }
 
     return "GitHub repo sync authority hazir.";

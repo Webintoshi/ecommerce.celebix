@@ -8,8 +8,13 @@ import {
   requireStoreConfig,
   resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
-  updateStoreStorefrontConfig,
 } from "@celebix/platform-config";
+import {
+  getExpectedStorefrontAppDir,
+  getExpectedStorefrontPackageName,
+  resolveStorefrontRepositoryBranch,
+} from "../../../packages/platform-config/src/index";
+import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 interface StorefrontScaffoldResult {
   appDirectory: string;
@@ -163,6 +168,37 @@ function buildPackageJson(slug: string): string {
     null,
     2,
   )}\n`;
+}
+
+function validateScaffoldedStorefront(
+  slug: string,
+  relativeAppDirectory: string,
+  appDirectory: string,
+): void {
+  const expectedAppDir = getExpectedStorefrontAppDir(slug);
+
+  if (relativeAppDirectory !== expectedAppDir) {
+    throw new Error(`Storefront app yolu beklenen dizinle uyusmuyor: ${relativeAppDirectory}`);
+  }
+
+  if (!fs.existsSync(appDirectory)) {
+    throw new Error("Scaffold tamamlandi ancak storefront dizini olusmadi.");
+  }
+
+  const packageJsonPath = path.join(appDirectory, "package.json");
+
+  if (!fs.existsSync(packageJsonPath)) {
+    throw new Error("Scaffold tamamlandi ancak package.json yazilamadi.");
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { name?: string };
+  const expectedPackageName = getExpectedStorefrontPackageName(slug);
+
+  if (packageJson.name?.trim() !== expectedPackageName) {
+    throw new Error(
+      `Storefront package name dogrulamasi basarisiz: ${packageJson.name || "bos"} (beklenen ${expectedPackageName})`,
+    );
+  }
 }
 
 function buildTsConfig(): string {
@@ -555,9 +591,13 @@ export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontSca
 
   replaceStorefrontPlaceholders(appDirectory, store);
 
-  updateStoreStorefrontConfig(slug, {
+  validateScaffoldedStorefront(slug, relativeAppDirectory, appDirectory);
+  await applyStorefrontAuthorityPatch(slug, {
     appDir: relativeAppDirectory,
     status: "scaffolded",
+    lastScaffoldedAt: new Date().toISOString(),
+    lastScaffoldError: null,
+    deploymentBranch: resolveStorefrontRepositoryBranch(slug),
   });
 
   return {

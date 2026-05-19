@@ -1,16 +1,13 @@
 import "server-only";
 
 import type { StoreConfig } from "@celebix/platform-config";
-import {
-  requireStoreConfig,
-  updateStoreStorefrontConfig,
-  updateStoreStorefrontDeploymentConfig,
-} from "@celebix/platform-config";
+import { requireStoreConfig } from "@celebix/platform-config";
 import {
   getStorefrontDeploymentBlueprint,
   type StorefrontDeploymentBlueprint,
 } from "@/lib/storefront-deployment";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
+import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 interface CoolifyProject {
   uuid?: string;
@@ -445,12 +442,12 @@ export async function provisionStorefrontDeploymentForStore(
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
-    updateStoreStorefrontDeploymentConfig(slug, {
+    await applyStorefrontAuthorityPatch(slug, {
       deploymentStatus: blueprint.status,
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: blueprint.resourceId ?? undefined,
-      lastError: blueprint.runtimeMessage ?? undefined,
+      resourceId: blueprint.resourceId ?? null,
+      lastDeploymentError: blueprint.runtimeMessage ?? null,
     });
 
     return {
@@ -510,17 +507,16 @@ export async function provisionStorefrontDeploymentForStore(
     });
 
     if (!shouldWaitForRuntime) {
-      updateStoreStorefrontConfig(slug, {
-        appDir: store.storefront?.appDir ?? "",
+      await applyStorefrontAuthorityPatch(slug, {
+        appDir: store.storefront?.appDir ?? null,
         status: store.storefront?.status ?? "scaffolded",
-        lastScaffoldError: store.storefront?.lastScaffoldError,
-      });
-      updateStoreStorefrontDeploymentConfig(slug, {
+        lastScaffoldError: store.storefront?.lastScaffoldError ?? null,
         deploymentStatus: "prepared",
         deploymentName: blueprint.appName,
         runtimeUrl: blueprint.runtimeUrl,
         resourceId: applicationUuid,
-        lastError: "Storefront deployment tetiklendi. Runtime dogrulamasi owner health ekranindan izlenmeli.",
+        lastDeploymentError:
+          "Storefront deployment tetiklendi. Runtime dogrulamasi owner health ekranindan izlenmeli.",
       });
 
       return {
@@ -546,20 +542,18 @@ export async function provisionStorefrontDeploymentForStore(
       ? new Date().toISOString()
       : undefined;
 
-    updateStoreStorefrontConfig(slug, {
-      appDir: store.storefront?.appDir ?? "",
+    await applyStorefrontAuthorityPatch(slug, {
+      appDir: store.storefront?.appDir ?? null,
       status: runtimeBlueprint.runtimeConsistent
         ? "active"
         : store.storefront?.status ?? "scaffolded",
-      lastScaffoldError: store.storefront?.lastScaffoldError,
-    });
-    updateStoreStorefrontDeploymentConfig(slug, {
+      lastScaffoldError: store.storefront?.lastScaffoldError ?? null,
       deploymentStatus,
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
       resourceId: applicationUuid,
-      deployedAt,
-      lastError: runtimeBlueprint.runtimeMessage ?? undefined,
+      deployedAt: deployedAt ?? null,
+      lastDeploymentError: runtimeBlueprint.runtimeMessage ?? null,
     });
 
     return {
@@ -572,12 +566,12 @@ export async function provisionStorefrontDeploymentForStore(
       repoSynced: runtimeBlueprint.repoSynced,
     };
   } catch (error) {
-    updateStoreStorefrontDeploymentConfig(slug, {
+    await applyStorefrontAuthorityPatch(slug, {
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: blueprint.resourceId ?? undefined,
-      lastError:
+      resourceId: blueprint.resourceId ?? null,
+      lastDeploymentError:
         error instanceof Error
           ? error.message
           : "Storefront deployment otomasyonu basarisiz oldu.",

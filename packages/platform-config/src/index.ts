@@ -28,6 +28,7 @@ export interface StoreRegistryEntry {
 
 export type SupabaseProvider = "managed" | "self_hosted_coolify";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
+export type StorefrontRepoSyncStatus = "pending" | "synced" | "failed";
 export type StorefrontDeploymentStatus =
   | "pending-owner-env"
   | "pending-repo-sync"
@@ -59,8 +60,9 @@ export interface StorefrontConfig {
   status: StorefrontStatus;
   lastScaffoldedAt?: string;
   lastScaffoldError?: string;
-  repoSyncStatus?: "pending" | "synced" | "failed";
+  repoSyncStatus?: StorefrontRepoSyncStatus;
   repoSyncedAt?: string;
+  lastRepoSyncedAt?: string;
   repoCommitSha?: string;
   lastRepoSyncError?: string;
   deploymentProvider?: "coolify";
@@ -70,6 +72,7 @@ export interface StorefrontConfig {
   resourceId?: string;
   deploymentStatus?: StorefrontDeploymentStatus;
   preparedAt?: string;
+  lastDeploymentPreparedAt?: string;
   deployedAt?: string;
   lastDeploymentError?: string;
 }
@@ -196,10 +199,32 @@ export interface StorefrontDeploymentUpdateInput {
 }
 
 export interface StorefrontRepoSyncUpdateInput {
-  syncStatus: "pending" | "synced" | "failed";
+  syncStatus: StorefrontRepoSyncStatus;
   commitSha?: string;
   syncedAt?: string;
   lastError?: string;
+}
+
+export interface StorefrontAuthorityPatchInput {
+  appDir?: string | null;
+  status?: StorefrontStatus;
+  lastScaffoldedAt?: string | null;
+  lastScaffoldError?: string | null;
+  repoSyncStatus?: StorefrontRepoSyncStatus;
+  repoSyncedAt?: string | null;
+  lastRepoSyncedAt?: string | null;
+  repoCommitSha?: string | null;
+  lastRepoSyncError?: string | null;
+  deploymentProvider?: "coolify";
+  deploymentName?: string | null;
+  deploymentBranch?: string | null;
+  runtimeUrl?: string | null;
+  resourceId?: string | null;
+  deploymentStatus?: StorefrontDeploymentStatus;
+  preparedAt?: string | null;
+  lastDeploymentPreparedAt?: string | null;
+  deployedAt?: string | null;
+  lastDeploymentError?: string | null;
 }
 
 export interface RemoveStoreArtifactsInput {
@@ -284,20 +309,6 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
 }
 
-function resolveDefaultRepositoryBranch(kind: "admin" | "storefront"): string {
-  const kindSpecific =
-    kind === "admin"
-      ? process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim()
-      : process.env.COOLIFY_STOREFRONT_REPOSITORY_BRANCH?.trim();
-
-  return (
-    kindSpecific ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "main"
-  );
-}
-
 function ensureSlug(slug: string): string {
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
     throw new Error("Slug sadece kucuk harf, rakam ve tire icermelidir.");
@@ -308,6 +319,34 @@ function ensureSlug(slug: string): string {
   }
 
   return slug;
+}
+
+export function getExpectedStorefrontAppDir(slug: string): string {
+  return `apps/storefront-${ensureSlug(slug)}`;
+}
+
+export function getExpectedStorefrontPackageName(slug: string): string {
+  return `@celebix/storefront-${ensureSlug(slug)}`;
+}
+
+export function resolveAuthorityRepositoryBranch(): string {
+  return (
+    process.env.COOLIFY_OWNER_REPOSITORY_BRANCH?.trim() ||
+    process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim() ||
+    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
+    process.env.CELEBIX_GIT_BRANCH?.trim() ||
+    "deploy/owner"
+  );
+}
+
+export function resolveStorefrontRepositoryBranch(slug: string): string {
+  return `deploy/storefront/${ensureSlug(slug)}`;
+}
+
+function resolveDefaultRepositoryBranch(kind: "admin" | "storefront", slug: string): string {
+  return kind === "admin"
+    ? resolveAuthorityRepositoryBranch()
+    : resolveStorefrontRepositoryBranch(slug);
 }
 
 function ensureDomain(domain: string): string {
@@ -370,7 +409,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       coolifyProjectName,
       adminDeploymentProvider: "coolify",
       adminDeploymentName,
-      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin"),
+      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin", input.slug),
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
@@ -382,7 +421,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       repoSyncStatus: "pending",
       deploymentProvider: "coolify",
       deploymentName: storefrontDeploymentName,
-      deploymentBranch: resolveDefaultRepositoryBranch("storefront"),
+      deploymentBranch: resolveDefaultRepositoryBranch("storefront", input.slug),
       runtimeUrl: `https://${input.domain}`,
       deploymentStatus: "pending-owner-env"
     },
@@ -468,6 +507,137 @@ function inferStorefrontStatus(config: StoreConfig): StorefrontStatus {
   return config.storefront?.appDir ? "scaffolded" : "not_started";
 }
 
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeOptionalPath(value: string | null | undefined): string | undefined {
+  const trimmed = normalizeOptionalString(value);
+  return trimmed ? trimmed.replace(/\\/g, "/").replace(/^\/+/, "") : undefined;
+}
+
+function resolveStorefrontTimestamp(
+  explicitValue: string | null | undefined,
+  currentValue: string | undefined,
+  shouldStampNow: boolean,
+): string | undefined {
+  const normalizedExplicit = normalizeOptionalString(explicitValue);
+
+  if (normalizedExplicit) {
+    return normalizedExplicit;
+  }
+
+  if (currentValue) {
+    return currentValue;
+  }
+
+  return shouldStampNow ? new Date().toISOString() : undefined;
+}
+
+function mergeStorefrontConfig(current: StoreConfig, patch: StorefrontAuthorityPatchInput): NonNullable<StoreConfig["storefront"]> {
+  const currentStorefront = current.storefront;
+  const nextAppDir =
+    normalizeOptionalPath(patch.appDir) ??
+    normalizeOptionalPath(currentStorefront?.appDir);
+  const nextRepoSyncStatus = patch.repoSyncStatus ?? currentStorefront?.repoSyncStatus ?? "pending";
+  const nextDeploymentStatus =
+    patch.deploymentStatus ??
+    currentStorefront?.deploymentStatus ??
+    "pending-owner-env";
+  const nextStatus =
+    patch.status ??
+    (nextDeploymentStatus === "configured"
+      ? "active"
+      : currentStorefront?.status ?? (nextAppDir ? "scaffolded" : "not_started"));
+  const shouldStampScaffoldedAt =
+    Boolean(nextAppDir) &&
+    (patch.status === "scaffolded" || patch.status === "active" || Boolean(patch.lastScaffoldedAt));
+  const shouldStampRepoSyncedAt =
+    nextRepoSyncStatus === "synced" &&
+    Boolean(patch.repoSyncedAt || patch.lastRepoSyncedAt || patch.repoSyncStatus === "synced");
+  const shouldStampPreparedAt =
+    (nextDeploymentStatus === "prepared" || nextDeploymentStatus === "configured") &&
+    Boolean(
+      patch.preparedAt ||
+        patch.lastDeploymentPreparedAt ||
+        patch.deploymentStatus === "prepared" ||
+        patch.deploymentStatus === "configured",
+    );
+
+  return {
+    appDir: nextAppDir,
+    status: nextStatus,
+    lastScaffoldedAt: resolveStorefrontTimestamp(
+      patch.lastScaffoldedAt,
+      currentStorefront?.lastScaffoldedAt,
+      shouldStampScaffoldedAt,
+    ),
+    lastScaffoldError:
+      patch.lastScaffoldError !== undefined
+        ? normalizeOptionalString(patch.lastScaffoldError)
+        : currentStorefront?.lastScaffoldError,
+    repoSyncStatus: nextRepoSyncStatus,
+    repoSyncedAt: resolveStorefrontTimestamp(
+      patch.repoSyncedAt ?? patch.lastRepoSyncedAt,
+      currentStorefront?.repoSyncedAt ?? currentStorefront?.lastRepoSyncedAt,
+      shouldStampRepoSyncedAt,
+    ),
+    lastRepoSyncedAt: resolveStorefrontTimestamp(
+      patch.lastRepoSyncedAt ?? patch.repoSyncedAt,
+      currentStorefront?.lastRepoSyncedAt ?? currentStorefront?.repoSyncedAt,
+      shouldStampRepoSyncedAt,
+    ),
+    repoCommitSha:
+      patch.repoCommitSha !== undefined
+        ? normalizeOptionalString(patch.repoCommitSha)
+        : currentStorefront?.repoCommitSha,
+    lastRepoSyncError:
+      patch.lastRepoSyncError !== undefined
+        ? normalizeOptionalString(patch.lastRepoSyncError)
+        : currentStorefront?.lastRepoSyncError,
+    deploymentProvider:
+      patch.deploymentProvider ??
+      currentStorefront?.deploymentProvider ??
+      "coolify",
+    deploymentName:
+      normalizeOptionalString(patch.deploymentName) ??
+      currentStorefront?.deploymentName ??
+      `${current.slug}-storefront`,
+    deploymentBranch:
+      normalizeOptionalString(patch.deploymentBranch) ??
+      currentStorefront?.deploymentBranch ??
+      resolveStorefrontRepositoryBranch(current.slug),
+    runtimeUrl:
+      normalizeOptionalString(patch.runtimeUrl) ??
+      currentStorefront?.runtimeUrl ??
+      `https://${current.domains.storefront}`,
+    resourceId:
+      patch.resourceId !== undefined
+        ? normalizeOptionalString(patch.resourceId)
+        : currentStorefront?.resourceId,
+    deploymentStatus: nextDeploymentStatus,
+    preparedAt: resolveStorefrontTimestamp(
+      patch.preparedAt ?? patch.lastDeploymentPreparedAt,
+      currentStorefront?.preparedAt ?? currentStorefront?.lastDeploymentPreparedAt,
+      shouldStampPreparedAt,
+    ),
+    lastDeploymentPreparedAt: resolveStorefrontTimestamp(
+      patch.lastDeploymentPreparedAt ?? patch.preparedAt,
+      currentStorefront?.lastDeploymentPreparedAt ?? currentStorefront?.preparedAt,
+      shouldStampPreparedAt,
+    ),
+    deployedAt:
+      patch.deployedAt !== undefined
+        ? normalizeOptionalString(patch.deployedAt)
+        : currentStorefront?.deployedAt,
+    lastDeploymentError:
+      patch.lastDeploymentError !== undefined
+        ? normalizeOptionalString(patch.lastDeploymentError)
+        : currentStorefront?.lastDeploymentError,
+  };
+}
+
 function normalizeStoreConfig(config: StoreConfig): StoreConfig {
   const supabaseProvider =
     config.supabase.provider ??
@@ -481,7 +651,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     adminDeploymentProvider: config.bootstrap?.adminDeploymentProvider ?? "coolify",
     adminDeploymentName: config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`,
     adminDeploymentBranch:
-      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", config.slug),
     adminDeploymentRuntimeUrl:
       config.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
     adminDeploymentResourceId: config.bootstrap?.adminDeploymentResourceId,
@@ -502,26 +672,16 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
         ? "configured"
         : "pending-owner-env"),
   } satisfies NonNullable<StoreConfig["bootstrap"]>;
-  const normalizedStorefront = {
-    appDir: config.storefront?.appDir,
-    status: inferStorefrontStatus(config),
-    lastScaffoldedAt: config.storefront?.lastScaffoldedAt,
-    lastScaffoldError: config.storefront?.lastScaffoldError,
-    repoSyncStatus: config.storefront?.repoSyncStatus ?? "pending",
-    repoSyncedAt: config.storefront?.repoSyncedAt,
-    repoCommitSha: config.storefront?.repoCommitSha,
-    lastRepoSyncError: config.storefront?.lastRepoSyncError,
-    deploymentProvider: config.storefront?.deploymentProvider ?? "coolify",
-    deploymentName: config.storefront?.deploymentName ?? `${config.slug}-storefront`,
-    deploymentBranch:
-      config.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
-    runtimeUrl: config.storefront?.runtimeUrl ?? `https://${config.domains.storefront}`,
-    resourceId: config.storefront?.resourceId,
-    deploymentStatus: config.storefront?.deploymentStatus ?? "pending-owner-env",
-    preparedAt: config.storefront?.preparedAt,
-    deployedAt: config.storefront?.deployedAt,
-    lastDeploymentError: config.storefront?.lastDeploymentError,
-  } satisfies NonNullable<StoreConfig["storefront"]>;
+  const normalizedStorefront = mergeStorefrontConfig(
+    {
+      ...config,
+      storefront: {
+        ...config.storefront,
+        status: inferStorefrontStatus(config),
+      },
+    },
+    {},
+  );
 
   return {
     ...config,
@@ -774,7 +934,7 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", slug),
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
@@ -804,7 +964,7 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", slug),
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: input.resourceId ?? current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: input.deploymentStatus,
@@ -887,95 +1047,47 @@ export function updateStoreR2Config(slug: string, input: StoreR2UpdateInput): St
   }));
 }
 
-export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdateInput): StoreConfig {
+export function applyStorefrontAuthorityPatchToConfig(
+  slug: string,
+  patch: StorefrontAuthorityPatchInput,
+): StoreConfig {
   return updateStoreConfig(slug, (current) => ({
     ...current,
-    storefront: {
-      appDir: input.appDir,
-      status: input.status,
-      lastScaffoldedAt: input.status === "scaffolded" || input.status === "active" ? new Date().toISOString() : current.storefront?.lastScaffoldedAt,
-      lastScaffoldError: input.lastScaffoldError,
-      repoSyncStatus: current.storefront?.repoSyncStatus ?? "pending",
-      repoSyncedAt: current.storefront?.repoSyncedAt,
-      repoCommitSha: current.storefront?.repoCommitSha,
-      lastRepoSyncError: current.storefront?.lastRepoSyncError,
-      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
-      deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
-      deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
-      runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
-      resourceId: current.storefront?.resourceId,
-      deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
-      preparedAt: current.storefront?.preparedAt,
-      deployedAt: current.storefront?.deployedAt,
-      lastDeploymentError: current.storefront?.lastDeploymentError
-    }
+    storefront: mergeStorefrontConfig(current, patch),
   }));
+}
+
+export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdateInput): StoreConfig {
+  return applyStorefrontAuthorityPatchToConfig(slug, {
+    appDir: input.appDir,
+    status: input.status,
+    lastScaffoldError: input.lastScaffoldError,
+  });
 }
 
 export function updateStoreStorefrontDeploymentConfig(
   slug: string,
   input: StorefrontDeploymentUpdateInput,
 ): StoreConfig {
-  return updateStoreConfig(slug, (current) => ({
-    ...current,
-    storefront: {
-      appDir: current.storefront?.appDir,
-      status:
-        input.deploymentStatus === "configured"
-          ? "active"
-          : current.storefront?.status ?? "not_started",
-      lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
-      lastScaffoldError: current.storefront?.lastScaffoldError,
-      repoSyncStatus: current.storefront?.repoSyncStatus ?? "pending",
-      repoSyncedAt: current.storefront?.repoSyncedAt,
-      repoCommitSha: current.storefront?.repoCommitSha,
-      lastRepoSyncError: current.storefront?.lastRepoSyncError,
-      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
-      deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
-      deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
-      runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
-      resourceId: input.resourceId ?? current.storefront?.resourceId,
-      deploymentStatus: input.deploymentStatus,
-      preparedAt:
-        input.preparedAt ??
-        ((input.deploymentStatus === "prepared" || input.deploymentStatus === "configured")
-          ? new Date().toISOString()
-          : current.storefront?.preparedAt),
-      deployedAt: input.deployedAt ?? current.storefront?.deployedAt,
-      lastDeploymentError: input.lastError
-    }
-  }));
+  return applyStorefrontAuthorityPatchToConfig(slug, {
+    deploymentStatus: input.deploymentStatus,
+    deploymentName: input.deploymentName,
+    runtimeUrl: input.runtimeUrl,
+    resourceId: input.resourceId,
+    preparedAt: input.preparedAt,
+    deployedAt: input.deployedAt,
+    lastDeploymentError: input.lastError,
+  });
 }
 
 export function updateStoreStorefrontRepoSyncConfig(
   slug: string,
   input: StorefrontRepoSyncUpdateInput,
 ): StoreConfig {
-  return updateStoreConfig(slug, (current) => ({
-    ...current,
-    storefront: {
-      appDir: current.storefront?.appDir,
-      status: current.storefront?.status ?? "not_started",
-      lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
-      lastScaffoldError: current.storefront?.lastScaffoldError,
-      repoSyncStatus: input.syncStatus,
-      repoSyncedAt:
-        input.syncedAt ??
-        (input.syncStatus === "synced" ? new Date().toISOString() : current.storefront?.repoSyncedAt),
-      repoCommitSha: input.commitSha ?? current.storefront?.repoCommitSha,
-      lastRepoSyncError: input.lastError,
-      deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
-      deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
-      deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
-      runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
-      resourceId: current.storefront?.resourceId,
-      deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
-      preparedAt: current.storefront?.preparedAt,
-      deployedAt: current.storefront?.deployedAt,
-      lastDeploymentError: current.storefront?.lastDeploymentError
-    }
-  }));
+  return applyStorefrontAuthorityPatchToConfig(slug, {
+    repoSyncStatus: input.syncStatus,
+    repoCommitSha: input.commitSha,
+    repoSyncedAt: input.syncedAt,
+    lastRepoSyncError: input.lastError,
+  });
 }
