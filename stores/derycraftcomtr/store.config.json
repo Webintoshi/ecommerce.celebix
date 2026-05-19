@@ -61,7 +61,7 @@
   },
   "storefront": {
     "appDir": "apps/storefront-derycraftcomtr",
-    "status": "scaffolded",
+    "status": "active",
     "lastScaffoldedAt": "2026-05-19T13:53:46.999Z",
     "repoSyncStatus": "synced",
     "repoSyncedAt": "2026-05-19T14:06:25.252Z",
@@ -71,10 +71,11 @@
     "deploymentName": "DeryCraft 2 websitesi",
     "deploymentBranch": "deploy/storefront/derycraftcomtr",
     "runtimeUrl": "https://derycraft.com.tr",
-    "deploymentStatus": "prepared",
+    "resourceId": "gy6u529zgkcdgra27ib77m01",
+    "deploymentStatus": "configured",
     "preparedAt": "2026-05-19T14:02:47.463Z",
     "lastDeploymentPreparedAt": "2026-05-19T14:02:47.463Z",
-    "lastDeploymentError": "Storefront runtime okunamadi (503)"
+    "deployedAt": "2026-05-19T17:27:58.394Z"
   },
   "features": [
     "catalog",
