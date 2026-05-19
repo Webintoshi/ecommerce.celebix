@@ -60,8 +60,9 @@
     "supabaseProvisioning": "configured"
   },
   "storefront": {
-    "status": "not_started",
-    "lastScaffoldError": "Previous scaffold state incomplete; storefront appDir/package bulunamadi.",
+    "appDir": "apps/storefront-derycraftcomtr",
+    "status": "scaffolded",
+    "lastScaffoldedAt": "2026-05-19T13:53:46.999Z",
     "repoSyncStatus": "pending",
     "lastRepoSyncError": "Storefront branch/appDir missing; authority admin/supabase/r2 ile reconcile edildi.",
     "deploymentProvider": "coolify",
