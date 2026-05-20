@@ -59,6 +59,7 @@ async function query(pool, text, params = []) {
 }
 
 async function cleanupSmokeData(pool, prefix) {
+  await pool.query("delete from public.products where slug like $1", [`${prefix}-%`]);
   await pool.query("delete from public.pages where slug like $1", [`${prefix}-%`]);
   await pool.query("delete from public.categories where slug like $1", [`${prefix}-%`]);
   await pool.query("delete from public.settings where key like $1", [`${prefix}:%`]);
@@ -76,6 +77,8 @@ async function run() {
   const settingKey = `${args.prefix}:${timestamp}:setting`;
   const categorySlug = `${slugPrefix}-category`;
   const pageSlug = `${slugPrefix}-page`;
+  const productSlug = `${slugPrefix}-product`;
+  const variantSku = `${slugPrefix}-sku`;
 
   const pool = new Pool({
     connectionString: resolveConnectionString(),
@@ -96,6 +99,8 @@ async function run() {
           settingKey,
           categorySlug,
           pageSlug,
+          productSlug,
+          variantSku,
           cleanupWith: `node apps/owner/scripts/light-postgres/admin-write-smoke-derycraftcomtr.mjs --apply --cleanup --prefix ${args.prefix}`,
         },
       }, null, 2));
@@ -176,10 +181,152 @@ async function run() {
       )
     )[0] ?? null;
 
-    const [readBackSetting, readBackCategory, readBackPage] = await Promise.all([
+    const insertedProduct = (
+      await query(
+        pool,
+        `
+          insert into public.products (
+            name, slug, description, short_description, images, images_v2,
+            category, subcategory, tags, is_active, status, is_draft,
+            brand, country_of_origin, seo_title, seo_description,
+            seo_keywords, seo_robots, track_stock, shopify_metadata, shopify_metafields
+          )
+          values (
+            $1, $2, $3, $4, $5::text[], $6::jsonb,
+            $7, null, $8::text[], true, 'published', false,
+            $9, $10, $11, $12,
+            $13::text[], 'index,follow', true, '{}'::jsonb, '{}'::jsonb
+          )
+          returning id, name, slug, category, status, is_active
+        `,
+        [
+          `Atlas Test Product ${timestamp}`,
+          productSlug,
+          "<p>Atlas smoke product</p>",
+          "Atlas smoke short description",
+          [],
+          "[]",
+          categorySlug,
+          ["atlas", "smoke", "product"],
+          "Atlas",
+          "Türkiye",
+          `Atlas Test Product ${timestamp}`,
+          "Atlas smoke product description",
+          ["atlas", "smoke", "product"],
+        ],
+      )
+    )[0] ?? null;
+
+    const insertedVariant = insertedProduct
+      ? (
+          await query(
+            pool,
+            `
+              insert into public.product_variants (
+                product_id, name, sku, price, original_price, stock, weight,
+                images, unit, attributes, shopify_metadata
+              )
+              values (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8::text[], $9, $10::jsonb, $11::jsonb
+              )
+              returning id, product_id, name, sku, price, stock
+            `,
+            [
+              insertedProduct.id,
+              `Atlas Test Variant ${timestamp}`,
+              variantSku,
+              199.9,
+              249.9,
+              7,
+              "100",
+              [],
+              "adet",
+              JSON.stringify([{ name: "Boyut", value: "100" }]),
+              "{}",
+            ],
+          )
+        )[0] ?? null
+      : null;
+
+    const updatedProduct = insertedProduct
+      ? (
+          await query(
+            pool,
+            `
+              update public.products
+              set
+                short_description = $2,
+                is_featured = true,
+                updated_at = now()
+              where id = $1
+              returning id, slug, short_description, is_featured
+            `,
+            [
+              insertedProduct.id,
+              "Atlas smoke short description updated",
+            ],
+          )
+        )[0] ?? null
+      : null;
+
+    const updatedVariant = insertedVariant
+      ? (
+          await query(
+            pool,
+            `
+              update public.product_variants
+              set
+                price = $2,
+                stock = $3
+              where id = $1
+              returning id, sku, price, stock
+            `,
+            [
+              insertedVariant.id,
+              209.9,
+              11,
+            ],
+          )
+        )[0] ?? null
+      : null;
+
+    const [readBackSetting, readBackCategory, readBackPage, readBackProduct, readBackVariants, storefrontVisibleProduct] = await Promise.all([
       query(pool, "select key, value from public.settings where key = $1 limit 1", [settingKey]),
       query(pool, "select id, slug, name from public.categories where slug = $1 limit 1", [categorySlug]),
       query(pool, "select id, slug, name from public.pages where slug = $1 limit 1", [pageSlug]),
+      query(
+        pool,
+        `
+          select id, slug, category, short_description, is_featured, status, is_active
+          from public.products
+          where slug = $1
+          limit 1
+        `,
+        [productSlug],
+      ),
+      query(
+        pool,
+        `
+          select id, product_id, sku, price, stock
+          from public.product_variants
+          where product_id = $1
+          order by created_at asc, id asc
+        `,
+        [insertedProduct?.id ?? null],
+      ),
+      query(
+        pool,
+        `
+          select id, slug
+          from public.products
+          where slug = $1
+            and coalesce(is_active, true) = true
+            and (status = 'published' or status is null)
+          limit 1
+        `,
+        [productSlug],
+      ),
     ]);
 
     console.log(JSON.stringify({
@@ -190,11 +337,18 @@ async function run() {
         setting: insertedSetting,
         category: insertedCategory,
         page: insertedPage,
+        product: insertedProduct,
+        variant: insertedVariant,
+        updatedProduct,
+        updatedVariant,
       },
       readBack: {
         setting: readBackSetting[0] ?? null,
         category: readBackCategory[0] ?? null,
         page: readBackPage[0] ?? null,
+        product: readBackProduct[0] ?? null,
+        variants: readBackVariants,
+        storefrontVisibleProduct: storefrontVisibleProduct[0] ?? null,
       },
       cleanupHint: `node apps/owner/scripts/light-postgres/admin-write-smoke-derycraftcomtr.mjs --apply --cleanup --prefix ${args.prefix}`,
     }, null, 2));
