@@ -1,5 +1,13 @@
 import { createServerClient } from "@/lib/supabase";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import {
+    deleteLightPostgresSettingRow,
+    getLightPostgresHomepageCatalogSnapshot,
+    getLightPostgresSettingRow,
+    listLightPostgresSettingRows,
+    upsertLightPostgresSettingRow,
+} from "@/lib/db/light-postgres-admin-adapter";
 import { createDefaultEmailMarketingSettings, normalizeEmailMarketingSettings } from "@/lib/email-marketing";
 import type { EmailMarketingSettings } from "@/types/email-marketing";
 import type { NotificationSettings } from "@/types/notification";
@@ -54,6 +62,11 @@ export function isPrivateSettingKey(key: string) {
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
+    if (shouldUseLightPostgresAdmin()) {
+        const row = await getLightPostgresSettingRow(key);
+        return (row?.value as Record<string, unknown> | null) ?? null;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -70,6 +83,21 @@ export async function getSetting(key: string): Promise<Record<string, unknown> |
  * Get all settings
  */
 export async function getAllSettings(): Promise<Record<string, Record<string, unknown>>> {
+    if (shouldUseLightPostgresAdmin()) {
+        const rows = await listLightPostgresSettingRows();
+        const settings: Record<string, Record<string, unknown>> = {};
+
+        for (const item of rows) {
+            if (isPrivateSettingKey(item.key)) {
+                continue;
+            }
+
+            settings[item.key] = (item.value as Record<string, unknown>) ?? {};
+        }
+
+        return settings;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -92,6 +120,10 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
  * Set setting (upsert)
  */
 export async function setSetting(key: string, value: Record<string, unknown>) {
+    if (shouldUseLightPostgresAdmin()) {
+        return upsertLightPostgresSettingRow(key, value);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -108,6 +140,10 @@ export async function setSetting(key: string, value: Record<string, unknown>) {
  * Delete setting
  */
 export async function deleteSetting(key: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return deleteLightPostgresSettingRow(key);
+    }
+
     const serverClient = createServerClient();
 
     const { error } = await serverClient
@@ -382,22 +418,31 @@ async function sanitizeHomepageCurationSettingsAgainstCatalog(
         };
     }
 
-    const serverClient = createServerClient();
-    const [categoriesResponse, productsResponse] = await Promise.all([
-        serverClient.from("categories").select("slug, is_active"),
-        serverClient.from("products").select("id, category, subcategory"),
-    ]);
+    const catalogSnapshot = shouldUseLightPostgresAdmin()
+        ? await getLightPostgresHomepageCatalogSnapshot()
+        : await (async () => {
+            const serverClient = createServerClient();
+            const [categoriesResponse, productsResponse] = await Promise.all([
+                serverClient.from("categories").select("slug, is_active"),
+                serverClient.from("products").select("id, category, subcategory"),
+            ]);
 
-    if (categoriesResponse.error) {
-        throw categoriesResponse.error;
-    }
+            if (categoriesResponse.error) {
+                throw categoriesResponse.error;
+            }
 
-    if (productsResponse.error) {
-        throw productsResponse.error;
-    }
+            if (productsResponse.error) {
+                throw productsResponse.error;
+            }
+
+            return {
+                categories: categoriesResponse.data || [],
+                products: (productsResponse.data || []) as HomepageCurationProductCandidate[],
+            };
+        })();
 
     const activeCategorySlugSet = new Set(
-        (categoriesResponse.data || [])
+        catalogSnapshot.categories
             .filter((category) => category.is_active !== false)
             .map((category) => normalizeHomepageCategoryKey(category.slug || ""))
             .filter(Boolean),
@@ -416,7 +461,7 @@ async function sanitizeHomepageCurationSettingsAgainstCatalog(
     }
 
     const productLookup = new Map<string, HomepageCurationProductCandidate>(
-        ((productsResponse.data || []) as HomepageCurationProductCandidate[]).map((product) => [
+        catalogSnapshot.products.map((product) => [
             product.id,
             {
                 id: product.id,

@@ -4,6 +4,15 @@ import { isValidPage } from "@/types/page";
 import { isManagedContentPageSlug } from "@celebix/platform-config/src/content-pages";
 import { isPolicyPageSlug } from "@celebix/platform-config/src/policy-pages";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import {
+  createLightPostgresPage,
+  deleteLightPostgresPage,
+  getLightPostgresPageById,
+  getLightPostgresPageBySlug,
+  listLightPostgresPages,
+  updateLightPostgresPage,
+} from "@/lib/db/light-postgres-admin-adapter";
 import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 
 // ============================================================================
@@ -185,14 +194,22 @@ export async function GET(request: NextRequest) {
     const slug = searchParams.get("slug");
     const includeInactive = searchParams.get("include_inactive") === "1";
 
-    const supabase = await getSupabaseClient();
-
     // Fetch single page by ID
     if (id) {
       if (!validateUUID(id)) {
         throw new APIError("Invalid page ID format", 400, "INVALID_ID");
       }
 
+      if (shouldUseLightPostgresAdmin()) {
+        const data = await getLightPostgresPageById(id);
+        if (!data) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: data });
+      }
+
+      const supabase = await getSupabaseClient();
       const { data, error } = await supabase
         .from("pages")
         .select("*")
@@ -211,6 +228,16 @@ export async function GET(request: NextRequest) {
 
     // Fetch single page by slug
     if (slug !== null) {
+      if (shouldUseLightPostgresAdmin()) {
+        const data = await getLightPostgresPageBySlug(slug, includeInactive);
+        if (!data) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: data });
+      }
+
+      const supabase = await getSupabaseClient();
       let pageBySlugQuery = supabase
         .from("pages")
         .select("*")
@@ -232,6 +259,12 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse({ page: data });
     }
 
+    if (shouldUseLightPostgresAdmin()) {
+      const pages = await listLightPostgresPages(includeInactive);
+      return createSuccessResponse({ pages });
+    }
+
+    const supabase = await getSupabaseClient();
     let pagesQuery = supabase
       .from("pages")
       .select("*")
@@ -272,7 +305,7 @@ export async function PUT(request: NextRequest) {
       throw new APIError("Invalid body", 400, "INVALID_BODY");
     }
 
-    const { id, ...updates } = body as { id?: string } & Record<string, unknown>;
+    const { id, ...updatesRecord } = body as { id?: string } & Record<string, unknown>;
 
     if (!id) {
       throw new APIError("Page ID is required", 400, "MISSING_ID");
@@ -282,21 +315,37 @@ export async function PUT(request: NextRequest) {
       throw new APIError("Invalid page ID format", 400, "INVALID_ID");
     }
 
-    validatePageInput(updates);
+    const rawStatus = updatesRecord.status;
+    const rawContent = updatesRecord.content;
 
-    const supabase = await getSupabaseClient();
-    const { data: existingPage, error: existingPageError } = await supabase
-      .from("pages")
-      .select("geo_data")
-      .eq("id", id)
-      .single();
+    validatePageInput(updatesRecord);
+    const updates = updatesRecord as PageInput;
 
-    if (existingPageError) {
-      if (existingPageError.code === "PGRST116") {
-        throw new APIError("Page not found", 404, "NOT_FOUND");
+    const existingPage = shouldUseLightPostgresAdmin()
+      ? await getLightPostgresPageById(id)
+      : null;
+
+    let existingPageGeoData: unknown = existingPage?.geo_data;
+
+    if (!shouldUseLightPostgresAdmin()) {
+      const supabase = await getSupabaseClient();
+      const { data, error: existingPageError } = await supabase
+        .from("pages")
+        .select("geo_data")
+        .eq("id", id)
+        .single();
+
+      if (existingPageError) {
+        if (existingPageError.code === "PGRST116") {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        throw new APIError("Database error", 500, "DB_ERROR");
       }
 
-      throw new APIError("Database error", 500, "DB_ERROR");
+      existingPageGeoData = data?.geo_data;
+    } else if (!existingPage) {
+      throw new APIError("Page not found", 404, "NOT_FOUND");
     }
 
     // Build update object
@@ -322,20 +371,24 @@ export async function PUT(request: NextRequest) {
       }));
     }
 
-    const requestedStatus = isValidPageStatus(updates.status)
-      ? updates.status
-      : extractExistingCmsData(existingPage?.geo_data)?.status ?? undefined;
-    const requestedContent = updates.content !== undefined
-      ? sanitizeContent(updates.content, 50000)
-      : extractExistingCmsData(existingPage?.geo_data)?.content ?? undefined;
+    const requestedStatus = isValidPageStatus(rawStatus)
+      ? rawStatus
+      : extractExistingCmsData(existingPageGeoData)?.status ?? undefined;
+    const requestedContent = rawContent !== undefined
+      ? sanitizeContent(rawContent, 50000)
+      : extractExistingCmsData(existingPageGeoData)?.content ?? undefined;
 
-    if (updates.status !== undefined) {
-      updateData.is_active = updates.status === "published";
+    if (rawStatus !== undefined) {
+      updateData.is_active = rawStatus === "published";
     }
 
-    if (updates.geo_data !== undefined || updates.content !== undefined || updates.status !== undefined) {
+    if (
+      updates.geo_data !== undefined ||
+      rawContent !== undefined ||
+      rawStatus !== undefined
+    ) {
       updateData.geo_data = normalizePageGeoData(
-        updates.geo_data ?? existingPage?.geo_data,
+        updates.geo_data ?? existingPageGeoData,
         {
           content: requestedContent,
           status: requestedStatus,
@@ -347,6 +400,29 @@ export async function PUT(request: NextRequest) {
       throw new APIError("No fields to update", 400, "NO_FIELDS");
     }
 
+    if (shouldUseLightPostgresAdmin()) {
+      try {
+        const data = await updateLightPostgresPage(id, updateData);
+
+        if (!data) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        if (!isValidPage(data)) {
+          throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
+        }
+
+        return createSuccessResponse({ page: data }, 200);
+      } catch (error) {
+        if ((error as { code?: string } | undefined)?.code === "23505") {
+          throw new APIError("Page with this slug already exists", 409, "DUPLICATE_SLUG");
+        }
+
+        throw error;
+      }
+    }
+
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from("pages")
       .update(updateData)
@@ -411,7 +487,6 @@ export async function POST(request: NextRequest) {
       throw new APIError("Only fixed managed pages can be created", 400, "INVALID_MANAGED_PAGE");
     }
 
-    const supabase = await getSupabaseClient();
     const requestedStatus = isValidPageStatus(data.status)
       ? data.status
       : data.is_active === false
@@ -421,27 +496,48 @@ export async function POST(request: NextRequest) {
       ? sanitizeContent(data.content, 50000)
       : "";
 
+    const insertPayload: PageInput = {
+      name: sanitizeString(data.name, 200),
+      slug: data.slug ? sanitizeString(String(data.slug), 100) : "",
+      schema_type: data.schema_type ? sanitizeString(String(data.schema_type), 50) : "WebPage",
+      icon: data.icon ? sanitizeString(String(data.icon), 50) : undefined,
+      is_active: requestedStatus === "published",
+      sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
+      seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,
+      seo_description: data.seo_description ? sanitizeString(String(data.seo_description), 500) : null,
+      seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
+      faq: Array.isArray(data.faq) ? data.faq : [],
+      geo_data: normalizePageGeoData(
+        data.geo_data,
+        {
+          content: requestedContent,
+          status: requestedStatus,
+        },
+      ),
+    };
+
+    if (shouldUseLightPostgresAdmin()) {
+      try {
+        const newPage = await createLightPostgresPage(insertPayload);
+
+        if (!isValidPage(newPage)) {
+          throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
+        }
+
+        return createSuccessResponse({ page: newPage }, 201);
+      } catch (error) {
+        if ((error as { code?: string } | undefined)?.code === "23505") {
+          throw new APIError("Page with this slug already exists", 409, "DUPLICATE_SLUG");
+        }
+
+        throw error;
+      }
+    }
+
+    const supabase = await getSupabaseClient();
     const { data: newPage, error } = await supabase
       .from("pages")
-      .insert({
-        name: sanitizeString(data.name, 200),
-        slug: data.slug ? sanitizeString(String(data.slug), 100) : "",
-        schema_type: data.schema_type ? sanitizeString(String(data.schema_type), 50) : "WebPage",
-        icon: data.icon ? sanitizeString(String(data.icon), 50) : null,
-        is_active: requestedStatus === "published",
-        sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
-        seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,
-        seo_description: data.seo_description ? sanitizeString(String(data.seo_description), 500) : null,
-        seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
-        faq: Array.isArray(data.faq) ? data.faq : [],
-        geo_data: normalizePageGeoData(
-          data.geo_data,
-          {
-            content: requestedContent,
-            status: requestedStatus,
-          },
-        ),
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
@@ -461,6 +557,40 @@ export async function POST(request: NextRequest) {
 
     return createSuccessResponse({ page: newPage }, 201);
 
+  } catch (error) {
+    return createErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      throw new APIError("Page ID is required", 400, "MISSING_ID");
+    }
+
+    if (!validateUUID(id)) {
+      throw new APIError("Invalid page ID format", 400, "INVALID_ID");
+    }
+
+    if (shouldUseLightPostgresAdmin()) {
+      await deleteLightPostgresPage(id);
+      return createSuccessResponse({}, 200);
+    }
+
+    const supabase = await getSupabaseClient();
+    const { error } = await supabase
+      .from("pages")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      throw new APIError("Failed to delete page", 500, "DELETE_ERROR");
+    }
+
+    return createSuccessResponse({}, 200);
   } catch (error) {
     return createErrorResponse(error);
   }
