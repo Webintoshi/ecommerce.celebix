@@ -107,6 +107,9 @@ export type LiveAnalyticsSnapshot = {
     tablet: number;
   };
   topPages: Array<{ url: string; count: number }>;
+  topReferrers: Array<{ label: string; count: number }>;
+  topCountries: Array<{ label: string; count: number }>;
+  topBrowsers: Array<{ label: string; count: number }>;
   abandonedCarts: {
     count: number;
     total: number;

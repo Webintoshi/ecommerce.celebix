@@ -80,6 +80,9 @@ function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
       tablet: 0,
     },
     topPages: [],
+    topReferrers: [],
+    topCountries: [],
+    topBrowsers: [],
     abandonedCarts: {
       count: 0,
       total: 0,

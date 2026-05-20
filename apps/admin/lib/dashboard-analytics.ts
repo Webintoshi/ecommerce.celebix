@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
+import { fetchUmamiAggregate } from "@/lib/analytics/umami";
 import { fetchPlausibleAggregate } from "@/lib/analytics/plausible";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 import type { DashboardAnalysisSummary, DashboardAnalysisSummaryItem } from "@/lib/admin-data-types";
@@ -230,6 +231,14 @@ async function fetchTrafficAggregate(
   startDate: string,
   endDate: string,
 ) {
+  const umami = await fetchUmamiAggregate({ startDate, endDate });
+  if (umami) {
+    return {
+      visitors: umami.visitors,
+      pageViews: umami.pageviews,
+    };
+  }
+
   const plausible = await fetchPlausibleAggregate({ startDate, endDate });
   if (plausible) {
     return {

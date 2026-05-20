@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fetchUmamiRealtimeSnapshot } from "@/lib/analytics/umami";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import {
@@ -133,8 +134,14 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
 
     await syncAbandonedCartStatusesIfDue(supabase);
 
-    const presenceSnapshot =
-      (await getActivePresenceSnapshot()) ?? (await getDatabasePresenceSnapshot());
+    const umamiRealtime = await fetchUmamiRealtimeSnapshot();
+    const presenceSnapshot = umamiRealtime
+      ? {
+          liveVisitors: umamiRealtime.activeVisitors,
+          devices: umamiRealtime.devices,
+          topPages: umamiRealtime.topPages,
+        }
+      : ((await getActivePresenceSnapshot()) ?? (await getDatabasePresenceSnapshot()));
 
     let abandonedCarts: { total: number | string | null; recovered?: boolean | null }[] = [];
     let abandonedCount = 0;
@@ -208,6 +215,9 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
       liveVisitors: presenceSnapshot.liveVisitors,
       devices: presenceSnapshot.devices,
       topPages: presenceSnapshot.topPages,
+      topReferrers: umamiRealtime?.topReferrers ?? [],
+      topCountries: umamiRealtime?.topCountries ?? [],
+      topBrowsers: umamiRealtime?.topBrowsers ?? [],
       abandonedCarts: {
         count: abandonedCount || 0,
         total: abandonedTotal,

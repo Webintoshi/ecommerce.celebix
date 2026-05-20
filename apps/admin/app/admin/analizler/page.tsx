@@ -34,6 +34,16 @@ interface DashboardData {
   success?: boolean;
   stats: AnalyticsStats;
   trendData: { date: string; revenue: number; orders: number }[];
+  traffic?: {
+    visitors: number;
+    pageViews: number;
+    addToCart: number;
+    purchases: number;
+  };
+  labels?: {
+    current: string;
+    previous: string;
+  };
   abandonedCartStats: {
     totalValue: number;
     recoveryRate: number;
@@ -50,6 +60,9 @@ interface LiveAnalyticsData {
     tablet: number;
   };
   topPages: Array<{ url: string; count: number }>;
+  topReferrers: Array<{ label: string; count: number }>;
+  topCountries: Array<{ label: string; count: number }>;
+  topBrowsers: Array<{ label: string; count: number }>;
   today: {
     addToCart: number;
     purchases: number;
@@ -194,7 +207,8 @@ export default function AnalyticsPage() {
   const topPages = liveData?.topPages || [];
   const addToCartCount = liveData?.today?.addToCart || 0;
   const purchaseCount = liveData?.today?.purchases || 0;
-  const pageViewCount = topPages.reduce((sum, page) => sum + page.count, 0);
+  const visitorCount = data?.traffic?.visitors || 0;
+  const pageViewCount = data?.traffic?.pageViews || 0;
   const liveDeviceTotal =
     (liveData?.devices.mobile || 0) +
     (liveData?.devices.desktop || 0) +
@@ -290,9 +304,9 @@ export default function AnalyticsPage() {
                 tone="emerald"
               />
               <HeaderMetric
-                label="Ortalama sipariş"
-                value={formatCurrency(stats.avgOrderValue || 0)}
-                tone="amber"
+                label="Ziyaretçi"
+                value={visitorCount.toLocaleString("tr-TR")}
+                tone="blue"
               />
               <HeaderMetric
                 label="Sayfa görüntüleme"
@@ -807,6 +821,27 @@ function LiveSnapshotCard({
             </div>
           )}
         </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <InsightListPanel
+            title="Referrer / Source"
+            accent="amber"
+            items={liveData?.topReferrers || []}
+            emptyMessage="Referrer akışı henüz görünmüyor."
+          />
+          <InsightListPanel
+            title="Ülke"
+            accent="emerald"
+            items={liveData?.topCountries || []}
+            emptyMessage="Ülke dağılımı henüz görünmüyor."
+          />
+          <InsightListPanel
+            title="Tarayıcı"
+            accent="blue"
+            items={liveData?.topBrowsers || []}
+            emptyMessage="Tarayıcı dağılımı henüz görünmüyor."
+          />
+        </div>
       </div>
     </motion.div>
   );
@@ -1012,6 +1047,81 @@ function MiniStat({
       </div>
       <p className="mt-4 text-sm font-medium text-gray-600">{title}</p>
       <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-gray-950">{value}</p>
+    </div>
+  );
+}
+
+function InsightListPanel({
+  title,
+  items,
+  emptyMessage,
+  accent,
+}: {
+  title: string;
+  items: Array<{ label: string; count: number }>;
+  emptyMessage: string;
+  accent: "amber" | "emerald" | "blue";
+}) {
+  const accentStyles = {
+    amber: {
+      shell: "from-amber-50 to-orange-50/70 border-amber-200/50",
+      badge: "bg-amber-500 text-white",
+      value: "text-amber-700",
+    },
+    emerald: {
+      shell: "from-emerald-50 to-teal-50/70 border-emerald-200/50",
+      badge: "bg-emerald-500 text-white",
+      value: "text-emerald-700",
+    },
+    blue: {
+      shell: "from-blue-50 to-indigo-50/70 border-blue-200/50",
+      badge: "bg-blue-500 text-white",
+      value: "text-blue-700",
+    },
+  };
+
+  const style = accentStyles[accent];
+
+  return (
+    <div className={cn("rounded-[22px] border bg-gradient-to-br p-4", style.shell)}>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+          Top 3
+        </span>
+      </div>
+
+      {items.length > 0 ? (
+        <div className="space-y-2">
+          {items.slice(0, 3).map((item, index) => (
+            <div
+              key={`${title}-${item.label}-${index}`}
+              className="flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-3 py-3 shadow-sm"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
+                    style.badge,
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span title={item.label} className="truncate text-sm font-medium text-gray-700">
+                  {item.label}
+                </span>
+              </div>
+              <span className={cn("text-sm font-semibold", style.value)}>
+                {item.count.toLocaleString("tr-TR")}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-white/80 bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
+          {emptyMessage}
+        </div>
+      )}
     </div>
   );
 }
