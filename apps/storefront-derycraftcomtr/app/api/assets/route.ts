@@ -35,7 +35,7 @@ function buildAssetResponse(asset: {
 
   responseHeaders.set("Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
 
-  return new NextResponse(asset.body, {
+  return new NextResponse(new Uint8Array(asset.body), {
     status: 200,
     headers: responseHeaders,
   });

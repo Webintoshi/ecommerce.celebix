@@ -37,6 +37,7 @@ export async function generateMetadata({
 
     return buildStorePageMetadata({
       pathname: `/seo/${params.pillar}/${params.cluster}`,
+      locale: "tr",
       title: frontmatter.title,
       description: frontmatter.description,
       keywords: [
@@ -47,11 +48,12 @@ export async function generateMetadata({
       ],
       type: 'article',
       publishedTime: frontmatter.publishedAt,
-      modifiedTime: frontmatter.updatedAt,
+      modifiedTime: frontmatter.updatedAt ?? frontmatter.publishedAt,
     });
   } catch {
     return buildStorePageMetadata({
       pathname: `/seo/${params.pillar}/${params.cluster}`,
+      locale: "tr",
       title: 'SEO Rehberi',
       description: 'SEO rehberi bulunamadi.',
       noIndex: true,

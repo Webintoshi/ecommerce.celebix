@@ -22,6 +22,7 @@ const legacyMetadata: Metadata = {
 export async function generateMetadata(): Promise<Metadata> {
   return buildStorePageMetadata({
     pathname: "/seo",
+    locale: "tr",
     title: "SEO Rehberi 2026",
     description:
       "Teknik SEO, on-page optimizasyon, link building, e-ticaret SEO ve GEO stratejilerini bir arada sunan rehber merkezi.",

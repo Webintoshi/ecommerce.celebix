@@ -26,13 +26,13 @@ function collectImageUrls(images: Array<string | null | undefined>) {
     });
 }
 
-function getLegacyProductImages(product: ProductWithLegacyImages) {
-  const legacyImagesV2 =
+function getLegacyProductImages(product: ProductWithLegacyImages): string[] {
+  const legacyImagesV2: string[] =
     Array.isArray(product.imagesV2) && product.imagesV2.length > 0
       ? product.imagesV2.map((image) => image?.url ?? "")
       : [];
 
-  const legacyImagesSnakeCase = Array.isArray(product.images_v2)
+  const legacyImagesSnakeCase: string[] = Array.isArray(product.images_v2)
     ? product.images_v2.map((image) =>
         typeof image === "string" ? image : image?.url ?? ""
       )
@@ -46,11 +46,13 @@ export function getResolvedProductImages(
   variant?: ProductVariant | null
 ) {
   const variantWithAttributeImages = variant as VariantWithAttributeImages | undefined;
-  const variantImages = Array.isArray(variant?.images) ? variant.images : [];
-  const attributeImages = Array.isArray(variantWithAttributeImages?.attributes)
-    ? variantWithAttributeImages.attributes.map((attribute) => attribute.image_url ?? "")
+  const variantImages: string[] = Array.isArray(variant?.images) ? variant.images : [];
+  const attributeImages: string[] = Array.isArray(variantWithAttributeImages?.attributes)
+    ? (variantWithAttributeImages.attributes as Array<{ image_url?: string | null }>).map(
+        (attribute) => attribute.image_url ?? "",
+      )
     : [];
-  const productImages =
+  const productImages: string[] =
     Array.isArray(product.images) && product.images.length > 0
       ? product.images
       : getLegacyProductImages(product);

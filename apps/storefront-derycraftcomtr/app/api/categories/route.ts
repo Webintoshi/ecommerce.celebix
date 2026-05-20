@@ -106,6 +106,12 @@ function sanitizeString(input: unknown, maxLength: number): string {
     .replace(/[<>]/g, ""); // Basic XSS prevention
 }
 
+function getSupabaseErrorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? (error as { code?: string }).code
+    : undefined;
+}
+
 function validateCategoryInput(input: unknown): asserts input is CategoryInput {
   if (typeof input !== "object" || input === null) {
     throw new APIError("Invalid input: expected object", 400, "INVALID_INPUT");
@@ -229,7 +235,12 @@ export async function GET(request: NextRequest) {
         .single();
       
       if (error) {
-        if (error.code === "PGRST116") {
+        const errorCode =
+          typeof error === "object" && error !== null && "code" in error
+            ? (error as { code?: string }).code
+            : undefined;
+
+        if (errorCode === "PGRST116") {
           throw new APIError("Category not found", 404, "NOT_FOUND");
         }
         throw new APIError("Database error", 500, "DB_ERROR");
@@ -262,7 +273,7 @@ export async function GET(request: NextRequest) {
       });
       
       if (error) {
-        if (error.code === "PGRST116") {
+        if (getSupabaseErrorCode(error) === "PGRST116") {
           throw new APIError("Category not found", 404, "NOT_FOUND");
         }
         throw new APIError("Database error", 500, "DB_ERROR");
@@ -418,11 +429,11 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error("Category update error:", error);
       
-      if (error.code === "PGRST116") {
+      if (getSupabaseErrorCode(error) === "PGRST116") {
         throw new APIError("Category not found", 404, "NOT_FOUND");
       }
       
-      if (error.code === "23505") { // Unique violation
+      if (getSupabaseErrorCode(error) === "23505") { // Unique violation
         throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
       }
       
@@ -503,7 +514,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Category creation error:", error);
       
-      if (error.code === "23505") {
+      if (getSupabaseErrorCode(error) === "23505") {
         throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
       }
       

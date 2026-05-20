@@ -56,8 +56,10 @@ export interface ContentLink {
 export interface MDXFrontmatter {
   title: string;
   description: string;
+  icon?: string;
   primaryKeyword: string;
   secondaryKeywords?: string[];
+  keyTakeaways?: string[];
   searchIntent?: 'informational' | 'navigational' | 'commercial' | 'transactional';
   publishedAt: string;
   updatedAt?: string;

@@ -56,28 +56,7 @@ export function diffProductTags(previous: string[], next: string[]) {
 }
 
 type SupabaseLikeClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      in: (column: string, values: string[]) => Promise<{ data: ProductTagSuggestionRow[] | null; error: { message: string } | null }>;
-    };
-    upsert: (
-      payload: {
-        value: string;
-        usage_count: number;
-        last_used_at: string;
-      }[],
-      options: { onConflict: string }
-    ) => Promise<{ error: { message: string } | null }>;
-    update: (payload: {
-      usage_count: number;
-      last_used_at: string;
-    }) => {
-      eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
-    };
-    delete: () => {
-      in: (column: string, values: string[]) => Promise<{ error: { message: string } | null }>;
-    };
-  };
+  from: (table: string) => any;
 };
 
 export async function syncProductTagSuggestions(
@@ -104,8 +83,9 @@ export async function syncProductTagSuggestions(
     throw new Error(fetchError.message);
   }
 
+  const existingRowsList = (existingRows || []) as ProductTagSuggestionRow[];
   const existingMap = new Map(
-    (existingRows || []).map((row) => [row.value, row])
+    existingRowsList.map((row: ProductTagSuggestionRow) => [row.value, row] as const)
   );
 
   const now = new Date().toISOString();

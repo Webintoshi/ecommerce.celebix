@@ -6,6 +6,9 @@ import type {
 } from "@/types/accounting";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
+const ACCOUNTING_RUNTIME_SLUG = STOREFRONT_RUNTIME.slug;
+const ACCOUNTING_RUNTIME_ADMIN_URL = STOREFRONT_RUNTIME.adminUrl;
+
 export interface AccountingProviderAdapter {
   connect(input: {
     credentials: Record<string, string>;
@@ -169,8 +172,8 @@ function buildMockAdapter(provider: AccountingProvider): AccountingProviderAdapt
         success: true,
         message: "Fatura sağlayıcı kuyruğuna iletildi.",
         externalId,
-        invoiceNo: `${provider.toUpperCase()}-${orderNumber}`,
-        invoiceUrl: `${STOREFRONT_RUNTIME.adminUrl}/admin/muhasebe/fatura-entegrasyonu?invoice=${externalId}`,
+        invoiceNo: `${provider.toUpperCase()}-${orderNumber || ACCOUNTING_RUNTIME_SLUG.toUpperCase()}`,
+        invoiceUrl: `${ACCOUNTING_RUNTIME_ADMIN_URL}/admin/muhasebe/fatura-entegrasyonu?invoice=${externalId}`,
         raw: { simulated: true, provider },
       };
     },

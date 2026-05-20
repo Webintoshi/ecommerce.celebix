@@ -17,6 +17,10 @@ export interface PageFAQ {
 export interface PageGEO {
   keyTakeaways: string[];
   entities: string[];
+  cms?: {
+    status?: string | null;
+    content?: string | null;
+  };
 }
 
 export interface StaticPage {

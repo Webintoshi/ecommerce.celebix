@@ -223,7 +223,10 @@ export async function getActivePresenceSnapshot(): Promise<LivePresenceSnapshot 
         return;
       }
 
-      const parsedRecord = parsePresenceRecord(rawRecord as Record<string, string>, sessionId);
+      const parsedRecord = parsePresenceRecord(
+        rawRecord as unknown as Record<string, string>,
+        sessionId,
+      );
       if (!parsedRecord || parsedRecord.expiresAt <= now) {
         staleSessionIds.push(sessionId);
         return;

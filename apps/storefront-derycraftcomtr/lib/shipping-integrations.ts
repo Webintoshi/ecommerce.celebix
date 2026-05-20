@@ -198,7 +198,7 @@ export function normalizeShippingIntegrationSettings(
     const defaults = createDefaultShippingIntegrationSettings();
     const inputIntegrations = Array.isArray(value?.integrations) ? value.integrations : [];
 
-    const normalizedIntegrations = SHIPPING_PROVIDER_REGISTRY.map((provider) => {
+    const normalizedIntegrations: ShippingIntegrationRecord[] = SHIPPING_PROVIDER_REGISTRY.map((provider) => {
         const current = inputIntegrations.find((integration) => integration?.provider === provider.id);
         const base = createEmptyShippingIntegration(provider.id);
 
@@ -233,9 +233,10 @@ export function normalizeShippingIntegrationSettings(
         };
     });
 
-    const defaultProvider = normalizedIntegrations.some((integration) => integration.provider === value?.defaultProvider)
-        ? value?.defaultProvider ?? null
-        : defaults.defaultProvider;
+    const defaultProvider: ShippingIntegrationProvider | null =
+        normalizedIntegrations.some((integration) => integration.provider === value?.defaultProvider)
+            ? (value?.defaultProvider as ShippingIntegrationProvider | null)
+            : defaults.defaultProvider;
 
     return {
         version: 1,

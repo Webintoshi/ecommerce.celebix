@@ -27,7 +27,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 // Types from PremiumHome
 interface HeroSlide {
-  id: number;
+  id: number | string;
   desktop: string;
   mobile: string;
   alt: string;

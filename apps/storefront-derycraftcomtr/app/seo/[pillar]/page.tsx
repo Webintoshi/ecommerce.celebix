@@ -23,6 +23,7 @@ export async function generateMetadata({ params }: { params: { pillar: string } 
 
     return buildStorePageMetadata({
       pathname: `/seo/${params.pillar}`,
+      locale: "tr",
       title: frontmatter.title,
       description: frontmatter.description,
       keywords: [frontmatter.title, params.pillar, "seo"],
@@ -31,6 +32,7 @@ export async function generateMetadata({ params }: { params: { pillar: string } 
   } catch {
     return buildStorePageMetadata({
       pathname: `/seo/${params.pillar}`,
+      locale: "tr",
       title: 'SEO Rehberi',
       description: 'SEO rehber kategorisi bulunamadi.',
       noIndex: true,
@@ -143,7 +145,7 @@ export default async function PillarPage({ params }: { params: { pillar: string 
                     <span className="text-2xl">📅</span>
                     <span>
                       {new Date(
-                        pillarContent.frontmatter.updatedAt
+                        pillarContent.frontmatter.updatedAt ?? pillarContent.frontmatter.publishedAt
                       ).toLocaleDateString('tr-TR')}
                     </span>
                   </div>

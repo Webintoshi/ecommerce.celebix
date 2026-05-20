@@ -26,12 +26,20 @@ function normalizePhoneLink(phone: string): string {
 }
 
 const siteUrl = normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL, DEFAULT_SITE_URL);
+const adminUrl = normalizeUrl(process.env.NEXT_PUBLIC_ADMIN_DOMAIN, siteUrl);
+const slug =
+  process.env.STORE_SLUG?.trim() ||
+  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() ||
+  new URL(siteUrl).hostname.split(".")[0] ||
+  "storefront";
 
 export const STOREFRONT_RUNTIME = {
+  slug,
   name: process.env.NEXT_PUBLIC_STORE_NAME || DEFAULT_STORE_NAME,
   tagline: process.env.NEXT_PUBLIC_STORE_TAGLINE || DEFAULT_TAGLINE,
   description: process.env.NEXT_PUBLIC_STORE_DESCRIPTION || DEFAULT_DESCRIPTION,
   siteUrl,
+  adminUrl,
   logoPath: process.env.NEXT_PUBLIC_STORE_LOGO || DEFAULT_LOGO_PATH,
   supportEmail: process.env.NEXT_PUBLIC_STORE_SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL,
   supportPhone: process.env.NEXT_PUBLIC_STORE_SUPPORT_PHONE || DEFAULT_SUPPORT_PHONE,

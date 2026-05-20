@@ -14,7 +14,7 @@ export interface StoreInfo {
     phone: string;
     address: string;
     currency: string;
-    timezone: string;
+    timezone?: string;
     logoUrl?: string;
     faviconUrl?: string;
     socialInstagram?: string;

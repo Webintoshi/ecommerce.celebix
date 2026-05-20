@@ -114,7 +114,7 @@ export default async function RootLayout({
           initialRouting={localeRouting}
         >
           <TrackingProvider>
-            <StoreInfoProvider initialStoreInfo={initialStoreInfo}>
+            <StoreInfoProvider initialStoreInfo={initialStoreInfo ?? undefined}>
               <AuthProvider>
                 <CartProvider>
                   <WishlistProvider>

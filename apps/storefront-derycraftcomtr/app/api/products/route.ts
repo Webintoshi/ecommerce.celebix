@@ -36,6 +36,14 @@ function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : "Bilinmeyen hata";
 }
 
+function getErrorLike(error: unknown) {
+    if (typeof error === "object" && error !== null) {
+        return error as { message?: string; details?: string; code?: string };
+    }
+
+    return {};
+}
+
 function logTagSuggestionSyncError(error: unknown, context: string) {
     console.error(`Product tag suggestion sync failed (${context}):`, error);
 }
@@ -207,7 +215,10 @@ async function localizeProducts(
     locale: StorefrontLocale,
 ) {
     const hydratedProducts = hydrateListingProducts(products, attributeRegistry, rulesMap);
-    const translatedProducts = await translateProductCollection(hydratedProducts, locale);
+    const translatedProducts = await translateProductCollection(
+        hydratedProducts as unknown as Array<Record<string, unknown>>,
+        locale,
+    );
     const categoryLabelMap = await getCategoryLabelMap(
         supabase,
         translatedProducts as Array<Record<string, unknown>>,
@@ -287,7 +298,7 @@ export async function GET(request: NextRequest) {
             if (error || !data?.[0]) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: error?.message || "Product not found"
+                    error: getErrorLike(error).message || "Product not found"
                 }, { status: 404 });
             }
             const rulesMap = await getProductDiscountRulesMap(supabase, [String(data[0].id)]);
@@ -646,10 +657,15 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, product: fullProduct });
     } catch (error: unknown) {
+        const normalizedError = getErrorLike(error);
         console.error("Error creating product:", error);
-        console.error("Error details:", error?.details, error?.message, error?.code);
+        console.error("Error details:", normalizedError.details, normalizedError.message, normalizedError.code);
         return NextResponse.json(
-            { success: false, error: error?.message || error?.details || "Failed to create product", code: error?.code },
+            {
+                success: false,
+                error: normalizedError.message || normalizedError.details || "Failed to create product",
+                code: normalizedError.code,
+            },
             { status: 500 }
         );
     }

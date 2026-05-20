@@ -180,13 +180,13 @@ export async function POST(request: NextRequest) {
         }
 
         const bytes = await file.arrayBuffer();
-        const inputBuffer = Buffer.from(bytes);
+        const inputBuffer = Buffer.from(bytes) as Buffer<ArrayBuffer>;
 
         const targetFormat: 'avif' | 'webp' = preferredFormat === 'auto' ? 'avif' : preferredFormat;
         const shouldKeepOriginal = shouldKeepOriginalUpload(normalizedMimeType);
         const isSvg = isSvgImageMimeType(normalizedMimeType, file.name);
 
-        let uploadBuffer = inputBuffer;
+        let uploadBuffer: Buffer<ArrayBuffer> = inputBuffer;
         let uploadContentType = normalizedMimeType;
         let uploadFileName = file.name;
         let processedFormat: 'avif' | 'webp' | null = null;
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
 
         if (!shouldKeepOriginal) {
             const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
-            uploadBuffer = processed.buffer;
+            uploadBuffer = processed.buffer as Buffer<ArrayBuffer>;
             uploadContentType = `image/${processed.format}`;
             uploadFileName = getFileName(file.name, processed.format);
             processedFormat = processed.format;
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         }
         
         const result = await uploadToR2(
-            uploadBuffer,
+            uploadBuffer as Buffer<ArrayBuffer>,
             uploadFileName,
             uploadContentType,
             folder
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
                 const thumbFileName = `${thumbBaseName}_thumb.${thumbnailFormat}`;
                 
                 const thumbResult = await uploadToR2(
-                    thumbnailBuffer,
+                    thumbnailBuffer as Buffer<ArrayBuffer>,
                     thumbFileName,
                     `image/${thumbnailFormat}`,
                     folder

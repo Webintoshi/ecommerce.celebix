@@ -9,6 +9,7 @@ import { Product } from "@/types/product";
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
+  categoryCounts?: Record<string, number>;
 }
 
 const ITEMS_PER_LOAD = 12;

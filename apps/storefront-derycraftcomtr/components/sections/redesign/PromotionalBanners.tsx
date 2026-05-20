@@ -90,10 +90,9 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
       ? (payload as { banners: unknown[] }).banners
       : [];
 
-  return rawBanners
-    .map((rawBanner, index) => {
+  return rawBanners.flatMap<PromoBanner>((rawBanner, index) => {
       if (!rawBanner || typeof rawBanner !== "object") {
-        return null;
+        return [];
       }
 
       const banner = rawBanner as Partial<PromoBanner> & {
@@ -111,10 +110,10 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         "";
 
       if (!image) {
-        return null;
+        return [];
       }
 
-      return {
+      return [{
         id: banner.id || index + 1,
         image,
         mobileImage: banner.mobileImage || banner.mobile || image,
@@ -127,9 +126,8 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
         color: banner.color,
         discount: banner.discount,
         endDate: banner.endDate,
-      };
-    })
-    .filter((banner): banner is PromoBanner => Boolean(banner));
+      }];
+    });
 }
 
 function withDefaults(banners: PromoBanner[]): PromoBanner[] {

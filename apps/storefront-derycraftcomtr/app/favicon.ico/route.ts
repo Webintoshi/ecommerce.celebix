@@ -15,7 +15,7 @@ const FALLBACK_FAVICON_PATH = path.join(
 );
 
 function buildResponse(body: Buffer, contentType: string) {
-  return new NextResponse(body, {
+  return new NextResponse(new Uint8Array(body), {
     status: 200,
     headers: {
       "Content-Type": contentType,

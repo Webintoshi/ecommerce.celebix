@@ -329,10 +329,12 @@ export async function getStoreInfo(): Promise<StoreInfo | null> {
         return null;
     }
 
+    const storeInfo = data as unknown as StoreInfo;
+
     return {
-        ...(data as StoreInfo),
+        ...storeInfo,
         floatingContact: normalizeFloatingContactSettings(
-            (data as StoreInfo).floatingContact,
+            storeInfo.floatingContact,
         ),
     };
 }
@@ -491,7 +493,9 @@ const DEFAULT_MARQUEE_SETTINGS: MarqueeSettings = {
  */
 export async function getMarqueeSettings(): Promise<MarqueeSettings> {
     const data = await getSetting(SETTING_KEYS.MARQUEE_SETTINGS);
-    return data ? { ...DEFAULT_MARQUEE_SETTINGS, ...data as MarqueeSettings } : DEFAULT_MARQUEE_SETTINGS;
+    return data
+        ? { ...DEFAULT_MARQUEE_SETTINGS, ...(data as unknown as MarqueeSettings) }
+        : DEFAULT_MARQUEE_SETTINGS;
 }
 
 /**

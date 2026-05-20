@@ -400,9 +400,10 @@ async function translateProductRecordWithSettings<
     },
   );
 
-  const translatedVariants = Array.isArray(product.variants)
+  const variantList = Array.isArray(product.variants) ? product.variants : [];
+  const translatedVariants = variantList.length
     ? await (async () => {
-        const sourceTexts = product.variants.flatMap((variant) => [
+        const sourceTexts = variantList.flatMap((variant) => [
           variant?.name,
           variant?.group_name ?? variant?.groupName,
         ]);
@@ -412,7 +413,7 @@ async function translateProductRecordWithSettings<
         });
 
         let cursor = 0;
-        return product.variants.map((variant) => {
+        return variantList.map((variant) => {
           const translatedName = translatedTexts[cursor++] || variant?.name || "";
           const translatedGroupName =
             translatedTexts[cursor++] || variant?.group_name || variant?.groupName || "";
@@ -425,7 +426,7 @@ async function translateProductRecordWithSettings<
           };
         });
       })()
-    : product.variants;
+    : variantList;
 
   return {
     ...product,

@@ -57,8 +57,6 @@ export interface CategorySEOViewModel extends Category {
 }
 
 export type CategoryFormData = CategoryInput;
-export type CategoryInfo = Category;
-
 export function isCategoryFAQ(value: unknown): value is CategoryFAQ {
   return (
     typeof value === "object" &&

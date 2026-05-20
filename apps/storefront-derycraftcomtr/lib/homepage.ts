@@ -136,8 +136,7 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         ? ((payload as { banners: unknown[] }).banners as RawHeroSlide[])
         : [];
 
-  return rawSlides
-    .map((slide, index) => {
+  return rawSlides.flatMap<HomepageHeroBanner>((slide, index) => {
       const desktop =
         slide.desktop ||
         slide.desktopImage ||
@@ -157,14 +156,14 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         desktop;
 
       if (!desktop && !mobile) {
-        return null;
+        return [];
       }
 
       const title = slide.overlay?.title || slide.title || "";
       const subtitle = slide.overlay?.subtitle || slide.subtitle || "";
       const rawId = slide.id;
 
-      return {
+      return [{
         id:
           typeof rawId === "number" || typeof rawId === "string"
             ? rawId
@@ -177,9 +176,8 @@ function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
         subtitle,
         buttonText: slide.overlay?.ctaText || slide.buttonText || "",
         buttonLink: slide.overlay?.ctaLink || slide.buttonLink || slide.link || "",
-      };
-    })
-    .filter((slide): slide is HomepageHeroBanner => Boolean(slide));
+      }];
+    });
 }
 
 function normalizePromoBanners(payload: unknown) {
@@ -191,8 +189,7 @@ function normalizePromoBanners(payload: unknown) {
         ? ((payload as { slides: unknown[] }).slides as RawPromoBanner[])
         : [];
 
-  return rawBanners
-    .map((banner, index) => {
+  return rawBanners.flatMap<Record<string, unknown>>((banner, index) => {
       const image =
         banner.image ||
         banner.desktop ||
@@ -202,12 +199,12 @@ function normalizePromoBanners(payload: unknown) {
         "";
 
       if (!image) {
-        return null;
+        return [];
       }
 
       const rawId = banner.id;
 
-      return {
+      return [{
         id:
           typeof rawId === "number" || typeof rawId === "string"
             ? rawId
@@ -223,9 +220,8 @@ function normalizePromoBanners(payload: unknown) {
         color: banner.color,
         discount: banner.discount,
         endDate: banner.endDate,
-      };
-    })
-    .filter((banner): banner is NonNullable<typeof banner> => Boolean(banner));
+      }];
+    });
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {

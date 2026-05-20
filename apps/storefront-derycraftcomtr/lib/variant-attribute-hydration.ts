@@ -82,25 +82,23 @@ function normalizeStoredRegistryPayload(
 ): RegistryAttribute[] {
   const rawAttributes = Array.isArray(registry?.attributes) ? registry.attributes : [];
 
-  return rawAttributes
-    .map((attribute) => {
+  return rawAttributes.flatMap<RegistryAttribute>((attribute) => {
       const record = attribute && typeof attribute === "object" ? (attribute as JsonObject) : null;
       if (!record) {
-        return null;
+        return [];
       }
 
       const values = Array.isArray(record.values)
-        ? record.values
-            .map((value) => {
+        ? record.values.flatMap<RegistryValue>((value) => {
               const valueRecord = value && typeof value === "object" ? (value as JsonObject) : null;
               const normalizedValue = toOptionalString(valueRecord?.value);
               const id = toOptionalString(valueRecord?.id);
               const attributeId = toOptionalString(valueRecord?.attribute_id) || toOptionalString(record.id);
               if (!valueRecord || !normalizedValue || !id || !attributeId || valueRecord.is_active === false) {
-                return null;
+                return [];
               }
 
-              return {
+              return [{
                 id,
                 attribute_id: attributeId,
                 value: normalizedValue,
@@ -108,24 +106,22 @@ function normalizeStoredRegistryPayload(
                   typeof valueRecord.display_order === "number" ? valueRecord.display_order : null,
                 color_code: toOptionalString(valueRecord.color_code),
                 image_url: toOptionalString(valueRecord.image_url),
-              };
+              }];
             })
-            .filter((value): value is RegistryValue => Boolean(value))
         : [];
 
       const id = toOptionalString(record.id);
       const name = toOptionalString(record.name);
       if (!id || !name || record.is_active === false) {
-        return null;
+        return [];
       }
 
-      return {
+      return [{
         id,
         name,
         values,
-      };
-    })
-    .filter((attribute): attribute is RegistryAttribute => Boolean(attribute));
+      }];
+    });
 }
 
 async function readRegistryFromClient(

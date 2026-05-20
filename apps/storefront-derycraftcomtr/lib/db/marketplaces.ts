@@ -418,12 +418,11 @@ async function upsertListingRows(input: {
   if (input.synced.length === 0) return;
 
   const syncMap = new Map(input.synced.map((item) => [item.variantId, item] as const));
-  const payload = input.listings
-    .map((listing) => {
+  const payload = input.listings.flatMap((listing) => {
       const synced = syncMap.get(listing.variantId);
-      if (!synced) return null;
+      if (!synced) return [];
 
-      return {
+      return [{
         provider: input.provider,
         product_id: listing.productId,
         variant_id: listing.variantId,
@@ -434,9 +433,8 @@ async function upsertListingRows(input: {
         last_synced_stock: listing.stock,
         payload_snapshot: synced.raw || {},
         last_error: null,
-      };
-    })
-    .filter(Boolean);
+      }];
+    });
 
   if (payload.length === 0) return;
 
