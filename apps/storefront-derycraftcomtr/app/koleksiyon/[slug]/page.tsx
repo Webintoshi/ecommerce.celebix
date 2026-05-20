@@ -5,6 +5,11 @@ import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
+import {
+  maybeGetStorefrontCategoryBySlug,
+  maybeListStorefrontCategories,
+  maybeListStorefrontProducts,
+} from "@/lib/db/light-postgres-storefront-read";
 import { createServerClient } from "@/lib/supabase";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
@@ -85,6 +90,11 @@ function buildAbsoluteUrl(
 }
 
 async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  const lightPostgresCategory = await maybeGetStorefrontCategoryBySlug(slug);
+  if (lightPostgresCategory !== undefined) {
+    return lightPostgresCategory as unknown as Category | null;
+  }
+
   const supabase = createServerClient();
 
   try {
@@ -111,6 +121,50 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
 }
 
 async function getCollectionSlugs(category: Category): Promise<string[]> {
+  const lightPostgresCategories = await maybeListStorefrontCategories();
+  if (lightPostgresCategories !== undefined) {
+    const childrenByParent = new Map<string, Array<{ id: string; slug: string }>>();
+
+    for (const item of lightPostgresCategories) {
+      if (!item.parent_id || typeof item.slug !== "string" || item.slug.length === 0) {
+        continue;
+      }
+
+      const siblings = childrenByParent.get(item.parent_id) || [];
+      siblings.push({
+        id: item.id,
+        slug: item.slug,
+      });
+      childrenByParent.set(item.parent_id, siblings);
+    }
+
+    const visitedIds = new Set<string>([category.id]);
+    const collectedSlugs = new Set<string>([category.slug]);
+    const queue = [category.id];
+
+    while (queue.length > 0) {
+      const parentId = queue.shift();
+      if (!parentId) {
+        continue;
+      }
+
+      for (const child of childrenByParent.get(parentId) || []) {
+        if (visitedIds.has(child.id)) {
+          continue;
+        }
+
+        visitedIds.add(child.id);
+        queue.push(child.id);
+
+        if (child.slug) {
+          collectedSlugs.add(child.slug);
+        }
+      }
+    }
+
+    return Array.from(collectedSlugs);
+  }
+
   const supabase = createServerClient();
 
   try {
@@ -279,8 +333,38 @@ async function getProductsByCategory(category: Category, locale: StorefrontLocal
   const categorySlugs = await getCollectionSlugs(category);
   const categorySet = new Set(categorySlugs);
 
+  const [lightPostgresProducts, attributeRegistry, productListingOrder] = await Promise.all([
+    maybeListStorefrontProducts(),
+    getVariantAttributeRegistry(),
+    getProductListingOrderPositions(),
+  ]);
+
+  if (lightPostgresProducts !== undefined) {
+    const matchingProducts = (lightPostgresProducts as unknown as DBProduct[])
+      .filter((product) => {
+        const resolvedHierarchy = resolveProductCategorySlugs(product);
+        return (
+          resolvedHierarchy.pathSlugs.some((slug) => categorySet.has(slug)) ||
+          categorySet.has(resolvedHierarchy.category) ||
+          categorySet.has(resolvedHierarchy.subcategory)
+        );
+      });
+
+    const orderedProducts = sortProductsByListingOrder(matchingProducts, productListingOrder);
+    const discountRulesMap = await getProductDiscountRulesMap(
+      supabase,
+      orderedProducts.map((product) => product.id),
+    );
+
+    const translatedProducts = await translateProductCollection(orderedProducts as DBProduct[], locale);
+
+    return translatedProducts
+      .map((product) => transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []))
+      .filter((product) => product.variants.length > 0);
+  }
+
   try {
-    const [{ data, error }, attributeRegistry, productListingOrder] = await Promise.all([
+    const [{ data, error }] = await Promise.all([
       runProductsQuery((includeIsActiveFilter) => {
         let query = supabase
           .from("products")
@@ -292,8 +376,6 @@ async function getProductsByCategory(category: Category, locale: StorefrontLocal
 
         return query.or("status.eq.published,status.is.null").order("created_at", { ascending: false });
       }),
-      getVariantAttributeRegistry(),
-      getProductListingOrderPositions(),
     ]);
 
     if (error || !data) {

@@ -8,6 +8,7 @@ import {
   normalizeProductDescriptionHtml,
 } from "@celebix/platform-config/src/product-description-rich-text";
 import { createServerClient } from "@/lib/supabase";
+import { maybeGetStorefrontPageBySlug } from "@/lib/db/light-postgres-storefront-read";
 import type { PageGEO, StaticPage } from "@/types/page";
 
 export type PublishedManagedContentPage = {
@@ -46,6 +47,33 @@ function isPublishedManagedContentPage(
 export async function getPublishedManagedContentPage(
   slug: ManagedContentPageSlug,
 ): Promise<PublishedManagedContentPage | null> {
+  const lightPostgresPage = await maybeGetStorefrontPageBySlug(slug);
+  if (lightPostgresPage !== undefined) {
+    if (!lightPostgresPage) {
+      return null;
+    }
+
+    const page = lightPostgresPage as StaticPage;
+    if (!isPublishedManagedContentPage(page)) {
+      return null;
+    }
+
+    const definition = getManagedContentPageDefinition(slug);
+    const cmsState = extractCmsState(page.geo_data);
+    const contentHtml = normalizeProductDescriptionHtml(cmsState.content);
+
+    return {
+      id: page.id,
+      slug,
+      name: definition?.name || page.name,
+      contentHtml,
+      plainText: extractPlainTextFromProductDescription(contentHtml),
+      seoTitle: page.seo_title,
+      seoDescription: page.seo_description,
+      updatedAt: page.updated_at,
+    };
+  }
+
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("pages")

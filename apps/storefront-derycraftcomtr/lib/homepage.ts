@@ -3,6 +3,11 @@ import {
   getHomepageCurationSettings,
   getProductListingOrderPositions,
 } from "@/lib/db/settings";
+import {
+  maybeGetStorefrontSetting,
+  maybeListStorefrontCategories,
+  maybeListStorefrontProducts,
+} from "@/lib/db/light-postgres-storefront-read";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
@@ -225,6 +230,37 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+  const lightPostgresCategories = await maybeListStorefrontCategories();
+  if (lightPostgresCategories !== undefined) {
+    return [...lightPostgresCategories]
+      .filter((category) => category.parent_id === null)
+      .sort((left, right) => {
+        const leftCreatedAt =
+          typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+        const rightCreatedAt =
+          typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+        const hasCreatedAtOrdering =
+          Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
+
+        if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
+          return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+            (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+        }
+
+        const leftSortOrder =
+          typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
+        const rightSortOrder =
+          typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
+
+        if (leftSortOrder !== rightSortOrder) {
+          return leftSortOrder - rightSortOrder;
+        }
+
+        return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
+      })
+      .slice(0, 6);
+  }
+
   const result = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("categories")
@@ -274,6 +310,43 @@ async function fetchHomepageCategoriesWithCuration(
   supabase: ReturnType<typeof createServerClient>,
   featuredCategorySlugs: string[],
 ) {
+  const lightPostgresCategories = await maybeListStorefrontCategories();
+  if (lightPostgresCategories !== undefined) {
+    const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
+
+    if (featuredSlugs.length > 0) {
+      const curatedCategories = lightPostgresCategories
+        .filter((category) => featuredSlugs.includes(category.slug))
+        .sort((left, right) => {
+          const leftPriority = featuredSlugs.indexOf(left.slug);
+          const rightPriority = featuredSlugs.indexOf(right.slug);
+          return leftPriority - rightPriority;
+        });
+
+      if (curatedCategories.length > 0) {
+        return curatedCategories;
+      }
+    }
+
+    const orderedSlugs = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug) as string[];
+    const orderedCategories = lightPostgresCategories
+      .filter((category) => orderedSlugs.includes(category.slug))
+      .sort((left, right) => {
+        const leftPriority = orderedSlugs.indexOf(left.slug);
+        const rightPriority = orderedSlugs.indexOf(right.slug);
+        return leftPriority - rightPriority;
+      });
+
+    if (orderedCategories.length > 0) {
+      return orderedCategories;
+    }
+
+    return lightPostgresCategories
+      .filter((category) => category.parent_id === null)
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .slice(0, 6);
+  }
+
   const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
 
   if (featuredSlugs.length > 0) {
@@ -369,6 +442,21 @@ function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T)
 }
 
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    return [...lightPostgresProducts]
+      .filter((product) => product.is_active !== false)
+      .sort((left, right) => {
+        const leftCreatedAt =
+          typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+        const rightCreatedAt =
+          typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+        return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+          (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+      })
+      .slice(0, 8);
+  }
+
   const strictQuery = await supabase
     .from("products")
     .select("*, variants:product_variants(*, raw_attributes:attributes)")
@@ -406,6 +494,18 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
 }
 
 async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    return [...lightPostgresProducts].sort((left, right) => {
+      const leftCreatedAt =
+        typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+      const rightCreatedAt =
+        typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+      return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+        (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+    });
+  }
+
   const strictQuery = await supabase
     .from("products")
     .select("*, variants:product_variants(*, raw_attributes:attributes)")
@@ -488,6 +588,25 @@ async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServe
   );
 }
 
+async function fetchHomepageSetting(
+  supabase: ReturnType<typeof createServerClient>,
+  key: string,
+) {
+  const lightPostgresValue = await maybeGetStorefrontSetting(key);
+  if (lightPostgresValue !== undefined) {
+    return {
+      data: lightPostgresValue === null ? null : { value: lightPostgresValue },
+      error: null,
+    };
+  }
+
+  return supabase
+    .from("settings")
+    .select("value")
+    .eq("key", key)
+    .maybeSingle();
+}
+
 export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<HomepageData> {
   const supabase = createServerClient();
 
@@ -500,17 +619,9 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     testimonialsData,
     productListingOrder,
   ] = await Promise.all([
-    supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "hero_banners")
-      .maybeSingle(),
+    fetchHomepageSetting(supabase, "hero_banners"),
     getHomepageCurationSettings(),
-    supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "promo_banners")
-      .maybeSingle(),
+    fetchHomepageSetting(supabase, "promo_banners"),
     fetchAllProductsForShowcase(supabase),
     getVariantAttributeRegistry(),
     fetchHomepageTestimonials(supabase),

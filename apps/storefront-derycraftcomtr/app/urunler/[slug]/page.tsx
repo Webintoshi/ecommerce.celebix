@@ -6,6 +6,10 @@ import {
   getProductGroupsForProduct,
   type ProductGroupDisplayGroup,
 } from "@/lib/products";
+import {
+  maybeGetStorefrontProductBySlug,
+  maybeListStorefrontProductVariants,
+} from "@/lib/db/light-postgres-storefront-read";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
@@ -32,6 +36,14 @@ function isMissingProductVariantAttributeRelation(error: unknown): boolean {
 }
 
 async function fetchProductVariants(supabase: any, productId: string) {
+  const lightPostgresVariants = await maybeListStorefrontProductVariants();
+  if (lightPostgresVariants !== undefined) {
+    return {
+      data: lightPostgresVariants.filter((variant) => variant.product_id === productId),
+      error: null,
+    };
+  }
+
   const selectWithLinkedAttributes = `
     *,
     raw_attributes:attributes,
@@ -83,7 +95,24 @@ export async function generateMetadata({
   const copy = getLocalizedCopy(locale);
   const { slug } = await params;
   const { baseSlug } = parseProductSlug(slug);
-  const product = await getProductBySlug(baseSlug);
+  const lightPostgresProduct = await maybeGetStorefrontProductBySlug(baseSlug);
+  const product =
+    lightPostgresProduct !== undefined
+      ? lightPostgresProduct
+        ? {
+            name: lightPostgresProduct.name,
+            seoTitle: lightPostgresProduct.seo_title || undefined,
+            seoDescription: lightPostgresProduct.seo_description || undefined,
+            shortDescription: lightPostgresProduct.short_description || "",
+            description: lightPostgresProduct.description || "",
+            tags: lightPostgresProduct.tags || [],
+            images:
+              lightPostgresProduct.images.length > 0
+                ? lightPostgresProduct.images
+                : lightPostgresProduct.images_v2.map((image) => image.url).filter(Boolean),
+          }
+        : undefined
+      : await getProductBySlug(baseSlug);
 
   if (!product) {
     return buildStorePageMetadata({
@@ -131,30 +160,48 @@ export default async function ProductDetailPage({
 
   try {
     const supabase = createServerClient();
-    const { data: dbProducts, error: productError } = await supabase
-      .from("products")
-      .select("*")
-      .eq("slug", baseSlug)
-      .eq("is_active", true)
-      .or("status.eq.published,status.is.null")
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const lightPostgresProduct = await maybeGetStorefrontProductBySlug(baseSlug);
 
-    if (productError) {
-      console.error("Product fetch error:", productError);
-    } else if (dbProducts?.[0]) {
-      const dbProduct = dbProducts[0];
-      const { data: variants, error: variantsError } = await fetchProductVariants(
-        supabase,
-        dbProduct.id,
-      );
+    let dbProduct: any | null = null;
+    let variants: any[] | null = null;
+
+    if (lightPostgresProduct !== undefined) {
+      if (!lightPostgresProduct) {
+        dbProduct = null;
+      } else {
+        dbProduct = lightPostgresProduct;
+        variants = lightPostgresProduct.variants || [];
+      }
+    } else {
+      const { data: dbProducts, error: productError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("slug", baseSlug)
+        .eq("is_active", true)
+        .or("status.eq.published,status.is.null")
+        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (productError) {
+        console.error("Product fetch error:", productError);
+      } else if (dbProducts?.[0]) {
+        dbProduct = dbProducts[0];
+      }
+    }
+
+    if (dbProduct) {
+      if (variants === null) {
+        const variantsResult = await fetchProductVariants(supabase, dbProduct.id);
+        variants = variantsResult.data;
+
+        if (variantsResult.error) {
+          console.error("Variants fetch error:", variantsResult.error);
+        }
+      }
+
       const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
-
-      if (variantsError) {
-        console.error("Variants fetch error:", variantsError);
-      }
 
       const { data: allAttributeValues } = await supabase
         .from("variant_attribute_values")
@@ -238,7 +285,7 @@ export default async function ProductDetailPage({
   }
 
   if (!product) {
-    product = getProductBySlug(baseSlug);
+    product = await getProductBySlug(baseSlug);
   }
 
   if (!product) {

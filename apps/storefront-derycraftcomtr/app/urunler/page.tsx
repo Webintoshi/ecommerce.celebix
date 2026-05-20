@@ -4,6 +4,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { createServerClient } from "@/lib/supabase";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
+import { maybeListStorefrontProducts } from "@/lib/db/light-postgres-storefront-read";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -127,9 +128,34 @@ function transformProduct(
 
 async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>): Promise<Product[]> {
   const supabase = createServerClient();
+  const [lightPostgresProducts, attributeRegistry, productListingOrder] = await Promise.all([
+    maybeListStorefrontProducts(),
+    getVariantAttributeRegistry(),
+    getProductListingOrderPositions(),
+  ]);
+
+  if (lightPostgresProducts !== undefined) {
+    const orderedProducts = sortProductsByListingOrder(
+      lightPostgresProducts as unknown as DBProduct[],
+      productListingOrder,
+    );
+    const discountRulesMap = await getProductDiscountRulesMap(
+      supabase,
+      orderedProducts.map((product) => product.id),
+    );
+
+    const translatedProducts = await translateProductCollection(
+      orderedProducts as DBProduct[],
+      locale,
+    );
+
+    return translatedProducts.map((product) =>
+      transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []),
+    );
+  }
 
   try {
-    const [{ data: products, error }, attributeRegistry, productListingOrder] = await Promise.all([
+    const [{ data: products, error }] = await Promise.all([
       supabase
         .from("products")
         .select(`
@@ -139,8 +165,6 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
         .eq("is_active", true)
         .or("status.eq.published,status.is.null")
         .order("created_at", { ascending: false }),
-      getVariantAttributeRegistry(),
-      getProductListingOrderPositions(),
     ]);
 
     if (error) {
@@ -172,6 +196,17 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
 }
 
 async function getCategoryCounts() {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    const counts: Record<string, number> = {};
+    lightPostgresProducts.forEach((product) => {
+      const key = product.category || "genel";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+
+    return counts;
+  }
+
   const supabase = createServerClient();
 
   try {

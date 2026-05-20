@@ -36,6 +36,18 @@ import {
     normalizeShippingIntegrationSettings,
 } from "@/lib/shipping-integrations";
 
+const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
+    "announcement_bar",
+    "code_integrations",
+    "hero_banners",
+    "homepage_curation",
+    "marquee_settings",
+    "product_listing_order",
+    "promo_banners",
+    "seo_settings",
+    "store_info",
+]);
+
 // =====================================================
 // SETTINGS OPERATIONS
 // =====================================================
@@ -44,6 +56,14 @@ import {
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
+    if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(key)) {
+        const { maybeGetStorefrontSetting } = await import("@/lib/db/light-postgres-storefront-read");
+        const lightPostgresValue = await maybeGetStorefrontSetting(key);
+        if (lightPostgresValue !== undefined) {
+            return (lightPostgresValue as Record<string, unknown> | null) ?? null;
+        }
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
