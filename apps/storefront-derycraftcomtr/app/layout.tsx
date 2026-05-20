@@ -48,6 +48,9 @@ export default async function RootLayout({
   ]);
   const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
   const metaPixelId = codeIntegrations.metaPixelId;
+  const umamiHostUrl = process.env.NEXT_PUBLIC_UMAMI_HOST_URL?.trim() || "";
+  const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID?.trim() || "";
+  const shouldLoadUmami = Boolean(umamiHostUrl && umamiWebsiteId);
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -81,6 +84,17 @@ export default async function RootLayout({
                 `(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
                 `fbq('init', '${metaPixelId}');fbq('track', 'PageView');`,
             }}
+          />
+        ) : null}
+        {shouldLoadUmami ? (
+          <Script
+            id="celebix-umami"
+            src={`${umamiHostUrl.replace(/\/+$/, "")}/script.js`}
+            strategy="afterInteractive"
+            data-website-id={umamiWebsiteId}
+            data-host-url={umamiHostUrl}
+            data-domains="derycraft.com.tr,www.derycraft.com.tr"
+            data-do-not-track="true"
           />
         ) : null}
         <CodeIntegrationMarkup html={codeIntegrations.customHeadHtml} />
