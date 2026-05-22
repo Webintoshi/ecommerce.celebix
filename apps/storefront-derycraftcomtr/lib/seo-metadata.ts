@@ -114,7 +114,7 @@ export async function getStoreSeoContext(locale: StorefrontLocale): Promise<Stor
   const siteName =
     normalizeTitle(seoSettings.siteName) || storeInfo?.name || STOREFRONT_RUNTIME.name;
   const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
-  const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
+  const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || siteName || copy.siteTitle;
   const rawDefaultDescription =
     normalizeDescription(seoSettings.defaultDescription) ||
     copy.siteDescription ||
