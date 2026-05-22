@@ -5,7 +5,12 @@ import {
   resolveRuntimeAuthSetupStatus,
 } from "@celebix/platform-config/src/light-postgres-runtime";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import {
+  getOptionalSupabaseAnonKey,
+  getOptionalSupabaseUrl,
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+} from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
 type LoginBody = {
@@ -88,19 +93,30 @@ function isCredentialFailure(message: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    if (
+    const lightPostgresBlocked =
       isLightPostgresRuntime(process.env, {
         mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
       }) &&
       resolveRuntimeAuthSetupStatus(process.env, {
         mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
         authStatus: ["AUTH_SETUP_STATUS", "NEXT_PUBLIC_AUTH_SETUP_STATUS"],
-      }) === "blocked_auth_setup"
-    ) {
+      }) === "blocked_auth_setup";
+
+    if (lightPostgresBlocked) {
       return NextResponse.json(
         {
           code: "blocked_auth_setup",
           error: "Bu store icin admin auth kurulumu henuz tamamlanmadi.",
+        },
+        { status: 503 },
+      );
+    }
+
+    if (!getOptionalSupabaseUrl() || !getOptionalSupabaseAnonKey()) {
+      return NextResponse.json(
+        {
+          code: "auth_env_missing",
+          error: "Bu store icin Supabase auth authority henuz tamamlanmadi.",
         },
         { status: 503 },
       );

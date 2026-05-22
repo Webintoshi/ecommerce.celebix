@@ -751,6 +751,39 @@ async function reconcileProvisioningSummaryWithLiveState(
     changed = changed || result.changed;
   };
 
+  const blockRemainingStepsAfter = (
+    key: ProvisioningStepKey,
+    message: string,
+  ) => {
+    const blockedIndex = nextSummary.steps.findIndex((step) => step.key === key);
+
+    if (blockedIndex === -1) {
+      return;
+    }
+
+    const nextSteps = nextSummary.steps.map((step, index) => {
+      if (index <= blockedIndex || (step.status !== "pending" && step.status !== "running")) {
+        return step;
+      }
+
+      return {
+        ...step,
+        status: "blocked" as const,
+        blocking: true,
+        message,
+        updatedAt: now,
+      };
+    });
+
+    if (JSON.stringify(nextSteps) !== JSON.stringify(nextSummary.steps)) {
+      changed = true;
+      nextSummary = {
+        ...nextSummary,
+        steps: nextSteps,
+      };
+    }
+  };
+
   if (
     store.bootstrap?.supabaseProvisioning === "configured" &&
     store.supabase.projectRef &&
@@ -779,6 +812,14 @@ async function reconcileProvisioningSummaryWithLiveState(
     if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
       adminRuntimeOk = true;
       markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+    } else if (store.bootstrap?.adminDeploymentStatus === "failed") {
+      const adminFailureMessage =
+        store.bootstrap?.adminDeploymentLastError ||
+        adminBlueprint.runtimeMessage ||
+        "Admin deployment basarisiz oldu.";
+      readinessError = readinessError ?? adminFailureMessage;
+      markFailed("admin_deploy", adminFailureMessage);
+      blockRemainingStepsAfter("admin_deploy", "Admin deployment tamamlanmadan ilerlenemez.");
     }
   } catch {
     // Keep existing provisioning summary when admin runtime cannot be checked.

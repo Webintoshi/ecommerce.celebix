@@ -936,6 +936,8 @@ function normalizeProvisioningSummaryForDisplay(
     health: StoreHealthSummary;
     storefrontStatus: StorefrontStatus;
     storefrontAppDir: string | null;
+    adminDeploymentStatus: string | null;
+    adminDeploymentLastError: string | null;
     storefrontDeploymentStatus: string | null;
     storefrontRepoSyncStatus: string | null;
     metrics: {
@@ -964,6 +966,35 @@ function normalizeProvisioningSummaryForDisplay(
       status: "completed",
       blocking: false,
       message,
+    });
+  };
+
+  const markFailed = (key: ProvisioningStepSummary["key"], message: string) => {
+    nextSteps = upsertProvisioningDisplayStep(nextSteps, key, {
+      status: "failed",
+      blocking: true,
+      message,
+    });
+  };
+
+  const blockRemainingStepsAfter = (key: ProvisioningStepSummary["key"], message: string) => {
+    const failedIndex = nextSteps.findIndex((step) => step.key === key);
+
+    if (failedIndex === -1) {
+      return;
+    }
+
+    nextSteps = nextSteps.map((step, index) => {
+      if (index <= failedIndex || (step.status !== "pending" && step.status !== "running")) {
+        return step;
+      }
+
+      return {
+        ...step,
+        status: "blocked",
+        blocking: true,
+        message,
+      };
     });
   };
 
@@ -1005,6 +1036,13 @@ function normalizeProvisioningSummaryForDisplay(
 
   if (input.health.adminDeploymentReady && input.health.adminRuntimeConsistent) {
     markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+  } else if (input.adminDeploymentStatus === "failed") {
+    const adminFailureMessage =
+      input.adminDeploymentLastError ||
+      input.health.adminRuntimeMessage ||
+      "Admin deployment basarisiz oldu.";
+    markFailed("admin_deploy", adminFailureMessage);
+    blockRemainingStepsAfter("admin_deploy", "Admin deployment tamamlanmadan ilerlenemez.");
   }
 
   if (input.storefrontAppDir?.trim()) {
@@ -1024,12 +1062,25 @@ function normalizeProvisioningSummaryForDisplay(
   }
 
   const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;
-  const blockingStepCount = nextSteps.filter((step) => step.status === "failed" && step.blocking).length;
+  const blockingStepCount = nextSteps.filter(
+    (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
+  ).length;
   const pendingStepCount = nextSteps.filter(
     (step) => step.status === "pending" || step.status === "running",
   ).length;
-  const nextState = fullyLiveReady ? "ready" : summary.state;
-  const nextLastError = fullyLiveReady ? null : summary.lastError;
+  const blockers = nextSteps.filter(
+    (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
+  );
+  const nextState = fullyLiveReady
+    ? "ready"
+    : blockers.length > 0
+      ? "pending_repair"
+      : pendingStepCount > 0
+        ? "running"
+        : summary.state;
+  const nextLastError = fullyLiveReady
+    ? null
+    : blockers[0]?.message ?? summary.lastError;
 
   return {
     ...summary,
@@ -2684,6 +2735,8 @@ async function buildDashboardStoreSummaries(
         health,
         storefrontStatus: store.storefront_status,
         storefrontAppDir: store.storefront_app_dir,
+        adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
+        adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
         storefrontDeploymentStatus: readOptionalString(storeConfig?.storefront?.deploymentStatus),
         storefrontRepoSyncStatus: readOptionalString(storeConfig?.storefront?.repoSyncStatus),
         metrics: {
@@ -3459,6 +3512,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     health,
     storefrontStatus: current.storefrontStatus,
     storefrontAppDir: current.storefrontAppDir,
+    adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
+    adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
     storefrontDeploymentStatus: readOptionalString(storefrontConfig?.deploymentStatus),
     storefrontRepoSyncStatus: readOptionalString(storefrontConfig?.repoSyncStatus),
     metrics: {
