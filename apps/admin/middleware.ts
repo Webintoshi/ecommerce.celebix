@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
 import { clearAdminRoleCookie, readAdminRoleCookie } from "@/lib/admin-role-cookie";
+import { getLogtoSessionUserFromRequest, shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
 import {
   applySecurityHeaders,
   isMutationMethod,
@@ -81,6 +82,7 @@ function isProtectedApi(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedAdminPage(pathname) || isProtectedApi(request);
+  const useLogtoAdminAuth = shouldUseLogtoAdminAuth();
 
   if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
@@ -112,6 +114,20 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!requiresAuth) {
+    if (useLogtoAdminAuth && pathname === ADMIN_LOGIN_PATH) {
+      const logtoIdentity = await getLogtoSessionUserFromRequest(request);
+      const adminRole = readAdminRoleCookie(request.cookies.getAll());
+
+      if (
+        logtoIdentity &&
+        adminRole?.provider === "logto" &&
+        adminRole.providerSubject === logtoIdentity.subject &&
+        ADMIN_ROLES.has(adminRole.role)
+      ) {
+        return applySecurityHeaders(request, NextResponse.redirect(new URL("/admin", request.url)), "admin");
+      }
+    }
+
     return applySecurityHeaders(request, NextResponse.next(), "admin");
   }
 
@@ -131,6 +147,50 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
     },
   });
+
+  if (useLogtoAdminAuth) {
+    const logtoIdentity = await getLogtoSessionUserFromRequest(request);
+
+    if (!logtoIdentity) {
+      if (pathname.startsWith("/api/")) {
+        return applySecurityHeaders(
+          request,
+          NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 }),
+          "admin",
+        );
+      }
+
+      const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+      loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+      return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
+    }
+
+    const adminRole = readAdminRoleCookie(request.cookies.getAll());
+
+    if (
+      !adminRole ||
+      adminRole.provider !== "logto" ||
+      adminRole.providerSubject !== logtoIdentity.subject ||
+      !ADMIN_ROLES.has(adminRole.role)
+    ) {
+      if (pathname.startsWith("/api/")) {
+        const unauthorizedResponse = NextResponse.json(
+          { success: false, error: "Admin yetkisi bulunamadi." },
+          { status: 403 },
+        );
+        clearAdminRoleCookie(unauthorizedResponse);
+        return applySecurityHeaders(request, unauthorizedResponse, "admin");
+      }
+
+      const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+      loginUrl.searchParams.set("error", "unauthorized");
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      clearAdminRoleCookie(redirectResponse);
+      return applySecurityHeaders(request, redirectResponse, "admin");
+    }
+
+    return applySecurityHeaders(request, response, "admin");
+  }
 
   const user = await getSessionUserFromCookies(request.cookies.getAll());
 

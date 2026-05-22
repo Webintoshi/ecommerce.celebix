@@ -1,19 +1,24 @@
-import { redirect } from "next/navigation";
-import { signOut } from "@logto/next/server-actions";
+import { NextResponse } from "next/server";
+import LogtoServerClient from "@logto/next/server-actions";
 import { getLogtoAdminConfig } from "@/app/logto";
+import { clearAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!shouldUseLogtoAdminAuth()) {
-    redirect("/admin/login");
+    return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
   const config = getLogtoAdminConfig();
   if (!config) {
-    redirect("/admin/login");
+    return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  await signOut(config, `${config.baseUrl}/admin/login`);
+  const client = new LogtoServerClient(config);
+  const url = await client.handleSignOut(`${config.baseUrl}/admin/login`);
+  const response = NextResponse.redirect(url);
+  clearAdminRoleCookie(response);
+  return response;
 }

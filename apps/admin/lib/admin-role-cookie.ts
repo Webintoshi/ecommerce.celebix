@@ -14,6 +14,8 @@ type CookieValue = {
 export type AdminRoleCookiePayload = {
   userId: string;
   role: UserRole;
+  provider?: "supabase" | "logto";
+  providerSubject?: string;
 };
 
 function getAdminRoleCookieOptions() {

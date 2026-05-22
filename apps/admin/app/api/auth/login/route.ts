@@ -176,6 +176,7 @@ export async function POST(request: Request) {
       writeAdminRoleCookie(response, {
         userId: data.user.id,
         role: adminRole,
+        provider: "supabase",
       });
     } else {
       clearAdminRoleCookie(response);

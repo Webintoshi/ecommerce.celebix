@@ -7,6 +7,7 @@ import type { UserRole } from "@/lib/permissions";
 import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { readAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { getSessionUserFromCookies, readSessionUserSnapshotFromCookies } from "@/lib/admin-session-cookie";
+import { getLogtoAdminAuthContext, shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 export interface AdminProfile {
@@ -17,8 +18,15 @@ export interface AdminProfile {
   task_definition: string | null;
 }
 
+export interface AdminSessionUser {
+  id: string;
+  email: string | null;
+  user_metadata?: Record<string, unknown> | null;
+  app_metadata?: Record<string, unknown> | null;
+}
+
 export interface AdminAuthContext {
-  user: User;
+  user: AdminSessionUser;
   profile: AdminProfile;
 }
 
@@ -42,6 +50,15 @@ function readUserDisplayName(user: User): string | null {
   return null;
 }
 
+function mapSupabaseUser(user: User): AdminSessionUser {
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    user_metadata: typeof user.user_metadata === "object" && user.user_metadata ? user.user_metadata : {},
+    app_metadata: typeof user.app_metadata === "object" && user.app_metadata ? user.app_metadata : {},
+  };
+}
+
 function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride?: User | null): AdminAuthContext | null {
   const user = userOverride ?? readSessionUserSnapshotFromCookies(cookieValues);
   if (!user) {
@@ -54,7 +71,7 @@ function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride
   }
 
   return {
-    user,
+    user: mapSupabaseUser(user),
     profile: {
       id: user.id,
       email: user.email || "",
@@ -81,6 +98,10 @@ export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminP
 }
 
 export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
+  if (shouldUseLogtoAdminAuth()) {
+    return getLogtoAdminAuthContext();
+  }
+
   const cookieStore = await cookies();
   const cookieValues = cookieStore.getAll();
   const snapshotUser = readSessionUserSnapshotFromCookies(cookieValues);
@@ -96,7 +117,7 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
 
   if (cachedProfile) {
     return {
-      user,
+      user: mapSupabaseUser(user),
       profile: {
         ...cachedProfile,
         email: user.email || "",
@@ -131,7 +152,7 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
   writeCachedAdminProfile(profile);
 
   return {
-    user,
+    user: mapSupabaseUser(user),
     profile: {
       ...profile,
       email: user.email || "",
