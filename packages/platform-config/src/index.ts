@@ -381,7 +381,7 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   return "self_hosted_coolify";
 }
 
-function resolveDefaultDatabaseMode(input?: string | null): DatabaseMode {
+export function resolveDefaultDatabaseMode(input?: string | null): DatabaseMode {
   return input?.trim().toLowerCase() === "full_supabase"
     ? "full_supabase"
     : "light_postgres";

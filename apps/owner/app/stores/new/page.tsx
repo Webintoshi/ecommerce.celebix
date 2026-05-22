@@ -22,7 +22,7 @@ export default async function NewStorePage() {
             storefront/admin domainleri ile birlikte demo domain authority&apos;si de hazirlanir.
             {lightPostgresBootstrap.configured
               ? ` Light Postgres authority hazir oldugu icin yeni standard store-per-database modeli hedeflenir.`
-              : " Light Postgres bootstrap authority eksikse create akisinda veritabani adimi pending repair olur."}
+              : " Light Postgres bootstrap authority eksikse yeni store create preflight'ta bloklanir; owner env tamamlanmadan canli create baslatilmaz."}
             {supabaseBootstrap.configured
               ? ` Full Supabase sadece explicit legacy mode secildiginde devreye girer.`
               : " Full Supabase bootstrap authority ayrica legacy mod icin ayrik tutulur."}

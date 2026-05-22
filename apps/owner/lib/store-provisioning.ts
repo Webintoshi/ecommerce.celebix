@@ -3,6 +3,8 @@ import "server-only";
 import {
   getStoreConfig,
   repairStoreConfig,
+  resolveDefaultDatabaseMode,
+  type DatabaseMode,
   type StoreConfig,
 } from "@celebix/platform-config";
 import {
@@ -98,6 +100,10 @@ export interface ProvisioningEnvironmentReadiness {
   errors: string[];
 }
 
+export interface ProvisioningEnvironmentReadinessInput {
+  databaseMode?: DatabaseMode | null;
+}
+
 function shouldAutoProvisionGeneratedApps(): boolean {
   const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
 
@@ -145,8 +151,17 @@ function hasExplicitManagementInput(input: StoreProvisioningWorkflowInput): bool
   return input.packageStartDate !== undefined || input.packageDurationMonths !== undefined;
 }
 
-export async function validateProvisioningEnvironmentReadiness(): Promise<ProvisioningEnvironmentReadiness> {
+function resolveRequestedDatabaseMode(
+  input: ProvisioningEnvironmentReadinessInput = {},
+): DatabaseMode {
+  return resolveDefaultDatabaseMode(input.databaseMode);
+}
+
+export async function validateProvisioningEnvironmentReadiness(
+  input: ProvisioningEnvironmentReadinessInput = {},
+): Promise<ProvisioningEnvironmentReadiness> {
   const errors: string[] = [];
+  const databaseMode = resolveRequestedDatabaseMode(input);
 
   try {
     const serviceClient = createOwnerServiceClient();
@@ -166,14 +181,24 @@ export async function validateProvisioningEnvironmentReadiness(): Promise<Provis
   }
 
   try {
-    const status = await getSupabaseBootstrapStatus();
+    if (databaseMode === "light_postgres") {
+      const status = await getLightPostgresBootstrapStatus();
 
-    if (!status.configured) {
-      errors.push(status.lastError || `${status.provider} Supabase bootstrap authority eksik.`);
+      if (!status.configured) {
+        errors.push(status.lastError || `${status.cluster} light_postgres bootstrap authority eksik.`);
+      }
+    } else {
+      const status = await getSupabaseBootstrapStatus();
+
+      if (!status.configured) {
+        errors.push(status.lastError || `${status.provider} Supabase bootstrap authority eksik.`);
+      }
     }
   } catch (error) {
     errors.push(
-      `Supabase bootstrap authority dogrulanamadi: ${
+      `${
+        databaseMode === "light_postgres" ? "light_postgres" : "Supabase"
+      } bootstrap authority dogrulanamadi: ${
         error instanceof Error ? error.message : "bilinmeyen hata"
       }`,
     );
@@ -212,22 +237,24 @@ export async function validateProvisioningEnvironmentReadiness(): Promise<Provis
     );
   }
 
-  try {
-    const sourceBase = getStarterSourceBase();
-    const response = await fetch(`${sourceBase}/api/homepage`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
+  if (databaseMode === "full_supabase") {
+    try {
+      const sourceBase = getStarterSourceBase();
+      const response = await fetch(`${sourceBase}/api/homepage`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
 
-    if (!response.ok) {
-      errors.push(`Starter source fetch failed (${response.status}) for ${sourceBase}`);
+      if (!response.ok) {
+        errors.push(`Starter source fetch failed (${response.status}) for ${sourceBase}`);
+      }
+    } catch (error) {
+      errors.push(
+        `Starter source dogrulanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
     }
-  } catch (error) {
-    errors.push(
-      `Starter source dogrulanamadi: ${
-        error instanceof Error ? error.message : "bilinmeyen hata"
-      }`,
-    );
   }
 
   if (!shouldAutoProvisionGeneratedApps()) {

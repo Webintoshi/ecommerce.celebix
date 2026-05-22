@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createStore, type DatabaseMode } from "@celebix/platform-config";
+import {
+  createStore,
+  resolveDefaultDatabaseMode,
+  type DatabaseMode,
+} from "@celebix/platform-config";
 import {
   ensureOwnerStoreAuthorityForSlug,
   listDashboardStores,
@@ -71,6 +75,7 @@ export async function POST(request: Request) {
       packageStartDate?: string;
       packageDurationMonths?: number | string | null;
     };
+    const requestedDatabaseMode = resolveDefaultDatabaseMode(body.databaseMode);
 
     const predictedSlug = predictStoreSlug(body.name ?? "", body.slug);
 
@@ -99,7 +104,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const environmentReadiness = await validateProvisioningEnvironmentReadiness();
+    const environmentReadiness = await validateProvisioningEnvironmentReadiness({
+      databaseMode: requestedDatabaseMode,
+    });
 
     if (!environmentReadiness.ready) {
       return NextResponse.json(
@@ -122,7 +129,7 @@ export async function POST(request: Request) {
       coolifyProjectName: body.coolifyProjectName,
       adminDeploymentName: body.adminDeploymentName,
       storefrontDeploymentName: body.storefrontDeploymentName,
-      databaseMode: body.databaseMode,
+      databaseMode: requestedDatabaseMode,
     });
 
     await ensureOwnerStoreAuthorityForSlug(created.store.slug);
