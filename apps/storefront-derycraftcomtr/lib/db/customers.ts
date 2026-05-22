@@ -1,4 +1,14 @@
 import { createServerClient, Customer, Address } from "@/lib/supabase";
+import {
+    deleteLightPostgresCustomer,
+    getLightPostgresCustomerByEmail,
+    getLightPostgresCustomerById,
+    getLightPostgresCustomerStats,
+    getLightPostgresCustomers,
+    getOrCreateLightPostgresCustomer,
+    updateLightPostgresCustomer,
+} from "./light-postgres-commerce-adapter";
+import { shouldUseLightPostgresStorefront } from "./storefront-database-mode";
 
 // =====================================================
 // CUSTOMER QUERIES & MUTATIONS
@@ -12,6 +22,10 @@ export async function getCustomers(options?: {
     offset?: number;
     search?: string;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresCustomers(options);
+    }
+
     const serverClient = createServerClient();
 
     let query = serverClient
@@ -44,6 +58,10 @@ export async function getCustomers(options?: {
  * Get customer by ID (admin)
  */
 export async function getCustomerById(id: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresCustomerById(id);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -64,6 +82,10 @@ export async function getCustomerById(id: string) {
  * Get customer by email
  */
 export async function getCustomerByEmail(email: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresCustomerByEmail(email);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -88,6 +110,10 @@ export async function getOrCreateCustomer(customerData: {
     firstName?: string;
     lastName?: string;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getOrCreateLightPostgresCustomer(customerData);
+    }
+
     const serverClient = createServerClient();
 
     // Check if customer exists
@@ -132,6 +158,10 @@ export async function getOrCreateCustomer(customerData: {
  * Update customer (admin)
  */
 export async function updateCustomer(id: string, updates: Partial<Customer>) {
+    if (shouldUseLightPostgresStorefront()) {
+        return updateLightPostgresCustomer(id, updates as Record<string, unknown>);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -149,6 +179,10 @@ export async function updateCustomer(id: string, updates: Partial<Customer>) {
  * Delete customer (admin)
  */
 export async function deleteCustomer(id: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return deleteLightPostgresCustomer(id);
+    }
+
     const serverClient = createServerClient();
 
     const { error } = await serverClient
@@ -251,6 +285,10 @@ export async function deleteAddress(id: string) {
  * Get customer statistics (admin)
  */
 export async function getCustomerStats() {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresCustomerStats();
+    }
+
     const serverClient = createServerClient();
 
     const { data: customers, error } = await serverClient

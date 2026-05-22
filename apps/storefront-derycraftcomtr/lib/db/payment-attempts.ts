@@ -1,5 +1,14 @@
 import { createServerClient } from "@/lib/supabase";
 import { PaymentAttempt, PaymentAttemptStatus, PaymentWebhookEvent } from "@/types/payment-runtime";
+import {
+    createLightPostgresPaymentAttempt,
+    createLightPostgresPaymentEvent,
+    getLightPostgresPaymentAttemptById,
+    getLightPostgresPaymentAttemptByProviderReferenceId,
+    getLightPostgresPaymentAttemptByToken,
+    updateLightPostgresPaymentAttempt,
+} from "./light-postgres-commerce-adapter";
+import { shouldUseLightPostgresStorefront } from "./storefront-database-mode";
 
 export async function createPaymentAttempt(input: {
     orderId?: string | null;
@@ -13,6 +22,10 @@ export async function createPaymentAttempt(input: {
     customerIp?: string;
     requestPayload?: Record<string, unknown>;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return createLightPostgresPaymentAttempt(input) as Promise<PaymentAttempt>;
+    }
+
     const serverClient = createServerClient();
 
     if (!input.orderId && !input.quickOrderLinkId) {
@@ -44,6 +57,15 @@ export async function createPaymentAttempt(input: {
 }
 
 export async function getPaymentAttemptById(id: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        const attempt = await getLightPostgresPaymentAttemptById(id);
+        if (!attempt) {
+            throw new Error("Payment attempt bulunamadi.");
+        }
+
+        return attempt as PaymentAttempt;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -60,6 +82,15 @@ export async function getPaymentAttemptById(id: string) {
 }
 
 export async function getPaymentAttemptByToken(token: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        const attempt = await getLightPostgresPaymentAttemptByToken(token);
+        if (!attempt) {
+            throw new Error("Payment attempt bulunamadi.");
+        }
+
+        return attempt as PaymentAttempt;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -76,6 +107,15 @@ export async function getPaymentAttemptByToken(token: string) {
 }
 
 export async function getPaymentAttemptByProviderReferenceId(referenceId: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        const attempt = await getLightPostgresPaymentAttemptByProviderReferenceId(referenceId);
+        if (!attempt) {
+            throw new Error("Payment attempt bulunamadi.");
+        }
+
+        return attempt as PaymentAttempt;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -105,6 +145,15 @@ export async function updatePaymentAttempt(id: string, updates: {
     callbackReceivedAt?: string | null;
     completedAt?: string | null;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        const attempt = await updateLightPostgresPaymentAttempt(id, updates);
+        if (!attempt) {
+            throw new Error("Payment attempt guncellenemedi.");
+        }
+
+        return attempt as PaymentAttempt;
+    }
+
     const serverClient = createServerClient();
 
     const payload = {
@@ -150,6 +199,10 @@ export async function createPaymentWebhookEvent(input: {
     errorMessage?: string;
     processedAt?: string;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return createLightPostgresPaymentEvent(input) as Promise<PaymentWebhookEvent>;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
