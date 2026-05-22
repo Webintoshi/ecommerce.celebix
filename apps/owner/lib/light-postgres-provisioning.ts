@@ -1,9 +1,6 @@
 import "server-only";
 
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import {
   getRepoRoot,
   resolveLightPostgresDefaultSslMode,
@@ -69,21 +66,26 @@ function buildRuntimeDatabaseUrl(databaseName: string): string | null {
   return template.replace(/\$\{database\}/g, databaseName);
 }
 
-function runPsql(connectionString: string, sql: string): void {
-  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "celebix-light-pg-"));
-  const sqlPath = path.join(tempDirectory, "provision.sql");
+function normalizeSslOption(value: string): false | { rejectUnauthorized: false } {
+  return value === "disable" || value === "allow" || value === "prefer"
+    ? false
+    : { rejectUnauthorized: false };
+}
+
+async function runSql(connectionString: string, sql: string): Promise<void> {
+  const { Client } = await import("pg");
+  const sslMode = resolveLightPostgresDefaultSslMode();
+  const client = new Client({
+    connectionString,
+    ssl: normalizeSslOption(sslMode),
+  });
+
+  await client.connect();
 
   try {
-    fs.writeFileSync(sqlPath, sql, "utf8");
-    execFileSync(
-      "psql",
-      ["--dbname", connectionString, "--file", sqlPath, "--set", "ON_ERROR_STOP=1", "--quiet"],
-      {
-        stdio: "pipe",
-      },
-    );
+    await client.query(sql);
   } finally {
-    fs.rmSync(tempDirectory, { recursive: true, force: true });
+    await client.end().catch(() => undefined);
   }
 }
 
@@ -569,8 +571,8 @@ export async function provisionLightPostgresForStore(
   const databaseConnectionString = replaceDatabaseName(adminDatabaseUrl, databaseName);
 
   try {
-    runPsql(adminDatabaseUrl, buildDatabaseBootstrapSql(databaseName));
-    runPsql(databaseConnectionString, buildLightPostgresSchemaSql(store));
+    await runSql(adminDatabaseUrl, buildDatabaseBootstrapSql(databaseName));
+    await runSql(databaseConnectionString, buildLightPostgresSchemaSql(store));
     writeOptionalAdminEnvLocal(store, databaseName);
 
     updateStoreLightPostgresConfig(store.slug, {
