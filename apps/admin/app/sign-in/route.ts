@@ -3,12 +3,13 @@ import { NextRequest } from "next/server";
 import { signIn } from "@logto/next/server-actions";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { getLogtoAdminConfig } from "@/app/logto";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { LOGTO_ADMIN_CALLBACK_PATH, shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
 
 export const dynamic = "force-dynamic";
 
-function buildLoginRedirect(origin: string, nextPath: string, error?: string): URL {
-  const redirectUrl = new URL("/admin/login", origin);
+function buildLoginRedirect(nextPath: string, error?: string): URL {
+  const redirectUrl = new URL("/admin/login", `${STORE_RUNTIME.adminUrl.replace(/\/$/, "")}/`);
   redirectUrl.searchParams.set("next", nextPath);
   if (error) {
     redirectUrl.searchParams.set("error", error);
@@ -18,15 +19,14 @@ function buildLoginRedirect(origin: string, nextPath: string, error?: string): U
 
 export async function GET(request: NextRequest) {
   const nextPath = sanitizeInternalRedirectPath(request.nextUrl.searchParams.get("next"), "/admin");
-  const origin = request.nextUrl.origin;
 
   if (!shouldUseLogtoAdminAuth()) {
-    redirect(buildLoginRedirect(origin, nextPath).toString());
+    redirect(buildLoginRedirect(nextPath).toString());
   }
 
   const config = getLogtoAdminConfig();
   if (!config) {
-    redirect(buildLoginRedirect(origin, nextPath, "logto_not_configured").toString());
+    redirect(buildLoginRedirect(nextPath, "logto_not_configured").toString());
   }
 
   await signIn(config, {
