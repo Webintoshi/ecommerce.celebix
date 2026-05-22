@@ -7,25 +7,50 @@ import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
-  viewAllLabel: "Tumunu Gor",
-  productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
-  ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  categoriesHeading: "Kategoriler",
+  viewAllLabel: "Tümünü Gör",
+  storesEyebrow: "Mağazalarımız",
+  storesHeading: "Deriye yakından dokunun",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
+  storesLinkLabel: "Tüm şubeleri gör",
+  testimonialsHeading: "Müşteri Yorumları",
+  testimonialsCountLabel: "1581 değerlendirmeden",
+  groupTitle0: "Çok Satanlar",
+  groupSubtitle0: "Seçili Koleksiyon",
+  groupTitle1: "Apple Watch Kayışları",
+  groupSubtitle1: "Öne Çıkanlar",
+  groupTitle2: "Aksesuarlar",
+  groupSubtitle2: "Tamamlayıcılar",
+  groupTitle3: "Deri Saat Kayışları",
+  groupSubtitle3: "Klasik Seçim",
 };
+
+async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
+  const translated = await translateUiStrings(HOME_UI_COPY, locale, "homepage-ui");
+
+  return {
+    categoriesEyebrow: translated.categoriesEyebrow,
+    categoriesHeading: translated.categoriesHeading,
+    viewAllLabel: translated.viewAllLabel,
+    storesEyebrow: translated.storesEyebrow,
+    storesHeading: translated.storesHeading,
+    storesDescription: translated.storesDescription,
+    storesLinkLabel: translated.storesLinkLabel,
+    testimonialsHeading: translated.testimonialsHeading,
+    testimonialsCountLabel: translated.testimonialsCountLabel,
+    productGroups: [
+      { title: translated.groupTitle0, subtitle: translated.groupSubtitle0 },
+      { title: translated.groupTitle1, subtitle: translated.groupSubtitle1 },
+      { title: translated.groupTitle2, subtitle: translated.groupSubtitle2 },
+      { title: translated.groupTitle3, subtitle: translated.groupSubtitle3 },
+    ],
+  };
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -33,17 +58,31 @@ export async function generateMetadata(): Promise<Metadata> {
   const copy = getLocalizedCopy(locale);
   const localizedHome = buildLocalizedPath("/", locale, routing);
   const languageAlternates = buildLocaleAlternates("/", routing);
+  const [title, description] = await translateSeoStrings(
+    [copy.homeTitle, copy.homeDescription],
+    locale,
+    "home-seo",
+  );
 
   return {
-    title: copy.homeTitle,
-    description: copy.homeDescription,
+    title,
+    description,
+    keywords: [
+      "el yapimi deri kordon",
+      "apple watch deri kayis",
+      "hakiki deri kordon",
+      "premium deri aksesuar",
+      "handmade leather strap",
+      "deri bileklik",
+      "ozel tasarim kordon",
+    ],
     alternates: {
       canonical: localizedHome,
       ...(languageAlternates ? { languages: languageAlternates } : {}),
     },
     openGraph: {
-      title: copy.homeTitle,
-      description: copy.homeDescription,
+      title,
+      description,
       type: "website",
       locale,
       siteName: STOREFRONT_RUNTIME.name,
@@ -51,38 +90,35 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: copy.homeTitle,
-      description: copy.homeDescription,
+      title,
+      description,
     },
   };
 }
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, storeInfo, requestOrigin, routing] = await Promise.all([
+  const [homepageData, uiCopy, storeInfo, requestOrigin, routing] = await Promise.all([
     getHomepageData(locale),
+    getHomepageUiCopy(locale),
     getStoreInfo(),
     getRequestOrigin(),
     getLocaleRoutingConfig(),
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const siteDescription = storeInfo?.address
-    ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
-    : STOREFRONT_RUNTIME.description;
+  const siteDescription = STOREFRONT_RUNTIME.description;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
   const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
-  const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
-  const logoUrl = hasRealLogo
-    ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)
-    : "";
+  const logoAssetPath = storeInfo?.logoUrl || STOREFRONT_RUNTIME.logoPath || "";
+  const logoUrl = logoAssetPath ? await buildAbsoluteRequestUrl(logoAssetPath) : "";
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} storesHref={storesHref} />
+      <RedesignHome data={homepageData} uiCopy={uiCopy} storesHref={storesHref} />
 
       <script
         type="application/ld+json"
@@ -114,15 +150,36 @@ export default async function Home() {
             contactPoint: {
               "@type": "ContactPoint",
               telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,
-              email: storeInfo?.email || STOREFRONT_RUNTIME.supportEmail,
               contactType: "customer service",
               availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
             },
-            sameAs: [
-              storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram,
-              STOREFRONT_RUNTIME.socialFacebook,
-              STOREFRONT_RUNTIME.socialTwitter,
-            ].filter(Boolean),
+            sameAs: [storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram].filter(Boolean),
+          }),
+        }}
+      />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Store",
+            name: siteName,
+            description: "El yapimi deri kordon ve aksesuar magazasi",
+            url: requestOrigin,
+            telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,
+            email: storeInfo?.email || STOREFRONT_RUNTIME.supportEmail,
+            priceRange: "$$",
+            paymentAccepted: ["Credit Card", "Debit Card", "Cash on Delivery"],
+            currenciesAccepted: "TRY",
+            openingHoursSpecification: [
+              {
+                "@type": "OpeningHoursSpecification",
+                dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                opens: "09:00",
+                closes: "18:00",
+              },
+            ],
           }),
         }}
       />

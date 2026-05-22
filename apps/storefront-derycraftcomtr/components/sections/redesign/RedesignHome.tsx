@@ -1,5 +1,5 @@
 import { CategoriesSection } from "./CategoriesSection";
-import { HeroSection } from "./ExistingSections";
+import { HeroSection } from "./HeroSection";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
 import { StoreLocationsSection } from "./StoreLocationsSection";
 import { TestimonialsSection } from "./TestimonialsSection";
@@ -35,7 +35,7 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         heading={uiCopy?.categoriesHeading}
       />
       <ProductShowcaseSections
-        categories={data.featuredCategories}
+        categories={(data.categories as never[]) || []}
         allProducts={(data.allProducts as never[]) || []}
         homepageCuration={data.homepageCuration}
         groupCopy={uiCopy?.productGroups}

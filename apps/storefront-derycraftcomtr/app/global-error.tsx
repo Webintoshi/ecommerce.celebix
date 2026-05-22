@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 /**
- * Global Error Boundary catches errors that escape the root layout.
+ * Global Error Boundary — catches errors that escape the root layout.
  * Most common cause: ChunkLoadError after a new deployment invalidates
  * old JS bundles. Fix: auto-reload the page once so the browser fetches
  * fresh assets.
@@ -16,6 +16,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // ChunkLoadError / Failed to fetch dynamically imported module
     const isChunkError =
       error.name === "ChunkLoadError" ||
       error.message?.includes("Loading chunk") ||
@@ -23,12 +24,14 @@ export default function GlobalError({
       error.message?.includes("Importing a module script failed");
 
     if (isChunkError) {
+      // Auto-reload once to fetch new chunks
       const reloaded = sessionStorage.getItem("chunk-reload");
       if (!reloaded) {
         sessionStorage.setItem("chunk-reload", "1");
         window.location.reload();
         return;
       }
+      // Already reloaded once, clear flag
       sessionStorage.removeItem("chunk-reload");
     }
 
@@ -56,7 +59,7 @@ export default function GlobalError({
                 marginBottom: "1rem",
               }}
             >
-              !
+              ⚠️
             </div>
             <h1
               style={{

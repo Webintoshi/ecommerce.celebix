@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 interface AnnouncementSettings {
   message: string;
@@ -47,6 +48,7 @@ export function AnnouncementBar() {
   const [settings, setSettings] = useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isVisible, setIsVisible] = useState(true);
   const [loading, setLoading] = useState(true);
+  const { buildPath } = useStorefrontRoute();
 
   useEffect(() => {
     async function fetchSettings() {
@@ -73,6 +75,8 @@ export function AnnouncementBar() {
     return null;
   }
 
+  const announcementHref =
+    settings.link && settings.link.startsWith("/") ? buildPath(settings.link) : settings.link;
   const backgroundColor = normalizeAnnouncementColor(settings.backgroundColor);
   const textColor = getAnnouncementTextColor(backgroundColor);
   const isDarkTheme = textColor === "#FFFFFF";
@@ -103,9 +107,9 @@ export function AnnouncementBar() {
                 style={{ backgroundColor: isDarkTheme ? "rgba(255,255,255,0.18)" : "rgba(11,17,32,0.08)" }}
               />
             </span>
-            {settings.link && settings.linkText ? (
+            {announcementHref && settings.linkText ? (
               <Link
-                href={settings.link}
+                href={announcementHref}
                 className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
               >
                 {settings.linkText}

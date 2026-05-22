@@ -63,11 +63,10 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               <Package className="h-8 w-8 text-neutral-400" />
             </div>
             <h3 className="mb-2 text-xl font-medium text-neutral-900">
-              Ürün vitrini hazır
+              Ürün Bulunamadı
             </h3>
             <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
-              Adminde yayınlanan ilk ürünler geldiği anda bu alan premium ürün
-              kartlarıyla otomatik dolar.
+              Yakında yeni ürünler eklenecek.
             </p>
           </motion.div>
         ) : (

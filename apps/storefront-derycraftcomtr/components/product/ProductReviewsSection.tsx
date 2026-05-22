@@ -286,9 +286,7 @@ export function ProductReviewsSection({
           </div>
           <span className="font-medium text-neutral-900">{summary.rating.toFixed(1)}</span>
           <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>{summary.reviewCount} onaylı yorum</span>
-          <span aria-hidden="true" className="text-neutral-300">/</span>
-          <span>Yeni yorumlar önce moderasyona düşer.</span>
+          <span>{summary.reviewCount} yorum</span>
         </div>
       </div>
 
@@ -302,7 +300,7 @@ export function ProductReviewsSection({
             <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
               <p className="text-base font-medium text-neutral-900">Bu ürün için henüz onaylı yorum yok.</p>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
-                İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.
+                İlk yorumu siz paylaşın.
               </p>
             </div>
           ) : (

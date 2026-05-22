@@ -5,13 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
-
-interface HomepageCategory {
-  id: string;
-  name: string;
-  slug: string;
-  image?: string | null;
-}
+import type { HomepageCategory } from "@/lib/homepage";
 
 interface CategoriesSectionProps {
   initialCategories?: HomepageCategory[];
@@ -80,7 +74,7 @@ export function CategoriesSection({
 
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
+              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
                 <p className="category-card-title" style={{ color: "#ffffff" }}>
                   {category.name}
                 </p>
