@@ -1,15 +1,11 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { Clock3, ExternalLink, MapPin } from "lucide-react";
 import {
   resolveStorefrontAssetUrl,
   resolveStorefrontDirectAssetUrl,
 } from "@/lib/asset-url";
 import { STORE_LOCATIONS } from "@/lib/store-locations";
-import { useStoreInfo } from "@/lib/store-info-context";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 interface StoreLocationsSectionProps {
   eyebrow?: string;
@@ -17,8 +13,6 @@ interface StoreLocationsSectionProps {
   description?: string;
   linkLabel?: string;
   storesHref: string;
-  heroBanners?: Array<{ desktop?: string; mobile?: string; alt?: string }>;
-  promoBanners?: Array<{ image?: string; mobileImage?: string; title?: string }>;
 }
 
 function LocationImage({
@@ -51,133 +45,21 @@ function LocationImage({
   );
 }
 
-function hasConfiguredStoreLocations() {
-  return STORE_LOCATIONS.some(
-    (store) =>
-      store.images.some((image) => !image.startsWith("/placeholder")) &&
-      !store.address.toLocaleLowerCase("tr-TR").includes("tamamlandiginda"),
-  );
-}
-
-function buildFallbackGalleryImages({
-  heroBanners,
-  promoBanners,
-  storeName,
-}: Pick<StoreLocationsSectionProps, "heroBanners" | "promoBanners"> & { storeName: string }) {
-  const images = [
-    ...(heroBanners || []).flatMap((banner, index) =>
-      [banner.desktop, banner.mobile]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `hero-${index}-${imageIndex}`,
-          src: image,
-          alt: banner.alt || `${storeName} vitrin gorunumu`,
-          city: "Vitrin",
-        })),
-    ),
-    ...(promoBanners || []).flatMap((banner, index) =>
-      [banner.image, banner.mobileImage]
-        .filter((image): image is string => Boolean(image))
-        .map((image, imageIndex) => ({
-          id: `promo-${index}-${imageIndex}`,
-          src: image,
-          alt: banner.title || `${storeName} koleksiyon gorseli`,
-          city: "Koleksiyon",
-        })),
-    ),
-  ].slice(0, 4);
-
-  if (images.length > 0) {
-    return images;
-  }
-
-  return [
-    {
-      id: "placeholder-1",
-      src: "/placeholders/promo-banner-1.svg",
-      alt: `${storeName} taslak gorunum 1`,
-      city: "Studio",
-    },
-    {
-      id: "placeholder-2",
-      src: "/placeholders/promo-banner-2.svg",
-      alt: `${storeName} taslak gorunum 2`,
-      city: "Showroom",
-    },
-    {
-      id: "placeholder-3",
-      src: "/placeholders/promo-banner-3.svg",
-      alt: `${storeName} taslak gorunum 3`,
-      city: "Atolye",
-    },
-    {
-      id: "placeholder-4",
-      src: "/placeholder.svg",
-      alt: `${storeName} taslak gorunum 4`,
-      city: "Marka",
-    },
-  ];
-}
-
 export function StoreLocationsSection({
   eyebrow = "Mağazalarımız",
   heading = "Deriye yakından dokunun",
   description = "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
   linkLabel = "Tüm şubeleri gör",
   storesHref,
-  heroBanners = [],
-  promoBanners = [],
 }: StoreLocationsSectionProps) {
-  const { storeInfo } = useStoreInfo();
-  const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const address = storeInfo?.address || "Adres bilgisi mağaza ayarlarında tamamlandığında burada gösterilir.";
-  const phone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const email = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
-  const mapUrl = storeInfo?.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeInfo.address)}`
-    : storesHref;
-
-  const useConfiguredLocations = hasConfiguredStoreLocations();
-  const galleryImages = useConfiguredLocations
-    ? STORE_LOCATIONS.flatMap((store) =>
-        store.images.map((image, index) => ({
-          id: `${store.id}-${index}`,
-          src: image,
-          alt: `${store.name} gorunumu ${index + 1}`,
-          city: store.city,
-        })),
-      ).slice(0, 4)
-    : buildFallbackGalleryImages({ heroBanners, promoBanners, storeName });
-
-  const cards = useConfiguredLocations
-    ? STORE_LOCATIONS
-    : [
-        {
-          id: "main",
-          badge: "Magaza & Deneyim",
-          name: `${storeName} Studio`,
-          summary: storeInfo?.address
-            ? `${storeName} icin girdiginiz adres ve iletisim bilgileri burada premium bir vitrinde gosterilir.`
-            : `${storeName} icin adres ve iletisim bilgilerini adminden tamamladiginizda bu alan tam magaza deneyimine donusur.`,
-          hours: "Pzt - Cmt / 10:00 - 19:00",
-          address,
-          mapUrl,
-          phone,
-          email,
-        },
-        {
-          id: "support",
-          badge: "Iletisim",
-          name: "Destek ve Teklif Hatti",
-          summary:
-            "Kurumsal talepler, teslimat sorulari ve musteri destek akislari ayarlardan gelen telefon ve e-posta ile otomatik guncellenir.",
-          hours: "Hafta ici hizli geri donus",
-          address: `${phone} • ${email}`,
-          mapUrl: `mailto:${email}`,
-          phone,
-          email,
-        },
-      ];
+  const galleryImages = STORE_LOCATIONS.flatMap((store) =>
+    store.images.map((image, index) => ({
+      id: `${store.id}-${index}`,
+      src: image,
+      alt: `${store.name} görünümü ${index + 1}`,
+      city: store.city,
+    })),
+  ).slice(0, 4);
 
   return (
     <section className="bg-white py-16 sm:py-20">
@@ -196,7 +78,10 @@ export function StoreLocationsSection({
 
         <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 lg:grid-cols-4 lg:gap-4">
           {galleryImages.map((image, index) => (
-            <div key={image.id} className="group relative overflow-hidden bg-[#E7DED3]">
+            <div
+              key={image.id}
+              className="group relative overflow-hidden bg-[#E7DED3]"
+            >
               <div className="relative aspect-[5/5.8]">
                 <LocationImage src={image.src} alt={image.alt} priority={index < 2} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/0 to-transparent" />
@@ -209,58 +94,41 @@ export function StoreLocationsSection({
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {cards.map((store) => {
-            const isContactCard = store.id === "support";
-
-            return (
-              <article
-                key={store.id}
-                className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
-                      {store.badge}
-                    </p>
-                    <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{store.name}</h3>
-                  </div>
-
-                  <a
-                    href={store.mapUrl}
-                    target={store.mapUrl.startsWith("http") ? "_blank" : undefined}
-                    rel={store.mapUrl.startsWith("http") ? "noopener noreferrer" : undefined}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
-                  >
-                    {isContactCard ? <Mail className="size-4" /> : <MapPin className="size-4" />}
-                    <span>{isContactCard ? "E-Posta" : "Harita"}</span>
-                  </a>
+          {STORE_LOCATIONS.map((store) => (
+            <article
+              key={store.id}
+              className="rounded-[24px] border border-black/6 bg-[#FBF8F4] p-5 shadow-[0_18px_48px_-36px_rgba(42,28,15,0.3)]"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.26em] text-[#8A6847]">
+                    {store.badge}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-semibold text-[#1B130D]">{store.name}</h3>
                 </div>
 
-                <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{store.summary}</p>
+                <a
+                  href={store.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-3.5 py-2 text-sm font-medium text-[#3B2A1E] transition hover:border-[#8B6A48] hover:bg-white"
+                >
+                  <MapPin className="size-4" />
+                  <span>Harita</span>
+                </a>
+              </div>
 
-                <div className="mt-5 space-y-3 text-sm text-[#4D3C2F]">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
-                    <Clock3 className="size-4 text-[#8C6D4C]" />
-                    <span>{store.hours}</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <MapPin className="mt-1 size-4 text-[#8C6D4C]" />
-                    <p className="text-sm leading-6 text-[#6A5A4E]">{store.address}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-5 text-[#6A5A4E]">
-                    <span className="inline-flex items-center gap-2">
-                      <Phone className="size-4 text-[#8C6D4C]" />
-                      {store.phone}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <Mail className="size-4 text-[#8C6D4C]" />
-                      {store.email}
-                    </span>
-                  </div>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5C4B40]">{store.summary}</p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#4D3C2F]">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
+                  <Clock3 className="size-4 text-[#8C6D4C]" />
+                  <span>{store.hours}</span>
                 </div>
-              </article>
-            );
-          })}
+                <p className="text-sm leading-6 text-[#6A5A4E]">{store.address}</p>
+              </div>
+            </article>
+          ))}
         </div>
 
         <div className="mt-8 flex justify-center">
