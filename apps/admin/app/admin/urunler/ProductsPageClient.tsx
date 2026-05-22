@@ -83,6 +83,7 @@ type ProductsPageClientProps = {
   initialCategories?: CategoryInfo[];
   initialPagination?: AdminPaginationMeta;
   initialError?: string;
+  productDeleteStrategy?: "hard-delete" | "soft-archive";
 };
 
 const DEFAULT_HOMEPAGE_CURATION: HomepageCurationState = {
@@ -292,6 +293,7 @@ export default function ProductsPageClient({
     totalPages: 0,
   },
   initialError = "",
+  productDeleteStrategy = "hard-delete",
 }: ProductsPageClientProps) {
   const [products, setProducts] = useState<AdminProductListItem[]>(initialProducts);
   const [categories, setCategories] = useState<CategoryInfo[]>(initialCategories);
@@ -318,6 +320,19 @@ export default function ProductsPageClient({
   const hasLoadedInitialDataRef = useRef(false);
   const hasMountedFiltersRef = useRef(false);
   const pagedPageRef = useRef(initialPagination.page);
+  const usesSoftDeleteStrategy = productDeleteStrategy === "soft-archive";
+  const deleteActionLabel = usesSoftDeleteStrategy ? "Arşive Al" : "Sil";
+  const deleteActionPastTense = usesSoftDeleteStrategy ? "arşive alındı" : "silindi";
+  const deleteActionFailureText = usesSoftDeleteStrategy ? "Ürün arşive alınamadı." : "Ürün silinemedi.";
+  const deleteActionBulkFailureText = usesSoftDeleteStrategy
+    ? "Toplu arşivleme işlemi tamamlanamadı."
+    : "Toplu silme işlemi tamamlanamadı.";
+  const deleteConfirmText = usesSoftDeleteStrategy
+    ? "Bu ürün vitrinden kaldırılıp arşive alınacak. Devam etmek istiyor musunuz?"
+    : "Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.";
+  const bulkDeleteConfirmText = usesSoftDeleteStrategy
+    ? (count: number) => `${count} ürün vitrinden kaldırılıp arşive alınacak. Devam etmek istiyor musunuz?`
+    : (count: number) => `${count} ürünü silmek istediğinizden emin misiniz?`;
   const rowsPerPageRef = useRef(initialPagination.limit > 0 ? initialPagination.limit : 20);
   const catalogStateRef = useRef<{
     searchQuery: string;
@@ -654,7 +669,7 @@ export default function ProductsPageClient({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+    if (!confirm(deleteConfirmText)) {
       return;
     }
 
@@ -665,12 +680,12 @@ export default function ProductsPageClient({
       });
       await loadProducts();
       setSelectedProducts((current) => current.filter((entry) => entry !== id));
-      setNotice({ tone: "success", text: "Ürün silindi." });
+      setNotice({ tone: "success", text: `Ürün ${deleteActionPastTense}.` });
     } catch (error) {
       console.error("Failed to delete product:", error);
       setNotice({
         tone: "error",
-        text: error instanceof Error ? error.message : "Ürün silinemedi.",
+        text: error instanceof Error ? error.message : deleteActionFailureText,
       });
     }
   };
@@ -872,7 +887,7 @@ export default function ProductsPageClient({
       return;
     }
 
-    if (!confirm(`${selectedProducts.length} ürünü silmek istediğinizden emin misiniz?`)) {
+    if (!confirm(bulkDeleteConfirmText(selectedProducts.length))) {
       return;
     }
 
@@ -888,12 +903,12 @@ export default function ProductsPageClient({
       );
       await loadProducts();
       setSelectedProducts([]);
-      setNotice({ tone: "success", text: "Seçili ürünler silindi." });
+      setNotice({ tone: "success", text: `Seçili ürünler ${deleteActionPastTense}.` });
     } catch (error) {
       console.error("Failed to delete products:", error);
       setNotice({
         tone: "error",
-        text: error instanceof Error ? error.message : "Toplu silme işlemi tamamlanamadı.",
+        text: error instanceof Error ? error.message : deleteActionBulkFailureText,
       });
     }
   };
@@ -1460,7 +1475,7 @@ export default function ProductsPageClient({
                     <option value="publish">Yayına Al</option>
                     <option value="unpublish">Yayından Kaldır</option>
                     <option value="bulk-stock">Toplu Stok Güncelle</option>
-                    <option value="delete">Sil</option>
+                    <option value="delete">{deleteActionLabel}</option>
                   </select>
 
                   <button
@@ -1762,7 +1777,8 @@ export default function ProductsPageClient({
                                 "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#F5D3D3] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]",
                                 SURFACE_FOCUS_RING,
                               )}
-                              aria-label={`${product.name} sil`}
+                              aria-label={`${product.name} ${usesSoftDeleteStrategy ? "arşive al" : "sil"}`}
+                              title={deleteActionLabel}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -1945,6 +1961,8 @@ export default function ProductsPageClient({
                                 "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#F5D3D3] bg-white text-[#EF4444]",
                                 SURFACE_FOCUS_RING,
                               )}
+                              aria-label={`${product.name} ${usesSoftDeleteStrategy ? "arşive al" : "sil"}`}
+                              title={deleteActionLabel}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
