@@ -74,6 +74,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const locale = await getRequestLocale();
+  const copy = getLocalizedCopy(locale);
   const [homepageData, uiCopy, storeInfo, requestOrigin, routing] = await Promise.all([
     getHomepageData(locale),
     getHomepageUiCopy(locale),
@@ -82,7 +83,7 @@ export default async function Home() {
     getLocaleRoutingConfig(),
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const siteDescription = STOREFRONT_RUNTIME.description;
+  const siteDescription = copy.homeDescription;
   const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
     buildLocalizedPath("/urunler", locale, routing),

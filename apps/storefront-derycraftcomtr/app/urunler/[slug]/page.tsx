@@ -19,6 +19,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
+import { getStoreInfo } from "@/lib/db/settings";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductCollection, translateProductRecord } from "@/lib/translation";
@@ -356,9 +357,10 @@ export default async function ProductDetailPage({
   }
 
   const variant = product.variants?.[selectedVariantIndex || 0];
-  const storeName = STOREFRONT_RUNTIME.name;
   const copy = getLocalizedCopy(locale);
   const routing = await getLocaleRoutingConfig();
+  const storeInfo = await getStoreInfo();
+  const storeName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const [homeUrl, productsUrl, productUrl] = await Promise.all([
     buildAbsoluteRequestUrl(buildLocalizedPath("/", locale, routing)),
     buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale, routing)),
