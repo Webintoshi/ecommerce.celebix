@@ -6,6 +6,7 @@ import {
   getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
+  resolveLightPostgresDefaultSslMode,
   resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
 } from "@celebix/platform-config";
@@ -249,6 +250,7 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
 }
 
 function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
+  const lightPostgresSslMode = resolveLightPostgresDefaultSslMode();
   const databaseEnv: Record<string, string> =
     store.databaseMode === "full_supabase"
       ? {
@@ -266,7 +268,8 @@ function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
           DATABASE_POOL_MODE: "session",
           LIGHT_POSTGRES_DATABASE_NAME: store.lightPostgres?.databaseName || store.slug,
           LIGHT_POSTGRES_DATABASE_URL: "configure-per-store-database",
-          LIGHT_POSTGRES_DATABASE_SSLMODE: "require",
+          LIGHT_POSTGRES_DATABASE_SSLMODE: lightPostgresSslMode,
+          DATABASE_SSLMODE: lightPostgresSslMode,
           NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
           AUTH_SETUP_STATUS: "blocked_auth_setup",
           NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",

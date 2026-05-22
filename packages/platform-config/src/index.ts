@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getConfiguredImageTransformationUrl } from "./image-transformation";
+import { resolveLightPostgresDefaultSslMode } from "./light-postgres-runtime";
 import { resolveProvisionedNextBuildCpuCap } from "./next-build";
 
 export * from "./typography";
@@ -688,6 +689,7 @@ function upsertStoreRegistryEntry(config: StoreConfig): void {
 }
 
 function buildAdminEnvTemplate(config: StoreConfig): string {
+  const lightPostgresSslMode = resolveLightPostgresDefaultSslMode();
   const databaseEnvLines =
     config.databaseMode === "full_supabase"
       ? [
@@ -707,7 +709,8 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
           "DATABASE_POOL_MODE=session",
           `LIGHT_POSTGRES_DATABASE_NAME=${config.lightPostgres?.databaseName || config.slug}`,
           "LIGHT_POSTGRES_DATABASE_URL=configure-per-store-database",
-          "LIGHT_POSTGRES_DATABASE_SSLMODE=require",
+          `LIGHT_POSTGRES_DATABASE_SSLMODE=${lightPostgresSslMode}`,
+          `DATABASE_SSLMODE=${lightPostgresSslMode}`,
           "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
           "AUTH_SETUP_STATUS=blocked_auth_setup",
           "NEXT_PUBLIC_AUTH_SETUP_STATUS=blocked_auth_setup",

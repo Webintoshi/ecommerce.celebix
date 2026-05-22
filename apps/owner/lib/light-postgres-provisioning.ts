@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   getRepoRoot,
+  resolveLightPostgresDefaultSslMode,
   upsertStoreAdminEnvLocal,
   updateStoreLightPostgresConfig,
   type StoreConfig,
@@ -521,6 +522,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 function writeOptionalAdminEnvLocal(store: StoreConfig, databaseName: string): void {
   const runtimeDatabaseUrl = buildRuntimeDatabaseUrl(databaseName);
+  const runtimeSslMode = resolveLightPostgresDefaultSslMode();
 
   if (!runtimeDatabaseUrl) {
     return;
@@ -531,7 +533,8 @@ function writeOptionalAdminEnvLocal(store: StoreConfig, databaseName: string): v
     DATABASE_DIRECT_URL: runtimeDatabaseUrl,
     LIGHT_POSTGRES_DATABASE_URL: runtimeDatabaseUrl,
     LIGHT_POSTGRES_DATABASE_NAME: databaseName,
-    LIGHT_POSTGRES_DATABASE_SSLMODE: "require",
+    LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
+    DATABASE_SSLMODE: runtimeSslMode,
     ADMIN_DATABASE_MODE: "light_postgres",
     DATABASE_MODE: "light_postgres",
     NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",

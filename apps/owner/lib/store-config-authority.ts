@@ -7,6 +7,7 @@ import {
   getStoreConfig,
   requireStoreConfig,
   getStores,
+  resolveLightPostgresDefaultSslMode,
   updateStoreConfig,
 } from "@celebix/platform-config";
 import {
@@ -366,6 +367,7 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
   const repoRoot = getRepoRoot();
   const storeDirectory = path.join(repoRoot, "stores", config.slug);
   const envTemplatePath = path.join(storeDirectory, "admin.env.example");
+  const lightPostgresSslMode = resolveLightPostgresDefaultSslMode();
 
   if (fs.existsSync(envTemplatePath)) {
     return;
@@ -386,7 +388,8 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
           "DATABASE_DIRECT_URL=configure-per-store-admin-database",
           `LIGHT_POSTGRES_DATABASE_NAME=${config.lightPostgres?.databaseName || config.slug}`,
           "LIGHT_POSTGRES_DATABASE_URL=configure-per-store-database",
-          "LIGHT_POSTGRES_DATABASE_SSLMODE=require",
+          `LIGHT_POSTGRES_DATABASE_SSLMODE=${lightPostgresSslMode}`,
+          `DATABASE_SSLMODE=${lightPostgresSslMode}`,
           "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
           "AUTH_SETUP_STATUS=blocked_auth_setup",
           "NEXT_PUBLIC_AUTH_SETUP_STATUS=blocked_auth_setup",

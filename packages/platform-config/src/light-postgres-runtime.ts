@@ -100,6 +100,17 @@ export function resolveLightPostgresSslMode(
   );
 }
 
+export function resolveLightPostgresDefaultSslMode(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return (
+    env.LIGHT_POSTGRES_DEFAULT_SSLMODE?.trim().toLowerCase() ||
+    env.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim().toLowerCase() ||
+    env.DATABASE_SSLMODE?.trim().toLowerCase() ||
+    "require"
+  );
+}
+
 export function hasSupabasePublicAuthEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
