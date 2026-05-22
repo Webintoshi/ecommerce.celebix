@@ -335,7 +335,10 @@ export async function handleLogtoAdminCallback(request: NextRequest): Promise<{
   }
 
   const client = new LogtoServerClient(config);
-  const postRedirectUri = await client.handleSignInCallback(request.nextUrl.toString());
+  // Use the public callback URL instead of the container-internal origin from the proxied request.
+  const callbackUrl = new URL(LOGTO_ADMIN_CALLBACK_PATH, `${config.baseUrl}/`);
+  callbackUrl.search = request.nextUrl.search;
+  const postRedirectUri = await client.handleSignInCallback(callbackUrl.toString());
   const context = await client.getLogtoContext({ fetchUserInfo: true });
 
   return {

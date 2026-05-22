@@ -5,6 +5,7 @@ import {
   getLogtoAdminConfig,
   getLogtoAdminConfigStatus,
 } from "@/app/logto";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
 import {
   handleLogtoAdminCallback,
   isKnownLogtoAdminRole,
@@ -15,15 +16,19 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function buildPublicAdminUrl(path: string): URL {
+  return new URL(path, `${STORE_RUNTIME.adminUrl.replace(/\/$/, "")}/`);
+}
+
 export async function GET(request: NextRequest) {
   if (!shouldUseLogtoAdminAuth()) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.redirect(buildPublicAdminUrl("/admin/login"));
   }
 
   const config = getLogtoAdminConfig();
   if (!config) {
     const status = getLogtoAdminConfigStatus();
-    const redirectUrl = new URL("/admin/login", request.url);
+    const redirectUrl = buildPublicAdminUrl("/admin/login");
     redirectUrl.searchParams.set("error", status.missingEnv.length > 0 ? "logto_not_configured" : "logto_disabled");
     return NextResponse.redirect(redirectUrl);
   }
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest) {
     const { identity, postRedirectUri } = await handleLogtoAdminCallback(request);
 
     if (!identity) {
-      const response = NextResponse.redirect(new URL("/admin/login?error=logto_session_missing", request.url));
+      const response = NextResponse.redirect(buildPublicAdminUrl("/admin/login?error=logto_session_missing"));
       clearAdminRoleCookie(response);
       return response;
     }
@@ -43,13 +48,13 @@ export async function GET(request: NextRequest) {
       : null;
 
     if (!bridgeUser?.is_active || !roleRow?.is_active || !isKnownLogtoAdminRole(roleRow.role)) {
-      const response = NextResponse.redirect(new URL("/admin/login?error=logto_admin_bridge_missing", request.url));
+      const response = NextResponse.redirect(buildPublicAdminUrl("/admin/login?error=logto_admin_bridge_missing"));
       clearAdminRoleCookie(response);
       return response;
     }
 
     const redirectPath = sanitizeInternalRedirectPath(postRedirectUri ?? "/admin", "/admin");
-    const response = NextResponse.redirect(new URL(redirectPath, request.url));
+    const response = NextResponse.redirect(buildPublicAdminUrl(redirectPath));
     writeAdminRoleCookie(response, {
       userId: bridgeUser.id,
       role: roleRow.role,
@@ -59,6 +64,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Logto admin callback skeleton error:", error);
-    return NextResponse.redirect(new URL("/admin/login?error=logto_callback_failed", request.url));
+    return NextResponse.redirect(buildPublicAdminUrl("/admin/login?error=logto_callback_failed"));
   }
 }
