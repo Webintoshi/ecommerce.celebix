@@ -19,6 +19,10 @@ import {
   releaseGeneratedDeploymentWindow,
   reserveGeneratedDeploymentWindow,
 } from "@/lib/generated-deployment-guard";
+import {
+  getLightPostgresBootstrapStatus,
+  provisionLightPostgresForStore,
+} from "@/lib/light-postgres-provisioning";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
@@ -130,7 +134,13 @@ class ProvisioningTracker {
     }
 
     const current = this.summary.steps.find((step) => step.key === key);
-    return !current || current.status === "pending" || current.status === "running" || current.status === "failed";
+    return (
+      !current ||
+      current.status === "pending" ||
+      current.status === "running" ||
+      current.status === "failed" ||
+      current.status === "blocked"
+    );
   }
 
   async start(key: ProvisioningStepKey): Promise<void> {
@@ -157,7 +167,7 @@ class ProvisioningTracker {
 
   async fail(key: ProvisioningStepKey, error: unknown, blocking = true): Promise<void> {
     const message = error instanceof Error ? error.message : "Provisioning adimi basarisiz oldu.";
-    this.summary = await upsertProvisioningStep(this.slug, key, {
+    const nextSummary = await upsertProvisioningStep(this.slug, key, {
       status: "failed",
       message,
       blocking,
@@ -165,11 +175,43 @@ class ProvisioningTracker {
       lastError: message,
       lastRunAt: this.lastRunAt,
     });
+
+    if (!blocking) {
+      this.summary = nextSummary;
+      return;
+    }
+
+    const failedIndex = nextSummary.steps.findIndex((step) => step.key === key);
+    const blockedSteps = nextSummary.steps.map((step, index) => {
+      if (index <= failedIndex || (step.status !== "pending" && step.status !== "running")) {
+        return step;
+      }
+
+      return {
+        ...step,
+        status: "blocked" as const,
+        blocking: true,
+        message: `${nextSummary.steps[failedIndex]?.label ?? key} tamamlanmadan ilerlenemez.`,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    this.summary = await persistProvisioningSummary(this.slug, {
+      state: "pending_repair",
+      lastError: message,
+      lastRunAt: this.lastRunAt,
+      steps: blockedSteps,
+    });
   }
 
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
     const blockers = getProvisioningBlockers(this.summary);
-    const state: ProvisioningState = blockers.length > 0 ? "pending_repair" : "ready";
+    const hasRunning = this.summary.steps.some((step) => step.status === "running");
+    const state: ProvisioningState = blockers.length > 0
+      ? "pending_repair"
+      : hasRunning
+        ? "running"
+        : "ready";
     this.summary = await persistProvisioningSummary(this.slug, {
       state,
       lastError: blockers.length > 0 ? blockers[0]?.message ?? this.summary.lastError : null,
@@ -271,6 +313,18 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "supabase_preflight", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode === "light_postgres") {
+      const status = await getLightPostgresBootstrapStatus();
+
+      if (!status.configured) {
+        throw new Error(status.lastError || "light_postgres bootstrap authority eksik.");
+      }
+
+      return `${status.cluster} light_postgres authority hazir.`;
+    }
+
     const status = await getSupabaseBootstrapStatus();
 
     if (!status.configured) {
@@ -309,6 +363,12 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "starter_source_preflight", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode === "light_postgres") {
+      return "Starter source fetch atlandi; light_postgres minimal bootstrap kullanir.";
+    }
+
     const sourceBase = getStarterSourceBase();
     const response = await fetch(`${sourceBase}/api/homepage`, {
       cache: "no-store",
@@ -376,6 +436,13 @@ export async function runStoreProvisioningWorkflow(
       "supabase_provision",
       async () => {
         const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          const result = await provisionLightPostgresForStore(store);
+          await syncOwnerStoresAndMetrics();
+          return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}`;
+        }
+
         const result = await provisionSupabaseForStore(store);
         await syncOwnerStoresAndMetrics();
         return `${result.provider} Supabase provision edildi: ${result.projectRef}`;
@@ -385,6 +452,11 @@ export async function runStoreProvisioningWorkflow(
       "starter_seed",
       async () => {
         const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          return "Starter content seed atlandi; minimal settings light_postgres schema icine yazildi.";
+        }
+
         const result = await seedStarterStorefrontContent(store);
         return result.message || "Starter storefront content yazildi.";
       },
@@ -401,6 +473,38 @@ export async function runStoreProvisioningWorkflow(
         });
         await syncOwnerStoresAndMetrics();
         return `R2 bucket hazir: ${result.bucketName}`;
+      },
+    ],
+    [
+      "storefront_scaffold",
+      async () => {
+        const result = await scaffoldStorefrontApp(input.slug);
+        repairStoreConfig(input.slug);
+        return `Storefront scaffold hazir: ${result.relativeAppDirectory}`;
+      },
+    ],
+    [
+      "storefront_repo_sync",
+      async () => {
+        const result = await syncStorefrontRepoForStore(input.slug);
+
+        if (result.status !== "synced") {
+          throw new Error(result.message || "Storefront repo senkronu tamamlanamadi.");
+        }
+
+        return result.message || "Storefront repo senkronlandi.";
+      },
+    ],
+    [
+      "storefront_blueprint",
+      async () => {
+        const blueprint = await prepareStorefrontDeployment(input.slug);
+
+        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
+          throw new Error(blueprint.runtimeMessage || "Storefront blueprint hazirlanamadi.");
+        }
+
+        return blueprint.runtimeMessage || "Storefront blueprint hazirlandi.";
       },
     ],
     [
@@ -428,38 +532,6 @@ export async function runStoreProvisioningWorkflow(
         }
 
         return deployment.message || "Admin deployment tetiklendi.";
-      },
-    ],
-    [
-      "storefront_scaffold",
-      async () => {
-        const result = await scaffoldStorefrontApp(input.slug);
-        repairStoreConfig(input.slug);
-        return `Storefront scaffold hazir: ${result.relativeAppDirectory}`;
-      },
-    ],
-    [
-      "storefront_blueprint",
-      async () => {
-        const blueprint = await prepareStorefrontDeployment(input.slug);
-
-        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
-          throw new Error(blueprint.runtimeMessage || "Storefront blueprint hazirlanamadi.");
-        }
-
-        return blueprint.runtimeMessage || "Storefront blueprint hazirlandi.";
-      },
-    ],
-    [
-      "storefront_repo_sync",
-      async () => {
-        const result = await syncStorefrontRepoForStore(input.slug);
-
-        if (result.status !== "synced") {
-          throw new Error(result.message || "Storefront repo senkronu tamamlanamadi.");
-        }
-
-        return result.message || "Storefront repo senkronlandi.";
       },
     ],
     [
@@ -520,7 +592,9 @@ export async function runStoreProvisioningWorkflow(
 }
 
 export function predictPendingRepairStatus(steps: ProvisioningStepSummary[]): ProvisioningState {
-  return steps.some((step) => step.status === "failed") ? "pending_repair" : "ready";
+  return steps.some((step) => step.status === "failed" || step.status === "blocked")
+    ? "pending_repair"
+    : "ready";
 }
 
 export function getProvisioningStepKeys(): ProvisioningStepKey[] {

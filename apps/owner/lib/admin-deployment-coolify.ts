@@ -261,6 +261,8 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
     git_repository: getRepositoryUrl(),
     git_branch: getRepositoryBranch(store),
     build_pack: "nixpacks",
+    docker_registry_image_name: blueprint.dockerImage,
+    docker_registry_image_tag: blueprint.dockerImageTag,
     name: blueprint.appName,
     description: `Celebix shared admin deployment for ${store.slug}`,
     domains: blueprint.runtimeUrl,
@@ -273,6 +275,8 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
     health_check_path: "/api/public/runtime",
     health_check_port: "3000",
     is_force_https_enabled: true,
+    watch_paths: blueprint.watchPaths.join(","),
+    use_build_server: blueprint.useBuildServer,
     // Generated store apps should not redeploy on every repo push by default.
     is_auto_deploy_enabled: isGeneratedAutoDeployEnabled(),
     instant_deploy: false
@@ -429,22 +433,31 @@ export async function provisionAdminDeploymentForStore(
     };
   }
 
-  if (blueprint.status === "pending-owner-env") {
+  if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
     updateStoreAdminDeploymentConfig(slug, {
-      deploymentStatus: "pending-owner-env",
+      deploymentStatus:
+        blueprint.status === "failed" ? "failed" : "pending-owner-env",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
       resourceId: blueprint.resourceId ?? undefined,
-      lastError: blueprint.runtimeMessage ?? "Admin env seti eksik."
+      lastError:
+        blueprint.runtimeMessage ??
+        (blueprint.status === "failed"
+          ? "Admin deployment guard aktif."
+          : "Admin env seti eksik.")
     });
 
     return {
       appName: blueprint.appName,
       resourceId: blueprint.resourceId,
       runtimeUrl: blueprint.runtimeUrl,
-      status: "prepared",
+      status: blueprint.status === "failed" ? "failed" : "prepared",
       runtimeConsistent: false,
-      message: blueprint.runtimeMessage ?? "Admin env seti eksik.",
+      message:
+        blueprint.runtimeMessage ??
+        (blueprint.status === "failed"
+          ? "Admin deployment guard aktif."
+          : "Admin env seti eksik."),
       externallyManaged: false
     };
   }

@@ -17,6 +17,12 @@ export interface StoreAdminDeploymentBlueprint {
   appName: string;
   runtimeUrl: string;
   resourceId: string | null;
+  deploymentStrategy: string;
+  dockerImage: string;
+  dockerImageTag: string;
+  useBuildServer: boolean;
+  buildServer: string;
+  watchPaths: string[];
   workspace: string;
   installCommand: string;
   buildCommand: string;
@@ -144,6 +150,52 @@ function getSharedRedisEnvEntries(): Record<string, string> {
 async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const existingEnv = readExistingAdminEnvMap(store);
+
+  if (store.databaseMode === "light_postgres") {
+    const envEntries: Record<string, string> = {
+      CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
+      STORE_SLUG: store.slug,
+      DATABASE_MODE: "light_postgres",
+      NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+      NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
+      NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
+      NEXT_PUBLIC_STORE_NAME: store.name,
+      NEXT_PUBLIC_STORE_TAGLINE: store.branding?.tagline?.trim() || "",
+      NEXT_PUBLIC_DEFAULT_PRODUCT_BRAND:
+        store.branding?.defaultProductBrand?.trim() || store.name,
+      NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
+      NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
+      NEXT_PUBLIC_DEMO_DOMAIN: store.domains.demo,
+      NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL:
+        existingEnv.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL?.trim() ||
+        process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL?.trim() ||
+        getConfiguredImageTransformationUrl(),
+      ...getSharedRedisEnvEntries(),
+    };
+
+    for (const key of [
+      "DATABASE_URL",
+      "DATABASE_DIRECT_URL",
+      "DATABASE_POOL_MODE",
+      "CLOUDFLARE_ACCOUNT_ID",
+      "R2_ACCESS_KEY_ID",
+      "R2_SECRET_ACCESS_KEY",
+      "R2_BUCKET_NAME",
+      "R2_PUBLIC_URL",
+    ] as const) {
+      const value =
+        existingEnv[key]?.trim() ||
+        (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
+        (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+
+      if (value) {
+        envEntries[key] = value;
+      }
+    }
+
+    return envEntries;
+  }
+
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
   const supabaseUrl =
     secretRecord?.supabase_url?.trim() ||
@@ -271,6 +323,7 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
   const store = requireStoreConfig(slug);
   const envEntries = await readAdminEnvEntries(store);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
+  const deploymentConfig = store.bootstrap?.adminDeployment;
   const hasRequiredEnv = Boolean(
     envEntries.NEXT_PUBLIC_SUPABASE_URL &&
       envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
@@ -281,16 +334,30 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  const runtime = await readRuntimeConsistency(store, runtimeUrl);
-  runtimeConsistent = runtime.consistent;
-  runtimeMessage = runtime.message;
-  status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
+  if (store.databaseMode === "light_postgres") {
+    status = "failed";
+    runtimeMessage =
+      "Admin runtime halen Supabase env beklentisine bagli. light_postgres create default acik olsa da admin deploy guard aktif.";
+  }
+
+  if (store.databaseMode !== "light_postgres") {
+    const runtime = await readRuntimeConsistency(store, runtimeUrl);
+    runtimeConsistent = runtime.consistent;
+    runtimeMessage = runtime.message;
+    status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
+  }
 
   return {
     storeSlug: store.slug,
     appName: store.bootstrap?.adminDeploymentName || `${store.slug}-admin`,
     runtimeUrl,
     resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
+    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
+    dockerImage: deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`,
+    dockerImageTag: deploymentConfig?.imageTag ?? "production",
+    useBuildServer: deploymentConfig?.useBuildServer ?? true,
+    buildServer: deploymentConfig?.buildServer ?? "celebix-build-01",
+    watchPaths: deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"],
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
     buildCommand: "npm run build --workspace @celebix/admin",

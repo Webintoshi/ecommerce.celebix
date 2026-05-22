@@ -64,14 +64,30 @@ function inferSupabaseProvider(row: OwnerStoreAuthorityRow): "managed" | "self_h
   return "managed";
 }
 
+function inferDatabaseMode(row: OwnerStoreAuthorityRow, metadata: Record<string, unknown>): "light_postgres" | "full_supabase" {
+  const explicit = readOptionalString(metadata.databaseMode);
+
+  if (explicit === "full_supabase") {
+    return "full_supabase";
+  }
+
+  if (explicit === "light_postgres") {
+    return "light_postgres";
+  }
+
+  return row.supabase_project_ref || row.supabase_url ? "full_supabase" : "light_postgres";
+}
+
 function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   const metadata = asRecord(row.metadata);
   const bootstrap = asRecord(metadata.bootstrap);
   const storefront = asRecord(metadata.storefront);
+  const lightPostgres = asRecord(metadata.lightPostgres);
   const features = readStringArray(metadata.features);
   const themeKey = readOptionalString(row.theme_key) ?? "atelier";
   const themeLabel = readOptionalString(row.theme_label) ?? themeKey[0].toUpperCase() + themeKey.slice(1);
   const supabaseProvider = inferSupabaseProvider(row);
+  const databaseMode = inferDatabaseMode(row, metadata);
   const storefrontRuntimeUrl =
     readOptionalString(storefront.runtimeUrl) ?? `https://${row.storefront_domain}`;
   const adminRuntimeUrl =
@@ -81,6 +97,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     name: row.name,
     slug: row.slug,
     status: row.status,
+    databaseMode,
     theme: {
       key: themeKey,
       label: themeLabel,
@@ -101,16 +118,38 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     domains: {
       storefront: row.storefront_domain,
       admin: row.admin_domain,
+      demo: readOptionalString(asRecord(metadata.domains).demo) ?? `${row.slug}.demo.celebix.co`,
     },
     owner: {
       createdBy: "owner-panel",
       notes: "Owner authority kaydindan geri yuklendi.",
     },
+    lightPostgres: {
+      cluster: readOptionalString(lightPostgres.cluster) ?? "celebix-light-postgres",
+      databaseName: readOptionalString(lightPostgres.databaseName) ?? row.slug,
+      schemaProfile: "storefront_core",
+      provisioning:
+        (readOptionalString(lightPostgres.provisioning) as
+          | "pending-owner-env"
+          | "configured"
+          | "failed"
+          | null) ??
+        (databaseMode === "light_postgres" ? "pending-owner-env" : "configured"),
+      provisionedAt: readOptionalString(lightPostgres.provisionedAt) ?? undefined,
+      lastProvisionError: readOptionalString(lightPostgres.lastProvisionError) ?? undefined,
+      umamiReady:
+        typeof lightPostgres.umamiReady === "boolean"
+          ? Boolean(lightPostgres.umamiReady)
+          : true,
+    },
     supabase: {
       projectRef: row.supabase_project_ref ?? "pending-owner-bootstrap",
       url: row.supabase_url ?? "configure-in-env",
       provider: supabaseProvider,
-      storage: "separate-project-per-store",
+      storage:
+        databaseMode === "full_supabase"
+          ? "separate-project-per-store"
+          : "disabled-by-database-mode",
       dashboardUrl: readOptionalString(bootstrap.supabaseDashboardUrl) ?? undefined,
     },
     r2: {
@@ -127,8 +166,11 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       createdAt: readOptionalString(bootstrap.createdAt) ?? row.created_at,
       envTemplatePath: `stores/${row.slug}/admin.env.example`,
       adminEnvLocalPath: readOptionalString(bootstrap.adminEnvLocalPath) ?? `stores/${row.slug}/admin.env.local`,
+      authorityBranch: readOptionalString(bootstrap.authorityBranch) ?? "stores/authority",
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
+      adminDeploymentBranch:
+        readOptionalString(bootstrap.adminDeploymentBranch) ?? "main",
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:
@@ -153,10 +195,39 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
           | "pending-owner-env"
           | "configured"
           | "failed"
-          | null) ?? (row.supabase_project_ref ? "configured" : "pending-owner-env"),
+          | null) ??
+        (databaseMode === "full_supabase"
+          ? row.supabase_project_ref
+            ? "configured"
+            : "pending-owner-env"
+          : "configured"),
+      adminDeployment: {
+        strategy:
+          (readOptionalString(asRecord(bootstrap.adminDeployment).strategy) as
+            | "build_server_ghcr"
+            | "legacy_git_push"
+            | null) ?? "build_server_ghcr",
+        image:
+          readOptionalString(asRecord(bootstrap.adminDeployment).image) ??
+          `ghcr.io/celebixco/${row.slug}-admin`,
+        imageTag:
+          readOptionalString(asRecord(bootstrap.adminDeployment).imageTag) ?? "production",
+        useBuildServer:
+          typeof asRecord(bootstrap.adminDeployment).useBuildServer === "boolean"
+            ? Boolean(asRecord(bootstrap.adminDeployment).useBuildServer)
+            : true,
+        buildServer:
+          readOptionalString(asRecord(bootstrap.adminDeployment).buildServer) ??
+          "celebix-build-01",
+        watchPaths: readStringArray(asRecord(bootstrap.adminDeployment).watchPaths).length > 0
+          ? readStringArray(asRecord(bootstrap.adminDeployment).watchPaths)
+          : ["apps/admin/**", "packages/**"],
+      },
     },
     storefront: {
       appDir: row.storefront_app_dir ?? undefined,
+      packageName:
+        readOptionalString(storefront.packageName) ?? `@celebix/storefront-${row.slug}`,
       status: row.storefront_status,
       lastScaffoldedAt: readOptionalString(storefront.lastScaffoldedAt) ?? row.updated_at,
       lastScaffoldError: readOptionalString(storefront.lastScaffoldError) ?? undefined,
@@ -167,6 +238,8 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       lastRepoSyncError: readOptionalString(storefront.lastRepoSyncError) ?? undefined,
       deploymentProvider: "coolify",
       deploymentName: readOptionalString(storefront.deploymentName) ?? `${row.slug}-storefront`,
+      deploymentBranch:
+        readOptionalString(storefront.deploymentBranch) ?? `deploy/storefront/${row.slug}`,
       runtimeUrl: storefrontRuntimeUrl,
       resourceId: readOptionalString(storefront.resourceId) ?? undefined,
       deploymentStatus:
@@ -180,6 +253,28 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       preparedAt: readOptionalString(storefront.preparedAt) ?? undefined,
       deployedAt: readOptionalString(storefront.deployedAt) ?? undefined,
       lastDeploymentError: readOptionalString(storefront.lastDeploymentError) ?? undefined,
+      deployment: {
+        strategy:
+          (readOptionalString(asRecord(storefront.deployment).strategy) as
+            | "build_server_ghcr"
+            | "legacy_git_push"
+            | null) ?? "build_server_ghcr",
+        image:
+          readOptionalString(asRecord(storefront.deployment).image) ??
+          `ghcr.io/celebixco/${row.slug}-storefront`,
+        imageTag:
+          readOptionalString(asRecord(storefront.deployment).imageTag) ?? "production",
+        useBuildServer:
+          typeof asRecord(storefront.deployment).useBuildServer === "boolean"
+            ? Boolean(asRecord(storefront.deployment).useBuildServer)
+            : true,
+        buildServer:
+          readOptionalString(asRecord(storefront.deployment).buildServer) ??
+          "celebix-build-01",
+        watchPaths: readStringArray(asRecord(storefront.deployment).watchPaths).length > 0
+          ? readStringArray(asRecord(storefront.deployment).watchPaths)
+          : [`apps/storefront-${row.slug}/**`, "packages/**"],
+      },
     },
     features:
       features.length > 0
@@ -216,11 +311,21 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
 
   const lines = [
     `STORE_SLUG=${config.slug}`,
-    "NEXT_PUBLIC_SUPABASE_URL=configure-in-env",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY=configure-in-env",
-    "SUPABASE_SERVICE_ROLE_KEY=configure-in-env",
+    `DATABASE_MODE=${config.databaseMode}`,
+    ...(config.databaseMode === "full_supabase"
+      ? [
+          "NEXT_PUBLIC_SUPABASE_URL=configure-in-env",
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY=configure-in-env",
+          "SUPABASE_SERVICE_ROLE_KEY=configure-in-env",
+        ]
+      : [
+          "DATABASE_URL=configure-per-store-database",
+          "DATABASE_DIRECT_URL=configure-per-store-admin-database",
+          "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
+        ]),
     `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,
+    `NEXT_PUBLIC_DEMO_DOMAIN=${config.domains.demo}`,
     `NEXT_PUBLIC_SITE_URL=https://${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_URL=https://${config.domains.admin}`,
     "",

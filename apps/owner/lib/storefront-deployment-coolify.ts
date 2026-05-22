@@ -283,6 +283,8 @@ function buildStorefrontAppPayload(
     git_repository: getRepositoryUrl(),
     git_branch: getRepositoryBranch(store),
     build_pack: "nixpacks",
+    docker_registry_image_name: blueprint.dockerImage,
+    docker_registry_image_tag: blueprint.dockerImageTag,
     name: blueprint.appName,
     description: `Celebix storefront deployment for ${store.slug}`,
     domains: blueprint.runtimeUrl,
@@ -295,6 +297,8 @@ function buildStorefrontAppPayload(
     health_check_path: "/api/public/runtime",
     health_check_port: blueprint.serverPort,
     is_force_https_enabled: true,
+    watch_paths: blueprint.watchPaths.join(","),
+    use_build_server: blueprint.useBuildServer,
     // Generated store apps should not redeploy on every repo push by default.
     is_auto_deploy_enabled: isGeneratedAutoDeployEnabled(),
     instant_deploy: false,
@@ -444,7 +448,11 @@ export async function provisionStorefrontDeploymentForStore(
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;
 
-  if (blueprint.status === "pending-owner-env" || blueprint.status === "pending-repo-sync") {
+  if (
+    blueprint.status === "pending-owner-env" ||
+    blueprint.status === "pending-repo-sync" ||
+    blueprint.status === "failed"
+  ) {
     updateStoreStorefrontDeploymentConfig(slug, {
       deploymentStatus: blueprint.status,
       deploymentName: blueprint.appName,

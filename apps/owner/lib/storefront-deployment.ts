@@ -22,6 +22,12 @@ export interface StorefrontDeploymentBlueprint {
   appName: string;
   runtimeUrl: string;
   resourceId: string | null;
+  deploymentStrategy: string;
+  dockerImage: string;
+  dockerImageTag: string;
+  useBuildServer: boolean;
+  buildServer: string;
+  watchPaths: string[];
   serverPort: string;
   workspace: string;
   installCommand: string;
@@ -279,6 +285,43 @@ function getSharedOptionalEnvEntries(): Record<string, string> {
 
 async function buildEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
   const adminEnvEntries = resolveAdminEnvEntries(store);
+
+  if (store.databaseMode === "light_postgres") {
+    const entries: Record<string, string> = {
+      ...buildPublicEnvEntries(store),
+      DATABASE_MODE: "light_postgres",
+      NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+      ...getSharedRedisEnvEntries(),
+      ...getSharedOptionalEnvEntries(),
+    };
+
+    for (const key of [
+      "DATABASE_URL",
+      "DATABASE_DIRECT_URL",
+      "DATABASE_POOL_MODE",
+      "CLOUDFLARE_ACCOUNT_ID",
+      "R2_ACCESS_KEY_ID",
+      "R2_SECRET_ACCESS_KEY",
+      "R2_BUCKET_NAME",
+      "R2_PUBLIC_URL",
+    ] as const) {
+      const value =
+        adminEnvEntries[key]?.trim() ||
+        (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
+        (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+
+      if (value) {
+        entries[key] = value;
+      }
+    }
+
+    if (entries.R2_PUBLIC_URL) {
+      entries.NEXT_PUBLIC_R2_PUBLIC_URL = entries.R2_PUBLIC_URL;
+    }
+
+    return entries;
+  }
+
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
   const configuredStoreUrl =
     store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
@@ -410,6 +453,7 @@ export async function getStorefrontDeploymentBlueprint(
   const store = requireStoreConfig(slug);
   const envEntries = await buildEnvEntries(store);
   const runtimeUrl = store.storefront?.runtimeUrl || `https://${store.domains.storefront}`;
+  const deploymentConfig = store.storefront?.deployment;
   const appDirectory = resolveAppDirectory(store);
   const packageJsonPath = resolvePackageJsonPath(store);
   const relativeAppDir = store.storefront?.appDir ?? null;
@@ -422,7 +466,11 @@ export async function getStorefrontDeploymentBlueprint(
   let runtimeConsistent = false;
   let runtimeMessage: string | null = null;
 
-  if (!requiredEnvReady) {
+  if (store.databaseMode === "light_postgres") {
+    status = "failed";
+    runtimeMessage =
+      "Storefront runtime halen Supabase env beklentisine bagli. light_postgres create default acik olsa da storefront deploy guard aktif.";
+  } else if (!requiredEnvReady) {
     status = "pending-owner-env";
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
   } else if (!packageJsonPath || !repoSynced) {
@@ -443,6 +491,13 @@ export async function getStorefrontDeploymentBlueprint(
     appName: store.storefront?.deploymentName || `${store.slug}-storefront`,
     runtimeUrl,
     resourceId: store.storefront?.resourceId ?? null,
+    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
+    dockerImage: deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`,
+    dockerImageTag: deploymentConfig?.imageTag ?? "production",
+    useBuildServer: deploymentConfig?.useBuildServer ?? true,
+    buildServer: deploymentConfig?.buildServer ?? "celebix-build-01",
+    watchPaths:
+      deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"],
     serverPort,
     workspace,
     installCommand: "npm ci --include=optional --no-audit --no-fund",

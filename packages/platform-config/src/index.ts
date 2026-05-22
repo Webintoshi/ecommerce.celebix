@@ -26,7 +26,9 @@ export interface StoreRegistryEntry {
   status: "draft" | "active" | "paused";
 }
 
+export type DatabaseMode = "light_postgres" | "full_supabase";
 export type SupabaseProvider = "managed" | "self_hosted_coolify";
+export type StoreProvisioningStatus = "pending-owner-env" | "configured" | "failed";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
 export type StorefrontDeploymentStatus =
   | "pending-owner-env"
@@ -34,6 +36,7 @@ export type StorefrontDeploymentStatus =
   | "prepared"
   | "configured"
   | "failed";
+export type DeploymentStrategy = "build_server_ghcr" | "legacy_git_push";
 
 export interface StoreThemeConfig {
   key: string;
@@ -54,8 +57,28 @@ export interface StoreBrandingConfig {
   defaultProductBrand?: string;
 }
 
+export interface StoreLightPostgresConfig {
+  cluster: string;
+  databaseName: string;
+  schemaProfile: "storefront_core";
+  provisioning: StoreProvisioningStatus;
+  provisionedAt?: string;
+  lastProvisionError?: string;
+  umamiReady?: boolean;
+}
+
+export interface GeneratedDeploymentConfig {
+  strategy: DeploymentStrategy;
+  image: string;
+  imageTag: string;
+  useBuildServer: boolean;
+  buildServer: string;
+  watchPaths: string[];
+}
+
 export interface StorefrontConfig {
   appDir?: string;
+  packageName?: string;
   status: StorefrontStatus;
   lastScaffoldedAt?: string;
   lastScaffoldError?: string;
@@ -72,22 +95,26 @@ export interface StorefrontConfig {
   preparedAt?: string;
   deployedAt?: string;
   lastDeploymentError?: string;
+  deployment?: GeneratedDeploymentConfig;
 }
 
 export interface StoreConfig {
   name: string;
   slug: string;
   status: "draft" | "active" | "paused";
+  databaseMode: DatabaseMode;
   theme: StoreThemeConfig;
   branding?: StoreBrandingConfig;
   domains: {
     storefront: string;
     admin: string;
+    demo: string;
   };
   owner: {
     createdBy: string;
     notes: string;
   };
+  lightPostgres?: StoreLightPostgresConfig;
   supabase: {
     projectRef: string;
     url: string;
@@ -107,6 +134,7 @@ export interface StoreConfig {
     createdAt: string;
     envTemplatePath: string;
     adminEnvLocalPath?: string;
+    authorityBranch?: string;
     coolifyProjectName?: string;
     adminDeploymentProvider?: "coolify";
     adminDeploymentName?: string;
@@ -124,7 +152,8 @@ export interface StoreConfig {
     supabaseDashboardUrl?: string;
     provisionedAt?: string;
     lastProvisionError?: string;
-    supabaseProvisioning: "pending-owner-env" | "configured" | "failed";
+    supabaseProvisioning: StoreProvisioningStatus;
+    adminDeployment?: GeneratedDeploymentConfig;
   };
   storefront?: StorefrontConfig;
   features: string[];
@@ -141,6 +170,7 @@ export interface CreateStoreInput {
   coolifyProjectName?: string;
   adminDeploymentName?: string;
   storefrontDeploymentName?: string;
+  databaseMode?: DatabaseMode;
 }
 
 export interface CreateStoreResult {
@@ -160,6 +190,15 @@ export interface StoreSupabaseUpdateInput {
   projectName?: string;
   resourceId?: string;
   lastProvisionError?: string;
+}
+
+export interface StoreLightPostgresUpdateInput {
+  cluster: string;
+  databaseName: string;
+  schemaProfile?: "storefront_core";
+  provisioningStatus: StoreProvisioningStatus;
+  lastProvisionError?: string;
+  umamiReady?: boolean;
 }
 
 export interface StoreR2UpdateInput {
@@ -284,7 +323,37 @@ function resolveDefaultSupabaseProvider(): SupabaseProvider {
   return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
 }
 
-function resolveDefaultRepositoryBranch(kind: "admin" | "storefront"): string {
+function resolveDefaultDatabaseMode(input?: string | null): DatabaseMode {
+  return input?.trim().toLowerCase() === "full_supabase"
+    ? "full_supabase"
+    : "light_postgres";
+}
+
+function resolveDefaultAuthorityBranch(): string {
+  return (
+    process.env.GITHUB_AUTHORITY_BRANCH?.trim() ||
+    process.env.OWNER_AUTHORITY_REPOSITORY_BRANCH?.trim() ||
+    "stores/authority"
+  );
+}
+
+function resolveBuildServerName(): string {
+  return process.env.CELEBIX_BUILD_SERVER_NAME?.trim() || "celebix-build-01";
+}
+
+function resolveBuildServerImageRepository(slug: string, target: "admin" | "storefront"): string {
+  return `ghcr.io/celebixco/${slug}-${target}`;
+}
+
+function resolveDeploymentStrategy(): DeploymentStrategy {
+  return "build_server_ghcr";
+}
+
+function resolveDefaultRepositoryBranch(kind: "admin" | "storefront", slug?: string): string {
+  if (kind === "storefront" && slug) {
+    return `deploy/storefront/${slug}`;
+  }
+
   const kindSpecific =
     kind === "admin"
       ? process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim()
@@ -296,6 +365,30 @@ function resolveDefaultRepositoryBranch(kind: "admin" | "storefront"): string {
     process.env.CELEBIX_GIT_BRANCH?.trim() ||
     "main"
   );
+}
+
+function resolveStorefrontAppDirectory(slug: string): string {
+  return `apps/storefront-${slug}`;
+}
+
+function resolveStorefrontPackageName(slug: string): string {
+  return `@celebix/storefront-${slug}`;
+}
+
+function resolveDemoDomain(slug: string): string {
+  return `${slug}.demo.celebix.co`;
+}
+
+function resolveLightPostgresCluster(): string {
+  return process.env.CELEBIX_LIGHT_POSTGRES_CLUSTER?.trim() || "celebix-light-postgres";
+}
+
+function buildAdminWatchPaths(): string[] {
+  return ["apps/admin/**", "packages/**"];
+}
+
+function buildStorefrontWatchPaths(slug: string): string[] {
+  return [`${resolveStorefrontAppDirectory(slug)}/**`, "packages/**"];
 }
 
 function ensureSlug(slug: string): string {
@@ -320,16 +413,43 @@ function ensureDomain(domain: string): string {
   return normalizedDomain;
 }
 
+function buildAdminDeploymentDefaults(slug: string): GeneratedDeploymentConfig {
+  return {
+    strategy: resolveDeploymentStrategy(),
+    image: resolveBuildServerImageRepository(slug, "admin"),
+    imageTag: "production",
+    useBuildServer: true,
+    buildServer: resolveBuildServerName(),
+    watchPaths: buildAdminWatchPaths(),
+  };
+}
+
+function buildStorefrontDeploymentDefaults(slug: string): GeneratedDeploymentConfig {
+  return {
+    strategy: resolveDeploymentStrategy(),
+    image: resolveBuildServerImageRepository(slug, "storefront"),
+    imageTag: "production",
+    useBuildServer: true,
+    buildServer: resolveBuildServerName(),
+    watchPaths: buildStorefrontWatchPaths(slug),
+  };
+}
+
 function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
   const defaultSupabaseProvider = resolveDefaultSupabaseProvider();
+  const databaseMode = resolveDefaultDatabaseMode(input.databaseMode);
   const coolifyProjectName = input.coolifyProjectName || input.name;
   const adminDeploymentName = input.adminDeploymentName || `${input.name} admin`;
   const storefrontDeploymentName = input.storefrontDeploymentName || `${input.name} websitesi`;
+  const adminDeployment = buildAdminDeploymentDefaults(input.slug);
+  const storefrontDeployment = buildStorefrontDeploymentDefaults(input.slug);
+  const storefrontAppDir = resolveStorefrontAppDirectory(input.slug);
 
   return {
     name: input.name,
     slug: input.slug,
     status: "draft",
+    databaseMode,
     theme: {
       key: input.theme,
       label: input.theme[0].toUpperCase() + input.theme.slice(1),
@@ -349,17 +469,28 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     },
     domains: {
       storefront: input.domain,
-      admin: `admin.${input.domain}`
+      admin: `admin.${input.domain}`,
+      demo: resolveDemoDomain(input.slug),
     },
     owner: {
       createdBy: "owner-panel",
       notes: "Merkezi owner panel uzerinden olusturuldu."
     },
+    lightPostgres: {
+      cluster: resolveLightPostgresCluster(),
+      databaseName: input.slug,
+      schemaProfile: "storefront_core",
+      provisioning: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+      umamiReady: true,
+    },
     supabase: {
       projectRef: "pending-owner-bootstrap",
       url: "configure-in-env",
       provider: defaultSupabaseProvider,
-      storage: "separate-project-per-store"
+      storage:
+        databaseMode === "full_supabase"
+          ? "separate-project-per-store"
+          : "disabled-by-database-mode",
     },
     r2: {
       provisioning: "pending-owner-env"
@@ -367,24 +498,30 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     bootstrap: {
       createdAt: new Date().toISOString(),
       envTemplatePath: `stores/${input.slug}/admin.env.example`,
+      authorityBranch: resolveDefaultAuthorityBranch(),
       coolifyProjectName,
       adminDeploymentProvider: "coolify",
       adminDeploymentName,
-      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin"),
+      adminDeploymentBranch: resolveDefaultRepositoryBranch("admin", input.slug),
       adminDeploymentRuntimeUrl: `https://admin.${input.domain}`,
       adminDeploymentResourceId: undefined,
       adminDeploymentStatus: "pending-owner-env",
       supabaseProvider: defaultSupabaseProvider,
-      supabaseProvisioning: "pending-owner-env"
+      supabaseProvisioning:
+        databaseMode === "full_supabase" ? "pending-owner-env" : "configured",
+      adminDeployment,
     },
     storefront: {
+      appDir: storefrontAppDir,
+      packageName: resolveStorefrontPackageName(input.slug),
       status: "not_started",
       repoSyncStatus: "pending",
       deploymentProvider: "coolify",
       deploymentName: storefrontDeploymentName,
-      deploymentBranch: resolveDefaultRepositoryBranch("storefront"),
+      deploymentBranch: resolveDefaultRepositoryBranch("storefront", input.slug),
       runtimeUrl: `https://${input.domain}`,
-      deploymentStatus: "pending-owner-env"
+      deploymentStatus: "pending-owner-env",
+      deployment: storefrontDeployment,
     },
     features: ["catalog", "orders", "customers", "discounts", "cms", "frontend_from_existing_store"]
   };
@@ -401,32 +538,49 @@ function buildRegistryEntry(config: StoreConfig): StoreRegistryEntry {
 }
 
 function buildAdminEnvTemplate(config: StoreConfig): string {
-  const supabaseUrlLine =
-    config.supabase.provider === "self_hosted_coolify"
-      ? "NEXT_PUBLIC_SUPABASE_URL=https://supabasekong-your-store-slug.127.0.0.1.sslip.io"
-      : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co";
+  const databaseEnvLines =
+    config.databaseMode === "full_supabase"
+      ? [
+          config.supabase.provider === "self_hosted_coolify"
+            ? "NEXT_PUBLIC_SUPABASE_URL=https://supabasekong-your-store-slug.127.0.0.1.sslip.io"
+            : "NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co",
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
+          "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",
+          "# Opsiyonel migration fallback",
+          "# SUPABASE_LEGACY_URL=https://your-old-project.supabase.co",
+          "# SUPABASE_LEGACY_ANON_KEY=your-old-anon-key",
+        ]
+      : [
+          "DATABASE_URL=configure-per-store-database",
+          "DATABASE_DIRECT_URL=configure-per-store-admin-database",
+          "DATABASE_POOL_MODE=session",
+          "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
+        ];
 
   return [
     `STORE_SLUG=${config.slug}`,
+    `DATABASE_MODE=${config.databaseMode}`,
     `CELEBIX_NEXT_BUILD_CPUS=${resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"])}`,
     "",
     "# Admin deployment blueprint",
     `# APP_NAME=${config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`}`,
     `# COOLIFY_PROJECT_NAME=${config.bootstrap?.coolifyProjectName ?? config.name}`,
+    `# AUTHORITY_BRANCH=${config.bootstrap?.authorityBranch ?? resolveDefaultAuthorityBranch()}`,
     `# APP_RUNTIME_URL=https://${config.domains.admin}`,
+    `# APP_DEMO_URL=https://${config.domains.demo}`,
+    `# DOCKER_IMAGE=${config.bootstrap?.adminDeployment?.image ?? resolveBuildServerImageRepository(config.slug, "admin")}`,
+    `# DOCKER_IMAGE_TAG=${config.bootstrap?.adminDeployment?.imageTag ?? "production"}`,
+    `# USE_BUILD_SERVER=${String(config.bootstrap?.adminDeployment?.useBuildServer ?? true)}`,
+    `# BUILD_SERVER=${config.bootstrap?.adminDeployment?.buildServer ?? resolveBuildServerName()}`,
     "# INSTALL_COMMAND=npm ci --include=optional --no-audit --no-fund",
     "# BUILD_COMMAND=npm run build --workspace @celebix/admin",
     "# START_COMMAND=npm run start --workspace @celebix/admin",
     "",
-    supabaseUrlLine,
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key",
-    "SUPABASE_SERVICE_ROLE_KEY=your-service-role-key",
-    "# Opsiyonel migration fallback",
-    "# SUPABASE_LEGACY_URL=https://your-old-project.supabase.co",
-    "# SUPABASE_LEGACY_ANON_KEY=your-old-anon-key",
+    ...databaseEnvLines,
     "",
     `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,
+    `NEXT_PUBLIC_DEMO_DOMAIN=${config.domains.demo}`,
     `NEXT_PUBLIC_SITE_URL=https://${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_URL=https://${config.domains.admin}`,
     `NEXT_PUBLIC_STORE_NAME=${config.name}`,
@@ -468,20 +622,43 @@ function inferStorefrontStatus(config: StoreConfig): StorefrontStatus {
   return config.storefront?.appDir ? "scaffolded" : "not_started";
 }
 
+function inferLightPostgresProvisioningStatus(
+  config: Pick<StoreConfig, "databaseMode" | "lightPostgres">,
+): StoreProvisioningStatus {
+  if (
+    config.lightPostgres?.provisioning === "configured" ||
+    config.lightPostgres?.provisioning === "failed"
+  ) {
+    return config.lightPostgres.provisioning;
+  }
+
+  if (config.databaseMode === "full_supabase") {
+    return "configured";
+  }
+
+  return config.lightPostgres?.databaseName ? "pending-owner-env" : "pending-owner-env";
+}
+
 function normalizeStoreConfig(config: StoreConfig): StoreConfig {
+  const databaseMode = resolveDefaultDatabaseMode(config.databaseMode);
   const supabaseProvider =
     config.supabase.provider ??
     config.bootstrap?.supabaseProvider ??
     resolveDefaultSupabaseProvider();
+  const adminDeploymentDefaults =
+    config.bootstrap?.adminDeployment ?? buildAdminDeploymentDefaults(config.slug);
+  const storefrontDeploymentDefaults =
+    config.storefront?.deployment ?? buildStorefrontDeploymentDefaults(config.slug);
   const normalizedBootstrap = {
     createdAt: config.bootstrap?.createdAt ?? new Date().toISOString(),
     envTemplatePath: config.bootstrap?.envTemplatePath ?? `stores/${config.slug}/admin.env.example`,
     adminEnvLocalPath: config.bootstrap?.adminEnvLocalPath,
+    authorityBranch: config.bootstrap?.authorityBranch ?? resolveDefaultAuthorityBranch(),
     coolifyProjectName: config.bootstrap?.coolifyProjectName ?? config.name,
     adminDeploymentProvider: config.bootstrap?.adminDeploymentProvider ?? "coolify",
     adminDeploymentName: config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`,
     adminDeploymentBranch:
-      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+      config.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", config.slug),
     adminDeploymentRuntimeUrl:
       config.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${config.domains.admin}`,
     adminDeploymentResourceId: config.bootstrap?.adminDeploymentResourceId,
@@ -498,12 +675,25 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     lastProvisionError: config.bootstrap?.lastProvisionError,
     supabaseProvisioning:
       config.bootstrap?.supabaseProvisioning ??
-      (config.supabase.projectRef && config.supabase.projectRef !== "pending-owner-bootstrap"
+      (databaseMode === "light_postgres"
+        ? "configured"
+        : config.supabase.projectRef && config.supabase.projectRef !== "pending-owner-bootstrap"
         ? "configured"
         : "pending-owner-env"),
+    adminDeployment: {
+      strategy: adminDeploymentDefaults.strategy ?? resolveDeploymentStrategy(),
+      image: adminDeploymentDefaults.image ?? resolveBuildServerImageRepository(config.slug, "admin"),
+      imageTag: adminDeploymentDefaults.imageTag ?? "production",
+      useBuildServer: adminDeploymentDefaults.useBuildServer ?? true,
+      buildServer: adminDeploymentDefaults.buildServer ?? resolveBuildServerName(),
+      watchPaths: adminDeploymentDefaults.watchPaths?.length
+        ? adminDeploymentDefaults.watchPaths
+        : buildAdminWatchPaths(),
+    },
   } satisfies NonNullable<StoreConfig["bootstrap"]>;
   const normalizedStorefront = {
-    appDir: config.storefront?.appDir,
+    appDir: config.storefront?.appDir ?? resolveStorefrontAppDirectory(config.slug),
+    packageName: config.storefront?.packageName ?? resolveStorefrontPackageName(config.slug),
     status: inferStorefrontStatus(config),
     lastScaffoldedAt: config.storefront?.lastScaffoldedAt,
     lastScaffoldError: config.storefront?.lastScaffoldError,
@@ -514,20 +704,56 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     deploymentProvider: config.storefront?.deploymentProvider ?? "coolify",
     deploymentName: config.storefront?.deploymentName ?? `${config.slug}-storefront`,
     deploymentBranch:
-      config.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+      config.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront", config.slug),
     runtimeUrl: config.storefront?.runtimeUrl ?? `https://${config.domains.storefront}`,
     resourceId: config.storefront?.resourceId,
     deploymentStatus: config.storefront?.deploymentStatus ?? "pending-owner-env",
     preparedAt: config.storefront?.preparedAt,
     deployedAt: config.storefront?.deployedAt,
     lastDeploymentError: config.storefront?.lastDeploymentError,
+    deployment: {
+      strategy: storefrontDeploymentDefaults.strategy ?? resolveDeploymentStrategy(),
+      image:
+        storefrontDeploymentDefaults.image ??
+        resolveBuildServerImageRepository(config.slug, "storefront"),
+      imageTag: storefrontDeploymentDefaults.imageTag ?? "production",
+      useBuildServer: storefrontDeploymentDefaults.useBuildServer ?? true,
+      buildServer: storefrontDeploymentDefaults.buildServer ?? resolveBuildServerName(),
+      watchPaths: storefrontDeploymentDefaults.watchPaths?.length
+        ? storefrontDeploymentDefaults.watchPaths
+        : buildStorefrontWatchPaths(config.slug),
+    },
   } satisfies NonNullable<StoreConfig["storefront"]>;
+  const normalizedDomains = {
+    storefront: config.domains.storefront,
+    admin: config.domains.admin,
+    demo: config.domains.demo ?? resolveDemoDomain(config.slug),
+  } satisfies StoreConfig["domains"];
+  const normalizedLightPostgres = {
+    cluster: config.lightPostgres?.cluster ?? resolveLightPostgresCluster(),
+    databaseName: config.lightPostgres?.databaseName ?? config.slug,
+    schemaProfile: config.lightPostgres?.schemaProfile ?? "storefront_core",
+    provisioning: inferLightPostgresProvisioningStatus({
+      databaseMode,
+      lightPostgres: config.lightPostgres,
+    }),
+    provisionedAt: config.lightPostgres?.provisionedAt,
+    lastProvisionError: config.lightPostgres?.lastProvisionError,
+    umamiReady: config.lightPostgres?.umamiReady ?? true,
+  } satisfies NonNullable<StoreConfig["lightPostgres"]>;
 
   return {
     ...config,
+    databaseMode,
+    domains: normalizedDomains,
+    lightPostgres: normalizedLightPostgres,
     supabase: {
       ...config.supabase,
       provider: supabaseProvider,
+      storage:
+        databaseMode === "full_supabase"
+          ? config.supabase.storage || "separate-project-per-store"
+          : "disabled-by-database-mode",
     },
     r2: {
       ...config.r2,
@@ -727,6 +953,7 @@ export function createStore(input: CreateStoreInput): CreateStoreResult {
     coolifyProjectName: input.coolifyProjectName?.trim() || name,
     adminDeploymentName: input.adminDeploymentName?.trim() || `${name} admin`,
     storefrontDeploymentName: input.storefrontDeploymentName?.trim() || `${name} websitesi`,
+    databaseMode: resolveDefaultDatabaseMode(input.databaseMode),
   });
 
   const registryEntry = buildRegistryEntry(config);
@@ -759,6 +986,7 @@ export function updateStoreConfig(slug: string, updater: (current: StoreConfig) 
 export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpdateInput): StoreConfig {
   return updateStoreConfig(slug, (current) => ({
     ...current,
+    databaseMode: "full_supabase",
     supabase: {
       ...current.supabase,
       projectRef: input.projectRef,
@@ -770,11 +998,12 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: input.adminEnvLocalPath ?? current.bootstrap?.adminEnvLocalPath,
+      authorityBranch: current.bootstrap?.authorityBranch ?? resolveDefaultAuthorityBranch(),
       coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", slug),
       adminDeploymentRuntimeUrl: current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: current.bootstrap?.adminDeploymentStatus ?? "pending-owner-env",
@@ -788,8 +1017,44 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
       supabaseDashboardUrl: input.dashboardUrl ?? current.bootstrap?.supabaseDashboardUrl,
       provisionedAt: input.provisioningStatus === "configured" ? new Date().toISOString() : current.bootstrap?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
-      supabaseProvisioning: input.provisioningStatus
+      supabaseProvisioning: input.provisioningStatus,
+      adminDeployment:
+        current.bootstrap?.adminDeployment ?? buildAdminDeploymentDefaults(slug),
     }
+  }));
+}
+
+export function updateStoreLightPostgresConfig(
+  slug: string,
+  input: StoreLightPostgresUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => ({
+    ...current,
+    databaseMode: "light_postgres",
+    lightPostgres: {
+      cluster: input.cluster,
+      databaseName: input.databaseName,
+      schemaProfile: input.schemaProfile ?? "storefront_core",
+      provisioning: input.provisioningStatus,
+      provisionedAt:
+        input.provisioningStatus === "configured"
+          ? new Date().toISOString()
+          : current.lightPostgres?.provisionedAt,
+      lastProvisionError: input.lastProvisionError,
+      umamiReady: input.umamiReady ?? current.lightPostgres?.umamiReady ?? true,
+    },
+    bootstrap: {
+      ...(current.bootstrap ?? {
+        createdAt: new Date().toISOString(),
+        envTemplatePath: `stores/${slug}/admin.env.example`,
+        supabaseProvisioning: "configured" as StoreProvisioningStatus,
+      }),
+      authorityBranch: current.bootstrap?.authorityBranch ?? resolveDefaultAuthorityBranch(),
+      adminDeployment:
+        current.bootstrap?.adminDeployment ?? buildAdminDeploymentDefaults(slug),
+      lastProvisionError: input.lastProvisionError,
+      supabaseProvisioning: "configured",
+    },
   }));
 }
 
@@ -800,11 +1065,12 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       createdAt: current.bootstrap?.createdAt ?? new Date().toISOString(),
       envTemplatePath: current.bootstrap?.envTemplatePath ?? `stores/${slug}/admin.env.example`,
       adminEnvLocalPath: current.bootstrap?.adminEnvLocalPath,
+      authorityBranch: current.bootstrap?.authorityBranch ?? resolveDefaultAuthorityBranch(),
       coolifyProjectName: current.bootstrap?.coolifyProjectName ?? current.name,
       adminDeploymentProvider: current.bootstrap?.adminDeploymentProvider ?? "coolify",
       adminDeploymentName: input.deploymentName ?? current.bootstrap?.adminDeploymentName ?? `${slug}-admin`,
       adminDeploymentBranch:
-        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin"),
+        current.bootstrap?.adminDeploymentBranch ?? resolveDefaultRepositoryBranch("admin", slug),
       adminDeploymentRuntimeUrl: input.runtimeUrl ?? current.bootstrap?.adminDeploymentRuntimeUrl ?? `https://${current.domains.admin}`,
       adminDeploymentResourceId: input.resourceId ?? current.bootstrap?.adminDeploymentResourceId,
       adminDeploymentStatus: input.deploymentStatus,
@@ -821,7 +1087,9 @@ export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdmin
       supabaseDashboardUrl: current.bootstrap?.supabaseDashboardUrl,
       provisionedAt: current.bootstrap?.provisionedAt,
       lastProvisionError: current.bootstrap?.lastProvisionError,
-      supabaseProvisioning: current.bootstrap?.supabaseProvisioning ?? "pending-owner-env"
+      supabaseProvisioning: current.bootstrap?.supabaseProvisioning ?? "pending-owner-env",
+      adminDeployment:
+        current.bootstrap?.adminDeployment ?? buildAdminDeploymentDefaults(slug),
     }
   }));
 }
@@ -892,6 +1160,7 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
     ...current,
     storefront: {
       appDir: input.appDir,
+      packageName: current.storefront?.packageName ?? resolveStorefrontPackageName(slug),
       status: input.status,
       lastScaffoldedAt: input.status === "scaffolded" || input.status === "active" ? new Date().toISOString() : current.storefront?.lastScaffoldedAt,
       lastScaffoldError: input.lastScaffoldError,
@@ -902,13 +1171,15 @@ export function updateStoreStorefrontConfig(slug: string, input: StorefrontUpdat
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront", slug),
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
       preparedAt: current.storefront?.preparedAt,
       deployedAt: current.storefront?.deployedAt,
-      lastDeploymentError: current.storefront?.lastDeploymentError
+      lastDeploymentError: current.storefront?.lastDeploymentError,
+      deployment:
+        current.storefront?.deployment ?? buildStorefrontDeploymentDefaults(slug),
     }
   }));
 }
@@ -921,6 +1192,7 @@ export function updateStoreStorefrontDeploymentConfig(
     ...current,
     storefront: {
       appDir: current.storefront?.appDir,
+      packageName: current.storefront?.packageName ?? resolveStorefrontPackageName(slug),
       status:
         input.deploymentStatus === "configured"
           ? "active"
@@ -934,7 +1206,7 @@ export function updateStoreStorefrontDeploymentConfig(
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: input.deploymentName ?? current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront", slug),
       runtimeUrl: input.runtimeUrl ?? current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: input.resourceId ?? current.storefront?.resourceId,
       deploymentStatus: input.deploymentStatus,
@@ -944,7 +1216,9 @@ export function updateStoreStorefrontDeploymentConfig(
           ? new Date().toISOString()
           : current.storefront?.preparedAt),
       deployedAt: input.deployedAt ?? current.storefront?.deployedAt,
-      lastDeploymentError: input.lastError
+      lastDeploymentError: input.lastError,
+      deployment:
+        current.storefront?.deployment ?? buildStorefrontDeploymentDefaults(slug),
     }
   }));
 }
@@ -957,6 +1231,7 @@ export function updateStoreStorefrontRepoSyncConfig(
     ...current,
     storefront: {
       appDir: current.storefront?.appDir,
+      packageName: current.storefront?.packageName ?? resolveStorefrontPackageName(slug),
       status: current.storefront?.status ?? "not_started",
       lastScaffoldedAt: current.storefront?.lastScaffoldedAt,
       lastScaffoldError: current.storefront?.lastScaffoldError,
@@ -969,13 +1244,15 @@ export function updateStoreStorefrontRepoSyncConfig(
       deploymentProvider: current.storefront?.deploymentProvider ?? "coolify",
       deploymentName: current.storefront?.deploymentName ?? `${slug}-storefront`,
       deploymentBranch:
-        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront"),
+        current.storefront?.deploymentBranch ?? resolveDefaultRepositoryBranch("storefront", slug),
       runtimeUrl: current.storefront?.runtimeUrl ?? `https://${current.domains.storefront}`,
       resourceId: current.storefront?.resourceId,
       deploymentStatus: current.storefront?.deploymentStatus ?? "pending-owner-env",
       preparedAt: current.storefront?.preparedAt,
       deployedAt: current.storefront?.deployedAt,
-      lastDeploymentError: current.storefront?.lastDeploymentError
+      lastDeploymentError: current.storefront?.lastDeploymentError,
+      deployment:
+        current.storefront?.deployment ?? buildStorefrontDeploymentDefaults(slug),
     }
   }));
 }

@@ -101,13 +101,25 @@ function getGitHubRepository(): string {
   );
 }
 
-function getGitHubBranch(): string {
+function getBaseGitHubBranch(): string {
   return (
     process.env.GITHUB_SYNC_BRANCH?.trim() ||
     process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
     process.env.CELEBIX_GIT_BRANCH?.trim() ||
     "main"
   );
+}
+
+function getAuthorityGitHubBranch(): string {
+  return (
+    process.env.GITHUB_AUTHORITY_BRANCH?.trim() ||
+    process.env.OWNER_AUTHORITY_REPOSITORY_BRANCH?.trim() ||
+    "stores/authority"
+  );
+}
+
+function getStorefrontGitHubBranch(slug: string): string {
+  return requireStoreConfig(slug).storefront?.deploymentBranch?.trim() || `deploy/storefront/${slug}`;
 }
 
 function getCommitterName(): string {
@@ -147,6 +159,49 @@ async function githubFetch<T>(pathname: string, init: RequestInit = {}): Promise
   }
 
   return (await response.json()) as T;
+}
+
+function isGitHubNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("GitHub API hatasi (404)");
+}
+
+async function getBranchHeadSha(repository: string, branch: string): Promise<string | null> {
+  try {
+    const ref = await githubFetch<GitHubRefResponse>(
+      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
+    );
+    return ref.object?.sha ?? null;
+  } catch (error) {
+    if (isGitHubNotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function ensureBranch(repository: string, branch: string, baseBranch: string): Promise<string> {
+  const existingHeadSha = await getBranchHeadSha(repository, branch);
+
+  if (existingHeadSha) {
+    return existingHeadSha;
+  }
+
+  const baseHeadSha = await getBranchHeadSha(repository, baseBranch);
+
+  if (!baseHeadSha) {
+    throw new Error(`GitHub base branch referansi okunamadi: ${baseBranch}`);
+  }
+
+  await githubFetch(`/repos/${repository}/git/refs`, {
+    method: "POST",
+    body: JSON.stringify({
+      ref: `refs/heads/${branch}`,
+      sha: baseHeadSha,
+    }),
+  });
+
+  return baseHeadSha;
 }
 
 function collectFilesRecursively(directory: string): string[] {
@@ -233,18 +288,18 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
 
 async function syncGitHubFiles(input: {
   slug: string;
+  branch: string;
+  baseBranch?: string;
   files: Array<{ absolutePath: string; relativePath: string }>;
   commitMessage: string;
 }): Promise<StorefrontRepoSyncResult> {
   const repository = getGitHubRepository();
-  const branch = getGitHubBranch();
+  const branch = input.branch;
+  const baseBranch = input.baseBranch ?? getBaseGitHubBranch();
   const syncedAt = new Date().toISOString();
 
   try {
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
+    const headSha = await ensureBranch(repository, branch, baseBranch);
 
     if (!headSha) {
       throw new Error("GitHub branch referansi okunamadi.");
@@ -378,7 +433,7 @@ export async function deleteStorefrontRepoForStore(
   options: { storefrontAppDir?: string | null } = {},
 ): Promise<StorefrontRepoDeleteResult> {
   const repository = getGitHubRepository();
-  const branch = getGitHubBranch();
+  const branch = getStorefrontGitHubBranch(slug);
   const deletedAt = new Date().toISOString();
 
   if (!isGitHubRepoSyncConfigured()) {
@@ -396,13 +451,18 @@ export async function deleteStorefrontRepoForStore(
   try {
     const repoRoot = getRepoRoot();
     const relativeAppDir = normalizeRelativeAppDir(options.storefrontAppDir, slug);
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
+    const headSha = await getBranchHeadSha(repository, branch);
 
     if (!headSha) {
-      throw new Error("GitHub branch referansi okunamadi.");
+      return {
+        repository,
+        branch,
+        status: "missing",
+        commitSha: null,
+        deletedAt,
+        message: "Storefront remote branch bulunamadi.",
+        deletedPaths: [],
+      };
     }
 
     const headCommit = await githubFetch<GitHubCommitResponse>(
@@ -557,11 +617,8 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
     }
 
     const repository = getGitHubRepository();
-    const branch = getGitHubBranch();
-    const ref = await githubFetch<GitHubRefResponse>(
-      `/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
-    );
-    const headSha = ref.object?.sha;
+    const branch = getStorefrontGitHubBranch(slug);
+    const headSha = await getBranchHeadSha(repository, branch);
 
     if (!headSha) {
       return false;
@@ -599,15 +656,41 @@ export async function checkStorefrontRepoSyncOnGithub(slug: string): Promise<boo
 export async function syncStoreAuthorityRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
   return syncGitHubFiles({
     slug,
+    branch: getAuthorityGitHubBranch(),
+    baseBranch: getBaseGitHubBranch(),
     files: resolveAuthorityFiles(slug),
     commitMessage: `chore: sync store authority for ${slug}`,
   });
 }
 
 export async function syncStorefrontRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
-  return syncGitHubFiles({
+  const result = await syncGitHubFiles({
     slug,
+    branch: getStorefrontGitHubBranch(slug),
+    baseBranch: getBaseGitHubBranch(),
     files: resolveRepoFiles(slug),
     commitMessage: `chore: sync storefront scaffold for ${slug}`,
   });
+
+  if (result.status !== "synced") {
+    return result;
+  }
+
+  if (!(await checkStorefrontRepoSyncOnGithub(slug))) {
+    updateStoreStorefrontRepoSyncConfig(slug, {
+      syncStatus: "failed",
+      syncedAt: result.syncedAt ?? undefined,
+      lastError: "Storefront exact-branch verification basarisiz oldu.",
+    });
+
+    return {
+      ...result,
+      status: "failed",
+      commitSha: null,
+      message: "Storefront exact-branch verification basarisiz oldu.",
+      committedPaths: [],
+    };
+  }
+
+  return result;
 }

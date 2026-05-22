@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createStore } from "@celebix/platform-config";
+import { createStore, type DatabaseMode } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { listDashboardStores, recordOwnerAuditLog } from "@/lib/control-plane";
 import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
@@ -59,6 +59,7 @@ export async function POST(request: Request) {
       coolifyProjectName?: string;
       adminDeploymentName?: string;
       storefrontDeploymentName?: string;
+      databaseMode?: DatabaseMode;
       packageStartDate?: string;
       packageDurationMonths?: number | string | null;
     };
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
       coolifyProjectName: body.coolifyProjectName,
       adminDeploymentName: body.adminDeploymentName,
       storefrontDeploymentName: body.storefrontDeploymentName,
+      databaseMode: body.databaseMode,
     });
 
     const workflow = await runStoreProvisioningWorkflow({

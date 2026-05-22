@@ -26,6 +26,12 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
 }
 
 export async function provisionSupabaseForStore(store: StoreConfig): Promise<SupabaseProvisioningResult> {
+  if (store.databaseMode !== "full_supabase") {
+    throw new Error(
+      "Bu magaza full_supabase explicit mode olmadan legacy Supabase provisioning akisina giremez.",
+    );
+  }
+
   return resolveSupabaseBootstrapProvider() === "self_hosted_coolify"
     ? provisionCoolifySupabaseForStore(store)
     : provisionManagedSupabaseForStore(store);

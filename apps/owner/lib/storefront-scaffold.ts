@@ -189,10 +189,12 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
   return {
     CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(3, ["CELEBIX_STOREFRONT_BUILD_CPUS"]),
     STORE_SLUG: store.slug,
+    DATABASE_MODE: store.databaseMode,
     NEXT_PUBLIC_SITE_URL: normalizeUrl(store.domains.storefront),
     NEXT_PUBLIC_ADMIN_URL: normalizeUrl(store.domains.admin),
     NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
     NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
+    NEXT_PUBLIC_DEMO_DOMAIN: store.domains.demo,
     NEXT_PUBLIC_STORE_NAME: store.name,
     NEXT_PUBLIC_STORE_TAGLINE:
       store.branding?.tagline || `${store.name} icin Celebix storefront referansi`,
@@ -209,15 +211,27 @@ function buildStorefrontPublicEnv(store: StoreConfig): Record<string, string> {
 }
 
 function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
+  const databaseEnv: Record<string, string> =
+    store.databaseMode === "full_supabase"
+      ? {
+          NEXT_PUBLIC_SUPABASE_URL:
+            store.supabase.url !== "configure-in-env"
+              ? store.supabase.url
+              : "https://your-project-ref.supabase.co",
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "configure-per-store",
+          SUPABASE_SERVICE_ROLE_KEY: "configure-per-store-service-role",
+        }
+      : {
+          DATABASE_URL: "configure-per-store-database",
+          DATABASE_DIRECT_URL: "configure-per-store-admin-database",
+          DATABASE_POOL_MODE: "session",
+          NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+        };
+
   return {
     ...buildStorefrontPublicEnv(store),
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: getConfiguredImageTransformationUrl(),
-    NEXT_PUBLIC_SUPABASE_URL:
-      store.supabase.url !== "configure-in-env"
-        ? store.supabase.url
-        : "https://your-project-ref.supabase.co",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: "configure-per-store",
-    SUPABASE_SERVICE_ROLE_KEY: "configure-per-store-service-role",
+    ...databaseEnv,
     REDIS_URL: "redis://your-coolify-redis:6379",
     REDIS_PREFIX: "celebix",
     CLOUDFLARE_ACCOUNT_ID: "your-r2-account-id",
@@ -542,7 +556,11 @@ export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontSca
     ...buildStorefrontPublicEnv(store),
   };
 
-  if (!envLocalEntries.NEXT_PUBLIC_SUPABASE_URL && store.supabase.url !== "configure-in-env") {
+  if (
+    store.databaseMode === "full_supabase" &&
+    !envLocalEntries.NEXT_PUBLIC_SUPABASE_URL &&
+    store.supabase.url !== "configure-in-env"
+  ) {
     envLocalEntries.NEXT_PUBLIC_SUPABASE_URL = store.supabase.url;
   }
 

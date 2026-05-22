@@ -3,7 +3,13 @@ import "server-only";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 
 export type ProvisioningState = "ready" | "running" | "pending_repair";
-export type ProvisioningStepStatus = "pending" | "running" | "completed" | "failed" | "skipped";
+export type ProvisioningStepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "skipped"
+  | "blocked";
 export type CleanupRunStatus = "resolved" | "orphaned";
 
 export type ProvisioningStepKey =
@@ -65,7 +71,7 @@ export interface CleanupRunSummary {
 const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   owner_supabase_auth: "Owner Supabase authority",
   cleanup_guard: "Cleanup tombstone guard",
-  supabase_preflight: "Supabase bootstrap preflight",
+  supabase_preflight: "Database bootstrap preflight",
   r2_preflight: "R2 bootstrap preflight",
   coolify_preflight: "Coolify preflight",
   github_preflight: "GitHub sync preflight",
@@ -73,7 +79,7 @@ const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   generated_apps_toggle: "Generated apps toggle",
   authority_repo_sync: "Authority repo sync",
   management_profile: "Owner management profile",
-  supabase_provision: "Supabase provisioning",
+  supabase_provision: "Database provisioning",
   starter_seed: "Starter content seed",
   r2_provision: "R2 provisioning",
   admin_blueprint: "Admin blueprint",
@@ -111,7 +117,8 @@ function normalizeProvisioningStepStatus(value: unknown): ProvisioningStepStatus
     value === "running" ||
     value === "completed" ||
     value === "failed" ||
-    value === "skipped"
+    value === "skipped" ||
+    value === "blocked"
     ? value
     : "pending";
 }
@@ -289,7 +296,9 @@ export async function persistProvisioningSummary(
 }
 
 export function getProvisioningBlockers(summary: ProvisioningSummary): ProvisioningStepSummary[] {
-  return summary.steps.filter((step) => step.status === "failed" && step.blocking);
+  return summary.steps.filter(
+    (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
+  );
 }
 
 export async function upsertProvisioningStep(

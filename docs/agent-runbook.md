@@ -1,214 +1,173 @@
 # Agent Runbook
 
-Bu dokuman, Celebix monorepo icinde calisan baska agentlerin owner, admin, storefront ve provisioning akisini dogru kullanabilmesi icin hazirlanmistir.
+Bu dokuman, owner provisioning veya store launch akisina dokunan agentlerin yeni standart davranisi bozmadan calisabilmesi icin hazirlanmistir.
 
 ## Temel Gercekler
 
-- Ortak kod tabani vardir:
+- Owner control plane ortak kodu:
   - `apps/owner`
+- Admin ortak uygulama kodu:
   - `apps/admin`
+- Yeni storefront starter kaynagi:
   - `apps/storefront-base`
-- Veri merkezi degildir.
-- Her magaza kendi veritabanina gider.
-- Owner merkezi kontrol panelidir.
-- Admin ortak koddur ama store bazli deployment/env ile calisir.
-- Storefront yeni magazalar icin `apps/storefront-base` uzerinden scaffold edilir.
+- Authority:
+  - `stores/<slug>/store.config.json`
+  - `stores/registry.json`
+  - owner DB metadata
 
-## Dogru Mimari
+## Yeni Store Standardi
 
-- `owner`
-  - merkezi control plane
-  - store authority
-  - provisioning ve health
-- `admin`
-  - ortak admin kodu
-  - her store icin ayri deployment/env
-  - hedef store'un self-hosted Supabase'ine baglanir
-- `storefront`
-  - her store icin ayri deployment
-  - `apps/storefront-base` premium starter theme kaynagidir
-- `supabase`
-  - her store icin ayri self-hosted Supabase
-  - owner icin ayri self-hosted Supabase
-- `redis`
-  - shared cache/presence/rate limit katmani
-- `r2`
-  - medya ve public asset katmani
+Yeni store acilisinda varsayilan database mode artik `light_postgres`'tir.
+
+- default:
+  - `light_postgres`
+- legacy explicit:
+  - `full_supabase`
+- storage:
+  - Cloudflare R2
+- deploy:
+  - build-server + GHCR authority modeli
+- demo domain:
+  - `<slug>.demo.celebix.co`
+
+Bir agent yeni store create koduna dokunuyorsa ilk varsayim su olmalidir:
+
+- "Bu store full Supabase degil, light Postgres store-per-database ile acilacak"
 
 ## Source Of Truth
 
-Bir store icin dogru bilgiler su kaynaklardan okunur:
+Bir store icin authoritative veri kaynaklari:
 
 1. `stores/<slug>/store.config.json`
 2. owner DB:
    - `owner_stores`
    - `owner_store_secrets`
-3. canli runtime health endpointleri
+3. runtime health endpointleri
 
 Tek basina `.env` authoritative degildir.
 
-## Supabase Kurallari
+## Database Mode Kurallari
 
-- Storefront/admin icin gercek domain kullanilir.
-- Supabase icin musteri domaini kullanilmaz.
-- Self-hosted Supabase stock host ile kullanilir:
-  - ornek: `https://supabasekong-<slug>.<ip>.sslip.io`
-- Ham `:8000` ve `:8001` URL'leri kullanilmaz.
-- Studio icin portsuz clean URL tercih edilir.
+### light_postgres
 
-## Admin Kurallari
+- `databaseMode` verilmezse otomatik secilir.
+- Shared cluster:
+  - `celebix-light-postgres`
+- Database name:
+  - `<slug>`
+- Minimal schema:
+  - `products`
+  - `product_variants`
+  - `categories`
+  - `settings`
+  - `pages`
 
-- `apps/admin` tek bir ortak kod tabanidir.
-- Bu, tek bir merkezi veritabani kullandigi anlamina gelmez.
-- Her store icin admin deployment ayri dusunulur.
-- `panel.celebix.co` bugun aktif store admini olabilir; bunu coklu-tenant merkezi admin sanma.
+### full_supabase
 
-Bir agent asla sunu varsaymamalidir:
+- Sadece explicit `databaseMode=full_supabase` ile acilir.
+- Varsayilan akisi bypass etmez.
+- Self-hosted legacy path icin optional sidecar default-off guard zorunludur:
+  - `SELF_HOSTED_SUPABASE_DISABLE_STUDIO=true`
+  - `SELF_HOSTED_SUPABASE_DISABLE_ANALYTICS=true`
+  - `SELF_HOSTED_SUPABASE_DISABLE_VECTOR=true`
 
-- "Tum magazalar tek panel ve tek DB ile yurutuluyor"
+## Create Flow
 
-Dogru varsayim:
+Yeni store create akisinda agent su sirayi beklemelidir:
 
-- "Ortak admin kodu var, store bazli deployment/env ve store bazli DB var"
+1. Store kaydi acilir.
+2. Authority dosyalari yazilir.
+3. `databaseMode` metadata'ya kalici yazilir.
+4. Erken persistence alanlari yazilir:
+   - `storefront.appDir`
+   - `storefront.packageName`
+   - `storefront.deploymentBranch`
+5. Database provisioning calisir.
+6. R2 provisioning calisir.
+7. Storefront scaffold olusur.
+8. Storefront repo sync exact branch'e gider.
+9. Deploy blueprint'leri hazirlanir.
+10. Runtime consistency daha sonra owner health ekranindan izlenir.
 
-## Owner Create Flow
+## Branch ve Deploy Guard
 
-Yeni proje owner panelden acildiginda hedef akis su sekildedir:
+Authority-only commitler deploy tetiklememelidir.
 
-1. Store kaydi acilir
-2. `stores/<slug>/store.config.json` yazilir
-3. `stores/registry.json` guncellenir
-4. `stores/<slug>/admin.env.example` uretilir
-5. Self-hosted Supabase provisioning denenir
-6. R2 bucket provisioning denenir
-7. Admin deployment blueprint hazirlanir
-8. Admin deployment Coolify uzerinden create/update edilir
-9. Storefront scaffold olusturulur
-10. Scaffold dosyalari GitHub'a sync edilmeye calisilir
-11. Storefront deployment blueprint hazirlanir
-12. Storefront deployment Coolify uzerinden create/update edilir
-13. Runtime health sonradan owner health ekranindan izlenir
+- authority branch:
+  - varsayilan `stores/authority`
+- storefront deploy branch:
+  - `deploy/storefront/<slug>`
+- generated admin image:
+  - `ghcr.io/celebixco/<slug>-admin:production`
+- generated storefront image:
+  - `ghcr.io/celebixco/<slug>-storefront:production`
+- build server:
+  - `celebix-build-01`
 
-Onemli:
+Generated app payload'larinda su guard'lar beklenir:
 
-- Store create request'i artik runtime'in ayaga kalkmasini bloklayarak beklememelidir.
-- Runtime consistency asenkron health/consistency ekranindan izlenir.
+- `use_build_server = true`
+- `docker_registry_image_name` dolu
+- `docker_registry_image_tag = production`
+- `watch_paths` authority-only `stores/**` commitlerini izlemeyecek
+- auto deploy default off
 
-## Theme Standardi
+## Runtime Guard
 
-Yeni magazalar sifirdan bos theme ile acilmamalidir.
+Bu branch'te admin/storefront runtime kodu halen Supabase bagimliligindan tamamen ayrismis degildir.
 
-Dogru yaklasim:
+Bu nedenle agent sunu normal kabul etmelidir:
 
-- `apps/storefront-base`
-  - premium starter theme
-  - Derycraft kalitesine yakin ortak omurga
-  - store-specific veri yerine placeholder / generic veri
+- light-postgres create path authority, branch ve DB modelini hazirlar
+- admin/storefront deploy blueprint'leri light-postgres store icin `failed` guard dondurur
 
-Bir agent yeni magaza icin Derycraft'i kopyalamamali.
+Bu guard bir bug gizlemez. Tam tersine eksik runtime adaptasyonunu acikca durdurur.
 
-Dogru is:
+## State Kurallari
 
-- `apps/storefront-base` gelistirilir
-- yeni store oradan scaffold edilir
+- Bir provisioning step fail olursa top-level state `running` kalmamalidir.
+- Downstream step'ler `blocked` yazilmalidir.
+- `lastError` dolu olmalidir.
+- Repair akisi `failed` ve `blocked` step'leri yeniden ele alabilmelidir.
 
-## Health Ve Smoke Test
+## Cleanup Standardi
 
-Bir store acildiktan sonra agent su kontrolleri yapmalidir:
+Yeni store cleanup planinda asagidaki authority alanlari hesaba katilmalidir:
 
-### Owner
+- owner DB row ve metadata
+- `stores/registry.json`
+- `stores/<slug>/store.config.json`
+- `stores/<slug>/admin.env.example`
+- `storefront.appDir`
+- `storefront.deploymentBranch`
+- `lightPostgres.databaseName`
+- R2 bucket/public URL
+- demo domain referansi
+- GHCR image adlari
 
-- `GET /api/stores/<slug>`
-- `GET /api/stores/<slug>/consistency`
+Canli cleanup bu runbook'ta calistirilmaz; burada sadece kapsam tanimlanir.
 
-### Admin
+## Dry-Run Validation
 
-- `POST /api/auth/login`
-- `GET /api/public/runtime`
-- `GET /api/admin/me`
-- `GET /api/settings?type=general`
+Kod degisikliklerinden sonra agent sunlari kosmalidir:
 
-### Storefront
+1. `npm run typecheck --workspace @celebix/owner`
+2. `npm run build --workspace @celebix/owner`
+3. `npm run typecheck --workspace @celebix/platform-config`
+4. `git diff --check`
 
-- `GET /api/public/runtime`
-- ana sayfa aciliyor mu
-- locale prefix calisiyor mu
+Ek dry-run senaryolari:
 
-### Infra
+1. default `databaseMode` = `light_postgres`
+2. explicit `full_supabase` olmadan legacy path'e girilmiyor
+3. full Supabase sidecar guard eksikken preflight fail ediyor
+4. storefront exact branch `deploy/storefront/<slug>` olusuyor
+5. build-server/GHCR defaults authority'de dolu geliyor
+6. fail sonrasi kalan step'ler `blocked` yaziliyor
 
-- store icin tek aktif Supabase service var mi
-- admin deployment olusmus mu
-- storefront deployment olusmus mu
-- R2 bucket/public url var mi
+## Pratik Kurallar
 
-## Sik Yapilan Hatalar
-
-### 1. Supabase icin musteri domaini acmak
-
-Yanlis.
-
-Dogru:
-
-- Supabase stock host ile calisir
-
-### 2. `:8000` adresini Studio sanmak
-
-Yanlis.
-
-Dogru:
-
-- owner metadata'daki clean dashboard URL kullanilir
-
-### 3. `apps/admin`i merkezi multi-tenant admin sanmak
-
-Yanlis.
-
-Dogru:
-
-- ortak kod + store bazli deployment/env
-
-### 4. Store create request'inde canli runtime'i dakikalarca beklemek
-
-Yanlis.
-
-Dogru:
-
-- deploy tetiklenir
-- runtime consistency owner health ekranindan takip edilir
-
-### 5. `store.config` ve owner secret drift'ini yok saymak
-
-Yanlis.
-
-Dogru:
-
-- consistency endpoint'i kontrol edilir
-
-## Agent Icin Pratik Kurallar
-
-- Owner/provisioning degisikliklerinde once `apps/owner` sonra `packages/platform-config` kontrol edilir.
-- Yeni store automation ile ilgili her is `stores/<slug>/store.config.json` yazimini hesaba katmalidir.
-- Storefront theme degisikligi yaparken once `apps/storefront-base` dusunulmelidir.
-- Derycraft'a ozel degisiklikler `apps/storefront-deri-kordon` icinde kalmalidir.
-- Yeni agent bir store acma veya deploy automation degisikligi yaptiysa mutlaka disposable bir `sslip.io` domain ile smoke test planlamalidir.
-
-## Derycraft Referansi
-
-Derycraft sistemin referans magazasidir ama source-of-truth tema kopyasi degildir.
-
-Dogru kullanim:
-
-- davranis referansi olarak Derycraft
-- ortak starter theme kaynagi olarak `apps/storefront-base`
-
-## Bakim Notu
-
-Eger owner create akisi yeni store acarken tekrar timeout vermeye baslarsa ilk bakilacak yerler:
-
-1. `apps/owner/app/api/stores/route.ts`
-2. `apps/owner/lib/storefront-scaffold.ts`
-3. `apps/owner/lib/storefront-repo-sync.ts`
-4. `apps/owner/lib/admin-deployment-coolify.ts`
-5. `apps/owner/lib/storefront-deployment-coolify.ts`
-
-Bu dokuman yeni degisiklik geldikce guncellenmelidir.
+- Owner create akisina dokunuyorsan once `apps/owner`, sonra `packages/platform-config` incele.
+- `stores/**` authority degisikliklerini deploy trigger'i sanma.
+- Yeni storefront davranisi icin once `apps/storefront-base` dusun.
+- Yeni store create'i canli ortamda denemeden once dry-run ve disposable smoke planini ayir.

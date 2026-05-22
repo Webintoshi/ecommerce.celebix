@@ -7,6 +7,7 @@ interface FormState {
   name: string;
   slug: string;
   domain: string;
+  databaseMode: "light_postgres" | "full_supabase";
   theme: string;
   tagline: string;
   supportEmail: string;
@@ -42,6 +43,7 @@ const INITIAL_STATE: FormState = {
   name: "",
   slug: "",
   domain: "",
+  databaseMode: "light_postgres",
   theme: "atelier",
   tagline: "",
   supportEmail: "",
@@ -161,7 +163,25 @@ export function CreateStoreForm() {
           required
         />
         <small className="muted">
-          Bu alan storefront ve admin domaini icindir. Self-hosted Supabase ayri stock-host ile uretilir.
+          Bu alan storefront ve admin domaini icindir. Demo domain authority icinde ayrica
+          <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
+        </small>
+      </label>
+
+      <label className="field">
+        <span>Veritabani modu</span>
+        <select
+          value={form.databaseMode}
+          onChange={(event) =>
+            updateField("databaseMode", event.target.value as FormState["databaseMode"])
+          }
+        >
+          <option value="light_postgres">Light Postgres (varsayilan)</option>
+          <option value="full_supabase">Full Supabase (legacy)</option>
+        </select>
+        <small className="muted">
+          Yeni standart light Postgres + R2 modelidir. Full Supabase sadece explicit legacy
+          akistir.
         </small>
       </label>
 

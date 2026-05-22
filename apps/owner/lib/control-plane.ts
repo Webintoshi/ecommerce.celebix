@@ -16,6 +16,7 @@ import {
   getStores,
   repairTrackedStoreConfigs,
   type StoreConfig,
+  type DatabaseMode,
   type StorefrontStatus
 } from "@celebix/platform-config";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
@@ -1052,7 +1053,11 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
 
   return {
     ...current,
+    databaseMode: store.databaseMode,
+    domains: store.domains,
+    lightPostgres: store.lightPostgres ?? current.lightPostgres ?? null,
     bootstrap: store.bootstrap ?? current.bootstrap ?? null,
+    storefront: store.storefront ?? current.storefront ?? null,
     supabase: {
       provider: store.supabase.provider,
       dashboardUrl: store.supabase.dashboardUrl ?? null,
@@ -1065,6 +1070,42 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
       notes: readOptionalString(owner.notes) ?? store.owner?.notes ?? ""
     }
   };
+}
+
+function resolveStoreDatabaseMode(
+  store: Pick<OwnerStoreRow, "metadata" | "supabase_project_ref" | "supabase_url">,
+  storeConfig?: StoreConfig | null,
+): DatabaseMode {
+  if (storeConfig?.databaseMode === "full_supabase") {
+    return "full_supabase";
+  }
+
+  if (storeConfig?.databaseMode === "light_postgres") {
+    return "light_postgres";
+  }
+
+  const metadataMode = readOptionalString(asRecord(store.metadata).databaseMode);
+
+  if (metadataMode === "full_supabase") {
+    return "full_supabase";
+  }
+
+  if (metadataMode === "light_postgres") {
+    return "light_postgres";
+  }
+
+  return store.supabase_project_ref || store.supabase_url ? "full_supabase" : "light_postgres";
+}
+
+function isLightPostgresReady(
+  store: Pick<OwnerStoreRow, "metadata">,
+  storeConfig?: StoreConfig | null,
+): boolean {
+  const lightPostgresRecord = asRecord(storeConfig?.lightPostgres ?? asRecord(store.metadata).lightPostgres);
+  return (
+    readOptionalString(lightPostgresRecord.databaseName) !== null &&
+    readOptionalString(lightPostgresRecord.provisioning) === "configured"
+  );
 }
 
 function resolveSupabaseDashboardUrl(configuredDashboardUrl: string | null | undefined, publicUrl: string | null | undefined): string | null {
@@ -1285,9 +1326,14 @@ function buildStoreHealth(
   lastSyncedAt: string | null,
   storeAdminCount: number,
   connectionReadiness: StoreConnectionReadiness,
-  adminRuntimeHealth: AdminRuntimeHealth
+  adminRuntimeHealth: AdminRuntimeHealth,
+  storeConfig?: StoreConfig | null,
 ): StoreHealthSummary {
-  const supabaseReady = Boolean(store.supabase_project_ref && store.supabase_url);
+  const databaseMode = resolveStoreDatabaseMode(store, storeConfig);
+  const supabaseReady =
+    databaseMode === "full_supabase"
+      ? Boolean(store.supabase_project_ref && store.supabase_url)
+      : isLightPostgresReady(store, storeConfig);
   const r2Ready = Boolean(store.r2_bucket_name && store.r2_public_url);
   const storefrontReady = store.storefront_status === "active";
   const adminCoverage = storeAdminCount > 0;
@@ -1387,6 +1433,7 @@ function buildStoreConsistency(
   const configAdminDomain = normalizeDomainInput(storeConfig.domains.admin);
   const ownerStorefrontDomain = normalizeDomainInput(store.storefront_domain);
   const ownerAdminDomain = normalizeDomainInput(store.admin_domain);
+  const databaseMode = resolveStoreDatabaseMode(store, storeConfig);
   const configSupabaseUrl = normalizeComparableUrl(storeConfig.supabase.url === "configure-in-env" ? null : storeConfig.supabase.url);
   const ownerSupabaseUrl = normalizeComparableUrl(store.supabase_url);
   const secretSupabaseUrl = normalizeComparableUrl(connectionReadiness.secretSupabaseUrl);
@@ -1416,7 +1463,7 @@ function buildStoreConsistency(
     });
   }
 
-  if (configSupabaseUrl && ownerSupabaseUrl && configSupabaseUrl !== ownerSupabaseUrl) {
+  if (databaseMode === "full_supabase" && configSupabaseUrl && ownerSupabaseUrl && configSupabaseUrl !== ownerSupabaseUrl) {
     issues.push({
       code: "owner_supabase_mismatch",
       severity: "blocking",
@@ -1425,7 +1472,7 @@ function buildStoreConsistency(
     });
   }
 
-  if (configSupabaseUrl && secretSupabaseUrl && configSupabaseUrl !== secretSupabaseUrl) {
+  if (databaseMode === "full_supabase" && configSupabaseUrl && secretSupabaseUrl && configSupabaseUrl !== secretSupabaseUrl) {
     issues.push({
       code: "secret_supabase_mismatch",
       severity: "blocking",
@@ -1434,10 +1481,16 @@ function buildStoreConsistency(
     });
   }
 
-  const adminEnvMissing =
-    !connectionReadiness.envSupabaseUrl ||
-    !connectionReadiness.envStoreDomain ||
-    !connectionReadiness.envAdminDomain;
+  const adminEnvMissing = databaseMode === "full_supabase"
+    ? (
+        !connectionReadiness.envSupabaseUrl ||
+        !connectionReadiness.envStoreDomain ||
+        !connectionReadiness.envAdminDomain
+      )
+    : (
+        !connectionReadiness.envStoreDomain ||
+        !connectionReadiness.envAdminDomain
+      );
 
   if (adminEnvMissing && !connectionReadiness.secretAuthorityReady && !adminRuntimeHealth.adminDeploymentReady) {
     issues.push({
@@ -1465,7 +1518,7 @@ function buildStoreConsistency(
     });
   }
 
-  if (configSupabaseUrl && envSupabaseUrl && configSupabaseUrl !== envSupabaseUrl) {
+  if (databaseMode === "full_supabase" && configSupabaseUrl && envSupabaseUrl && configSupabaseUrl !== envSupabaseUrl) {
     issues.push({
       code: "admin_env_supabase_mismatch",
       severity: "blocking",
@@ -1474,7 +1527,11 @@ function buildStoreConsistency(
     });
   }
 
-  if (!connectionReadiness.secretSupabaseUrl && supabaseProvisioningStatus === "configured") {
+  if (
+    databaseMode === "full_supabase" &&
+    !connectionReadiness.secretSupabaseUrl &&
+    supabaseProvisioningStatus === "configured"
+  ) {
     issues.push({
       code: "secret_supabase_mismatch",
       severity: "blocking",
@@ -1732,7 +1789,8 @@ async function buildDashboardStoreSummaries(context: OwnerAuthContext): Promise<
           metricsRow?.last_synced_at ?? null,
           resolvedStoreAdmins.length,
           connectionReadiness,
-          adminRuntimeHealth
+          adminRuntimeHealth,
+          storeConfig,
         ),
         consistency
       };
@@ -2419,7 +2477,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
           resolvedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
           resolvedStoreAdmins.length,
           connectionReadiness,
-          adminRuntimeHealth
+          adminRuntimeHealth,
+          storeConfig,
         )
       : current.health;
 

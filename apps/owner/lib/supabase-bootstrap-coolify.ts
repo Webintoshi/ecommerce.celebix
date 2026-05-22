@@ -518,6 +518,24 @@ function hasExistingProvisionedProject(store: StoreConfig): boolean {
   return Boolean(projectRef && projectRef !== "pending-owner-bootstrap");
 }
 
+function isOptionalSidecarExplicitlyDisabled(name: "studio" | "analytics" | "vector"): boolean {
+  const envKey = `SELF_HOSTED_SUPABASE_DISABLE_${name.toUpperCase()}`;
+  const raw = process.env[envKey]?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+function assertLegacySupabaseSidecarGuard(): void {
+  const missing = (["studio", "analytics", "vector"] as const).filter(
+    (name) => !isOptionalSidecarExplicitlyDisabled(name),
+  );
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Legacy full_supabase guard aktif. Optional sidecar default-off zorunlu: ${missing.join(", ")}.`,
+    );
+  }
+}
+
 function resolveIdentifier(value: CoolifyProject | CoolifyEnvironment | CoolifyService): string {
   const identifier =
     value.uuid ||
@@ -726,7 +744,11 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
   const hasToken = Boolean(process.env.COOLIFY_API_TOKEN?.trim());
   const hasServer = Boolean(process.env.COOLIFY_SERVER_UUID?.trim());
   const hasDestination = Boolean(process.env.COOLIFY_DESTINATION_UUID?.trim());
-  const configured = hasApiUrl && hasToken && hasServer && hasDestination;
+  const optionalSidecarsGuarded =
+    isOptionalSidecarExplicitlyDisabled("studio") &&
+    isOptionalSidecarExplicitlyDisabled("analytics") &&
+    isOptionalSidecarExplicitlyDisabled("vector");
+  const configured = hasApiUrl && hasToken && hasServer && hasDestination && optionalSidecarsGuarded;
 
   return {
     configured,
@@ -739,11 +761,15 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
     resolvedOrganizationSlug: configured ? buildOrganization().slug : null,
     lastError: configured
       ? undefined
-      : "Self-hosted Supabase icin COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_SERVER_UUID ve COOLIFY_DESTINATION_UUID gerekli.",
+      : optionalSidecarsGuarded
+        ? "Self-hosted Supabase icin COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_SERVER_UUID ve COOLIFY_DESTINATION_UUID gerekli."
+        : "Legacy full_supabase icin Studio/Analytics/Vector explicit default-off guard eksik.",
   };
 }
 
 export async function provisionSupabaseForStore(store: StoreConfig): Promise<SupabaseProvisioningResult> {
+  assertLegacySupabaseSidecarGuard();
+
   if (hasExistingProvisionedProject(store)) {
     throw new Error(
       `Bu magaza icin zaten bir Supabase kaynagi olusturulmus: ${store.supabase.projectRef}. Yeni provisioning oncesi mevcut kaynagi temizleyin veya store kaydini sifirlayin.`,
