@@ -1,22 +1,30 @@
 import { NextResponse } from "next/server";
 import { createStore, type DatabaseMode } from "@celebix/platform-config";
+import {
+  ensureOwnerStoreAuthorityForSlug,
+  listDashboardStores,
+  recordOwnerAuditLog,
+} from "@/lib/control-plane";
+import { validateNewStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
-import { listDashboardStores, recordOwnerAuditLog } from "@/lib/control-plane";
-import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
-import { runStoreProvisioningWorkflow } from "@/lib/store-provisioning";
 import { isRedisLockError } from "@/lib/redis";
+import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
+import {
+  runStoreProvisioningWorkflow,
+  validateProvisioningEnvironmentReadiness,
+} from "@/lib/store-provisioning";
 
 function predictStoreSlug(name: string, explicitSlug?: string): string {
   const candidate = explicitSlug?.trim() || name.trim();
 
   return candidate
     .toLocaleLowerCase("tr")
-    .replace(/Ä±/g, "i")
-    .replace(/ÄŸ/g, "g")
-    .replace(/Ã¼/g, "u")
-    .replace(/ÅŸ/g, "s")
-    .replace(/Ã¶/g, "o")
-    .replace(/Ã§/g, "c")
+    .replace(/Ã„Â±/g, "i")
+    .replace(/Ã„Å¸/g, "g")
+    .replace(/ÃƒÂ¼/g, "u")
+    .replace(/Ã…Å¸/g, "s")
+    .replace(/ÃƒÂ¶/g, "o")
+    .replace(/ÃƒÂ§/g, "c")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
@@ -68,7 +76,37 @@ export async function POST(request: Request) {
 
     if (predictedSlug && (await hasUnresolvedCleanupRun(predictedSlug))) {
       return NextResponse.json(
-        { error: `"${predictedSlug}" icin cozulmemis cleanup tombstone kaydi var. Aynı slug ile tekrar acilamaz.` },
+        { error: `"${predictedSlug}" icin cozulmemis cleanup tombstone kaydi var. Ayni slug ile tekrar acilamaz.` },
+        { status: 409 },
+      );
+    }
+
+    if (predictedSlug) {
+      const branchValidation = validateNewStoreDeploymentBranches(predictedSlug);
+
+      if (branchValidation.errors.length > 0) {
+        return NextResponse.json(
+          {
+            error: branchValidation.errors.join(" "),
+            deploymentBranches: {
+              owner: branchValidation.ownerBranch,
+              admin: branchValidation.adminBranch,
+              storefront: branchValidation.storefrontBranch,
+            },
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    const environmentReadiness = await validateProvisioningEnvironmentReadiness();
+
+    if (!environmentReadiness.ready) {
+      return NextResponse.json(
+        {
+          error: environmentReadiness.errors[0] || "Provisioning authority hazir degil.",
+          preflightErrors: environmentReadiness.errors,
+        },
         { status: 409 },
       );
     }
@@ -87,13 +125,7 @@ export async function POST(request: Request) {
       databaseMode: body.databaseMode,
     });
 
-    const workflow = await runStoreProvisioningWorkflow({
-      auth,
-      slug: created.store.slug,
-      mode: "create",
-      packageStartDate: body.packageStartDate,
-      packageDurationMonths: parseDuration(body.packageDurationMonths),
-    });
+    await ensureOwnerStoreAuthorityForSlug(created.store.slug);
 
     await recordOwnerAuditLog({
       actorId: auth.user.id,
@@ -103,20 +135,44 @@ export async function POST(request: Request) {
       details: {
         name: created.store.name,
         domain: created.store.domains.storefront,
-        provisioningState: workflow.provisioningState,
-        blockers: workflow.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
+        provisioningState: "running",
       },
+    });
+
+    const packageDurationMonths = parseDuration(body.packageDurationMonths);
+
+    queueMicrotask(() => {
+      void runStoreProvisioningWorkflow({
+        auth,
+        slug: created.store.slug,
+        mode: "create",
+        packageStartDate: body.packageStartDate,
+        packageDurationMonths,
+      }).catch(async (error) => {
+        try {
+          await recordOwnerAuditLog({
+            actorId: auth.user.id,
+            action: "store_provisioning_enqueue_failed",
+            targetType: "store",
+            targetId: created.store.slug,
+            details: {
+              message: error instanceof Error ? error.message : "Store provisioning baslatilamadi.",
+            },
+          });
+        } catch {
+          // Ignore audit follow-up failures for detached provisioning runs.
+        }
+      });
     });
 
     return NextResponse.json(
       {
         ...created,
-        store: workflow.store,
-        provisioningState: workflow.provisioningState,
-        steps: workflow.steps,
-        blockers: workflow.blockers,
+        provisioningState: "running",
+        steps: [],
+        blockers: [],
       },
-      { status: workflow.provisioningState === "ready" ? 201 : 202 },
+      { status: 202 },
     );
   } catch (error) {
     if (isRedisLockError(error)) {

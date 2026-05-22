@@ -49,16 +49,16 @@ export default function FastIndexingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6efe8] text-[#2f241d]">
+    <div className="admin-page-root text-[var(--admin-heading)]">
       <div className="mx-auto max-w-7xl space-y-8 px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[34px] border border-[#eadccd] bg-gradient-to-br from-[#fff8f2] via-white to-[#f8eee5] p-8 shadow-[0_22px_70px_rgba(99,67,37,0.10)] md:p-10">
+        <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Hızlı indeksleme
               </div>
               <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[#ffd7b8] bg-gradient-to-br from-[#FE6100] to-[#d97706] text-white shadow-[0_22px_50px_rgba(254,97,0,0.22)]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
                   <Zap className="h-8 w-8" />
                 </div>
                 <div>
@@ -70,7 +70,7 @@ export default function FastIndexingPage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-[#eadccd] bg-[#2f241d] p-5 text-white shadow-[0_22px_60px_rgba(47,36,29,0.20)]">
+            <div className="rounded-[28px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-md)]">
               <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
                 İş akışı önerisi
               </div>
@@ -78,14 +78,14 @@ export default function FastIndexingPage() {
               <p className="mt-3 max-w-sm text-sm leading-6 text-[#ead9c9]">Büyük içerik yayını sonrasında ping, ürün veya sayfa bazlı değişikliklerde ise IndexNow daha kontrollü ilerler.</p>
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/12 blur-3xl" />
+          <div className="hidden" />
         </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+                <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                   Anlık bildirim
                 </div>
                 <div className="mt-4 flex items-center gap-3">
@@ -108,7 +108,7 @@ export default function FastIndexingPage() {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder={`${STORE_RUNTIME.storefrontUrl}/urunler/yeni-urun`}
-                  className="w-full rounded-2xl border border-[#e8d9cb] bg-[#fffdfb] px-4 py-3 font-mono text-sm text-[#2f241d] outline-none transition-all placeholder:text-[#b49b89] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/12"
+                  className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 font-mono text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                 />
               </div>
 
@@ -117,13 +117,13 @@ export default function FastIndexingPage() {
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9d836f]">API key</label>
                   <button
                     onClick={generateNewKey}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#C54E00] transition-colors hover:text-[#9f4300] focus-visible:outline-none"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--admin-accent-hover)] transition-colors hover:text-[#9f4300] focus-visible:outline-none"
                   >
                     <Key className="h-3.5 w-3.5" />
                     Yenile
                   </button>
                 </div>
-                <div className="rounded-2xl border border-[#e8d9cb] bg-white px-4 py-3 font-mono text-xs text-[#5b473b] break-all">
+                <div className="rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 font-mono text-xs text-[#5b473b] break-all">
                   {apiKey}
                 </div>
                 <div className="mt-4 flex items-start gap-2 rounded-[18px] border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -137,7 +137,7 @@ export default function FastIndexingPage() {
               <button
                 onClick={handleIndexNow}
                 disabled={!url || loading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d97706] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(254,97,0,0.22)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
               >
                 <Send className="h-4 w-4" />
                 {loading ? "Gönderiliyor..." : "Bing ve Yandex'e bildir"}
@@ -145,8 +145,8 @@ export default function FastIndexingPage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[#eadccd] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-            <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-[#fffaf5] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+            <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
               Toplu sinyal
             </div>
             <div className="mt-4 flex items-center gap-3">
@@ -165,7 +165,7 @@ export default function FastIndexingPage() {
 
             <div className="mt-5 rounded-[24px] border border-[#f0e3d7] bg-[#fcf8f3] p-5">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9d836f]">Varsayılan sitemap</div>
-              <div className="mt-3 rounded-2xl border border-[#e8d9cb] bg-white px-4 py-3 font-mono text-xs text-[#5b473b] break-all">
+              <div className="mt-3 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 font-mono text-xs text-[#5b473b] break-all">
                 {STORE_RUNTIME.storefrontUrl}/sitemap.xml
               </div>
             </div>
@@ -181,9 +181,9 @@ export default function FastIndexingPage() {
           </section>
         </div>
 
-        <section className="rounded-[30px] border border-[#eadccd] bg-white/95 shadow-[0_18px_45px_rgba(105,78,54,0.08)] overflow-hidden">
+        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 shadow-[0_18px_45px_rgba(105,78,54,0.08)] overflow-hidden">
           <div className="border-b border-[#f0e3d7] bg-[#fcf8f3] px-6 py-5 md:px-8">
-            <div className="inline-flex items-center rounded-full border border-[#eadccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
+            <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
               İşlem sonuçları
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function FastIndexingPage() {
                     {res.success ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
                   </div>
                   <div>
-                    <p className="font-semibold text-[#2f241d]">{res.provider}</p>
+                    <p className="font-semibold text-[var(--admin-heading)]">{res.provider}</p>
                     <p className="mt-1 text-sm leading-6 text-[#7f6858]">{res.message}</p>
                   </div>
                 </div>
@@ -204,10 +204,10 @@ export default function FastIndexingPage() {
             </div>
           ) : (
             <div className="px-6 py-12 text-center md:px-8">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#eadccd] bg-[#fffaf5] text-[#C54E00]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-accent-hover)]">
                 <Zap className="h-7 w-7" />
               </div>
-              <p className="mt-4 text-lg font-semibold tracking-[-0.02em] text-[#2f241d]">Henüz işlem sonucu yok</p>
+              <p className="mt-4 text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">Henüz işlem sonucu yok</p>
               <p className="mt-2 text-sm text-[#8f7765]">Bir URL bildirimi veya sitemap ping işlemi başlattığınızda sonuçlar burada listelenir.</p>
             </div>
           )}

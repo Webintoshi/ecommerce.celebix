@@ -77,6 +77,7 @@ function buildSupabaseDashboardUrl(publicUrl: string): string {
 
 export interface CoolifySupabaseRuntimeAuthority {
   dashboardUrl: string;
+  internalApiUrl: string | null;
   publicKey: string;
   publicUrl: string;
   serviceKey: string;
@@ -99,6 +100,8 @@ export async function readCoolifySupabaseRuntimeAuthority(
       "SERVICE_SUPABASE_ANON_KEY",
       "SUPABASE_ANON_KEY",
     ]);
+    const internalApiUrl =
+      findEnvValue(variables, ["API_EXTERNAL_URL", "SUPABASE_INTERNAL_URL"])?.replace(/\/+$/, "") || null;
     const serviceKey = findEnvValue(variables, [
       "SERVICE_SUPABASESERVICE_KEY",
       "SERVICE_SUPABASE_SERVICE_ROLE_KEY",
@@ -110,6 +113,7 @@ export async function readCoolifySupabaseRuntimeAuthority(
     }
 
     return {
+      internalApiUrl,
       publicUrl,
       publicKey,
       serviceKey,

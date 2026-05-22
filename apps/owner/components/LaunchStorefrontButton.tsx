@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { normalizeActionError, readActionResponse } from "@/components/action-request";
 
 interface LaunchStorefrontButtonProps {
   slug: string;
@@ -18,28 +19,34 @@ export function LaunchStorefrontButton({ slug, currentStatus }: LaunchStorefront
     setError(null);
     setNotice(null);
 
-    startTransition(async () => {
-      const response = await fetch(`/api/stores/${slug}/storefront`, {
-        method: "POST"
-      });
+    startTransition(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/stores/${slug}/storefront`, {
+            method: "POST"
+          });
 
-      const payload = (await response.json()) as {
-        error?: string;
-        deployment?: { status?: string; message?: string | null };
-      };
+          const { payload, errorMessage } = await readActionResponse<{
+            error?: string;
+            deployment?: { status?: string; message?: string | null };
+          }>(response);
 
-      if (!response.ok) {
-        setError(payload.error || "Storefront deployment otomasyonu basarisiz oldu.");
-        return;
-      }
+          if (!response.ok) {
+            setError(errorMessage || "Storefront deployment otomasyonu basarisiz oldu.");
+            return;
+          }
 
-      setNotice(
-        payload.deployment?.status === "configured"
-          ? "Storefront deployment hazir ve runtime tutarli."
-          : payload.deployment?.message ||
-              "Storefront hazirlandi; deployment durumu owner panelinden izlenebilir.",
-      );
-      router.refresh();
+          setNotice(
+            payload?.deployment?.status === "configured"
+              ? "Storefront deployment hazir ve runtime tutarli."
+              : payload?.deployment?.message ||
+                  "Storefront hazirlandi; deployment durumu owner panelinden izlenebilir.",
+          );
+          router.refresh();
+        } catch (error) {
+          setError(normalizeActionError(error, "Storefront deployment otomasyonu basarisiz oldu."));
+        }
+      })();
     });
   }
 

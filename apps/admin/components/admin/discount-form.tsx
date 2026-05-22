@@ -189,9 +189,9 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
     await onSubmit(payload);
   };
 
-  const inputClass = "w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
-  const selectClass = "w-full appearance-none cursor-pointer rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15";
-  const textAreaClass = "w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15 resize-none";
+  const inputClass = "w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  const selectClass = "w-full appearance-none cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  const textAreaClass = "w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15 resize-none";
 
   return (
     <form onSubmit={submit} className="space-y-6">
@@ -204,13 +204,13 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       )}
 
       {/* Progress Steps */}
-      <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-4 shadow-[0_18px_45px_rgba(99,67,37,0.08)] md:p-5">
+      <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Kurulum ilerlemesi</p>
-            <p className="mt-1 text-sm font-medium text-[#2f241d]">İndiriminizi dört adımda tamamlayın</p>
+            <p className="mt-1 text-sm font-medium text-[var(--admin-heading)]">İndiriminizi dört adımda tamamlayın</p>
           </div>
-          <div className="rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+          <div className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
             Adım {activeStep}/4
           </div>
         </div>
@@ -221,12 +221,12 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
             key={step}
             type="button"
             onClick={() => setActiveStep(step)}
-            className={`rounded-[22px] border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16 ${
+            className={`rounded-[22px] border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${
               activeStep === step
-                ? "border-[#FE6100]/25 bg-gradient-to-r from-[#fff2e8] to-white text-[#C54E00] shadow-sm"
+                ? "border-[var(--admin-accent-border)] bg-gradient-to-r from-white to-white text-[var(--admin-accent-hover)] shadow-sm"
                 : activeStep > step
                   ? "border-emerald-200 bg-emerald-50/80 text-emerald-700"
-                  : "border-[#eadccd] bg-white/80 text-[#8b7768] hover:border-[#FE6100]/18 hover:bg-[#fff8f2]"
+                  : "border-[var(--admin-border)] bg-white/80 text-[#8b7768] hover:border-[var(--admin-accent-border)] hover:bg-[#fff8f2]"
             }`}
           >
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em]">0{step}</div>
@@ -239,13 +239,13 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </div>
 
       {/* Step 1: Basic Info */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 1 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 1 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
             <Tag className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-[#2f241d]">Temel Bilgiler</h2>
+            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Temel Bilgiler</h2>
             <p className="text-sm text-[#7d6959]">İndirim adı, kodu ve açıklaması</p>
           </div>
           {activeStep > 1 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
@@ -287,7 +287,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(2)}
-            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
           >
             Devam Et
           </button>
@@ -295,13 +295,13 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 2: Discount Settings */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 2 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 2 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f0cfb2] bg-gradient-to-br from-[#fff4ed] to-white text-[#c96a2b] shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-white text-[var(--admin-accent-hover)] shadow-sm">
             <Settings2 className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-[#2f241d]">İndirim Ayarları</h2>
+            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">İndirim Ayarları</h2>
             <p className="text-sm text-[#7d6959]">Oran, tutar ve geçerlilik tarihleri</p>
           </div>
           {activeStep > 2 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
@@ -380,20 +380,20 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
         </div>
 
         {/* Toggle Switch */}
-        <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[#f1e5d9] bg-[#fdf8f3] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-[16px] ${form.isActive ? "bg-emerald-100" : "bg-stone-200"}`}>
               <Check className={`w-5 h-5 ${form.isActive ? "text-green-600" : "text-gray-400"}`} />
             </div>
             <div>
-              <p className="font-medium text-[#2f241d]">İndirimi Aktif Başlat</p>
+              <p className="font-medium text-[var(--admin-heading)]">İndirimi Aktif Başlat</p>
               <p className="text-sm text-[#7d6959]">Oluşturulduğunda hemen yayına alınır</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setForm({ ...form, isActive: !form.isActive })}
-            className={`relative h-8 w-14 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 ${form.isActive ? "bg-[#FE6100]" : "bg-stone-300"}`}
+            className={`relative h-8 w-14 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] ${form.isActive ? "bg-[var(--admin-accent)]" : "bg-stone-300"}`}
           >
             <span
               className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
@@ -407,14 +407,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(1)}
-            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             Geri
           </button>
           <button
             type="button"
             onClick={() => setActiveStep(3)}
-            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
           >
             Devam Et
           </button>
@@ -422,13 +422,13 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 3: Campaign Rules */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 3 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 3 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
         <div className="flex items-center gap-3 mb-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-700 shadow-sm">
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-[#2f241d]">Kampanya Kuralları</h2>
+            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Kampanya Kuralları</h2>
             <p className="text-sm text-[#7d6959]">Kapsam, görünürlük ve kullanım limitleri</p>
           </div>
           {activeStep > 3 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
@@ -519,14 +519,14 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(2)}
-            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             Geri
           </button>
           <button
             type="button"
             onClick={() => setActiveStep(4)}
-            className="rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
           >
             Devam Et
           </button>
@@ -534,13 +534,13 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Step 4: Tags & Notes */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 4 ? "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_55px_rgba(254,97,0,0.10)]" : "border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]"}`}>
+      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 4 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#f0cfb2] bg-gradient-to-br from-[#fff4ed] to-white text-[#c96a2b] shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-white text-[var(--admin-accent-hover)] shadow-sm">
             <StickyNote className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-[#2f241d]">Etiketler ve Notlar</h2>
+            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Etiketler ve Notlar</h2>
             <p className="text-sm text-[#7d6959]">Organizasyon ve iç notlar</p>
           </div>
         </div>
@@ -569,7 +569,7 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
           <button
             type="button"
             onClick={() => setActiveStep(3)}
-            className="rounded-2xl border border-[#eadccd] bg-white px-6 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             Geri
           </button>
@@ -577,16 +577,16 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
       </section>
 
       {/* Submit Button */}
-      <div className="rounded-[30px] border border-[#FE6100]/12 bg-gradient-to-r from-[#fff2e8] via-white to-[#fff6ee] p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+      <div className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-r from-white via-white to-[#fff6ee] p-6 shadow-[var(--shadow-md)]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="flex-1">
-            <p className="font-semibold text-[#2f241d]">İndirimi Oluşturmaya Hazır</p>
+            <p className="font-semibold text-[var(--admin-heading)]">İndirimi Oluşturmaya Hazır</p>
             <p className="text-sm text-[#7d6959]">Tüm bilgileri kontrol ettikten sonra kaydedin.</p>
           </div>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.26)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? (
               <>
@@ -619,7 +619,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">
+      <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">
         {label}
         {required && <span className="ml-1 text-rose-500">*</span>}
       </label>

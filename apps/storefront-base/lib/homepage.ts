@@ -1,5 +1,9 @@
 import { createServerClient } from "@/lib/supabase";
-import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+  getHomepageCurationSettings,
+  getProductListingOrderPositions,
+} from "@/lib/db/settings";
+import type { HomepageCurationSettings } from "@/lib/db/settings";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import {
   getVariantAttributeRegistry,
@@ -7,7 +11,11 @@ import {
 } from "@/lib/variant-attribute-hydration";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import type { StorefrontLocale } from "@/lib/i18n";
-import { translateCategoryRecord, translateProductRecord, translateText } from "@/lib/translation";
+import {
+  translateCategoryCollection,
+  translateProductCollection,
+  translateText,
+} from "@/lib/translation";
 
 interface RawHeroSlide {
   id?: string | number;
@@ -74,10 +82,12 @@ export interface HomepageCategory {
 export interface HomepageData {
   heroBanners: HomepageHeroBanner[];
   categories: HomepageCategory[];
+  featuredCategories: HomepageCategory[];
   products: Record<string, unknown>[];
   promoBanners: Record<string, unknown>[];
   allProducts: Record<string, unknown>[];
   testimonials: HomepageTestimonial[];
+  homepageCuration: HomepageCurationSettings;
 }
 
 export interface HomepageTestimonial {
@@ -219,6 +229,92 @@ function normalizePromoBanners(payload: unknown) {
 }
 
 async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+  const result = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("categories")
+      .select("*")
+      .is("parent_id", null);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return [...(result.data ?? [])]
+    .sort((left, right) => {
+      const leftCreatedAt =
+        typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+      const rightCreatedAt =
+        typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+      const hasCreatedAtOrdering =
+        Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
+
+      if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
+        return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+          (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+      }
+
+      const leftSortOrder =
+        typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
+      const rightSortOrder =
+        typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
+
+      if (leftSortOrder !== rightSortOrder) {
+        return leftSortOrder - rightSortOrder;
+      }
+
+      return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
+    })
+    .slice(0, 6);
+}
+
+async function fetchHomepageCategoriesWithCuration(
+  supabase: ReturnType<typeof createServerClient>,
+  featuredCategorySlugs: string[],
+) {
+  const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
+
+  if (featuredSlugs.length > 0) {
+    const curatedQuery = await runCategoriesQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("categories")
+        .select("*")
+        .in("slug", featuredSlugs)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query;
+    });
+
+    if (curatedQuery.error) {
+      throw curatedQuery.error;
+    }
+
+    if ((curatedQuery.data?.length ?? 0) > 0) {
+      const curatedOrder = new Map(featuredSlugs.map((slug, index) => [slug, index]));
+      return (curatedQuery.data ?? []).sort((left, right) => {
+        const leftPriority = curatedOrder.get(left.slug) ?? 99;
+        const rightPriority = curatedOrder.get(right.slug) ?? 99;
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        return String(left.name || "").localeCompare(String(right.name || ""), "tr");
+      });
+    }
+  }
+
   const orderedSlugs = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
   const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
@@ -264,6 +360,16 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
   }
 
   return fallbackQuery.data ?? [];
+}
+
+function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T) {
+  return {
+    ...product,
+    featured:
+      typeof product.featured === "boolean"
+        ? product.featured
+        : Boolean(product.is_featured),
+  };
 }
 
 async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
@@ -391,7 +497,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
 
   const [
     heroBannersData,
-    categoriesData,
+    homepageCuration,
     promoBannersData,
     allProductsData,
     attributeRegistry,
@@ -403,7 +509,7 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       .select("value")
       .eq("key", "hero_banners")
       .maybeSingle(),
-    fetchHomepageCategories(supabase),
+    getHomepageCurationSettings(),
     supabase
       .from("settings")
       .select("value")
@@ -415,16 +521,40 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
     getProductListingOrderPositions(),
   ]);
 
+  const [categoriesData, curatedCategories] = await Promise.all([
+    fetchHomepageCategories(supabase),
+    homepageCuration.featuredCategorySlugs.length > 0
+      ? fetchHomepageCategoriesWithCuration(supabase, homepageCuration.featuredCategorySlugs)
+      : fetchHomepageCategoriesWithCuration(supabase, []),
+  ]);
+
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
-  const categoryOrder = new Map(
-    HOMEPAGE_CATEGORY_ORDER.map((entry, index) => [entry.slug, index]),
+  const activeCategoryOrder = new Map(
+    (
+      homepageCuration.featuredCategorySlugs.length > 0
+        ? homepageCuration.featuredCategorySlugs
+        : HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug)
+    ).map((slug, index) => [slug, index]),
   );
 
   const categoryBase = (categoriesData || [])
     .filter((category) => category.slug && category.name)
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description || null,
+      image: category.image,
+      productCount: typeof category.product_count === "number" ? category.product_count : 0,
+      seo_title: category.seo_title || null,
+      seo_description: category.seo_description || null,
+    }));
+
+  const featuredCategoryBase = (curatedCategories || [])
+    .filter((category) => category.slug && category.name)
     .sort((left, right) => {
-      const leftPriority = categoryOrder.get(left.slug) ?? 99;
-      const rightPriority = categoryOrder.get(right.slug) ?? 99;
+      const leftPriority = activeCategoryOrder.get(left.slug) ?? 99;
+      const rightPriority = activeCategoryOrder.get(right.slug) ?? 99;
 
       if (leftPriority !== rightPriority) {
         return leftPriority - rightPriority;
@@ -450,19 +580,27 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       seo_description: category.seo_description || null,
     }));
 
-  const translatedCategories = await Promise.all(
-    categoryBase.map(async (category) => {
-      const translated = await translateCategoryRecord(category, locale);
-      return {
-        id: translated.id,
-        name: translated.name || category.name,
-        slug: translated.slug,
-        description: translated.description || null,
-        image: translated.image,
-        productCount: translated.productCount,
-      } satisfies HomepageCategory;
-    }),
-  );
+  const [translatedCategoryRows, translatedFeaturedCategoryRows] = await Promise.all([
+    translateCategoryCollection(categoryBase, locale),
+    translateCategoryCollection(featuredCategoryBase, locale),
+  ]);
+
+  const translatedCategories = translatedCategoryRows.map((category, index) => ({
+    id: category.id,
+    name: category.name || categoryBase[index]?.name || "",
+    slug: category.slug,
+    description: category.description || null,
+    image: category.image,
+    productCount: category.productCount,
+  })) satisfies HomepageCategory[];
+  const translatedFeaturedCategories = translatedFeaturedCategoryRows.map((category, index) => ({
+    id: category.id,
+    name: category.name || featuredCategoryBase[index]?.name || "",
+    slug: category.slug,
+    description: category.description || null,
+    image: category.image,
+    productCount: category.productCount,
+  })) satisfies HomepageCategory[];
 
   const orderedShowcaseProducts = sortProductsByListingOrder(
     (allProductsData || []) as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>,
@@ -470,19 +608,33 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   );
 
   const translatedHeroBanners = await translateHeroBanners(heroBanners, locale);
-  const translatedProducts = await Promise.all(
-    orderedShowcaseProducts.slice(0, 8).map((product) => translateProductRecord(product, locale)),
-  );
-  const translatedShowcaseProducts = await Promise.all(
-    orderedShowcaseProducts.map((product) => translateProductRecord(product, locale)),
-  );
+  const [translatedProducts, translatedShowcaseProducts] = await Promise.all([
+    translateProductCollection(
+      orderedShowcaseProducts.slice(0, 8) as Array<Record<string, unknown>>,
+      locale,
+    ),
+    translateProductCollection(
+      orderedShowcaseProducts as Array<Record<string, unknown>>,
+      locale,
+    ),
+  ]);
 
   return {
     heroBanners: translatedHeroBanners,
     categories: translatedCategories,
-    products: hydrateHomepageProducts(translatedProducts || [], attributeRegistry),
+    featuredCategories: translatedFeaturedCategories,
+    products: hydrateHomepageProducts(
+      (translatedProducts || []).map((product) => withHomepageFeaturedFlag(product)),
+      attributeRegistry,
+    ),
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: hydrateHomepageProducts(translatedShowcaseProducts || [], attributeRegistry),
+    allProducts: hydrateHomepageProducts(
+      (translatedShowcaseProducts || []).map((product) =>
+        withHomepageFeaturedFlag(product),
+      ),
+      attributeRegistry,
+    ),
     testimonials: testimonialsData,
+    homepageCuration,
   };
 }

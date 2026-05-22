@@ -291,8 +291,8 @@ export default function EditVariantAttributePage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
-        <div className="flex items-center gap-3 rounded-full border border-[#ecdccd] bg-white/90 px-5 py-3 text-sm font-medium text-[#8b6d58] shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-[#FE6100]" />
+        <div className="flex items-center gap-3 rounded-full border border-[var(--admin-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[#8b6d58] shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-accent)]" />
           Nitelik yukleniyor
         </div>
       </div>
@@ -301,34 +301,34 @@ export default function EditVariantAttributePage() {
 
   const activeValues = values.filter((v) => !v.isDeleted);
   const inputBaseClassName =
-    "w-full rounded-2xl border bg-white/90 px-4 py-3 text-sm text-stone-900 shadow-[0_10px_25px_rgba(120,78,44,0.08)] outline-none transition-all placeholder:text-stone-400 focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+    "w-full rounded-2xl border bg-white/90 px-4 py-3 text-sm text-stone-900 shadow-[0_10px_25px_rgba(120,78,44,0.08)] outline-none transition-all placeholder:text-stone-400 focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
   const selectedCardClassName =
-    "border-[#FE6100]/30 bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[0_18px_35px_rgba(254,97,0,0.12)]";
+    "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-md)]";
   const idleCardClassName =
-    "border-[#eadccd] bg-white/85 text-stone-700 hover:border-[#FE6100]/20 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15";
+    "border-[var(--admin-border)] bg-white/85 text-stone-700 hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]";
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
-        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
-        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 md:gap-4">
                   <Link
                     href="/admin/urunler/nitelikler"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </Link>
                   <div className="space-y-3">
-                    <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                       Nitelik duzenle
                     </div>
                     <h1 className="sr-only">Nitelik Düzenle</h1>
@@ -357,10 +357,10 @@ export default function EditVariantAttributePage() {
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
             <div className="space-y-6">
-              <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+              <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
                 <div className="mb-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Temel ayarlar</p>
-                  <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Nitelik bilgileri</h2>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Temel ayarlar</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Nitelik bilgileri</h2>
                 </div>
 
                 <div className="space-y-6">
@@ -446,11 +446,11 @@ export default function EditVariantAttributePage() {
               </section>
             </div>
 
-            <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Liste</p>
-                  <h2 className="mt-1 text-xl font-semibold text-[#2f241d]">Degerler</h2>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Liste</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Degerler</h2>
                 </div>
                 <span className="w-fit rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 text-xs font-medium text-[#7d6a5d] shadow-sm">
                   {activeValues.length} aktif satir
@@ -472,7 +472,7 @@ export default function EditVariantAttributePage() {
                   return (
                     <div 
                       key={value.id} 
-                      className="group flex flex-col gap-3 rounded-[24px] border border-[#ecdccd] bg-white/90 p-3 shadow-sm transition-all hover:border-[#FE6100]/18 hover:bg-white sm:flex-row sm:items-center"
+                      className="group flex flex-col gap-3 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-3 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-white sm:flex-row sm:items-center"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#f8eee5] text-sm font-semibold text-[#8d796a]">
                         {index + 1}
@@ -486,7 +486,7 @@ export default function EditVariantAttributePage() {
                               <img
                                 src={value.image_url}
                                 alt={value.value}
-                                className="h-14 w-14 rounded-2xl border border-[#eadccd] object-cover"
+                                className="h-14 w-14 rounded-2xl border border-[var(--admin-border)] object-cover"
                               />
                               <button
                                 type="button"
@@ -497,7 +497,7 @@ export default function EditVariantAttributePage() {
                               </button>
                             </div>
                           ) : (
-                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-[#d9b99f] bg-[#fffaf6] transition-colors hover:border-[#FE6100]/40 hover:bg-[#fff3ea] focus-within:ring-4 focus-within:ring-[#FE6100]/15">
+                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-[#d9b99f] bg-[#FCFDFE] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-[#fff3ea] focus-within:ring-4 focus-within:ring-[rgba(255,106,0,0.15)]">
                               {uploadingValueId === value.id ? (
                                 <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
                               ) : (
@@ -525,7 +525,7 @@ export default function EditVariantAttributePage() {
                             type="color"
                             value={value.color_code || "#000000"}
                             onChange={(e) => updateValue(value.id, "color_code", e.target.value)}
-                            className="h-11 w-11 cursor-pointer rounded-2xl border border-[#e7d8ca] bg-white p-1 shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
+                            className="h-11 w-11 cursor-pointer rounded-2xl border border-[#e7d8ca] bg-white p-1 shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
                           />
                         </div>
                       )}
@@ -555,7 +555,7 @@ export default function EditVariantAttributePage() {
               <button
                 type="button"
                 onClick={addValue}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#d9b99f] bg-white/70 px-4 py-3 text-sm font-semibold text-[#8b6d58] transition hover:border-[#FE6100]/35 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/15"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#d9b99f] bg-white/70 px-4 py-3 text-sm font-semibold text-[#8b6d58] transition hover:border-[var(--admin-accent)]/35 hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
               >
                 <Plus className="w-4 h-4" />
                 Değer Ekle
@@ -567,14 +567,14 @@ export default function EditVariantAttributePage() {
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <Link
               href="/admin/urunler/nitelikler"
-              className="inline-flex items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-6 py-3 text-sm font-semibold text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+              className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-6 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
             >
               İptal
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:pointer-events-none disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

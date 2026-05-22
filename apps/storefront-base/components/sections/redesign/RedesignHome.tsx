@@ -35,8 +35,9 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         heading={uiCopy?.categoriesHeading}
       />
       <ProductShowcaseSections
-        categories={data.categories}
+        categories={data.featuredCategories}
         allProducts={(data.allProducts as never[]) || []}
+        homepageCuration={data.homepageCuration}
         groupCopy={uiCopy?.productGroups}
         viewAllLabel={uiCopy?.viewAllLabel}
       />

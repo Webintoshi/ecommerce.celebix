@@ -6,17 +6,19 @@ import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { HomepageCategory } from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import type { HomepageCurationSettings } from "@/lib/db/settings";
 
 type ShowcaseProduct = Product & {
   category?: string | null;
   subcategory?: string | null;
+  is_featured?: boolean;
 };
 
 interface ProductShowcaseSectionsProps {
   categories?: HomepageCategory[];
   allProducts: ShowcaseProduct[];
+  homepageCuration?: HomepageCurationSettings;
   groupCopy?: Array<{
     title: string;
     subtitle: string;
@@ -39,7 +41,23 @@ function humanizeCategory(value?: string | null) {
     .join(" ");
 }
 
-function buildProductGroups(categories: HomepageCategory[], products: ShowcaseProduct[]) {
+function resolveHomepageCuratedProductIds(
+  categorySlug: string,
+  homepageCuration?: HomepageCurationSettings,
+) {
+  const categoryKey = normalizeKey(categorySlug);
+  if (!categoryKey) {
+    return [];
+  }
+
+  return (homepageCuration?.featuredProductIdsByCategory?.[categoryKey] || []).filter(Boolean);
+}
+
+function buildProductGroups(
+  categories: HomepageCategory[],
+  products: ShowcaseProduct[],
+  homepageCuration?: HomepageCurationSettings,
+) {
   const usedProductIds = new Set<string>();
   const groups = categories.slice(0, 4).map((category, index) => {
     const categoryKey = normalizeKey(category.slug);
@@ -53,7 +71,24 @@ function buildProductGroups(categories: HomepageCategory[], products: ShowcasePr
       );
     });
 
-    const selectedProducts = categoryProducts.slice(0, 4);
+    const explicitFeaturedProductIds = resolveHomepageCuratedProductIds(
+      category.slug,
+      homepageCuration,
+    );
+    const explicitFeaturedProducts = explicitFeaturedProductIds
+      .map((productId) =>
+        categoryProducts.find((product) => product.id === productId && !usedProductIds.has(product.id)),
+      )
+      .filter((product): product is ShowcaseProduct => Boolean(product));
+    const explicitFeaturedProductIdSet = new Set(
+      explicitFeaturedProducts.map((product) => product.id),
+    );
+
+    const remainingProducts = categoryProducts.filter(
+      (product) => !explicitFeaturedProductIdSet.has(product.id),
+    );
+
+    const selectedProducts = [...explicitFeaturedProducts, ...remainingProducts].slice(0, 4);
     selectedProducts.forEach((product) => usedProductIds.add(product.id));
 
     return {
@@ -67,6 +102,7 @@ function buildProductGroups(categories: HomepageCategory[], products: ShowcasePr
             : index === 2
               ? "Editorden"
               : "Kesfet",
+      isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
     };
@@ -148,16 +184,17 @@ function EmptyShowcaseState() {
 export function ProductShowcaseSections({
   categories = [],
   allProducts,
+  homepageCuration,
   groupCopy,
   viewAllLabel = "Tumunu Gor",
 }: ProductShowcaseSectionsProps) {
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
 
   if (!Array.isArray(allProducts) || allProducts.length === 0) {
     return <EmptyShowcaseState />;
   }
 
-  const groups = buildProductGroups(categories, allProducts);
+  const groups = buildProductGroups(categories, allProducts, homepageCuration);
   const fallbackGroups =
     groups.length > 0
       ? groups
@@ -180,7 +217,10 @@ export function ProductShowcaseSections({
 
   const effectiveGroups = fallbackGroups.map((group, index) => ({
     ...group,
-    title: groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
+    title:
+      (group as { isCategoryDriven?: boolean }).isCategoryDriven
+        ? group.title || humanizeCategory(group.link)
+        : groupCopy?.[index]?.title || group.title || humanizeCategory(group.link),
     subtitle: groupCopy?.[index]?.subtitle || group.subtitle,
   }));
 
@@ -200,10 +240,7 @@ export function ProductShowcaseSections({
               </div>
 
               <Link
-                href={buildLocalizedPath(
-                  group.link.startsWith("/") ? group.link : ROUTES.products,
-                  locale,
-                )}
+                href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
                 className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
               >
                 {viewAllLabel}

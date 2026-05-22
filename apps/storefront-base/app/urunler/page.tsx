@@ -12,6 +12,7 @@ import { getProductListingOrderPositions } from "@/lib/db/settings";
 import { Product } from "@/types/product";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+import { translateProductCollection } from "@/lib/translation";
 
 export const dynamic = "force-dynamic";
 
@@ -124,7 +125,7 @@ function transformProduct(
   };
 }
 
-async function getProducts(): Promise<Product[]> {
+async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>): Promise<Product[]> {
   const supabase = createServerClient();
 
   try {
@@ -156,8 +157,13 @@ async function getProducts(): Promise<Product[]> {
       orderedProducts.map((product) => product.id),
     );
 
-    return orderedProducts.map((product) =>
-      transformProduct(product, attributeRegistry, discountRulesMap[product.id] || []),
+    const translatedProducts = await translateProductCollection(
+      orderedProducts as DBProduct[],
+      locale,
+    );
+
+    return translatedProducts.map((product) =>
+      transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []),
     );
   } catch (error) {
     console.error("Failed to fetch products:", error);
@@ -187,7 +193,8 @@ async function getCategoryCounts() {
 }
 
 export default async function AllProductsPage() {
-  const [products, categoryCounts] = await Promise.all([getProducts(), getCategoryCounts()]);
+  const locale = await getRequestLocale();
+  const [products, categoryCounts] = await Promise.all([getProducts(locale), getCategoryCounts()]);
 
   return (
     <ProductsPageClient

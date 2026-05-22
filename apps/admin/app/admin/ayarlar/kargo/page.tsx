@@ -164,7 +164,6 @@ export default function ShippingSettingsPage() {
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Kargo Entegrasyonu</h1>
-            <p className="mt-1 text-sm text-gray-500">Kargo firmalarını bağlayın ve checkout ekranındaki teslimat bölgelerini yönetin</p>
           </div>
           <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

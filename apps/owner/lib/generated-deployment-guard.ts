@@ -13,7 +13,7 @@ const MAX_DEPLOYMENT_WINDOW_MS = 60 * 60 * 1000;
 const GENERATED_DEPLOYMENT_LOCK_KEY = "generated-deployment-window";
 
 declare global {
-  var __celebixOwnerGeneratedDeploymentLockedUntil: number | undefined;
+  var __celebixOwnerGeneratedDeploymentLocks: Map<string, number> | undefined;
 }
 
 export type DeploymentWindowHandle =
@@ -23,6 +23,7 @@ export type DeploymentWindowHandle =
     }
   | {
       kind: "local";
+      key: string;
       expiresAt: number;
     };
 
@@ -45,19 +46,35 @@ function buildBusyMessage(target: "admin" | "storefront", slug: string, windowMs
   return `${slug} icin ${target} deployment baslatilamadi. Owner ayni anda birden fazla generated deployment baslatmayacak sekilde kilitli. Yaklasik ${minutes} dakika sonra tekrar deneyin.`;
 }
 
-function tryAcquireLocalWindow(windowMs: number): DeploymentWindowHandle | false {
+function buildGeneratedDeploymentLockKey(input: {
+  slug: string;
+  target: "admin" | "storefront";
+}) {
+  return `${GENERATED_DEPLOYMENT_LOCK_KEY}:v2:${input.target}:${input.slug}`;
+}
+
+function getLocalDeploymentLocks() {
+  if (!globalThis.__celebixOwnerGeneratedDeploymentLocks) {
+    globalThis.__celebixOwnerGeneratedDeploymentLocks = new Map<string, number>();
+  }
+
+  return globalThis.__celebixOwnerGeneratedDeploymentLocks;
+}
+
+function tryAcquireLocalWindow(key: string, windowMs: number): DeploymentWindowHandle | false {
   const now = Date.now();
-  const currentExpiry = globalThis.__celebixOwnerGeneratedDeploymentLockedUntil ?? 0;
+  const currentExpiry = getLocalDeploymentLocks().get(key) ?? 0;
 
   if (currentExpiry > now) {
     return false;
   }
 
   const expiresAt = now + windowMs;
-  globalThis.__celebixOwnerGeneratedDeploymentLockedUntil = expiresAt;
+  getLocalDeploymentLocks().set(key, expiresAt);
 
   return {
     kind: "local",
+    key,
     expiresAt,
   };
 }
@@ -67,7 +84,8 @@ export async function reserveGeneratedDeploymentWindow(input: {
   target: "admin" | "storefront";
 }): Promise<DeploymentWindowHandle> {
   const windowMs = getDeploymentWindowMs();
-  const redisLock = await tryAcquireRedisLock(GENERATED_DEPLOYMENT_LOCK_KEY, windowMs);
+  const lockKey = buildGeneratedDeploymentLockKey(input);
+  const redisLock = await tryAcquireRedisLock(lockKey, windowMs);
 
   if (redisLock === false) {
     throw new RedisLockError(buildBusyMessage(input.target, input.slug, windowMs));
@@ -80,7 +98,7 @@ export async function reserveGeneratedDeploymentWindow(input: {
     };
   }
 
-  const localLock = tryAcquireLocalWindow(windowMs);
+  const localLock = tryAcquireLocalWindow(lockKey, windowMs);
 
   if (!localLock) {
     throw new RedisLockError(buildBusyMessage(input.target, input.slug, windowMs));
@@ -99,7 +117,8 @@ export async function releaseGeneratedDeploymentWindow(handle: DeploymentWindowH
     return;
   }
 
-  if (globalThis.__celebixOwnerGeneratedDeploymentLockedUntil === handle.expiresAt) {
-    globalThis.__celebixOwnerGeneratedDeploymentLockedUntil = 0;
+  const locks = getLocalDeploymentLocks();
+  if (locks.get(handle.key) === handle.expiresAt) {
+    locks.delete(handle.key);
   }
 }

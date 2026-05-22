@@ -80,7 +80,7 @@ const PROVIDER_LOGOS: Partial<Record<MarketplaceProvider, ComponentType<{ size?:
 };
 
 const WARM_INPUT =
-  "w-full rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasError: boolean }) {
   if (isConnected) {
@@ -102,7 +102,7 @@ function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasE
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6dbd1] bg-[#f6efe9] px-3 py-1.5 text-xs font-semibold text-[#7d6554]">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6dbd1] bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-[var(--admin-text-secondary)]">
       <Unplug className="h-3 w-3" />
       Bagli Degil
     </span>
@@ -318,8 +318,8 @@ export default function MarketsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f6efe7] p-6 md:p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-[#FE6100]" />
+      <div className="admin-page-root flex items-center justify-center p-6 md:p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--admin-accent)]" />
       </div>
     );
   }
@@ -327,22 +327,22 @@ export default function MarketsPage() {
   // LIST VIEW
   if (view === "list") {
     return (
-      <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+      <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               Pazaryeri Entegrasyonlari
             </div>
           <button
             onClick={fetchIntegrations}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             <RefreshCw className="w-4 h-4" />
             Yenile
           </button>
           </div>
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+          <div className="hidden" />
         </section>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -371,12 +371,12 @@ export default function MarketsPage() {
                 key={providerId}
                 onClick={() => openDetail(providerId)}
                 className={cn(
-                  "rounded-[28px] border bg-white/92 p-5 text-left shadow-[0_18px_40px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16",
+                  "rounded-[28px] border bg-white/92 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
                   isConnected
                     ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
                     : hasError
                       ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
-                      : "border-[#eadccd] hover:border-[#FE6100]/20 hover:shadow-[0_24px_55px_rgba(254,97,0,0.12)]"
+                      : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)]"
                 )}
               >
                 <div className="flex items-start gap-4">
@@ -388,7 +388,7 @@ export default function MarketsPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold tracking-[-0.02em] text-[#2f241d]">{integration.provider.name}</h3>
+                      <h3 className="font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
                       {isConnected && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                     </div>
                     <p className="line-clamp-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
@@ -399,19 +399,19 @@ export default function MarketsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 border-t border-[#f1e5d9] pt-4">
+                <div className="mt-4 border-t border-[var(--admin-border)] pt-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Bekleyen</p>
-                      <p className="mt-1 font-semibold text-[#2f241d]">{integration.queueStats.queued}</p>
+                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</p>
                     </div>
-                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Listing</p>
-                      <p className="mt-1 font-semibold text-[#2f241d]">{integration.listingStats.total}</p>
+                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</p>
                     </div>
-                    <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-3 py-3">
+                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Hatali</p>
-                      <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[#2f241d]")}>
+                      <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-heading)]")}>
                         {integration.queueStats.failed}
                       </p>
                     </div>
@@ -452,17 +452,17 @@ export default function MarketsPage() {
         : null;
 
     return (
-      <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+      <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
         <div className="max-w-6xl mx-auto space-y-6">
           <button
             onClick={() => setView("list")}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-2.5 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             <ChevronLeft className="w-4 h-4" />
             Tum Pazaryerlerine Don
           </button>
 
-          <div className={cn("overflow-hidden rounded-[30px] border bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.08)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[#eadccd]")}>
+          <div className={cn("overflow-hidden rounded-[30px] border bg-white p-6 shadow-[var(--shadow-md)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[var(--admin-border)]")}>
             <div className="flex items-center gap-4">
               <ProviderLogo
                 provider={integration.provider}
@@ -472,16 +472,16 @@ export default function MarketsPage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#2f241d]">{integration.provider.name}</h1>
+                  <h1 className="text-2xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{integration.provider.name}</h1>
                   <ConnectionBadge isConnected={isConnected} hasError={hasError} />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
                 <div className="flex items-center gap-4 mt-2">
-                  <a href={integration.provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
+                  <a href={integration.provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]">
                     Panel <ExternalLink className="w-3 h-3" />
                   </a>
                   {integration.provider.docsUrl && (
-                    <a href={integration.provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
+                    <a href={integration.provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]">
                       API Dokumani <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -491,10 +491,10 @@ export default function MarketsPage() {
           </div>
 
           {providerId === "google_merchant" && (
-            <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+            <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
               <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
                 <div className="space-y-2">
-                  <h2 className="font-semibold text-[#2f241d]">Merchant Feed URL</h2>
+                  <h2 className="font-semibold text-[var(--admin-heading)]">Merchant Feed URL</h2>
                   <p className="text-sm leading-6 text-[#7d6959]">
                     Google Merchant Center icinde Scheduled Fetch kaynagi olarak bu adresi kullan.
                   </p>
@@ -513,19 +513,19 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[22px] border border-[#eadccd] bg-[#fdf8f3] px-4 py-3">
+              <div className="mt-4 rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                 <div className="flex items-center gap-3">
                   <input
                     readOnly
                     value={googleFeedUrl || "Baglanti kaydedildiginde feed URL burada gorunecek."}
-                    className="w-full bg-transparent text-sm text-[#6e5b4e] outline-none"
+                    className="w-full bg-transparent text-sm text-[var(--admin-text-secondary)] outline-none"
                   />
                   {googleFeedUrl ? (
                     <a
                       href={googleFeedUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-[#eadccd] bg-white px-3 py-2 text-xs font-semibold text-[#6e5b4e] shadow-sm transition hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-[var(--admin-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                     >
                       Ac
                       <ExternalLink className="h-3 w-3" />
@@ -534,14 +534,14 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-[#6e5b4e] md:grid-cols-3">
-                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
+              <div className="mt-4 grid gap-3 text-sm text-[var(--admin-text-secondary)] md:grid-cols-3">
+                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                   1. Merchant Center &gt; Products &gt; Data sources
                 </div>
-                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
+                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                   2. Scheduled Fetch sec ve URL olarak bu feed adresini gir
                 </div>
-                <div className="rounded-[20px] border border-[#f1e5d9] bg-[#fdf8f3] px-4 py-3">
+                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                   3. Sonra bu ekrandan Senkronize Et ile issue durumlarini kontrol et
                 </div>
               </div>
@@ -551,13 +551,13 @@ export default function MarketsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Form */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
                     <Settings className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-[#2f241d]">API Bilgileri</h2>
+                    <h2 className="font-semibold text-[var(--admin-heading)]">API Bilgileri</h2>
                     <p className="text-sm text-[#7d6959]">Pazaryeri panelinden alinan kimlik bilgileri</p>
                   </div>
                 </div>
@@ -568,7 +568,7 @@ export default function MarketsPage() {
 
                     return (
                       <div key={field.key} className={isTextarea ? "md:col-span-2" : ""}>
-                        <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">
+                        <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">
                           {field.label}
                           {field.required && <span className="text-red-500 ml-1">*</span>}
                         </label>
@@ -597,13 +597,13 @@ export default function MarketsPage() {
               </div>
 
               {integration.provider.mappingFields.length > 0 && (
-                <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+                <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">
                       <Package className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="font-semibold text-[#2f241d]">Alan Esleme</h2>
+                      <h2 className="font-semibold text-[var(--admin-heading)]">Alan Esleme</h2>
                       <p className="text-sm text-[#7d6959]">Ürün alanlarını pazaryeri alanlarıyla eşleştirin</p>
                     </div>
                   </div>
@@ -611,7 +611,7 @@ export default function MarketsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {integration.provider.mappingFields.map((field) => (
                       <div key={field.key}>
-                        <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">{field.label}</label>
+                        <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">{field.label}</label>
                         <input
                           value={form.fieldMappings[field.key] || ""}
                           onChange={(e) => updateMapping(providerId, field.key, e.target.value)}
@@ -625,23 +625,23 @@ export default function MarketsPage() {
               )}
 
               {listings.length > 0 && (
-                <div className="overflow-hidden rounded-[30px] border border-[#eadccd] bg-white/92 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
-                  <div className="flex items-center justify-between border-b border-[#f1e5d9] px-6 py-4">
+                <div className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]">
+                  <div className="flex items-center justify-between border-b border-[var(--admin-border)] px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <ShoppingBag className="w-5 h-5 text-[#c96a2b]" />
-                      <h3 className="font-semibold text-[#2f241d]">Listing Eslesmeleri</h3>
+                      <ShoppingBag className="w-5 h-5 text-[var(--admin-accent-hover)]" />
+                      <h3 className="font-semibold text-[var(--admin-heading)]">Listing Eslesmeleri</h3>
                     </div>
                     <button
                       onClick={() => loadListings(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:listings`}
-                      className="text-sm font-medium text-[#C54E00] transition hover:text-[#a94500] disabled:opacity-50"
+                      className="text-sm font-medium text-[var(--admin-accent-hover)] transition hover:text-[#a94500] disabled:opacity-50"
                     >
                       {busyKey === `${selectedProvider}:listings` ? "Yükleniyor..." : "Yenile"}
                     </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-[#fff8f3]/85">
+                      <thead className="bg-[var(--admin-accent-soft)]/85">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Ürün</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">SKU</th>
@@ -651,13 +651,13 @@ export default function MarketsPage() {
                       </thead>
                       <tbody className="divide-y divide-[#f2e7dc]">
                         {listings.slice(0, 10).map((listing) => (
-                          <tr key={listing.variantId} className="transition-colors hover:bg-[#fffaf5]">
+                          <tr key={listing.variantId} className="transition-colors hover:bg-[#FCFDFE]">
                             <td className="px-4 py-3">
-                              <div className="font-medium text-[#2f241d]">{listing.productName}</div>
+                              <div className="font-medium text-[var(--admin-heading)]">{listing.productName}</div>
                               <div className="text-xs text-[#8c7564]">{listing.variantName}</div>
                             </td>
                             <td className="px-4 py-3 font-mono text-xs">{listing.sku || "-"}</td>
-                            <td className="px-4 py-3 text-[#6e5b4e]">
+                            <td className="px-4 py-3 text-[var(--admin-text-secondary)]">
                               {listing.price.toLocaleString("tr-TR")} ₺ / {listing.stock}
                             </td>
                             <td className="px-4 py-3">
@@ -683,8 +683,8 @@ export default function MarketsPage() {
 
             {/* Right: Actions & Logs */}
             <div className="space-y-6">
-              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
-                <h3 className="mb-4 font-semibold text-[#2f241d]">Islemler</h3>
+              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+                <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Islemler</h3>
                 <div className="space-y-3">
                   <ActionButton
                     icon={Save}
@@ -709,14 +709,14 @@ export default function MarketsPage() {
                   />
                 </div>
 
-                <div className="mt-6 space-y-3 border-t border-[#f1e5d9] pt-6">
+                <div className="mt-6 space-y-3 border-t border-[var(--admin-border)] pt-6">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#8c7564]">Webhook</span>
-                    <span className="font-medium text-[#2f241d]">{integration.provider.supportsWebhook ? "Destekli" : "Polling"}</span>
+                    <span className="font-medium text-[var(--admin-heading)]">{integration.provider.supportsWebhook ? "Destekli" : "Polling"}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#8c7564]">Son Senkron</span>
-                    <span className="font-medium text-[#2f241d]">
+                    <span className="font-medium text-[var(--admin-heading)]">
                       {integration.connection?.lastSyncAt
                         ? new Date(integration.connection.lastSyncAt).toLocaleDateString("tr-TR")
                         : "-"}
@@ -725,51 +725,51 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
-                <h3 className="mb-4 font-semibold text-[#2f241d]">Kuyruk Durumu</h3>
+              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+                <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Kuyruk Durumu</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-[20px] bg-[#fdf8f3] p-3">
-                    <span className="text-sm text-[#6e5b4e]">Bekleyen</span>
-                    <span className="font-semibold text-[#2f241d]">{integration.queueStats.queued}</span>
+                  <div className="flex items-center justify-between rounded-[20px] bg-[#FCFDFE] p-3">
+                    <span className="text-sm text-[var(--admin-text-secondary)]">Bekleyen</span>
+                    <span className="font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</span>
                   </div>
-                  <div className={cn("flex items-center justify-between rounded-[20px] p-3", integration.queueStats.failed > 0 ? "bg-rose-50" : "bg-[#fdf8f3]")}>
-                    <span className={cn("text-sm", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[#6e5b4e]")}>Hatali</span>
-                    <span className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-rose-700" : "text-[#2f241d]")}>
+                  <div className={cn("flex items-center justify-between rounded-[20px] p-3", integration.queueStats.failed > 0 ? "bg-rose-50" : "bg-[#FCFDFE]")}>
+                    <span className={cn("text-sm", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-text-secondary)]")}>Hatali</span>
+                    <span className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-rose-700" : "text-[var(--admin-heading)]")}>
                       {integration.queueStats.failed}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between rounded-[20px] bg-[#fdf8f3] p-3">
-                    <span className="text-sm text-[#6e5b4e]">Listing</span>
-                    <span className="font-semibold text-[#2f241d]">{integration.listingStats.total}</span>
+                  <div className="flex items-center justify-between rounded-[20px] bg-[#FCFDFE] p-3">
+                    <span className="text-sm text-[var(--admin-text-secondary)]">Listing</span>
+                    <span className="font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</span>
                   </div>
                 </div>
               </div>
 
               {logs.length > 0 && (
-                <div className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+                <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-[#2f241d]">Son Loglar</h3>
+                    <h3 className="font-semibold text-[var(--admin-heading)]">Son Loglar</h3>
                     <button
                       onClick={() => loadLogs(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:logs`}
-                      className="text-xs font-medium text-[#C54E00] transition hover:text-[#a94500] disabled:opacity-50"
+                      className="text-xs font-medium text-[var(--admin-accent-hover)] transition hover:text-[#a94500] disabled:opacity-50"
                     >
                       Yenile
                     </button>
                   </div>
                   <div className="space-y-2 max-h-64 overflow-auto">
                     {logs.slice(0, 5).map((log) => (
-                      <div key={log.id} className="rounded-[20px] bg-[#fdf8f3] p-3 text-xs">
+                      <div key={log.id} className="rounded-[20px] bg-[#FCFDFE] p-3 text-xs">
                         <div className="flex items-center justify-between">
                           <span
                             className={cn(
                               "font-medium",
-                              log.status === "success" ? "text-emerald-700" : log.status === "error" ? "text-rose-700" : "text-[#6e5b4e]"
+                              log.status === "success" ? "text-emerald-700" : log.status === "error" ? "text-rose-700" : "text-[var(--admin-text-secondary)]"
                             )}
                           >
                             {log.status}
                           </span>
-                          <span className="text-[#a08e82]">{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
+                          <span className="text-[var(--admin-text-muted)]">{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
                         </div>
                         <p className="mt-1 text-[#8c7564]">
                           {log.direction} / {log.entityType}
@@ -792,18 +792,18 @@ export default function MarketsPage() {
 
 function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: ElementType; color: "blue" | "green" | "amber" | "purple" }) {
   const colors = {
-    blue: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    blue: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
     green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
     amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
-    purple: "border-[#efcfb1] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b]",
+    purple: "border-[#efcfb1] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   };
 
   return (
-    <div className="rounded-[28px] border border-[#eadccd] bg-white/92 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)]">
+    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)]">
       <div className="flex items-start justify-between">
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
-          <p className="text-2xl font-bold tracking-[-0.03em] text-[#2f241d]">{value}</p>
+          <p className="text-2xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{value}</p>
         </div>
         <div className={`flex h-11 w-11 items-center justify-center rounded-[18px] border shadow-sm ${colors[color]}`}>
           <Icon className="w-5 h-5" />
@@ -833,8 +833,8 @@ function ActionButton({
       className={cn(
         "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4",
         variant === "primary"
-          ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:ring-[#FE6100]/18"
-          : "border border-[#eadccd] bg-white text-[#6e5b4e] shadow-sm hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:ring-[#FE6100]/16"
+          ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.18)]"
+          : "border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.16)]"
       )}
     >
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}

@@ -1,4 +1,4 @@
-import { getAdminAuthContext } from "@/lib/admin-auth";
+import { getAdminAuthContext, getAdminBootstrapProfileFromCookies } from "@/lib/admin-auth";
 import { withServerTimeout } from "@/lib/server-timeout";
 import AdminLayoutClient from "./AdminLayoutClient";
 
@@ -19,13 +19,21 @@ export default async function AdminLayout({
     console.error("Admin layout auth bootstrap error:", error);
   }
 
+  const bootstrapProfile = auth ? null : await getAdminBootstrapProfileFromCookies();
+
   const initialProfile = auth
     ? {
         email: auth.profile.email,
         fullName: auth.profile.full_name,
         role: auth.profile.role,
       }
-    : null;
+    : bootstrapProfile
+      ? {
+          email: bootstrapProfile.email,
+          fullName: bootstrapProfile.full_name,
+          role: bootstrapProfile.role,
+        }
+      : null;
 
   return (
     <AdminLayoutClient initialProfile={initialProfile}>

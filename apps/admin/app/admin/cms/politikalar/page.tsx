@@ -102,7 +102,7 @@ export default function PolicyPagesListingPage() {
   const pendingCount = policyCards.length - publishedCount - draftCount;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#f6ede0_48%,#f3ebdf_100%)] p-6 md:p-8">
+    <div className="admin-page-root p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[28px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_20px_60px_-30px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -112,12 +112,8 @@ export default function PolicyPagesListingPage() {
               </span>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  Hukuk metinlerini sıcak ve net bir görünümle yönetin
+                  Politika Sayfaları
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
-                  Mağaza footer'ında gösterilecek politika sayfalarını tek akışta düzenleyin.
-                  İçeriği olmayan politikalar storefront'ta görünmez; veri mantığı korunur.
-                </p>
               </div>
             </div>
 
@@ -164,7 +160,7 @@ export default function PolicyPagesListingPage() {
                     </span>
                   </div>
 
-                  <div className="mt-6 rounded-2xl border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] p-4">
+                  <div className="mt-6 rounded-2xl border border-stone-200 bg-[#FCFDFE] p-4">
                     <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                       Yayın durumu
                     </div>
@@ -249,9 +245,6 @@ function LoadingState() {
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-stone-900">Politikalar yükleniyor</h2>
-        <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">
-          Politika kartları hazırlanıyor ve yayın durumu görünür hale getiriliyor.
-        </p>
       </div>
     </section>
   );

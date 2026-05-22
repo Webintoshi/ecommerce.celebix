@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatPrice } from "@/lib/utils";
 import { getProductCardSwatches } from "@/lib/variant-selection";
@@ -94,7 +93,7 @@ function ProductCardRating({ product }: { product: Product }) {
 }
 
 export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
-  const { locale } = useStorefrontRoute();
+  const { buildPath } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
@@ -104,7 +103,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
       : undefined;
-  const productHref = buildLocalizedPath(ROUTES.product(product.slug), locale);
+  const productHref = buildPath(ROUTES.product(product.slug));
 
   if (viewMode === "list") {
     return (

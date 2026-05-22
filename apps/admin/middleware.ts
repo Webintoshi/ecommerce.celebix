@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
+import { clearAdminRoleCookie, readAdminRoleCookie } from "@/lib/admin-role-cookie";
 import {
   isLightPostgresRuntime,
   resolveRuntimeAuthSetupStatus,
@@ -10,7 +10,6 @@ import {
   isMutationMethod,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
-import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
@@ -79,6 +78,28 @@ function isProtectedApi(request: NextRequest) {
 
   if (pathname.startsWith("/api/customers")) {
     return pathname !== "/api/customers/create-from-auth";
+  }
+
+  if (pathname === "/api/orders") {
+    return request.method !== "POST";
+  }
+
+  if (pathname === "/api/abandoned-carts") {
+    if (request.method === "GET" || request.method === "PATCH") {
+      return true;
+    }
+
+    if (request.method === "DELETE") {
+      return request.nextUrl.searchParams.has("id");
+    }
+  }
+
+  if (pathname === "/api/lucky-wheel/admin") {
+    return true;
+  }
+
+  if (pathname === "/api/migrate") {
+    return true;
   }
 
   if (pathname === "/api/products" || pathname === "/api/categories") {
@@ -152,29 +173,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          request.cookies.set(cookie.name, cookie.value);
-          response.cookies.set(cookie.name, cookie.value, cookie.options);
-        }
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUserFromCookies(request.cookies.getAll());
 
   if (!user) {
     if (pathname.startsWith("/api/")) {
@@ -190,29 +195,27 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
-  const serviceClient = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const adminRole = readAdminRoleCookie(request.cookies.getAll());
 
-  const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
-
-  if (!profile || !ADMIN_ROLES.has(profile.role)) {
-    await supabase.auth.signOut();
-
+  if (!adminRole || adminRole.userId !== user.id || !ADMIN_ROLES.has(adminRole.role)) {
     if (pathname.startsWith("/api/")) {
+      const unauthorizedResponse = NextResponse.json(
+        { success: false, error: "Admin yetkisi bulunamadi." },
+        { status: 403 },
+      );
+      clearAdminRoleCookie(unauthorizedResponse);
       return applySecurityHeaders(
         request,
-        NextResponse.json({ success: false, error: "Admin yetkisi bulunamadi." }, { status: 403 }),
+        unauthorizedResponse,
         "admin",
       );
     }
 
     const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("error", "unauthorized");
-    return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    clearAdminRoleCookie(redirectResponse);
+    return applySecurityHeaders(request, redirectResponse, "admin");
   }
 
   if (pathname === ADMIN_LOGIN_PATH) {

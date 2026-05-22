@@ -2,20 +2,22 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import {
   getConfiguredImageTransformationUrl,
   getRepoRoot,
   requireStoreConfig,
   resolveProvisionedNextBuildCpuCap,
   type StoreConfig,
-  updateStoreStorefrontDeploymentConfig,
 } from "@celebix/platform-config";
-import { getStoreSupabaseSecret } from "@/lib/store-secrets";
+import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import {
-  checkStorefrontRepoSyncOnGithub,
-  isGitHubRepoSyncConfigured,
-} from "@/lib/storefront-repo-sync";
+  getExpectedStorefrontAppDir,
+  getExpectedStorefrontPackageName,
+} from "../../../packages/platform-config/src/index";
+import { getStoreSupabaseSecret } from "@/lib/store-secrets";
+import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
+import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
+import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -187,36 +189,6 @@ function readWorkspaceServerPort(store: StoreConfig): string {
   return "3000";
 }
 
-function hasGitMetadata(): boolean {
-  return fs.existsSync(path.join(getRepoRoot(), ".git"));
-}
-
-async function isRepoSynced(store: StoreConfig, relativeAppDir: string | null): Promise<boolean> {
-  if (store.storefront?.repoSyncStatus === "synced" && store.storefront?.repoSyncedAt) {
-    return true;
-  }
-
-  if (!relativeAppDir?.trim()) {
-    return false;
-  }
-
-  if (!hasGitMetadata()) {
-    return checkStorefrontRepoSyncOnGithub(store.slug);
-  }
-
-  const packageJsonPath = `${relativeAppDir.replace(/\\/g, "/")}/package.json`;
-
-  try {
-    execFileSync("git", ["ls-files", "--error-unmatch", packageJsonPath], {
-      cwd: getRepoRoot(),
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function buildPublicEnvEntries(store: StoreConfig): Record<string, string> {
   const socialHandle = store.slug.replace(/-/g, "");
 
@@ -227,6 +199,7 @@ function buildPublicEnvEntries(store: StoreConfig): Record<string, string> {
     NEXT_PUBLIC_ADMIN_URL: `https://${store.domains.admin}`,
     NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
     NEXT_PUBLIC_ADMIN_DOMAIN: store.domains.admin,
+    NEXT_PUBLIC_DEMO_DOMAIN: store.domains.demo,
     NEXT_PUBLIC_STORE_NAME: store.name,
     NEXT_PUBLIC_STORE_TAGLINE:
       store.branding?.tagline || `${store.name} icin Celebix storefront referansi`,
@@ -319,24 +292,24 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
       "DATABASE_DIRECT_URL",
       "DATABASE_POOL_MODE",
       "DATABASE_SSLMODE",
-      "CLOUDFLARE_ACCOUNT_ID",
-      "R2_ACCESS_KEY_ID",
-      "R2_SECRET_ACCESS_KEY",
-      "R2_BUCKET_NAME",
-      "R2_PUBLIC_URL",
     ] as const) {
-      const value =
-        adminEnvEntries[key]?.trim() ||
-        (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
-        (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+      const value = adminEnvEntries[key]?.trim();
 
       if (value) {
         entries[key] = value;
       }
     }
 
-    if (entries.R2_PUBLIC_URL) {
-      entries.NEXT_PUBLIC_R2_PUBLIC_URL = entries.R2_PUBLIC_URL;
+    const r2EnvEntries = await resolveR2DeploymentEnv(store, adminEnvEntries);
+
+    for (const [key, value] of Object.entries(r2EnvEntries)) {
+      if (value.trim()) {
+        entries[key] = value;
+      }
+    }
+
+    if (r2EnvEntries.R2_PUBLIC_URL?.trim()) {
+      entries.NEXT_PUBLIC_R2_PUBLIC_URL = r2EnvEntries.R2_PUBLIC_URL.trim();
     }
 
     if (entries.DATABASE_SSLMODE && !entries.LIGHT_POSTGRES_DATABASE_SSLMODE) {
@@ -347,27 +320,26 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
   }
 
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
+  const runtimeAuthority =
+    store.supabase.provider === "self_hosted_coolify" && store.bootstrap?.supabaseResourceId
+      ? await readCoolifySupabaseRuntimeAuthority(store.bootstrap.supabaseResourceId).catch(() => null)
+      : null;
   const configuredStoreUrl =
     store.supabase.url !== "configure-in-env" ? store.supabase.url : "";
   const supabaseUrl =
+    runtimeAuthority?.publicUrl?.trim() ||
     secretRecord?.supabase_url?.trim() ||
     adminEnvEntries.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     configuredStoreUrl;
   const anonKey =
+    runtimeAuthority?.publicKey?.trim() ||
     secretRecord?.supabase_anon_key?.trim() ||
     adminEnvEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     "";
   const serviceRoleKey =
+    runtimeAuthority?.serviceKey?.trim() ||
     secretRecord?.supabase_service_role_key?.trim() ||
     adminEnvEntries.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    "";
-  const r2BucketName =
-    adminEnvEntries.R2_BUCKET_NAME?.trim() ||
-    store.r2?.bucketName?.trim() ||
-    "";
-  const r2PublicUrl =
-    adminEnvEntries.R2_PUBLIC_URL?.trim() ||
-    store.r2?.publicUrl?.trim() ||
     "";
   const entries: Record<string, string> = {
     ...buildPublicEnvEntries(store),
@@ -385,27 +357,16 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
     entries.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
   }
 
-  const optionalAdminEnvKeys = [
-    "CLOUDFLARE_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-  ] as const;
+  const r2EnvEntries = await resolveR2DeploymentEnv(store, adminEnvEntries);
 
-  for (const key of optionalAdminEnvKeys) {
-    const value = adminEnvEntries[key]?.trim();
-
-    if (value) {
+  for (const [key, value] of Object.entries(r2EnvEntries)) {
+    if (value.trim()) {
       entries[key] = value;
     }
   }
 
-  if (r2BucketName) {
-    entries.R2_BUCKET_NAME = r2BucketName;
-  }
-
-  if (r2PublicUrl) {
-    entries.R2_PUBLIC_URL = r2PublicUrl;
-    entries.NEXT_PUBLIC_R2_PUBLIC_URL = r2PublicUrl;
+  if (r2EnvEntries.R2_PUBLIC_URL?.trim()) {
+    entries.NEXT_PUBLIC_R2_PUBLIC_URL = r2EnvEntries.R2_PUBLIC_URL.trim();
   }
 
   return entries;
@@ -490,8 +451,9 @@ export async function getStorefrontDeploymentBlueprint(
   const appDirectory = resolveAppDirectory(store);
   const packageJsonPath = resolvePackageJsonPath(store);
   const relativeAppDir = store.storefront?.appDir ?? null;
-  const repoSynced = await isRepoSynced(store, relativeAppDir);
   const requiredEnvReady = hasRequiredEnv(envEntries);
+  const expectedAppDir = getExpectedStorefrontAppDir(store.slug);
+  const expectedPackageName = getExpectedStorefrontPackageName(store.slug);
   const workspace = readWorkspaceName(store);
   const serverPort = readWorkspaceServerPort(store);
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`;
@@ -505,28 +467,70 @@ export async function getStorefrontDeploymentBlueprint(
       buildServer.trim(),
   );
 
-  let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed";
+  let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed" =
+    "pending-repo-sync";
   let runtimeConsistent = false;
   let runtimeMessage: string | null = null;
+  let runtimeConfigured = false;
+  let repoSynced = false;
+
+  if (!relativeAppDir) {
+    if (store.storefront?.lastScaffoldedAt) {
+      status = "failed";
+      runtimeMessage = "Storefront scaffold zamani yazilmis ama appDir authority kaybolmus.";
+    } else {
+      status = "pending-repo-sync";
+      runtimeMessage = "Storefront scaffold authority henuz yazilmamis.";
+    }
+  } else if (relativeAppDir !== expectedAppDir) {
+    status = "failed";
+    runtimeMessage = `Storefront appDir beklenen dizinle uyusmuyor: ${relativeAppDir}`;
+  } else if (!appDirectory || !packageJsonPath) {
+    status = "failed";
+    runtimeMessage = "Storefront scaffold dosyalari eksik: app dizini veya package.json bulunamadi.";
+  } else {
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { name?: string };
+
+      if (packageJson.name?.trim() !== expectedPackageName) {
+        status = "failed";
+        runtimeMessage = `Storefront package name uyusmuyor: ${packageJson.name || "bos"}`;
+      }
+    } catch {
+      status = "failed";
+      runtimeMessage = "Storefront package.json okunamadi.";
+    }
+  }
 
   if (!buildServerReady) {
     status = "failed";
     runtimeMessage =
       "Storefront deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
+  } else if (status === "failed") {
+    // keep the earlier failure reason
   } else if (!requiredEnvReady) {
     status = "pending-owner-env";
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
-  } else if (!packageJsonPath || !repoSynced) {
-    status = "pending-repo-sync";
-    runtimeMessage = isGitHubRepoSyncConfigured()
-      ? "Storefront app dizini repo'da takip edilmiyor. GitHub write-back gerekli."
-      : "Storefront app dizini repo'da takip edilmiyor. GitHub sync tokeni gerekli.";
   } else {
-    status = "prepared";
-    const runtime = await readRuntimeConsistency(store, runtimeUrl);
-    runtimeConsistent = runtime.consistent;
-    runtimeMessage = runtime.message;
-    status = runtime.configured && runtime.consistent ? "configured" : "prepared";
+    const branchVerification = await verifyStorefrontBranchState(store.slug);
+    repoSynced = branchVerification.verified;
+
+    if (!branchVerification.verified) {
+      status =
+        !branchVerification.appDirMatches || !branchVerification.packageNameMatches
+          ? "failed"
+          : "pending-repo-sync";
+      runtimeMessage =
+        branchVerification.message ||
+        "Storefront deploy branch'i hedef package ve authority dosyalarini henuz icermiyor.";
+    } else {
+      status = "prepared";
+      const runtime = await readRuntimeConsistency(store, runtimeUrl);
+      runtimeConfigured = runtime.configured;
+      runtimeConsistent = runtime.consistent;
+      runtimeMessage = runtime.message;
+      status = runtime.configured && runtime.consistent ? "configured" : "prepared";
+    }
   }
 
   return {
@@ -543,16 +547,16 @@ export async function getStorefrontDeploymentBlueprint(
       deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"],
     serverPort,
     workspace,
-    installCommand: "npm ci --include=optional --no-audit --no-fund",
+    installCommand: "npm install --include=optional --no-audit --no-fund",
     buildCommand: `npm run build --workspace ${workspace}`,
     startCommand: `npm run start --workspace ${workspace}`,
     appDirectory,
-    envLocalPath: appDirectory ? path.posix.join(relativeAppDir || "", ".env.local") : null,
-    envTemplatePath: appDirectory ? path.posix.join(relativeAppDir || "", ".env.example") : null,
+    envLocalPath: relativeAppDir ? path.posix.join(relativeAppDir, ".env.local") : null,
+    envTemplatePath: relativeAppDir ? path.posix.join(relativeAppDir, ".env.example") : null,
     envEntries,
     status,
     repoSynced,
-    runtimeConsistent,
+    runtimeConsistent: runtimeConfigured && runtimeConsistent,
     runtimeMessage,
   };
 }
@@ -562,11 +566,11 @@ export async function prepareStorefrontDeployment(
 ): Promise<StorefrontDeploymentBlueprint> {
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
 
-  updateStoreStorefrontDeploymentConfig(slug, {
+  await applyStorefrontAuthorityPatch(slug, {
     deploymentStatus: blueprint.status,
     deploymentName: blueprint.appName,
     runtimeUrl: blueprint.runtimeUrl,
-    lastError: blueprint.runtimeMessage ?? undefined,
+    lastDeploymentError: blueprint.runtimeMessage ?? null,
   });
 
   return blueprint;

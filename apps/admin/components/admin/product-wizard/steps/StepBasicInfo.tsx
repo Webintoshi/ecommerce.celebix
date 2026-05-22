@@ -194,8 +194,8 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8">
-      <div className="flex items-center gap-3 border-b border-[#FE6100]/8 pb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)] md:h-12 md:w-12 md:rounded-2xl">
+      <div className="flex items-center gap-3 border-b border-[var(--admin-border)] pb-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)] md:h-12 md:w-12 md:rounded-2xl">
           <Package className="w-5 h-5 md:w-6 md:h-6" />
         </div>
         <div>
@@ -208,7 +208,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="space-y-5">
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-sm">
             <label className="flex items-center gap-1 text-sm font-semibold text-stone-700">
               Ürün Adı <span className="text-rose-500">*</span>
             </label>
@@ -218,7 +218,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
               onChange={(event) => handleNameChange(event.target.value)}
               placeholder="Örn: El Yapımı Seramik Kupa"
               className={cn(
-                "w-full rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                "w-full rounded-2xl border bg-[#FCFDFE] px-4 py-3 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                 errors.name ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
               )}
             />
@@ -227,7 +227,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">
               URL Slug <span className="text-rose-500">*</span>
             </label>
@@ -241,7 +241,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                 onChange={(event) => onChange({ slug: event.target.value })}
                 placeholder="el-yapimi-seramik-kupa"
                 className={cn(
-                  "w-full rounded-2xl border bg-[#fffaf6] py-3 pl-20 pr-4 text-xs font-mono outline-none transition-all md:text-sm focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                  "w-full rounded-2xl border bg-[#FCFDFE] py-3 pl-20 pr-4 text-xs font-mono outline-none transition-all md:text-sm focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                   errors.slug ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
                 )}
               />
@@ -251,7 +251,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <label className="text-sm font-semibold text-stone-700">
                 Kısa Açıklama <span className="text-rose-500">*</span>
@@ -275,7 +275,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
               placeholder="Arama sonuçlarında görünecek kısa özet."
               rows={2}
               className={cn(
-                "w-full resize-none rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                "w-full resize-none rounded-2xl border bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                 errors.shortDescription ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
               )}
             />
@@ -286,7 +286,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="space-y-2 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+          <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">
               Ürün Açıklaması <span className="text-rose-500">*</span>
             </label>
@@ -304,7 +304,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
         </div>
 
         <div className="space-y-5">
-          <div className="space-y-4 rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
+          <div className="space-y-4 rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-stone-700">
@@ -320,7 +320,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                       })
                     }
                     className={cn(
-                      "w-full cursor-pointer appearance-none rounded-2xl border bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20",
+                      "w-full cursor-pointer appearance-none rounded-2xl border bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                       errors.category ? "border-rose-300 bg-rose-50/30" : "border-[#e8dbcf]"
                     )}
                   >
@@ -347,7 +347,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                     <select
                       value={data.subcategory}
                       onChange={(event) => onChange({ subcategory: event.target.value })}
-                      className="w-full cursor-pointer appearance-none rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                      className="w-full cursor-pointer appearance-none rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                     >
                       <option value="">Alt kategori seçin</option>
                       {subcategories.map((subcategory) => (
@@ -369,7 +369,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
           </div>
 
-          <div className="space-y-4 rounded-[24px] border border-[#FE6100]/10 bg-white/90 p-4 shadow-sm">
+          <div className="space-y-4 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-sm">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-stone-700">Marka</label>
@@ -378,7 +378,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                   value={data.brand}
                   onChange={(event) => onChange({ brand: event.target.value })}
                   placeholder="Marka veya üretici adı"
-                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                 />
               </div>
               <div className="space-y-2">
@@ -388,15 +388,15 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                   value={data.countryOfOrigin}
                   onChange={(event) => onChange({ countryOfOrigin: event.target.value })}
                   placeholder="Menşei ülke veya bölge"
-                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                  className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                 />
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
+          <div className="space-y-3 rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fff8f3] p-4 shadow-sm">
             <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
-              <Tag className="h-4 w-4 text-[#FE6100]" />
+              <Tag className="h-4 w-4 text-[var(--admin-accent)]" />
               Etiketler
             </label>
 
@@ -411,7 +411,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                 }
               }}
               placeholder="Etiket eklemek için yazın ve Enter'a basın"
-              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#fffaf6] px-4 py-3 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+              className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
             />
 
             <div className="flex items-center justify-between text-xs text-stone-500" aria-live="polite">
@@ -432,7 +432,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
                       key={suggestion.value}
                       type="button"
                       onClick={() => addTag(suggestion.value)}
-                      className="rounded-full border border-[#FE6100]/12 bg-white px-3 py-1.5 text-xs font-medium text-[#C94E00] transition-all hover:border-[#FE6100]/20 hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
+                      className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
                     >
                       {suggestion.value}
                     </button>
@@ -442,19 +442,19 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
             ) : null}
 
             {data.tags.length > 0 ? (
-              <div className="space-y-2 border-t border-[#FE6100]/8 pt-2">
+              <div className="space-y-2 border-t border-[var(--admin-border)] pt-2">
                 <p className="text-xs text-stone-500">Seçilen etiketler</p>
                 <div className="flex flex-wrap gap-2">
                   {data.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 rounded-full border border-[#FE6100]/15 bg-[#fff4ec] px-3 py-1.5 text-xs font-medium text-[#C94E00]"
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)]"
                     >
                       {tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="rounded-full text-[#C94E00] transition-colors hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/25"
+                        className="rounded-full text-[var(--admin-accent-hover)] transition-colors hover:text-[#9f3d00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
                         aria-label={`${tag} etiketini kaldır`}
                       >
                         <X className="w-3.5 h-3.5" />

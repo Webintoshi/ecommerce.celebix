@@ -5,10 +5,20 @@ import path from "node:path";
 import {
   getRepoRoot,
   getStoreConfig,
+  requireStoreConfig,
   getStores,
-  type StoreConfig,
-  type StoreRegistryEntry,
+  updateStoreConfig,
 } from "@celebix/platform-config";
+import {
+  applyStorefrontAuthorityPatchToConfig,
+  getExpectedStorefrontAppDir,
+  resolveAuthorityRepositoryBranch,
+  resolveStorefrontRepositoryBranch,
+  type StoreConfig,
+  type StorefrontStatus,
+  type StoreRegistryEntry,
+  type StorefrontAuthorityPatchInput,
+} from "../../../packages/platform-config/src/index";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 
 interface OwnerStoreAuthorityRow {
@@ -52,6 +62,45 @@ function readStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
 }
 
+function readStorefrontStatus(value: unknown): StorefrontStatus | null {
+  return value === "not_started" || value === "scaffolded" || value === "active" ? value : null;
+}
+
+function scoreStorefrontStatus(value: StorefrontStatus | null | undefined): number {
+  switch (value) {
+    case "active":
+      return 2;
+    case "scaffolded":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function resolveRecoveredStorefrontAppDir(
+  row: Pick<OwnerStoreAuthorityRow, "slug" | "storefront_app_dir">,
+  storefrontMetadata: Record<string, unknown>,
+): string | null {
+  return (
+    readOptionalString(row.storefront_app_dir) ??
+    readOptionalString(storefrontMetadata.appDir) ??
+    (readStorefrontStatus(storefrontMetadata.status) === "scaffolded" ||
+    readStorefrontStatus(storefrontMetadata.status) === "active"
+      ? getExpectedStorefrontAppDir(row.slug)
+      : null)
+  );
+}
+
+function resolveRecoveredStorefrontStatus(
+  row: Pick<OwnerStoreAuthorityRow, "storefront_status">,
+  storefrontMetadata: Record<string, unknown>,
+): StorefrontStatus {
+  const metadataStatus = readStorefrontStatus(storefrontMetadata.status);
+  return scoreStorefrontStatus(metadataStatus) > scoreStorefrontStatus(row.storefront_status)
+    ? (metadataStatus ?? row.storefront_status)
+    : row.storefront_status;
+}
+
 function inferSupabaseProvider(row: OwnerStoreAuthorityRow): "managed" | "self_hosted_coolify" {
   if (
     row.supabase_project_ref?.startsWith("coolify:") ||
@@ -88,6 +137,8 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   const themeLabel = readOptionalString(row.theme_label) ?? themeKey[0].toUpperCase() + themeKey.slice(1);
   const supabaseProvider = inferSupabaseProvider(row);
   const databaseMode = inferDatabaseMode(row, metadata);
+  const recoveredStorefrontAppDir = resolveRecoveredStorefrontAppDir(row, storefront);
+  const recoveredStorefrontStatus = resolveRecoveredStorefrontStatus(row, storefront);
   const storefrontRuntimeUrl =
     readOptionalString(storefront.runtimeUrl) ?? `https://${row.storefront_domain}`;
   const adminRuntimeUrl =
@@ -170,7 +221,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
       adminDeploymentBranch:
-        readOptionalString(bootstrap.adminDeploymentBranch) ?? "main",
+        readOptionalString(bootstrap.adminDeploymentBranch) ?? resolveAuthorityRepositoryBranch(),
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:
@@ -225,21 +276,25 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       },
     },
     storefront: {
-      appDir: row.storefront_app_dir ?? undefined,
+      appDir: recoveredStorefrontAppDir ?? undefined,
       packageName:
         readOptionalString(storefront.packageName) ?? `@celebix/storefront-${row.slug}`,
-      status: row.storefront_status,
+      status: recoveredStorefrontStatus,
       lastScaffoldedAt: readOptionalString(storefront.lastScaffoldedAt) ?? row.updated_at,
       lastScaffoldError: readOptionalString(storefront.lastScaffoldError) ?? undefined,
       repoSyncStatus:
         (readOptionalString(storefront.repoSyncStatus) as "pending" | "synced" | "failed" | null) ?? "pending",
       repoSyncedAt: readOptionalString(storefront.repoSyncedAt) ?? undefined,
+      lastRepoSyncedAt:
+        readOptionalString(storefront.lastRepoSyncedAt) ??
+        readOptionalString(storefront.repoSyncedAt) ??
+        undefined,
       repoCommitSha: readOptionalString(storefront.repoCommitSha) ?? undefined,
       lastRepoSyncError: readOptionalString(storefront.lastRepoSyncError) ?? undefined,
       deploymentProvider: "coolify",
       deploymentName: readOptionalString(storefront.deploymentName) ?? `${row.slug}-storefront`,
       deploymentBranch:
-        readOptionalString(storefront.deploymentBranch) ?? `deploy/storefront/${row.slug}`,
+        readOptionalString(storefront.deploymentBranch) ?? resolveStorefrontRepositoryBranch(row.slug),
       runtimeUrl: storefrontRuntimeUrl,
       resourceId: readOptionalString(storefront.resourceId) ?? undefined,
       deploymentStatus:
@@ -250,7 +305,14 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
           | "configured"
           | "failed"
           | null) ?? "pending-owner-env",
-      preparedAt: readOptionalString(storefront.preparedAt) ?? undefined,
+      preparedAt:
+        readOptionalString(storefront.preparedAt) ??
+        readOptionalString(storefront.lastDeploymentPreparedAt) ??
+        undefined,
+      lastDeploymentPreparedAt:
+        readOptionalString(storefront.lastDeploymentPreparedAt) ??
+        readOptionalString(storefront.preparedAt) ??
+        undefined,
       deployedAt: readOptionalString(storefront.deployedAt) ?? undefined,
       lastDeploymentError: readOptionalString(storefront.lastDeploymentError) ?? undefined,
       deployment: {
@@ -374,4 +436,88 @@ export async function ensureStoreConfigFromOwnerAuthority(slug: string): Promise
   ensureAdminEnvTemplate(config);
 
   return config;
+}
+
+interface StorefrontAuthorityRowSnapshot {
+  storefront_app_dir: string | null;
+  storefront_status: StorefrontStatus;
+  metadata: Record<string, unknown> | null;
+}
+
+export async function applyStorefrontAuthorityPatch(
+  slug: string,
+  patch: StorefrontAuthorityPatchInput,
+): Promise<StoreConfig> {
+  const originalConfig = requireStoreConfig(slug);
+  const serviceClient = createOwnerServiceClient();
+  const { data: existingRow, error: readError } = await serviceClient
+    .from("owner_stores")
+    .select("storefront_app_dir, storefront_status, metadata")
+    .eq("slug", slug)
+    .maybeSingle<StorefrontAuthorityRowSnapshot>();
+
+  if (readError) {
+    throw new Error(readError.message);
+  }
+
+  if (!existingRow) {
+    throw new Error(`"${slug}" icin owner store authority satiri bulunamadi.`);
+  }
+
+  const nextConfig = applyStorefrontAuthorityPatchToConfig(slug, patch);
+  const currentMetadata = asRecord(existingRow.metadata);
+  const currentStorefrontMetadata = asRecord(currentMetadata.storefront);
+  const nextStorefront = nextConfig.storefront;
+  const recoveredAppDir =
+    nextStorefront?.appDir ??
+    readOptionalString(existingRow.storefront_app_dir) ??
+    readOptionalString(currentStorefrontMetadata.appDir) ??
+    null;
+  const nextStatus =
+    nextStorefront?.status ??
+    readStorefrontStatus(currentStorefrontMetadata.status) ??
+    existingRow.storefront_status;
+  const nextStorefrontMetadata = nextStorefront
+    ? {
+        ...currentStorefrontMetadata,
+        ...nextStorefront,
+        appDir: recoveredAppDir ?? undefined,
+        status: nextStatus,
+        lastRepoSyncedAt:
+          nextStorefront.lastRepoSyncedAt ??
+          nextStorefront.repoSyncedAt ??
+          readOptionalString(currentStorefrontMetadata.lastRepoSyncedAt) ??
+          readOptionalString(currentStorefrontMetadata.repoSyncedAt) ??
+          undefined,
+        lastDeploymentPreparedAt:
+          nextStorefront.lastDeploymentPreparedAt ??
+          nextStorefront.preparedAt ??
+          readOptionalString(currentStorefrontMetadata.lastDeploymentPreparedAt) ??
+          readOptionalString(currentStorefrontMetadata.preparedAt) ??
+          undefined,
+      }
+    : currentStorefrontMetadata;
+
+  try {
+    const { error: updateError } = await serviceClient
+      .from("owner_stores")
+      .update({
+        storefront_app_dir: recoveredAppDir,
+        storefront_status: nextStatus,
+        metadata: {
+          ...currentMetadata,
+          storefront: nextStorefrontMetadata,
+        },
+      })
+      .eq("slug", slug);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return nextConfig;
+  } catch (error) {
+    updateStoreConfig(slug, () => originalConfig);
+    throw error;
+  }
 }

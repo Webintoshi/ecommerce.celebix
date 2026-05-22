@@ -20,21 +20,24 @@ export function buttonVariants({
     "inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
 
   const variants = {
-    default: "bg-primary text-white hover:bg-primary/90 focus:ring-primary shadow-md hover:shadow-lg",
+    default:
+      "bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)] focus:ring-[color:rgba(255,106,0,0.18)] shadow-[0_12px_24px_rgba(255,106,0,0.18)] hover:shadow-[0_16px_30px_rgba(255,106,0,0.22)]",
     primary:
-      "bg-primary text-white hover:bg-primary/90 focus:ring-primary shadow-md hover:shadow-lg",
+      "bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)] focus:ring-[color:rgba(255,106,0,0.18)] shadow-[0_12px_24px_rgba(255,106,0,0.18)] hover:shadow-[0_16px_30px_rgba(255,106,0,0.22)]",
     secondary:
-      "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary",
+      "border border-[var(--admin-border)] bg-white text-[var(--admin-text)] shadow-[0_8px_18px_rgba(17,24,39,0.04)] hover:bg-[var(--admin-bg)] focus:ring-[color:rgba(255,106,0,0.1)]",
     outline:
-      "border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary",
-    ghost: "text-gray-600 hover:bg-gray-100 focus:ring-gray-300",
-    danger: "bg-red-500 text-white hover:bg-red-600 focus:ring-red-500",
+      "border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] hover:bg-[#ffe7d7] focus:ring-[color:rgba(255,106,0,0.14)]",
+    ghost:
+      "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)] focus:ring-[color:rgba(59,130,246,0.14)]",
+    danger:
+      "bg-[var(--admin-danger)] text-white hover:bg-[#dc2626] focus:ring-[color:rgba(239,68,68,0.18)] shadow-[0_12px_24px_rgba(239,68,68,0.16)]",
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-sm rounded-lg",
-    md: "h-10 px-4 text-sm rounded-lg",
-    lg: "h-12 px-6 text-base rounded-xl",
+    sm: "h-11 px-4 text-[0.92rem] rounded-[1.1rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    md: "h-11 px-[1.1rem] text-base rounded-[1.2rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
+    lg: "h-12 px-[1.25rem] text-[1.02rem] rounded-[1.45rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };
 
   return cn(baseStyles, variants[variant], sizes[size], className);
@@ -54,19 +57,21 @@ export function Button({
 
   const variants = {
     primary:
-      "bg-primary text-white hover:bg-primary/90 focus:ring-primary shadow-md hover:shadow-lg",
+      "bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)] focus:ring-[color:rgba(255,106,0,0.18)] shadow-[0_12px_24px_rgba(255,106,0,0.18)] hover:shadow-[0_16px_30px_rgba(255,106,0,0.22)]",
     secondary:
-      "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary",
+      "border border-[var(--admin-border)] bg-white text-[var(--admin-text)] shadow-[0_8px_18px_rgba(17,24,39,0.04)] hover:bg-[var(--admin-bg)] focus:ring-[color:rgba(255,106,0,0.1)]",
     outline:
-      "border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary",
-    ghost: "text-gray-600 hover:bg-gray-100 focus:ring-gray-300",
-    danger: "bg-red-500 text-white hover:bg-red-600 focus:ring-red-500",
+      "border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] hover:bg-[#ffe7d7] focus:ring-[color:rgba(255,106,0,0.14)]",
+    ghost:
+      "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)] focus:ring-[color:rgba(59,130,246,0.14)]",
+    danger:
+      "bg-[var(--admin-danger)] text-white hover:bg-[#dc2626] focus:ring-[color:rgba(239,68,68,0.18)] shadow-[0_12px_24px_rgba(239,68,68,0.16)]",
   };
 
   const sizes = {
-    sm: "h-8 px-3 text-sm rounded-lg",
-    md: "h-10 px-4 text-sm rounded-lg",
-    lg: "h-12 px-6 text-base rounded-xl",
+    sm: "h-11 px-4 text-[0.92rem] rounded-[1.1rem] md:h-8 md:px-3 md:text-sm md:rounded-xl",
+    md: "h-11 px-[1.1rem] text-base rounded-[1.2rem] md:h-10 md:px-4 md:text-sm md:rounded-xl",
+    lg: "h-12 px-[1.25rem] text-[1.02rem] rounded-[1.45rem] md:h-12 md:px-6 md:text-base md:rounded-2xl",
   };
 
   return (

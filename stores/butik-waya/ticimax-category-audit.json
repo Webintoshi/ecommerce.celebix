@@ -1,0 +1,586 @@
+{
+  "storeSlug": "butik-waya",
+  "provider": "ticimax_xml",
+  "feedUrl": "https://www.butikwaya.com/XMLExport/9CD0633424C84874963D7191A8259B1C",
+  "generatedAt": "2026-04-20T08:58:32.196Z",
+  "totalItems": 612,
+  "mappedItemCount": 612,
+  "unmappedItemCount": 0,
+  "uniqueProductTypeCount": 36,
+  "mappedBuckets": [
+    {
+      "primaryPath": [
+        "Elbiseler",
+        "Elbise"
+      ],
+      "count": 66,
+      "sourceProductTypes": [
+        "Elbiseler"
+      ],
+      "sampleTitles": [
+        "Tek Omuz Siyah-Gümüş Büzgü Elbise",
+        "Parçalı Tasarım Elbise",
+        "Kare Yaka Elbise",
+        "İthal Pul Detaylı Elbise",
+        "Midi Boy Tek Omuz Elbise Siyah"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim",
+        "Pantolon"
+      ],
+      "count": 64,
+      "sourceProductTypes": [
+        "Pantolon"
+      ],
+      "sampleTitles": [
+        "Katmanlı Tül Pantolon",
+        "H4 Pantolon",
+        "Kemerli Pantolon Ekru",
+        "Kemerli Pantolon Siyah",
+        "Parlak Siyah Pantolon"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Bluz & Crop & Body"
+      ],
+      "count": 58,
+      "sourceProductTypes": [
+        "Bluz & Crop & Body"
+      ],
+      "sampleTitles": [
+        "Tek Omuz Organze Crop",
+        "Full Büzgü Sandy Bluz Mavi",
+        "Full Büzgü Sandy Bluz Kırmızı",
+        "Sırtı Tül Önü Kadife Crop",
+        "Önü Püskül Tül Bluz Siyah"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Elbiseler",
+        "Günlük Elbise"
+      ],
+      "count": 50,
+      "sourceProductTypes": [
+        "Günlük Elbise"
+      ],
+      "sampleTitles": [
+        "Büzgülü Elbise",
+        "Arka Fermuar Pantolon",
+        "Tül Detay Pileli Straplez Elbise",
+        "V Yaka Kolsuz Uzun Elbise",
+        "Sırt Dekolteli Uzun Elbise Siyah"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Elbiseler",
+        "Abiye Elbise"
+      ],
+      "count": 48,
+      "sourceProductTypes": [
+        "Abiye Elbise"
+      ],
+      "sampleTitles": [
+        "Tek Omuz Saten Elbise Kırmızı",
+        "İthal Tül Elbise",
+        "Güpür Elbise Siyah",
+        "Elbise Siyah",
+        "Sırt Dekolteli Elbise"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Elbiseler",
+        "Mini Elbise"
+      ],
+      "count": 38,
+      "sourceProductTypes": [
+        "Mini Elbise"
+      ],
+      "sampleTitles": [
+        "Sırtı Açık Mini Elbise",
+        "Tek Kol Büzgülü Tül Elbise",
+        "Toka Detay Elbise",
+        "Tek Omuz Straplez Elbise",
+        "Korseli Saten Elbise"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim",
+        "Etek"
+      ],
+      "count": 30,
+      "sourceProductTypes": [
+        "Etek"
+      ],
+      "sampleTitles": [
+        "H4 Etek",
+        "Kot Etek Ekru",
+        "Denim Lavaggio Varaklı Kot Etek",
+        "İthal Gold Lame Etek",
+        "Düğmeli Kot Etek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Gömlek"
+      ],
+      "count": 28,
+      "sourceProductTypes": [
+        "Gömlek"
+      ],
+      "sampleTitles": [
+        "H4 Gömlek",
+        "Saten Gömlek Yeşil",
+        "Saten Gömlek Mavi",
+        "Zebra Gömlek Siyah",
+        "H4 Omuz Detaylı Gömlek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Elbise"
+      ],
+      "count": 28,
+      "sourceProductTypes": [
+        "İthal Elbise"
+      ],
+      "sampleTitles": [
+        "İthal Taşlı Tül Yaka Elbise Siyah",
+        "İthal Zman Elbise Beyaz",
+        "İthal Pullu Elbise",
+        "İthal Parlak Elbise",
+        "İthal Gömlek Elbise Beyaz"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim",
+        "Jean & Denim"
+      ],
+      "count": 27,
+      "sourceProductTypes": [
+        "Jean & Denim"
+      ],
+      "sampleTitles": [
+        "Denim Mom Jean Füme",
+        "Varaklı Denim Jean Pantolon",
+        "Denim Pembe Varaklı Jean",
+        "Pul Detaylı Jean",
+        "Mavi Taş Detaylı Jean"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Mont & Kaban & Kürk"
+      ],
+      "count": 23,
+      "sourceProductTypes": [
+        "İthal Mont & Kaban & Kürk"
+      ],
+      "sampleTitles": [
+        "İthal Uzun Kürk Kaban",
+        "İthal Deri Kürklü Trençkot",
+        "İthal Kolları Triko Şişme Mont Camel",
+        "İthal Kürklü Kaşe Kaban",
+        "İthal Kürklü Kot Trenc Siyah"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Dış Giyim",
+        "Ceket"
+      ],
+      "count": 17,
+      "sourceProductTypes": [
+        "Ceket"
+      ],
+      "sampleTitles": [
+        "H4 Ceket",
+        "Düğmeli Ceket Ekru",
+        "Deri Detaylı Ceket Kahve",
+        "H4 Asimetrik Vatkalı Ceket",
+        "İthal Jean Ceket"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Sweat & Kazak"
+      ],
+      "count": 17,
+      "sourceProductTypes": [
+        "Sweat & Kazak"
+      ],
+      "sampleTitles": [
+        "Wy Sweat Siyah",
+        "WY Sweather Bej",
+        "WY Sweat Somon",
+        "WY Sweat Kahve",
+        "Saçaklı Kazak Madonna"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Takımlar",
+        "İkili Takım"
+      ],
+      "count": 16,
+      "sourceProductTypes": [
+        "İkili Takım"
+      ],
+      "sampleTitles": [
+        "Saten İkili Takım",
+        "Spor İkili Takım Siyah",
+        "Beli Bağlamalı Saten Takım Açık Yeşil",
+        "ZM İkili Takım Magenta",
+        "İkili Takım Pembe"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Tulum"
+      ],
+      "count": 13,
+      "sourceProductTypes": [
+        "Tulum"
+      ],
+      "sampleTitles": [
+        "Askılı Tulum Siyah",
+        "Püskül Detaylı Tulum",
+        "İthal Güpür Detaylı Tulum",
+        "Turuncu Tulum",
+        "Siyah Çizgili Tulum"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Aksesuarlar",
+        "Çanta"
+      ],
+      "count": 12,
+      "sourceProductTypes": [
+        "Çanta"
+      ],
+      "sampleTitles": [
+        "H4 Güneş Çanta",
+        "H4 Küçük El Çanta",
+        "H4 Küçük Kol Çanta",
+        "H4 Paraşüt Çanta",
+        "H4 Valiz Kumaş Çanta"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Takım"
+      ],
+      "count": 10,
+      "sourceProductTypes": [
+        "İthal Takım"
+      ],
+      "sampleTitles": [
+        "İthal Güpürlü İkili Takım",
+        "İthal Şortlu Keten Takım",
+        "İthal Ceket Model Takım",
+        "İthal İkili Takım",
+        "İthal Taşlı Fermuarlı Takım"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Ceket"
+      ],
+      "count": 7,
+      "sourceProductTypes": [
+        "İthal Ceket"
+      ],
+      "sampleTitles": [
+        "İthal Deri Taşlı Ceket Siyah",
+        "İthal Keten Ceket Haki",
+        "İthal Yaka Kürklü Kot Ceket",
+        "İthal Kürklü Crop Ceket",
+        "Giubbino Eco Pelle Ceket"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim",
+        "Tayt"
+      ],
+      "count": 7,
+      "sourceProductTypes": [
+        "Tayt"
+      ],
+      "sampleTitles": [
+        "Fitili Sitay Tayt",
+        "Fitili Krem Tayt",
+        "İthal Deri Tayt Bej",
+        "İthal Yüksek Bel Deri Tayt Kahve",
+        "Oysho Tayt Lila"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Dış Giyim",
+        "Mont-Kaban & Kürk"
+      ],
+      "count": 7,
+      "sourceProductTypes": [
+        "Mont-Kaban & Kürk"
+      ],
+      "sampleTitles": [
+        "Vatkalı Kürklü Manto",
+        "Tüylü Kaban",
+        "İki Düğmeli Manto",
+        "H4 Şerit Detay Mont",
+        "H4 Style Kapüşonlu Mont"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Büstiyer"
+      ],
+      "count": 6,
+      "sourceProductTypes": [
+        "Büstiyer"
+      ],
+      "sampleTitles": [
+        "Keten Büstiyer Siyah",
+        "Keten Büstiyer Bej",
+        "Saks Mavi Askılı Dantelli Büstiyer",
+        "Zincir Askılı Tek Omuz Büstiyer"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Takımlar",
+        "Pantolon & Ceket Takım"
+      ],
+      "count": 5,
+      "sourceProductTypes": [
+        "Pantolon & Ceket Takım"
+      ],
+      "sampleTitles": [
+        "Kolları Tül Detay Takım",
+        "Pelerinli Pantolon",
+        "Denim Garnili Dokuma Takım Bej",
+        "Kuşgöz Tasarımlı Takım",
+        "Piton Desen Ceket Takım"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Hırka & Yelek & Trençkot"
+      ],
+      "count": 5,
+      "sourceProductTypes": [
+        "İthal Hırka & Yelek & Trençkot"
+      ],
+      "sampleTitles": [
+        "İthal Kürklü Trenç Bej",
+        "İthal Keten Trençkot",
+        "İthal Taşlı Yelek",
+        "İthal Taşlı Kısa Yelek",
+        "İthal Kürk Yaka Taşlı Yelek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Gömlek & Kazak & Bluz"
+      ],
+      "count": 5,
+      "sourceProductTypes": [
+        "İthal Gömlek & Kazak & Bluz"
+      ],
+      "sampleTitles": [
+        "Omuz Bel Pile Bluz Beyaz",
+        "İthal Tül Detaylı Gömlek",
+        "İthal Tunik & Gömlek",
+        "Dantel İşlemeli V Yaka Bluz",
+        "İthal Fırfırlı Gömlek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Dış Giyim",
+        "Trençkot"
+      ],
+      "count": 3,
+      "sourceProductTypes": [
+        "Trençkot"
+      ],
+      "sampleTitles": [
+        "Vanita Rugan Trençkot",
+        "Kaşe Pardesü",
+        "H4 Güpür Tasarımlı Trençkot"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler"
+      ],
+      "count": 3,
+      "sourceProductTypes": [
+        "İthal Ürünler"
+      ],
+      "sampleTitles": [
+        "İthal Ceket Elbise",
+        "İthal Deri Ceket Elbise",
+        "İthal Bomberceket"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Dış Giyim",
+        "Yelek"
+      ],
+      "count": 3,
+      "sourceProductTypes": [
+        "Yelek"
+      ],
+      "sampleTitles": [
+        "İthal Deri Yelek",
+        "H4 Denim Yelek",
+        "H4 Transparan Tasarım Yelek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "T-Shirt"
+      ],
+      "count": 3,
+      "sourceProductTypes": [
+        "T-Shirt"
+      ],
+      "sampleTitles": [
+        "QUZU Soul T-Shirt",
+        "Basic T-Shirt",
+        "Askılı İkili Badi-T-Shirt"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim"
+      ],
+      "count": 2,
+      "sourceProductTypes": [
+        "Üst Giyim"
+      ],
+      "sampleTitles": [
+        "H4 Bluz",
+        "V Yaka Atelier Bluz"
+      ]
+    },
+    {
+      "primaryPath": [
+        "İthal Ürünler",
+        "İthal Etek"
+      ],
+      "count": 2,
+      "sourceProductTypes": [
+        "İthal Etek"
+      ],
+      "sampleTitles": [
+        "İthal Kadife Şortlu Etek Açık Kahve",
+        "İthal Tül Etek"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Aksesuarlar"
+      ],
+      "count": 2,
+      "sourceProductTypes": [
+        "Aksesuarlar"
+      ],
+      "sampleTitles": [
+        "H4 Bere",
+        "H4 Style Denim Bot"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Aksesuarlar",
+        "Kemer"
+      ],
+      "count": 2,
+      "sourceProductTypes": [
+        "Kemer"
+      ],
+      "sampleTitles": [
+        "Kemer",
+        "Rose Silver İthal Kemer"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Üst Giyim",
+        "Hırka"
+      ],
+      "count": 2,
+      "sourceProductTypes": [
+        "Hırka"
+      ],
+      "sampleTitles": [
+        "H4 Style Organze Detay Hırka",
+        "Lazerli Droplu Tunik"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Aksesuarlar",
+        "Şal"
+      ],
+      "count": 1,
+      "sourceProductTypes": [
+        "Şal"
+      ],
+      "sampleTitles": [
+        "Gc İthal Kaşmir Şal"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim"
+      ],
+      "count": 1,
+      "sourceProductTypes": [
+        "Alt Giyim"
+      ],
+      "sampleTitles": [
+        "Cepli Eşofman Altı"
+      ]
+    },
+    {
+      "primaryPath": [
+        "Alt Giyim",
+        "Şort"
+      ],
+      "count": 1,
+      "sourceProductTypes": [
+        "Şort"
+      ],
+      "sampleTitles": [
+        "Kemerli Etek Model Şort"
+      ]
+    }
+  ],
+  "unmappedItems": [],
+  "unmappedProductTypes": []
+}

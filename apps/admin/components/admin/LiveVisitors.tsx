@@ -44,7 +44,7 @@ function formatTopPageLabel(url: string) {
 }
 
 export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) {
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     setLastUpdate(new Date());
@@ -62,8 +62,8 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
       icon: Smartphone,
       label: "Mobil",
       value: data.devices?.mobile || 0,
-      tone: "from-[#fff2e8] to-white border-[#FE6100]/15 text-[#FE6100]",
-      bar: "bg-[#FE6100]",
+      tone: "from-white to-white border-[var(--admin-accent-border)] text-[var(--admin-accent)]",
+      bar: "bg-[var(--admin-accent)]",
     },
     {
       icon: Monitor,
@@ -85,12 +85,12 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]"
+      className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
     >
-      <div className="border-b border-[#FE6100]/8 px-6 py-5">
+      <div className="border-b border-[var(--admin-border)] px-6 py-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
               Canlı Trafik
             </p>
             <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">
@@ -105,24 +105,24 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            {formatLastUpdated(lastUpdate)}
+            {lastUpdate ? formatLastUpdated(lastUpdate) : "--:--"}
           </div>
         </div>
       </div>
 
       <div className="space-y-6 p-6">
-        <div className="rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-[#fff2e8] via-[#fff9f5] to-white p-5">
+        <div className="rounded-[28px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-5">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-[#FE6100]/70">Çevrim içi kullanıcı</p>
+              <p className="text-sm font-medium text-[var(--admin-accent)]/70">Çevrim içi kullanıcı</p>
               <div className="mt-2 flex items-end gap-2">
-                <span className="text-5xl font-semibold tracking-[-0.06em] text-[#FE6100]">
+                <span className="text-5xl font-semibold tracking-[-0.06em] text-[var(--admin-accent)]">
                   <AnimatedNumber value={data.liveVisitors || 0} />
                 </span>
-                <span className="pb-1 text-sm text-[#FE6100]/60">aktif</span>
+                <span className="pb-1 text-sm text-[var(--admin-accent)]/60">aktif</span>
               </div>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white/85 px-3 py-1.5 text-xs font-medium text-[#FE6100] shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white/85 px-3 py-1.5 text-xs font-medium text-[var(--admin-accent)] shadow-sm">
               <Wifi className="h-3.5 w-3.5" />
               Canlı veri açık
             </div>
@@ -176,10 +176,10 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-[#FE6100]/10 bg-gradient-to-b from-[#fff8f3] to-white p-4">
+        <div className="rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-b from-[#fff8f3] to-white p-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#FE6100]">Öne Çıkan Sayfalar</p>
-            <p className="text-xs font-medium text-[#FE6100]/50">Top 3</p>
+            <p className="text-sm font-semibold text-[var(--admin-accent)]">Öne Çıkan Sayfalar</p>
+            <p className="text-xs font-medium text-[var(--admin-accent)]/50">Top 3</p>
           </div>
 
           {data.topPages && data.topPages.length > 0 ? (
@@ -191,23 +191,23 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: index * 0.04 }}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-[#FE6100]/8 bg-white px-3 py-3 shadow-sm"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--admin-border)] bg-white px-3 py-3 shadow-sm"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#fff2e8] to-white text-xs font-semibold text-[#FE6100]">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-xs font-semibold text-[var(--admin-accent)]">
                         {index + 1}
                       </div>
                       <span title={page.url} className="truncate text-sm font-medium text-gray-700">
                         {formatTopPageLabel(page.url)}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-[#FE6100]">{page.count}</span>
+                    <span className="text-sm font-semibold text-[var(--admin-accent)]">{page.count}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#FE6100]/20 bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
+            <div className="rounded-2xl border border-dashed border-[var(--admin-accent-border)] bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
               Canlı sayfa verisi şu anda görüntülenemiyor.
             </div>
           )}

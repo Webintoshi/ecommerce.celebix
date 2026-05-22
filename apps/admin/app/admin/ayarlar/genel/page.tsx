@@ -125,7 +125,7 @@ const FLOATING_CONTACT_CHANNELS: Array<{
 ];
 
 const DEFAULT_ANNOUNCEMENT: AnnouncementSettings = {
-  message: `${STORE_RUNTIME.name} icin yeni koleksiyonlar yayinda.`,
+  message: `${STORE_RUNTIME.name} için yeni koleksiyonlar yayında.`,
   link: "/kampanyalar",
   linkText: "Hemen Kesfet",
   enabled: true,
@@ -170,14 +170,17 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+      className={`group relative w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-left transition-all duration-300 ease-out overflow-hidden ${
         active
-          ? "bg-neutral-900 text-white shadow-lg shadow-neutral-900/20"
-          : "text-gray-600 hover:bg-gray-100"
+          ? "bg-zinc-100/80 text-zinc-950 font-semibold shadow-sm"
+          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
       }`}
     >
-      <Icon className="w-5 h-5" />
-      <span className="font-medium">{label}</span>
+      {active && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-zinc-900 rounded-r-full" />
+      )}
+      <Icon className={`w-[18px] h-[18px] transition-colors duration-300 ${active ? "text-zinc-900" : "text-zinc-400 group-hover:text-zinc-600"}`} />
+      <span className="text-[13.5px] tracking-tight">{label}</span>
     </button>
   );
 }
@@ -195,14 +198,14 @@ function Card({
   id: string;
 }) {
   return (
-    <div id={id} className="bg-white rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
-        <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-white" />
+    <div id={id} className="scroll-mt-28 bg-white rounded-[24px] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] border border-zinc-200/60 transition-all duration-500 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-3.5 px-6 py-5 border-b border-zinc-100/80">
+        <div className="w-9 h-9 rounded-2xl bg-zinc-50/80 flex items-center justify-center border border-zinc-100/50 shadow-sm">
+          <Icon className="w-4 h-4 text-zinc-700" />
         </div>
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-zinc-900">{title}</h2>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6 sm:p-7">{children}</div>
     </div>
   );
 }
@@ -226,11 +229,11 @@ function Input({
   icon?: React.ElementType;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <div className="relative">
+    <div className="space-y-2">
+      <label className="text-[13px] font-medium text-zinc-700 tracking-tight">{label}</label>
+      <div className="relative group">
         {Icon && (
-          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 transition-colors duration-200 group-focus-within:text-zinc-900" />
         )}
         <input
           type={type}
@@ -238,7 +241,7 @@ function Input({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent ${
+          className={`w-full rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 ${
             Icon ? "pl-10" : ""
           }`}
         />
@@ -263,15 +266,15 @@ function TextArea({
   rows?: number;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+    <div className="space-y-2">
+      <label className="text-[13px] font-medium text-zinc-700 tracking-tight">{label}</label>
       <textarea
         name={name}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+        className="w-full rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-3 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 resize-none leading-relaxed"
       />
     </div>
   );
@@ -291,20 +294,25 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <select
-        name={name}
-        value={value}
-        onChange={onChange}
-        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+    <div className="space-y-2">
+      <label className="text-[13px] font-medium text-zinc-700 tracking-tight">{label}</label>
+      <div className="relative">
+        <select
+          name={name}
+          value={value}
+          onChange={onChange}
+          className="w-full appearance-none rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900"
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-400">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+        </div>
+      </div>
     </div>
   );
 }
@@ -376,7 +384,7 @@ export default function GeneralSettingsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);
-      toast.error("Ayarlar yuklenirken hata olustu");
+      toast.error("Ayarlar yüklenirken hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -507,7 +515,7 @@ export default function GeneralSettingsPage() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success || !payload.url) {
-        throw new Error(payload.error || `${options.errorLabel} yuklenemedi`);
+        throw new Error(payload.error || `${options.errorLabel} yüklenemedi`);
       }
 
       setFormData((prev) => ({ ...prev, [options.field]: String(payload.url) }));
@@ -515,7 +523,7 @@ export default function GeneralSettingsPage() {
     } catch (error) {
       console.error(`${options.errorLabel} upload error:`, error);
       toast.error(
-        error instanceof Error ? error.message : `${options.errorLabel} yuklenirken hata olustu`
+        error instanceof Error ? error.message : `${options.errorLabel} yüklenirken hata oluştu`
       );
     } finally {
       options.setUploading(false);
@@ -527,7 +535,7 @@ export default function GeneralSettingsPage() {
     await handleAssetUpload(event, {
       field: "logoUrl",
       folder: "branding",
-      successMessage: "Logo yuklendi",
+      successMessage: "Logo yüklendi",
       setUploading: setLogoUploading,
       errorLabel: "Logo",
     });
@@ -537,7 +545,7 @@ export default function GeneralSettingsPage() {
     await handleAssetUpload(event, {
       field: "faviconUrl",
       folder: "branding",
-      successMessage: "Favicon yuklendi",
+      successMessage: "Favicon yüklendi",
       setUploading: setFaviconUploading,
       errorLabel: "Favicon",
     });
@@ -561,7 +569,7 @@ export default function GeneralSettingsPage() {
       const settingsPayload = await settingsResponse.json();
 
       if (!settingsPayload.success) {
-        throw new Error(settingsPayload.error || "Kaydetme basarisiz");
+        throw new Error(settingsPayload.error || "Kaydetme başarısız");
       }
 
       const announcementResponse = await fetch("/api/settings", {
@@ -581,7 +589,7 @@ export default function GeneralSettingsPage() {
       toast.success("Tum ayarlar kaydedildi");
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error(error instanceof Error ? error.message : "Kaydedilirken hata olustu");
+      toast.error(error instanceof Error ? error.message : "Kaydedilirken hata oluştu");
     } finally {
       setSaving(false);
     }
@@ -605,21 +613,20 @@ export default function GeneralSettingsPage() {
       : "bg-[#0B1120]/10 text-[#0B1120]";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="admin-page-root font-sans text-[var(--admin-heading)] selection:bg-[var(--admin-accent)]/20 selection:text-[var(--admin-accent-hover)]">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="flex items-center justify-between px-6 py-4">
+      <div className="sticky top-0 z-40 bg-[var(--admin-bg)]/80 backdrop-blur-2xl border-b border-[var(--admin-border)] supports-[backdrop-filter]:bg-[var(--admin-bg)]/60">
+        <div className="flex items-center justify-between px-6 py-4 xl:px-8">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Mağaza Ayarları</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Mağazanızın temel bilgilerini yönetin</p>
+            <h1 className="text-xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">Mağaza Ayarları</h1>
           </div>
           <button
             onClick={() => void handleSubmit()}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
           >
             {saving ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             ) : (
               <Save className="h-4 w-4" />
             )}
@@ -628,7 +635,7 @@ export default function GeneralSettingsPage() {
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-white/70 px-4 py-3 backdrop-blur-sm 2xl:hidden md:px-6">
+      <div className="border-b border-[var(--admin-border)] bg-white/50 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-white/30 2xl:hidden md:px-6">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {[
             { id: "brand", label: "Marka" },
@@ -636,16 +643,16 @@ export default function GeneralSettingsPage() {
             { id: "floating-contact", label: "Floating Iletisim" },
             { id: "region", label: "Sosyal ve Bolge" },
             { id: "announcement", label: "Duyuru" },
-            { id: "typography", label: "Yazi Tipleri" },
+            { id: "typography", label: "Yazı Tipleri" },
           ].map((section) => (
             <button
               key={section.id}
               type="button"
               onClick={() => scrollToSection(section.id)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all ${
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-300 ${
                 activeSection === section.id
-                  ? "bg-neutral-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-[var(--admin-accent-soft)] border border-[var(--admin-accent-border)] text-[var(--admin-accent-hover)]"
+                  : "bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] hover:border-[var(--admin-accent-border)]"
               }`}
             >
               {section.label}
@@ -655,9 +662,9 @@ export default function GeneralSettingsPage() {
       </div>
 
       {/* Two Column Layout */}
-      <div className="flex">
+      <div className="flex xl:px-4 2xl:px-8 max-w-[1600px] mx-auto">
         {/* Left Sidebar Navigation */}
-        <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-60 overflow-y-auto border-r border-gray-100 bg-white/50 p-4 backdrop-blur-sm 2xl:block">
+        <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-[260px] overflow-y-auto border-r border-[var(--admin-border)] bg-transparent py-8 pr-6 2xl:block">
           <nav className="space-y-1">
             <NavItem
               icon={Store}
@@ -699,35 +706,35 @@ export default function GeneralSettingsPage() {
         </aside>
 
         {/* Main Content - Two Column Grid */}
-        <main className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5 xl:px-7">
-          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-5 2xl:grid-cols-2">
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6 md:py-8 lg:pl-8">
+          <div className="mx-auto grid max-w-[1000px] grid-cols-1 gap-6 2xl:grid-cols-2">
             {/* Brand Card - Spans 2 cols */}
             <div className="2xl:col-span-2">
               <Card title="Marka Bilgileri" icon={Store} id="brand">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-4 md:col-span-2 lg:flex-row">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="flex flex-col gap-6 md:col-span-2 lg:flex-row">
                     {/* Logo Upload */}
                     <div className="flex-shrink-0">
-                      <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                      <div className="w-28 h-28 rounded-[24px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
                         {formData.logoUrl ? (
                           <Image
                             src={formData.logoUrl}
                             alt="Logo"
-                            width={96}
-                            height={96}
-                            className="w-full h-full object-contain p-2"
+                            width={112}
+                            height={112}
+                            className="w-full h-full object-contain p-3"
                             unoptimized
                           />
                         ) : (
-                          <ImageIcon className="w-8 h-8 text-gray-300" />
+                          <ImageIcon className="w-8 h-8 text-[#d4c3b3]" />
                         )}
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-neutral-800">
+                      <div className="flex gap-2 mt-3">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-2xl text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
                           {logoUploading ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d4c3b3] border-t-[#C54E00]" />
                           ) : (
-                            <Upload className="h-3 w-3" />
+                            <Upload className="h-3.5 w-3.5" />
                           )}
                           Logo
                           <input
@@ -741,7 +748,7 @@ export default function GeneralSettingsPage() {
                         {formData.logoUrl && (
                           <button
                             onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
-                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-2xl hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -751,23 +758,23 @@ export default function GeneralSettingsPage() {
 
                     {/* Favicon Upload */}
                     <div className="flex-shrink-0">
-                      <div className="w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                      <div className="w-28 h-28 rounded-[24px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
                         {formData.faviconUrl ? (
                           <img
                             src={formData.faviconUrl}
                             alt="Favicon"
-                            className="w-full h-full object-contain p-2"
+                            className="w-full h-full object-contain p-3"
                           />
                         ) : (
-                          <Globe className="w-8 h-8 text-gray-300" />
+                          <Globe className="w-8 h-8 text-[#d4c3b3]" />
                         )}
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-neutral-800">
+                      <div className="flex gap-2 mt-3">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-2xl text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
                           {faviconUploading ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d4c3b3] border-t-[#C54E00]" />
                           ) : (
-                            <Upload className="h-3 w-3" />
+                            <Upload className="h-3.5 w-3.5" />
                           )}
                           Favicon
                           <input
@@ -781,7 +788,7 @@ export default function GeneralSettingsPage() {
                         {formData.faviconUrl && (
                           <button
                             onClick={() => setFormData((prev) => ({ ...prev, faviconUrl: "" }))}
-                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-2xl hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -837,13 +844,13 @@ export default function GeneralSettingsPage() {
 
             <Card title="Floating Iletisim" icon={MessageCircle} id="floating-contact">
               <div className="space-y-4">
-                <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-white p-5 md:flex-row md:items-center md:justify-between shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      Yuzen iletisim butonu
+                    <h3 className="text-[14px] font-semibold tracking-tight text-[var(--admin-heading)]">
+                      Yüzen İletişim Butonu
                     </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Sadece aktif edilen ve link girilen kanallar vitrinde gosterilir.
+                    <p className="mt-1 text-[13px] text-[#7d6959]">
+                      Sadece aktif edilen ve link girilen kanallar vitrinde gösterilir.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -855,14 +862,14 @@ export default function GeneralSettingsPage() {
                       }
                       className="sr-only peer"
                     />
-                    <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-neutral-900 peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-['']" />
-                    <span className="ml-3 text-sm font-medium text-gray-900">
+                    <div className="h-6 w-11 rounded-full bg-[#E5E7EB] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[rgba(255,106,0,0.15)] peer-checked:bg-[var(--admin-accent)] peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white after:bg-white after:transition-all after:content-[''] shadow-inner" />
+                    <span className="ml-3 text-[13.5px] font-medium text-[var(--admin-heading)]">
                       {floatingContact.enabled ? "Aktif" : "Pasif"}
                     </span>
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_1fr]">
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[220px_1fr]">
                   <Select
                     label="Konum"
                     name="floatingContactPosition"
@@ -876,16 +883,16 @@ export default function GeneralSettingsPage() {
                     options={FLOATING_CONTACT_POSITION_OPTIONS}
                   />
 
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-4">
-                    <span className="text-sm font-medium text-gray-700">Not</span>
-                    <p className="mt-2 text-sm leading-6 text-gray-500">
-                      WhatsApp ve Instagram alanlari kullanici adi veya tam link kabul eder.
-                      Form alani icin dahili rota ya da tam URL girebilirsiniz.
+                  <div className="rounded-[24px] border border-dashed border-[var(--admin-border)] bg-[#FCFDFE] p-5">
+                    <span className="text-[13px] font-semibold text-[var(--admin-text-secondary)] tracking-tight">Not</span>
+                    <p className="mt-2 text-[13.5px] leading-relaxed text-[#8c7564]">
+                      WhatsApp ve Instagram alanları kullanıcı adı veya tam link kabul eder.
+                      Form alanı için dahili rota ya da tam URL girebilirsiniz.
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {FLOATING_CONTACT_CHANNELS.map((channelConfig) => {
                     const channel =
                       floatingContact.channels.find(
@@ -895,14 +902,14 @@ export default function GeneralSettingsPage() {
                     return (
                       <div
                         key={channelConfig.type}
-                        className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                        className="rounded-[24px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)] transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:border-[var(--admin-accent-border)]"
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-900">
+                            <h3 className="text-[14px] font-semibold tracking-tight text-[var(--admin-heading)]">
                               {getFloatingContactDefaultLabel(channelConfig.type)}
                             </h3>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <p className="mt-1 text-[13px] text-[#7d6959]">
                               {channelConfig.description}
                             </p>
                           </div>
@@ -919,14 +926,14 @@ export default function GeneralSettingsPage() {
                               }
                               className="sr-only peer"
                             />
-                            <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-neutral-900 peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-['']" />
-                            <span className="ml-3 text-sm font-medium text-gray-900">
-                              {channel?.enabled ? "Aktif" : "Kapali"}
+                            <div className="h-6 w-11 rounded-full bg-[#E5E7EB] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[rgba(255,106,0,0.15)] peer-checked:bg-[var(--admin-accent)] peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white after:bg-white after:transition-all after:content-[''] shadow-inner" />
+                            <span className="ml-3 text-[13.5px] font-medium text-[var(--admin-heading)]">
+                              {channel?.enabled ? "Aktif" : "Kapalı"}
                             </span>
                           </label>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                           <Input
                             label="Gorunen Baslik"
                             name={`${channelConfig.type}-label`}
@@ -944,7 +951,7 @@ export default function GeneralSettingsPage() {
                             placeholder={getFloatingContactDefaultLabel(channelConfig.type)}
                           />
                           <Input
-                            label="Baglanti"
+                            label="Bağlantı"
                             name={`${channelConfig.type}-href`}
                             value={channel?.href || ""}
                             onChange={(event) =>
@@ -966,7 +973,7 @@ export default function GeneralSettingsPage() {
 
             {/* Social & Regional Combined */}
             <Card title="Sosyal Medya & Bölge" icon={Globe} id="region">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <Input
                   label="Instagram"
                   name="socialInstagram"
@@ -983,7 +990,7 @@ export default function GeneralSettingsPage() {
                   placeholder="@kullaniciadi"
                   icon={Twitter}
                 />
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 mt-3">
+                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[var(--admin-border)] mt-4">
                   <Select
                     label="Para Birimi"
                     name="currency"
@@ -1012,8 +1019,16 @@ export default function GeneralSettingsPage() {
             {/* Announcement Card - Full Width */}
             <div className="2xl:col-span-2">
               <Card title="Üst Bar Duyurusu" icon={Bell} id="announcement">
-                <div className="flex items-center gap-3 mb-4">
-                  <label className="relative inline-flex items-center cursor-pointer">
+                <div className="flex items-center gap-3 mb-6 bg-[#FCFDFE] p-5 rounded-[24px] border border-[var(--admin-border)] shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
+                  <label className="relative inline-flex items-center cursor-pointer w-full">
+                    <div className="flex-1">
+                      <h3 className="text-[14px] font-semibold tracking-tight text-[var(--admin-heading)]">
+                        Duyuru Çubuğu
+                      </h3>
+                      <p className="mt-0.5 text-[13px] text-[#7d6959]">
+                        Sitenizin en üstünde görünecek duyuruyu aktifleştirin.
+                      </p>
+                    </div>
                     <input
                       type="checkbox"
                       name="enabled"
@@ -1021,16 +1036,13 @@ export default function GeneralSettingsPage() {
                       onChange={handleChange}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900"></div>
-                    <span className="ml-3 text-sm font-medium text-gray-900">
-                      {announcementData.enabled ? "Aktif" : "Pasif"}
-                    </span>
+                    <div className="h-6 w-11 rounded-full bg-[#E5E7EB] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[rgba(255,106,0,0.15)] peer-checked:bg-[var(--admin-accent)] peer-checked:after:translate-x-full after:absolute after:right-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white after:bg-white after:transition-all after:content-[''] shadow-inner" />
                   </label>
                 </div>
 
                 {announcementData.enabled && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                  <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-500">
+                    <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
                     <div className="md:col-span-2">
                       <TextArea
                         label="Duyuru Metni"
@@ -1041,7 +1053,7 @@ export default function GeneralSettingsPage() {
                         rows={2}
                       />
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <Input
                         label="Buton Metni"
                         name="linkText"
@@ -1059,17 +1071,17 @@ export default function GeneralSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[240px_1fr]">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-gray-700">Bar Rengi</label>
+                  <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-[240px_1fr]">
+                    <div className="space-y-2">
+                      <label className="text-[13px] font-medium text-[var(--admin-text-secondary)] tracking-tight">Bar Rengi</label>
                       <div className="flex items-center gap-3">
-                        <label className="relative h-12 w-16 overflow-hidden rounded-xl border border-gray-200 shadow-sm cursor-pointer">
+                        <label className="relative h-[42px] w-[52px] overflow-hidden rounded-[20px] border border-[var(--admin-border)] shadow-sm cursor-pointer hover:border-[var(--admin-accent-border)] transition-colors">
                           <input
                             type="color"
                             name="backgroundColor"
                             value={announcementColor}
                             onChange={handleAnnouncementChange}
-                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            className="absolute -inset-4 h-[200%] w-[200%] cursor-pointer opacity-0"
                           />
                           <span
                             className="block h-full w-full"
@@ -1086,27 +1098,27 @@ export default function GeneralSettingsPage() {
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        Yazi ve buton kontrasti otomatik ayarlanir.
+                      <p className="text-[12.5px] text-[#9a8474] pt-1">
+                        Yazı ve buton kontrastı otomatik ayarlanır.
                       </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700">On Izleme</span>
+                    <div className="space-y-3">
+                      <span className="text-[13px] font-medium text-[var(--admin-text-secondary)] tracking-tight">Canlı Önizleme</span>
                       <div
-                        className="rounded-2xl border border-black/5 px-4 py-3 shadow-sm"
+                        className="rounded-[24px] border border-[var(--admin-border)]/50 px-5 py-3 shadow-[0_8px_20px_-4px_rgba(17,24,39,0.06)] transition-colors duration-300"
                         style={{ backgroundColor: announcementColor }}
                       >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-center">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
                           <span
-                            className="text-sm font-medium tracking-wide text-center sm:text-left"
+                            className="text-[13.5px] font-medium tracking-wide text-center sm:text-left"
                             style={{ color: announcementTextColor }}
                           >
                             {announcementData.message || DEFAULT_ANNOUNCEMENT.message}
                           </span>
                           {announcementData.linkText ? (
                             <span
-                              className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ${announcementButtonClass}`}
+                              className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition-transform hover:scale-105 active:scale-95 cursor-pointer ${announcementButtonClass}`}
                             >
                               {announcementData.linkText}
                             </span>
@@ -1190,14 +1202,14 @@ export default function GeneralSettingsPage() {
           </div>
 
           {/* Bottom Save */}
-          <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+          <div className="flex justify-end mt-8 pt-6 border-t border-[var(--admin-border)]">
             <button
               onClick={() => void handleSubmit()}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-neutral-900/20 transition-all hover:bg-neutral-800 active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3.5 text-[14px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
             >
               {saving ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               ) : (
                 <Check className="h-4 w-4" />
               )}

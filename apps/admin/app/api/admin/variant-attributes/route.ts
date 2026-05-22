@@ -17,6 +17,7 @@ import {
 } from "@/lib/variant-attribute-catalog-sync";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 import { isIgnoredLegacyVariantAttributeName } from "@/lib/variant-attribute-legacy";
+import { normalizeVisibleText } from "@/lib/text-encoding";
 
 const OPTIONAL_ATTRIBUTE_COLUMNS = new Set(["is_active"]);
 const OPTIONAL_VALUE_COLUMNS = new Set(["color_code", "image_url", "display_order", "is_active"]);
@@ -83,6 +84,7 @@ function normalizeValue(value: Record<string, unknown>) {
 
   return {
     ...value,
+    value: normalizeVisibleText(value.value, { collapseWhitespace: true }),
     color_code: typeof value.color_code === "string" ? value.color_code : null,
     image_url: resolvedImageUrl || null,
     display_order: typeof value.display_order === "number" ? value.display_order : 0,
@@ -103,7 +105,7 @@ function normalizeAttribute(attribute: Record<string, unknown>) {
     slug:
       typeof attribute.slug === "string" && attribute.slug.trim().length > 0
         ? attribute.slug
-        : String(attribute.name || "nitelik")
+        : normalizeVisibleText(attribute.name || "nitelik", { collapseWhitespace: true })
             .toLowerCase()
             .replace(/[^\w\s-]/g, "")
             .replace(/\s+/g, "-"),
@@ -204,7 +206,7 @@ function logCatalogVariantSyncError(error: unknown, context: string) {
 function normalizeIncomingValue(input: VariantValueInput, index: number) {
   if (typeof input === "string") {
     return {
-      value: input.trim(),
+      value: normalizeVisibleText(input, { collapseWhitespace: true }),
       color_code: null,
       image_url: null,
       display_order: index,
@@ -212,7 +214,7 @@ function normalizeIncomingValue(input: VariantValueInput, index: number) {
     };
   }
 
-  const rawValue = typeof input?.value === "string" ? input.value.trim() : "";
+  const rawValue = normalizeVisibleText(input?.value, { collapseWhitespace: true });
 
   return {
     value: rawValue,
@@ -331,10 +333,10 @@ export async function GET(request: NextRequest) {
       try {
         const attribute = await fetchAttributeWithValues(id);
         if (attribute && isIgnoredLegacyVariantAttributeName(typeof attribute.name === "string" ? attribute.name : null)) {
-          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
         }
         if (!attribute) {
-          return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
         }
         return NextResponse.json({ success: true, attribute });
       } catch (error: any) {
@@ -346,7 +348,7 @@ export async function GET(request: NextRequest) {
           }
           const attribute = await getStoredVariantAttributeById(id);
           if (!attribute) {
-            return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
           }
           return NextResponse.json({
             success: true,
@@ -478,29 +480,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, values, colorCodes = {}, imageUrls = {} } = body;
+    const normalizedName = normalizeVisibleText(name, { collapseWhitespace: true });
 
-    if (!name || !name.trim()) {
-      return NextResponse.json({ success: false, error: "Nitelik adi gereklidir" }, { status: 400 });
+    if (!normalizedName) {
+      return NextResponse.json({ success: false, error: "Nitelik adı gereklidir" }, { status: 400 });
     }
 
     if (!values || !Array.isArray(values) || values.length === 0) {
-      return NextResponse.json({ success: false, error: "En az bir deger gereklidir" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "En az bir değer gereklidir" }, { status: 400 });
     }
 
     const normalizedValues = extractIncomingValues(values as VariantValueInput[], colorCodes, imageUrls);
     if (normalizedValues.length === 0) {
-      return NextResponse.json({ success: false, error: "En az bir gecerli deger gereklidir" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "En az bir geçerli değer gereklidir" }, { status: 400 });
     }
 
     const supabase = createServerClient();
-    const slug = name
+    const slug = normalizedName
       .toLowerCase()
       .replace(/[^\w\s-]/g, "")
       .replace(/\s+/g, "-")
       .substring(0, 100);
 
     let attributePayload: Record<string, unknown> = {
-      name: name.trim(),
+      name: normalizedName,
       slug: `${slug}-${Date.now().toString(36)}`,
       is_active: true,
     };
@@ -514,7 +517,7 @@ export async function POST(request: NextRequest) {
       }
       if (isVariantAttributeTableMissing(error)) {
         const storedAttribute = await createStoredVariantAttribute({
-          name: name.trim(),
+          name: normalizedName,
           slug: `${slug}-${Date.now().toString(36)}`,
           values: normalizedValues,
         });
@@ -618,6 +621,8 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, name, is_active, values, colorCodes = {}, imageUrls = {} } = body;
+    const normalizedName =
+      name !== undefined ? normalizeVisibleText(name, { collapseWhitespace: true }) : undefined;
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Nitelik ID gereklidir" }, { status: 400 });
@@ -626,7 +631,7 @@ export async function PUT(request: NextRequest) {
     const supabase = createServerClient();
     let updatePayload: Record<string, unknown> = {};
 
-    if (name !== undefined) updatePayload.name = name.trim();
+    if (normalizedName !== undefined) updatePayload.name = normalizedName;
     if (is_active !== undefined) updatePayload.is_active = is_active;
 
     if (Object.keys(updatePayload).length > 0) {
@@ -642,7 +647,7 @@ export async function PUT(request: NextRequest) {
             ...(updatePayload.is_active !== undefined ? { is_active: Boolean(updatePayload.is_active) } : {}),
           }));
           if (!storedAttribute) {
-            return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+            return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
           }
           if (!values || !Array.isArray(values)) {
             try {
@@ -833,7 +838,7 @@ export async function DELETE(request: NextRequest) {
         } catch (syncError) {
           logCatalogVariantSyncError(syncError, "delete:fallback");
         }
-        return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
+        return NextResponse.json({ success: true, message: "Nitelik başarıyla silindi" });
       }
       if (getMissingColumn(error, "variant_attributes") === "is_active") {
         const { error: deleteValuesError } = await supabase.from("variant_attribute_values").delete().eq("attribute_id", id);
@@ -858,7 +863,7 @@ export async function DELETE(request: NextRequest) {
             } catch (syncError) {
               logCatalogVariantSyncError(syncError, "delete:fallback-hard-delete");
             }
-            return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
+            return NextResponse.json({ success: true, message: "Nitelik başarıyla silindi" });
           }
           throw deleteError;
         }
@@ -883,7 +888,7 @@ export async function DELETE(request: NextRequest) {
     } catch (syncError) {
       logCatalogVariantSyncError(syncError, "delete");
     }
-    return NextResponse.json({ success: true, message: "Nitelik basariyla silindi" });
+    return NextResponse.json({ success: true, message: "Nitelik başarıyla silindi" });
   } catch (error: any) {
     console.error("Error deleting variant attribute:", error);
     return NextResponse.json(

@@ -54,35 +54,32 @@ export default function PhoneMarketingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.14),_transparent_32%),linear-gradient(180deg,_#fffaf3_0%,_#f6ede0_100%)] px-4 py-4 md:px-6 md:py-6 xl:px-8">
+    <div className="min-h-screen bg-[var(--admin-bg)] px-4 py-4 md:px-6 md:py-6 xl:px-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="rounded-[32px] border border-[#eadfcd] bg-white/88 p-5 shadow-[0_24px_80px_-42px_rgba(109,76,44,0.45)] backdrop-blur md:p-7">
+        <header className="rounded-[32px] border border-[var(--admin-border)] bg-white/88 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
-              <span className="inline-flex w-fit items-center rounded-full border border-[#e7d2b4] bg-[#fff4e2] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a6a2f]">
+              <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent-hover)]">
                 Telefon Pazarlama
               </span>
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  Arama akışını daha net, hızlı ve kontrollü yönetin.
+                  Telefon Kampanyaları
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-[#7a6654] md:text-[15px]">
-                  Müşteri seçimini tek ekranda yönetin, telefon listelerini düzenli görün ve arama notlarını ekibinizle uyumlu şekilde hazırlayın.
-                </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/admin/pazarlama"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7d9c8] bg-white px-4 py-3 text-sm font-semibold text-[#6f5843] transition hover:border-[#d7c0a4] hover:bg-[#fff8ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaf3]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition hover:border-[#d7c0a4] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <X className="h-4 w-4" />
                 Geri
               </Link>
               <button
                 onClick={() => setCustomers(getCustomers())}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaf3]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <RefreshCw className="h-4 w-4" />
                 Yenile
@@ -92,7 +89,7 @@ export default function PhoneMarketingPage() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
-          <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)] backdrop-blur">
             <div className="border-b border-[#f1e4d1] px-5 py-5 md:px-6">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -110,7 +107,7 @@ export default function PhoneMarketingPage() {
                       placeholder="Müşteri veya telefon ara"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-2xl border border-[#eadcca] bg-[#fffaf3] py-3 pl-11 pr-4 text-sm text-[#3d2917] placeholder:text-[#b69a7d] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+                      className="w-full rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     />
                   </div>
 
@@ -119,7 +116,7 @@ export default function PhoneMarketingPage() {
                     <select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-[#eadcca] bg-[#fffaf3] py-3 pl-11 pr-10 text-sm text-[#3d2917] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+                      className="w-full appearance-none rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     >
                       <option value="all">Tüm müşteriler</option>
                       <option value="phone">Telefon numarası olanlar</option>
@@ -132,10 +129,10 @@ export default function PhoneMarketingPage() {
             </div>
 
             <div className="px-3 pb-3 pt-3 md:px-4 md:pb-4">
-              <div className="hidden overflow-hidden rounded-[28px] border border-[#eee1cf] md:block">
+              <div className="hidden overflow-hidden rounded-[28px] border border-[var(--admin-border)] md:block">
                 <div className="max-h-[620px] overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[linear-gradient(180deg,_#fff7ec_0%,_#fffdf9_100%)] text-[#755b43]">
+                    <thead className="sticky top-0 bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
                       <tr>
                         <th className="px-5 py-4 text-left">
                           <input
@@ -159,7 +156,7 @@ export default function PhoneMarketingPage() {
                           <tr
                             key={customer.id}
                             className={`border-t border-[#f4e8d7] transition ${
-                              isSelected ? "bg-[#fff4df]" : "bg-white hover:bg-[#fffaf3]"
+                              isSelected ? "bg-[#fff4df]" : "bg-white hover:bg-[#FCFDFE]"
                             }`}
                           >
                             <td className="px-5 py-4 align-top">
@@ -177,7 +174,7 @@ export default function PhoneMarketingPage() {
                                   {(customer.tags || []).map((tag) => (
                                     <span
                                       key={tag}
-                                      className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[#8b6234]"
+                                      className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
                                     >
                                       {tag}
                                     </span>
@@ -205,7 +202,7 @@ export default function PhoneMarketingPage() {
                               {customer.phone ? (
                                 <a
                                   href={`tel:${customer.phone}`}
-                                  className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[#fff8ee] px-4 py-2.5 font-semibold text-[#8a5824] transition hover:border-[#c58a38] hover:bg-[#fef1db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2"
+                                  className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
                                 >
                                   <Phone className="h-4 w-4" />
                                   Ara
@@ -260,7 +257,7 @@ export default function PhoneMarketingPage() {
                               {(customer.tags || []).map((tag) => (
                                 <span
                                   key={tag}
-                                  className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[#8b6234]"
+                                  className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
                                 >
                                   {tag}
                                 </span>
@@ -271,7 +268,7 @@ export default function PhoneMarketingPage() {
                           {customer.phone && (
                             <a
                               href={`tel:${customer.phone}`}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[#fff8ee] px-4 py-2.5 text-sm font-semibold text-[#8a5824] transition hover:border-[#c58a38] hover:bg-[#fef1db]"
+                              className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db]"
                             >
                               <Phone className="h-4 w-4" />
                               Ara
@@ -285,7 +282,7 @@ export default function PhoneMarketingPage() {
               </div>
 
               {filteredCustomers.length === 0 && (
-                <div className="rounded-[28px] border border-dashed border-[#e6d4bd] bg-[#fffaf3] px-6 py-14 text-center">
+                <div className="rounded-[28px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
                   <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4e3cc] text-[#a4743a]">
                     <Users className="h-7 w-7" />
                   </div>
@@ -297,16 +294,16 @@ export default function PhoneMarketingPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+                  <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                     Seçili numaralar
                   </span>
                   <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Arama listesi</h3>
                   <p className="mt-1 text-sm text-[#826c57]">Telefonu olan seçili müşteriler bu alanda toplanır.</p>
                 </div>
-                <div className="rounded-2xl bg-[#fff3df] px-3 py-2 text-right">
+                <div className="rounded-2xl bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
                   <div className="text-xs uppercase tracking-[0.2em] text-[#a27b4d]">Toplam</div>
                   <div className="text-lg font-semibold text-[#6b441d]">{selectedPhoneCustomers.length}</div>
                 </div>
@@ -317,11 +314,11 @@ export default function PhoneMarketingPage() {
                   selectedPhoneCustomers.map((customer) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between gap-3 rounded-[24px] border border-[#efe1cf] bg-[#fffdf9] px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
-                        <div className="truncate font-mono text-sm text-[#7b6753]">{customer.phone}</div>
+                        <div className="truncate font-mono text-sm text-[var(--admin-text-secondary)]">{customer.phone}</div>
                       </div>
                       <a
                         href={`tel:${customer.phone}`}
@@ -340,8 +337,8 @@ export default function PhoneMarketingPage() {
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
-              <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+              <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                 Arama notu
               </span>
               <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Ekibinize hazır kısa metin</h3>
@@ -352,7 +349,7 @@ export default function PhoneMarketingPage() {
                 onChange={(e) => setCallNote(e.target.value)}
                 placeholder="Merhaba, kampanyamızla ilgili kısa bir bilgilendirme yapmak istiyorum..."
                 rows={7}
-                className="mt-5 w-full rounded-[26px] border border-[#eadcca] bg-[#fffaf3] px-4 py-4 text-sm leading-6 text-[#3d2917] placeholder:text-[#b69a7d] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+                className="mt-5 w-full rounded-[26px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
               />
 
               <button
@@ -362,15 +359,15 @@ export default function PhoneMarketingPage() {
                     alert("Not kopyalandı.");
                   }
                 }}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d6b28a] bg-[#fff4e2] px-4 py-3 font-semibold text-[#8a5824] transition hover:bg-[#feecd0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d6b28a] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
               >
                 <Copy className="h-4 w-4" />
                 Notu kopyala
               </button>
             </section>
 
-            <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
-              <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+              <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                 Dışa aktar
               </span>
               <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Telefon listesini paylaşın</h3>
@@ -386,7 +383,7 @@ export default function PhoneMarketingPage() {
                     }
                   }}
                   disabled={selectedCustomers.length === 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e6d5bf] bg-[#faf4eb] px-4 py-3 font-semibold text-[#6f5843] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Copy className="h-4 w-4" />
                   Kopyala
@@ -404,7 +401,7 @@ export default function PhoneMarketingPage() {
                     }
                   }}
                   disabled={selectedCustomers.length === 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3 font-semibold text-white transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 font-semibold text-white transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="h-4 w-4" />
                   TXT indir

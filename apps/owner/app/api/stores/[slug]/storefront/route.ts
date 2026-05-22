@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { getStoreConfig, repairStoreConfig, updateStoreStorefrontConfig } from "@celebix/platform-config";
+import { getStoreConfig, repairStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import { getRepoRoot } from "@celebix/platform-config";
-import { syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
+import { syncStoreAuthorityRepoForStore, syncStorefrontRepoForStore } from "@/lib/storefront-repo-sync";
 import {
   type DeploymentWindowHandle,
   releaseGeneratedDeploymentWindow,
@@ -53,19 +53,20 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
           relativeAppDirectory,
         };
 
-    if (result.relativeAppDirectory) {
-      updateStoreStorefrontConfig(slug, {
-        appDir: result.relativeAppDirectory,
-        status: "scaffolded",
-      });
-    }
-
     let repoSync = null;
     let blueprint = await prepareStorefrontDeployment(slug);
 
     if (blueprint.status === "pending-repo-sync") {
       repoSync = await syncStorefrontRepoForStore(slug);
       blueprint = await prepareStorefrontDeployment(slug);
+    }
+
+    if (
+      blueprint.status === "pending-owner-env" ||
+      blueprint.status === "pending-repo-sync" ||
+      blueprint.status === "failed"
+    ) {
+      throw new Error(blueprint.runtimeMessage || "Storefront deployment authority henuz hazir degil.");
     }
 
     const deploymentWindow: DeploymentWindowHandle = await reserveGeneratedDeploymentWindow({
@@ -75,24 +76,31 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
     let deployment;
 
     try {
-      deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: false });
+      deployment = await provisionStorefrontDeploymentForStore(slug, { waitForRuntime: true });
+
+      const authoritySync = await syncStoreAuthorityRepoForStore(slug);
+
+      if (authoritySync.status !== "synced") {
+        throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+
+      await syncOwnerStoresAndMetrics();
+
+      return NextResponse.json(
+        {
+          success: true,
+          slug,
+          appDir: result.relativeAppDirectory,
+          blueprint,
+          repoSync,
+          deployment,
+        },
+        { status: 201 }
+      );
     } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
+      await syncOwnerStoresAndMetrics().catch(() => undefined);
     }
-
-    await syncOwnerStoresAndMetrics();
-
-    return NextResponse.json(
-      {
-        success: true,
-        slug,
-        appDir: result.relativeAppDirectory,
-        blueprint,
-        repoSync,
-        deployment,
-      },
-      { status: 201 }
-    );
   } catch (error) {
     if (isRedisLockError(error)) {
       return NextResponse.json({ error: error.message }, { status: 409 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStoreDetail } from "@/lib/control-plane";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
+import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import {
   type DeploymentWindowHandle,
   releaseGeneratedDeploymentWindow,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/generated-deployment-guard";
 import { isRedisLockError } from "@/lib/redis";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
+import { syncStoreAuthorityRepoForStore } from "@/lib/storefront-repo-sync";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -36,11 +38,18 @@ export async function POST(_: Request, { params }: RouteContext) {
     });
 
     try {
-      const deployment = await provisionAdminDeploymentForStore(slug, { waitForRuntime: false });
+      const deployment = await provisionAdminDeploymentForStore(slug, { waitForRuntime: true });
+      const authoritySync = await syncStoreAuthorityRepoForStore(slug);
+
+      if (authoritySync.status !== "synced") {
+        throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+
+      await syncOwnerStoresAndMetrics();
       return NextResponse.json({ success: true, deployment }, { status: 200 });
-    } catch (error) {
+    } finally {
       await releaseGeneratedDeploymentWindow(deploymentWindow);
-      throw error;
+      await syncOwnerStoresAndMetrics().catch(() => undefined);
     }
   } catch (error) {
     if (isRedisLockError(error)) {

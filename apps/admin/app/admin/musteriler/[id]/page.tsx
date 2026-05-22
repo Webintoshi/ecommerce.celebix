@@ -99,7 +99,7 @@ interface PreferredProduct {
 }
 
 const panelClass =
-  "overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]";
+  "overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]";
 
 export default function CustomerDetailPage({ params }: CustomerDetailPageProps) {
   const router = useRouter();
@@ -248,23 +248,32 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   };
 
   const getPaymentMethodName = (method: string) => {
-    const methods: Record<string, string> = {
-      cod: "Kapıda Ödeme",
-      bank_transfer: "Havale/EFT",
-      credit_card: "Kredi Kartı",
-      paytr: "PAYTR",
-      iyzico: "İyzico",
-      stripe: "Stripe",
-    };
-    return methods[method] || method;
+    if (!method) return "Bilinmiyor";
+    const m = method.toLowerCase();
+    if (m.includes("iyzico")) return "İyzico";
+    if (m.includes("paytr")) return "PAYTR";
+    if (m.includes("stripe")) return "Stripe";
+    if (m.includes("craftgate")) return "Craftgate";
+    if (m.includes("paynet")) return "Paynet";
+    if (m.includes("cod") || m.includes("cash")) return "Kapıda Ödeme";
+    if (m.includes("bank_transfer") || m.includes("havale")) return "Havale/EFT";
+    if (m.includes("credit_card")) return "Kredi Kartı";
+
+    if (method.startsWith("pg-")) {
+      const parts = method.replace("pg-", "").split("-");
+      if (parts.length > 0) {
+        return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      }
+    }
+    return method;
   };
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+      <main className="admin-page-root">
         <div className="mx-auto flex min-h-[420px] max-w-[1600px] items-center justify-center px-4 py-10 md:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-3 rounded-full border border-[#FE6100]/15 bg-white/90 px-5 py-3 text-sm font-medium text-[#8a4b22] shadow-sm">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#FE6100]/30 border-t-[#FE6100]" />
+          <div className="inline-flex items-center gap-3 rounded-full border border-[var(--admin-accent-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--admin-accent-border)] border-t-[var(--admin-accent)]" />
             Müşteri görünümü hazırlanıyor
           </div>
         </div>
@@ -274,14 +283,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
   if (!customer) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+      <main className="admin-page-root">
         <div className="mx-auto max-w-[1600px] px-4 py-10 md:px-6 lg:px-8">
           <div className={`${panelClass} px-6 py-14 text-center`}>
             <h1 className="text-xl font-semibold text-gray-950">Müşteri Bulunamadı</h1>
             <p className="mt-2 text-sm text-gray-500">Aradığınız müşteri mevcut değil.</p>
             <Link
               href="/admin/musteriler"
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
             >
               Müşterilere Dön
             </Link>
@@ -302,28 +311,28 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   ] as const;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]">
+    <main className="admin-page-root">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 right-[-6rem] h-[24rem] w-[24rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
-        <div className="absolute left-[-5rem] top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
-        <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="flex flex-col gap-5 border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
+          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <Link
                   href="/admin/musteriler"
                   aria-label="Müşteri listesine dön"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Link>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                     {fullName}
                   </div>
                   {getStatusBadge(customer.status)}
@@ -335,7 +344,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   value={customer.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   aria-label="Müşteri durumunu değiştir"
-                  className="min-h-11 cursor-pointer rounded-2xl border border-[#FE6100]/12 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all focus:border-[#FE6100] focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
+                  className="min-h-11 cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                 >
                   <option value="active">Aktif</option>
                   <option value="inactive">Pasif</option>
@@ -343,7 +352,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 </select>
                 <Link
                   href={`/admin/musteriler/${customer.id}/duzenle`}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   <Edit className="h-4 w-4" />
                   Düzenle
@@ -358,16 +367,16 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
-              <HeroMetric icon={ShoppingBag} label="Toplam Sipariş" value={String(customer.total_orders)} detail="Tamamlanan ve açık sipariş toplamı" />
-              <HeroMetric icon={TrendingUp} label="Toplam Harcama" value={formatPrice(customer.total_spent)} detail="Müşteri bazlı toplam gelir" />
-              <HeroMetric icon={CreditCard} label="Ortalama Sipariş" value={formatPrice(averageOrderValue)} detail="Sipariş başına ortalama tutar" />
-              <HeroMetric icon={Calendar} label="Son Sipariş" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} detail="En son işlem tarihi" />
+            <div className="grid grid-cols-1 gap-px bg-[#EEF1F4] md:grid-cols-2 xl:grid-cols-4">
+              <HeroMetric icon={ShoppingBag} label="Toplam Sipariş" value={String(customer.total_orders)} />
+              <HeroMetric icon={TrendingUp} label="Toplam Harcama" value={formatPrice(customer.total_spent)} />
+              <HeroMetric icon={CreditCard} label="Ortalama Sipariş" value={formatPrice(averageOrderValue)} />
+              <HeroMetric icon={Calendar} label="Son Sipariş" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} />
             </div>
           </section>
 
           <section className={panelClass}>
-            <div className="border-b border-[#FE6100]/8 px-4 py-4 md:px-6">
+            <div className="border-b border-[var(--admin-border)] px-4 py-4 md:px-6">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab.key;
@@ -379,8 +388,8 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                       onClick={() => setActiveTab(tab.key)}
                       className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-4 ${
                         isActive
-                          ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_30px_rgba(254,97,0,0.18)] focus-visible:ring-[#FE6100]/20"
-                          : "border border-[#ecdccd] bg-white text-gray-600 hover:border-[#FE6100]/20 hover:text-[#8a4b22] focus-visible:ring-[#FE6100]/15"
+                          ? "bg-[var(--admin-accent)] text-white shadow-[0_14px_30px_rgba(255,106,0,0.18)] focus-visible:ring-[rgba(255,106,0,0.20)]"
+                          : "border border-[var(--admin-border)] bg-white text-gray-600 hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.15)]"
                       }`}
                     >
                       {tab.label}
@@ -395,12 +404,12 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
               <div className="space-y-6">
                 <section className={panelClass}>
-                  <div className="flex items-center justify-between gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                  <div className="flex items-center justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                     <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Son Siparişler</h2>
                     <button
                       type="button"
                       onClick={() => setActiveTab("orders")}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-[#FE6100] transition-colors hover:text-[#d84f00]"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent)] transition-colors hover:text-[#d84f00]"
                     >
                       Tümünü Gör
                       <ArrowUpRight className="h-4 w-4" />
@@ -408,20 +417,20 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   </div>
 
                   {orders.length === 0 ? (
-                    <EmptyState icon={Package} title="Henüz sipariş yok." detail="İlk siparişten sonra sipariş akışı burada görünür." />
+                    <EmptyState icon={Package} title="Henüz sipariş yok." />
                   ) : (
                     <div className="divide-y divide-[#f1e6dc]">
                       {orders.slice(0, 5).map((order) => (
-                        <article key={order.id} className="p-5 transition-colors hover:bg-[#fffaf6] md:p-6">
+                        <article key={order.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex items-start gap-3">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-sm font-semibold text-[#FE6100] shadow-sm">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
                                 #{order.order_number.split("-").pop()}
                               </div>
                               <div>
                                 <Link
                                   href={`/admin/siparisler/${order.id}`}
-                                  className="font-semibold text-gray-950 transition-colors hover:text-[#FE6100]"
+                                  className="font-semibold text-gray-950 transition-colors hover:text-[var(--admin-accent)]"
                                 >
                                   {order.order_number}
                                 </Link>
@@ -458,7 +467,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
               <div className="space-y-6">
                 <section className={panelClass}>
-                  <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                  <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                     <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Müşteri Bilgileri</h2>
                   </div>
 
@@ -488,19 +497,19 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
                 {defaultAddress ? (
                   <section className={panelClass}>
-                    <div className="flex items-center justify-between gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                    <div className="flex items-center justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                       <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Varsayılan Adres</h2>
                       <button
                         type="button"
                         onClick={() => setActiveTab("addresses")}
-                        className="text-sm font-medium text-[#FE6100] transition-colors hover:text-[#d84f00]"
+                        className="text-sm font-medium text-[var(--admin-accent)] transition-colors hover:text-[#d84f00]"
                       >
                         Tüm Adresler
                       </button>
                     </div>
 
                     <div className="space-y-3 p-5 text-sm text-gray-700 md:p-6">
-                      <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/12 bg-[#fff8f3] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                      <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
                         {defaultAddress.type === "shipping" ? "Teslimat" : "Fatura"}
                       </div>
                       <p className="font-semibold text-gray-950">
@@ -516,7 +525,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                       </p>
                       {defaultAddress.phone ? (
                         <p className="flex items-center gap-2 pt-1">
-                          <Phone className="h-4 w-4 text-[#FE6100]" />
+                          <Phone className="h-4 w-4 text-[var(--admin-accent)]" />
                           {defaultAddress.phone}
                         </p>
                       ) : null}
@@ -529,26 +538,26 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
           {activeTab === "orders" ? (
             <section className={panelClass}>
-              <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+              <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                 <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Tüm Siparişler</h2>
               </div>
 
               {orders.length === 0 ? (
-                <EmptyState icon={Package} title="Henüz sipariş yok." detail="Sipariş oluştuğunda bu liste otomatik olarak dolacak." />
+                <EmptyState icon={Package} title="Henüz sipariş yok." />
               ) : (
                 <div className="divide-y divide-[#f1e6dc]">
                   {orders.map((order) => (
-                    <article key={order.id} className="p-5 transition-colors hover:bg-[#fffaf6] md:p-6">
+                    <article key={order.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                         <div className="flex min-w-0 items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white font-semibold text-[#FE6100] shadow-sm">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] font-semibold text-[var(--admin-accent)] shadow-sm">
                             #{order.order_number.split("-").pop()}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                               <Link
                                 href={`/admin/siparisler/${order.id}`}
-                                className="truncate font-semibold text-gray-950 transition-colors hover:text-[#FE6100]"
+                                className="truncate font-semibold text-gray-950 transition-colors hover:text-[var(--admin-accent)]"
                               >
                                 {order.order_number}
                               </Link>
@@ -565,7 +574,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
                         <Link
                           href={`/admin/siparisler/${order.id}`}
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1]"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
                         >
                           Siparişi Aç
                           <ArrowUpRight className="h-4 w-4" />
@@ -573,11 +582,11 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                       </div>
 
                       {order.items?.length ? (
-                        <div className="mt-4 flex flex-wrap gap-2 border-t border-[#f1e6dc] pt-4">
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--admin-border)] pt-4">
                           {order.items.slice(0, 4).map((item) => (
                             <span
                               key={item.id}
-                              className="inline-flex items-center gap-1 rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
+                              className="inline-flex items-center gap-1 rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
                             >
                               {item.product_name}
                               {item.variant_name ? ` - ${item.variant_name}` : ""}
@@ -585,7 +594,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                             </span>
                           ))}
                           {order.items.length > 4 ? (
-                            <span className="inline-flex items-center rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-gray-500">
+                            <span className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-gray-500">
                               +{order.items.length - 4} daha
                             </span>
                           ) : null}
@@ -604,11 +613,11 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 customer.addresses.map((address) => (
                   <article
                     key={address.id}
-                    className={`${panelClass} ${address.is_default ? "ring-1 ring-[#FE6100]/15" : ""}`}
+                    className={`${panelClass} ${address.is_default ? "ring-1 ring-[rgba(255,106,0,0.15)]" : ""}`}
                   >
-                    <div className="flex items-start justify-between gap-4 border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+                    <div className="flex items-start justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                           <MapPin className="h-5 w-5" />
                         </div>
                         <div>
@@ -618,7 +627,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                         </div>
                       </div>
                       {address.is_default ? (
-                        <span className="rounded-full border border-[#FE6100]/15 bg-[#fff8f3] px-3 py-1 text-xs font-semibold text-[#FE6100]">
+                        <span className="rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--admin-accent)]">
                           Varsayılan
                         </span>
                       ) : null}
@@ -638,7 +647,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                       </p>
                       {address.phone ? (
                         <p className="flex items-center gap-2 pt-1">
-                          <Phone className="h-4 w-4 text-[#FE6100]" />
+                          <Phone className="h-4 w-4 text-[var(--admin-accent)]" />
                           {address.phone}
                         </p>
                       ) : null}
@@ -647,7 +656,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 ))
               ) : (
                 <div className="col-span-full">
-                  <EmptyState icon={MapPin} title="Kayıtlı adres yok." detail="Yeni adres eklendiğinde burada görünür." />
+                  <EmptyState icon={MapPin} title="Kayıtlı adres yok." />
                 </div>
               )}
             </section>
@@ -655,7 +664,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
           {activeTab === "preferences" ? (
             <section className={panelClass}>
-              <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+              <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                 <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Tercih Edilen Ürünler</h2>
               </div>
 
@@ -663,15 +672,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 <EmptyState
                   icon={Star}
                   title="Henüz tercih edilen ürün yok."
-                  detail="Müşterinin ilk siparişlerinden sonra ürün tercihleri burada özetlenir."
                 />
               ) : (
                 <div className="divide-y divide-[#f1e6dc]">
                   {preferredProducts.map((pref) => (
-                    <article key={pref.id} className="p-5 transition-colors hover:bg-[#fffaf6] md:p-6">
+                    <article key={pref.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-2xl shadow-sm">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-2xl shadow-sm">
                             {pref.category === "fistik-ezmesi"
                               ? "🥜"
                               : pref.category === "findik-ezmesi"
@@ -694,7 +702,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                           </div>
                         </div>
 
-                        <div className="rounded-[22px] border border-[#ecdccd] bg-white px-4 py-3 text-sm text-gray-600">
+                        <div className="rounded-[22px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-600">
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Son Sipariş</div>
                           <div className="mt-1 font-medium text-gray-900">{formatDate(pref.last_purchased_at)}</div>
                         </div>
@@ -715,12 +723,10 @@ function HeroMetric({
   icon: Icon,
   label,
   value,
-  detail,
 }: {
   icon: ElementType;
   label: string;
   value: string;
-  detail: string;
 }) {
   return (
     <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
@@ -728,9 +734,8 @@ function HeroMetric({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
           <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-          <p className="mt-1 text-sm text-gray-600">{detail}</p>
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-[#FE6100] shadow-sm">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -741,19 +746,16 @@ function HeroMetric({
 function EmptyState({
   icon: Icon,
   title,
-  detail,
 }: {
   icon: ElementType;
   title: string;
-  detail: string;
 }) {
   return (
     <div className="px-6 py-14 text-center">
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#fff3e9] to-white text-[#FE6100] shadow-sm">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
         <Icon className="h-9 w-9" />
       </div>
       <p className="mt-5 text-lg font-semibold text-gray-950">{title}</p>
-      <p className="mt-2 text-sm text-gray-500">{detail}</p>
     </div>
   );
 }
@@ -774,9 +776,9 @@ function InfoRow({
   actionLabel?: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-[#ecdccd] bg-white/85 p-4 shadow-sm">
+    <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-[#fff8f3] text-[#FE6100]">
+        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -789,7 +791,7 @@ function InfoRow({
               type="button"
               onClick={onCopy}
               aria-label={`${label} bilgisini kopyala`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#ecdccd] bg-white text-gray-500 transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
             >
               <Copy className="h-4 w-4" />
             </button>
@@ -798,7 +800,7 @@ function InfoRow({
             <a
               href={actionHref}
               aria-label={actionLabel}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#ecdccd] bg-white text-gray-500 transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
             >
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -811,7 +813,7 @@ function InfoRow({
 
 function DetailMini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-[#ecdccd] bg-white/85 px-3 py-2.5">
+    <div className="rounded-[18px] border border-[var(--admin-border)] bg-white/85 px-3 py-2.5">
       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">{label}</div>
       <div className="mt-1 text-sm font-medium text-gray-900">{value}</div>
     </div>

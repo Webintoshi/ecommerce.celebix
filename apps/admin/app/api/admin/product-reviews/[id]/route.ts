@@ -3,9 +3,10 @@ import {
   DEFAULT_PRODUCT_REVIEW_STATUS,
   isProductReviewStatus,
 } from "@celebix/platform-config/src/product-reviews";
+import { cookies } from "next/headers";
 import { recalculateProductReviewMetrics } from "@/lib/product-reviews";
+import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
 import { createServerClient } from "@/lib/supabase";
-import { createSessionServerClient } from "@/lib/supabase-server";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -22,10 +23,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const supabase = createServerClient();
-    const sessionClient = await createSessionServerClient();
-    const {
-      data: { user },
-    } = await sessionClient.auth.getUser();
+    const cookieStore = await cookies();
+    const user = await getSessionUserFromCookies(cookieStore.getAll());
 
     const {
       data: review,

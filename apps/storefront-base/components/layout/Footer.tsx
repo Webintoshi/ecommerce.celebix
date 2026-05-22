@@ -11,8 +11,7 @@ import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
 import {
-  type StorefrontLocale,
-  buildLocalizedPath,
+  LOCALE_LABELS,
   getLocalizedCopy,
 } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
@@ -23,32 +22,24 @@ type FooterCategory = {
   slug: string;
 };
 
-const LOCALE_SWITCH_OPTIONS: Array<{
-  locale: StorefrontLocale;
-  label: string;
-}> = [
-  { locale: "tr", label: "TR" },
-  { locale: "en", label: "EN" },
-  { locale: "de", label: "DE" },
-  { locale: "ru", label: "RU" },
-  { locale: "ar", label: "AR" },
-  { locale: "ka", label: "KA" },
-];
-
 export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
-  const { locale, internalPathname } = useStorefrontRoute();
+  const { locale, internalPathname, routing, buildPath } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const localeSwitchOptions = routing.availableLocales.map((entryLocale) => ({
+    locale: entryLocale,
+    label: LOCALE_LABELS[entryLocale],
+  }));
   const activeLocaleOption =
-    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
+    localeSwitchOptions.find((option) => option.locale === locale) ?? localeSwitchOptions[0];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
@@ -125,7 +116,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
-            <Link href={buildLocalizedPath("/", locale)} className="mb-6 inline-block">
+            <Link href={buildPath("/")} className="mb-6 inline-block">
               {logoSrc ? (
                 <div className="relative h-10 w-[150px]">
                   <Image
@@ -147,6 +138,7 @@ export function Footer() {
               <p className="break-all text-sm text-gray-300">{contactEmail}</p>
             </div>
 
+            {routing.showLocaleSwitcher ? (
             <div className="mb-6">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
                 Language
@@ -171,12 +163,12 @@ export function Footer() {
                 {isLocaleMenuOpen ? (
                   <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
                     <div className="space-y-1">
-                      {LOCALE_SWITCH_OPTIONS.map((option) => {
+                      {localeSwitchOptions.map((option) => {
                         const isActive = option.locale === locale;
                         return (
                           <Link
                             key={option.locale}
-                            href={buildLocalizedPath(internalPathname, option.locale)}
+                            href={buildPath(internalPathname, option.locale)}
                             hrefLang={option.locale}
                             onClick={() => setIsLocaleMenuOpen(false)}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
@@ -195,6 +187,7 @@ export function Footer() {
                 ) : null}
               </div>
             </div>
+            ) : null}
 
             <div className="flex items-center gap-3">
               <a
@@ -226,7 +219,7 @@ export function Footer() {
               {aboutLinks.map((link) => (
                 <li key={link.href}>
                   <Link
-                    href={buildLocalizedPath(link.href, locale)}
+                    href={buildPath(link.href)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -244,7 +237,7 @@ export function Footer() {
               {categoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={buildLocalizedPath(`/${link.slug}`, locale)}
+                    href={buildPath(`/${link.slug}`)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}
@@ -263,7 +256,7 @@ export function Footer() {
               {policyLinks.map((link) => (
                 <li key={link.slug}>
                   <Link
-                    href={buildLocalizedPath(link.href, locale)}
+                    href={buildPath(link.href)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.label}

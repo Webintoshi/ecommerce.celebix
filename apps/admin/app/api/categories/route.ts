@@ -4,6 +4,7 @@ import { isValidCategory } from "@/types/category";
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
 import { deleteCategoryHierarchy } from "@/lib/category-records";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 
 // ============================================================================
 // CONFIGURATION
@@ -122,10 +123,14 @@ function validateSlug(slug: unknown): boolean {
 
 function sanitizeString(input: unknown, maxLength: number): string {
   if (typeof input !== "string") return "";
-  return input
-    .trim()
+  return normalizeVisibleText(input)
     .slice(0, maxLength)
     .replace(/[<>]/g, ""); // Basic XSS prevention
+}
+
+function sanitizeContent(input: unknown, maxLength: number): string {
+  if (typeof input !== "string") return "";
+  return repairMojibakeIfNeeded(input).trim().slice(0, maxLength);
 }
 
 async function mirrorCategoryImageIfNeeded(input: unknown, slugOrFallback: string, nameOrFallback: string): Promise<string | null> {
@@ -145,7 +150,7 @@ async function mirrorCategoryImageIfNeeded(input: unknown, slugOrFallback: strin
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bilinmeyen hata";
-    throw new APIError(`Kategori gorseli storage'a tasinamadi: ${message}`, 400, "IMAGE_MIRROR_ERROR");
+    throw new APIError(`Kategori görseli storage'a taşınamadı: ${message}`, 400, "IMAGE_MIRROR_ERROR");
   }
 }
 
@@ -443,7 +448,7 @@ export async function PUT(request: NextRequest) {
       updateData.slug = sanitizeString(updates.slug.toLowerCase(), 100);
     }
     if (updates.description !== undefined) {
-      updateData.description = sanitizeString(updates.description, 2000);
+      updateData.description = sanitizeContent(updates.description, 2000);
     }
     if (updates.image !== undefined) {
       updateData.image = updates.image ? sanitizeString(updates.image, 500) : null;
@@ -482,7 +487,7 @@ export async function PUT(request: NextRequest) {
     if (updates.faq !== undefined && updates.faq !== null) {
       updateData.faq = updates.faq.map((item: { question: string; answer: string }) => ({
         question: sanitizeString(item.question, 500),
-        answer: sanitizeString(item.answer, 2000)
+        answer: sanitizeContent(item.answer, 2000)
       }));
     }
     if (updates.geo_data !== undefined && updates.geo_data !== null) {
@@ -607,7 +612,7 @@ export async function POST(request: NextRequest) {
       let insertPayload: Record<string, unknown> = {
         name: sanitizeString(data.name, 200),
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
-        description: data.description ? sanitizeString(String(data.description), 2000) : null,
+        description: data.description ? sanitizeContent(String(data.description), 2000) : null,
         image: await mirrorCategoryImageIfNeeded(data.image, imageSlugFallback, imageNameFallback),
         parent_id: data.parent_id ? String(data.parent_id) : null,
         icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
@@ -664,7 +669,7 @@ export async function POST(request: NextRequest) {
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
         description: data.description ? sanitizeString(String(data.description), 2000) : null,
         image: data.image ? sanitizeString(String(data.image), 500) : null,
-        icon: data.icon ? sanitizeString(String(data.icon), 50) : "📦",
+        icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
         sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
         is_active: data.is_active !== false,
         seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,

@@ -10,9 +10,12 @@ import {
     getAIProviderSettings,
     getAllSettings,
     getAnnouncementBarSettings,
+    getCodeIntegrationsSettings,
+    getHomepageCurationSettings,
     getMarqueeSettings,
     getNotificationSettings,
     getPaymentMethods,
+    isPrivateSettingKey,
     getSeoSettings,
     getSetting,
     getShippingIntegrations,
@@ -21,6 +24,8 @@ import {
     getTranslationSettings,
     setAIProviderSettings,
     setAnnouncementBarSettings,
+    setCodeIntegrationsSettings,
+    setHomepageCurationSettings,
     setMarqueeSettings,
     setNotificationSettings,
     setPaymentMethods,
@@ -181,6 +186,11 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        if (type === "homepage-curation") {
+            const homepageCuration = await getHomepageCurationSettings();
+            return NextResponse.json({ success: true, homepageCuration });
+        }
+
         if (type === "seo") {
             const settings = await getSeoSettings();
             return NextResponse.json({
@@ -189,6 +199,14 @@ export async function GET(request: NextRequest) {
                     ...settings,
                     ogImageUrl: resolveAdminAssetUrl(settings.ogImageUrl) || "",
                 },
+            });
+        }
+
+        if (type === "code-integrations") {
+            const codeIntegrations = await getCodeIntegrationsSettings();
+            return NextResponse.json({
+                success: true,
+                codeIntegrations,
             });
         }
 
@@ -235,6 +253,12 @@ export async function GET(request: NextRequest) {
         }
 
         if (key) {
+            if (isPrivateSettingKey(key)) {
+                return NextResponse.json(
+                    { success: false, error: "Setting not found" },
+                    { status: 404 },
+                );
+            }
             const value = await getSetting(key);
             return NextResponse.json({
                 success: true,
@@ -268,8 +292,10 @@ export async function POST(request: NextRequest) {
             shippingIntegrations,
             storeInfo,
             seoSettings,
+            codeIntegrations,
             announcementSettings,
             marqueeSettings,
+            homepageCuration,
             aiSettings,
             translationSettings,
         } = body;
@@ -321,12 +347,29 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: "Store info updated" });
         }
 
+        if (type === "homepage-curation" && homepageCuration !== undefined) {
+            const settings = await setHomepageCurationSettings({
+                ...(await getHomepageCurationSettings()),
+                ...(homepageCuration as Record<string, unknown>),
+            });
+            return NextResponse.json({
+                success: true,
+                message: "Homepage curation updated",
+                homepageCuration: settings.value,
+            });
+        }
+
         if (type === "seo" && seoSettings !== undefined) {
             await setSeoSettings({
                 ...seoSettings,
                 ogImageUrl: extractAdminStoredAssetUrl(seoSettings.ogImageUrl),
             });
             return NextResponse.json({ success: true, message: "SEO settings updated" });
+        }
+
+        if (type === "code-integrations" && codeIntegrations !== undefined) {
+            await setCodeIntegrationsSettings(codeIntegrations);
+            return NextResponse.json({ success: true, message: "Code integrations updated" });
         }
 
         if (type === "announcement" && announcementSettings !== undefined) {
@@ -360,6 +403,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (key && value !== undefined) {
+            if (isPrivateSettingKey(key)) {
+                return NextResponse.json(
+                    { success: false, error: "Protected setting key" },
+                    { status: 403 },
+                );
+            }
             const normalizedValue = key === "hero_banners" ? extractHeroBannersForStorage(value) : value;
             const setting = await setSetting(key, normalizedValue);
             return NextResponse.json({ success: true, setting });
@@ -387,6 +436,13 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json(
                 { success: false, error: "Setting key is required" },
                 { status: 400 },
+            );
+        }
+
+        if (isPrivateSettingKey(key)) {
+            return NextResponse.json(
+                { success: false, error: "Protected setting key" },
+                { status: 403 },
             );
         }
 

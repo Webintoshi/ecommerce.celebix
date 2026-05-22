@@ -1,9 +1,13 @@
 import "server-only";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
-import { createServiceSupabaseClient, createSessionServerClient } from "@/lib/supabase-server";
+import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
+import { readAdminRoleCookie } from "@/lib/admin-role-cookie";
+import { getSessionUserFromCookies, readSessionUserSnapshotFromCookies } from "@/lib/admin-session-cookie";
+import { createServiceSupabaseClient } from "@/lib/supabase-server";
 
 export interface AdminProfile {
   id: string;
@@ -18,15 +22,86 @@ export interface AdminAuthContext {
   profile: AdminProfile;
 }
 
-export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
-  const supabase = await createSessionServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+type CookieValue = {
+  name: string;
+  value: string;
+};
 
-  if (userError || !user) {
+function readUserDisplayName(user: User): string | null {
+  const metadata = typeof user.user_metadata === "object" && user.user_metadata ? user.user_metadata : {};
+  const fullName = Reflect.get(metadata, "full_name");
+  if (typeof fullName === "string" && fullName.trim()) {
+    return fullName.trim();
+  }
+
+  const fallbackName = Reflect.get(metadata, "name");
+  if (typeof fallbackName === "string" && fallbackName.trim()) {
+    return fallbackName.trim();
+  }
+
+  return null;
+}
+
+function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride?: User | null): AdminAuthContext | null {
+  const user = userOverride ?? readSessionUserSnapshotFromCookies(cookieValues);
+  if (!user) {
     return null;
+  }
+
+  const adminRole = readAdminRoleCookie(cookieValues);
+  if (!adminRole || adminRole.userId !== user.id) {
+    return null;
+  }
+
+  return {
+    user,
+    profile: {
+      id: user.id,
+      email: user.email || "",
+      full_name: readUserDisplayName(user),
+      role: adminRole.role,
+      task_definition: null,
+    },
+  };
+}
+
+export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminProfile, "email" | "full_name" | "role"> | null> {
+  const cookieStore = await cookies();
+  const fallbackContext = buildFallbackAdminAuthContext(cookieStore.getAll());
+
+  if (!fallbackContext) {
+    return null;
+  }
+
+  return {
+    email: fallbackContext.profile.email,
+    full_name: fallbackContext.profile.full_name,
+    role: fallbackContext.profile.role,
+  };
+}
+
+export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
+  const cookieStore = await cookies();
+  const cookieValues = cookieStore.getAll();
+  const snapshotUser = readSessionUserSnapshotFromCookies(cookieValues);
+  const user = snapshotUser ?? (await getSessionUserFromCookies(cookieValues));
+
+  if (!user) {
+    return null;
+  }
+
+  const fallbackContext = buildFallbackAdminAuthContext(cookieValues, user);
+
+  const cachedProfile = readCachedAdminProfile(user.id);
+
+  if (cachedProfile) {
+    return {
+      user,
+      profile: {
+        ...cachedProfile,
+        email: user.email || "",
+      },
+    };
   }
 
   const serviceClient = createServiceSupabaseClient();
@@ -42,8 +117,18 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
     }>();
 
   if (profileError || !profile) {
+    if (fallbackContext) {
+      console.warn("Admin auth profile fallback activated.", {
+        userId: user.id,
+        error: profileError?.message ?? "profile_missing",
+      });
+      return fallbackContext;
+    }
+
     return null;
   }
+
+  writeCachedAdminProfile(profile);
 
   return {
     user,

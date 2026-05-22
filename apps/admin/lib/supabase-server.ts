@@ -5,7 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
 import { createServerClient as createServiceSupabaseClient } from "@/lib/supabase";
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
 
 type LightPostgresCompatModule = {
   createLightPostgresCompatClient: (options: {
@@ -35,7 +35,8 @@ export async function createSessionServerClient(): Promise<SupabaseClient> {
 
   const cookieStore = await cookies();
 
-  return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  return createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll();

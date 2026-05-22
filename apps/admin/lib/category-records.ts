@@ -1,4 +1,8 @@
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
+import {
+  readCelebixCategoryHierarchyMetadata,
+  type CelebixCategoryPathSegment,
+} from "@celebix/platform-config";
 
 type JsonObject = Record<string, unknown>;
 
@@ -102,6 +106,116 @@ export interface ProductCategoryHierarchy {
   subcategorySlug: string | null;
   subcategoryName: string | null;
   subcategoryImageUrl?: string | null;
+  path: Array<{
+    slug: string;
+    name: string | null;
+  }>;
+}
+
+function normalizeStoredHierarchyPath(
+  path: CelebixCategoryPathSegment[],
+): Array<{ slug: string; name: string | null }> {
+  const seen = new Set<string>();
+
+  return path
+    .filter((segment) => {
+      if (!segment.slug || seen.has(segment.slug)) {
+        return false;
+      }
+
+      seen.add(segment.slug);
+      return true;
+    })
+    .map((segment) => ({
+      slug: segment.slug,
+      name: segment.name || humanizeSlug(segment.slug),
+    }));
+}
+
+function buildFallbackHierarchyPath(
+  categorySlug: string | null,
+  categoryName: string | null,
+  subcategorySlug: string | null,
+  subcategoryName: string | null,
+): Array<{ slug: string; name: string | null }> {
+  const path: Array<{ slug: string; name: string | null }> = [];
+
+  if (categorySlug) {
+    path.push({
+      slug: categorySlug,
+      name: categoryName || humanizeSlug(categorySlug),
+    });
+  }
+
+  if (subcategorySlug && subcategorySlug !== categorySlug) {
+    path.push({
+      slug: subcategorySlug,
+      name: subcategoryName || humanizeSlug(subcategorySlug),
+    });
+  }
+
+  return path;
+}
+
+function alignHierarchyPathWithSlugs(
+  inputPath: Array<{ slug: string; name: string | null }>,
+  categorySlug: string | null,
+  categoryName: string | null,
+  subcategorySlug: string | null,
+  subcategoryName: string | null,
+): Array<{ slug: string; name: string | null }> {
+  const nextPath = inputPath.map((segment) => ({ ...segment }));
+
+  if (categorySlug) {
+    if (nextPath.length === 0) {
+      nextPath.push({
+        slug: categorySlug,
+        name: categoryName || humanizeSlug(categorySlug),
+      });
+    } else if (nextPath[0]?.slug !== categorySlug) {
+      nextPath[0] = {
+        slug: categorySlug,
+        name: categoryName || humanizeSlug(categorySlug),
+      };
+    } else if (!nextPath[0]?.name && categoryName) {
+      nextPath[0].name = categoryName;
+    }
+  }
+
+  const normalizedSubcategorySlug =
+    subcategorySlug && subcategorySlug !== categorySlug ? subcategorySlug : null;
+
+  if (!normalizedSubcategorySlug) {
+    return nextPath;
+  }
+
+  if (nextPath.length === 0) {
+    return buildFallbackHierarchyPath(
+      categorySlug,
+      categoryName,
+      normalizedSubcategorySlug,
+      subcategoryName,
+    );
+  }
+
+  if (nextPath.length === 1) {
+    nextPath.push({
+      slug: normalizedSubcategorySlug,
+      name: subcategoryName || humanizeSlug(normalizedSubcategorySlug),
+    });
+    return nextPath;
+  }
+
+  if (nextPath[nextPath.length - 1]?.slug !== normalizedSubcategorySlug) {
+    nextPath[nextPath.length - 1] = {
+      slug: normalizedSubcategorySlug,
+      name: subcategoryName || humanizeSlug(normalizedSubcategorySlug),
+    };
+  } else if (!nextPath[nextPath.length - 1]?.name && subcategoryName) {
+    nextPath[nextPath.length - 1].name = subcategoryName;
+  }
+
+  return nextPath;
 }
 
 export function deriveCategoryHierarchyFromProduct(input: {
@@ -114,6 +228,8 @@ export function deriveCategoryHierarchyFromProduct(input: {
   let subcategorySlug = toOptionalString(input.subcategory);
   const shopifyMetadata = input.shopifyMetadata || {};
   const shopifyMetafields = input.shopifyMetafields || {};
+  const storedHierarchy = readCelebixCategoryHierarchyMetadata(shopifyMetadata);
+  const storedPath = normalizeStoredHierarchyPath(storedHierarchy.path);
 
   const rawType = toOptionalString(shopifyMetadata.type);
   const rawProductCategory = extractLastTaxonomySegment(toOptionalString(shopifyMetadata.product_category));
@@ -141,11 +257,29 @@ export function deriveCategoryHierarchyFromProduct(input: {
     subcategorySlug = null;
   }
 
+  const categoryName =
+    chooseLabelForSlug(categorySlug, [rawProductCategory, rawType, rawWatchAccessoryStyle]) ||
+    storedPath[0]?.name ||
+    null;
+  const subcategoryName =
+    chooseLabelForSlug(subcategorySlug, [rawWatchAccessoryStyle, rawType, rawProductCategory]) ||
+    (storedPath.length > 1 ? storedPath[storedPath.length - 1]?.name || null : null);
+  const path = alignHierarchyPathWithSlugs(
+    storedPath.length > 0
+      ? storedPath
+      : buildFallbackHierarchyPath(categorySlug, categoryName, subcategorySlug, subcategoryName),
+    categorySlug,
+    categoryName,
+    subcategorySlug,
+    subcategoryName,
+  );
+
   return {
     categorySlug,
-    categoryName: chooseLabelForSlug(categorySlug, [rawProductCategory, rawType, rawWatchAccessoryStyle]),
+    categoryName,
     subcategorySlug,
-    subcategoryName: chooseLabelForSlug(subcategorySlug, [rawWatchAccessoryStyle, rawType, rawProductCategory]),
+    subcategoryName,
+    path,
   };
 }
 
@@ -306,24 +440,42 @@ export async function ensureProductCategoryHierarchy(
 ): Promise<void> {
   if (!hierarchy.categorySlug) return;
   const cache = new Map<string, string>();
+  const path =
+    hierarchy.path.length > 0
+      ? hierarchy.path
+      : buildFallbackHierarchyPath(
+          hierarchy.categorySlug,
+          hierarchy.categoryName,
+          hierarchy.subcategorySlug,
+          hierarchy.subcategoryName,
+        );
 
-  const parent = await ensureCategoryRecord(supabase, {
-    slug: hierarchy.categorySlug,
-    name: hierarchy.categoryName,
-    imageUrl: hierarchy.categoryImageUrl,
-    parentId: null,
-  }, cache);
+  let parentId: string | null = null;
 
-  if (!hierarchy.subcategorySlug || !parent?.id) {
-    return;
+  for (let index = 0; index < path.length; index += 1) {
+    const segment = path[index];
+    const record = await ensureCategoryRecord(
+      supabase,
+      {
+        slug: segment.slug,
+        name: segment.name || humanizeSlug(segment.slug),
+        imageUrl:
+          index === 0
+            ? hierarchy.categoryImageUrl
+            : index === path.length - 1
+              ? hierarchy.subcategoryImageUrl || hierarchy.categoryImageUrl
+              : null,
+        parentId,
+      },
+      cache,
+    );
+
+    if (!record?.id) {
+      return;
+    }
+
+    parentId = record.id;
   }
-
-  await ensureCategoryRecord(supabase, {
-    slug: hierarchy.subcategorySlug,
-    name: hierarchy.subcategoryName,
-    imageUrl: hierarchy.subcategoryImageUrl || hierarchy.categoryImageUrl,
-    parentId: parent.id,
-  }, cache);
 }
 
 async function getChildCategoryIds(supabase: any, parentId: string): Promise<string[]> {

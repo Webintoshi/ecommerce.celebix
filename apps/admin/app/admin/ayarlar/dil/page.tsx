@@ -14,7 +14,7 @@ export default function LanguageSettingsPage() {
             className="inline-flex w-fit items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-900"
           >
             <ChevronLeft className="h-4 w-4" />
-            Ayarlara Don
+            Ayarlara Dön
           </Link>
 
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -22,14 +22,7 @@ export default function LanguageSettingsPage() {
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-neutral-900 text-white">
                 <Globe2 className="h-5 w-5" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                Dil Ayarları
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-gray-500">
-                Canli ceviri, hedef diller ve ceviri kapsami ayarlarini bu
-                sayfadan yonetin. Degisiklikler tum storefront locale
-                deneyimini etkiler.
-              </p>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Dil Ayarları</h1>
             </div>
           </div>
         </div>

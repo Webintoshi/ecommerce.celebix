@@ -30,9 +30,11 @@ import {
     setTranslationSettings,
 } from "@/lib/db/settings";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { requireInternalApiAccess } from "@/lib/internal-api-auth";
 import { normalizeFloatingContactSettings } from "@celebix/platform-config/src/floating-contact";
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
+const PUBLIC_SETTINGS_TYPES = new Set(["store", "seo", "announcement", "marquee", "shipping"]);
 
 const shippingProviderEnum = z.enum([
     shippingProviderIds[0],
@@ -70,6 +72,14 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const key = searchParams.get("key");
         const type = searchParams.get("type");
+        const internalOnlyResponse =
+            key || !type || !PUBLIC_SETTINGS_TYPES.has(type)
+                ? requireInternalApiAccess(request)
+                : null;
+
+        if (internalOnlyResponse) {
+            return internalOnlyResponse;
+        }
 
         if (type === "payment") {
             const methods = await getPaymentMethods();
@@ -130,7 +140,7 @@ export async function GET(request: NextRequest) {
                 success: true,
                 aiSettings: aiSettings ? {
                     provider: aiSettings.provider,
-                    apiKey: aiSettings.apiKey,
+                    apiKey: aiSettings.apiKey ? "configured" : "",
                     model: aiSettings.model,
                 } : null,
                 hasEnvKey,
@@ -167,6 +177,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        const unauthorizedResponse = requireInternalApiAccess(request);
+        if (unauthorizedResponse) {
+            return unauthorizedResponse;
+        }
+
         const body = await request.json();
         const {
             type,
@@ -278,6 +293,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        const unauthorizedResponse = requireInternalApiAccess(request);
+        if (unauthorizedResponse) {
+            return unauthorizedResponse;
+        }
+
         const { searchParams } = new URL(request.url);
         const key = searchParams.get("key");
 

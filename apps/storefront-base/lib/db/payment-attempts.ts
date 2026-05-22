@@ -2,7 +2,8 @@ import { createServerClient } from "@/lib/supabase";
 import { PaymentAttempt, PaymentAttemptStatus, PaymentWebhookEvent } from "@/types/payment-runtime";
 
 export async function createPaymentAttempt(input: {
-    orderId: string;
+    orderId?: string | null;
+    quickOrderLinkId?: string | null;
     gatewayId: string;
     provider: string;
     amount: number;
@@ -14,10 +15,15 @@ export async function createPaymentAttempt(input: {
 }) {
     const serverClient = createServerClient();
 
+    if (!input.orderId && !input.quickOrderLinkId) {
+        throw new Error("Payment attempt bir order veya hizli siparis linkine bagli olmalidir.");
+    }
+
     const { data, error } = await serverClient
         .from("payment_attempts")
         .insert({
-            order_id: input.orderId,
+            order_id: input.orderId ?? null,
+            quick_order_link_id: input.quickOrderLinkId ?? null,
             gateway_id: input.gatewayId,
             provider: input.provider,
             amount: input.amount,
@@ -135,6 +141,7 @@ export async function createPaymentWebhookEvent(input: {
     gatewayId?: string;
     paymentAttemptId?: string;
     orderId?: string;
+    quickOrderLinkId?: string;
     eventType?: string;
     status?: string;
     signature?: string;
@@ -152,6 +159,7 @@ export async function createPaymentWebhookEvent(input: {
             gateway_id: input.gatewayId ?? null,
             payment_attempt_id: input.paymentAttemptId ?? null,
             order_id: input.orderId ?? null,
+            quick_order_link_id: input.quickOrderLinkId ?? null,
             event_type: input.eventType ?? null,
             status: input.status ?? "received",
             signature: input.signature ?? null,

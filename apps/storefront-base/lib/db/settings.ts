@@ -20,6 +20,11 @@ import {
     type ProductListingOrderSettings,
 } from "@celebix/platform-config/src/product-listing-order";
 import {
+    DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
+    normalizeStoreCodeIntegrationsSettings,
+    type StoreCodeIntegrationsSettings,
+} from "@celebix/platform-config/src/code-integrations";
+import {
     normalizeFloatingContactSettings,
     type FloatingContactSettings,
 } from "@celebix/platform-config/src/floating-contact";
@@ -110,6 +115,7 @@ export const SETTING_KEYS = {
     SHIPPING_OPTIONS: "shipping_options",
     SHIPPING_INTEGRATIONS: "shipping_integrations",
     STORE_INFO: "store_info",
+    HOMEPAGE_CURATION: "homepage_curation",
     SEO_SETTINGS: "seo_settings",
     EMAIL_SETTINGS: "email_settings",
     NOTIFICATION_SETTINGS: "notification_settings",
@@ -118,6 +124,7 @@ export const SETTING_KEYS = {
     AI_PROVIDER: "ai_provider",
     TRANSLATION_SETTINGS: "translation_settings",
     PRODUCT_LISTING_ORDER: PRODUCT_LISTING_ORDER_SETTING_KEY,
+    CODE_INTEGRATIONS: "code_integrations",
 } as const;
 
 // =====================================================
@@ -152,7 +159,113 @@ export interface StoreInfo {
 
 export type SEOSettings = StoreSeoSettings;
 export type TranslationSettings = StoreTranslationSettings;
+export type CodeIntegrationsSettings = StoreCodeIntegrationsSettings;
 export type { ProductListingOrderSettings };
+
+export interface HomepageCurationSettings {
+    featuredCategorySlugs: string[];
+    featuredProductIdsByCategory: Record<string, string[]>;
+    enforceFeaturedProductCaps: boolean;
+    updatedAt?: string;
+}
+
+const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY = 4;
+const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
+
+function normalizeHomepageCategoryKey(value: string) {
+    return value
+        .trim()
+        .toLocaleLowerCase("tr-TR")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+function normalizeHomepageFeaturedProductIdsByCategory(
+    value: unknown,
+    featuredCategorySlugs: string[],
+) {
+    const record =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+
+    const allowedCategories = new Set(
+        featuredCategorySlugs
+            .map((entry) => normalizeHomepageCategoryKey(entry))
+            .filter(Boolean),
+    );
+
+    let remainingCapacity = MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL;
+
+    return featuredCategorySlugs.reduce<Record<string, string[]>>((result, slug) => {
+        const normalizedKey = normalizeHomepageCategoryKey(slug);
+        if (!normalizedKey || !allowedCategories.has(normalizedKey) || remainingCapacity <= 0) {
+            return result;
+        }
+
+        const rawValue = record[slug] ?? record[normalizedKey];
+        const normalizedIds = Array.isArray(rawValue)
+            ? rawValue
+                .filter((entry): entry is string => typeof entry === "string")
+                .map((entry) => entry.trim())
+                .filter(Boolean)
+                .filter((entry, index, source) => source.indexOf(entry) === index)
+                .slice(0, Math.min(MAX_HOMEPAGE_FEATURED_PRODUCTS_PER_CATEGORY, remainingCapacity))
+            : [];
+
+        if (normalizedIds.length > 0) {
+            result[normalizedKey] = normalizedIds;
+            remainingCapacity -= normalizedIds.length;
+        }
+
+        return result;
+    }, {});
+}
+
+export function normalizeHomepageCurationSettings(value: unknown): HomepageCurationSettings {
+    const record =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+
+    const featuredCategorySlugs = Array.isArray(record.featuredCategorySlugs)
+        ? record.featuredCategorySlugs
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .filter((entry, index, source) => source.indexOf(entry) === index)
+            .slice(0, MAX_HOMEPAGE_FEATURED_CATEGORIES)
+        : [];
+
+    return {
+        featuredCategorySlugs,
+        featuredProductIdsByCategory: normalizeHomepageFeaturedProductIdsByCategory(
+            record.featuredProductIdsByCategory,
+            featuredCategorySlugs,
+        ),
+        enforceFeaturedProductCaps: Boolean(record.enforceFeaturedProductCaps),
+        updatedAt:
+            typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0
+                ? record.updatedAt
+                : undefined,
+    };
+}
+
+export async function getHomepageCurationSettings(): Promise<HomepageCurationSettings> {
+    const data = await getSetting(SETTING_KEYS.HOMEPAGE_CURATION);
+    return normalizeHomepageCurationSettings(data);
+}
+
+export async function setHomepageCurationSettings(settings: HomepageCurationSettings) {
+    return setSetting(
+        SETTING_KEYS.HOMEPAGE_CURATION,
+        {
+            ...normalizeHomepageCurationSettings(settings),
+            updatedAt: new Date().toISOString(),
+        } as Record<string, unknown>,
+    );
+}
 
 /**
  * Get payment methods
@@ -255,6 +368,21 @@ export async function setSeoSettings(settings: SEOSettings) {
     return setSetting(
         SETTING_KEYS.SEO_SETTINGS,
         normalizeStoreSeoSettings(settings) as unknown as Record<string, unknown>,
+    );
+}
+
+export async function getCodeIntegrationsSettings(): Promise<CodeIntegrationsSettings> {
+    const data = await getSetting(SETTING_KEYS.CODE_INTEGRATIONS);
+    return normalizeStoreCodeIntegrationsSettings(
+        data as Partial<StoreCodeIntegrationsSettings> | null,
+        DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
+    );
+}
+
+export async function setCodeIntegrationsSettings(settings: CodeIntegrationsSettings) {
+    return setSetting(
+        SETTING_KEYS.CODE_INTEGRATIONS,
+        normalizeStoreCodeIntegrationsSettings(settings) as unknown as Record<string, unknown>,
     );
 }
 

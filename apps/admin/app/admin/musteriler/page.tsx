@@ -625,15 +625,15 @@ export default function CustomersPage({
     <main
       role="main"
       aria-busy={loading}
-      className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5f0eb] to-[#efe5dc]"
+      className="admin-page-root"
     >
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 right-[-6rem] h-[24rem] w-[24rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
-        <div className="absolute left-[-5rem] top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
-        <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-8">
       <input
         ref={fileInputRef}
@@ -643,11 +643,11 @@ export default function CustomersPage({
         onChange={handleImport}
       />
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+          <section className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[30px]">
+            <div className="border-b border-[var(--admin-border)] px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                     Müşteriler
                   </div>
                 </div>
@@ -656,7 +656,7 @@ export default function CustomersPage({
                   <button
                     type="button"
                     onClick={handleDownloadTemplate}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <FileSpreadsheet className="h-4 w-4" />
                     Şablon İndir
@@ -665,7 +665,7 @@ export default function CustomersPage({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={importing}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Upload className="h-4 w-4" />
                     {importing ? "İçe Aktarılıyor..." : "İçe Aktar"}
@@ -673,14 +673,14 @@ export default function CustomersPage({
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <Download className="h-4 w-4" />
                     Dışa Aktar
                   </button>
                   <Link
                     href="/admin/musteriler/yeni"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <Plus className="h-4 w-4" />
                     Yeni Müşteri
@@ -689,11 +689,11 @@ export default function CustomersPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-2 xl:grid-cols-4">
-              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} hint="Kayıtlı müşteri havuzu" />
-              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} hint="İletişime açık ve aktif kayıtlar" />
-              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} hint="Son dönemde pasif kalan hesaplar" />
-              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} hint="Müşteri kaynaklı toplam gelir" />
+            <div className="grid grid-cols-1 gap-px bg-[#EEF1F4] md:grid-cols-2 xl:grid-cols-4">
+              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} />
+              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} />
+              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} />
+              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} />
             </div>
           </section>
 
@@ -726,49 +726,40 @@ export default function CustomersPage({
             <StatCard
               title="Görünen kayıt"
               value={filteredCustomers.length.toLocaleString("tr-TR")}
-              detail="Mevcut arama ve filtre sonucunda listelenen müşteri"
               icon={Search}
-              tone="border-[#FE6100]/15 from-[#fff2e8] to-white text-[#FE6100]"
+              tone="border-[var(--admin-accent-border)] from-white to-white text-[var(--admin-accent)]"
             />
             <StatCard
               title="Seçili müşteri"
               value={selectedCustomers.length.toLocaleString("tr-TR")}
-              detail="Toplu işlem için işaretlenen kayıt"
               icon={UserCheck}
               tone="border-amber-200/70 from-amber-50 to-white text-amber-700"
             />
             <StatCard
               title="Engellenen"
               value={metrics.blocked.toLocaleString("tr-TR")}
-              detail="İşlem ve iletişim kısıtlı müşteri hesabı"
               icon={ShieldAlert}
               tone="border-rose-200/70 from-rose-50 to-white text-rose-700"
             />
             <StatCard
               title="Ort. sipariş değeri"
               value={metrics.total > 0 ? formatPrice(metrics.totalRevenue / Math.max(metrics.total, 1)) : formatPrice(0)}
-              detail="Toplam harcamanın müşteri bazında ortalaması"
               icon={Calendar}
               tone="border-stone-200 from-stone-50 to-white text-stone-700"
             />
           </section>
 
-          <section className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-6">
+          <section className="rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:rounded-[30px] md:p-6">
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Filtreler ve işlemler
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Müşteri listesini daraltın ve yönetin
-                  </h2>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve işlemler</h2>
                 </div>
                 <div
                   aria-live="polite"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-white px-3 py-2 text-sm font-medium text-gray-600"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white px-3 py-2 text-sm font-medium text-gray-600"
                 >
-                  <UserCheck className="h-4 w-4 text-[#FE6100]" />
+                  <UserCheck className="h-4 w-4 text-[var(--admin-accent)]" />
                   {loading ? "Kayıtlar hazırlanıyor" : `${filteredCustomers.length.toLocaleString("tr-TR")} kayıt bulundu`}
                 </div>
               </div>
@@ -782,7 +773,7 @@ export default function CustomersPage({
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     aria-label="İsim, e-posta veya telefon ile müşteri ara"
-                    className="w-full rounded-2xl border border-[#FE6100]/12 bg-white/85 py-3 pl-11 pr-4 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
+                    className="w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 py-3 pl-11 pr-4 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                   />
                 </div>
 
@@ -790,7 +781,7 @@ export default function CustomersPage({
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
                   aria-label="Müşteri durumuna göre filtrele"
-                  className="cursor-pointer rounded-2xl border border-[#FE6100]/12 bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[#FE6100] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#FE6100]/15"
+                  className="cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                 >
                   <option value="all">Tüm durumlar</option>
                   <option value="active">Aktif</option>
@@ -818,16 +809,11 @@ export default function CustomersPage({
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
-            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-6">
+          <section className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[30px]">
+            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">
-                    Müşteri tablosu
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-gray-950">
-                    Müşteri listesi
-                  </h2>
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Müşteri listesi</h2>
                 </div>
                 <div aria-live="polite" className="text-sm text-gray-500">
                   {loading
@@ -839,12 +825,12 @@ export default function CustomersPage({
 
             {filteredCustomers.length > 0 ? (
               <>
-                <div className="border-b border-[#FE6100]/8 bg-[#fff8f3]/80 px-5 py-4 md:hidden">
+                <div className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 md:hidden">
                   <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
                     <input
                       type="checkbox"
                       aria-label="Tüm görünen müşterileri seç"
-                      className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                      className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                       checked={allVisibleSelected}
                       onChange={(event) => handleSelectAll(event.target.checked)}
                     />
@@ -859,14 +845,14 @@ export default function CustomersPage({
                     return (
                       <article
                         key={customer.id}
-                        className="rounded-[26px] border border-white/70 bg-white/85 p-5 shadow-sm transition-all hover:border-[#FE6100]/12 hover:bg-white hover:shadow-[0_18px_35px_rgba(254,97,0,0.08)]"
+                        className="rounded-[26px] border border-white/70 bg-white/85 p-5 shadow-sm transition-all hover:border-[var(--admin-border)] hover:bg-white hover:shadow-[var(--shadow-md)]"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-start gap-3">
                             <input
                               type="checkbox"
                               aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
-                              className="mt-2 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                              className="mt-2 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                               checked={selectedCustomers.includes(customer.id)}
                               onChange={(event) => {
                                 if (event.target.checked) {
@@ -877,13 +863,13 @@ export default function CustomersPage({
                                 setSelectedCustomers((current) => current.filter((id) => id !== customer.id));
                               }}
                             />
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-sm font-semibold text-[#FE6100] shadow-sm">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
                               {initials}
                             </div>
                             <div>
                               <Link
                                 href={`/admin/musteriler/${customer.id}`}
-                                className="text-base font-semibold tracking-[-0.02em] text-gray-950 transition-colors hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                className="text-base font-semibold tracking-[-0.02em] text-gray-950 transition-colors hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                               >
                                 {customer.firstName || "Adsız"} {customer.lastName}
                               </Link>
@@ -912,14 +898,14 @@ export default function CustomersPage({
                           <Link
                             href={`/admin/musteriler/${customer.id}`}
                             aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                           >
                             <Eye className="h-5 w-5" />
                           </Link>
                           <Link
                             href={`/admin/musteriler/${customer.id}/duzenle`}
                             aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                           >
                             <Edit className="h-5 w-5" />
                           </Link>
@@ -939,13 +925,13 @@ export default function CustomersPage({
 
                 <div className="hidden overflow-x-auto md:block">
                   <table className="min-w-full text-left text-sm">
-                    <thead className="border-b border-[#FE6100]/8 bg-[#fff8f3]/80">
+                    <thead className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80">
                       <tr>
                         <th className="w-14 px-6 py-4">
                           <input
                             type="checkbox"
                             aria-label="Tüm görünen müşterileri seç"
-                            className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                            className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                             checked={allVisibleSelected}
                             onChange={(event) => handleSelectAll(event.target.checked)}
                           />
@@ -964,13 +950,13 @@ export default function CustomersPage({
                         return (
                           <tr
                             key={customer.id}
-                            className="group border-b border-[#f1e6dc] last:border-b-0 hover:bg-[#fffaf6]"
+                            className="group border-b border-[var(--admin-border)] last:border-b-0 hover:bg-[#F9FAFB]"
                           >
                             <td className="px-6 py-5 align-top">
                               <input
                                 type="checkbox"
                                 aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
-                                className="mt-1 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                                className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                                 checked={selectedCustomers.includes(customer.id)}
                                 onChange={(event) => {
                                   if (event.target.checked) {
@@ -984,13 +970,13 @@ export default function CustomersPage({
                             </td>
                             <td className="px-6 py-5 align-top">
                               <div className="flex items-start gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-gradient-to-br from-[#fff1e7] to-white text-sm font-semibold text-[#FE6100] shadow-sm">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
                                   {initials}
                                 </div>
                                 <div>
                                   <Link
                                     href={`/admin/musteriler/${customer.id}`}
-                                    className="font-semibold text-gray-950 transition-colors hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                    className="font-semibold text-gray-950 transition-colors hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                   >
                                     {customer.firstName || "Adsız"} {customer.lastName}
                                   </Link>
@@ -1008,8 +994,8 @@ export default function CustomersPage({
                             </td>
                             <td className="px-6 py-5 align-top text-gray-500">
                               {customer.lastOrderDate ? (
-                                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#ecdccd] bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-                                  <Calendar className="h-3.5 w-3.5 text-[#FE6100]" />
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
+                                  <Calendar className="h-3.5 w-3.5 text-[var(--admin-accent)]" />
                                   {format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })}
                                 </div>
                               ) : (
@@ -1021,14 +1007,14 @@ export default function CustomersPage({
                                 <Link
                                   href={`/admin/musteriler/${customer.id}`}
                                   aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                   <Eye className="h-5 w-5" />
                                 </Link>
                                 <Link
                                   href={`/admin/musteriler/${customer.id}/duzenle`}
                                   aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#FE6100]/10 bg-white text-gray-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                   <Edit className="h-5 w-5" />
                                 </Link>
@@ -1051,7 +1037,7 @@ export default function CustomersPage({
               </>
             ) : (
               <div className="px-6 py-16 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#fff3e9] to-white text-[#FE6100] shadow-sm">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                   <Search className="h-9 w-9" />
                 </div>
                 <p className="mt-5 text-lg font-semibold text-gray-950" aria-live="polite">
@@ -1067,7 +1053,7 @@ export default function CustomersPage({
               </div>
             )}
 
-            <div className="border-t border-[#FE6100]/8 bg-[#fff8f3]/80 px-5 py-4 md:px-6">
+            <div className="border-t border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 md:px-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <p aria-live="polite" className="text-sm text-gray-500">
                   <span className="font-semibold text-gray-900">{filteredCustomers.length.toLocaleString("tr-TR")}</span> kayıt gösteriliyor
@@ -1110,31 +1096,28 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
-  detail: string;
   tone: string;
 }
 
-function HeroMetric({ label, value, hint }: { label: string; value: string; hint: string }) {
+function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
         <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-        <p className="mt-1 text-sm text-gray-600">{hint}</p>
       </div>
     </div>
   );
 }
 
-function StatCard({ title, value, detail, icon: Icon, tone }: StatCardProps) {
+function StatCard({ title, value, icon: Icon, tone }: StatCardProps) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+    <div className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[28px]">
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="mt-2 text-[30px] font-semibold tracking-[-0.05em] text-gray-950">{value}</p>
-            <p className="mt-2 text-sm text-gray-500">{detail}</p>
+            <p className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
           </div>
           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm ${tone}`}>
             <Icon className="h-5 w-5" />
@@ -1147,7 +1130,7 @@ function StatCard({ title, value, detail, icon: Icon, tone }: StatCardProps) {
 
 function MobileInfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[20px] border border-[#ecdccd] bg-[#fffaf6] px-3 py-3 text-left">
+    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3 text-left">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
       <p className="mt-1 text-sm font-medium text-gray-900">{value}</p>
     </div>

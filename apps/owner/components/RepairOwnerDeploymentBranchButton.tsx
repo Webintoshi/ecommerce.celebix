@@ -18,9 +18,13 @@ export function RepairOwnerDeploymentBranchButton() {
         method: "POST",
       });
       const payload = (await response.json()) as {
+        autoDeployChanged?: boolean;
+        branchChanged?: boolean;
         changed?: boolean;
         currentBranch?: string | null;
+        currentAutoDeployEnabled?: boolean | null;
         desiredBranch?: string;
+        desiredAutoDeployEnabled?: boolean;
         deploymentTriggered?: boolean;
         error?: string;
       };
@@ -32,10 +36,20 @@ export function RepairOwnerDeploymentBranchButton() {
 
       const current = payload.currentBranch || "bilinmiyor";
       const desired = payload.desiredBranch || "deploy/owner";
+      const branchNotice = payload.branchChanged
+        ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi.`
+        : `Owner branch zaten ${desired}.`;
+      const autoDeployNotice = payload.autoDeployChanged
+        ? "Auto deploy yeniden acildi."
+        : payload.currentAutoDeployEnabled === true
+          ? "Auto deploy zaten acik."
+          : "Auto deploy durumu teyit edilemedi.";
+      const deployNotice = payload.deploymentTriggered
+        ? "Redeploy tetiklendi."
+        : "Redeploy tetiklenmedi.";
+
       setNotice(
-        payload.changed
-          ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi ve redeploy tetiklendi.`
-          : `Owner branch zaten ${desired}. Redeploy yeniden tetiklendi.`,
+        `${branchNotice} ${autoDeployNotice} ${deployNotice}`,
       );
       router.refresh();
     });
@@ -49,7 +63,7 @@ export function RepairOwnerDeploymentBranchButton() {
         onClick={handleRepair}
         disabled={isPending}
       >
-        {isPending ? "Owner branch onariliyor..." : "Owner branch'ini onar"}
+        {isPending ? "Owner deploy ayari onariliyor..." : "Owner deploy ayarini onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}

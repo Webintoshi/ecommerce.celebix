@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fetchUmamiRealtimeSnapshot } from "@/lib/analytics/umami";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import {
@@ -13,6 +14,10 @@ import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 const LIVE_CACHE_KEY = "analytics:live:v2";
 const LIVE_WINDOW_MS = 5 * 60 * 1000;
 const RECENT_PAGES_WINDOW_MS = 10 * 60 * 1000;
+const ABANDONED_CART_SYNC_INTERVAL_MS = 60 * 1000;
+
+let abandonedCartSyncPromise: Promise<void> | null = null;
+let lastAbandonedCartSyncAt = 0;
 
 type SessionRow = {
   session_id: string;
@@ -31,6 +36,30 @@ type EventRow = {
   page_url: string | null;
   created_at: string;
 };
+
+async function syncAbandonedCartStatusesIfDue(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<void> {
+  const now = Date.now();
+  if (lastAbandonedCartSyncAt > 0 && now - lastAbandonedCartSyncAt < ABANDONED_CART_SYNC_INTERVAL_MS) {
+    return;
+  }
+
+  if (abandonedCartSyncPromise) {
+    return abandonedCartSyncPromise;
+  }
+
+  abandonedCartSyncPromise = (async () => {
+    try {
+      await syncAbandonedCartStatuses(supabase);
+      lastAbandonedCartSyncAt = Date.now();
+    } finally {
+      abandonedCartSyncPromise = null;
+    }
+  })();
+
+  return abandonedCartSyncPromise;
+}
 
 export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot> {
   return getOrSetCachedValue(LIVE_CACHE_KEY, 5_000, async () => {
@@ -103,10 +132,16 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
       };
     };
 
-    await syncAbandonedCartStatuses(supabase);
+    await syncAbandonedCartStatusesIfDue(supabase);
 
-    const presenceSnapshot =
-      (await getActivePresenceSnapshot()) ?? (await getDatabasePresenceSnapshot());
+    const umamiRealtime = await fetchUmamiRealtimeSnapshot();
+    const presenceSnapshot = umamiRealtime
+      ? {
+          liveVisitors: umamiRealtime.activeVisitors,
+          devices: umamiRealtime.devices,
+          topPages: umamiRealtime.topPages,
+        }
+      : ((await getActivePresenceSnapshot()) ?? (await getDatabasePresenceSnapshot()));
 
     let abandonedCarts: { total: number | string | null; recovered?: boolean | null }[] = [];
     let abandonedCount = 0;
@@ -180,6 +215,9 @@ export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsSnapshot>
       liveVisitors: presenceSnapshot.liveVisitors,
       devices: presenceSnapshot.devices,
       topPages: presenceSnapshot.topPages,
+      topReferrers: umamiRealtime?.topReferrers ?? [],
+      topCountries: umamiRealtime?.topCountries ?? [],
+      topBrowsers: umamiRealtime?.topBrowsers ?? [],
       abandonedCarts: {
         count: abandonedCount || 0,
         total: abandonedTotal,

@@ -194,9 +194,6 @@ export default function ContentManagementPage() {
                             <BookOpen className="w-7 h-7 text-orange-600" />
                             İçerik Yönetimi
                         </h1>
-                        <p className="text-gray-500 mt-1">
-                            Blog yazıları, rehberler ve SEO içeriklerini yönetin.
-                        </p>
                     </div>
                     <Link
                         href="/admin/seo-hub"

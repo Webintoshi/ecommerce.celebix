@@ -120,7 +120,7 @@ function RatingStars({ rating }: { rating: number }) {
           key={index}
           className={cn(
             "h-4 w-4",
-            index < safeRating ? "fill-[#FE6100] text-[#FE6100]" : "fill-transparent text-stone-300"
+            index < safeRating ? "fill-[#FF6A00] text-[var(--admin-accent)]" : "fill-transparent text-stone-300"
           )}
         />
       ))}
@@ -226,11 +226,11 @@ export function ProductReviewsManager({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+      <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Tarama ve filtreleme</p>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Moderasyon listesi</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Moderasyon listesi</h2>
             <p className="text-sm leading-6 text-[#786658]">
               Yorumları ürün adı, yorumcu veya içerik metni üzerinden filtreleyin ve moderasyon durumuna göre
               hızlıca gruplayın.
@@ -245,7 +245,7 @@ export function ProductReviewsManager({
               Görünen sonuç: {filteredReviews.length}
             </span>
             {isPending ? (
-              <span aria-live="polite" className="rounded-full border border-[#FE6100]/12 bg-[#fff4ea] px-3 py-1.5 text-[#C94E00] shadow-sm">
+              <span aria-live="polite" className="rounded-full border border-[var(--admin-border)] bg-[#fff4ea] px-3 py-1.5 text-[var(--admin-accent-hover)] shadow-sm">
                 İşlem uygulanıyor
               </span>
             ) : null}
@@ -260,7 +260,7 @@ export function ProductReviewsManager({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Ürün, yorumcu veya yorum metni ara..."
               aria-label="Ürün yorumu ara"
-              className="w-full rounded-[20px] border border-[#ecdccd] bg-white pl-11 pr-4 py-3 text-sm text-[#2f241d] shadow-[0_12px_30px_rgba(99,67,37,0.06)] outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15"
+              className="w-full rounded-[20px] border border-[var(--admin-border)] bg-white pl-11 pr-4 py-3 text-sm text-[var(--admin-heading)] shadow-[var(--shadow-md)] outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15"
             />
           </div>
 
@@ -272,14 +272,14 @@ export function ProductReviewsManager({
                 onClick={() => setActiveFilter(filter.key)}
                 aria-pressed={activeFilter === filter.key}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20",
+                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]",
                   activeFilter === filter.key
-                    ? "bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_12px_24px_rgba(254,97,0,0.2)]"
-                    : "bg-white text-[#6d5849] ring-1 ring-[#eadccd] hover:text-[#241913]"
+                    ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_24px_rgba(255,106,0,0.2)]"
+                    : "bg-white text-[var(--admin-text-secondary)] ring-1 ring-[var(--admin-border)] hover:text-[var(--admin-heading)]"
                 )}
               >
                 {filter.label}
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", activeFilter === filter.key ? "bg-white/15 text-white" : "bg-[#f4ece4] text-[#7c6658]")}>{counts[filter.key]}</span>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", activeFilter === filter.key ? "bg-white/15 text-white" : "bg-[#F9FAFB] text-[#7c6658]")}>{counts[filter.key]}</span>
               </button>
             ))}
           </div>
@@ -293,10 +293,10 @@ export function ProductReviewsManager({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: index * 0.04, ease: ANIMATION_EASE }}
-            className="rounded-[28px] border border-[#eadccd] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_45px_rgba(72,36,8,0.08)]"
+            className="rounded-[28px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_18px_45px_rgba(72,36,8,0.08)]"
           >
-            <div className="text-sm font-medium text-[#7b685a]">{filter.label}</div>
-            <div className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#241913]">{counts[filter.key]}</div>
+            <div className="text-sm font-medium text-[var(--admin-text-secondary)]">{filter.label}</div>
+            <div className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">{counts[filter.key]}</div>
           </motion.div>
         ))}
       </section>
@@ -304,10 +304,10 @@ export function ProductReviewsManager({
       <section className="space-y-4">
         {filteredReviews.length === 0 ? (
           <div className="rounded-[30px] border border-dashed border-[#ead8c8] bg-gradient-to-br from-white via-[#fffdfa] to-[#f8f0e7] px-6 py-16 text-center text-[#7a6859] shadow-[0_22px_55px_rgba(72,36,8,0.08)]">
-            <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-gradient-to-br from-[#fff0e4] to-[#f7decb] shadow-[0_16px_28px_rgba(254,97,0,0.12)]">
-              <MessageSquare className="h-8 w-8 text-[#FE6100]" />
+            <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-gradient-to-br from-[#fff0e4] to-[#f7decb] shadow-[var(--shadow-md)]">
+              <MessageSquare className="h-8 w-8 text-[var(--admin-accent)]" />
             </div>
-            <h3 className="mt-5 text-xl font-semibold tracking-[-0.03em] text-[#241913]">Bu filtreye uyan yorum bulunamadı</h3>
+            <h3 className="mt-5 text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Bu filtreye uyan yorum bulunamadı</h3>
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6">
               Arama veya moderasyon filtresini değiştirerek tekrar deneyin. Liste davranışı değişmeden yalnızca mevcut sonuçlar filtrelenir.
             </p>
@@ -320,7 +320,7 @@ export function ProductReviewsManager({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: index * 0.03, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#eadccd] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] p-5 shadow-[0_18px_55px_rgba(72,36,8,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(72,36,8,0.12)] md:p-6"
+            className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_18px_55px_rgba(72,36,8,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(72,36,8,0.12)] md:p-6"
           >
             <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_220px] xl:items-start">
               <div className="space-y-5">
@@ -335,13 +335,13 @@ export function ProductReviewsManager({
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.55fr)]">
                   <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm">
                     <div className="flex items-center gap-2 text-sm font-medium text-[#7c6658]">
-                      <User className="h-4 w-4 text-[#FE6100]" />
+                      <User className="h-4 w-4 text-[var(--admin-accent)]" />
                       Yorumcu bilgisi
                     </div>
-                    <p className="mt-3 text-base font-semibold text-[#241913]">{review.reviewer_name}</p>
+                    <p className="mt-3 text-base font-semibold text-[var(--admin-heading)]">{review.reviewer_name}</p>
                     {review.reviewer_email ? (
                       <p className="mt-2 inline-flex items-center gap-2 text-sm text-[#7a6859]">
-                        <Mail className="h-4 w-4 text-[#FE6100]" />
+                        <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
                         {review.reviewer_email}
                       </p>
                     ) : (
@@ -351,22 +351,22 @@ export function ProductReviewsManager({
 
                   <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm">
                     <div className="flex items-center gap-2 text-sm font-medium text-[#7c6658]">
-                      <Package className="h-4 w-4 text-[#FE6100]" />
+                      <Package className="h-4 w-4 text-[var(--admin-accent)]" />
                       Ürün bağlantısı
                     </div>
                     <div className="mt-3 space-y-2">
                       {review.product ? (
                         <Link
                           href={`/admin/urunler/${review.product.id}`}
-                          className="inline-flex max-w-full items-center gap-2 text-base font-semibold text-[#241913] transition-colors hover:text-[#FE6100]"
+                          className="inline-flex max-w-full items-center gap-2 text-base font-semibold text-[var(--admin-heading)] transition-colors hover:text-[var(--admin-accent)]"
                         >
                           {review.product.name}
                         </Link>
                       ) : (
-                        <p className="text-base font-semibold text-[#241913]">Ürün bağlantısı yok</p>
+                        <p className="text-base font-semibold text-[var(--admin-heading)]">Ürün bağlantısı yok</p>
                       )}
                       {review.variant?.name ? (
-                        <span className="inline-flex items-center rounded-full bg-[#f4ece4] px-2.5 py-1 text-xs font-medium text-[#6d5849] ring-1 ring-[#eadccd]">
+                        <span className="inline-flex items-center rounded-full bg-[#F9FAFB] px-2.5 py-1 text-xs font-medium text-[var(--admin-text-secondary)] ring-1 ring-[var(--admin-border)]">
                           {review.variant.name}
                         </span>
                       ) : null}
@@ -376,7 +376,7 @@ export function ProductReviewsManager({
 
                 <div className="rounded-[24px] border border-[#eadfd5] bg-gradient-to-br from-[#fffaf6] to-white p-5 shadow-sm">
                   {review.title ? (
-                    <div className="text-base font-semibold text-[#241913]">{review.title}</div>
+                    <div className="text-base font-semibold text-[var(--admin-heading)]">{review.title}</div>
                   ) : null}
                   <p className={cn("whitespace-pre-wrap text-sm leading-7 text-[#5f4b3d]", review.title ? "mt-3" : "")}>{review.body}</p>
                 </div>
@@ -386,7 +386,7 @@ export function ProductReviewsManager({
                     {review.image_urls.map((imageUrl, imageIndex) => (
                       <div
                         key={`${review.id}-${imageIndex}`}
-                        className="relative aspect-square overflow-hidden rounded-[22px] bg-white ring-1 ring-[#eadccd] shadow-sm"
+                        className="relative aspect-square overflow-hidden rounded-[22px] bg-white ring-1 ring-[var(--admin-border)] shadow-sm"
                       >
                         <ReviewImageTile
                           src={imageUrl}
@@ -431,9 +431,9 @@ export function ProductReviewsManager({
                   <Trash2 className="h-4 w-4" />
                   Sil
                 </button>
-                <div className="rounded-[22px] border border-[#eadccd] bg-white/85 p-4 shadow-sm">
+                <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-sm">
                   <div className="flex items-center gap-2 text-sm font-medium text-[#7c6658]">
-                    <ShieldCheck className="h-4 w-4 text-[#FE6100]" />
+                    <ShieldCheck className="h-4 w-4 text-[var(--admin-accent)]" />
                     Moderasyon notu
                   </div>
                   <p className="mt-3 text-sm leading-6 text-[#6f5b4d]">

@@ -1,0 +1,89 @@
+{
+  "name": "Alpler Spor",
+  "slug": "alpler-spor",
+  "status": "draft",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Alpler Spor icin ortak Celebix commerce kurulumu",
+    "supportEmail": "destek@alplerspor.com",
+    "supportPhone": "+90 532 000 00 00",
+    "senderEmail": "noreply@alplerspor.com",
+    "smsSenderTitle": "ALPLERSPOR",
+    "defaultProductBrand": "Alpler Spor"
+  },
+  "domains": {
+    "storefront": "alplerspor.com",
+    "admin": "admin.alplerspor.com"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "coolify:alpler-spor:mn1lfrqa0g2erfk4gnr70uno",
+    "url": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store",
+    "dashboardUrl": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io/project/default"
+  },
+  "r2": {
+    "bucketName": "alpler-spor-assets",
+    "publicUrl": "https://pub-cbf98b1f112b46afa4a1c4cff56aeccc.r2.dev",
+    "managedDomain": "pub-cbf98b1f112b46afa4a1c4cff56aeccc.r2.dev",
+    "provisionedAt": "2026-04-23T15:35:09.724Z",
+    "provisioning": "configured"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-23T15:11:15.848Z",
+    "envTemplatePath": "stores/alpler-spor/admin.env.example",
+    "adminEnvLocalPath": "stores/alpler-spor/admin.env.local",
+    "coolifyProjectName": "Alpler Spor",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Alpler Spor admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.alplerspor.com",
+    "adminDeploymentResourceId": "fbamy0ystaco84osed67o5dl",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-04-23T15:38:23.000Z",
+    "adminDeploymentDeployedAt": "2026-04-23T15:38:23.000Z",
+    "organizationSlug": "alpler-spor",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProjectName": "alpler-spor-db",
+    "supabaseResourceId": "mn1lfrqa0g2erfk4gnr70uno",
+    "supabaseDashboardUrl": "https://supabasekong-alpler-spor.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-23T15:35:09.724Z",
+    "supabaseProvisioning": "configured"
+  },
+  "storefront": {
+    "appDir": "apps/storefront-alpler-spor",
+    "status": "active",
+    "lastScaffoldedAt": "2026-04-23T17:23:56.079Z",
+    "repoSyncStatus": "synced",
+    "repoSyncedAt": "2026-04-23T16:44:24.722Z",
+    "repoCommitSha": "ac131adb078a5f08c6c41e9f4f7f9e229212e52a",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Alpler Spor websitesi",
+    "deploymentBranch": "deploy/storefront/alpler-spor",
+    "runtimeUrl": "https://alplerspor.com",
+    "resourceId": "npkdyyo2t9d46rnkff713cbh",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-04-23T17:23:56.090Z",
+    "deployedAt": "2026-04-23T17:23:56.089Z"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}

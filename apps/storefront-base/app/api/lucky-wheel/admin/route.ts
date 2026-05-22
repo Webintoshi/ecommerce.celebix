@@ -8,11 +8,17 @@ import {
   saveLuckyWheelConfig,
   simulateLuckyWheel,
 } from "@/lib/lucky-wheel";
+import { requireInternalApiAccess } from "@/lib/internal-api-auth";
 
 const DEPRECATION_MESSAGE = "Bu endpoint deprecate edildi. /api/admin/discounts/lucky-wheel/* endpointlerini kullanın.";
 
 export async function GET(request: NextRequest) {
   try {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+      return unauthorizedResponse;
+    }
+
     const action = request.nextUrl.searchParams.get("action");
     const configId = request.nextUrl.searchParams.get("id") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
 
@@ -50,6 +56,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+      return unauthorizedResponse;
+    }
+
     const body = await request.json();
     const action = String(body?.action || "");
     const configId = body?.configId || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
@@ -120,7 +131,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const unauthorizedResponse = requireInternalApiAccess(request);
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   return NextResponse.json(
     {
       success: false,

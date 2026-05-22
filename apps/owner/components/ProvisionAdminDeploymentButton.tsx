@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { normalizeActionError, readActionResponse } from "@/components/action-request";
 
 interface ProvisionAdminDeploymentButtonProps {
   slug: string;
@@ -21,24 +22,33 @@ export function ProvisionAdminDeploymentButton({
     setError(null);
     setNotice(null);
 
-    startTransition(async () => {
-      const response = await fetch(`/api/stores/${slug}/provision-admin`, {
-        method: "POST",
-      });
+    startTransition(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/stores/${slug}/provision-admin`, {
+            method: "POST",
+          });
 
-      const payload = (await response.json()) as { error?: string; deployment?: { status?: string } };
+          const { payload, errorMessage } = await readActionResponse<{
+            error?: string;
+            deployment?: { status?: string };
+          }>(response);
 
-      if (!response.ok) {
-        setError(payload.error || "Admin deployment otomasyonu basarisiz oldu.");
-        return;
-      }
+          if (!response.ok) {
+            setError(errorMessage || "Admin deployment otomasyonu basarisiz oldu.");
+            return;
+          }
 
-      setNotice(
-        payload.deployment?.status === "configured"
-          ? "Admin deployment hazir ve runtime tutarli."
-          : "Admin deployment guncellendi; runtime tutarliligi kontrol ediliyor.",
-      );
-      router.refresh();
+          setNotice(
+            payload?.deployment?.status === "configured"
+              ? "Admin deployment hazir ve runtime tutarli."
+              : "Admin deployment guncellendi; runtime tutarliligi kontrol ediliyor.",
+          );
+          router.refresh();
+        } catch (error) {
+          setError(normalizeActionError(error, "Admin deployment otomasyonu basarisiz oldu."));
+        }
+      })();
     });
   }
 

@@ -1,15 +1,19 @@
 import "server-only";
 
+import { getOwnerRepositoryBranch } from "@/lib/platform-config-owner";
+
 interface CoolifyApplication {
   uuid?: string;
   name?: string;
   fqdn?: string | null;
   domain?: string | null;
   git_branch?: string | null;
+  is_auto_deploy_enabled?: boolean | null;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
 const COOLIFY_API_TIMEOUT_MS = 15000;
+let ownerDeploymentSelfHealPromise: Promise<OwnerDeploymentBranchRepairResult | null> | null = null;
 
 function getCoolifyApiUrl(): string {
   const raw = process.env.COOLIFY_API_URL?.trim();
@@ -53,12 +57,14 @@ function getOwnerRuntimeUrl(): string | null {
 }
 
 function getDesiredOwnerBranch(): string {
-  return (
-    process.env.COOLIFY_OWNER_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH?.trim() ||
-    process.env.COOLIFY_APPLICATION_REPOSITORY_BRANCH?.trim() ||
-    process.env.CELEBIX_GIT_BRANCH?.trim() ||
-    "deploy/owner"
+  return getOwnerRepositoryBranch();
+}
+
+function hasOwnerDeploymentRepairEnv(): boolean {
+  return Boolean(
+    process.env.COOLIFY_API_URL?.trim() &&
+      process.env.COOLIFY_API_TOKEN?.trim() &&
+      process.env.COOLIFY_RESOURCE_UUID?.trim(),
   );
 }
 
@@ -119,11 +125,18 @@ async function listApplications(): Promise<CoolifyApplication[]> {
   return normalizeArrayPayload<CoolifyApplication>(payload);
 }
 
-async function patchApplicationBranch(applicationUuid: string, branch: string): Promise<void> {
+async function patchApplicationDeploymentSettings(
+  applicationUuid: string,
+  options: {
+    branch: string;
+    autoDeployEnabled: boolean;
+  },
+): Promise<void> {
   await coolifyFetch(`/applications/${applicationUuid}`, {
     method: "PATCH",
     body: JSON.stringify({
-      git_branch: branch,
+      git_branch: options.branch,
+      is_auto_deploy_enabled: options.autoDeployEnabled,
     }),
   });
 }
@@ -136,9 +149,13 @@ async function startApplication(applicationUuid: string): Promise<void> {
 
 export interface OwnerDeploymentBranchRepairResult {
   changed: boolean;
+  branchChanged: boolean;
+  autoDeployChanged: boolean;
   currentBranch: string | null;
+  currentAutoDeployEnabled: boolean | null;
   deploymentTriggered: boolean;
   desiredBranch: string;
+  desiredAutoDeployEnabled: boolean;
   resourceId: string;
   runtimeUrl: string | null;
 }
@@ -161,10 +178,20 @@ export async function repairOwnerDeploymentBranch(options?: {
 
   const currentBranch =
     currentApplication?.git_branch?.trim() || process.env.COOLIFY_BRANCH?.trim() || null;
-  const shouldUpdate = currentBranch !== desiredBranch;
+  const currentAutoDeployEnabled =
+    typeof currentApplication?.is_auto_deploy_enabled === "boolean"
+      ? currentApplication.is_auto_deploy_enabled
+      : null;
+  const desiredAutoDeployEnabled = true;
+  const branchChanged = currentBranch !== desiredBranch;
+  const autoDeployChanged = currentAutoDeployEnabled !== desiredAutoDeployEnabled;
+  const shouldUpdate = branchChanged || autoDeployChanged;
 
   if (shouldUpdate) {
-    await patchApplicationBranch(resourceId, desiredBranch);
+    await patchApplicationDeploymentSettings(resourceId, {
+      branch: desiredBranch,
+      autoDeployEnabled: desiredAutoDeployEnabled,
+    });
   }
 
   const triggerDeploy = options?.triggerDeploy ?? true;
@@ -175,10 +202,32 @@ export async function repairOwnerDeploymentBranch(options?: {
 
   return {
     changed: shouldUpdate,
+    branchChanged,
+    autoDeployChanged,
     currentBranch,
+    currentAutoDeployEnabled,
     desiredBranch,
+    desiredAutoDeployEnabled,
     resourceId,
     runtimeUrl,
     deploymentTriggered: triggerDeploy,
   };
+}
+
+export async function repairOwnerDeploymentBranchOnce(): Promise<OwnerDeploymentBranchRepairResult | null> {
+  if (!hasOwnerDeploymentRepairEnv()) {
+    return null;
+  }
+
+  ownerDeploymentSelfHealPromise ??= repairOwnerDeploymentBranch({ triggerDeploy: false }).catch(
+    (error) => {
+      console.error(
+        "Owner deployment authority self-heal failed:",
+        error instanceof Error ? error.message : error,
+      );
+      return null;
+    },
+  );
+
+  return ownerDeploymentSelfHealPromise;
 }

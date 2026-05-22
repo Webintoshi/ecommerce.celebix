@@ -10,6 +10,8 @@ import {
   type StoreConfig,
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
+import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
+import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
@@ -23,6 +25,7 @@ export interface StoreAdminDeploymentBlueprint {
   useBuildServer: boolean;
   buildServer: string;
   watchPaths: string[];
+  deploymentMarker: string | null;
   workspace: string;
   installCommand: string;
   buildCommand: string;
@@ -41,6 +44,7 @@ interface RuntimePayload {
   adminDomain?: string | null;
   storefrontUrl?: string | null;
   adminUrl?: string | null;
+  deploymentMarker?: string | null;
 }
 
 function toAbsoluteUrl(value: string): string {
@@ -147,7 +151,10 @@ function getSharedRedisEnvEntries(): Record<string, string> {
   return entries;
 }
 
-async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, string>> {
+async function readAdminEnvEntries(
+  store: StoreConfig,
+  options?: { deploymentMarker?: string | null },
+): Promise<Record<string, string>> {
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const existingEnv = readExistingAdminEnvMap(store);
 
@@ -167,6 +174,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       "require";
     const envEntries: Record<string, string> = {
       CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
+      CELEBIX_ADMIN_DEPLOYMENT_MARKER:
+        options?.deploymentMarker?.trim() ||
+        existingEnv.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() ||
+        "",
       STORE_SLUG: store.slug,
       ADMIN_DATABASE_MODE: "light_postgres",
       DATABASE_MODE: "light_postgres",
@@ -200,18 +211,18 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       "DATABASE_DIRECT_URL",
       "DATABASE_POOL_MODE",
       "DATABASE_SSLMODE",
-      "CLOUDFLARE_ACCOUNT_ID",
-      "R2_ACCESS_KEY_ID",
-      "R2_SECRET_ACCESS_KEY",
-      "R2_BUCKET_NAME",
-      "R2_PUBLIC_URL",
     ] as const) {
-      const value =
-        existingEnv[key]?.trim() ||
-        (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
-        (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+      const value = existingEnv[key]?.trim();
 
       if (value) {
+        envEntries[key] = value;
+      }
+    }
+
+    const r2EnvEntries = await resolveR2DeploymentEnv(store, existingEnv);
+
+    for (const [key, value] of Object.entries(r2EnvEntries)) {
+      if (value.trim()) {
         envEntries[key] = value;
       }
     }
@@ -224,21 +235,32 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
   }
 
   const secretRecord = await getStoreSupabaseSecret(store.slug).catch(() => null);
+  const runtimeAuthority =
+    store.supabase.provider === "self_hosted_coolify" && store.bootstrap?.supabaseResourceId
+      ? await readCoolifySupabaseRuntimeAuthority(store.bootstrap.supabaseResourceId).catch(() => null)
+      : null;
   const supabaseUrl =
+    runtimeAuthority?.publicUrl?.trim() ||
     secretRecord?.supabase_url?.trim() ||
     existingEnv.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     (store.supabase.url !== "configure-in-env" ? store.supabase.url : "");
   const anonKey =
+    runtimeAuthority?.publicKey?.trim() ||
     secretRecord?.supabase_anon_key?.trim() ||
     existingEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     "";
   const serviceRoleKey =
+    runtimeAuthority?.serviceKey?.trim() ||
     secretRecord?.supabase_service_role_key?.trim() ||
     existingEnv.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
     "";
 
   const envEntries: Record<string, string> = {
     CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
+    CELEBIX_ADMIN_DEPLOYMENT_MARKER:
+      options?.deploymentMarker?.trim() ||
+      existingEnv.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() ||
+      "",
     STORE_SLUG: store.slug,
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
@@ -264,6 +286,21 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
     envEntries.SUPABASE_SERVICE_ROLE_KEY = serviceRoleKey;
   }
 
+  const derivedSelfHostedServerUrl =
+    store.supabase.provider === "self_hosted_coolify"
+      ? (runtimeAuthority?.publicUrl?.trim() || supabaseUrl || "")
+      : "";
+  const serverUrl =
+    derivedSelfHostedServerUrl ||
+    existingEnv.SUPABASE_SERVER_URL?.trim() ||
+    existingEnv.SUPABASE_INTERNAL_URL?.trim() ||
+    runtimeAuthority?.internalApiUrl?.trim() ||
+    "";
+
+  if (serverUrl) {
+    envEntries.SUPABASE_SERVER_URL = serverUrl;
+  }
+
   if (secretRecord?.supabase_legacy_url?.trim() || existingEnv.SUPABASE_LEGACY_URL?.trim()) {
     envEntries.SUPABASE_LEGACY_URL =
       secretRecord?.supabase_legacy_url?.trim() || existingEnv.SUPABASE_LEGACY_URL.trim();
@@ -274,19 +311,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       secretRecord?.supabase_legacy_anon_key?.trim() || existingEnv.SUPABASE_LEGACY_ANON_KEY.trim();
   }
 
-  for (const key of [
-    "CLOUDFLARE_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-    "R2_BUCKET_NAME",
-    "R2_PUBLIC_URL",
-  ] as const) {
-    const value =
-      existingEnv[key]?.trim() ||
-      (key === "R2_BUCKET_NAME" ? store.r2?.bucketName?.trim() : "") ||
-      (key === "R2_PUBLIC_URL" ? store.r2?.publicUrl?.trim() : "");
+  const r2EnvEntries = await resolveR2DeploymentEnv(store, existingEnv);
 
-    if (value) {
+  for (const [key, value] of Object.entries(r2EnvEntries)) {
+    if (value.trim()) {
       envEntries[key] = value;
     }
   }
@@ -294,7 +322,11 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
   return envEntries;
 }
 
-async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): Promise<{
+async function readRuntimeConsistency(
+  store: StoreConfig,
+  runtimeUrl: string,
+  expectedDeploymentMarker?: string | null,
+): Promise<{
   configured: boolean;
   consistent: boolean;
   message: string | null;
@@ -332,6 +364,13 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
       mismatches.push(`admin ${runtimeAdmin}`);
     }
 
+    if (
+      expectedDeploymentMarker?.trim() &&
+      payload.deploymentMarker?.trim() !== expectedDeploymentMarker.trim()
+    ) {
+      mismatches.push(`marker ${payload.deploymentMarker?.trim() || "missing"}`);
+    }
+
     return {
       configured: true,
       consistent: mismatches.length === 0,
@@ -346,15 +385,19 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
   }
 }
 
-export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<StoreAdminDeploymentBlueprint> {
+export async function getStoreAdminDeploymentBlueprint(
+  slug: string,
+  options?: { deploymentMarker?: string | null },
+): Promise<StoreAdminDeploymentBlueprint> {
   const store = requireStoreConfig(slug);
-  const envEntries = await readAdminEnvEntries(store);
+  const envEntries = await readAdminEnvEntries(store, options);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const deploymentConfig = store.bootstrap?.adminDeployment;
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`;
   const dockerImageTag = deploymentConfig?.imageTag ?? "production";
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
+  const deploymentMarker = envEntries.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null;
   const hasRequiredEnv = store.databaseMode === "light_postgres"
     ? Boolean(
         envEntries.LIGHT_POSTGRES_DATABASE_URL &&
@@ -383,7 +426,7 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
     runtimeMessage =
       "Admin deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
   } else {
-    const runtime = await readRuntimeConsistency(store, runtimeUrl);
+    const runtime = await readRuntimeConsistency(store, runtimeUrl, deploymentMarker);
     runtimeConsistent = runtime.consistent;
     runtimeMessage = runtime.message ?? runtimeMessage;
     status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
@@ -400,10 +443,12 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
     useBuildServer,
     buildServer,
     watchPaths: deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"],
+    deploymentMarker,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
-    buildCommand: "npm run build --workspace @celebix/admin",
-    startCommand: "npm run start --workspace @celebix/admin",
+    buildCommand:
+      "npm run build --workspace @celebix/admin && node ./apps/admin/scripts/prepare-standalone-runtime.cjs",
+    startCommand: "node ./apps/admin/scripts/start-standalone.cjs",
     envLocalPath: path.relative(getRepoRoot(), resolveEnvLocalPath(store)).replace(/\\/g, "/"),
     envTemplatePath: path.relative(getRepoRoot(), resolveEnvTemplatePath(store)).replace(/\\/g, "/"),
     envEntries,

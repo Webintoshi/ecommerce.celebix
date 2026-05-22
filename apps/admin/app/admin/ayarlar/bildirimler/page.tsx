@@ -1,46 +1,146 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle,
   Bell,
+  BellOff,
   CheckCircle,
+  Loader2,
   Mail,
   MessageSquare,
   RefreshCw,
   Save,
+  ShieldAlert,
+  Smartphone,
 } from "lucide-react";
+import { toast } from "sonner";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
+import { AdminSectionCard } from "@/components/admin/AdminSectionCard";
+import { AdminStatCard, AdminStatGrid } from "@/components/admin/AdminStatGrid";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { NotificationSettings } from "@/types/notification";
 import {
-  getNotificationSettings,
+  deletePushSubscription,
+  getNotificationCenterStatus,
+  savePushSubscription,
+  sendTestNotification,
+  syncNotificationCenter,
   testEmailConnection,
   testSMSConnection,
   updateNotificationSettings,
 } from "@/lib/notifications";
-import type { EmailConfig, NotificationSettings, SMSConfig } from "@/types/notification";
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from(rawData, (char) => char.charCodeAt(0));
+}
+
+async function ensureServiceWorker() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+    return null;
+  }
+
+  return navigator.serviceWorker.register("/admin-sw.js", { scope: "/" });
+}
 
 export default function NotificationSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState<"email" | "sms" | null>(null);
-  const [activeTab, setActiveTab] = useState<"email" | "sms" | "push">("email");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testingSms, setTestingSms] = useState(false);
+  const [testingPush, setTestingPush] = useState(false);
+  const [syncingDevice, setSyncingDevice] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [backgroundSyncError, setBackgroundSyncError] = useState<string | null>(null);
+  const [permission, setPermission] = useState<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default",
+  );
+  const [vapidPublicKey, setVapidPublicKey] = useState("");
+  const [webPushAvailable, setWebPushAvailable] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [activeSubscriptions, setActiveSubscriptions] = useState(0);
+  const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadSettings();
+  const syncBrowserSubscription = useCallback(async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setSubscriptionEndpoint(null);
+      return;
+    }
+
+    try {
+      const registration = await ensureServiceWorker();
+      const subscription = await registration?.pushManager.getSubscription();
+      setSubscriptionEndpoint(subscription?.endpoint || null);
+    } catch (error) {
+      console.warn("Notification settings service worker sync failed:", error);
+      setSubscriptionEndpoint(null);
+    }
   }, []);
 
-  async function loadSettings() {
+  const refreshState = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getNotificationSettings();
-      setSettings(data);
+      const status = await getNotificationCenterStatus();
+      setSettings(status.settings);
+      setVapidPublicKey(status.vapidPublicKey);
+      setWebPushAvailable(status.webPushAvailable);
+      setUnreadCount(status.inbox.unreadCount);
+      setActiveSubscriptions(status.subscriptions.length);
+      setStatusError(null);
+      void syncBrowserSubscription();
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Bildirim durumu yüklenemedi.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [syncBrowserSubscription]);
 
-  async function handleSave() {
+  const runBackgroundSync = useCallback(
+    async (force = false) => {
+      try {
+        const result = await syncNotificationCenter({ force });
+        setBackgroundSyncError(null);
+        if (result.updated) {
+          await refreshState();
+        }
+      } catch (error) {
+        setBackgroundSyncError(
+          error instanceof Error ? error.message : "Arka plan bildirim senkronu tamamlanamadı.",
+        );
+      }
+    },
+    [refreshState],
+  );
+
+  useEffect(() => {
+    void refreshState();
+  }, [refreshState]);
+
+  useEffect(() => {
+    if (!loading && settings) {
+      void runBackgroundSync();
+    }
+  }, [loading, settings, runBackgroundSync]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return;
+    }
+
+    const updatePermission = () => {
+      setPermission(Notification.permission);
+    };
+
+    updatePermission();
+    window.addEventListener("focus", updatePermission);
+    return () => window.removeEventListener("focus", updatePermission);
+  }, []);
+
+  const handleSave = async () => {
     if (!settings) {
       return;
     }
@@ -48,458 +148,479 @@ export default function NotificationSettingsPage() {
     setSaving(true);
     try {
       await updateNotificationSettings(settings);
+      toast.success("Bildirim ayarları kaydedildi.");
+      await refreshState();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bildirim ayarları kaydedilemedi.");
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  async function handleTest(type: "email" | "sms") {
+  const handleEmailTest = async () => {
     if (!settings) {
       return;
     }
 
-    setTesting(type);
-    setTestResult(null);
-
+    setTestingEmail(true);
     try {
-      const success = type === "email"
-        ? await testEmailConnection(settings.email)
-        : await testSMSConnection(settings.sms);
-
-      setTestResult({
-        success,
-        message: success
-          ? "Baglanti testi basarili."
-          : "Baglanti kurulamadı. Bilgileri kontrol edin.",
-      });
-    } catch {
-      setTestResult({
-        success: false,
-        message: "Test sirasinda hata olustu.",
-      });
+      const success = await testEmailConnection(settings.email);
+      toast[success ? "success" : "error"](
+        success ? "E-posta bağlantı testi başarılı." : "E-posta bağlantı testi başarısız.",
+      );
     } finally {
-      setTesting(null);
+      setTestingEmail(false);
     }
+  };
+
+  const handleSmsTest = async () => {
+    if (!settings) {
+      return;
+    }
+
+    setTestingSms(true);
+    try {
+      const success = await testSMSConnection(settings.sms);
+      toast[success ? "success" : "error"](
+        success ? "SMS testi başarılı." : "SMS testi başarısız.",
+      );
+    } finally {
+      setTestingSms(false);
+    }
+  };
+
+  const handlePushTest = async () => {
+    setTestingPush(true);
+    try {
+      await sendTestNotification();
+      toast.success("Test bildirimi gönderildi.");
+      await refreshState();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Test bildirimi gönderilemedi.");
+    } finally {
+      setTestingPush(false);
+    }
+  };
+
+  const handleEnableDevice = async () => {
+    if (!vapidPublicKey || !webPushAvailable) {
+      toast.error("Web push altyapısı henüz hazır değil.");
+      return;
+    }
+
+    setSyncingDevice(true);
+    try {
+      const registration = await ensureServiceWorker();
+      if (!registration) {
+        throw new Error("Service worker desteklenmiyor.");
+      }
+
+      let nextPermission = permission;
+      if (nextPermission !== "granted") {
+        nextPermission = await Notification.requestPermission();
+        setPermission(nextPermission);
+      }
+
+      if (nextPermission !== "granted") {
+        throw new Error("Tarayıcı bildirim izni gerekli.");
+      }
+
+      const existingSubscription = await registration.pushManager.getSubscription();
+      const subscription =
+        existingSubscription ||
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        }));
+
+      const json = subscription.toJSON();
+      const p256dh = json.keys?.p256dh;
+      const auth = json.keys?.auth;
+
+      if (!subscription.endpoint || !p256dh || !auth) {
+        throw new Error("Push aboneliği eksik veri döndürdü.");
+      }
+
+      await savePushSubscription({
+        endpoint: subscription.endpoint,
+        p256dh,
+        auth,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+      });
+
+      setSubscriptionEndpoint(subscription.endpoint);
+      toast.success("Bu cihaz push bildirimlerine bağlandı.");
+      await refreshState();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Cihaz push bildirimine bağlanamadı.");
+    } finally {
+      setSyncingDevice(false);
+    }
+  };
+
+  const handleDisableDevice = async () => {
+    setSyncingDevice(true);
+    try {
+      const registration = await ensureServiceWorker();
+      const subscription = await registration?.pushManager.getSubscription();
+      const endpoint = subscription?.endpoint || subscriptionEndpoint;
+
+      if (endpoint) {
+        await deletePushSubscription(endpoint);
+      }
+
+      await subscription?.unsubscribe();
+      setSubscriptionEndpoint(null);
+      toast.success("Bu cihaz için push kapatıldı.");
+      await refreshState();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Cihaz bildirimi kaldırılamadı.");
+    } finally {
+      setSyncingDevice(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
+          Bildirim ayarları yükleniyor...
+        </div>
+      </div>
+    );
   }
 
-  if (loading || !settings) {
+  if (!settings) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Ayarlar yukleniyor...</p>
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-[28px] border border-rose-200 bg-white p-6 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <ShieldAlert className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-gray-950">Bildirim ayarları açılamadı</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            {statusError || "Bildirim durumu yüklenirken beklenmeyen bir hata oluştu."}
+          </p>
+          <div className="mt-5 flex justify-center">
+            <Button onClick={() => void refreshState()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tekrar dene
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Bildirim Ayarları</h1>
-          <p className="text-sm text-gray-500 mt-1">E-posta, SMS ve push saglayici ayarlarini yonetin.</p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-all shadow-sm disabled:opacity-50 text-sm"
-        >
-          {saving ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Kaydediliyor...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Kaydet
-            </>
-          )}
-        </button>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[560px]">
-        <div className="w-full md:w-64 bg-gray-50/50 border-r border-gray-100 p-4 space-y-2">
-          <SidebarTab
-            active={activeTab === "email"}
-            icon={Mail}
-            label="E-posta"
-            onClick={() => setActiveTab("email")}
-          />
-          <SidebarTab
-            active={activeTab === "sms"}
-            icon={MessageSquare}
-            label="SMS"
-            onClick={() => setActiveTab("sms")}
-          />
-          <SidebarTab
-            active={activeTab === "push"}
-            icon={Bell}
-            label="Push"
-            onClick={() => setActiveTab("push")}
-          />
-        </div>
-
-        <div className="flex-1 p-6 md:p-8">
-          {activeTab === "email" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1">E-posta Ayarları</h2>
-                <p className="text-sm text-gray-500">
-                  Resend veya farkli bir saglayici ile store bazli gonderici ayarlarini tanimlayin.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Saglayici</label>
-                  <select
-                    value={settings.email.provider}
-                    onChange={(event) =>
-                      setSettings({
-                        ...settings,
-                        email: {
-                          ...settings.email,
-                          provider: event.target.value as EmailConfig["provider"],
-                        },
-                      })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
-                  >
-                    <option value="resend">Resend API</option>
-                    <option value="smtp">Ozel SMTP Sunucusu</option>
-                    <option value="aws-ses">Amazon SES</option>
-                  </select>
-                </div>
-
-                {settings.email.provider === "smtp" && (
-                  <>
-                    <TextField
-                      label="SMTP Sunucusu"
-                      value={settings.email.host || ""}
-                      onChange={(value) =>
-                        setSettings({
-                          ...settings,
-                          email: { ...settings.email, host: value },
-                        })}
-                      placeholder="smtp.example.com"
-                    />
-                    <TextField
-                      label="Port"
-                      type="number"
-                      value={String(settings.email.port || "")}
-                      onChange={(value) =>
-                        setSettings({
-                          ...settings,
-                          email: {
-                            ...settings.email,
-                            port: value ? Number(value) : undefined,
-                          },
-                        })}
-                      placeholder="587"
-                    />
-                    <TextField
-                      label="Kullanici Adi"
-                      value={settings.email.user || ""}
-                      onChange={(value) =>
-                        setSettings({
-                          ...settings,
-                          email: { ...settings.email, user: value },
-                        })}
-                    />
-                    <TextField
-                      label="Şifre"
-                      type="password"
-                      value={settings.email.password || ""}
-                      onChange={(value) =>
-                        setSettings({
-                          ...settings,
-                          email: { ...settings.email, password: value },
-                        })}
-                    />
-                  </>
-                )}
-
-                {settings.email.provider !== "smtp" && (
-                  <div className="md:col-span-2">
-                    <TextField
-                      label="API Anahtari"
-                      type="password"
-                      value={settings.email.apiKey || ""}
-                      onChange={(value) =>
-                        setSettings({
-                          ...settings,
-                          email: { ...settings.email, apiKey: value },
-                        })}
-                      placeholder={settings.email.provider === "resend" ? "re_..." : "API anahtarinizi girin"}
-                    />
-                  </div>
-                )}
-
-                <TextField
-                  label="Gonderen Adi"
-                  value={settings.email.senderName}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      email: { ...settings.email, senderName: value },
-                    })}
-                />
-                <TextField
-                  label="Gonderen E-posta"
-                  type="email"
-                  value={settings.email.senderEmail}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      email: { ...settings.email, senderEmail: value },
-                    })}
-                />
-                <div className="md:col-span-2">
-                  <TextField
-                    label="Reply-To"
-                    type="email"
-                    value={settings.email.replyTo || ""}
-                    onChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        email: { ...settings.email, replyTo: value },
-                      })}
-                    placeholder="destek@alanadiniz.com"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-gray-100">
-                <button
-                  onClick={() => void handleTest("email")}
-                  disabled={testing === "email"}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-all disabled:opacity-50"
-                >
-                  {testing === "email" ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  Baglantiyi Test Et
-                </button>
-
-                {testResult && activeTab === "email" && (
-                  <div className={`mt-3 flex items-center gap-2 text-sm ${testResult.success ? "text-green-600" : "text-red-600"}`}>
-                    {testResult.success ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                    {testResult.message}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "sms" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1">SMS Ayarları</h2>
-                <p className="text-sm text-gray-500">SMS saglayicisi bilgilerini store bazli saklayin.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Saglayici</label>
-                  <select
-                    value={settings.sms.provider}
-                    onChange={(event) =>
-                      setSettings({
-                        ...settings,
-                        sms: {
-                          ...settings.sms,
-                          provider: event.target.value as SMSConfig["provider"],
-                        },
-                      })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
-                  >
-                    <option value="netgsm">NetGSM</option>
-                    <option value="iletimerkezi">Ileti Merkezi</option>
-                    <option value="twilio">Twilio</option>
-                  </select>
-                </div>
-                <TextField
-                  label="API Anahtari"
-                  value={settings.sms.apiKey}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      sms: { ...settings.sms, apiKey: value },
-                    })}
-                />
-                <TextField
-                  label="API Secret"
-                  type="password"
-                  value={settings.sms.apiSecret || ""}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      sms: { ...settings.sms, apiSecret: value },
-                    })}
-                />
-                <TextField
-                  label="Baslik"
-                  value={settings.sms.senderTitle}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      sms: { ...settings.sms, senderTitle: value },
-                    })}
-                  placeholder="MAGAZA"
-                />
-              </div>
-
-              <div className="pt-6 border-t border-gray-100">
-                <button
-                  onClick={() => void handleTest("sms")}
-                  disabled={testing === "sms"}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-all disabled:opacity-50"
-                >
-                  {testing === "sms" ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  SMS Testi
-                </button>
-
-                {testResult && activeTab === "sms" && (
-                  <div className={`mt-3 flex items-center gap-2 text-sm ${testResult.success ? "text-green-600" : "text-red-600"}`}>
-                    {testResult.success ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                    {testResult.message}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "push" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Push Ayarları</h2>
-                <p className="text-sm text-gray-500">Firebase veya benzeri push servis bilgilerini store bazli tutun.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <TextField
-                    label="API Key"
-                    value={settings.push.apiKey}
-                    onChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        push: { ...settings.push, apiKey: value },
-                      })}
-                  />
-                </div>
-                <TextField
-                  label="Auth Domain"
-                  value={settings.push.authDomain}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      push: { ...settings.push, authDomain: value },
-                    })}
-                />
-                <TextField
-                  label="Project ID"
-                  value={settings.push.projectId}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      push: { ...settings.push, projectId: value },
-                    })}
-                />
-                <TextField
-                  label="Storage Bucket"
-                  value={settings.push.storageBucket}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      push: { ...settings.push, storageBucket: value },
-                    })}
-                />
-                <TextField
-                  label="Messaging Sender ID"
-                  value={settings.push.messagingSenderId}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      push: { ...settings.push, messagingSenderId: value },
-                    })}
-                />
-                <div className="md:col-span-2">
-                  <TextField
-                    label="App ID"
-                    value={settings.push.appId}
-                    onChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        push: { ...settings.push, appId: value },
-                      })}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SidebarTab({
-  active,
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: typeof Mail;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-        active
-          ? "bg-white text-blue-600 shadow-sm ring-1 ring-gray-200"
-          : "text-gray-600 hover:bg-white/50 hover:text-gray-900"
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  onChange,
-  type = "text",
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+    <AdminPageShell>
+      <AdminPageHeader
+        badge="Bildirimler"
+        title="PWA bildirim merkezi"
+        description="Inbox, push ve cihaz akışını yönetin."
+        actions={
+          <Button onClick={() => void handleSave()} loading={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            Kaydet
+          </Button>
+        }
+        metrics={
+          <>
+            <AdminStatCard label="Inbox okunmamış" value={String(unreadCount)} tone="accent" />
+            <AdminStatCard label="Aktif cihaz" value={String(activeSubscriptions)} />
+            <AdminStatCard
+              label="Tarayıcı izni"
+              value={
+                permission === "granted"
+                  ? "Açık"
+                  : permission === "denied"
+                    ? "Kapalı"
+                    : "Bekliyor"
+              }
+            />
+            <AdminStatCard label="Dağıtım" value={webPushAvailable ? "Push hazır" : "Sadece inbox"} />
+          </>
+        }
       />
-    </div>
+
+      <AdminSectionCard
+        header={
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Cihaz ve push durumu</h2>
+              <p className="mt-1 hidden text-sm text-gray-500 md:block">Bu cihazı push akışına dahil edin veya ayırın.</p>
+            </div>
+          </div>
+        }
+      >
+        <AdminStatGrid className="xl:grid-cols-3">
+          <AdminStatCard label="Tarayıcı izni" value={permission === "granted" ? "Verildi" : permission === "denied" ? "Reddedildi" : "Bekliyor"} tone="accent" />
+          <AdminStatCard label="Bu cihaz" value={subscriptionEndpoint ? "Bağlı" : "Bağlı değil"} />
+          <AdminStatCard label="Runtime" value={webPushAvailable ? "VAPID hazır" : "Eksik"} />
+        </AdminStatGrid>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {subscriptionEndpoint ? (
+            <Button variant="outline" onClick={() => void handleDisableDevice()} loading={syncingDevice}>
+              <BellOff className="mr-2 h-4 w-4" />
+              Bu cihazda kapat
+            </Button>
+          ) : (
+            <Button onClick={() => void handleEnableDevice()} loading={syncingDevice}>
+              <Smartphone className="mr-2 h-4 w-4" />
+              Bu cihazı bağla
+            </Button>
+          )}
+
+          <Button variant="secondary" onClick={() => void handlePushTest()} loading={testingPush}>
+            <Bell className="mr-2 h-4 w-4" />
+            Test bildirimi
+          </Button>
+        </div>
+
+        {permission === "denied" ? (
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            Tarayıcı bildirim izni kapalı. Push almak için izin ayarını yeniden açmanız gerekir.
+          </div>
+        ) : null}
+
+        {backgroundSyncError ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Yorum bildirim senkronu tamamlanamadı: {backgroundSyncError}</span>
+            </div>
+            <Button
+              variant="outline"
+              className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+              onClick={() => void runBackgroundSync(true)}
+            >
+              Tekrar dene
+            </Button>
+          </div>
+        ) : null}
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        header={
+          <div>
+            <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">Olay matrisi</h2>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Inbox ve push için aktif olay tiplerini belirleyin.</p>
+          </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <ToggleCard
+            title="Bildirim sistemi"
+            description="Mağaza seviyesinde event üretimini açar veya durdurur."
+            checked={settings.push.enabled}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: { ...settings.push, enabled: checked },
+              })
+            }
+          />
+          <ToggleCard
+            title="Web push"
+            description="Push uygun cihazlara service worker üzerinden gider."
+            checked={settings.push.webPushEnabled}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: { ...settings.push, webPushEnabled: checked },
+              })
+            }
+          />
+          <ToggleCard
+            title="Inbox"
+            description="Push kapalı olsa bile admin bildirim kutusu kayıt oluşturur."
+            checked={settings.push.inboxEnabled}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: { ...settings.push, inboxEnabled: checked },
+              })
+            }
+          />
+          <ToggleCard
+            title="Yeni sipariş"
+            description="Yeni sipariş oluştuğunda inbox ve push üretir."
+            checked={settings.push.events.new_order}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: {
+                  ...settings.push,
+                  events: { ...settings.push.events, new_order: checked },
+                },
+              })
+            }
+          />
+          <ToggleCard
+            title="Yeni ürün yorumu"
+            description="Yeni yorum kaydı inbox akışına düşürülür."
+            checked={settings.push.events.new_product_review}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: {
+                  ...settings.push,
+                  events: { ...settings.push.events, new_product_review: checked },
+                },
+              })
+            }
+          />
+          <ToggleCard
+            title="Ödeme hatası"
+            description="Başarısız ödeme durumları için operatör uyarısı üretir."
+            checked={settings.push.events.payment_failed}
+            onChange={(checked) =>
+              setSettings({
+                ...settings,
+                push: {
+                  ...settings.push,
+                  events: { ...settings.push.events, payment_failed: checked },
+                },
+              })
+            }
+          />
+        </div>
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        header={
+          <div>
+            <h2 className="text-lg font-semibold tracking-[-0.03em] text-gray-950">E-posta ve SMS</h2>
+            <p className="mt-1 hidden text-sm text-gray-500 md:block">Operasyonel iletim ayarları aynı ekranda tutulur.</p>
+          </div>
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-4">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
+              <h3 className="text-base font-semibold text-gray-950">E-posta</h3>
+            </div>
+            <div className="grid gap-4">
+              <Input
+                label="Gönderen adı"
+                value={settings.email.senderName}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    email: { ...settings.email, senderName: event.target.value },
+                  })
+                }
+              />
+              <Input
+                label="Gönderen e-posta"
+                type="email"
+                value={settings.email.senderEmail}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    email: { ...settings.email, senderEmail: event.target.value },
+                  })
+                }
+              />
+              <Input
+                label="API anahtarı"
+                type="password"
+                value={settings.email.apiKey || ""}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    email: { ...settings.email, apiKey: event.target.value },
+                  })
+                }
+              />
+            </div>
+            <Button variant="secondary" onClick={() => void handleEmailTest()} loading={testingEmail}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              E-posta testi
+            </Button>
+          </div>
+
+          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-white p-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-[var(--admin-accent)]" />
+              <h3 className="text-base font-semibold text-gray-950">SMS</h3>
+            </div>
+            <div className="grid gap-4">
+              <Input
+                label="Sağlayıcı anahtarı"
+                value={settings.sms.apiKey}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    sms: { ...settings.sms, apiKey: event.target.value },
+                  })
+                }
+              />
+              <Input
+                label="API secret"
+                type="password"
+                value={settings.sms.apiSecret || ""}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    sms: { ...settings.sms, apiSecret: event.target.value },
+                  })
+                }
+              />
+              <Input
+                label="Gönderici başlığı"
+                value={settings.sms.senderTitle}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    sms: { ...settings.sms, senderTitle: event.target.value },
+                  })
+                }
+              />
+            </div>
+            <Button variant="secondary" onClick={() => void handleSmsTest()} loading={testingSms}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              SMS testi
+            </Button>
+          </div>
+        </div>
+      </AdminSectionCard>
+    </AdminPageShell>
+  );
+}
+
+function ToggleCard({
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-sm transition-all hover:border-[var(--admin-accent-border)]">
+      <input
+        type="checkbox"
+        className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <div>
+        <p className="text-sm font-semibold text-gray-950">{title}</p>
+        <p className="mt-1 hidden text-sm text-gray-500 md:block">{description}</p>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--admin-accent-soft)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent)]">
+          {checked ? <CheckCircle className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
+          {checked ? "Açık" : "Kapalı"}
+        </div>
+      </div>
+    </label>
   );
 }

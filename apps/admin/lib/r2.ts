@@ -35,6 +35,10 @@ export interface UploadResult {
     error?: string;
 }
 
+interface UploadToR2Options {
+    keyOverride?: string;
+}
+
 /**
  * Upload a file to R2 bucket
  */
@@ -42,13 +46,14 @@ export async function uploadToR2(
     file: Buffer,
     fileName: string,
     contentType: string,
-    folder: string = "products"
+    folder: string = "products",
+    options: UploadToR2Options = {}
 ): Promise<UploadResult> {
     try {
-        // Generate unique filename with timestamp
-        const timestamp = Date.now();
         const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const key = `${folder}/${timestamp}-${sanitizedName}`;
+        const key =
+            options.keyOverride ||
+            `${folder}/${Date.now()}-${sanitizedName}`;
 
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,

@@ -299,8 +299,8 @@ export default function EmailMarketingPage() {
 
   if (loading || !emailSettings || !marketingSettings || !activeTemplate) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(234,179,8,0.15),_transparent_32%),linear-gradient(180deg,_#fffaf3_0%,_#f5ebdf_100%)] px-4">
-        <div className="flex flex-col items-center gap-4 rounded-[28px] border border-[#eadfcd] bg-white/90 px-8 py-10 shadow-[0_24px_80px_-42px_rgba(109,76,44,0.45)] backdrop-blur">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--admin-bg)] px-4">
+        <div className="flex flex-col items-center gap-4 rounded-[28px] border border-[var(--admin-border)] bg-white/90 px-8 py-10 shadow-[var(--shadow-md)] backdrop-blur">
           <div className="h-9 w-9 animate-spin rounded-full border-2 border-[#c08a43] border-t-transparent" />
           <p className="text-sm text-[#7e6954]">E-posta merkezi yükleniyor...</p>
         </div>
@@ -309,28 +309,25 @@ export default function EmailMarketingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(234,179,8,0.14),_transparent_32%),linear-gradient(180deg,_#fffaf3_0%,_#f5ebdf_100%)] px-4 py-4 md:px-6 md:py-6 xl:px-8">
+    <div className="admin-page-root px-4 py-4 md:px-6 md:py-6 xl:px-8">
       <div className="mx-auto max-w-[1680px] space-y-6">
-        <header className="rounded-[32px] border border-[#eadfcd] bg-white/88 p-5 shadow-[0_24px_80px_-42px_rgba(109,76,44,0.45)] backdrop-blur md:p-7">
+        <header className="rounded-[32px] border border-[var(--admin-border)] bg-white/88 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
-              <span className="inline-flex w-fit items-center rounded-full border border-[#e7d2b4] bg-[#fff4e2] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9a6a2f]">
+              <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent-hover)]">
                 E-posta Pazarlama
               </span>
               <div className="space-y-2">
                 <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  Kampanya kurgusunu daha sıcak, daha net ve daha kontrollü yönetin.
+                  E-posta Kampanyaları
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-[#7a6654] md:text-[15px]">
-                  Resend bağlantısını doğrulayın, şablonları düzenleyin ve alıcı seçiminden önizlemeye kadar tüm e-posta akışını tek panelde yönetin.
-                </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/admin/pazarlama"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7d9c8] bg-white px-4 py-3 text-sm font-semibold text-[#6f5843] transition hover:border-[#d7c0a4] hover:bg-[#fff8ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaf3]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition hover:border-[#d7c0a4] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <X className="h-4 w-4" />
                 Geri
@@ -338,7 +335,7 @@ export default function EmailMarketingPage() {
               <button
                 type="button"
                 onClick={() => void loadPage()}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaf3]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <RefreshCw className="h-4 w-4" />
                 Yenile
@@ -361,20 +358,19 @@ export default function EmailMarketingPage() {
 
         <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[390px_minmax(0,1fr)]">
           <aside className="space-y-6">
-            <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+                  <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                     Gönderici bağlantısı
                   </span>
                   <h2 className="mt-3 text-lg font-semibold text-[#3f2a17]">Resend ayarları</h2>
-                  <p className="mt-1 text-sm text-[#826c57]">Mağaza bazlı gönderici kimliğini güvenli şekilde yönetin.</p>
                 </div>
                 <a
                   href="https://resend.com/signup"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex rounded-full border border-[#dfc5a2] bg-[#fff8ee] px-3 py-1.5 text-xs font-semibold text-[#8f5f2f] transition hover:bg-[#feecd0]"
+                  className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)]"
                 >
                   Hesap aç
                 </a>
@@ -415,7 +411,7 @@ export default function EmailMarketingPage() {
                   type="button"
                   onClick={() => void handleSaveSettings()}
                   disabled={savingSettings}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingSettings ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Ayarları kaydet
@@ -424,14 +420,14 @@ export default function EmailMarketingPage() {
                   type="button"
                   onClick={() => void handleTestEmail()}
                   disabled={testing}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e6d5bf] bg-[#fff8ee] px-4 py-3 font-semibold text-[#8a5824] transition hover:bg-[#feecd0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                   Test gönder
                 </button>
               </div>
 
-              <div className="mt-5 rounded-[26px] border border-[#eee1cf] bg-[#fffdf9] p-4">
+              <div className="mt-5 rounded-[26px] border border-[var(--admin-border)] bg-[#FCFDFE] p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#3f2a17]">
                   <CheckCircle2 className="h-4 w-4 text-[#2f8f59]" />
                   Hazır şablon seti
@@ -440,7 +436,7 @@ export default function EmailMarketingPage() {
                   {marketingSettings.templates.map((template) => (
                     <span
                       key={template.id}
-                      className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff8eb] px-3 py-1.5 text-xs font-medium text-[#8b6234]"
+                      className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-3 py-1.5 text-xs font-medium text-[var(--admin-text-secondary)]"
                     >
                       {template.name}
                     </span>
@@ -451,15 +447,14 @@ export default function EmailMarketingPage() {
           </aside>
 
           <section className="space-y-6">
-            <section className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
                 <div className="space-y-3">
                   <div>
-                    <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+                    <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                       Şablon listesi
                     </span>
                     <h2 className="mt-3 text-lg font-semibold text-[#3f2a17]">Kampanya akışları</h2>
-                    <p className="mt-1 text-sm text-[#826c57]">Her kampanya tipi için konu ve içerik alanını ayrı yönetin.</p>
                   </div>
 
                   <div className="space-y-2">
@@ -468,14 +463,14 @@ export default function EmailMarketingPage() {
                         key={template.id}
                         type="button"
                         onClick={() => setSelectedTemplateId(template.id)}
-                        className={`w-full rounded-[24px] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 ${
+                        className={`w-full rounded-[24px] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 ${
                           selectedTemplateId === template.id
-                            ? "border-[#d5ad74] bg-[#fff3df] shadow-[0_18px_38px_-28px_rgba(166,106,45,0.65)]"
-                            : "border-[#eee1cf] bg-[#fffdf9] hover:border-[#dcc3a5] hover:bg-[#fff8ee]"
+                            ? "border-[#d5ad74] bg-[var(--admin-accent-soft)] shadow-[0_18px_38px_-28px_rgba(166,106,45,0.65)]"
+                            : "border-[var(--admin-border)] bg-[#FCFDFE] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
                         }`}
                       >
                         <div className="font-semibold text-[#342313]">{template.name}</div>
-                        <div className="mt-1 text-sm leading-6 text-[#7b6753]">{template.description}</div>
+                        <div className="mt-1 text-sm leading-6 text-[var(--admin-text-secondary)]">{template.description}</div>
                       </button>
                     ))}
                   </div>
@@ -491,7 +486,7 @@ export default function EmailMarketingPage() {
                       type="button"
                       onClick={() => void handleSaveTemplates()}
                       disabled={savingTemplates}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {savingTemplates ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Şablonları kaydet
@@ -512,7 +507,7 @@ export default function EmailMarketingPage() {
 
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-[#5c4330]">İçerik</label>
-                    <div className="overflow-hidden rounded-[28px] border border-[#eadcca] bg-[#fffaf3] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+                    <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-[#FCFDFE] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
                       <RichTextEditor
                         value={activeTemplate.bodyHtml}
                         onChange={(value) =>
@@ -527,7 +522,7 @@ export default function EmailMarketingPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-[#efe1cf] bg-[#fffdf9] px-4 py-3 text-sm leading-6 text-[#7b6753]">
+                  <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm leading-6 text-[var(--admin-text-secondary)]">
                     Kullanabileceğiniz değişkenler: <span className="font-semibold text-[#5d4123]">{`{firstName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{lastName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{email}`}</span>, <span className="font-semibold text-[#5d4123]">{`{storeName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{storeUrl}`}</span>, <span className="font-semibold text-[#5d4123]">{`{productsUrl}`}</span>
                   </div>
                 </div>
@@ -535,10 +530,10 @@ export default function EmailMarketingPage() {
             </section>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
-              <div className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
+              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+                    <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                       Alıcı seçimi
                     </span>
                     <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Gönderim listesi</h3>
@@ -553,13 +548,13 @@ export default function EmailMarketingPage() {
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Müşteri veya e-posta ara"
-                        className="w-full rounded-2xl border border-[#eadcca] bg-[#fffaf3] py-3 pl-11 pr-4 text-sm text-[#3d2917] placeholder:text-[#b69a7d] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+                        className="w-full rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                       />
                     </div>
                     <select
                       value={filter}
                       onChange={(event) => setFilter(event.target.value as FilterKey)}
-                      className="rounded-2xl border border-[#eadcca] bg-[#fffaf3] px-4 py-3 text-sm text-[#3d2917] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+                      className="rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     >
                       <option value="optin">Pazarlama onayı olanlar</option>
                       <option value="all">Tüm alıcılar</option>
@@ -569,10 +564,10 @@ export default function EmailMarketingPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 hidden overflow-hidden rounded-[28px] border border-[#eee1cf] lg:block">
+                <div className="mt-5 hidden overflow-hidden rounded-[28px] border border-[var(--admin-border)] lg:block">
                   <div className="max-h-[560px] overflow-y-auto">
                     <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-[linear-gradient(180deg,_#fff7ec_0%,_#fffdf9_100%)] text-[#755b43]">
+                      <thead className="sticky top-0 bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
                         <tr>
                           <th className="px-5 py-4 text-left">
                             <input
@@ -594,7 +589,7 @@ export default function EmailMarketingPage() {
                           return (
                             <tr
                               key={recipient.id}
-                              className={`border-t border-[#f4e8d7] transition ${isSelected ? "bg-[#fff4df]" : "bg-white hover:bg-[#fffaf3]"}`}
+                              className={`border-t border-[#f4e8d7] transition ${isSelected ? "bg-[#fff4df]" : "bg-white hover:bg-[#FCFDFE]"}`}
                             >
                               <td className="px-5 py-4 align-top">
                                 <input
@@ -613,7 +608,7 @@ export default function EmailMarketingPage() {
                                     {recipient.tags.map((tag) => (
                                       <span
                                         key={tag}
-                                        className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[#8b6234]"
+                                        className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
                                       >
                                         {tag}
                                       </span>
@@ -681,7 +676,7 @@ export default function EmailMarketingPage() {
                                 {recipient.tags.map((tag) => (
                                   <span
                                     key={tag}
-                                    className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[#8b6234]"
+                                    className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
                                   >
                                     {tag}
                                   </span>
@@ -696,10 +691,10 @@ export default function EmailMarketingPage() {
                 </div>
               </div>
 
-              <aside className="rounded-[30px] border border-[#eadfcd] bg-white/92 p-5 shadow-[0_28px_90px_-48px_rgba(89,59,27,0.4)] backdrop-blur md:p-6">
+              <aside className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="inline-flex rounded-full border border-[#ead4b3] bg-[#fff6e6] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#976731]">
+                    <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                       Önizleme ve gönderim
                     </span>
                     <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">E-posta yüzeyi</h3>
@@ -716,7 +711,7 @@ export default function EmailMarketingPage() {
 
                       void navigator.clipboard.writeText(previewContent.html);
                     }}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#e6d5bf] bg-[#faf4eb] px-4 py-2.5 text-sm font-semibold text-[#6f5843] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-2.5 text-sm font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
                   >
                     <Copy className="h-4 w-4" />
                     HTML kopyala
@@ -730,11 +725,11 @@ export default function EmailMarketingPage() {
                       E-posta önizleme
                     </div>
                     <div className="space-y-4">
-                      <div className="rounded-[20px] border border-[#efe1cf] bg-[#fffdf9] px-4 py-3">
+                      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#aa8a68]">Konu</div>
                         <div className="mt-1 text-sm font-semibold text-[#322113]">{previewContent?.subject || activeTemplate.subject}</div>
                       </div>
-                      <div className="rounded-[20px] border border-[#efe1cf] bg-white px-4 py-4">
+                      <div className="rounded-[20px] border border-[var(--admin-border)] bg-white px-4 py-4">
                         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#aa8a68]">İçerik</div>
                         <div
                           className="prose prose-sm max-w-none text-[#4b392a] prose-a:text-[#9a632a] prose-headings:text-[#2f2012]"
@@ -749,13 +744,13 @@ export default function EmailMarketingPage() {
                   type="button"
                   onClick={() => void handleSendCampaign()}
                   disabled={sending || selectedRecipients.length === 0 || !emailSettings.apiKey}
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d9b78d] bg-[#a66a2d] px-4 py-3.5 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[#915b26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c58a38] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Kampanyayı gönder
                 </button>
 
-                <div className="mt-4 rounded-[24px] border border-[#efe1cf] bg-[#fffdf9] px-4 py-4 text-sm leading-6 text-[#7b6753]">
+                <div className="mt-4 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
                   <div className="font-semibold text-[#3f2a17]">Gönderim özeti</div>
                   <div className="mt-2">{selectedRecipients.length} alıcı seçili.</div>
                   <div>{buildEmailTemplateVariables(previewRecipient).storeName} gönderen kimliği kullanılacak.</div>
@@ -791,7 +786,7 @@ function LabeledInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-[#eadcca] bg-[#fffaf3] px-4 py-3 text-sm text-[#3d2917] placeholder:text-[#b69a7d] transition focus:border-[#c58a38] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#e8bf84]/30"
+        className="w-full rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
       />
     </div>
   );

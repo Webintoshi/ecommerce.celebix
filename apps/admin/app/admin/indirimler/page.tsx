@@ -54,7 +54,7 @@ const STATUS_CLASS: Record<DiscountStatus, string> = {
 };
 
 const INPUT_CLASS =
-  "w-full rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 export default function DiscountsPage() {
   const [discounts, setDiscounts] = useState<AdminDiscount[]>([]);
@@ -237,55 +237,55 @@ export default function DiscountsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               Indirimler
             </div>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={loadDiscounts}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Yenile
               </button>
               <Link
                 href="/admin/indirimler/sans-carki"
-                className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 <TicketPercent className="h-4 w-4" />
                 Sans Carki
               </Link>
               <Link
                 href="/admin/indirimler/yeni"
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
               >
                 <Plus className="h-4 w-4" />
                 Yeni Indirim
               </Link>
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+          <div className="hidden" />
         </section>
 
         {error && <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-          <StatCard title="Toplam" value={stats.total} icon={Layers3} tone="from-[#fff2e8] to-white text-[#FE6100] border-[#FE6100]/12" />
+          <StatCard title="Toplam" value={stats.total} icon={Layers3} tone="from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]" />
           <StatCard title="Aktif" value={stats.active} icon={CheckCircle2} tone="from-[#ecfdf3] to-white text-emerald-600 border-emerald-200" />
-          <StatCard title="Planli" value={stats.scheduled} icon={CalendarClock} tone="from-[#fff7eb] to-white text-amber-600 border-amber-200" />
-          <StatCard title="Suresi Dolan" value={stats.expired} icon={XCircle} tone="from-[#fff1f2] to-white text-rose-600 border-rose-200" />
+          <StatCard title="Planli" value={stats.scheduled} icon={CalendarClock} tone="from-white to-white text-amber-600 border-amber-200" />
+          <StatCard title="Suresi Dolan" value={stats.expired} icon={XCircle} tone="from-white to-white text-rose-600 border-rose-200" />
           <StatCard title="Taslak" value={stats.draft} icon={PencilLine} tone="from-[#f7f1eb] to-white text-stone-600 border-stone-200" />
-          <StatCard title="Toplam Kullanim" value={stats.totalUsage} icon={BarChart3} tone="from-[#fff4ed] to-white text-[#c96a2b] border-[#f0cfb2]" />
+          <StatCard title="Toplam Kullanim" value={stats.totalUsage} icon={BarChart3} tone="from-white to-white text-[var(--admin-accent-hover)] border-[var(--admin-border)]" />
         </div>
 
-        <section className="rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-4 shadow-[0_18px_55px_rgba(0,0,0,0.08)] md:p-5">
+        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a08e82]" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-text-muted)]" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -331,17 +331,17 @@ export default function DiscountsPage() {
           )}
         </section>
 
-        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.10)]">
+        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b border-[#FE6100]/8 bg-[#fff8f3]/85 text-left">
+              <thead className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/85 text-left">
                 <tr>
                   <th className="px-4 py-4 w-10">
                     <input
                       type="checkbox"
                       checked={filtered.length > 0 && selectedIds.length === filtered.length}
                       onChange={(event) => setSelectedIds(event.target.checked ? filtered.map((discount) => discount.id) : [])}
-                      className="h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                      className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                     />
                   </th>
                   <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Indirim</th>
@@ -354,21 +354,21 @@ export default function DiscountsPage() {
               </thead>
               <tbody className="divide-y divide-[#f2e7dc]">
                 {filtered.map((discount) => (
-                  <tr key={discount.id} className="bg-white/65 transition-colors hover:bg-[#fffaf5]">
+                  <tr key={discount.id} className="bg-white/65 transition-colors hover:bg-[#FCFDFE]">
                     <td className="px-4 py-4 align-top">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(discount.id)}
                         onChange={(event) => toggleSelected(discount.id, event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-[#d8c3b1] text-[#FE6100] focus:ring-[#FE6100]"
+                        className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
                       />
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[#2f241d]">{discount.name}</div>
-                      <div className="mt-1 inline-flex rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-medium tracking-[0.12em] text-[#8a5b3c]">{discount.code}</div>
+                      <div className="font-semibold text-[var(--admin-heading)]">{discount.name}</div>
+                      <div className="mt-1 inline-flex rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-medium tracking-[0.12em] text-[var(--admin-text-secondary)]">{discount.code}</div>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[#2f241d]">
+                      <div className="font-semibold text-[var(--admin-heading)]">
                         {discount.type === "percentage" ? `%${discount.value}` : formatCurrency(discount.value)}
                       </div>
                       <div className="mt-1 text-xs text-[#8c7564]">{discount.type === "percentage" ? "Yuzde" : "Sabit"}</div>
@@ -379,10 +379,10 @@ export default function DiscountsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[#2f241d]">{discount.usedCount}</div>
+                      <div className="font-semibold text-[var(--admin-heading)]">{discount.usedCount}</div>
                       <div className="mt-1 text-xs text-[#8c7564]">Limit: {discount.maxUses ?? "∞"}</div>
                     </td>
-                    <td className="px-4 py-4 align-top text-xs text-[#6e5b4e]">
+                    <td className="px-4 py-4 align-top text-xs text-[var(--admin-text-secondary)]">
                       <div>Baslangic: {toInputDate(discount.startsAt) || "-"}</div>
                       <div className="mt-1">Bitis: {toInputDate(discount.expiresAt) || "-"}</div>
                     </td>
@@ -394,7 +394,7 @@ export default function DiscountsPage() {
                             "inline-flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4",
                             discount.isActive
                               ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus-visible:ring-emerald-100"
-                              : "border-[#eadccd] bg-white text-[#6e5b4e] hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:ring-[#FE6100]/16"
+                              : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.16)]"
                           )}
                           title={discount.isActive ? "Pasife al" : "Aktif et"}
                         >
@@ -402,14 +402,14 @@ export default function DiscountsPage() {
                         </button>
                         <button
                           onClick={() => duplicateDiscount(discount)}
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#eadccd] bg-white text-[#6e5b4e] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                           title="Kopyala"
                         >
                           <Copy className="h-4 w-4" />
                         </button>
                         <Link
                           href={`/admin/indirimler/${discount.id}/duzenle`}
-                          className="inline-flex items-center justify-center rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-xs font-semibold text-[#6e5b4e] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                          className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                         >
                           Duzenle
                         </Link>
@@ -430,10 +430,10 @@ export default function DiscountsPage() {
 
           {!loading && filtered.length === 0 && (
             <div className="px-6 py-14 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                 <Search className="h-6 w-6" />
               </div>
-              <p className="mt-4 text-sm font-medium text-[#6e5b4e]">Filtreye uygun indirim bulunamadi.</p>
+              <p className="mt-4 text-sm font-medium text-[var(--admin-text-secondary)]">Filtreye uygun indirim bulunamadi.</p>
             </div>
           )}
         </section>
@@ -454,11 +454,11 @@ function StatCard({
   tone: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[#eadccd] bg-white/92 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)]">
+    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</div>
-          <div className="mt-2 text-3xl font-bold tracking-[-0.03em] text-[#2f241d]">{value}</div>
+          <div className="mt-2 text-3xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{value}</div>
         </div>
         <div className={cn("flex h-12 w-12 items-center justify-center rounded-[18px] border bg-gradient-to-br shadow-sm", tone)}>
           <Icon className="h-5 w-5" />

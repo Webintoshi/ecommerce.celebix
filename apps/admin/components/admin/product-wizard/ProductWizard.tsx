@@ -436,21 +436,21 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6efe8] text-stone-900">
+    <div className="admin-page-root text-stone-900">
       {/* Header */}
-      <div className="sticky top-0 z-30 border-b border-[#FE6100]/10 bg-[#fcf6f0]/95 backdrop-blur-xl">
+      <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-[#fcf6f0]/95 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 md:py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/urunler"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
                 aria-label="Ürünler listesine dön"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                   {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
                 </div>
                 {lastSaved ? (
@@ -466,7 +466,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 <button
                   onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-2.5 text-sm font-medium text-[#C94E00] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#faf5f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -481,7 +481,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       </div>
 
       {/* Stepper */}
-      <div className="border-b border-[#FE6100]/10 bg-gradient-to-b from-[#fcf6f0] to-[#f8f1ea]">
+      <div className="border-b border-[var(--admin-border)] bg-gradient-to-b from-[#fcf6f0] to-[#f8f1ea]">
         <div className="container mx-auto px-4 py-4">
           <WizardStepper
             steps={ADMIN_PRODUCT_WIZARD_STEPS}
@@ -495,16 +495,16 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       <div className="container mx-auto px-4 py-8 md:py-10">
         <div className="max-w-5xl mx-auto">
           {/* Step Title */}
-          <div className="mb-8 overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.1)]">
+          <div className="mb-8 overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
             <div className="relative px-6 py-6 md:px-8 md:py-7">
-              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FE6100]/10 blur-3xl" />
+              <div className="hidden" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-base font-bold text-white shadow-[0_16px_30px_rgba(254,97,0,0.25)]">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-base font-bold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)]">
                   {currentStep}
                   </span>
                   <div>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#FE6100]/12 bg-[#fff6ef] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C94E00]">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[#fff6ef] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent-hover)]">
                       Adım {currentStep}/{totalSteps}
                     </div>
                     <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-900 md:text-[2rem]">
@@ -515,8 +515,8 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                     </p>
                   </div>
                 </div>
-                <div className="rounded-[24px] border border-[#FE6100]/10 bg-white/80 px-4 py-3 text-sm text-stone-600 shadow-sm">
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FE6100]">
+                <div className="rounded-[24px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 text-sm text-stone-600 shadow-sm">
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
                     İlerleme
                   </span>
                   <span className="mt-1 block text-lg font-semibold text-stone-900">
@@ -533,7 +533,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
           </div>
 
           {/* Step Content */}
-          <div className="overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
+          <div className="overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
             {renderStep()}
           </div>
 
@@ -542,7 +542,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             <button
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
               Geri
@@ -551,7 +551,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             {currentStep < totalSteps ? (
               <button
                 onClick={handleNext}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(254,97,0,0.24)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
               >
                 İleri
                 <ChevronRight className="w-4 h-4" />
@@ -561,7 +561,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 <button
                   onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/12 bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -573,7 +573,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 <button
                   onClick={() => handleSave(true)}
                   disabled={saving}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-8 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(254,97,0,0.24)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE6100]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
                 >
                   {saving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />

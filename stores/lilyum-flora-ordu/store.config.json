@@ -1,0 +1,86 @@
+{
+  "name": "Lilyum Flora Ordu",
+  "slug": "lilyum-flora-ordu",
+  "status": "active",
+  "theme": {
+    "key": "leather",
+    "label": "Leather",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Ordunun bir numaralı çiçekçisi.",
+    "supportEmail": "destek@lilyumflora.net",
+    "supportPhone": "+90 545 628 41 52",
+    "senderEmail": "noreply@lilyumflora.net",
+    "smsSenderTitle": "LILYUMFLORA",
+    "defaultProductBrand": "Lilyum Flora Ordu"
+  },
+  "domains": {
+    "storefront": "lilyumflora.net",
+    "admin": "admin.lilyumflora.net"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "coolify:lilyum-flora-ordu:rnourf65cur29orhb47b10n1",
+    "url": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io",
+    "provider": "self_hosted_coolify",
+    "dashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "bucketName": "lilyum-flora-ordu-assets",
+    "publicUrl": "https://pub-2acb22775dc640c7861719d6fb9aadea.r2.dev",
+    "managedDomain": "pub-2acb22775dc640c7861719d6fb9aadea.r2.dev",
+    "provisioning": "configured"
+  },
+  "bootstrap": {
+    "createdAt": "2026-04-14T19:51:42.053Z",
+    "envTemplatePath": "stores/lilyum-flora-ordu/admin.env.example",
+    "adminEnvLocalPath": "stores/lilyum-flora-ordu/admin.env.local",
+    "coolifyProjectName": "Lilyum Flora Ordu",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Lilyum Flora Ordu admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.lilyumflora.net",
+    "adminDeploymentResourceId": "c892d2k143y52ynijoraqily",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-04-16T04:23:02.385Z",
+    "adminDeploymentDeployedAt": "2026-04-16T04:23:02.385Z",
+    "organizationSlug": "lilyum-flora-ordu",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProjectName": "lilyum-flora-ordu-db",
+    "supabaseResourceId": "rnourf65cur29orhb47b10n1",
+    "supabaseDashboardUrl": "https://supabasekong-lilyum-flora-ordu.46.225.183.57.sslip.io/project/default",
+    "provisionedAt": "2026-04-16T01:12:16.678Z",
+    "supabaseProvisioning": "configured"
+  },
+  "storefront": {
+    "appDir": "apps/storefront-lilyum-flora-ordu",
+    "status": "active",
+    "lastScaffoldedAt": "2026-04-16T01:23:31.309Z",
+    "repoSyncStatus": "synced",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Lilyum Flora Ordu websitesi",
+    "deploymentBranch": "deploy/storefront/lilyum-flora-ordu",
+    "runtimeUrl": "https://lilyumflora.net",
+    "resourceId": "u8ube66kvwpcmug91rsa81s4",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-04-16T01:23:31.309Z",
+    "deployedAt": "2026-04-16T01:23:31.308Z"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}

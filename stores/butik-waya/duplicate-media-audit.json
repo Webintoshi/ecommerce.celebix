@@ -1,0 +1,21 @@
+{
+  "storeSlug": "butik-waya",
+  "adminBaseUrl": "https://admin.celebix.site",
+  "dryRun": true,
+  "totalProducts": 611,
+  "affectedProducts": 0,
+  "updatedProducts": 0,
+  "failedProducts": 0,
+  "galleryExactDuplicatesRemoved": 0,
+  "galleryContentDuplicatesRemoved": 0,
+  "variantExactDuplicatesRemoved": 0,
+  "variantContentDuplicatesRemoved": 0,
+  "variantGalleryOverlapsRemoved": 0,
+  "attributeGalleryOverlapsRemoved": 0,
+  "attributeVariantOverlapsRemoved": 0,
+  "galleryHashMisses": 0,
+  "variantHashMisses": 0,
+  "attributeHashMisses": 0,
+  "samples": [],
+  "errors": []
+}

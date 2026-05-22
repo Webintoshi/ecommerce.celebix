@@ -258,7 +258,7 @@ export function OrderDetailClient({
     };
 
     const headerStatClass =
-        "rounded-[22px] border border-[#eadccd] bg-white/80 px-4 py-3 shadow-sm backdrop-blur";
+        "rounded-[22px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 shadow-sm backdrop-blur";
 
     const triggerInvoiceCreation = async () => {
         setIsAccountingActionLoading(true);
@@ -286,9 +286,9 @@ export function OrderDetailClient({
     return (
         <main className="min-h-screen bg-gradient-to-br from-[#faf7f2] via-[#f5eee7] to-[#ece0d3] text-stone-900">
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div className="absolute -top-24 right-[-5rem] h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-[#FE6100]/12 via-[#FFB067]/8 to-transparent blur-3xl" />
-                <div className="absolute left-[-4rem] top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 via-orange-100/10 to-transparent blur-3xl" />
-                <div className="absolute bottom-[-8rem] right-1/4 h-80 w-80 rounded-full bg-gradient-to-tl from-rose-100/20 via-[#FE6100]/8 to-transparent blur-3xl" />
+                <div className="hidden" />
+                <div className="hidden" />
+                <div className="hidden" />
             </div>
 
             <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
@@ -301,19 +301,19 @@ export function OrderDetailClient({
             </div>
 
                     {/* Top Navigation & Status */}
-                    <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[0_24px_80px_rgba(254,97,0,0.12)] no-print">
-                        <div className="flex flex-col gap-5 border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
+                    <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[var(--shadow-md)] no-print">
+                        <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                                 <Link
                                     href="/admin/siparisler"
-                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#FE6100]/12 bg-white text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                     <ArrowLeft className="h-5 w-5" />
                                 </Link>
 
                                 <div className="space-y-3">
                                     <div className="flex flex-wrap items-center gap-3">
-                                        <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                                        <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                                             Sipariş Detayı
                                         </div>
                                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusConfig.color}`}>
@@ -333,7 +333,7 @@ export function OrderDetailClient({
                                 <Link
                                     href={`/admin/siparisler/${order.id}/yazdir`}
                                     target="_blank"
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#FE6100]/15 bg-white px-4 py-3 text-sm font-medium text-[#8a4b22] shadow-sm transition-all hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                     <Printer className="h-4 w-4" />
                                     Yazdır
@@ -342,7 +342,7 @@ export function OrderDetailClient({
                                     onClick={() => {
                                         alert("Fatura indiriliyor...");
                                     }}
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#d95a00] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(254,97,0,0.24)] transition-all hover:from-[#f56a12] hover:to-[#c94d00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#f56a12] hover:to-[#c94d00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                     <Download className="h-4 w-4" />
                                     Fatura
@@ -350,7 +350,7 @@ export function OrderDetailClient({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-px bg-gradient-to-r from-[#FE6100]/10 via-[#FF8B3D]/5 to-[#FE6100]/10 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-px bg-[#EEF1F4] md:grid-cols-3">
                             <div className={headerStatClass}>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Ödeme</p>
                                 <p className="mt-2 text-base font-semibold text-stone-900">{paymentMethodName}</p>
@@ -385,10 +385,10 @@ export function OrderDetailClient({
             />
 
             {/* Accounting Snapshot */}
-                    <div className="rounded-[28px] border border-[#eadccd] bg-white/85 p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">
+                    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                                <div className="inline-flex items-center rounded-full border border-[#ecdccd] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a5b3c]">
+                                <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
                                     Muhasebe Durumu
                                 </div>
                                 <p className="mt-3 text-sm font-semibold text-stone-900">Fatura entegrasyonu ve senkron bilgisi</p>
@@ -435,7 +435,7 @@ export function OrderDetailClient({
                                 href={accountingSnapshot.invoiceUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                        className="mt-2 block break-all text-sm font-semibold text-[#C54E00] hover:text-[#a84300]"
+                                        className="mt-2 block break-all text-sm font-semibold text-[var(--admin-accent-hover)] hover:text-[#a84300]"
                             >
                                 Görüntüle
                             </a>

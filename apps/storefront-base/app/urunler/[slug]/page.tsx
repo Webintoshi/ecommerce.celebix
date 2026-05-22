@@ -1,7 +1,11 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/product/ProductDetailClient";
-import { getProductBySlug } from "@/lib/products";
+import {
+  getProductBySlug,
+  getProductGroupsForProduct,
+  type ProductGroupDisplayGroup,
+} from "@/lib/products";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
@@ -9,9 +13,11 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { buildAbsoluteRequestUrl } from "@/lib/request-origin";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
+import { translateProductCollection, translateProductRecord } from "@/lib/translation";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
@@ -89,17 +95,19 @@ export async function generateMetadata({
     });
   }
 
+  const translatedProduct = await translateProductRecord(product, locale);
+
   return buildStorePageMetadata({
     locale,
     pathname: `/urunler/${baseSlug}`,
-    title: product.seo_title || product.name,
+    title: translatedProduct.seoTitle || translatedProduct.name,
     description:
-      product.seo_description ||
-      product.shortDescription ||
-      extractPlainTextFromProductDescription(product.description, product.name).slice(0, 160) ||
+      translatedProduct.seoDescription ||
+      translatedProduct.shortDescription ||
+      extractPlainTextFromProductDescription(translatedProduct.description, translatedProduct.name).slice(0, 160) ||
       "",
-    keywords: product.tags,
-    image: product.images && product.images.length > 0 ? product.images[0] : null,
+    keywords: translatedProduct.tags,
+    image: translatedProduct.images && translatedProduct.images.length > 0 ? translatedProduct.images[0] : null,
     type: "website",
   });
 }
@@ -115,9 +123,11 @@ export default async function ProductDetailPage({
   const { slug: urlSlug } = await params;
   const parsedSlug = parseProductSlug(urlSlug);
   const { baseSlug } = parsedSlug;
+  const locale = await getRequestLocale();
 
   let product = null;
   let relatedProducts: any[] = [];
+  let groupedProducts: ProductGroupDisplayGroup[] = [];
 
   try {
     const supabase = createServerClient();
@@ -235,6 +245,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  product = await translateProductRecord(product, locale);
+
   let selectedVariantIndex = 0;
   if (product.variants && product.variants.length > 0) {
     selectedVariantIndex =
@@ -250,14 +262,60 @@ export default async function ProductDetailPage({
     relatedProducts = [];
   }
 
+  relatedProducts = await translateProductCollection(relatedProducts, locale);
+
+  if (product?.id) {
+    try {
+      groupedProducts = await getProductGroupsForProduct(product.id);
+      groupedProducts = await Promise.all(
+        groupedProducts.map(async (group) => ({
+          ...group,
+          items: await Promise.all(
+            group.items.map(async (item) => {
+              const translated = await translateProductRecord(
+                {
+                  id: item.productId,
+                  name: item.name,
+                  slug: item.slug,
+                  description: "",
+                  shortDescription: "",
+                  category: product.category,
+                  subcategory: product.subcategory,
+                  variants: [],
+                  images: item.image ? [item.image] : [],
+                  tags: [],
+                  vegan: false,
+                  glutenFree: false,
+                  sugarFree: false,
+                  highProtein: false,
+                  rating: 0,
+                  reviewCount: 0,
+                },
+                locale,
+              );
+
+              return {
+                ...item,
+                name: translated.name,
+              };
+            }),
+          ),
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to fetch grouped products for storefront product detail:", error);
+      groupedProducts = [];
+    }
+  }
+
   const variant = product.variants?.[selectedVariantIndex || 0];
   const storeName = STOREFRONT_RUNTIME.name;
-  const locale = await getRequestLocale();
   const copy = getLocalizedCopy(locale);
+  const routing = await getLocaleRoutingConfig();
   const [homeUrl, productsUrl, productUrl] = await Promise.all([
-    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale)),
-    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale)),
-    buildAbsoluteRequestUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/", locale, routing)),
+    buildAbsoluteRequestUrl(buildLocalizedPath("/urunler", locale, routing)),
+    buildAbsoluteRequestUrl(buildLocalizedPath(`/urunler/${baseSlug}`, locale, routing)),
   ]);
 
   const jsonLd = variant
@@ -346,6 +404,7 @@ export default async function ProductDetailPage({
         slug={baseSlug}
         initialProduct={product}
         initialRelatedProducts={relatedProducts}
+        groupedProducts={groupedProducts}
         initialVariantIndex={selectedVariantIndex}
       />
     </>

@@ -3,6 +3,7 @@ import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
@@ -28,15 +29,17 @@ const HOME_UI_COPY = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
+  const routing = await getLocaleRoutingConfig();
   const copy = getLocalizedCopy(locale);
-  const localizedHome = buildLocalizedPath("/", locale);
+  const localizedHome = buildLocalizedPath("/", locale, routing);
+  const languageAlternates = buildLocaleAlternates("/", routing);
 
   return {
     title: copy.homeTitle,
     description: copy.homeDescription,
     alternates: {
       canonical: localizedHome,
-      languages: buildLocaleAlternates("/"),
+      ...(languageAlternates ? { languages: languageAlternates } : {}),
     },
     openGraph: {
       title: copy.homeTitle,
@@ -56,21 +59,22 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, storeInfo, requestOrigin] = await Promise.all([
+  const [homepageData, storeInfo, requestOrigin, routing] = await Promise.all([
     getHomepageData(locale),
     getStoreInfo(),
     getRequestOrigin(),
+    getLocaleRoutingConfig(),
   ]);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
     ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
     : STOREFRONT_RUNTIME.description;
-  const localizedHomeUrl = new URL(buildLocalizedPath("/", locale), requestOrigin).toString();
+  const localizedHomeUrl = new URL(buildLocalizedPath("/", locale, routing), requestOrigin).toString();
   const localizedProductsUrl = new URL(
-    buildLocalizedPath("/urunler", locale),
+    buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/magazalarimiz", locale);
+  const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)

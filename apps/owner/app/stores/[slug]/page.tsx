@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { CreateStoreAdminForm } from "@/components/CreateStoreAdminForm";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import { MigrateStoreDomainForm } from "@/components/MigrateStoreDomainForm";
 import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeploymentButton";
+import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDeploymentAuthorityButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
-import { RepairProjectButton } from "@/components/RepairProjectButton";
+import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
@@ -26,6 +29,34 @@ function readDateValue(value: unknown): string | null {
   return parsed ? formatDateTime(parsed) : "-";
 }
 
+function buildDeploymentAuthorityNote(
+  target: {
+    status: "repaired" | "already_configured" | "missing";
+    branchChanged: boolean;
+    autoDeployChanged: boolean;
+    desiredBranch: string;
+  } | null,
+): string | null {
+  if (!target) {
+    return null;
+  }
+
+  if (target.status === "repaired") {
+    const fragments = [
+      target.branchChanged ? `branch ${target.desiredBranch}` : null,
+      target.autoDeployChanged ? "auto deploy" : null,
+    ].filter(Boolean);
+
+    return `Authority self-heal: ${fragments.join(" + ") || "ayarlar"} onarildi.`;
+  }
+
+  if (target.status === "missing") {
+    return "Coolify resource'u bulunamadi; deployment authority sonraki provisioning adiminda kurulacak.";
+  }
+
+  return null;
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
   const auth = await requireOwnerAuth();
   const { slug } = await params;
@@ -36,19 +67,32 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
     notFound();
   }
 
+  const deploymentAuthorityRepair = superAdmin
+    ? await repairStoreDeploymentAuthorityOnce(store.slug)
+    : null;
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
   const storefrontDeployment = await getStorefrontDeploymentBlueprint(store.slug).catch(() => null);
+  const storefrontDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
+    (target) => target.target === "storefront",
+  ) ?? null;
+  const adminDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
+    (target) => target.target === "admin",
+  ) ?? null;
+  const storefrontDeploymentAuthorityNote = buildDeploymentAuthorityNote(storefrontDeploymentAuthority);
+  const adminDeploymentAuthorityNote = buildDeploymentAuthorityNote(adminDeploymentAuthority);
   const bootstrap = (store.bootstrap ?? {}) as Record<string, unknown>;
   const supabaseProjectName = readStringValue(bootstrap.supabaseProjectName);
   const supabaseResourceId = readStringValue(bootstrap.supabaseResourceId);
   const supabaseProvisioning = readStringValue(bootstrap.supabaseProvisioning);
   const supabaseDashboardUrl = readStringValue(bootstrap.supabaseDashboardUrl) || store.supabaseDashboardUrl;
   const adminDeploymentName = readStringValue(bootstrap.adminDeploymentName);
+  const adminDeploymentBranch = readStringValue(bootstrap.adminDeploymentBranch);
   const adminDeploymentStatus = readStringValue(bootstrap.adminDeploymentStatus);
   const adminDeploymentRuntimeUrl = readStringValue(bootstrap.adminDeploymentRuntimeUrl);
   const adminDeploymentPreparedAt = readDateValue(bootstrap.adminDeploymentPreparedAt);
   const storefrontConfig = (store.storefront ?? {}) as Record<string, unknown>;
   const storefrontDeploymentName = readStringValue(storefrontConfig.deploymentName);
+  const storefrontDeploymentBranch = readStringValue(storefrontConfig.deploymentBranch);
   const storefrontDeploymentStatus = readStringValue(storefrontConfig.deploymentStatus);
   const storefrontRuntimeUrl = readStringValue(storefrontConfig.runtimeUrl);
   const storefrontRepoSyncStatus = readStringValue(storefrontConfig.repoSyncStatus);
@@ -60,9 +104,6 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const createdAt = formatDateTime(store.createdAt);
   const updatedAt = formatDateTime(store.updatedAt);
   const provisioning = store.provisioning;
-  const pendingProvisioningSteps = provisioning.steps.filter(
-    (step) => step.status === "failed" || step.status === "pending",
-  );
   const subscription = store.management.subscription;
   const subscriptionStatusClass =
     subscription.status === "active" ? "pill-success" : "pill-accent";
@@ -203,11 +244,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Secret Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Drift"}</strong></span>
             <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
             <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
+            <span>Admin Branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
             <span>R2 Public URL: <strong>{store.r2PublicUrl || "-"}</strong></span>
             <span>R2 Managed Domain: <strong>{store.r2ManagedDomain || "-"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
             <span>Storefront Domain: <strong>{store.storefrontDomain}</strong></span>
+            <span>Storefront Branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
             <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
             <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
@@ -353,46 +396,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </div>
 
-      <div className="card section-tight">
-        <div className="section-head">
-          <div>
-            <div className="card-title">Provisioning Lifecycle</div>
-            <p className="section-copy">
-              Owner panel create ve repair akisinin hangi adimda oldugunu bu bloktan izle.
-            </p>
-          </div>
-          {superAdmin ? <RepairProjectButton slug={store.slug} /> : null}
-        </div>
-        <div className="meta-pairs">
-          <span>State: <strong>{provisioning.state}</strong></span>
-          <span>Last Run: <strong>{formatDateTime(provisioning.lastRunAt)}</strong></span>
-          <span>Blocking Step: <strong>{provisioning.blockingStepCount}</strong></span>
-          <span>Failed Step: <strong>{provisioning.failedStepCount}</strong></span>
-          <span>Pending Step: <strong>{provisioning.pendingStepCount}</strong></span>
-        </div>
-        {provisioning.lastError ? (
-          <p className="card-note">Son hata: {provisioning.lastError}</p>
-        ) : (
-          <p className="card-note">Provisioning metadata owner authority icinde senkron tutuluyor.</p>
-        )}
-        {pendingProvisioningSteps.length > 0 ? (
-          <div className="stack-list stack-top-md">
-            {pendingProvisioningSteps.map((step) => (
-              <div key={step.key} className="inline-card">
-                <div>
-                  <strong>{step.key}</strong>
-                  <p>{step.message || step.status}</p>
-                </div>
-                <div className="actions compact-actions">
-                  <span className={`pill ${step.status === "failed" ? "pill-accent" : "pill-success"}`}>
-                    {step.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <ProvisioningLifecycleCard
+        slug={store.slug}
+        storeName={store.name}
+        provisioning={provisioning}
+        superAdmin={superAdmin}
+      />
 
       <div className="card section-tight">
         <div className="card-title">Storefront Deployment Blueprint</div>
@@ -400,6 +409,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <>
             <div className="actions compact-actions stack-top-sm">
               <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
+              {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} /> : null}
             </div>
             <div className="meta-pairs">
               <span>Deployment Name: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
@@ -418,9 +428,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Start: <strong>{storefrontDeployment.startCommand}</strong></span>
             </div>
             <p className="card-note">
-              {storefrontDeployment.runtimeMessage
-                ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
-                : "Storefront deployment standardi owner tarafinda hazir."}
+              {storefrontDeploymentAuthorityNote ||
+                (storefrontDeployment.runtimeMessage
+                  ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
+                  : "Storefront deployment standardi owner tarafinda hazir.")}
             </p>
           </>
         ) : (
@@ -447,9 +458,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Start: <strong>{adminDeployment.startCommand}</strong></span>
             </div>
             <p className="card-note">
-              {adminDeployment.runtimeMessage
-                ? `Deployment notu: ${adminDeployment.runtimeMessage}`
-                : "Bu store icin admin deployment standardi owner tarafinda hazir."}
+              {adminDeploymentAuthorityNote ||
+                (adminDeployment.runtimeMessage
+                  ? `Deployment notu: ${adminDeployment.runtimeMessage}`
+                  : "Bu store icin admin deployment standardi owner tarafinda hazir.")}
             </p>
           </>
         ) : (
@@ -490,6 +502,19 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {/* Forms - Only for Super Admin */}
       {superAdmin ? (
         <>
+          <div className="card section-tight">
+            <div className="card-title">Demo Domain'den Custom Domain'e Gecis</div>
+            <p className="section-copy">
+              Demo subdomain ile kurulan magazayi owner panelden kontrollu sekilde gercek domaine tasir.
+            </p>
+            <MigrateStoreDomainForm
+              slug={store.slug}
+              storefrontDomain={store.storefrontDomain}
+              adminDomain={store.adminDomain}
+              domainMigration={store.domainMigration}
+            />
+          </div>
+
           <div className="card section-tight">
             <div className="card-title">Proje Profilini Guncelle</div>
             <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>

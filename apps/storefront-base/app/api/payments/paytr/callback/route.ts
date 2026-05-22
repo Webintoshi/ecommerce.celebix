@@ -5,9 +5,8 @@ import {
     getPaymentAttemptByProviderReferenceId,
     updatePaymentAttempt,
 } from "@/lib/db/payment-attempts";
-import { updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
-import { enqueueAndProcessInvoiceForOrder } from "@/lib/db/accounting";
 import { verifyPaytrCallback } from "@/lib/payment-runtime";
+import { settleFailedPaymentAttempt, settleSuccessfulPaymentAttempt } from "@/lib/payment-attempt-settlement";
 
 export async function POST(request: NextRequest) {
     try {
@@ -39,10 +38,11 @@ export async function POST(request: NextRequest) {
         });
 
         await createPaymentWebhookEvent({
-            provider: "paytr",
+            provider: gateway.gateway,
             gatewayId: gateway.id,
             paymentAttemptId: attempt.id,
-            orderId: attempt.order_id,
+            orderId: attempt.order_id ?? undefined,
+            quickOrderLinkId: attempt.quick_order_link_id ?? undefined,
             eventType: "callback",
             status: isValid ? "received" : "invalid_signature",
             signature: receivedHash,
@@ -65,16 +65,10 @@ export async function POST(request: NextRequest) {
             errorMessage: success ? null : failedReasonMsg,
         });
 
-        await updatePaymentStatus(attempt.order_id, success ? "completed" : "failed");
         if (success) {
-            await updateOrderStatus(attempt.order_id, "confirmed");
-            try {
-                await enqueueAndProcessInvoiceForOrder(attempt.order_id);
-            } catch (accountingError) {
-                console.error("Accounting queue error (paytr):", accountingError);
-            }
+            await settleSuccessfulPaymentAttempt(attempt);
         } else {
-            await updateOrderStatus(attempt.order_id, "cancelled");
+            await settleFailedPaymentAttempt(attempt);
         }
 
         return new NextResponse("OK", {

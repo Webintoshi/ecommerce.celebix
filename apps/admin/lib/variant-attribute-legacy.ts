@@ -20,7 +20,7 @@ export function normalizeVariantAttributeToken(value: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/Ã„Â±/g, "i")
+    .replace(/ı/g, "i")
     .replace(/[^a-z0-9\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

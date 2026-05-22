@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 
 // Static product data for migration
 const PRODUCTS_TO_MIGRATE = [
@@ -169,6 +170,11 @@ const CATEGORIES_TO_MIGRATE = [
 
 export async function POST(request: NextRequest) {
     try {
+        const { response } = await requireAdminApiAuth({ roles: ["super_admin"] });
+        if (response) {
+            return response;
+        }
+
         const serverClient = createServerClient();
 
         const results = {

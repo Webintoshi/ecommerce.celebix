@@ -5,6 +5,24 @@ import { runProductsQuery } from "@/lib/products-query-compat";
 
 export type { Product } from "@/types/product";
 
+export interface ProductGroupDisplayItem {
+  productId: string;
+  name: string;
+  slug: string;
+  image: string | null;
+  price: number | null;
+  stock: number | null;
+  status: string | null;
+  sortOrder: number;
+}
+
+export interface ProductGroupDisplayGroup {
+  id: string;
+  name: string;
+  slug: string | null;
+  items: ProductGroupDisplayItem[];
+}
+
 // Default Ürün Verileri
 const DEFAULT_PRODUCTS: Product[] = [
   // Fıstık Ezmeleri
@@ -677,6 +695,212 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
   }
 
   return data?.[0];
+}
+
+function resolveProductDisplayImage(product: Record<string, unknown>) {
+  const imagesV2 = Array.isArray(product.images_v2)
+    ? (product.images_v2 as Array<string | { url?: string }>)
+        .map((image) => (typeof image === "string" ? image : image?.url ?? ""))
+        .filter((image) => image.length > 0)
+    : [];
+
+  const images = Array.isArray(product.images)
+    ? (product.images as unknown[])
+        .filter((image): image is string => typeof image === "string" && image.length > 0)
+    : [];
+
+  return images[0] || imagesV2[0] || null;
+}
+
+export async function getProductGroupsForProduct(
+  productId: string,
+): Promise<ProductGroupDisplayGroup[]> {
+  if (!productId?.trim()) {
+    return [];
+  }
+
+  const { createServerClient } = await import("@/lib/supabase");
+  const supabase = createServerClient();
+
+  const { data: currentGroupItems, error: currentGroupItemsError } = await supabase
+    .from("product_group_items")
+    .select("product_group_id")
+    .eq("product_id", productId);
+
+  if (currentGroupItemsError) {
+    throw currentGroupItemsError;
+  }
+
+  const groupIds = [
+    ...new Set(
+      ((currentGroupItems || []) as Array<{ product_group_id: string | null }>)
+        .map((item) => item.product_group_id || "")
+        .filter(Boolean),
+    ),
+  ];
+
+  if (groupIds.length === 0) {
+    return [];
+  }
+
+  const { data: groups, error: groupsError } = await supabase
+    .from("product_groups")
+    .select("id, name, slug, status")
+    .in("id", groupIds)
+    .eq("status", "active");
+
+  if (groupsError) {
+    throw groupsError;
+  }
+
+  const activeGroups = (groups || []) as Array<{
+    id: string;
+    name: string;
+    slug: string | null;
+    status: string | null;
+  }>;
+
+  if (activeGroups.length === 0) {
+    return [];
+  }
+
+  const activeGroupIds = activeGroups.map((group) => group.id);
+  const { data: allGroupItems, error: allGroupItemsError } = await supabase
+    .from("product_group_items")
+    .select("product_group_id, product_id, sort_order")
+    .in("product_group_id", activeGroupIds)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (allGroupItemsError) {
+    throw allGroupItemsError;
+  }
+
+  const relevantItems = ((allGroupItems || []) as Array<{
+    product_group_id: string;
+    product_id: string;
+    sort_order: number | null;
+  }>).filter((item) => item.product_id !== productId);
+
+  if (relevantItems.length === 0) {
+    return [];
+  }
+
+  const relatedProductIds = [...new Set(relevantItems.map((item) => item.product_id).filter(Boolean))];
+
+  const { data: products, error: productsError } = await runProductsQuery((includeIsActiveFilter) => {
+    let query = supabase
+      .from("products")
+      .select("id, name, slug, images, images_v2, status, is_active, is_draft")
+      .in("id", relatedProductIds);
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query.or("status.eq.published,status.is.null");
+  });
+
+  if (productsError) {
+    throw productsError;
+  }
+
+  if (!products || products.length === 0) {
+    return [];
+  }
+
+  const visibleProducts = products as Array<Record<string, unknown>>;
+  const visibleProductIds = visibleProducts
+    .map((product) => (typeof product.id === "string" ? product.id : ""))
+    .filter(Boolean);
+
+  const { data: variants, error: variantsError } = await supabase
+    .from("product_variants")
+    .select("product_id, price, stock, created_at")
+    .in("product_id", visibleProductIds)
+    .order("created_at", { ascending: true });
+
+  if (variantsError) {
+    throw variantsError;
+  }
+
+  const productMap = new Map(
+    visibleProducts.map((product) => [String(product.id), product]),
+  );
+
+  const primaryVariantMap = new Map<string, { price: number | null; stock: number | null }>();
+  ((variants || []) as Array<{
+    product_id: string;
+    price: number | string | null;
+    stock: number | string | null;
+  }>).forEach((variant) => {
+    if (!primaryVariantMap.has(variant.product_id)) {
+      primaryVariantMap.set(variant.product_id, {
+        price:
+          variant.price === null || variant.price === undefined
+            ? null
+            : Number(variant.price),
+        stock:
+          variant.stock === null || variant.stock === undefined
+            ? null
+            : Number(variant.stock),
+      });
+    }
+  });
+
+  const groupMap = new Map(
+    activeGroups.map((group) => [group.id, group]),
+  );
+
+  return activeGroupIds
+    .map((groupId) => {
+      const group = groupMap.get(groupId);
+      if (!group) {
+        return null;
+      }
+
+      const seenProductIds = new Set<string>();
+      const items = relevantItems
+        .filter((item) => item.product_group_id === groupId)
+        .map((item) => {
+          const product = productMap.get(item.product_id);
+          if (!product || seenProductIds.has(item.product_id)) {
+            return null;
+          }
+
+          const slug = typeof product.slug === "string" ? product.slug : "";
+          if (!slug) {
+            return null;
+          }
+
+          seenProductIds.add(item.product_id);
+          const variant = primaryVariantMap.get(item.product_id);
+
+          return {
+            productId: item.product_id,
+            name: typeof product.name === "string" ? product.name : "Ürün",
+            slug,
+            image: resolveProductDisplayImage(product),
+            price: variant?.price ?? null,
+            stock: variant?.stock ?? null,
+            status: typeof product.status === "string" ? product.status : null,
+            sortOrder: Number(item.sort_order || 0),
+          } satisfies ProductGroupDisplayItem;
+        })
+        .filter((item): item is ProductGroupDisplayItem => Boolean(item));
+
+      if (items.length === 0) {
+        return null;
+      }
+
+      return {
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        items,
+      } satisfies ProductGroupDisplayGroup;
+    })
+    .filter((group): group is ProductGroupDisplayGroup => Boolean(group));
 }
 
 export function getProductsByCategory(category: string): Product[] {

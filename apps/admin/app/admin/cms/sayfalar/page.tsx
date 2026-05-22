@@ -20,7 +20,6 @@ function resolvePageState(hasContent: boolean, status: "published" | "draft" | "
       badgeLabel: "Yayında",
       badgeClassName:
         "border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-      description: "Storefront'ta yayında görünür.",
     };
   }
 
@@ -31,14 +30,12 @@ function resolvePageState(hasContent: boolean, status: "published" | "draft" | "
         status === "archived"
           ? "border-stone-200 bg-stone-100 text-stone-700 ring-1 ring-stone-100"
           : "border-amber-200 bg-amber-50 text-amber-800 ring-1 ring-amber-100",
-      description: "İçerik yayınlanana kadar storefront'ta ana içerik olarak kullanılmaz.",
     };
   }
 
   return {
     badgeLabel: "Hazır değil",
     badgeClassName: "border-stone-200 bg-stone-100 text-stone-700 ring-1 ring-stone-100",
-    description: "Bu sabit sayfa için henüz içerik girilmedi.",
   };
 }
 
@@ -83,7 +80,7 @@ export default function PagesListingPage() {
   const missingCount = cards.length - readyCount - draftCount;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#f7efe2_45%,#f4ecdf_100%)] p-6 md:p-8">
+    <div className="admin-page-root p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[28px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_20px_60px_-30px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -93,12 +90,8 @@ export default function PagesListingPage() {
               </span>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  Sabit sayfa içeriğini tek bakışta yönetin
+                  Kurumsal Sayfalar
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
-                  Ortak adminde yalnızca mağaza içeriği gireceğiniz sabit sayfalar yer alır. Yeni
-                  sayfa oluşturma kapatıldı; mevcut akış korunur.
-                </p>
               </div>
             </div>
 
@@ -141,23 +134,22 @@ export default function PagesListingPage() {
                       </div>
                     </div>
 
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${state.badgeClassName}`}>
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${state.badgeClassName}`}
+                    >
                       {state.badgeLabel}
                     </span>
                   </div>
 
-                  <div className="mt-6 rounded-2xl border border-stone-200 bg-[linear-gradient(135deg,#fffdf8_0%,#f8f1e7_100%)] p-4">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Durum notu
-                    </div>
-                    <p className="text-sm leading-6 text-stone-700">{state.description}</p>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     <InfoPill label="Yol" value={`/${entry.slug}`} />
                     <InfoPill
                       label="Son güncelleme"
-                      value={entry.page?.updatedAt ? entry.page.updatedAt.toLocaleDateString("tr-TR") : "Henüz içerik girilmedi"}
+                      value={
+                        entry.page?.updatedAt
+                          ? entry.page.updatedAt.toLocaleDateString("tr-TR")
+                          : "Henüz içerik girilmedi"
+                      }
                     />
                   </div>
 
@@ -231,9 +223,6 @@ function LoadingState() {
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-stone-900">Sayfalar yükleniyor</h2>
-        <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">
-          Sabit sayfa kartları hazırlanıyor ve mevcut içerik durumu listeleniyor.
-        </p>
       </div>
     </section>
   );

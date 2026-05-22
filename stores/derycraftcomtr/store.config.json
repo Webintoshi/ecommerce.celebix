@@ -1,0 +1,88 @@
+{
+  "name": "DeryCraft 2",
+  "slug": "derycraftcomtr",
+  "status": "draft",
+  "theme": {
+    "key": "leather",
+    "label": "Leather",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "El yapımı deri aksesuarlar",
+    "supportEmail": "destek@derycraft.com.tr",
+    "supportPhone": "+90 531 831 00 23",
+    "senderEmail": "noreply@derycraft.com.tr",
+    "smsSenderTitle": "DERYCRAFTCO",
+    "defaultProductBrand": "DeryCraft 2"
+  },
+  "domains": {
+    "storefront": "derycraft.com.tr",
+    "admin": "admin.derycraft.com.tr"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "coolify:derycraftcomtr:ay5xmnd0cu2mwveiswxwrw1p",
+    "url": "https://supabasekong-derycraftcomtr.46.225.183.57.sslip.io",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "bucketName": "derycraftcomtr-assets",
+    "publicUrl": "https://pub-9f7377974ec94d2aad53ff327582935f.r2.dev",
+    "managedDomain": "pub-9f7377974ec94d2aad53ff327582935f.r2.dev",
+    "provisionedAt": "2026-05-19T12:59:28.317Z",
+    "provisioning": "configured"
+  },
+  "bootstrap": {
+    "createdAt": "2026-05-18T21:06:07.520Z",
+    "envTemplatePath": "stores/derycraftcomtr/admin.env.example",
+    "adminEnvLocalPath": "stores/derycraftcomtr/admin.env.local",
+    "coolifyProjectName": "DeryCraft 2",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "DeryCraft 2 admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.derycraft.com.tr",
+    "adminDeploymentResourceId": "h1476oheippkjbxoiwhtbd14",
+    "adminDeploymentStatus": "configured",
+    "adminDeploymentPreparedAt": "2026-05-19T12:59:28.318Z",
+    "adminDeploymentDeployedAt": "2026-05-19T12:59:28.292Z",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProjectName": "DeryCraft 2",
+    "supabaseResourceId": "ay5xmnd0cu2mwveiswxwrw1p",
+    "provisionedAt": "2026-05-19T12:59:28.295Z",
+    "supabaseProvisioning": "configured"
+  },
+  "storefront": {
+    "appDir": "apps/storefront-derycraftcomtr",
+    "status": "active",
+    "lastScaffoldedAt": "2026-05-19T13:53:46.999Z",
+    "repoSyncStatus": "synced",
+    "repoSyncedAt": "2026-05-19T14:06:25.252Z",
+    "lastRepoSyncedAt": "2026-05-19T14:06:25.252Z",
+    "repoCommitSha": "da1515f14f379ee26a48f5aebf14180227ef52a4",
+    "deploymentProvider": "coolify",
+    "deploymentName": "DeryCraft 2 websitesi",
+    "deploymentBranch": "deploy/storefront/derycraftcomtr",
+    "runtimeUrl": "https://derycraft.com.tr",
+    "resourceId": "gy6u529zgkcdgra27ib77m01",
+    "deploymentStatus": "configured",
+    "preparedAt": "2026-05-19T14:02:47.463Z",
+    "lastDeploymentPreparedAt": "2026-05-19T14:02:47.463Z",
+    "deployedAt": "2026-05-19T17:27:58.394Z"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}

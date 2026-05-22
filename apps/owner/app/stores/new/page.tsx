@@ -1,3 +1,7 @@
+import {
+  getDefaultAdminDeploymentBranch,
+  getStorefrontDeploymentBranchPrefix,
+} from "@/lib/platform-config-owner";
 import { CreateStoreForm } from "@/components/CreateStoreForm";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getLightPostgresBootstrapStatus } from "@/lib/light-postgres-provisioning";
@@ -27,7 +31,10 @@ export default async function NewStorePage() {
       </div>
 
       <div className="card card-cap">
-        <CreateStoreForm />
+        <CreateStoreForm
+          ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
+          storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
+        />
       </div>
     </>
   );

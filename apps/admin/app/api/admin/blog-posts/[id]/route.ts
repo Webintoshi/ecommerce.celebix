@@ -12,7 +12,7 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Blog yazisi islenemedi.";
+  return "Blog yazısı işlenemedi.";
 }
 
 function getErrorStatus(error: unknown): number {

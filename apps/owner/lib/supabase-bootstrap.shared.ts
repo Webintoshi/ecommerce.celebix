@@ -29,16 +29,32 @@ export interface SupabaseProvisioningResult {
   resourceId?: string;
 }
 
+const SELF_HOSTED_ONLY_MESSAGE =
+  "Managed Supabase kapali. Owner panel yalnizca self-hosted Coolify Supabase provision eder.";
+
+function readConfiguredSupabaseProvider(): string | null {
+  const value = process.env.SUPABASE_PROVIDER?.trim().toLowerCase();
+  return value || null;
+}
+
+export function getSupabaseBootstrapPolicyViolation(): string | null {
+  const configuredProvider = readConfiguredSupabaseProvider();
+
+  if (configuredProvider === "managed") {
+    return `${SELF_HOSTED_ONLY_MESSAGE} SUPABASE_PROVIDER=managed kullanilamaz.`;
+  }
+
+  return null;
+}
+
 export function resolveSupabaseBootstrapProvider(): SupabaseProvider {
-  const explicit = process.env.SUPABASE_PROVIDER?.trim().toLowerCase();
+  return "self_hosted_coolify";
+}
 
-  if (explicit === "self_hosted_coolify") {
-    return "self_hosted_coolify";
+export function assertSelfHostedSupabaseBootstrapPolicy(): void {
+  const violation = getSupabaseBootstrapPolicyViolation();
+
+  if (violation) {
+    throw new Error(violation);
   }
-
-  if (explicit === "managed") {
-    return "managed";
-  }
-
-  return process.env.COOLIFY_API_URL?.trim() ? "self_hosted_coolify" : "managed";
 }

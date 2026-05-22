@@ -2,11 +2,16 @@ import Link from "next/link";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { formatCurrency, formatDateTime, formatPercent } from "@/lib/formatters";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
+import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOwnerDashboard } from "@/lib/control-plane";
 
 export default async function OwnerDashboardPage() {
   const auth = await requireOwnerAuth("/");
   const superAdmin = isSuperAdmin(auth);
+
+  if (superAdmin) {
+    await repairOwnerDeploymentBranchOnce();
+  }
   
   let dashboardError: string | null = null;
   let dashboard: Awaited<ReturnType<typeof getOwnerDashboard>> | null = null;

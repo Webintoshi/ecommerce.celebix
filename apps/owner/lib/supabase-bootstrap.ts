@@ -4,10 +4,8 @@ import {
   provisionSupabaseForStore as provisionCoolifySupabaseForStore,
 } from "@/lib/supabase-bootstrap-coolify";
 import {
-  getSupabaseBootstrapStatus as getManagedSupabaseBootstrapStatus,
-  provisionSupabaseForStore as provisionManagedSupabaseForStore,
-} from "@/lib/supabase-bootstrap-managed";
-import {
+  assertSelfHostedSupabaseBootstrapPolicy,
+  getSupabaseBootstrapPolicyViolation,
   resolveSupabaseBootstrapProvider,
   type SupabaseBootstrapStatus,
   type SupabaseProvisioningResult,
@@ -20,9 +18,18 @@ export function getActiveSupabaseBootstrapProvider() {
 }
 
 export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapStatus> {
-  return resolveSupabaseBootstrapProvider() === "self_hosted_coolify"
-    ? getCoolifySupabaseBootstrapStatus()
-    : getManagedSupabaseBootstrapStatus();
+  const status = await getCoolifySupabaseBootstrapStatus();
+  const policyViolation = getSupabaseBootstrapPolicyViolation();
+
+  if (policyViolation) {
+    return {
+      ...status,
+      configured: false,
+      lastError: policyViolation,
+    };
+  }
+
+  return status;
 }
 
 export async function provisionSupabaseForStore(store: StoreConfig): Promise<SupabaseProvisioningResult> {
@@ -32,7 +39,6 @@ export async function provisionSupabaseForStore(store: StoreConfig): Promise<Sup
     );
   }
 
-  return resolveSupabaseBootstrapProvider() === "self_hosted_coolify"
-    ? provisionCoolifySupabaseForStore(store)
-    : provisionManagedSupabaseForStore(store);
+  assertSelfHostedSupabaseBootstrapPolicy();
+  return provisionCoolifySupabaseForStore(store);
 }

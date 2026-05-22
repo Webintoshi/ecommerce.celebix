@@ -60,8 +60,8 @@ const DEMO_REVIEWS = [
 ];
 
 const STORE_INFO_VALUE = {
-  name: "Test1 Atelier",
-  email: "destek@test1.46.225.183.57.sslip.io",
+  name: "Demo Atelier",
+  email: "demo@celebix.co",
   phone: "+90 532 000 00 00",
   address: "Galata, Beyoglu / Istanbul",
   currency: "TRY",
@@ -97,8 +97,8 @@ const MARQUEE_SETTINGS_VALUE = {
 };
 
 const SEO_SETTINGS_VALUE = {
-  titleTemplate: "%s | Test1 Atelier",
-  defaultTitle: "Test1 Atelier | Demo Premium Storefront",
+  titleTemplate: "%s | Demo Atelier",
+  defaultTitle: "Demo Atelier | Demo Premium Storefront",
   defaultDescription:
     "Celebix uzerinde olusturulan premium demo magazasi. Urun, kategori ve icerik akisi adminden yonetilir.",
   indexable: true,
@@ -332,7 +332,7 @@ function mapProduct(product) {
     is_draft: Boolean(product.is_draft),
     published_at: product.published_at ?? new Date().toISOString(),
     tax_rate: Number(product.tax_rate || 10),
-    brand: product.brand ?? "Test1 Atelier",
+      brand: product.brand ?? "Demo Atelier",
     country_of_origin: product.country_of_origin ?? "Turkiye",
     sku: product.sku ?? null,
     gtin: product.gtin ?? null,
@@ -432,7 +432,7 @@ function buildHeroBanners(sourceHeroBanners) {
         id: "hero-1",
         desktop: "/placeholders/promo-banner-1.svg",
         mobile: "/placeholders/promo-banner-1.svg",
-        alt: "Test1 Atelier",
+        alt: "Demo Atelier",
         title: "Premium Starter Theme",
         subtitle: "Adminden yonetilen kategori, urun ve hikaye bloklari tek vitrine donusur.",
         buttonText: "Koleksiyonu Incele",
@@ -445,7 +445,7 @@ function buildHeroBanners(sourceHeroBanners) {
     id: banner.id ?? `hero-${index + 1}`,
     desktop: normalizeApiAssetPath(banner.desktop || banner.image || banner.mobile || ""),
     mobile: normalizeApiAssetPath(banner.mobile || banner.desktop || banner.image || ""),
-    alt: "Test1 Atelier",
+    alt: "Demo Atelier",
     title: index === 0 ? "Premium Starter Theme" : "Editor Seckisi",
     subtitle:
       index === 0
@@ -481,7 +481,7 @@ function buildReviewRows(products) {
 }
 
 async function main() {
-  const slug = getArgValue("--slug", "test1");
+  const slug = getArgValue("--slug", "smoke-demo");
   const sourceStorefrontUrl = getArgValue("--source", "https://derycraft.com");
   const normalizedSource = sourceStorefrontUrl.replace(/\/+$/, "");
 

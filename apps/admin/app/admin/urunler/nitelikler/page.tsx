@@ -55,8 +55,8 @@ function getAttributeTone(slug: string) {
   }
 
   return {
-    icon: "border-[#FE6100]/15 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
-    badge: "border-[#FE6100]/12 bg-[#fff7f1] text-[#C94E00]",
+    icon: "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
+    badge: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   };
 }
 
@@ -66,7 +66,7 @@ function LoadingSkeleton() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-[26px] border border-[#FE6100]/8 bg-white/80 p-5"
+          className="animate-pulse rounded-[26px] border border-[var(--admin-border)] bg-white/80 p-5"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
@@ -184,9 +184,9 @@ export default function VariantAttributesPage() {
       className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]"
     >
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
-        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
-        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
@@ -195,12 +195,12 @@ export default function VariantAttributesPage() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: ANIMATION_EASE }}
-            className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]"
+            className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
           >
-            <div className="border-b border-[#FE6100]/8 px-6 py-6 md:px-8 md:py-7">
+            <div className="border-b border-[var(--admin-border)] px-6 py-6 md:px-8 md:py-7">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="space-y-0">
-                  <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                  <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                     Nitelikler
                   </div>
                 </div>
@@ -209,13 +209,13 @@ export default function VariantAttributesPage() {
                   <Link
                     href="/admin/urunler"
                     aria-label="Ürünler listesine dön"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </Link>
                   <Link
                     href="/admin/urunler/nitelikler/yeni"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <Plus className="h-4 w-4" />
                     Yeni Nitelik
@@ -229,42 +229,32 @@ export default function VariantAttributesPage() {
                 {
                   label: "Toplam nitelik",
                   value: attributes.length.toLocaleString("tr-TR"),
-                  hint: "Tanımlı tüm nitelik grupları",
                 },
                 {
                   label: "Toplam değer",
                   value: totalValues.toLocaleString("tr-TR"),
-                  hint: "Varyantlarda kullanılacak seçenekler",
                 },
                 {
                   label: "Renk tabanlı",
                   value: colorValueCount.toLocaleString("tr-TR"),
-                  hint: "Renk kodu kullanan değerler",
                 },
                 {
                   label: "Görselli değer",
                   value: imageValueCount.toLocaleString("tr-TR"),
-                  hint: "Özel görseli olan seçenekler",
                 },
               ].map((metric) => (
                 <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">{metric.label}</p>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-stone-950 md:text-[30px]">{metric.value}</p>
-                  <p className="mt-1 text-sm text-stone-600">{metric.hint}</p>
                 </div>
               ))}
             </div>
           </motion.section>
 
-          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Bilgilendirme</p>
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Nitelikler ne işe yarar?</h2>
-                <p className="max-w-3xl text-sm leading-6 text-[#786658]">
-                  Nitelikler, ürün varyantlarını tanımlayan ana özellik gruplarıdır. Örneğin renk, beden,
-                  gramaj veya malzeme gibi alanlar; ürün oluşturma akışında bu sayfadaki yapı üzerinden kullanılır.
-                </p>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nitelik Özeti</h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
@@ -278,15 +268,10 @@ export default function VariantAttributesPage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ad7c56]">Tarama ve filtreleme</p>
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#241913]">Nitelik listesi</h2>
-                <p className="text-sm leading-6 text-[#786658]">
-                  Nitelik gruplarını adlarına göre filtreleyin, değerlerini ön izleyin ve gerektiğinde düzenleme
-                  aksiyonlarına hızlıca erişin.
-                </p>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nitelik listesi</h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
@@ -305,7 +290,7 @@ export default function VariantAttributesPage() {
                   placeholder="Nitelik ara..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-[20px] border border-[#ecdccd] bg-white pl-11 pr-4 py-3 text-sm text-[#2f241d] shadow-[0_12px_30px_rgba(99,67,37,0.06)] outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15"
+                  className="w-full rounded-[20px] border border-[var(--admin-border)] bg-white pl-11 pr-4 py-3 text-sm text-[var(--admin-heading)] shadow-[var(--shadow-md)] outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                 />
               </label>
             </div>
@@ -316,15 +301,15 @@ export default function VariantAttributesPage() {
               <LoadingSkeleton />
             </section>
           ) : filteredAttributes.length === 0 ? (
-            <section className="rounded-[30px] border border-[#eadccd] bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-10 text-center shadow-[0_24px_55px_rgba(98,64,33,0.08)]">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[0_18px_35px_rgba(254,97,0,0.12)]">
-                <Box className="h-9 w-9 text-[#FE6100]" />
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white p-10 text-center shadow-[0_24px_55px_rgba(98,64,33,0.08)]">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+                <Box className="h-9 w-9 text-[var(--admin-accent)]" />
               </div>
               <div className="mx-auto mt-6 max-w-xl space-y-3">
-                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[#241913]">
+                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
                   {attributes.length === 0 ? "Henüz nitelik eklenmemiş" : "Aramanızla eşleşen nitelik bulunamadı"}
                 </h3>
-                <p className="text-sm leading-7 text-[#7b685a]">
+                <p className="text-sm leading-7 text-[var(--admin-text-secondary)]">
                   {attributes.length === 0
                     ? "Varyant yapınızı kurmak için ilk nitelik grubunu ekleyin. Renk, beden, gramaj veya benzeri tüm değer kümeleri bu alandan yönetilir."
                     : "Farklı bir nitelik adı veya değer deneyin. Liste davranışı değişmeden yalnızca mevcut sonuçlar filtrelenir."}
@@ -332,7 +317,7 @@ export default function VariantAttributesPage() {
               </div>
               <Link
                 href="/admin/urunler/nitelikler/yeni"
-                className="mt-6 inline-flex items-center gap-2 rounded-[20px] bg-gradient-to-r from-[#FE6100] to-[#e85a00] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                className="mt-6 inline-flex items-center gap-2 rounded-[20px] bg-gradient-to-r from-[#FF6A00] to-[#e85a00] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 <Plus className="h-4 w-4" />
                 İlk Niteliği Ekle
@@ -356,8 +341,8 @@ export default function VariantAttributesPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.03, ease: ANIMATION_EASE }}
                     className={cn(
-                      "overflow-hidden rounded-[28px] border bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] shadow-[0_18px_55px_rgba(72,36,8,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(72,36,8,0.12)]",
-                      isExpanded ? "border-[#FE6100]/25 ring-2 ring-[#FE6100]/12" : "border-[#eadccd]"
+                      "overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_55px_rgba(72,36,8,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(72,36,8,0.12)]",
+                      isExpanded ? "border-[var(--admin-accent-border)] ring-2 ring-[#FF6A00]/12" : "border-[var(--admin-border)]"
                     )}
                   >
                     <div className="border-b border-[#f0e1d5] px-5 py-5">
@@ -368,7 +353,7 @@ export default function VariantAttributesPage() {
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[#241913]">
+                              <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">
                                 {attribute.name}
                               </h3>
                               <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]", tone.badge)}>
@@ -391,7 +376,7 @@ export default function VariantAttributesPage() {
                             type="button"
                             onClick={() => router.push(`/admin/urunler/nitelikler/${attribute.id}/duzenle`)}
                             aria-label={`${attribute.name} niteliğini düzenle`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#ead9cb] bg-white text-[#654c3c] shadow-sm transition hover:border-[#FE6100]/30 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#ead9cb] bg-white text-[#654c3c] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                             title="Düzenle"
                           >
                             <Pencil className="h-4 w-4" />
@@ -418,7 +403,7 @@ export default function VariantAttributesPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-[22px] border border-stone-200 bg-white/85 p-4 shadow-sm">
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">Toplam değer</p>
-                          <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#241913]">
+                          <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">
                             {values.length.toLocaleString("tr-TR")}
                           </p>
                         </div>
@@ -445,7 +430,7 @@ export default function VariantAttributesPage() {
                                   ? `${attribute.name} niteliğinin kalan değerlerini gizle`
                                   : `${attribute.name} niteliğinin ${hiddenValues.length} değer daha göster`
                               }
-                              className="inline-flex items-center gap-2 rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 text-xs font-medium text-[#654c3c] shadow-sm transition hover:border-[#FE6100]/30 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                              className="inline-flex items-center gap-2 rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 text-xs font-medium text-[#654c3c] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                             >
                               {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                               {isExpanded ? "Daha az göster" : `+${hiddenValues.length} değer`}
@@ -477,7 +462,7 @@ export default function VariantAttributesPage() {
                         </div>
 
                         {isExpanded && hiddenValues.length > 0 ? (
-                          <div className="rounded-[22px] border border-dashed border-[#ead8c8] bg-[#fffaf6] p-4">
+                          <div className="rounded-[22px] border border-dashed border-[#ead8c8] bg-[#FCFDFE] p-4">
                             <div className="flex flex-wrap gap-2 pt-1">
                               {hiddenValues.map((value) => (
                                 <span

@@ -29,7 +29,7 @@ export default function NewSchemaPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSlug, setAutoSlug] = useState(true);
   const warmFieldClassName =
-    "border-[#e7d8ca] bg-white/90 shadow-[0_10px_25px_rgba(120,78,44,0.08)] transition focus-visible:border-[#FE6100]/40 focus-visible:ring-4 focus-visible:ring-[#FE6100]/15";
+    "border-[#e7d8ca] bg-white/90 shadow-[0_10px_25px_rgba(120,78,44,0.08)] transition focus-visible:border-[var(--admin-accent-border)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]";
 
   const {
     register,
@@ -99,28 +99,28 @@ export default function NewSchemaPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 right-[-8rem] h-[22rem] w-[22rem] rounded-full bg-[#FE6100]/10 blur-3xl" />
-        <div className="absolute left-[-6rem] top-[30%] h-[18rem] w-[18rem] rounded-full bg-amber-200/30 blur-3xl" />
-        <div className="absolute bottom-[-6rem] right-[18%] h-[18rem] w-[18rem] rounded-full bg-orange-100/40 blur-3xl" />
+        <div className="hidden" />
+        <div className="hidden" />
+        <div className="hidden" />
       </div>
 
       <div className="relative mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.12)]">
-            <div className="border-b border-[#FE6100]/8 px-5 py-5 md:px-8 md:py-6">
+          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 md:gap-4">
                   <Link href="/admin/urunler/ekstralar">
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-11 w-11 rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C94E00] focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
+                      className="h-11 w-11 rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </Button>
                   </Link>
                   <div className="space-y-3">
-                    <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/20 bg-gradient-to-r from-[#FE6100]/10 to-[#FF8B3D]/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#FE6100]">
+                    <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                       Yeni ekstra semasi
                     </div>
                     <h1 className="sr-only">Yeni Kişiselleştirme Şeması</h1>
@@ -140,11 +140,11 @@ export default function NewSchemaPage() {
           </section>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <Card className="rounded-[30px] border border-[#ecdccd] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
+            <Card className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
               <CardHeader className="border-b border-[#efdfd1] px-5 py-5 md:px-6">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FE6100]">Kurulum</p>
-                  <CardTitle className="text-xl text-[#2f241d]">Temel bilgiler</CardTitle>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Kurulum</p>
+                  <CardTitle className="text-xl text-[var(--admin-heading)]">Temel bilgiler</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6 px-5 py-5 md:px-6 md:py-6">
@@ -175,7 +175,7 @@ export default function NewSchemaPage() {
                     checked={autoSlug}
                     onCheckedChange={setAutoSlug}
                     id="auto-slug"
-                    className="data-[state=checked]:bg-[#FE6100]"
+                    className="data-[state=checked]:bg-[var(--admin-accent)]"
                   />
                   <Label htmlFor="auto-slug" className="text-sm text-[#7d6a5d]">
                     Otomatik oluştur
@@ -245,11 +245,11 @@ export default function NewSchemaPage() {
             {/* Settings */}
             <div className="rounded-[26px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-4 shadow-inner">
               <div className="space-y-4">
-                <h3 className="font-medium text-[#2f241d]">Görünüm Ayarları</h3>
+                <h3 className="font-medium text-[var(--admin-heading)]">Görünüm Ayarları</h3>
               
-                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#ecdccd] bg-white/90 px-4 py-3 shadow-sm">
+                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[var(--admin-border)] bg-white/90 px-4 py-3 shadow-sm">
                   <div>
-                    <Label className="text-base text-[#2f241d]">Özet Göster</Label>
+                    <Label className="text-base text-[var(--admin-heading)]">Özet Göster</Label>
                     <p className="text-sm text-[#8b6d58]">
                       Seçimlerin özetini formun altında göster
                     </p>
@@ -257,13 +257,13 @@ export default function NewSchemaPage() {
                   <Switch
                     defaultChecked={true}
                     onCheckedChange={(checked) => setValue("settings.show_summary", checked)}
-                    className="data-[state=checked]:bg-[#FE6100]"
+                    className="data-[state=checked]:bg-[var(--admin-accent)]"
                   />
                 </div>
 
-                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#ecdccd] bg-white/90 px-4 py-3 shadow-sm">
+                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[var(--admin-border)] bg-white/90 px-4 py-3 shadow-sm">
                   <div>
-                    <Label className="text-base text-[#2f241d]">Fiyat Detayını Göster</Label>
+                    <Label className="text-base text-[var(--admin-heading)]">Fiyat Detayını Göster</Label>
                     <p className="text-sm text-[#8b6d58]">
                       Fiyat hesaplama detayını göster
                     </p>
@@ -271,7 +271,7 @@ export default function NewSchemaPage() {
                   <Switch
                     defaultChecked={true}
                     onCheckedChange={(checked) => setValue("settings.show_price_breakdown", checked)}
-                    className="data-[state=checked]:bg-[#FE6100]"
+                    className="data-[state=checked]:bg-[var(--admin-accent)]"
                   />
                 </div>
               </div>
@@ -280,14 +280,14 @@ export default function NewSchemaPage() {
             {/* Submit */}
             <div className="flex flex-col-reverse gap-3 border-t border-[#efdfd1] pt-5 sm:flex-row sm:items-center sm:justify-end">
               <Link href="/admin/urunler/ekstralar">
-                <Button type="button" variant="outline" className="w-full rounded-2xl border-[#FE6100]/15 bg-white px-5 py-3 text-[#8a4b22] shadow-sm transition hover:border-[#FE6100]/30 hover:bg-[#fff7f1] focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 sm:w-auto">
+                <Button type="button" variant="outline" className="w-full rounded-2xl border-[var(--admin-accent-border)] bg-white px-5 py-3 text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] sm:w-auto">
                   İptal
                 </Button>
               </Link>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-white shadow-[0_18px_35px_rgba(254,97,0,0.24)] transition hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:ring-4 focus-visible:ring-[#FE6100]/20 sm:w-auto"
+                className="w-full rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] sm:w-auto"
               >
                 {isSubmitting ? (
                   <>

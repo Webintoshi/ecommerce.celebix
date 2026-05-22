@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -18,6 +19,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  isProxiedStorefrontAssetUrl,
+  resolveStorefrontAssetUrl,
+} from "@/lib/asset-url";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
 import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
@@ -29,12 +34,12 @@ import {
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import type { ProductGroupDisplayGroup } from "@/lib/products";
 import { Product } from "@/types/product";
 import {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
-import { buildLocalizedPath } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
@@ -79,6 +84,7 @@ interface ProductDetailClientProps {
   slug: string;
   initialProduct: Product | null;
   initialRelatedProducts?: Product[];
+  groupedProducts?: ProductGroupDisplayGroup[];
   initialVariantIndex?: number;
 }
 
@@ -86,6 +92,7 @@ export function ProductDetailClient({
   slug,
   initialProduct,
   initialRelatedProducts = [],
+  groupedProducts = [],
   initialVariantIndex = 0,
 }: ProductDetailClientProps) {
   const [product, setProduct] = useState<Product | null>(initialProduct);
@@ -116,7 +123,7 @@ export function ProductDetailClient({
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
-  const { locale } = useStorefrontRoute();
+  const { locale, buildPath } = useStorefrontRoute();
 
   const toggleAccordion = (id: string) => {
     const next = new Set(openAccordions);
@@ -133,6 +140,21 @@ export function ProductDetailClient({
   useEffect(() => {
     setRelatedProducts(initialRelatedProducts);
   }, [initialRelatedProducts]);
+
+  const visibleGroupedProducts = React.useMemo(
+    () =>
+      groupedProducts
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item, index, items) =>
+              item.productId !== product?.id &&
+              items.findIndex((entry) => entry.productId === item.productId) === index,
+          ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [groupedProducts, product?.id],
+  );
 
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
@@ -200,7 +222,7 @@ export function ProductDetailClient({
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
   const displayImages = React.useMemo(() => {
-    const baseImages = product.images || [];
+    const baseImages = product?.images || [];
 
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter(
@@ -311,7 +333,7 @@ export function ProductDetailClient({
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -319,14 +341,14 @@ export function ProductDetailClient({
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
-                href={buildLocalizedPath("/", locale)}
+                  href={buildPath("/")}
                 className="transition-colors hover:text-neutral-600"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
-                href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
                 className="transition-colors hover:text-neutral-600"
               >
                 Ürünler
@@ -696,6 +718,107 @@ export function ProductDetailClient({
         />
       </div>
 
+      {visibleGroupedProducts.length > 0 ? (
+        <section className="border-t border-neutral-200 py-12 lg:py-16">
+          <div className="container-premium">
+            <div className="mb-8 space-y-2">
+              <span className="block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                Keşfedin
+              </span>
+              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
+                Bu Gruptaki Diğer Ürünler
+              </h2>
+              <p className="max-w-2xl text-sm leading-6 text-neutral-500">
+                Bu ürünle birlikte gruplandırılan diğer ürünleri inceleyin.
+              </p>
+            </div>
+
+            <div className="space-y-10">
+              {visibleGroupedProducts.map((group) => (
+                <div key={group.id} className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-medium text-neutral-900">
+                      {group.name}
+                    </h3>
+                    <span className="h-px flex-1 bg-neutral-200" />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {group.items.map((item) => {
+                      const productHref = buildPath(`/urunler/${item.slug}`);
+                      const imageUrl = item.image ? resolveStorefrontAssetUrl(item.image) : "";
+                      const usesProxiedImage = isProxiedStorefrontAssetUrl(imageUrl);
+                      const stockText =
+                        typeof item.stock === "number"
+                          ? item.stock > 0
+                            ? "Stokta var"
+                            : "Stokta yok"
+                          : null;
+
+                      return (
+                        <Link
+                          key={`${group.id}-${item.productId}`}
+                          href={productHref}
+                          className="group rounded-[28px] border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-[0_18px_40px_rgba(15,23,42,0.06)]"
+                        >
+                          <div className="flex gap-4">
+                            <div className="relative h-28 w-24 overflow-hidden rounded-[20px] bg-neutral-100 sm:h-32 sm:w-28">
+                              {imageUrl ? (
+                                <Image
+                                  src={imageUrl}
+                                  alt={item.name}
+                                  fill
+                                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                  sizes="(max-width: 640px) 96px, 112px"
+                                  unoptimized={usesProxiedImage}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
+                                  Görsel yok
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
+                              <div className="space-y-2">
+                                <h4 className="line-clamp-2 text-base font-medium text-neutral-900 transition-colors group-hover:text-neutral-600">
+                                  {item.name}
+                                </h4>
+                                {typeof item.price === "number" ? (
+                                  <div className="text-sm font-semibold text-neutral-900">
+                                    {formatPrice(item.price)}
+                                  </div>
+                                ) : null}
+                                {stockText ? (
+                                  <div
+                                    className={`text-sm ${
+                                      item.stock && item.stock > 0
+                                        ? "text-neutral-500"
+                                        : "text-neutral-400"
+                                    }`}
+                                  >
+                                    {stockText}
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <div className="inline-flex items-center gap-2 text-sm font-medium text-neutral-900 transition-colors group-hover:text-neutral-600">
+                                İncele
+                                <ChevronRight className="h-4 w-4" />
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section
         className="border-t border-neutral-200 py-16 lg:py-20"
         style={{ backgroundColor: "#f8f8f8f8" }}
@@ -711,7 +834,7 @@ export function ProductDetailClient({
               </h2>
             </div>
             <Link
-              href={buildLocalizedPath("/urunler", locale)}
+                  href={buildPath("/urunler")}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
               Tümünü Gör

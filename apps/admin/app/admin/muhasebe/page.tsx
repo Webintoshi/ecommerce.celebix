@@ -72,7 +72,7 @@ const EMPTY_OVERVIEW: AccountingOverviewData = {
 };
 
 const INPUT_CLASS =
-  "w-full rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm text-[#2f241d] shadow-sm outline-none transition placeholder:text-[#a08e82] focus:border-[#FE6100]/40 focus:ring-4 focus:ring-[#FE6100]/15";
+  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 export default function MuhasebePage() {
   const [loading, setLoading] = useState(true);
@@ -177,32 +177,32 @@ export default function MuhasebePage() {
   const hasPending = overview.syncStatus.pendingQueue > 0;
 
   return (
-    <div className="min-h-screen bg-[#f6efe7] px-4 py-6 md:px-8 md:py-8">
+    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdf9] to-[#f8efe6] p-6 shadow-[0_24px_80px_rgba(120,74,32,0.10)] md:p-8">
+        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[#FE6100]/18 bg-gradient-to-r from-[#FE6100]/10 to-[#FFB067]/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#C54E00]">
+            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               Muhasebe
             </div>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={fetchOverview}
                 disabled={loading}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[#eadccd] bg-white px-4 py-3 text-sm font-medium text-[#7b6656] shadow-sm transition-all hover:border-[#FE6100]/25 hover:bg-[#fff8f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] disabled:opacity-60"
               >
                 <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Yenile
               </button>
               <Link
                 href="/admin/muhasebe/fatura-entegrasyonu"
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
               >
                 <ReceiptText className="h-4 w-4" />
                 Entegrasyonlar
               </Link>
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#FE6100]/10 blur-3xl" />
+          <div className="hidden" />
         </section>
 
         {error && (
@@ -221,13 +221,13 @@ export default function MuhasebePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <section className="xl:col-span-2 rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+          <section className="xl:col-span-2 rounded-[30px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)]">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                 <FilePlus2 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-semibold text-[#2f241d]">Hizli Islemler</h2>
+                <h2 className="font-semibold text-[var(--admin-heading)]">Hizli Islemler</h2>
                 <p className="text-sm text-[#7d6959]">Gunluk muhasebe akisina hizli gecisler</p>
               </div>
             </div>
@@ -240,13 +240,13 @@ export default function MuhasebePage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[#eadccd] bg-white/92 p-6 shadow-[0_18px_45px_rgba(99,67,37,0.08)]">
+          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b] shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-sm">
                 <RefreshCw className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-semibold text-[#2f241d]">Senkron Durumu</h2>
+                <h2 className="font-semibold text-[var(--admin-heading)]">Senkron Durumu</h2>
                 <p className="text-sm text-[#7d6959]">Baglanti ve kuyruk gorunumu</p>
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function MuhasebePage() {
             <button
               onClick={runSync}
               disabled={busyAction === "sync"}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:opacity-60"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:opacity-60"
             >
               {busyAction === "sync" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Senkronu Calistir
@@ -269,20 +269,20 @@ export default function MuhasebePage() {
         </div>
 
         <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-          <DialogContent className="sm:max-w-md rounded-[28px] border border-[#eadccd] bg-[#fffdfa] shadow-[0_24px_70px_rgba(99,67,37,0.16)]">
+          <DialogContent className="sm:max-w-md rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
             <DialogHeader>
               <div className="mb-2 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                   <ReceiptText className="h-5 w-5" />
                 </div>
-                <DialogTitle className="text-xl font-bold text-[#2f241d]">Fatura Kes</DialogTitle>
+                <DialogTitle className="text-xl font-bold text-[var(--admin-heading)]">Fatura Kes</DialogTitle>
               </div>
               <DialogDescription className="text-[#7d6959]">
                 Fatura kesmek istediginiz siparisin ID numarasini girin.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
-              <label className="mb-2 block text-sm font-medium text-[#6e5b4e]">Sipariş ID</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">Sipariş ID</label>
               <input
                 type="text"
                 value={invoiceOrderId}
@@ -299,14 +299,14 @@ export default function MuhasebePage() {
             <DialogFooter className="gap-2">
               <button
                 onClick={closeInvoiceDialog}
-                className="rounded-2xl border border-[#eadccd] bg-white px-5 py-2.5 text-sm font-medium text-[#6e5b4e] shadow-sm transition-all hover:border-[#FE6100]/20 hover:bg-[#fff7f1] hover:text-[#C54E00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16"
+                className="rounded-2xl border border-[var(--admin-border)] bg-white px-5 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 Iptal
               </button>
               <button
                 onClick={createInvoiceQuickly}
                 disabled={busyAction === "create_invoice" || !invoiceOrderId.trim()}
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.22)] transition hover:translate-y-[-1px] hover:from-[#f15c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/18 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busyAction === "create_invoice" ? (
                   <>
@@ -324,14 +324,14 @@ export default function MuhasebePage() {
           </DialogContent>
         </Dialog>
 
-        <section className="overflow-hidden rounded-[30px] border border-[#FE6100]/10 bg-gradient-to-br from-white via-[#fffdfa] to-[#faf4ed] shadow-[0_24px_80px_rgba(254,97,0,0.10)]">
-          <div className="flex items-center justify-between gap-4 border-b border-[#f1e5d9] px-6 py-5">
+        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <div className="flex items-center justify-between gap-4 border-b border-[var(--admin-border)] px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#e9d7c5] bg-gradient-to-br from-[#fff5ec] to-white text-[#c96a2b] shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-sm">
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-semibold text-[#2f241d]">Acik Tahsilat Listesi</h2>
+                <h2 className="font-semibold text-[var(--admin-heading)]">Acik Tahsilat Listesi</h2>
                 <p className="text-sm text-[#7d6959]">Ödemesi tamamlanmamış siparişler</p>
               </div>
             </div>
@@ -343,15 +343,15 @@ export default function MuhasebePage() {
           <div className="overflow-x-auto">
             {overview.openReceivables.orders.length === 0 ? (
               <div className="px-6 py-14 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100] shadow-sm">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                   <CheckCircle2 className="h-7 w-7" />
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-[#2f241d]">Tum tahsilatlar tamamlanmis</h3>
+                <h3 className="mt-4 text-lg font-semibold text-[var(--admin-heading)]">Tum tahsilatlar tamamlanmis</h3>
                 <p className="mt-1 text-sm text-[#7d6959]">Acik tahsilat bulunmuyor.</p>
               </div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-[#fff8f3]/85">
+                <thead className="bg-[var(--admin-accent-soft)]/85">
                   <tr>
                     <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Sipariş</th>
                     <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Ödeme Durumu</th>
@@ -362,9 +362,9 @@ export default function MuhasebePage() {
                 </thead>
                 <tbody className="divide-y divide-[#f2e7dc]">
                   {overview.openReceivables.orders.map((order) => (
-                    <tr key={order.id} className="transition-colors hover:bg-[#fffaf5]">
+                    <tr key={order.id} className="transition-colors hover:bg-[#FCFDFE]">
                       <td className="px-6 py-4">
-                        <Link className="inline-flex items-center gap-1 font-medium text-[#C54E00] hover:text-[#a94500]" href={`/admin/siparisler/${order.id}`}>
+                        <Link className="inline-flex items-center gap-1 font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]" href={`/admin/siparisler/${order.id}`}>
                           #{order.orderNumber}
                           <ArrowRight className="h-3 w-3" />
                         </Link>
@@ -375,10 +375,10 @@ export default function MuhasebePage() {
                           {order.paymentStatus}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-[#2f241d]">{formatCurrency(order.total)}</td>
-                      <td className="px-6 py-4 text-[#6e5b4e]">{new Date(order.createdAt).toLocaleDateString("tr-TR")}</td>
+                      <td className="px-6 py-4 font-semibold text-[var(--admin-heading)]">{formatCurrency(order.total)}</td>
+                      <td className="px-6 py-4 text-[var(--admin-text-secondary)]">{new Date(order.createdAt).toLocaleDateString("tr-TR")}</td>
                       <td className="px-6 py-4 text-right">
-                        <Link href={`/admin/siparisler/${order.id}`} className="inline-flex items-center gap-1 text-sm font-medium text-[#C54E00] hover:text-[#a94500]">
+                        <Link href={`/admin/siparisler/${order.id}`} className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]">
                           Detay
                           <ArrowRight className="h-3 w-3" />
                         </Link>
@@ -413,22 +413,22 @@ function StatCard({
   color?: "orange" | "green" | "amber" | "stone" | "red";
 }) {
   const colorStyles = {
-    orange: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    orange: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
     green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
     amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
-    stone: "border-[#eadccd] bg-gradient-to-br from-[#f8f2ec] to-white text-[#7b6656]",
+    stone: "border-[var(--admin-border)] bg-gradient-to-br from-[#f8f2ec] to-white text-[var(--admin-text-secondary)]",
     red: "border-rose-200 bg-gradient-to-br from-rose-50 to-white text-rose-600",
   };
 
   return (
-    <div className="rounded-[28px] border border-[#eadccd] bg-white/92 p-5 shadow-[0_18px_40px_rgba(99,67,37,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(254,97,0,0.10)]">
+    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
           {loading ? (
             <div className="h-7 w-28 animate-pulse rounded-xl bg-[#f2e7dc]" />
           ) : (
-            <p className={cn("font-bold tracking-[-0.03em] text-[#2f241d]", isDate ? "text-sm leading-6" : "text-2xl")}>
+            <p className={cn("font-bold tracking-[-0.03em] text-[var(--admin-heading)]", isDate ? "text-sm leading-6" : "text-2xl")}>
               {value}
             </p>
           )}
@@ -460,14 +460,14 @@ function QuickActionButton({
   color?: "orange" | "green" | "amber" | "stone";
 }) {
   const colorStyles = {
-    orange: "border-[#FE6100]/12 bg-gradient-to-br from-[#fff2e8] to-white text-[#FE6100]",
+    orange: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
     green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
     amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
-    stone: "border-[#eadccd] bg-gradient-to-br from-[#f8f2ec] to-white text-[#7b6656]",
+    stone: "border-[var(--admin-border)] bg-gradient-to-br from-[#f8f2ec] to-white text-[var(--admin-text-secondary)]",
   };
 
   const className =
-    "group block rounded-[24px] border border-[#eadccd] bg-white/95 p-5 text-left shadow-[0_16px_35px_rgba(99,67,37,0.06)] transition-all hover:-translate-y-1 hover:border-[#FE6100]/18 hover:bg-white hover:shadow-[0_24px_50px_rgba(254,97,0,0.10)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/16";
+    "group block rounded-[24px] border border-[var(--admin-border)] bg-white/95 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]";
 
   const content = (
     <div className="flex items-start gap-4">
@@ -476,8 +476,8 @@ function QuickActionButton({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[#2f241d]">{title}</span>
-          {href && <ArrowRight className="h-4 w-4 text-[#a08e82] transition group-hover:text-[#C54E00]" />}
+          <span className="font-semibold text-[var(--admin-heading)]">{title}</span>
+          {href && <ArrowRight className="h-4 w-4 text-[var(--admin-text-muted)] transition group-hover:text-[var(--admin-accent-hover)]" />}
         </div>
         <p className="mt-2 text-sm leading-6 text-[#7d6959]">{description}</p>
       </div>
@@ -506,11 +506,11 @@ function SyncRow({ label, value, tone = "default" }: { label: string; value: num
         "flex items-center justify-between rounded-[20px] p-4",
         tone === "amber" && "bg-amber-50",
         tone === "red" && "bg-rose-50",
-        tone === "default" && "bg-[#fdf8f3]"
+        tone === "default" && "bg-[#FCFDFE]"
       )}
     >
-      <span className={cn("text-sm", tone === "amber" ? "text-amber-700" : tone === "red" ? "text-rose-700" : "text-[#6e5b4e]")}>{label}</span>
-      <span className={cn("font-semibold", tone === "amber" ? "text-amber-800" : tone === "red" ? "text-rose-800" : "text-[#2f241d]")}>{value}</span>
+      <span className={cn("text-sm", tone === "amber" ? "text-amber-700" : tone === "red" ? "text-rose-700" : "text-[var(--admin-text-secondary)]")}>{label}</span>
+      <span className={cn("font-semibold", tone === "amber" ? "text-amber-800" : tone === "red" ? "text-rose-800" : "text-[var(--admin-heading)]")}>{value}</span>
     </div>
   );
 }

@@ -15,7 +15,11 @@
     "dev:admin": "npm run dev --workspace @celebix/admin",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "validate:deploy-branches": "node ./scripts/validate-deployment-branches.mjs",
     "create:store": "node ./scripts/create-store.mjs",
+    "preview:butik-waya:categories": "node ./scripts/preview-butik-waya-ticimax-categories.mjs",
+    "repair:butik-waya:categories": "node ./scripts/repair-butik-waya-ticimax-categories.mjs",
+    "repair:butik-waya:duplicate-media": "node ./scripts/repair-butik-waya-duplicate-media.mjs",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
     "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"
   },

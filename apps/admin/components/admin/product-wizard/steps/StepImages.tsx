@@ -200,8 +200,8 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
   return (
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
       {/* Section Header */}
-      <div className="flex items-center gap-4 border-b border-[#FE6100]/8 pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#FE6100] to-[#E45700] text-white shadow-[0_14px_28px_rgba(254,97,0,0.22)]">
+      <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <ImageIcon className="w-6 h-6" />
         </div>
         <div>
@@ -220,16 +220,16 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "relative cursor-pointer overflow-hidden rounded-[28px] border-2 border-dashed p-8 transition-all md:p-12 focus-within:ring-2 focus-within:ring-[#FE6100]/25",
-          dragActive 
-            ? "border-[#FE6100] bg-[#fff4ec] shadow-[0_18px_35px_rgba(254,97,0,0.12)]" 
-            : "border-[#FE6100]/18 bg-gradient-to-br from-white via-[#fffdfb] to-[#faf5f0] hover:border-[#FE6100]/35 hover:bg-[#fffaf5]"
+          "relative cursor-pointer overflow-hidden rounded-[28px] border-2 border-dashed p-8 transition-all md:p-12 focus-within:ring-2 focus-within:ring-[#FF6A00]/25",
+          dragActive
+            ? "border-[var(--admin-accent)] bg-[var(--admin-accent-soft)] shadow-[var(--shadow-md)]"
+            : "border-[var(--admin-accent-border)] bg-white hover:border-[var(--admin-accent)]/35 hover:bg-[#FCFDFE]"
         )}
         role="button"
         tabIndex={0}
         aria-label="Ürün görselleri yükleme alanı"
       >
-        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#FE6100]/6 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#FF6A00]/6 to-transparent" />
         <input
           type="file"
           ref={fileInputRef}
@@ -240,8 +240,8 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         />
 
         <div className="relative flex flex-col items-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#FE6100]/10 bg-white shadow-sm">
-            <Upload className="w-8 h-8 text-[#FE6100]" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-[var(--admin-border)] bg-white shadow-sm">
+            <Upload className="w-8 h-8 text-[var(--admin-accent)]" />
           </div>
           <div>
             <p className="text-lg font-semibold text-stone-900">
@@ -264,7 +264,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
       {/* Images Grid */}
       {images.length > 0 && (
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#C94E00]">
+          <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
             Yüklenen Görseller ({images.length})
           </h4>
           
@@ -272,7 +272,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
             {images.map((img, index) => (
               <div
                 key={img.url}
-                className="group relative overflow-hidden rounded-[26px] border border-[#FE6100]/10 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_35px_rgba(72,36,8,0.08)]"
+                className="group relative overflow-hidden rounded-[26px] border border-[var(--admin-border)] bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_35px_rgba(72,36,8,0.08)]"
               >
                 {/* Image */}
                 <div className="aspect-square relative">
@@ -284,7 +284,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                   
                   {/* Primary Badge */}
                   {img.isPrimary && (
-                    <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FE6100] to-[#E45700] px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_10px_20px_rgba(254,97,0,0.24)]">
+                    <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_10px_20px_rgba(255,106,0,0.24)]">
                       <Star className="w-3 h-3" />
                       Ana
                     </div>
@@ -304,7 +304,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); makePrimary(index); }}
-                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-[#FE6100] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                         aria-label={`${index + 1}. görseli ana görsel yap`}
                       >
                         <Star className="w-5 h-5" />
@@ -344,14 +344,14 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                 </div>
 
                 {/* Alt Text Input */}
-                <div className="border-t border-[#FE6100]/8 p-3">
+                <div className="border-t border-[var(--admin-border)] p-3">
                   <input
                     type="text"
                     value={img.alt}
                     onChange={(e) => updateAltText(index, e.target.value)}
                     placeholder="Alt metin (SEO için)"
                     maxLength={125}
-                    className="w-full rounded-xl border border-[#e8dbcf] bg-[#fffaf6] px-3 py-2 text-sm outline-none transition-all focus:border-[#FE6100] focus:bg-white focus:ring-2 focus:ring-[#FE6100]/20"
+                    className="w-full rounded-xl border border-[#e8dbcf] bg-[#FCFDFE] px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                   <p className="mt-1 text-right text-[10px] text-stone-400" aria-live="polite">
                     {img.alt.length}/125

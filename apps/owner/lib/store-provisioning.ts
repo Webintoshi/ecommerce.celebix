@@ -6,14 +6,20 @@ import {
   type StoreConfig,
 } from "@celebix/platform-config";
 import {
+  ensureOwnerStoreAuthorityForSlug,
+  getStoreConsistencyForSlug,
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
+  updateOwnerStoreBootstrapHealthAuthority,
   updateOwnerStoreR2Authority,
   updateStoreManagementProfile,
 } from "@/lib/control-plane";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
-import { prepareStoreAdminDeployment } from "@/lib/admin-deployment";
+import {
+  getStoreAdminDeploymentBlueprint,
+  prepareStoreAdminDeployment,
+} from "@/lib/admin-deployment";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
 import {
   releaseGeneratedDeploymentWindow,
@@ -37,16 +43,30 @@ import {
   upsertProvisioningStep,
   hasUnresolvedCleanupRun,
 } from "@/lib/store-lifecycle";
-import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
+import {
+  getStorefrontDeploymentBlueprint,
+  prepareStorefrontDeployment,
+} from "@/lib/storefront-deployment";
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import {
   isGitHubRepoSyncConfigured,
   syncStoreAuthorityRepoForStore,
   syncStorefrontRepoForStore,
+  validateGitHubRepoSyncReadiness,
+  verifyStorefrontBranchState,
 } from "@/lib/storefront-repo-sync";
-import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
+import {
+  inspectStarterStorefrontContentHealth,
+  seedStarterStorefrontContent,
+} from "@/lib/starter-storefront-seed";
+import { readStorefrontRuntimeReadiness } from "@/lib/storefront-runtime-readiness";
 import { getSupabaseBootstrapStatus, provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
+import { validateConfiguredStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
+import {
+  releaseStoreProvisioningWindow,
+  reserveStoreProvisioningWindow,
+} from "@/lib/store-provisioning-guard";
 
 type ProvisioningMode = "create" | "repair";
 
@@ -73,6 +93,11 @@ class ProvisioningBlockedError extends Error {
   }
 }
 
+export interface ProvisioningEnvironmentReadiness {
+  ready: boolean;
+  errors: string[];
+}
+
 function shouldAutoProvisionGeneratedApps(): boolean {
   const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
 
@@ -82,6 +107,18 @@ function shouldAutoProvisionGeneratedApps(): boolean {
 
   return true;
 }
+
+const PREFLIGHT_STEP_KEYS: ProvisioningStepKey[] = [
+  "owner_supabase_auth",
+  "cleanup_guard",
+  "deployment_branch_preflight",
+  "supabase_preflight",
+  "r2_preflight",
+  "coolify_preflight",
+  "github_preflight",
+  "starter_source_preflight",
+  "generated_apps_toggle",
+];
 
 function normalizeStarterSourceUrl(value: string): string {
   const trimmed = value.trim();
@@ -106,6 +143,101 @@ function getCoolifyMissingEnv(): string[] {
 
 function hasExplicitManagementInput(input: StoreProvisioningWorkflowInput): boolean {
   return input.packageStartDate !== undefined || input.packageDurationMonths !== undefined;
+}
+
+export async function validateProvisioningEnvironmentReadiness(): Promise<ProvisioningEnvironmentReadiness> {
+  const errors: string[] = [];
+
+  try {
+    const serviceClient = createOwnerServiceClient();
+    const { error } = await serviceClient
+      .from("owner_profiles")
+      .select("id", { head: true, count: "exact" });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } catch (error) {
+    errors.push(
+      `Owner Supabase authority hazir degil: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const status = await getSupabaseBootstrapStatus();
+
+    if (!status.configured) {
+      errors.push(status.lastError || `${status.provider} Supabase bootstrap authority eksik.`);
+    }
+  } catch (error) {
+    errors.push(
+      `Supabase bootstrap authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const status = await getR2BootstrapStatus();
+
+    if (!status.configured) {
+      errors.push(status.lastError || "R2 bootstrap authority eksik.");
+    }
+  } catch (error) {
+    errors.push(
+      `R2 bootstrap authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  const coolifyMissing = getCoolifyMissingEnv();
+  if (coolifyMissing.length > 0) {
+    errors.push(`Coolify authority eksik: ${coolifyMissing.join(", ")}`);
+  }
+
+  try {
+    const gitHubReadiness = await validateGitHubRepoSyncReadiness();
+
+    if (!gitHubReadiness.ready) {
+      errors.push(gitHubReadiness.message || "GitHub repo sync authority hazir degil.");
+    }
+  } catch (error) {
+    errors.push(
+      `GitHub repo sync authority dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  try {
+    const sourceBase = getStarterSourceBase();
+    const response = await fetch(`${sourceBase}/api/homepage`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      errors.push(`Starter source fetch failed (${response.status}) for ${sourceBase}`);
+    }
+  } catch (error) {
+    errors.push(
+      `Starter source dogrulanamadi: ${
+        error instanceof Error ? error.message : "bilinmeyen hata"
+      }`,
+    );
+  }
+
+  if (!shouldAutoProvisionGeneratedApps()) {
+    errors.push("Generated app provisioning owner env tarafinda kapali.");
+  }
+
+  return {
+    ready: errors.length === 0,
+    errors,
+  };
 }
 
 async function runGeneratedDeploymentStep<T>(
@@ -245,6 +377,7 @@ class ProvisioningTracker {
   }
 
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
+    this.summary = await reconcileProvisioningSummaryWithLiveState(this.slug, this.summary);
     const blockers = getProvisioningBlockers(this.summary);
     const hasRunning = this.summary.steps.some((step) => step.status === "running");
     const state: ProvisioningState = blockers.length > 0
@@ -314,6 +447,10 @@ async function runWorkflowStep(
   tracker: ProvisioningTracker,
   key: ProvisioningStepKey,
   action: () => Promise<string>,
+  options?: {
+    blockingOnFailure?: boolean;
+    continueOnFailure?: boolean;
+  },
 ): Promise<boolean> {
   if (!tracker.shouldRunStep(key)) {
     return true;
@@ -330,8 +467,47 @@ async function runWorkflowStep(
       return false;
     }
 
-    await tracker.fail(key, error);
-    return false;
+    await tracker.fail(key, error, options?.blockingOnFailure ?? true);
+    return options?.continueOnFailure ?? false;
+  }
+}
+
+async function runRepairAuthorityPreflight(input: StoreProvisioningWorkflowInput): Promise<void> {
+  const consistency = await getStoreConsistencyForSlug(input.auth, input.slug);
+
+  if (!consistency) {
+    throw new Error("Repair authority preflight store consistency bilgisini okuyamadi.");
+  }
+
+  if (consistency.blocking) {
+    const message = consistency.issues
+      .filter((issue) => issue.severity === "blocking")
+      .map((issue) => issue.message)
+      .slice(0, 3)
+      .join(" / ");
+
+    throw new Error(`Repair authority preflight bloklandi: ${message || "store drift mevcut"}`);
+  }
+
+  const store = repairStoreConfig(input.slug);
+
+  if (store.storefront?.lastScaffoldedAt && !store.storefront?.appDir) {
+    throw new Error("Repair authority preflight bloklandi: lastScaffoldedAt var ama storefront appDir yok.");
+  }
+
+  if (
+    store.storefront?.appDir &&
+    (store.storefront.repoSyncStatus === "synced" ||
+      store.storefront.deploymentStatus === "prepared" ||
+      store.storefront.deploymentStatus === "configured")
+  ) {
+    const verification = await verifyStorefrontBranchState(input.slug);
+
+    if (!verification.verified) {
+      throw new Error(
+        `Repair authority preflight bloklandi: ${verification.message || "storefront branch authority eksik."}`,
+      );
+    }
   }
 }
 
@@ -355,6 +531,17 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     }
 
     return "Cleanup tombstone bulunmadi.";
+  });
+
+  await runPreflightStep(tracker, "deployment_branch_preflight", async () => {
+    const store = repairStoreConfig(input.slug);
+    const validation = validateConfiguredStoreDeploymentBranches(store);
+
+    if (validation.errors.length > 0) {
+      throw new Error(validation.errors.join(" "));
+    }
+
+    return `Deploy branch plani hazir: admin ${validation.adminBranch}, storefront ${validation.storefrontBranch}`;
   });
 
   await runPreflightStep(tracker, "supabase_preflight", async () => {
@@ -400,8 +587,15 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "github_preflight", async () => {
-    if (!isGitHubRepoSyncConfigured()) {
-      throw new Error("GitHub repo write-back authority eksik.");
+    const readiness = await validateGitHubRepoSyncReadiness();
+
+    if (!readiness.ready) {
+      throw new Error(readiness.message || "GitHub repo sync authority hazir degil.");
+    }
+
+    if (input.mode === "repair") {
+      await runRepairAuthorityPreflight(input);
+      return "GitHub repo sync authority ve repair preflight hazir.";
     }
 
     return "GitHub repo sync authority hazir.";
@@ -436,21 +630,264 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 }
 
+function getPreflightBlockers(summary: ProvisioningSummary): ProvisioningStepSummary[] {
+  const preflightKeys = new Set(PREFLIGHT_STEP_KEYS);
+  return getProvisioningBlockers(summary).filter((step) => preflightKeys.has(step.key));
+}
+
+function updateSummaryStep(
+  steps: ProvisioningStepSummary[],
+  key: ProvisioningStepKey,
+  patch: Partial<ProvisioningStepSummary>,
+): { steps: ProvisioningStepSummary[]; changed: boolean } {
+  let changed = false;
+  const nextSteps = steps.map((step) => {
+    if (step.key !== key) {
+      return step;
+    }
+
+    const nextStep: ProvisioningStepSummary = {
+      ...step,
+      ...patch,
+      updatedAt: patch.updatedAt ?? step.updatedAt ?? new Date().toISOString(),
+    };
+
+    if (JSON.stringify(nextStep) !== JSON.stringify(step)) {
+      changed = true;
+    }
+
+    return nextStep;
+  });
+
+  return { steps: nextSteps, changed };
+}
+
+async function reconcileProvisioningSummaryWithLiveState(
+  slug: string,
+  summary: ProvisioningSummary,
+): Promise<ProvisioningSummary> {
+  const store = repairStoreConfig(slug);
+  let nextSummary = summary;
+  let changed = false;
+  const now = new Date().toISOString();
+  let adminRuntimeOk = false;
+  let storefrontRuntimeOk = false;
+  let homepageOk = false;
+  let categoriesOk = false;
+  let productsOk = false;
+  let starterSeedOk = false;
+  let settingsOk = false;
+  let blogPostsOk = false;
+  let readinessError: string | null = null;
+
+  const markCompleted = (
+    key: ProvisioningStepKey,
+    message: string,
+  ) => {
+    const current = nextSummary.steps.find((step) => step.key === key);
+
+    if (!current || current.status === "completed") {
+      return;
+    }
+
+    const result = updateSummaryStep(nextSummary.steps, key, {
+      status: "completed",
+      blocking: false,
+      message,
+      updatedAt: now,
+    });
+
+    nextSummary = {
+      ...nextSummary,
+      steps: result.steps,
+    };
+    changed = changed || result.changed;
+  };
+
+  const markFailed = (
+    key: ProvisioningStepKey,
+    message: string,
+    blocking = true,
+  ) => {
+    const result = updateSummaryStep(nextSummary.steps, key, {
+      status: "failed",
+      blocking,
+      message,
+      updatedAt: now,
+    });
+
+    nextSummary = {
+      ...nextSummary,
+      lastError: message,
+      steps: result.steps,
+    };
+    changed = changed || result.changed;
+  };
+
+  if (
+    store.bootstrap?.supabaseProvisioning === "configured" &&
+    store.supabase.projectRef &&
+    store.supabase.projectRef !== "pending-owner-bootstrap" &&
+    store.supabase.url &&
+    store.supabase.url !== "configure-in-env"
+  ) {
+    markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
+  }
+
+  if (store.r2?.provisioning === "configured" && store.r2?.bucketName && store.r2?.publicUrl) {
+    markCompleted("r2_provision", "R2 authority canli durumda hazir.");
+  }
+
+  if (store.storefront?.appDir?.trim()) {
+    markCompleted("storefront_scaffold", "Storefront app dizini olusturulmus durumda.");
+  }
+
+  try {
+    const adminBlueprint = await getStoreAdminDeploymentBlueprint(slug);
+
+    if (adminBlueprint.status !== "pending-owner-env") {
+      markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
+    }
+
+    if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
+      adminRuntimeOk = true;
+      markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+    }
+  } catch {
+    // Keep existing provisioning summary when admin runtime cannot be checked.
+  }
+
+  try {
+    const storefrontBlueprint = await getStorefrontDeploymentBlueprint(slug);
+
+    if (storefrontBlueprint.status !== "pending-owner-env") {
+      markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
+    }
+
+    if (storefrontBlueprint.repoSynced) {
+      markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
+    }
+
+    if (storefrontBlueprint.status === "configured" && storefrontBlueprint.runtimeConsistent) {
+      storefrontRuntimeOk = true;
+      markCompleted("storefront_deploy", "Storefront runtime canli ve tutarli cevap veriyor.");
+    }
+  } catch {
+    // Keep existing provisioning summary when storefront runtime cannot be checked.
+  }
+
+  if (storefrontRuntimeOk) {
+    const storefrontReadiness = await readStorefrontRuntimeReadiness(store.domains.storefront).catch((error) => ({
+      checkedAt: now,
+      storefrontRuntimeOk: false,
+      homepageOk: false,
+      categoriesOk: false,
+      productsOk: false,
+      dataApisOk: false,
+      lastError: error instanceof Error ? error.message : "Storefront smoke kontrolu yapilamadi.",
+    }));
+
+    storefrontRuntimeOk = storefrontReadiness.storefrontRuntimeOk;
+    homepageOk = storefrontReadiness.homepageOk;
+    categoriesOk = storefrontReadiness.categoriesOk;
+    productsOk = storefrontReadiness.productsOk;
+
+    if (storefrontReadiness.storefrontRuntimeOk && storefrontReadiness.dataApisOk) {
+      markCompleted("storefront_deploy", "Storefront runtime ve veri API smoke kontrolleri saglikli.");
+    } else {
+      const storefrontError =
+        storefrontReadiness.lastError ||
+        "Storefront veri API smoke kontrolleri basarisiz oldu.";
+      readinessError = readinessError ?? storefrontError;
+      markFailed("storefront_deploy", `Storefront smoke basarisiz: ${storefrontError}`);
+    }
+  }
+
+  const canVerifyStarterContent =
+    store.bootstrap?.supabaseProvisioning === "configured" &&
+    Boolean(store.supabase.projectRef && store.supabase.projectRef !== "pending-owner-bootstrap") &&
+    Boolean(store.supabase.url && store.supabase.url !== "configure-in-env");
+
+  if (canVerifyStarterContent) {
+    try {
+      const starterHealth = await inspectStarterStorefrontContentHealth(store);
+      starterSeedOk = starterHealth.ready;
+      settingsOk = starterHealth.settingsOk;
+      blogPostsOk = starterHealth.blogPostsOk;
+
+      if (starterHealth.ready) {
+        markCompleted("starter_seed", "Starter icerik cekirdek katalog ve ayar tablolarinda hazir.");
+      } else {
+        const starterError = "Starter content kontrolu basarisiz: cekirdek katalog tablolarinda eksik veri var.";
+        readinessError = readinessError ?? starterError;
+        markFailed("starter_seed", starterError);
+      }
+    } catch (error) {
+      const starterError =
+        error instanceof Error ? error.message : "Starter content kontrolu basarisiz oldu.";
+      readinessError = readinessError ?? starterError;
+      markFailed("starter_seed", starterError);
+    }
+  }
+
+  await updateOwnerStoreBootstrapHealthAuthority(slug, {
+    finalReadiness: {
+      adminRuntimeOk,
+      storefrontRuntimeOk,
+      homepageOk,
+      categoriesOk,
+      productsOk,
+      starterSeedOk,
+      settingsOk,
+      blogPostsOk,
+      lastCheckedAt: now,
+      lastError: readinessError,
+    },
+    firstReadyAt:
+      adminRuntimeOk &&
+      storefrontRuntimeOk &&
+      homepageOk &&
+      categoriesOk &&
+      productsOk &&
+      starterSeedOk &&
+      settingsOk &&
+      blogPostsOk
+        ? now
+        : null,
+  }).catch(() => undefined);
+
+  if (!changed) {
+    return summary;
+  }
+
+  return nextSummary;
+}
+
 export async function runStoreProvisioningWorkflow(
   input: StoreProvisioningWorkflowInput,
 ): Promise<StoreProvisioningWorkflowResult> {
-  await ensureStoreConfigFromOwnerAuthority(input.slug);
-  repairStoreConfig(input.slug);
-  await syncOwnerStoresAndMetrics();
+  const provisioningWindow = await reserveStoreProvisioningWindow({
+    slug: input.slug,
+    mode: input.mode,
+  });
 
-  const tracker = await initializeTracker(input.slug, input.mode);
-  await runPreflights(input, tracker);
+  try {
+    if (getStoreConfig(input.slug)) {
+      repairStoreConfig(input.slug);
+      await ensureOwnerStoreAuthorityForSlug(input.slug);
+    }
 
-  if (getProvisioningBlockers(tracker.summary).length > 0) {
-    return tracker.finalize();
-  }
+    await ensureStoreConfigFromOwnerAuthority(input.slug);
+    repairStoreConfig(input.slug);
 
-  const workflow: Array<[ProvisioningStepKey, () => Promise<string>]> = [
+    const tracker = await initializeTracker(input.slug, input.mode);
+    await runPreflights(input, tracker);
+
+    if (getPreflightBlockers(tracker.summary).length > 0) {
+      return tracker.finalize();
+    }
+
+    const workflow: Array<[ProvisioningStepKey, () => Promise<string>]> = [
     [
       "authority_repo_sync",
       async () => {
@@ -569,14 +1006,14 @@ export async function runStoreProvisioningWorkflow(
       async () => {
         const deployment = await runGeneratedDeploymentStep(
           { slug: input.slug, target: "admin" },
-          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: false }),
+          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
         );
 
-        if (deployment.status === "failed") {
+        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
           throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
         }
 
-        return deployment.message || "Admin deployment tetiklendi.";
+        return deployment.message || "Admin runtime dogrulandi.";
       },
     ],
     [
@@ -590,18 +1027,20 @@ export async function runStoreProvisioningWorkflow(
 
         const deployment = await runGeneratedDeploymentStep(
           { slug: input.slug, target: "storefront" },
-          () => provisionStorefrontDeploymentForStore(input.slug, { waitForRuntime: false }),
+          () => provisionStorefrontDeploymentForStore(input.slug, { waitForRuntime: true }),
         );
 
         if (
           deployment.status === "failed" ||
           deployment.status === "pending-owner-env" ||
-          deployment.status === "pending-repo-sync"
+          deployment.status === "pending-repo-sync" ||
+          deployment.status !== "configured" ||
+          !deployment.runtimeConsistent
         ) {
           throw new Error(deployment.message || "Storefront deployment basarisiz oldu.");
         }
 
-        return deployment.message || "Storefront deployment tetiklendi.";
+        return deployment.message || "Storefront runtime dogrulandi.";
       },
     ],
     [
@@ -639,33 +1078,65 @@ export async function runStoreProvisioningWorkflow(
   ];
 
   for (const [key, action] of workflow) {
-    const succeeded = await runWorkflowStep(tracker, key, action);
+    const succeeded = await runWorkflowStep(
+      tracker,
+      key,
+      action,
+      key === "starter_seed"
+        ? {
+            blockingOnFailure: false,
+            continueOnFailure: true,
+          }
+        : undefined,
+    );
 
     if (!succeeded) {
       break;
     }
   }
 
+  if (getProvisioningBlockers(tracker.summary).length === 0) {
+    await tracker.start("authority_repo_sync");
+
+    try {
+      const authoritySync = await syncStoreAuthorityRepoForStore(input.slug);
+
+      if (authoritySync.status !== "synced") {
+        throw new Error(authoritySync.message || "Store authority repo senkronu tamamlanamadi.");
+      }
+
+      await tracker.complete(
+        "authority_repo_sync",
+        authoritySync.message || "Store authority repo son durumla senkronlandi.",
+      );
+    } catch (error) {
+      await tracker.fail("authority_repo_sync", error);
+    }
+  }
+
   await syncOwnerStoresAndMetrics();
-  const result = await tracker.finalize();
+    const result = await tracker.finalize();
 
-  await recordOwnerAuditLog({
-    actorId: input.auth.user.id,
-    action: input.mode === "repair" ? "store_repair_run" : "store_provisioning_run",
-    targetType: "store",
-    targetId: input.slug,
-    details: {
-      provisioningState: result.provisioningState,
-      blockers: result.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
-      steps: result.steps.map((step) => ({
-        key: step.key,
-        status: step.status,
-        message: step.message,
-      })),
-    },
-  });
+    await recordOwnerAuditLog({
+      actorId: input.auth.user.id,
+      action: input.mode === "repair" ? "store_repair_run" : "store_provisioning_run",
+      targetType: "store",
+      targetId: input.slug,
+      details: {
+        provisioningState: result.provisioningState,
+        blockers: result.blockers.map((step) => step.message).filter((value): value is string => Boolean(value)),
+        steps: result.steps.map((step) => ({
+          key: step.key,
+          status: step.status,
+          message: step.message,
+        })),
+      },
+    });
 
-  return result;
+    return result;
+  } finally {
+    await releaseStoreProvisioningWindow(provisioningWindow);
+  }
 }
 
 export function predictPendingRepairStatus(steps: ProvisioningStepSummary[]): ProvisioningState {

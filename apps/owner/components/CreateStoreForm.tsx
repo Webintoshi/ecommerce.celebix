@@ -30,6 +30,11 @@ interface CreateStorePayload {
   store?: { slug: string };
 }
 
+interface CreateStoreFormProps {
+  ownerDeploymentBranch: string;
+  storefrontBranchPrefix: string;
+}
+
 function getTodayDateValue(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -73,7 +78,10 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function CreateStoreForm() {
+export function CreateStoreForm({
+  ownerDeploymentBranch,
+  storefrontBranchPrefix,
+}: CreateStoreFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
@@ -128,19 +136,14 @@ export function CreateStoreForm() {
         return;
       }
 
-      if (payload.provisioningState && payload.provisioningState !== "ready") {
-        setProvisioningState(payload.provisioningState);
-        setSteps(payload.steps ?? []);
-        setCreatedSlug(payload.store.slug);
-        return;
-      }
-
       router.push(`/stores/${payload.store.slug}`);
       router.refresh();
     });
   }
 
   const pendingSteps = steps.filter((step) => step.status === "failed" || step.status === "pending");
+  const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
+  const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
@@ -204,6 +207,17 @@ export function CreateStoreForm() {
           placeholder="El yapimi deri kordon ve aksesuarlar"
         />
       </label>
+
+      <div className="card field-full section-tight">
+        <div className="card-title">Deploy Branch Plani</div>
+        <div className="meta-pairs">
+          <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
+          <span>Storefront branch: <strong>{storefrontBranchPreview}</strong></span>
+        </div>
+        <p className="card-note">
+          Owner ve admin deploy ayni branch'te kalir. Her yeni storefront kendi slug'i icin ayri branch alir.
+        </p>
+      </div>
 
       <label className="field">
         <span>Destek E-postasi</span>

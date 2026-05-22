@@ -19,12 +19,16 @@ type ProductRow = {
   name: string;
   slug: string;
   created_at?: string | null;
+  published_at?: string | null;
   description: string | null;
   short_description: string | null;
   images: string[] | null;
   category: string | null;
   subcategory: string | null;
   tags: string[] | null;
+  is_active?: boolean | null;
+  is_draft?: boolean | null;
+  status?: string | null;
   is_featured: boolean | null;
   is_new: boolean | null;
   variants: VariantRow[] | null;
@@ -78,6 +82,8 @@ function mapProduct(row: ProductRow, rules: ProductDiscountRule[] = []): AdminPr
     name: row.name,
     slug: row.slug,
     sortOrder: 0,
+    createdAt: row.created_at || null,
+    publishedAt: row.published_at || null,
     description: row.description || "",
     shortDescription: row.short_description || "",
     images: (row.images || [])
@@ -87,6 +93,9 @@ function mapProduct(row: ProductRow, rules: ProductDiscountRule[] = []): AdminPr
     subcategory: row.subcategory || "",
     tags: row.tags || [],
     variants: (row.variants || []).map((variant) => mapVariant(variant, rules)),
+    isActive: row.is_active !== false,
+    isDraft: Boolean(row.is_draft),
+    status: row.status || (row.is_active === false ? "inactive" : "published"),
     featured: Boolean(row.is_featured),
     isNew: Boolean(row.is_new),
   };
@@ -127,7 +136,7 @@ export async function getAdminProductsBootstrap(
     supabase
       .from("products")
       .select(
-        "id,name,slug,created_at,description,short_description,images,category,subcategory,tags,is_featured,is_new,variants:product_variants(id,name,price,original_price,stock,sku)"
+        "id,name,slug,created_at,published_at,description,short_description,images,category,subcategory,tags,is_active,is_draft,status,is_featured,is_new,variants:product_variants(id,name,price,original_price,stock,sku)"
       )
       .order("created_at", { ascending: false }),
     fetchCategoriesServer(),

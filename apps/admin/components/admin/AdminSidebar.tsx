@@ -1,35 +1,37 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import type { ElementType } from "react";
+import { useEffect, useMemo, useRef, useState, type ElementType, type TouchEvent as ReactTouchEvent } from "react";
 import {
-  Home,
-  Package,
-  Tag,
-  Users,
-  Percent,
-  FileText,
-  TrendingUp,
+  Calculator,
   ChevronDown,
   ChevronRight,
+  FileText,
+  Home,
   LogOut,
+  Megaphone as MarketingIcon,
+  Package,
+  Percent,
+  Search,
   Settings,
   Store,
-  Megaphone as MarketingIcon,
-  Search,
+  Tag,
+  TrendingUp,
+  Users,
   Users as AdminsIcon,
-  Calculator,
+  X,
 } from "lucide-react";
+import type { InitialAdminProfile } from "@/lib/admin-data-types";
+import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
-import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
-import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
+const MOBILE_QUICK_ACCESS_TITLES = ["Ana Sayfa", "Siparişler", "Ürünler", "Müşteriler", "Ayarlar"] as const;
 
 interface MenuItem {
   title: string;
@@ -43,6 +45,12 @@ interface MenuItem {
   }>;
 }
 
+type MenuGroup = {
+  id: string;
+  label: string;
+  titles: string[];
+};
+
 const MENU_ITEMS: MenuItem[] = [
   { title: "Ana Sayfa", icon: Home, href: "/admin" },
   {
@@ -51,7 +59,8 @@ const MENU_ITEMS: MenuItem[] = [
     href: "/admin/siparisler",
     submenu: [
       { title: "Tüm Siparişler", href: "/admin/siparisler" },
-      { title: "Terkedilen Sepetler", href: "/admin/siparisler/sepet-terk" },
+      { title: "Terk Edilen Sepetler", href: "/admin/siparisler/sepet-terk" },
+      { title: "Hızlı Sipariş", href: "/admin/siparisler/hizli-siparis" },
     ],
   },
   {
@@ -59,9 +68,9 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Tag,
     href: "/admin/urunler",
     submenu: [
-      { title: "Tüm Ürünler", href: "/admin/urunler" },
-      { title: "Yeni Ürün Ekle", href: "/admin/urunler/yeni" },
-      { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Ürün Yönetimi", href: "/admin/urunler" },
+      { title: "Koleksiyon Yönetimi", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Marka Yönetimi", href: "/admin/urunler/markalar" },
       { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
       { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
       { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
@@ -128,31 +137,78 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "SEO Kontrol", href: "/admin/seo-killer" },
       { title: "Sitemap", href: "/admin/seo-killer/sitemap" },
       { title: "Sosyal Önizleme", href: "/admin/seo-killer/sosyal-onizleme" },
+      { title: "Kod Entegrasyonları", href: "/admin/seo-killer/kod-entegrasyonlari" },
       { title: "Hızlı İndeks", href: "/admin/seo-killer/hizli-index" },
     ],
   },
   { title: "Marketplace", icon: Store, href: "/admin/markets" },
   { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
-  {
-    title: "Ayarlar",
-    icon: Settings,
-    href: "/admin/ayarlar",
-    submenu: [
-      { title: "Genel Ayarlar", href: "/admin/ayarlar/genel" },
-      { title: "Kargo", href: "/admin/ayarlar/kargo" },
-      { title: "Ödeme", href: "/admin/ayarlar/odeme" },
-      { title: "Bildirimler", href: "/admin/ayarlar/bildirimler" },
-      { title: "Hero Banner", href: "/admin/ayarlar/hero-banner" },
-      { title: "Promosyon Banner", href: "/admin/ayarlar/promosyon-banner" },
-      { title: "Marquee", href: "/admin/ayarlar/marquee" },
-    ],
-  },
+  { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
+];
+
+const MENU_GROUPS: MenuGroup[] = [
+  { id: "general", label: "Genel", titles: ["Ana Sayfa"] },
+  { id: "catalog", label: "Katalog", titles: ["Siparişler", "Ürünler", "İçerik"] },
+  { id: "customers", label: "Müşteri", titles: ["Müşteriler", "İndirimler"] },
+  { id: "marketing", label: "Pazarlama", titles: ["Pazarlama", "SEO Araçları", "Marketplace"] },
+  { id: "reporting", label: "Raporlama", titles: ["Analizler", "Muhasebe"] },
+  { id: "system", label: "Sistem", titles: ["Yöneticiler", "Ayarlar"] },
 ];
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
   initialProfile?: InitialAdminProfile | null;
+}
+
+type AdminMeResponse =
+  | {
+      success: true;
+      profile: {
+        email: string;
+        full_name: string | null;
+        role: UserRole;
+      };
+    }
+  | {
+      success: false;
+      error?: string;
+    };
+
+type MenuItemState = {
+  hasSubmenu: boolean;
+  isDirectActive: boolean;
+  isParentActive: boolean;
+  isSubmenuActive: boolean;
+  isExpanded: boolean;
+  isActive: boolean;
+};
+
+function pathMatches(pathname: string, href: string) {
+  return pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`));
+}
+
+function deriveAdminName(profile: InitialAdminProfile | null) {
+  const explicitName = profile?.fullName?.trim();
+
+  if (explicitName) {
+    return explicitName;
+  }
+
+  const emailPrefix = profile?.email?.split("@")[0]?.trim();
+
+  if (!emailPrefix) {
+    return "Admin Kullanıcı";
+  }
+
+  const normalized = emailPrefix
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized.length > 0
+    ? normalized.replace(/\b\w/g, (char) => char.toLocaleUpperCase("tr"))
+    : "Admin Kullanıcı";
 }
 
 export function AdminSidebar({
@@ -162,38 +218,99 @@ export function AdminSidebar({
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
+  const { storeInfo } = useStoreInfo();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const userEmail = initialProfile?.email;
-  const userName = initialProfile?.fullName || userEmail?.split("@")[0] || "Admin Kullanici";
-  const role: UserRole | null = initialProfile?.role || null;
+  const [resolvedProfile, setResolvedProfile] = useState<InitialAdminProfile | null>(initialProfile);
+  const [isRecoveringProfile, setIsRecoveringProfile] = useState(false);
+  const [hasAttemptedProfileRecovery, setHasAttemptedProfileRecovery] = useState(Boolean(initialProfile?.role));
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchCurrentXRef = useRef<number | null>(null);
+  const touchCurrentYRef = useRef<number | null>(null);
+
+  const role: UserRole | null = resolvedProfile?.role || null;
+  const adminFullName = deriveAdminName(resolvedProfile);
+  const siteName = (storeInfo?.name || STORE_RUNTIME.name).trim();
+  const siteHeading = /admin/i.test(siteName) ? siteName : `${siteName} Admin`;
+  const siteLogo = storeInfo?.logoUrl || ADMIN_BRAND_LOGO_SRC;
+  const mobileMenuOpen = isMobile ? isOpen : true;
 
   useEffect(() => {
-    const checkMobile = () => {
-      if (typeof window !== "undefined") {
-        setIsMobile(window.innerWidth < 768);
-      }
-    };
+    setResolvedProfile(initialProfile);
+    setIsRecoveringProfile(false);
+    setHasAttemptedProfileRecovery(Boolean(initialProfile?.role));
+  }, [initialProfile]);
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncMobileState = () => setIsMobile(mediaQuery.matches);
+    syncMobileState();
+    mediaQuery.addEventListener("change", syncMobileState);
+    return () => mediaQuery.removeEventListener("change", syncMobileState);
   }, []);
 
   useEffect(() => {
-    setIsMobileMenuOpen(isOpen);
-  }, [isOpen]);
+    const autoExpand = MENU_ITEMS.filter(
+      (item) =>
+        item.submenu &&
+        (pathMatches(pathname, item.href) || item.submenu.some((sub) => pathMatches(pathname, sub.href))),
+    ).map((item) => item.title);
 
-  useEffect(() => {
-    const autoExpand = MENU_ITEMS.filter((item) => item.submenu?.some((sub) => sub.href === pathname)).map(
-      (item) => item.title,
-    );
-    if (autoExpand.length === 0) return;
+    if (autoExpand.length === 0) {
+      return;
+    }
 
     setExpandedMenus((prev) => Array.from(new Set([...prev, ...autoExpand])));
   }, [pathname]);
+
+  useEffect(() => {
+    if (role || hasAttemptedProfileRecovery) {
+      return;
+    }
+
+    let active = true;
+    setHasAttemptedProfileRecovery(true);
+    setIsRecoveringProfile(true);
+
+    fetch("/api/admin/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as AdminMeResponse | null;
+
+        if (!active || !response.ok || !payload?.success || !payload.profile?.role) {
+          return;
+        }
+
+        setResolvedProfile({
+          email: payload.profile.email,
+          fullName: payload.profile.full_name,
+          role: payload.profile.role,
+        });
+      })
+      .catch((error) => {
+        if (active) {
+          console.warn("Admin profile recovery failed:", error);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsRecoveringProfile(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasAttemptedProfileRecovery, role]);
 
   const filteredItems = useMemo(() => {
     if (!role) {
@@ -201,14 +318,102 @@ export function AdminSidebar({
     }
 
     return MENU_ITEMS.filter((item) => {
-      if (!hasPermission(role, item.href)) return false;
-      if (item.permission && !hasActionPermission(role, item.permission)) return false;
+      if (!hasPermission(role, item.href)) {
+        return false;
+      }
+
+      if (item.permission && !hasActionPermission(role, item.permission)) {
+        return false;
+      }
+
       return true;
     });
   }, [role]);
 
+  const groupedItems = useMemo(() => {
+    const byTitle = new Map(filteredItems.map((item) => [item.title, item]));
+    const usedTitles = new Set<string>();
+
+    const groups = MENU_GROUPS.map((group) => {
+      const items = group.titles
+        .map((title) => byTitle.get(title))
+        .filter((item): item is MenuItem => Boolean(item));
+
+      items.forEach((item) => usedTitles.add(item.title));
+
+      return {
+        ...group,
+        items,
+      };
+    }).filter((group) => group.items.length > 0);
+
+    const remainingItems = filteredItems.filter((item) => !usedTitles.has(item.title));
+
+    if (remainingItems.length > 0) {
+      groups.push({
+        id: "other",
+        label: "Diğer",
+        titles: remainingItems.map((item) => item.title),
+        items: remainingItems,
+      });
+    }
+
+    return groups;
+  }, [filteredItems]);
+
+  const quickAccessItems = useMemo(() => {
+    const itemsByTitle = new Map(filteredItems.map((item) => [item.title, item]));
+
+    return MOBILE_QUICK_ACCESS_TITLES.map((title) => itemsByTitle.get(title)).filter(
+      (item): item is MenuItem => Boolean(item),
+    );
+  }, [filteredItems]);
+
+  const getItemState = (item: MenuItem): MenuItemState => {
+    const hasSubmenu = Boolean(item.submenu?.length);
+    const isDirectActive = pathMatches(pathname, item.href) && !hasSubmenu;
+    const isParentActive = hasSubmenu && pathMatches(pathname, item.href);
+    const isSubmenuActive = item.submenu?.some((sub) => pathMatches(pathname, sub.href)) ?? false;
+    const isExpanded = expandedMenus.includes(item.title);
+    const isActive = isDirectActive || isParentActive || isSubmenuActive;
+
+    return {
+      hasSubmenu,
+      isDirectActive,
+      isParentActive,
+      isSubmenuActive,
+      isExpanded,
+      isActive,
+    };
+  };
+
+  useEffect(() => {
+    if (!isMobile || !mobileMenuOpen) {
+      return;
+    }
+
+    closeButtonRef.current?.focus();
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isMobile, mobileMenuOpen, onClose]);
+
   const toggleMenu = (title: string) => {
-    setExpandedMenus((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]));
+    setExpandedMenus((prev) => {
+      const expanded = prev.includes(title);
+
+      if (isMobile) {
+        return expanded ? [] : [title];
+      }
+
+      return expanded ? prev.filter((item) => item !== title) : [...prev, title];
+    });
   };
 
   const handleLogout = async () => {
@@ -237,141 +442,518 @@ export function AdminSidebar({
     }
   };
 
-  const handleLinkClick = () => {
+  const handleLeafClick = () => {
     if (isMobile && onClose) {
       onClose();
     }
   };
 
-  return (
-    <>
-      {isMobile && isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
+  const resetTouchTracking = () => {
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    touchCurrentXRef.current = null;
+    touchCurrentYRef.current = null;
+  };
 
-      <aside
-        className={cn(
-          "bg-[#ebebeb] border-l border-gray-200 flex flex-col fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
-          isMobile
-            ? `${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"} w-80 right-0 left-auto`
-            : "w-56 shrink-0 xl:w-60 2xl:w-64",
-        )}
-      >
-        <div className="flex items-center gap-3 border-b border-gray-200/50 p-4 xl:px-4 2xl:px-5">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
-            <Image
-              src={ADMIN_BRAND_LOGO_SRC}
-              alt="Celebi X"
-              width={40}
-              height={40}
-              className="h-full w-full object-contain p-1.5"
-              priority
-              unoptimized
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="block break-words text-sm font-semibold leading-snug text-gray-900">
-              {STORE_RUNTIME.name} Admin
-            </span>
-            <span className="text-xs text-gray-500 font-medium truncate block">
-              {userName || userEmail || "Admin Kullanıcı"}
-            </span>
-          </div>
+  const handleDrawerTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+
+    if (!touch) {
+      return;
+    }
+
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    touchCurrentXRef.current = touch.clientX;
+    touchCurrentYRef.current = touch.clientY;
+  };
+
+  const handleDrawerTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+
+    if (!touch) {
+      return;
+    }
+
+    touchCurrentXRef.current = touch.clientX;
+    touchCurrentYRef.current = touch.clientY;
+  };
+
+  const handleDrawerTouchEnd = () => {
+    if (!mobileMenuOpen || !onClose || touchStartXRef.current === null || touchStartYRef.current === null) {
+      resetTouchTracking();
+      return;
+    }
+
+    const deltaX = (touchCurrentXRef.current ?? touchStartXRef.current) - touchStartXRef.current;
+    const deltaY = Math.abs((touchCurrentYRef.current ?? touchStartYRef.current) - touchStartYRef.current);
+
+    if (deltaX > 72 && deltaY < 56) {
+      onClose();
+    }
+
+    resetTouchTracking();
+  };
+
+  const desktopAsideClassName =
+    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-white xl:w-[14rem] 2xl:w-[14.5rem]";
+
+  if (isMobile) {
+    return (
+      <>
+        <div
+          className={cn(
+            "fixed inset-0 z-[68] bg-[rgba(17,24,39,0.34)] backdrop-blur-[3px] transition-opacity duration-200 md:hidden",
+            mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          aria-hidden={!mobileMenuOpen}
+        >
+          <button
+            type="button"
+            aria-label="Menüyü kapat"
+            className="absolute inset-0"
+            onClick={onClose}
+            tabIndex={mobileMenuOpen ? 0 : -1}
+          />
         </div>
 
-        {!role ? (
-          <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-            Yetki bilgisi yuklenemedi. Menuler sinirli gosteriliyor.
-          </div>
-        ) : null}
+        <aside
+          id="admin-mobile-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobil yönetim menüsü"
+          aria-hidden={!mobileMenuOpen}
+          className={cn(
+            "fixed inset-y-0 right-0 z-[74] w-[min(91vw,24.75rem)] max-w-[24.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden",
+            mobileMenuOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
+          )}
+          onTouchStart={handleDrawerTouchStart}
+          onTouchMove={handleDrawerTouchMove}
+          onTouchEnd={handleDrawerTouchEnd}
+          onTouchCancel={resetTouchTracking}
+        >
+          <div className="flex h-full flex-col overflow-hidden rounded-l-[1.9rem] border-l border-[#E7EAF0] bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(247,248,250,0.99)_100%)] shadow-[-22px_0_48px_rgba(17,24,39,0.18)]">
+            <div className="border-b border-[#EEF1F4] px-4 pb-4 pt-[max(env(safe-area-inset-top,0px),1rem)]">
+              <div className="flex justify-center">
+                <span className="h-1.5 w-14 rounded-full bg-[#D8DDE5]" />
+              </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-          {filteredItems.map((item) => {
-            const isActive = pathname === item.href;
-            const isExpanded = expandedMenus.includes(item.title);
-            const hasSubmenu = Boolean(item.submenu?.length);
-            const isSubmenuActive = item.submenu?.some((sub) => pathname === sub.href);
-
-            return (
-              <div key={item.title}>
-                <div
-                  className={cn(
-                    "group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm font-medium select-none",
-                    isActive || isSubmenuActive
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900",
-                  )}
-                  onClick={() => {
-                    if (hasSubmenu) {
-                      toggleMenu(item.title);
-                    }
-                  }}
-                >
-                    <Link href={item.href} onClick={handleLinkClick} className="flex min-w-0 flex-1 items-center gap-3">
-                      <item.icon className="w-5 h-5 opacity-70" />
-                      <span className="min-w-0 truncate leading-snug">{item.title}</span>
-                    </Link>
-
-                  <div className="flex items-center gap-2">
-                    {item.badge ? (
-                      <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                    {hasSubmenu ? (
-                      <div className="text-gray-400">
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </div>
-                    ) : null}
-                  </div>
+              <div className="mt-4 flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[1.15rem] border border-[#E7EAF0] bg-[#F7F8FA] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
+                  <Image
+                    src={siteLogo}
+                    alt={siteName}
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                  />
                 </div>
 
-                {hasSubmenu && isExpanded && (
-                  <div className="mt-1 ml-8 space-y-0.5">
-                    {item.submenu?.map((sub) => {
-                      const isSubActive = pathname === sub.href;
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1F2937]">{siteName}</p>
+                  <p className="mt-1 truncate text-[14px] text-[#6B7280]">{adminFullName}</p>
+                </div>
+
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-[#E7EAF0] bg-white text-[#6B7280] shadow-[0_12px_26px_rgba(17,24,39,0.06)] transition-colors active:scale-[0.98]"
+                  aria-label="Menüyü kapat"
+                >
+                  <X className="h-[1.1rem] w-[1.1rem]" />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-4 pt-4">
+              {!role && !isRecoveringProfile ? (
+                <div className="rounded-[1.15rem] border border-[#E7EAF0] bg-[#F7F8FA] px-3.5 py-3 text-[13px] font-medium text-[#6B7280]">
+                  Yetki bilgisi yüklenemedi.
+                </div>
+              ) : null}
+
+              {quickAccessItems.length > 0 ? (
+                <section className={cn("space-y-3.5", !role && !isRecoveringProfile ? "mt-4" : "")}>
+                  <div className="px-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                      Hızlı Erişim
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {quickAccessItems.map((item, index) => {
+                      const { isActive } = getItemState(item);
+                      const isWideCard = quickAccessItems.length % 2 === 1 && index === quickAccessItems.length - 1;
+
                       return (
                         <Link
-                          key={sub.href}
-                          href={sub.href}
-                          onClick={handleLinkClick}
+                          key={item.title}
+                          href={item.href}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={handleLeafClick}
                           className={cn(
-                            "block rounded-md px-3 py-2 text-[13px] leading-5 transition-colors break-words",
-                            isSubActive
-                              ? "text-gray-900 font-medium bg-gray-200/50"
-                              : "text-gray-500 hover:text-gray-900 hover:bg-gray-200/30",
+                            "group flex min-h-[78px] items-center gap-3 rounded-[1.35rem] border px-3.5 py-3.5 transition-all duration-200 active:scale-[0.99]",
+                            isWideCard ? "col-span-2" : "",
+                            isActive
+                              ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+                              : "border-[#E7EAF0] bg-white text-[#374151]",
                           )}
                         >
-                          {sub.title}
+                          <span
+                            className={cn(
+                              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border transition-colors",
+                              isActive
+                                ? "border-[#FFD7BF] bg-white text-[#FF6A00]"
+                                : "border-[#EEF1F4] bg-[#F7F8FA] text-[#6B7280]",
+                            )}
+                          >
+                            <item.icon className="h-[1.1rem] w-[1.1rem]" />
+                          </span>
+                          <span className="min-w-0 truncate text-[14px] font-semibold tracking-[-0.01em]">
+                            {item.title}
+                          </span>
                         </Link>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
+                </section>
+              ) : null}
 
-        <div className="p-4 border-t border-gray-200/50 space-y-2">
-          <button
-            onClick={handleLogout}
-            disabled={isSigningOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
-          >
-            <LogOut className="w-5 h-5 opacity-70" />
-            <span>{isSigningOut ? "Cikis Yapiliyor..." : "Çıkış Yap"}</span>
-          </button>
-          <Link
-            href={STORE_RUNTIME.storefrontUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
-          >
-            <Store className="w-5 h-5 opacity-70" />
-            <span>Siteye Dön</span>
-          </Link>
+              <section className={cn("space-y-3.5", quickAccessItems.length > 0 || (!role && !isRecoveringProfile) ? "mt-5" : "")}>
+                <div className="px-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                    Tüm Alanlar
+                  </p>
+                </div>
+
+                <div className="overflow-hidden rounded-[1.4rem] border border-[#E7EAF0] bg-white">
+                  {filteredItems.map((item, index) => {
+                    const { hasSubmenu, isExpanded, isActive } = getItemState(item);
+                    const rowId = `admin-mobile-drawer-section-${index}`;
+
+                    const rowClasses = cn(
+                      "group relative flex min-h-[58px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
+                      isActive ? "bg-[#FFF1E8] text-[#E85D04]" : "bg-white text-[#374151]",
+                    );
+
+                    const content = (
+                      <>
+                        <span
+                          className={cn(
+                            "pointer-events-none absolute bottom-3 left-0 top-3 w-[3px] rounded-full bg-[#FF6A00] transition-opacity duration-200",
+                            isActive ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] transition-colors",
+                            isActive ? "bg-white text-[#FF6A00]" : "bg-[#F7F8FA] text-[#6B7280]",
+                          )}
+                        >
+                          <item.icon className="h-[1.05rem] w-[1.05rem]" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.01em]">
+                          {item.title}
+                        </span>
+                        {item.badge ? (
+                          <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-0.5 text-[11px] font-medium text-[#6B7280]">
+                            {item.badge}
+                          </span>
+                        ) : null}
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-[#9CA3AF] transition-transform duration-200",
+                            hasSubmenu && isExpanded ? "rotate-90 text-[#FF6A00]" : "",
+                            !hasSubmenu && isActive ? "text-[#FF6A00]" : "",
+                          )}
+                        />
+                      </>
+                    );
+
+                    return (
+                      <div key={item.title} className={cn(index > 0 ? "border-t border-[#EEF1F4]" : "")}>
+                        {hasSubmenu ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleMenu(item.title)}
+                            aria-expanded={isExpanded}
+                            aria-controls={rowId}
+                            className={rowClasses}
+                          >
+                            {content}
+                          </button>
+                        ) : (
+                          <Link
+                            href={item.href}
+                            aria-current={isActive ? "page" : undefined}
+                            onClick={handleLeafClick}
+                            className={rowClasses}
+                          >
+                            {content}
+                          </Link>
+                        )}
+
+                        {hasSubmenu ? (
+                          <div
+                            id={rowId}
+                            className={cn(
+                              "grid overflow-hidden transition-all duration-200 ease-out",
+                              isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                            )}
+                          >
+                            <div className="min-h-0">
+                              <div className="pb-3 pl-[3.95rem] pr-3.5">
+                                <div className="space-y-1 border-l border-[#EEF1F4] pl-3">
+                                  {item.submenu?.map((sub) => {
+                                    const isSubActive = pathMatches(pathname, sub.href);
+
+                                    return (
+                                      <Link
+                                        key={sub.href}
+                                        href={sub.href}
+                                        aria-current={isSubActive ? "page" : undefined}
+                                        onClick={handleLeafClick}
+                                        className={cn(
+                                          "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
+                                          isSubActive
+                                            ? "bg-[#FFF1E8] text-[#E85D04]"
+                                            : "text-[#6B7280] hover:bg-[#F7F8FA] hover:text-[#374151]",
+                                        )}
+                                      >
+                                        <span
+                                          className={cn(
+                                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                                            isSubActive ? "bg-[#FF6A00]" : "bg-[#D1D5DB]",
+                                          )}
+                                        />
+                                        <span className="truncate">{sub.title}</span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+
+            <div className="border-t border-[#EEF1F4] bg-white/96 px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3.5">
+              <div className="space-y-1.5">
+                <button
+                  onClick={handleLogout}
+                  disabled={isSigningOut}
+                  className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
+                >
+                  <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+                  <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
+                </button>
+
+                <Link
+                  href={STORE_RUNTIME.storefrontUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-[48px] items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#F7F8FA] hover:text-[#1F2937]"
+                >
+                  <Store className="h-[1rem] w-[1rem] shrink-0" />
+                  <span>Siteye Dön</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </>
+    );
+  }
+
+  return (
+    <aside className={cn("border-l border-[var(--admin-border)]", desktopAsideClassName)}>
+      <div className="border-b border-[#EEF1F4] px-3.5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[1.05rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
+            <Image
+              src={siteLogo}
+              alt={siteName}
+              width={40}
+              height={40}
+              className="h-full w-full object-cover"
+              unoptimized
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14.5px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">
+              {siteHeading}
+            </p>
+            <p className="mt-0.5 truncate text-[12.5px] text-[var(--admin-text-secondary)]">
+              {adminFullName}
+            </p>
+          </div>
         </div>
-      </aside>
-    </>
+      </div>
+
+      {!role && !isRecoveringProfile ? (
+        <div className="mx-3.5 mt-3 rounded-[1rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-3 py-2.5 text-[13px] font-medium text-[var(--admin-text-secondary)]">
+          Yetki bilgisi yüklenemedi.
+        </div>
+      ) : null}
+
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+        {groupedItems.map((group) => (
+          <section key={group.id} className="space-y-1.5">
+            <div className="px-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-secondary)]">
+                {group.label}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const { hasSubmenu, isExpanded, isActive } = getItemState(item);
+
+                const rowClasses = cn(
+                  "group relative flex min-h-[44px] w-full items-center gap-3 rounded-[1rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.14)]",
+                  isActive
+                    ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                    : "text-[var(--admin-text)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
+                );
+
+                const iconShellClasses = cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] border transition-colors",
+                  isActive
+                    ? "border-[var(--admin-accent-border)] bg-white text-[var(--admin-accent-hover)]"
+                    : "border-[#EEF1F4] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)] group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]",
+                );
+
+                const content = (
+                  <>
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute bottom-2 left-0 top-2 w-[2px] rounded-full bg-[var(--admin-accent)] transition-opacity",
+                        isActive ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    <span className={iconShellClasses}>
+                      <item.icon className="h-[1rem] w-[1rem]" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.title}</span>
+                    {item.badge ? (
+                      <span className="rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                    {hasSubmenu ? (
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-[var(--admin-text-muted)] transition-transform duration-200 group-hover:text-[var(--admin-accent-hover)]",
+                          isExpanded ? "rotate-180" : "rotate-0",
+                        )}
+                      />
+                    ) : null}
+                  </>
+                );
+
+                return (
+                  <div key={item.title} className="space-y-1">
+                    {hasSubmenu ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleMenu(item.title)}
+                        aria-expanded={isExpanded}
+                        aria-controls={`sidebar-group-${group.id}-${item.title}`}
+                        className={rowClasses}
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        aria-current={isActive ? "page" : undefined}
+                        onClick={handleLeafClick}
+                        className={rowClasses}
+                      >
+                        {content}
+                      </Link>
+                    )}
+
+                    {hasSubmenu ? (
+                      <div
+                        id={`sidebar-group-${group.id}-${item.title}`}
+                        className={cn(
+                          "grid overflow-hidden transition-all duration-200 ease-out",
+                          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                        )}
+                      >
+                        <div className="min-h-0">
+                          <div className="ml-5 border-l border-[#EEF1F4] pl-3 pt-0.5">
+                            <div className="space-y-1">
+                              {item.submenu?.map((sub) => {
+                                const isSubActive = pathMatches(pathname, sub.href);
+
+                                return (
+                                  <Link
+                                    key={sub.href}
+                                    href={sub.href}
+                                    aria-current={isSubActive ? "page" : undefined}
+                                    onClick={handleLeafClick}
+                                    className={cn(
+                                      "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
+                                      isSubActive
+                                        ? "bg-white text-[var(--admin-accent-hover)] shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
+                                        : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                                        isSubActive
+                                          ? "bg-[var(--admin-accent)]"
+                                          : "bg-[#D1D5DB] group-hover:bg-[var(--admin-accent-border)]",
+                                      )}
+                                    />
+                                    <span className="truncate">{sub.title}</span>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </nav>
+
+      <div className="space-y-1.5 border-t border-[#EEF1F4] px-3 py-3.5">
+        <button
+          onClick={handleLogout}
+          disabled={isSigningOut}
+          className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+        >
+          <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+          <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
+        </button>
+
+        <Link
+          href={STORE_RUNTIME.storefrontUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]"
+        >
+          <Store className="h-[1rem] w-[1rem] shrink-0" />
+          <span>Siteye Dön</span>
+        </Link>
+      </div>
+    </aside>
   );
 }
-

@@ -743,7 +743,6 @@ function GEOSection({ keyTakeaways, onAdd, onUpdate, onRemove, onGenerateAI, isG
         <div className="space-y-4">
             <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                 <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
-                <p className="text-sm text-purple-700">AI sistemlerinin sayfanızı anlamasına yardımcı olun.</p>
             </div>
             <div>
                 <div className="flex items-center justify-between mb-3">

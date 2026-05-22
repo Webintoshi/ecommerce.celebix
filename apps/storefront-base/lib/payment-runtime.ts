@@ -4,7 +4,13 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import Stripe from "stripe";
-import { getPaymentGatewayRuntimeStatus, resolveIyzicoBaseUrl } from "@/lib/payment-providers";
+import {
+    getPaymentGatewayRuntimeStatus,
+    IYZICO_FAMILY_GATEWAYS,
+    isGatewayInFamily,
+    PAYTR_FAMILY_GATEWAYS,
+    resolveIyzicoBaseUrl,
+} from "@/lib/payment-providers";
 import { createPaymentAttempt, getPaymentAttemptByToken, updatePaymentAttempt } from "@/lib/db/payment-attempts";
 import { PaymentGatewayConfig } from "@/types/payment";
 import { PaymentAttempt, PaymentInitResult } from "@/types/payment-runtime";
@@ -35,6 +41,10 @@ interface CheckoutContext {
         order_number: string;
         total: number;
         currency?: string | null;
+    };
+    quickOrderLink?: {
+        id: string;
+        token: string;
     };
     items: CheckoutItemInput[];
     customerEmail: string;
@@ -197,7 +207,7 @@ function createStripeClient(gateway: PaymentGatewayConfig) {
     }
 
     return new Stripe(secretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-02-25.clover",
     });
 }
 
@@ -311,11 +321,11 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
         };
     }
 
-    if (context.gateway.gateway === "iyzico") {
+    if (isGatewayInFamily(context.gateway.gateway, IYZICO_FAMILY_GATEWAYS)) {
         return initializeIyzicoPayment(context);
     }
 
-    if (context.gateway.gateway === "paytr") {
+    if (isGatewayInFamily(context.gateway.gateway, PAYTR_FAMILY_GATEWAYS)) {
         return initializePaytrPayment(context);
     }
 
@@ -334,9 +344,18 @@ export async function initializePayment(context: CheckoutContext): Promise<Payme
     throw new Error("Bu odeme saglayicisi icin runtime entegrasyonu henuz tamamlanmadi.");
 }
 
+function buildAttemptRequestPayload(context: CheckoutContext) {
+    return {
+        orderNumber: context.order.order_number,
+        sourceKind: context.quickOrderLink ? "quick_order_link" : "order",
+        quickOrderToken: context.quickOrderLink?.token ?? null,
+    };
+}
+
 async function initializeIyzicoPayment(context: CheckoutContext): Promise<PaymentInitResult> {
     const paymentAttempt = await createPaymentAttempt({
-        orderId: context.order.id,
+        orderId: context.quickOrderLink ? null : context.order.id,
+        quickOrderLinkId: context.quickOrderLink?.id ?? null,
         gatewayId: context.gateway.id,
         provider: context.gateway.gateway,
         amount: context.order.total,
@@ -344,9 +363,7 @@ async function initializeIyzicoPayment(context: CheckoutContext): Promise<Paymen
         idempotencyKey: `${context.order.id}:${context.gateway.id}:${Date.now()}`,
         customerEmail: context.customerEmail,
         customerIp: context.customerIp,
-        requestPayload: {
-            orderNumber: context.order.order_number,
-        },
+        requestPayload: buildAttemptRequestPayload(context),
     });
 
     const addressLine = context.shippingAddress.address?.trim() || "Adres bilgisi yok";
@@ -455,7 +472,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
     }
 
     const paymentAttempt = await createPaymentAttempt({
-        orderId: context.order.id,
+        orderId: context.quickOrderLink ? null : context.order.id,
+        quickOrderLinkId: context.quickOrderLink?.id ?? null,
         gatewayId: context.gateway.id,
         provider: context.gateway.gateway,
         amount: context.order.total,
@@ -463,9 +481,7 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         idempotencyKey: `${context.order.id}:${context.gateway.id}:${Date.now()}`,
         customerEmail: context.customerEmail,
         customerIp: context.customerIp,
-        requestPayload: {
-            orderNumber: context.order.order_number,
-        },
+        requestPayload: buildAttemptRequestPayload(context),
     });
 
     const merchantOid = sanitizeReference(paymentAttempt.id);
@@ -501,8 +517,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
         user_name: buildBuyerName(context.shippingAddress),
         user_address: context.shippingAddress.address || "Adres bilgisi yok",
         user_phone: context.shippingAddress.phone || "",
-        merchant_ok_url: `${context.siteUrl}/api/payments/paytr/return?orderId=${context.order.id}&status=pending`,
-        merchant_fail_url: `${context.siteUrl}/api/payments/paytr/return?orderId=${context.order.id}&status=failed`,
+        merchant_ok_url: getCheckoutTargetRedirectUrl(context.siteUrl, context, "pending"),
+        merchant_fail_url: getCheckoutTargetRedirectUrl(context.siteUrl, context, "failed"),
         timeout_limit: "30",
         currency: "TL",
         test_mode: testMode,
@@ -558,7 +574,8 @@ async function initializePaytrPayment(context: CheckoutContext): Promise<Payment
 async function initializeStripePayment(context: CheckoutContext): Promise<PaymentInitResult> {
     const stripe = createStripeClient(context.gateway);
     const paymentAttempt = await createPaymentAttempt({
-        orderId: context.order.id,
+        orderId: context.quickOrderLink ? null : context.order.id,
+        quickOrderLinkId: context.quickOrderLink?.id ?? null,
         gatewayId: context.gateway.id,
         provider: context.gateway.gateway,
         amount: context.order.total,
@@ -566,27 +583,27 @@ async function initializeStripePayment(context: CheckoutContext): Promise<Paymen
         idempotencyKey: `${context.order.id}:${context.gateway.id}:${Date.now()}`,
         customerEmail: context.customerEmail,
         customerIp: context.customerIp,
-        requestPayload: {
-            orderNumber: context.order.order_number,
-        },
+        requestPayload: buildAttemptRequestPayload(context),
     });
 
     try {
         const session = await stripe.checkout.sessions.create({
             mode: "payment",
             customer_email: context.customerEmail,
-            success_url: getOrderRedirectUrl(context.siteUrl, context.order.id, "pending"),
-            cancel_url: getOrderRedirectUrl(context.siteUrl, context.order.id, "pending"),
+            success_url: getCheckoutTargetRedirectUrl(context.siteUrl, context, "pending"),
+            cancel_url: getCheckoutTargetRedirectUrl(context.siteUrl, context, "pending"),
             metadata: {
                 attemptId: paymentAttempt.id,
-                orderId: context.order.id,
+                orderId: context.quickOrderLink ? "" : context.order.id,
+                quickOrderLinkId: context.quickOrderLink?.id || "",
                 gatewayId: context.gateway.id,
                 orderNumber: context.order.order_number,
             },
             payment_intent_data: {
                 metadata: {
                     attemptId: paymentAttempt.id,
-                    orderId: context.order.id,
+                    orderId: context.quickOrderLink ? "" : context.order.id,
+                    quickOrderLinkId: context.quickOrderLink?.id || "",
                     gatewayId: context.gateway.id,
                 },
             },
@@ -642,7 +659,8 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
     }
 
     const paymentAttempt = await createPaymentAttempt({
-        orderId: context.order.id,
+        orderId: context.quickOrderLink ? null : context.order.id,
+        quickOrderLinkId: context.quickOrderLink?.id ?? null,
         gatewayId: context.gateway.id,
         provider: context.gateway.gateway,
         amount: context.order.total,
@@ -650,9 +668,7 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
         idempotencyKey: `${context.order.id}:${context.gateway.id}:${Date.now()}`,
         customerEmail: context.customerEmail,
         customerIp: context.customerIp,
-        requestPayload: {
-            orderNumber: context.order.order_number,
-        },
+        requestPayload: buildAttemptRequestPayload(context),
     });
 
     const callbackToken = createAttemptVerificationToken(paymentAttempt);
@@ -663,13 +679,8 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
     callbackUrl.searchParams.set("attemptId", paymentAttempt.id);
     callbackUrl.searchParams.set("token", callbackToken);
 
-    const successUrl = new URL(`${context.siteUrl}/api/payments/paynet/return`);
-    successUrl.searchParams.set("orderId", context.order.id);
-    successUrl.searchParams.set("status", "pending");
-
-    const failureUrl = new URL(`${context.siteUrl}/api/payments/paynet/return`);
-    failureUrl.searchParams.set("orderId", context.order.id);
-    failureUrl.searchParams.set("status", "failed");
+    const successUrl = new URL(getCheckoutTargetRedirectUrl(context.siteUrl, context, "pending"));
+    const failureUrl = new URL(getCheckoutTargetRedirectUrl(context.siteUrl, context, "failed"));
 
     const payload: Record<string, unknown> = {
         amount: Number(toCurrencyAmount(context.order.total)),
@@ -741,7 +752,8 @@ async function initializePaynetPayment(context: CheckoutContext): Promise<Paymen
 async function initializeCraftgatePayment(context: CheckoutContext): Promise<PaymentInitResult> {
     const craftgate = createCraftgateClient(context.gateway);
     const paymentAttempt = await createPaymentAttempt({
-        orderId: context.order.id,
+        orderId: context.quickOrderLink ? null : context.order.id,
+        quickOrderLinkId: context.quickOrderLink?.id ?? null,
         gatewayId: context.gateway.id,
         provider: context.gateway.gateway,
         amount: context.order.total,
@@ -749,9 +761,7 @@ async function initializeCraftgatePayment(context: CheckoutContext): Promise<Pay
         idempotencyKey: `${context.order.id}:${context.gateway.id}:${Date.now()}`,
         customerEmail: context.customerEmail,
         customerIp: context.customerIp,
-        requestPayload: {
-            orderNumber: context.order.order_number,
-        },
+        requestPayload: buildAttemptRequestPayload(context),
     });
 
     const currencyKey = (context.gateway.currency || "TRY").toUpperCase() as keyof typeof Craftgate.Model.Currency;
@@ -872,6 +882,42 @@ export function verifyPaytrCallback(input: {
 
 export function getOrderRedirectUrl(siteUrl: string, orderId: string, status: "success" | "failed" | "pending") {
     return `${siteUrl}/siparisler/${orderId}?payment=${status}`;
+}
+
+export function getQuickOrderRedirectUrl(siteUrl: string, token: string, status: "success" | "failed" | "pending") {
+    return `${siteUrl}/odeme/hizli/${token}?payment=${status}`;
+}
+
+export function getCheckoutTargetRedirectUrl(
+    siteUrl: string,
+    context: Pick<CheckoutContext, "order" | "quickOrderLink">,
+    status: "success" | "failed" | "pending",
+) {
+    if (context.quickOrderLink?.token) {
+        return getQuickOrderRedirectUrl(siteUrl, context.quickOrderLink.token, status);
+    }
+
+    return getOrderRedirectUrl(siteUrl, context.order.id, status);
+}
+
+export function getPaymentAttemptRedirectUrl(
+    siteUrl: string,
+    attempt: Pick<PaymentAttempt, "order_id" | "quick_order_link_id" | "request_payload">,
+    status: "success" | "failed" | "pending",
+) {
+    const quickOrderToken = typeof attempt.request_payload.quickOrderToken === "string"
+        ? attempt.request_payload.quickOrderToken
+        : null;
+
+    if (attempt.quick_order_link_id && quickOrderToken) {
+        return getQuickOrderRedirectUrl(siteUrl, quickOrderToken, status);
+    }
+
+    if (!attempt.order_id) {
+        return `${siteUrl}/odeme`;
+    }
+
+    return getOrderRedirectUrl(siteUrl, attempt.order_id, status);
 }
 
 export function getSafeAttemptStatusFromIyzico(result: Record<string, unknown>): PaymentAttempt["status"] {

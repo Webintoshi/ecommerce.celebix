@@ -1,5 +1,6 @@
 import { calculateSEOScore } from "@/lib/blog";
 import { extractBlogPlainText } from "@/lib/blog-rich-text";
+import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 import { slugify } from "@/lib/utils";
 import type { BlogPost, ContentStatus } from "@/types/blog";
 
@@ -113,12 +114,12 @@ export function mapBlogRowToEditorPost(row: BlogEditorRow): BlogPost {
 }
 
 export function validateBlogEditorInput(input: Partial<BlogPost>): string | null {
-  const title = input.title?.trim();
+  const title = normalizeVisibleText(input.title, { collapseWhitespace: true });
   const slug = (input.slug?.trim() || slugify(input.title || "")).trim();
   const status = normalizeStatus(input.status);
 
   if (!title) {
-    return "Yazi basligi zorunludur.";
+    return "Yazı başlığı zorunludur.";
   }
 
   if (!slug) {
@@ -126,17 +127,17 @@ export function validateBlogEditorInput(input: Partial<BlogPost>): string | null
   }
 
   if (status === "published" && !input.content?.trim()) {
-    return "Yayina almak icin icerik gereklidir.";
+    return "Yayına almak için içerik gereklidir.";
   }
 
   return null;
 }
 
 export function buildBlogRowInput(input: Partial<BlogPost>) {
-  const title = input.title?.trim() || "";
+  const title = normalizeVisibleText(input.title, { collapseWhitespace: true });
   const slug = (input.slug?.trim() || slugify(title)).trim();
-  const content = input.content?.trim() || "";
-  const excerpt = input.excerpt?.trim() || deriveExcerpt(content);
+  const content = repairMojibakeIfNeeded(input.content?.trim() || "");
+  const excerpt = normalizeVisibleText(input.excerpt, { collapseWhitespace: true }) || deriveExcerpt(content);
   const status = normalizeStatus(input.status);
 
   return {
@@ -145,7 +146,7 @@ export function buildBlogRowInput(input: Partial<BlogPost>) {
     content: content || null,
     excerpt: excerpt || null,
     featured_image: input.coverImage?.trim() || null,
-    author: input.author?.name?.trim() || "Admin",
+    author: normalizeVisibleText(input.author?.name, { collapseWhitespace: true }) || "Admin",
     status,
     published_at:
       status === "published"

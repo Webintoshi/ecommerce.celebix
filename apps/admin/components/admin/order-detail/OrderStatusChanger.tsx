@@ -137,8 +137,8 @@ export function OrderStatusChanger({
           ${disabled || isUpdating
             ? "cursor-not-allowed border-[#e7ddd4] bg-[#f4ede6] text-stone-400"
             : isOpen
-              ? "border-[#FE6100] bg-gradient-to-r from-[#FE6100] to-[#df650d] text-white shadow-[0_14px_30px_rgba(254,97,0,0.2)]"
-              : "border-[#e1d2c3] bg-white text-[#6f5a49] shadow-sm hover:border-[#FE6100]/35 hover:bg-[#fff7f1]"
+              ? "border-[var(--admin-accent)] bg-gradient-to-r from-[#FF6A00] to-[#df650d] text-white shadow-[0_14px_30px_rgba(255,106,0,0.2)]"
+              : "border-[#e1d2c3] bg-white text-[#6f5a49] shadow-sm hover:border-[var(--admin-accent)]/35 hover:bg-[var(--admin-accent-soft)]"
           }
         `}
       >
@@ -147,7 +147,7 @@ export function OrderStatusChanger({
           currentStatus === "cancelled" ? "bg-red-500" :
           currentStatus === "refunded" ? "bg-orange-500" :
           currentStatus === "delivered" ? "bg-green-500" :
-          "bg-[#FE6100]"
+          "bg-[var(--admin-accent)]"
         }`} />
         <span>{currentConfig?.label || "Bilinmiyor"}</span>
         <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -158,7 +158,7 @@ export function OrderStatusChanger({
         createPortal(
           <div 
             ref={menuRef}
-            className="fixed z-[9999] w-72 overflow-hidden rounded-[24px] border border-[#eadccd] bg-white/95 shadow-2xl backdrop-blur"
+            className="fixed z-[9999] w-72 overflow-hidden rounded-[24px] border border-[var(--admin-border)] bg-white/95 shadow-2xl backdrop-blur"
             style={{ 
               top: `${menuPosition.top}px`,
               right: `${menuPosition.right}px`,
@@ -167,8 +167,8 @@ export function OrderStatusChanger({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="border-b border-[#f1e6dc] bg-gradient-to-r from-[#fff7f1] to-white px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a5b3c]">
+            <div className="border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fff7f1] to-white px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
                 Sipariş Durumunu Değiştir
               </p>
             </div>
@@ -192,10 +192,10 @@ export function OrderStatusChanger({
                       w-full flex items-center gap-3 px-4 py-3 text-left
                       transition-colors
                       ${isSelected
-                        ? "bg-[#fff1e4] text-[#b95a13]"
+                        ? "bg-[var(--admin-accent-soft)] text-[#b95a13]"
                         : isNegative
                           ? "text-red-600 hover:bg-rose-50"
-                          : "text-stone-700 hover:bg-[#fffaf5]"
+                          : "text-stone-700 hover:bg-[#FCFDFE]"
                       }
                       ${isUpdating ? "opacity-50" : ""}
                     `}

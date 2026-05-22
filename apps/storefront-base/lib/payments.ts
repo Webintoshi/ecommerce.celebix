@@ -107,6 +107,11 @@ export async function testPaymentGatewayConnection(id: string): Promise<boolean>
         return false;
     }
 
+    const definition = getPaymentProviderDefinition(gateway.gateway);
+    if (!definition.supportsConnectionTest) {
+        return false;
+    }
+
     if (gateway.gateway === "bank_transfer") {
         return Boolean(gateway.bankAccount.bankName && gateway.bankAccount.iban && gateway.bankAccount.accountHolder);
     }
