@@ -1,4 +1,15 @@
 import { createServerClient, type Address } from "@/lib/supabase";
+import {
+  deleteLightPostgresCustomer,
+  getLightPostgresCustomerByEmail,
+  getLightPostgresCustomerById,
+  getLightPostgresCustomerStats,
+  getLightPostgresCustomers,
+  getOrCreateLightPostgresCustomer,
+  replaceLightPostgresCustomerAddresses,
+  updateLightPostgresCustomer,
+} from "../../../storefront-base/lib/db/light-postgres-commerce-adapter";
+import { shouldUseLightPostgresAdmin } from "./admin-database-mode";
 
 export interface CustomerAddressInput {
   type?: string;
@@ -136,7 +147,7 @@ function isMissingSchemaError(error: unknown): boolean {
 }
 
 async function runOptionalCustomerCleanup(
-  action: () => Promise<{ error: unknown }>,
+  action: () => PromiseLike<{ error: unknown }> | { error: unknown },
 ) {
   const { error } = await action();
 
@@ -157,6 +168,10 @@ export async function getCustomers(options?: {
   offset?: number;
   search?: string;
 }) {
+  if (shouldUseLightPostgresAdmin()) {
+    return getLightPostgresCustomers(options);
+  }
+
   const serverClient = createServerClient();
 
   let query = serverClient
@@ -191,6 +206,10 @@ export async function getCustomers(options?: {
  * Get customer by ID (admin)
  */
 export async function getCustomerById(id: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    return getLightPostgresCustomerById(id);
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
@@ -211,6 +230,10 @@ export async function getCustomerById(id: string) {
  * Get customer by email
  */
 export async function getCustomerByEmail(email: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    return getLightPostgresCustomerByEmail(email);
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
@@ -230,6 +253,10 @@ export async function getCustomerByEmail(email: string) {
  * Create or get customer by email
  */
 export async function getOrCreateCustomer(customerData: CustomerUpsertInput) {
+  if (shouldUseLightPostgresAdmin()) {
+    return getOrCreateLightPostgresCustomer(customerData);
+  }
+
   const serverClient = createServerClient();
   const existing = await getCustomerByEmail(customerData.email);
   const updates = buildCustomerUpdatePayload(customerData);
@@ -269,6 +296,10 @@ export async function getOrCreateCustomer(customerData: CustomerUpsertInput) {
  * Update customer (admin)
  */
 export async function updateCustomer(id: string, updates: Record<string, unknown>) {
+  if (shouldUseLightPostgresAdmin()) {
+    return updateLightPostgresCustomer(id, updates);
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
@@ -286,6 +317,10 @@ export async function updateCustomer(id: string, updates: Record<string, unknown
  * Replace all customer addresses with the provided set.
  */
 export async function replaceCustomerAddresses(customerId: string, addresses: CustomerAddressInput[]) {
+  if (shouldUseLightPostgresAdmin()) {
+    return replaceLightPostgresCustomerAddresses(customerId, addresses);
+  }
+
   const serverClient = createServerClient();
 
   const { error: deleteError } = await serverClient
@@ -315,6 +350,10 @@ export async function replaceCustomerAddresses(customerId: string, addresses: Cu
  * Delete customer (admin)
  */
 export async function deleteCustomer(id: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    return deleteLightPostgresCustomer(id);
+  }
+
   const serverClient = createServerClient();
 
   // Keep historical records but detach them from the customer before delete.
@@ -468,6 +507,10 @@ export async function deleteAddress(id: string) {
  * Get customer statistics (admin)
  */
 export async function getCustomerStats() {
+  if (shouldUseLightPostgresAdmin()) {
+    return getLightPostgresCustomerStats();
+  }
+
   const serverClient = createServerClient();
 
   const { data: customers, error } = await serverClient

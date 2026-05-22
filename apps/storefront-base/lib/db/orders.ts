@@ -7,6 +7,18 @@ import { enqueueInventorySyncByVariantIds, enqueueOrderStatusSync } from "./mark
 import { attemptOrderShippingDispatch } from "./shipping-automation";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
 import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
+import {
+    createLightPostgresOrder,
+    deleteLightPostgresOrder,
+    getLightPostgresOrderById,
+    getLightPostgresOrderByNumber,
+    getLightPostgresOrderBySourceRef,
+    getLightPostgresOrderStats,
+    getLightPostgresOrders,
+    updateLightPostgresOrderStatus,
+    updateLightPostgresPaymentStatus,
+} from "./light-postgres-commerce-adapter";
+import { shouldUseLightPostgresStorefront } from "./storefront-database-mode";
 
 type ShippingAddressInput = {
     firstName?: string;
@@ -115,6 +127,10 @@ export async function createOrder(orderData: {
     sourceType?: OrderSourceType;
     sourceRefId?: string | null;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return createLightPostgresOrder(orderData);
+    }
+
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
 
@@ -347,6 +363,10 @@ export async function getOrders(options?: {
     limit?: number;
     offset?: number;
 }) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresOrders(options);
+    }
+
     const serverClient = createServerClient();
 
     let query = serverClient
@@ -394,6 +414,10 @@ export async function getOrders(options?: {
  * Get order by ID (admin)
  */
 export async function getOrderById(id: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresOrderById(id);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -426,6 +450,10 @@ export async function getOrderById(id: string) {
  * Get order by order number
  */
 export async function getOrderByNumber(orderNumber: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresOrderByNumber(orderNumber);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -455,6 +483,10 @@ export async function getOrderByNumber(orderNumber: string) {
 }
 
 export async function getOrderBySourceRef(sourceType: OrderSourceType, sourceRefId: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresOrderBySourceRef(sourceType, sourceRefId);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -488,6 +520,10 @@ export async function getOrderBySourceRef(sourceType: OrderSourceType, sourceRef
  * Update order status (admin)
  */
 export async function updateOrderStatus(id: string, status: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return updateLightPostgresOrderStatus(id, status);
+    }
+
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
 
@@ -580,6 +616,10 @@ export async function updateOrderStatus(id: string, status: string) {
  * Update payment status (admin)
  */
 export async function updatePaymentStatus(id: string, paymentStatus: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return updateLightPostgresPaymentStatus(id, paymentStatus);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -612,6 +652,10 @@ export async function updatePaymentStatus(id: string, paymentStatus: string) {
  * Delete order (admin)
  */
 export async function deleteOrder(id: string) {
+    if (shouldUseLightPostgresStorefront()) {
+        return deleteLightPostgresOrder(id);
+    }
+
     const serverClient = createServerClient();
 
     const { error } = await serverClient
@@ -627,6 +671,10 @@ export async function deleteOrder(id: string) {
  * Get order statistics (admin)
  */
 export async function getOrderStats() {
+    if (shouldUseLightPostgresStorefront()) {
+        return getLightPostgresOrderStats();
+    }
+
     const serverClient = createServerClient();
 
     const { data: orders, error } = await serverClient

@@ -8,6 +8,18 @@ import { attemptOrderShippingDispatch } from "./shipping-automation";
 import { emitAdminNotificationEvent } from "@/lib/admin-notification-center";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
 import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
+import {
+    createLightPostgresOrder,
+    deleteLightPostgresOrder,
+    getLightPostgresOrderById,
+    getLightPostgresOrderByNumber,
+    getLightPostgresOrderStats,
+    getLightPostgresOrders,
+    getLightPostgresOrdersByCustomerId,
+    updateLightPostgresOrderStatus,
+    updateLightPostgresPaymentStatus,
+} from "../../../storefront-base/lib/db/light-postgres-commerce-adapter";
+import { shouldUseLightPostgresAdmin } from "./admin-database-mode";
 
 type ShippingAddressInput = {
     firstName?: string;
@@ -112,6 +124,10 @@ export async function createOrder(orderData: {
     saveAddress?: boolean;
     abandonedCartSessionId?: string | null;
 }) {
+    if (shouldUseLightPostgresAdmin()) {
+        return createLightPostgresOrder(orderData);
+    }
+
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
 
@@ -361,6 +377,10 @@ export async function getOrders(options?: {
     limit?: number;
     offset?: number;
 }) {
+    if (shouldUseLightPostgresAdmin()) {
+        return getLightPostgresOrders(options);
+    }
+
     const serverClient = createServerClient();
 
     let query = serverClient
@@ -408,6 +428,10 @@ export async function getOrders(options?: {
  * Get order by ID (admin)
  */
 export async function getOrderById(id: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return getLightPostgresOrderById(id);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -440,6 +464,10 @@ export async function getOrderById(id: string) {
  * Get order by order number
  */
 export async function getOrderByNumber(orderNumber: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return getLightPostgresOrderByNumber(orderNumber);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -472,6 +500,10 @@ export async function getOrderByNumber(orderNumber: string) {
  * Update order status (admin)
  */
 export async function updateOrderStatus(id: string, status: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return updateLightPostgresOrderStatus(id, status);
+    }
+
     const serverClient = createServerClient();
     const touchedVariantIds: string[] = [];
 
@@ -564,6 +596,10 @@ export async function updateOrderStatus(id: string, status: string) {
  * Update payment status (admin)
  */
 export async function updatePaymentStatus(id: string, paymentStatus: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return updateLightPostgresPaymentStatus(id, paymentStatus);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -616,6 +652,10 @@ export async function updatePaymentStatus(id: string, paymentStatus: string) {
  * Delete order (admin)
  */
 export async function deleteOrder(id: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        return deleteLightPostgresOrder(id);
+    }
+
     const serverClient = createServerClient();
 
     const { error } = await serverClient
@@ -631,6 +671,10 @@ export async function deleteOrder(id: string) {
  * Get order statistics (admin)
  */
 export async function getOrderStats() {
+    if (shouldUseLightPostgresAdmin()) {
+        return getLightPostgresOrderStats();
+    }
+
     const serverClient = createServerClient();
 
     const { data: orders, error } = await serverClient
@@ -656,4 +700,54 @@ export async function getOrderStats() {
         monthRevenue: monthOrders.reduce((sum, o) => sum + Number(o.total), 0),
         pendingOrders: pendingOrders.length,
     };
+}
+
+export async function getOrdersByCustomerId(
+    customerId: string,
+    options?: {
+        excludeOrderId?: string | null;
+        limit?: number;
+    },
+) {
+    if (shouldUseLightPostgresAdmin()) {
+        return getLightPostgresOrdersByCustomerId(customerId, options);
+    }
+
+    const serverClient = createServerClient();
+    let query = serverClient
+        .from("orders")
+        .select(`
+            *,
+            items:order_items(
+                *,
+                customizations:order_item_customizations(*)
+            )
+        `)
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
+
+    if (options?.excludeOrderId) {
+        query = query.neq("id", options.excludeOrderId);
+    }
+
+    if (typeof options?.limit === "number") {
+        query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map((order) => {
+        const typedOrder = order as OrderWithItems;
+        return {
+            ...order,
+            items: (typedOrder.items || []).map((item) => {
+                const typedItem = item as OrderItemWithCustomizations;
+                return {
+                    ...item,
+                    customizations: normalizeStoredCustomizations(typedItem.customizations),
+                };
+            }),
+        };
+    });
 }
