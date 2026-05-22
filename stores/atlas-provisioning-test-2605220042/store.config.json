@@ -1,0 +1,68 @@
+{
+  "name": "Atlas Provisioning Test",
+  "slug": "atlas-provisioning-test-2605220042",
+  "status": "draft",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Disposable owner provisioning verification store",
+    "supportEmail": "atlas-provisioning-test@celebix.local",
+    "supportPhone": "+90 555 000 00 42",
+    "senderEmail": "noreply@atlas-provisioning-test-2605220042.celebix.site",
+    "smsSenderTitle": "ATLASPROVIS",
+    "defaultProductBrand": "Atlas Provisioning Test"
+  },
+  "domains": {
+    "storefront": "atlas-provisioning-test-2605220042.celebix.site",
+    "admin": "admin.atlas-provisioning-test-2605220042.celebix.site"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "separate-project-per-store"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-05-22T00:41:38.240Z",
+    "envTemplatePath": "stores/atlas-provisioning-test-2605220042/admin.env.example",
+    "coolifyProjectName": "Atlas Provisioning Test",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Atlas Provisioning Test admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.atlas-provisioning-test-2605220042.celebix.site",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "pending-owner-env"
+  },
+  "storefront": {
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Atlas Provisioning Test websitesi",
+    "deploymentBranch": "deploy/storefront/atlas-provisioning-test-2605220042",
+    "runtimeUrl": "https://atlas-provisioning-test-2605220042.celebix.site",
+    "deploymentStatus": "pending-owner-env"
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
