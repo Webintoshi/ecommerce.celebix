@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, Home, RefreshCw } from "lucide-react";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { Home, RefreshCw } from "lucide-react";
 
 export default function Error({
   error,
@@ -13,6 +12,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
+    // ChunkLoadError — auto-reload once to fetch new assets after deployment
     const isChunkError =
       error.name === "ChunkLoadError" ||
       error.message?.includes("Loading chunk") ||
@@ -33,66 +33,40 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
-      <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
-        <div className="max-w-2xl text-center">
-          <div className="mb-8">
-            <div className="mb-4 inline-flex rounded-full bg-red-100 p-6">
-              <AlertTriangle className="h-16 w-16 text-red-600" />
-            </div>
-          </div>
-
-          <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
-            Bir Hata Olustu
-          </h1>
-          <p className="mb-8 text-lg text-gray-600">
-            Uzgunuz, bir seyler ters gitti. Lutfen sayfayi yenilemeyi deneyin veya
-            ana sayfaya donun.
-          </p>
-
-          {process.env.NODE_ENV === "development" ? (
-            <div className="mb-8 rounded-lg border border-red-200 bg-red-50 p-4 text-left">
-              <p className="break-all text-sm font-mono text-red-800">{error.message}</p>
-            </div>
-          ) : null}
-
-          <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <button
-              onClick={reset}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <RefreshCw className="h-5 w-5" />
-              Tekrar Dene
-            </button>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
-            >
-              <Home className="h-5 w-5" />
-              Ana Sayfaya Don
-            </Link>
-          </div>
-
-          <div className="mt-12 border-t border-gray-200 pt-8">
-            <p className="mb-4 text-gray-600">
-              Sorun devam ediyorsa lutfen bizimle iletisime gecin:
+    <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 text-center">
+        <h1 className="text-7xl sm:text-8xl font-medium text-neutral-200 mb-6 tracking-tight">
+          !
+        </h1>
+        <h2 className="text-2xl sm:text-3xl font-medium text-neutral-900 mb-4 tracking-tight">
+          Bir Hata Oluştu
+        </h2>
+        <p className="text-base text-neutral-500 mb-10 leading-relaxed max-w-md mx-auto">
+          Üzgünüz, bir şeyler ters gitti. Lütfen sayfayı yenilemeyi deneyin veya
+          ana sayfaya dönün.
+        </p>
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-8 p-4 bg-white border border-neutral-200 rounded-xl text-left">
+            <p className="text-sm font-mono text-neutral-700 break-all">
+              {error.message}
             </p>
-            <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <a
-                href={`mailto:${STOREFRONT_RUNTIME.supportEmail}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {STOREFRONT_RUNTIME.supportEmail}
-              </a>
-              <span className="hidden text-gray-400 sm:inline">|</span>
-              <a
-                href={`tel:${STOREFRONT_RUNTIME.supportPhone.replace(/\s+/g, "")}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {STOREFRONT_RUNTIME.supportPhone}
-              </a>
-            </div>
           </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={reset}
+            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-neutral-900 text-white rounded-xl font-medium hover:bg-neutral-800 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Tekrar Dene
+          </button>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-neutral-900 border border-neutral-200 rounded-xl font-medium hover:bg-neutral-50 transition-colors"
+          >
+            <Home className="w-4 h-4" />
+            Ana Sayfaya Dön
+          </Link>
         </div>
       </div>
     </div>

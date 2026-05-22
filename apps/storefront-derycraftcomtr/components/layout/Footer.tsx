@@ -10,16 +10,129 @@ import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
-import {
-  LOCALE_LABELS,
-  getLocalizedCopy,
-} from "@/lib/i18n";
+import { type StorefrontLocale } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type FooterCategory = {
   id: string;
   name: string;
   slug: string;
+};
+
+type FooterLocaleCopy = {
+  languageLabel: string;
+  aboutHeading: string;
+  categoriesHeading: string;
+  policiesHeading: string;
+  aboutLinks: Array<{ name: string; href: string }>;
+  rights: string;
+  partnerLabel: string;
+};
+
+const LOCALE_SWITCH_OPTIONS: Array<{
+  locale: StorefrontLocale;
+  label: string;
+  flag: string;
+}> = [
+  { locale: "tr", label: "Türkçe", flag: "🇹🇷" },
+  { locale: "en", label: "English", flag: "🇬🇧" },
+  { locale: "de", label: "Deutsch", flag: "🇩🇪" },
+  { locale: "ru", label: "Русский", flag: "🇷🇺" },
+  { locale: "ar", label: "العربية", flag: "🇸🇦" },
+  { locale: "ka", label: "ქართული", flag: "🇬🇪" },
+];
+
+const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
+  tr: {
+    languageLabel: "Dil",
+    aboutHeading: "Bizi Tanıyın",
+    categoriesHeading: "Kategoriler",
+    policiesHeading: "Politikalar",
+    aboutLinks: [
+      { name: "Ana Sayfa", href: "/" },
+      { name: "Hakkımızda", href: "/hakkimizda" },
+      { name: "Mağazalarımız", href: "/magazalarimiz" },
+      { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
+      { name: "İletişim", href: "/iletisim" },
+    ],
+    rights: "Tüm hakları saklıdır.",
+    partnerLabel: "Dijital Çözüm Ortağı",
+  },
+  en: {
+    languageLabel: "Language",
+    aboutHeading: "Discover Us",
+    categoriesHeading: "Categories",
+    policiesHeading: "Policies",
+    aboutLinks: [
+      { name: "Home", href: "/" },
+      { name: "About", href: "/hakkimizda" },
+      { name: "Stores", href: "/magazalarimiz" },
+      { name: "Corporate Products", href: "/kurumsal-urunler" },
+      { name: "Contact", href: "/iletisim" },
+    ],
+    rights: "All rights reserved.",
+    partnerLabel: "Digital Growth Partner",
+  },
+  de: {
+    languageLabel: "Sprache",
+    aboutHeading: "Über Uns",
+    categoriesHeading: "Kategorien",
+    policiesHeading: "Richtlinien",
+    aboutLinks: [
+      { name: "Startseite", href: "/" },
+      { name: "Über uns", href: "/hakkimizda" },
+      { name: "Geschäfte", href: "/magazalarimiz" },
+      { name: "Firmenprodukte", href: "/kurumsal-urunler" },
+      { name: "Kontakt", href: "/iletisim" },
+    ],
+    rights: "Alle Rechte vorbehalten.",
+    partnerLabel: "Digitaler Lösungspartner",
+  },
+  ru: {
+    languageLabel: "Язык",
+    aboutHeading: "О Нас",
+    categoriesHeading: "Категории",
+    policiesHeading: "Политики",
+    aboutLinks: [
+      { name: "Главная", href: "/" },
+      { name: "О нас", href: "/hakkimizda" },
+      { name: "Магазины", href: "/magazalarimiz" },
+      { name: "Корпоративные товары", href: "/kurumsal-urunler" },
+      { name: "Контакты", href: "/iletisim" },
+    ],
+    rights: "Все права защищены.",
+    partnerLabel: "Цифровой партнер",
+  },
+  ar: {
+    languageLabel: "اللغة",
+    aboutHeading: "اعرفنا",
+    categoriesHeading: "الفئات",
+    policiesHeading: "السياسات",
+    aboutLinks: [
+      { name: "الرئيسية", href: "/" },
+      { name: "من نحن", href: "/hakkimizda" },
+      { name: "متاجرنا", href: "/magazalarimiz" },
+      { name: "المنتجات المؤسسية", href: "/kurumsal-urunler" },
+      { name: "اتصل بنا", href: "/iletisim" },
+    ],
+    rights: "جميع الحقوق محفوظة.",
+    partnerLabel: "شريك النمو الرقمي",
+  },
+  ka: {
+    languageLabel: "ენა",
+    aboutHeading: "ჩვენ შესახებ",
+    categoriesHeading: "კატეგორიები",
+    policiesHeading: "პოლიტიკები",
+    aboutLinks: [
+      { name: "მთავარი", href: "/" },
+      { name: "ჩვენ შესახებ", href: "/hakkimizda" },
+      { name: "მაღაზიები", href: "/magazalarimiz" },
+      { name: "კორპორატიული პროდუქტები", href: "/kurumsal-urunler" },
+      { name: "კონტაქტი", href: "/iletisim" },
+    ],
+    rights: "ყველა უფლება დაცულია.",
+    partnerLabel: "ციფრული პარტნიორი",
+  },
 };
 
 export function Footer() {
@@ -30,16 +143,15 @@ export function Footer() {
   const { locale, internalPathname, routing, buildPath } = useStorefrontRoute();
   const localeMenuRef = useRef<HTMLDivElement | null>(null);
   const currentYear = new Date().getFullYear();
-  const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const localeSwitchOptions = routing.availableLocales.map((entryLocale) => ({
-    locale: entryLocale,
-    label: LOCALE_LABELS[entryLocale],
-  }));
+  const copy = useMemo(() => FOOTER_COPY[locale], [locale]);
+  const localeSwitchOptions = LOCALE_SWITCH_OPTIONS.filter((option) =>
+    routing.availableLocales.includes(option.locale),
+  );
   const activeLocaleOption =
-    localeSwitchOptions.find((option) => option.locale === locale) ?? localeSwitchOptions[0];
+    localeSwitchOptions.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
@@ -103,14 +215,6 @@ export function Footer() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
-  const aboutLinks = [
-    { name: copy.footerHome, href: "/" },
-    { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
-    { name: copy.footerContact, href: "/iletisim" },
-  ];
-
   return (
     <footer className="bg-[#0B1120] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
@@ -129,7 +233,12 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
+                <span
+                  className="text-2xl font-light tracking-wide"
+                  style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}
+                >
+                  {logoAlt}
+                </span>
               )}
             </Link>
 
@@ -139,54 +248,57 @@ export function Footer() {
             </div>
 
             {routing.showLocaleSwitcher ? (
-            <div className="mb-6">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
-                Language
-              </p>
-              <div ref={localeMenuRef} className="relative w-fit">
-                <button
-                  type="button"
-                  onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[132px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
-                  aria-expanded={isLocaleMenuOpen}
-                  aria-haspopup="listbox"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{activeLocaleOption.label}</span>
-                    <span className="text-sm">{locale.toUpperCase()}</span>
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
+              <div className="mb-6">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
+                  {copy.languageLabel}
+                </p>
+                <div ref={localeMenuRef} className="relative w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setIsLocaleMenuOpen((current) => !current)}
+                    className="flex min-w-[150px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
+                    aria-expanded={isLocaleMenuOpen}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-base leading-none">{activeLocaleOption.flag}</span>
+                      <span className="text-base font-medium">{activeLocaleOption.label}</span>
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-                {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[170px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                    <div className="space-y-1">
-                      {localeSwitchOptions.map((option) => {
-                        const isActive = option.locale === locale;
-                        return (
-                          <Link
-                            key={option.locale}
-                            href={buildPath(internalPathname, option.locale)}
-                            hrefLang={option.locale}
-                            onClick={() => setIsLocaleMenuOpen(false)}
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
-                              isActive
-                                ? "bg-white text-[#0B1120]"
-                                : "text-white/88 hover:bg-white/10 hover:text-white"
-                            }`}
-                          >
-                            <span className="text-sm font-medium">{option.label}</span>
-                            <span className="text-xs uppercase">{option.locale}</span>
-                          </Link>
-                        );
-                      })}
+                  {isLocaleMenuOpen ? (
+                    <div className="absolute left-0 top-full z-20 mt-2 min-w-[190px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                      <div className="space-y-1">
+                        {localeSwitchOptions.map((option) => {
+                          const isActive = option.locale === locale;
+
+                          return (
+                            <Link
+                              key={option.locale}
+                              href={buildPath(internalPathname, option.locale)}
+                              hrefLang={option.locale}
+                              onClick={() => setIsLocaleMenuOpen(false)}
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
+                                isActive
+                                  ? "bg-white text-[#11192D]"
+                                  : "text-white/88 hover:bg-white/10 hover:text-white"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className="text-base leading-none">{option.flag}</span>
+                                <span className="text-sm font-medium">{option.label}</span>
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
-            </div>
             ) : null}
 
             <div className="flex items-center gap-3">
@@ -212,11 +324,14 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+            >
               {copy.aboutHeading}
             </p>
             <ul className="space-y-3">
-              {aboutLinks.map((link) => (
+              {copy.aboutLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={buildPath(link.href)}
@@ -230,7 +345,10 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
+            <p
+              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+            >
               {copy.categoriesHeading}
             </p>
             <ul className="space-y-3">
@@ -240,7 +358,7 @@ export function Footer() {
                     href={buildPath(`/${link.slug}`)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
-                    {link.name}
+                    {link.name.toUpperCase()}
                   </Link>
                 </li>
               ))}
@@ -248,23 +366,26 @@ export function Footer() {
           </div>
 
           {policyLinks.length > 0 ? (
-          <div>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-wider text-white">
-              {copy.policiesHeading}
-            </p>
-            <ul className="space-y-3">
-              {policyLinks.map((link) => (
-                <li key={link.slug}>
-                  <Link
-                    href={buildPath(link.href)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div>
+              <p
+                className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
+                style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
+              >
+                {copy.policiesHeading}
+              </p>
+              <ul className="space-y-3">
+                {policyLinks.map((link) => (
+                  <li key={link.slug}>
+                    <Link
+                      href={buildPath(link.href)}
+                      className="text-sm text-gray-400 transition-colors hover:text-white"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       </div>
@@ -272,15 +393,20 @@ export function Footer() {
       <div className="border-t border-gray-800">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
           <p className="text-xs text-gray-500">
-            &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
+            © {currentYear} {storeInfo?.name || SITE_NAME}. {copy.rights}
           </p>
           <a
             href="https://celebix.co"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
+            className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
           >
-            Powered by Celebix
+            <span className="text-[10px] uppercase tracking-[0.2em]">{copy.partnerLabel}</span>
+            <img
+              src="https://celebix.co/Logo/koyu%20logo.svg"
+              alt="Celebix"
+              className="h-6 w-auto brightness-0 invert"
+            />
           </a>
         </div>
       </div>

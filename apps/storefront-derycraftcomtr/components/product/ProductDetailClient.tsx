@@ -611,7 +611,7 @@ export function ProductDetailClient({
                               Üretim Süresi
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
+                              1–3 İş Günü
                             </p>
                           </div>
                         </div>
@@ -622,7 +622,7 @@ export function ProductDetailClient({
                               Garanti
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
+                              El Yapımı Zanaatkar Kalitesi
                             </p>
                           </div>
                         </div>
@@ -633,34 +633,56 @@ export function ProductDetailClient({
                     id: "shipping",
                     label: "Kargo & İade",
                     content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
+                      <div className="space-y-5 text-sm text-neutral-600">
                         <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>🚛</span> KARGO & İADE
                           </h4>
-                          <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
-                          </p>
+                          <ul className="list-none space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500₺ ve üzeri tüm siparişlerde
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Teslimat Süresi:</strong> 1–3 iş günü hazırlık + 2–4 iş günü kargo süresi
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Kargo Partneri:</strong> Teslimat adresine göre değişiklik gösterebilir.
+                            </li>
+                          </ul>
                         </div>
                         <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>💳</span> ÖDEME SEÇENEKLERİ
                           </h4>
-                          <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
-                          </p>
+                          <ul className="list-none space-y-1.5">
+                            <li>Kredi/Banka Kartı (3D Secure güvenliği ile)</li>
+                            <li>Havale/EFT</li>
+                          </ul>
                         </div>
                         <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>🔄</span> İADE POLİTİKASI
                           </h4>
-                          <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
-                          </p>
+                          <ul className="list-none space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">14 Gün İçinde İade Hakkı</strong>
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">İstisnalar:</strong> Kişiye özel üretimlerde iade yoktur
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">İade Kargo Ücreti:</strong> Alıcıya aittir
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>✨</span> NEDEN BİZ?
+                          </h4>
+                          <ul className="list-none space-y-1.5">
+                            <li>%100 El Yapımı & Gerçek Deri Ürünler</li>
+                            <li>Güvenli alışveriş (SSL sertifikası ile korunur)</li>
+                          </ul>
                         </div>
                       </div>
                     ),

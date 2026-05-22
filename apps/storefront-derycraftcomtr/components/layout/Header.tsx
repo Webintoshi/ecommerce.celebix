@@ -30,6 +30,44 @@ type NavCategory = {
   children: NavSubcategory[];
 };
 
+const normalizeCategoryKey = (value: string) =>
+  value
+    .toLocaleLowerCase("tr")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const getHeaderCategoryPriority = (category: { name: string; slug: string }) => {
+  const normalized = normalizeCategoryKey(`${category.slug} ${category.name}`);
+
+  if (normalized.includes("cuzdan") || normalized.includes("kartlik")) {
+    return 0;
+  }
+
+  if (normalized.includes("apple watch")) {
+    return 1;
+  }
+
+  if (normalized.includes("saat kayis") || normalized.includes("watch strap")) {
+    return 2;
+  }
+
+  if (normalized.includes("canta") || normalized.includes("organizer")) {
+    return 3;
+  }
+
+  if (normalized.includes("aksesuar")) {
+    return 4;
+  }
+
+  return 99;
+};
+
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -107,9 +145,27 @@ export function Header() {
             children: (childrenByParent.get(category.id) || []).sort((left, right) =>
               left.name.localeCompare(right.name, "tr"),
             ),
+            headerPriority: getHeaderCategoryPriority(category),
+            sortOrder: category.sort_order || 0,
           }));
 
-        setHeaderCategories(topLevelCategories);
+        const orderedCategories = topLevelCategories
+          .sort((left, right) => {
+            const priorityDiff = left.headerPriority - right.headerPriority;
+            if (priorityDiff !== 0) {
+              return priorityDiff;
+            }
+
+            const sortDiff = left.sortOrder - right.sortOrder;
+            if (sortDiff !== 0) {
+              return sortDiff;
+            }
+
+            return left.name.localeCompare(right.name, "tr");
+          })
+          .map(({ headerPriority: _headerPriority, sortOrder: _sortOrder, ...category }) => category);
+
+        setHeaderCategories(orderedCategories);
       } catch (error) {
         console.error("Failed to load header categories:", error);
       }
@@ -143,14 +199,14 @@ export function Header() {
 
           <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
             {logoSrc ? (
-              <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
+              <div className="relative h-7 w-[92px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 104px, (max-width: 1024px) 118px, 128px"
+                  sizes="(max-width: 640px) 92px, (max-width: 1024px) 104px, 112px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
