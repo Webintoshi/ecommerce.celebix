@@ -24,6 +24,10 @@ export interface LightPostgresProvisioningResult {
   schemaProfile: "storefront_core";
 }
 
+interface SqlQueryResult<TRow extends Record<string, unknown> = Record<string, unknown>> {
+  rows: TRow[];
+}
+
 function getClusterName(): string {
   return process.env.CELEBIX_LIGHT_POSTGRES_CLUSTER?.trim() || "celebix-light-postgres";
 }
@@ -72,7 +76,21 @@ function normalizeSslOption(value: string): false | { rejectUnauthorized: false 
     : { rejectUnauthorized: false };
 }
 
-async function runSql(connectionString: string, sql: string): Promise<void> {
+function quotePostgresIdentifier(value: string): string {
+  const normalized = value.trim();
+
+  if (!normalized) {
+    throw new Error("light_postgres database name bos olamaz.");
+  }
+
+  return `"${normalized.replace(/"/g, "\"\"")}"`;
+}
+
+async function querySql<TRow extends Record<string, unknown> = Record<string, unknown>>(
+  connectionString: string,
+  sql: string,
+  params: unknown[] = [],
+): Promise<SqlQueryResult<TRow>> {
   const { Client } = await import("pg");
   const sslMode = resolveLightPostgresDefaultSslMode();
   const client = new Client({
@@ -83,22 +101,50 @@ async function runSql(connectionString: string, sql: string): Promise<void> {
   await client.connect();
 
   try {
-    await client.query(sql);
+    const result = await client.query(sql, params);
+    return {
+      rows: result.rows as TRow[],
+    };
   } finally {
     await client.end().catch(() => undefined);
   }
 }
 
-function buildDatabaseBootstrapSql(databaseName: string): string {
-  return `
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${escapeSqlLiteral(databaseName)}') THEN
-    EXECUTE format('CREATE DATABASE %I', '${escapeSqlLiteral(databaseName)}');
-  END IF;
-END
-$$;
-`;
+async function runSql(connectionString: string, sql: string): Promise<void> {
+  await querySql(connectionString, sql);
+}
+
+export function buildLightPostgresCreateDatabaseStatement(databaseName: string): string {
+  return `CREATE DATABASE ${quotePostgresIdentifier(databaseName)};`;
+}
+
+export async function ensureLightPostgresDatabaseWithExecutor(
+  databaseName: string,
+  execute: <TRow extends Record<string, unknown> = Record<string, unknown>>(
+    sql: string,
+    params?: unknown[],
+  ) => Promise<SqlQueryResult<TRow>>,
+): Promise<{ created: boolean }> {
+  const existing = await execute<{ datname: string }>(
+    "SELECT datname FROM pg_database WHERE datname = $1 LIMIT 1;",
+    [databaseName],
+  );
+
+  if (existing.rows.length > 0) {
+    return { created: false };
+  }
+
+  await execute(buildLightPostgresCreateDatabaseStatement(databaseName));
+  return { created: true };
+}
+
+async function ensureLightPostgresDatabase(
+  connectionString: string,
+  databaseName: string,
+): Promise<{ created: boolean }> {
+  return ensureLightPostgresDatabaseWithExecutor(databaseName, (sql, params) =>
+    querySql(connectionString, sql, params),
+  );
 }
 
 function buildLightPostgresSchemaSql(store: StoreConfig): string {
@@ -571,7 +617,7 @@ export async function provisionLightPostgresForStore(
   const databaseConnectionString = replaceDatabaseName(adminDatabaseUrl, databaseName);
 
   try {
-    await runSql(adminDatabaseUrl, buildDatabaseBootstrapSql(databaseName));
+    await ensureLightPostgresDatabase(adminDatabaseUrl, databaseName);
     await runSql(databaseConnectionString, buildLightPostgresSchemaSql(store));
     writeOptionalAdminEnvLocal(store, databaseName);
 
