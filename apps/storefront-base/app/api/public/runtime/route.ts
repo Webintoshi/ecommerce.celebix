@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getActiveStoreSlug, getStoreConfig } from "@celebix/platform-config";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 function readRuntime() {
   const slug = getActiveStoreSlug();
@@ -21,6 +22,7 @@ function readRuntime() {
 
   return {
     slug,
+    databaseMode: STOREFRONT_RUNTIME.databaseMode,
     storefrontDomain,
     adminDomain,
     storefrontUrl,

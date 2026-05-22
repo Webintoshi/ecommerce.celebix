@@ -66,6 +66,13 @@ export interface StoreProvisioningWorkflowResult {
   repaired: boolean;
 }
 
+class ProvisioningBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProvisioningBlockedError";
+  }
+}
+
 function shouldAutoProvisionGeneratedApps(): boolean {
   const raw = process.env.OWNER_AUTO_PROVISION_GENERATED_APPS?.trim().toLowerCase();
 
@@ -204,6 +211,39 @@ class ProvisioningTracker {
     });
   }
 
+  async block(key: ProvisioningStepKey, message: string): Promise<void> {
+    const nextSummary = await upsertProvisioningStep(this.slug, key, {
+      status: "blocked",
+      message,
+      blocking: true,
+      state: "pending_repair",
+      lastError: message,
+      lastRunAt: this.lastRunAt,
+    });
+
+    const blockedIndex = nextSummary.steps.findIndex((step) => step.key === key);
+    const blockedSteps = nextSummary.steps.map((step, index) => {
+      if (index <= blockedIndex || (step.status !== "pending" && step.status !== "running")) {
+        return step;
+      }
+
+      return {
+        ...step,
+        status: "blocked" as const,
+        blocking: true,
+        message: `${nextSummary.steps[blockedIndex]?.label ?? key} tamamlanmadan ilerlenemez.`,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    this.summary = await persistProvisioningSummary(this.slug, {
+      state: "pending_repair",
+      lastError: message,
+      lastRunAt: this.lastRunAt,
+      steps: blockedSteps,
+    });
+  }
+
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
     const blockers = getProvisioningBlockers(this.summary);
     const hasRunning = this.summary.steps.some((step) => step.status === "running");
@@ -285,6 +325,11 @@ async function runWorkflowStep(
     await tracker.complete(key, await action());
     return true;
   } catch (error) {
+    if (error instanceof ProvisioningBlockedError) {
+      await tracker.block(key, error.message);
+      return false;
+    }
+
     await tracker.fail(key, error);
     return false;
   }
@@ -557,6 +602,38 @@ export async function runStoreProvisioningWorkflow(
         }
 
         return deployment.message || "Storefront deployment tetiklendi.";
+      },
+    ],
+    [
+      "analytics_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          if (store.lightPostgres?.umamiReady === false) {
+            throw new ProvisioningBlockedError(
+              "light_postgres store icin analytics hazirligi tamamlanmadi.",
+            );
+          }
+
+          return "Umami-ready analytics authority kaydi hazir.";
+        }
+
+        return "Legacy analytics setup store runtime icinde ele alinir.";
+      },
+    ],
+    [
+      "auth_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          throw new ProvisioningBlockedError(
+            "blocked_auth_setup: light_postgres store icin merkezi admin auth kurulumu ayrica tamamlanmali.",
+          );
+        }
+
+        return "Supabase auth store ile birlikte hazir.";
       },
     ],
   ];

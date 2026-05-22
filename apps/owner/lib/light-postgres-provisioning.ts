@@ -114,6 +114,15 @@ function buildLightPostgresSchemaSql(store: StoreConfig): string {
     ready: true,
   };
 
+  const publishedCms = (content: string, entities: string[]) => ({
+    keyTakeaways: [],
+    entities,
+    cms: {
+      content,
+      status: "published",
+    },
+  });
+
   return `
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -132,10 +141,16 @@ CREATE TABLE IF NOT EXISTS public.categories (
   slug text NOT NULL UNIQUE,
   name text NOT NULL,
   description text NOT NULL DEFAULT '',
+  image text,
+  icon text,
   parent_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
   sort_order integer NOT NULL DEFAULT 0,
   is_active boolean NOT NULL DEFAULT true,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  seo_title text,
+  seo_description text,
+  seo_keywords jsonb NOT NULL DEFAULT '[]'::jsonb,
+  faq jsonb NOT NULL DEFAULT '[]'::jsonb,
+  geo_data jsonb NOT NULL DEFAULT '{"keyTakeaways":[],"entities":[]}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -146,15 +161,57 @@ CREATE TABLE IF NOT EXISTS public.products (
   name text NOT NULL,
   short_description text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
-  category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
-  status text NOT NULL DEFAULT 'draft',
-  brand text NOT NULL DEFAULT '',
-  base_price numeric(12,2) NOT NULL DEFAULT 0,
-  compare_at_price numeric(12,2),
-  currency text NOT NULL DEFAULT 'TRY',
-  stock integer NOT NULL DEFAULT 0,
+  category text,
+  subcategory text,
+  images jsonb NOT NULL DEFAULT '[]'::jsonb,
+  images_v2 jsonb NOT NULL DEFAULT '[]'::jsonb,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
   is_featured boolean NOT NULL DEFAULT false,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_bestseller boolean NOT NULL DEFAULT false,
+  is_new boolean NOT NULL DEFAULT false,
+  vegan boolean NOT NULL DEFAULT false,
+  gluten_free boolean NOT NULL DEFAULT false,
+  sugar_free boolean NOT NULL DEFAULT false,
+  high_protein boolean NOT NULL DEFAULT false,
+  rating numeric(4,2) NOT NULL DEFAULT 0,
+  review_count integer NOT NULL DEFAULT 0,
+  seo_title text,
+  seo_description text,
+  seo_keywords jsonb NOT NULL DEFAULT '[]'::jsonb,
+  seo_focus_keyword text,
+  og_image text,
+  canonical_url text,
+  seo_robots text NOT NULL DEFAULT 'index,follow',
+  status text NOT NULL DEFAULT 'draft',
+  is_draft boolean NOT NULL DEFAULT true,
+  published_at timestamptz,
+  tax_rate integer NOT NULL DEFAULT 0,
+  brand text NOT NULL DEFAULT '',
+  country_of_origin text,
+  sku text,
+  gtin text,
+  dimensions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  related_products jsonb NOT NULL DEFAULT '[]'::jsonb,
+  complementary_products jsonb NOT NULL DEFAULT '[]'::jsonb,
+  track_stock boolean NOT NULL DEFAULT true,
+  low_stock_threshold integer NOT NULL DEFAULT 10,
+  nutrition_basis text NOT NULL DEFAULT 'per_100g',
+  serving_size integer NOT NULL DEFAULT 100,
+  serving_per_container integer NOT NULL DEFAULT 1,
+  allergens jsonb NOT NULL DEFAULT '[]'::jsonb,
+  vitamins jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ingredients text,
+  storage_conditions text,
+  shelf_life_days integer,
+  calories numeric(12,2) NOT NULL DEFAULT 0,
+  protein numeric(12,2) NOT NULL DEFAULT 0,
+  carbs numeric(12,2) NOT NULL DEFAULT 0,
+  fat numeric(12,2) NOT NULL DEFAULT 0,
+  fiber numeric(12,2) NOT NULL DEFAULT 0,
+  sugar numeric(12,2) NOT NULL DEFAULT 0,
+  saturated_fat numeric(12,2) NOT NULL DEFAULT 0,
+  sodium numeric(12,2) NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -164,12 +221,18 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
   product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   sku text UNIQUE,
   name text NOT NULL DEFAULT 'Varsayilan',
+  weight text,
   price numeric(12,2) NOT NULL DEFAULT 0,
-  compare_at_price numeric(12,2),
+  original_price numeric(12,2),
+  cost numeric(12,2),
   stock integer NOT NULL DEFAULT 0,
-  is_default boolean NOT NULL DEFAULT false,
-  attributes jsonb NOT NULL DEFAULT '{}'::jsonb,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  barcode text,
+  group_name text,
+  images jsonb NOT NULL DEFAULT '[]'::jsonb,
+  attributes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  unit text,
+  max_purchase_quantity integer,
+  warehouse_location text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -183,18 +246,24 @@ CREATE TABLE IF NOT EXISTS public.settings (
 CREATE TABLE IF NOT EXISTS public.pages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL UNIQUE,
-  title text NOT NULL,
-  status text NOT NULL DEFAULT 'draft',
-  body jsonb NOT NULL DEFAULT '{}'::jsonb,
-  seo jsonb NOT NULL DEFAULT '{}'::jsonb,
+  name text NOT NULL,
+  schema_type text NOT NULL DEFAULT 'WebPage',
+  icon text,
+  seo_title text,
+  seo_description text,
+  seo_keywords jsonb NOT NULL DEFAULT '[]'::jsonb,
+  faq jsonb NOT NULL DEFAULT '[]'::jsonb,
+  geo_data jsonb NOT NULL DEFAULT '{"keyTakeaways":[],"entities":[],"cms":{"content":"","status":"draft"}}'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_products_category_id ON public.products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_products_status ON public.products(status);
 CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON public.product_variants(product_id);
-CREATE INDEX IF NOT EXISTS idx_pages_status ON public.pages(status);
+CREATE INDEX IF NOT EXISTS idx_pages_sort_order ON public.pages(sort_order);
 
 DROP TRIGGER IF EXISTS categories_set_updated_at ON public.categories;
 CREATE TRIGGER categories_set_updated_at
@@ -225,6 +294,62 @@ INSERT INTO public.settings (key, value)
 VALUES
   ('store_info', ${toSqlJsonLiteral(storeInfo)}),
   ('analytics', ${toSqlJsonLiteral(analytics)}),
+  ('seo_settings', ${toSqlJsonLiteral({
+    titleTemplate: `%s | ${store.name}`,
+    defaultTitle: `${store.name} | Premium Magaza Deneyimi`,
+    defaultDescription: `${store.name} magazasinin urunleri, koleksiyonlari ve kurumsal icerikleri ortak Celebix storefront deneyimi ile yayinlanir.`,
+    ogImageUrl: '',
+  })}),
+  ('announcement_bar', ${toSqlJsonLiteral({
+    enabled: false,
+    text: '',
+    link: '',
+  })}),
+  ('marquee_settings', ${toSqlJsonLiteral({
+    enabled: false,
+    text: '',
+    speed: 30,
+    animation: 'marquee',
+  })}),
+  ('translation_settings', ${toSqlJsonLiteral({
+    enabled: false,
+    provider: 'deepl',
+    apiKey: '',
+    defaultLocale: 'tr',
+    locales: ['tr', 'en'],
+  })}),
+  ('notification_settings', ${toSqlJsonLiteral({
+    email: {
+      provider: 'resend',
+      senderName: store.name,
+      senderEmail: storeInfo.supportEmail,
+      replyTo: storeInfo.supportEmail,
+      apiKey: '',
+    },
+    sms: {
+      provider: 'netgsm',
+      apiKey: '',
+      apiSecret: '',
+      senderTitle: store.slug.replace(/-/g, '').slice(0, 11).toUpperCase(),
+    },
+    push: {
+      provider: 'firebase',
+      apiKey: '',
+      authDomain: '',
+      projectId: '',
+      storageBucket: '',
+      messagingSenderId: '',
+      appId: '',
+    },
+  })}),
+  ('shipping_options', ${toSqlJsonLiteral({ options: [] })}),
+  ('shipping_integrations', ${toSqlJsonLiteral({
+    version: 1,
+    defaultProvider: null,
+    integrations: [],
+  })}),
+  ('product_listing_order', ${toSqlJsonLiteral({ positions: {} })}),
+  ('variant_attributes_registry', ${toSqlJsonLiteral({ attributes: [] })}),
   ('runtime', ${toSqlJsonLiteral({
     databaseMode: "light_postgres",
     generatedBy: "owner",
@@ -232,6 +357,165 @@ VALUES
   })})
 ON CONFLICT (key) DO UPDATE
 SET value = excluded.value;
+
+INSERT INTO public.pages (
+  slug,
+  name,
+  schema_type,
+  icon,
+  seo_title,
+  seo_description,
+  seo_keywords,
+  faq,
+  geo_data,
+  is_active,
+  sort_order
+)
+VALUES
+  (
+    '',
+    'Ana Sayfa',
+    'WebSite',
+    'Home',
+    '${escapeSqlLiteral(`${store.name} | Premium Magaza Deneyimi`)}',
+    '${escapeSqlLiteral(`${store.name} magazasinin vitrini bu sayfada yayinlanir.`)}',
+    ${toSqlJsonLiteral([store.slug, 'ana sayfa', 'premium storefront'])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Ana sayfa icerigi admin panelinden guncellenebilir.', ['WebSite', 'Organization']))},
+    true,
+    1
+  ),
+  (
+    'urunler',
+    'Urunler',
+    'CollectionPage',
+    'Package',
+    '${escapeSqlLiteral(`Tum Urunler | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} katalogundaki urunleri bu sayfada kesfedebilirsiniz.`)}',
+    ${toSqlJsonLiteral(['urunler', 'katalog', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Urun katalogu storefront tarafinda otomatik listelenir.', ['CollectionPage']))},
+    true,
+    2
+  ),
+  (
+    'iletisim',
+    'Iletisim',
+    'ContactPage',
+    'Mail',
+    '${escapeSqlLiteral(`Iletisim | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} ile iletisime gecmek icin bu sayfayi kullanabilirsiniz.`)}',
+    ${toSqlJsonLiteral(['iletisim', 'destek', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Iletisim bilgileri admin ayarlarindan otomatik okunur.', ['ContactPage']))},
+    true,
+    3
+  ),
+  (
+    'hakkimizda',
+    'Hakkimizda',
+    'AboutPage',
+    'Info',
+    '${escapeSqlLiteral(`Hakkimizda | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} markasinin hikayesi ve pozisyonu.`)}',
+    ${toSqlJsonLiteral(['hakkimizda', 'marka', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Marka hikayenizi bu alandan duzenleyebilirsiniz.', ['AboutPage']))},
+    true,
+    4
+  ),
+  (
+    'sss',
+    'SSS',
+    'FAQPage',
+    'HelpCircle',
+    '${escapeSqlLiteral(`Sikca Sorulan Sorular | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} siparis ve teslimat surecleriyle ilgili temel sorular.`)}',
+    ${toSqlJsonLiteral(['sss', 'yardim', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Sik sorulan sorular bu alan uzerinden guncellenir.', ['FAQPage']))},
+    true,
+    5
+  ),
+  (
+    'gizlilik',
+    'Gizlilik Politikasi',
+    'WebPage',
+    'Shield',
+    '${escapeSqlLiteral(`Gizlilik Politikasi | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} gizlilik politikasi.`)}',
+    ${toSqlJsonLiteral(['gizlilik', 'politika', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Bu politika sayfasi admin CMS uzerinden zenginlestirilebilir.', ['WebPage']))},
+    true,
+    20
+  ),
+  (
+    'kvkk',
+    'KVKK',
+    'WebPage',
+    'Scale',
+    '${escapeSqlLiteral(`KVKK | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} KVKK aydinlatma metni.`)}',
+    ${toSqlJsonLiteral(['kvkk', 'aydinlatma', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('KVKK metnini bu sayfadan yonetebilirsiniz.', ['WebPage']))},
+    true,
+    21
+  ),
+  (
+    'kargo',
+    'Kargo ve Teslimat',
+    'WebPage',
+    'Truck',
+    '${escapeSqlLiteral(`Kargo ve Teslimat | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} teslimat sureci.`)}',
+    ${toSqlJsonLiteral(['kargo', 'teslimat', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Teslimat detaylari admin CMS uzerinden duzenlenir.', ['WebPage']))},
+    true,
+    22
+  ),
+  (
+    'iade',
+    'Iade ve Degisim',
+    'WebPage',
+    'RefreshCw',
+    '${escapeSqlLiteral(`Iade ve Degisim | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} iade ve degisim politikasi.`)}',
+    ${toSqlJsonLiteral(['iade', 'degisim', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Iade politikasi bu sayfadan yonetilir.', ['WebPage']))},
+    true,
+    23
+  ),
+  (
+    'mesafeli-satis-sozlesmesi',
+    'Mesafeli Satis Sozlesmesi',
+    'WebPage',
+    'FileText',
+    '${escapeSqlLiteral(`Mesafeli Satis Sozlesmesi | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} mesafeli satis sozlesmesi.`)}',
+    ${toSqlJsonLiteral(['mesafeli satis', 'sozlesme', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Mesafeli satis sozlesmesi bu sayfadan duzenlenebilir.', ['WebPage']))},
+    true,
+    24
+  ),
+  (
+    'sartlar',
+    'Kullanim Sartlari',
+    'WebPage',
+    'ScrollText',
+    '${escapeSqlLiteral(`Kullanim Sartlari | ${store.name}`)}',
+    '${escapeSqlLiteral(`${store.name} kullanim sartlari.`)}',
+    ${toSqlJsonLiteral(['sartlar', 'kullanim', store.slug])},
+    '[]'::jsonb,
+    ${toSqlJsonLiteral(publishedCms('Kullanim sartlari bu sayfadan guncellenir.', ['WebPage']))},
+    true,
+    25
+  )
+ON CONFLICT (slug) DO NOTHING;
 `;
 }
 
@@ -245,8 +529,14 @@ function writeOptionalAdminEnvLocal(store: StoreConfig, databaseName: string): v
   upsertStoreAdminEnvLocal(store.slug, {
     DATABASE_URL: runtimeDatabaseUrl,
     DATABASE_DIRECT_URL: runtimeDatabaseUrl,
+    LIGHT_POSTGRES_DATABASE_URL: runtimeDatabaseUrl,
+    LIGHT_POSTGRES_DATABASE_NAME: databaseName,
+    LIGHT_POSTGRES_DATABASE_SSLMODE: "require",
+    ADMIN_DATABASE_MODE: "light_postgres",
     DATABASE_MODE: "light_postgres",
     NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+    AUTH_SETUP_STATUS: "blocked_auth_setup",
+    NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
   });
 }
 

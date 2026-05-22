@@ -1,4 +1,24 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
+
+type LightPostgresCompatModule = {
+    createLightPostgresCompatClient: (options: {
+        env: NodeJS.ProcessEnv;
+        mode: "light_postgres";
+    }) => unknown;
+};
+
+function createLightPostgresServerCompatClient() {
+    const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
+    const compatModule = runtimeRequire(
+        "@celebix/platform-config/src/light-postgres-compat",
+    ) as LightPostgresCompatModule;
+
+    return compatModule.createLightPostgresCompatClient({
+        env: process.env,
+        mode: "light_postgres",
+    }) as SupabaseClient;
+}
 
 // Lazy client initialization to prevent build-time errors
 let _supabase: SupabaseClient | null = null;
@@ -39,6 +59,12 @@ export const supabase = new Proxy({} as SupabaseClient, {
 });
 
 export function createPublicServerClient() {
+    if (isLightPostgresRuntime(process.env, {
+        mode: ["DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+    })) {
+        return createLightPostgresServerCompatClient();
+    }
+
     return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
         auth: {
             autoRefreshToken: false,
@@ -49,6 +75,12 @@ export function createPublicServerClient() {
 
 // Server client with service role for admin operations
 export function createServerClient() {
+    if (isLightPostgresRuntime(process.env, {
+        mode: ["DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+    })) {
+        return createLightPostgresServerCompatClient();
+    }
+
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
         console.warn("SUPABASE_SERVICE_ROLE_KEY is not configured - using anon key instead");

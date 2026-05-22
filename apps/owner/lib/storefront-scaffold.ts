@@ -222,10 +222,16 @@ function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
           SUPABASE_SERVICE_ROLE_KEY: "configure-per-store-service-role",
         }
       : {
+          ADMIN_DATABASE_MODE: "light_postgres",
           DATABASE_URL: "configure-per-store-database",
           DATABASE_DIRECT_URL: "configure-per-store-admin-database",
           DATABASE_POOL_MODE: "session",
+          LIGHT_POSTGRES_DATABASE_NAME: store.lightPostgres?.databaseName || store.slug,
+          LIGHT_POSTGRES_DATABASE_URL: "configure-per-store-database",
+          LIGHT_POSTGRES_DATABASE_SSLMODE: "require",
           NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+          AUTH_SETUP_STATUS: "blocked_auth_setup",
+          NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
         };
 
   return {

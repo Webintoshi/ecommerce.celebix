@@ -17,6 +17,7 @@ export * from "./product-pricing";
 export * from "./policy-pages";
 export * from "./floating-contact";
 export * from "./content-pages";
+export * from "./light-postgres-runtime";
 
 export interface StoreRegistryEntry {
   slug: string;
@@ -551,10 +552,16 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
           "# SUPABASE_LEGACY_ANON_KEY=your-old-anon-key",
         ]
       : [
+          "ADMIN_DATABASE_MODE=light_postgres",
           "DATABASE_URL=configure-per-store-database",
           "DATABASE_DIRECT_URL=configure-per-store-admin-database",
           "DATABASE_POOL_MODE=session",
+          `LIGHT_POSTGRES_DATABASE_NAME=${config.lightPostgres?.databaseName || config.slug}`,
+          "LIGHT_POSTGRES_DATABASE_URL=configure-per-store-database",
+          "LIGHT_POSTGRES_DATABASE_SSLMODE=require",
           "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
+          "AUTH_SETUP_STATUS=blocked_auth_setup",
+          "NEXT_PUBLIC_AUTH_SETUP_STATUS=blocked_auth_setup",
         ];
 
   return [

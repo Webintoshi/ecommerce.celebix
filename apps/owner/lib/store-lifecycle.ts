@@ -31,7 +31,9 @@ export type ProvisioningStepKey =
   | "storefront_scaffold"
   | "storefront_blueprint"
   | "storefront_repo_sync"
-  | "storefront_deploy";
+  | "storefront_deploy"
+  | "analytics_setup"
+  | "auth_setup";
 
 export interface ProvisioningStepSummary {
   key: ProvisioningStepKey;
@@ -88,6 +90,8 @@ const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   storefront_blueprint: "Storefront blueprint",
   storefront_repo_sync: "Storefront repo sync",
   storefront_deploy: "Storefront deployment",
+  analytics_setup: "Analytics setup",
+  auth_setup: "Auth setup",
 };
 
 export const PROVISIONING_STEP_KEYS = Object.keys(STEP_LABELS) as ProvisioningStepKey[];

@@ -26,11 +26,16 @@ function normalizePhoneLink(phone: string): string {
 }
 
 const siteUrl = normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL, DEFAULT_SITE_URL);
+const databaseMode =
+  process.env.DATABASE_MODE ||
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE ||
+  "full_supabase";
 
 export const STOREFRONT_RUNTIME = {
   name: process.env.NEXT_PUBLIC_STORE_NAME || DEFAULT_STORE_NAME,
   tagline: process.env.NEXT_PUBLIC_STORE_TAGLINE || DEFAULT_TAGLINE,
   description: process.env.NEXT_PUBLIC_STORE_DESCRIPTION || DEFAULT_DESCRIPTION,
+  databaseMode,
   siteUrl,
   logoPath: process.env.NEXT_PUBLIC_STORE_LOGO || DEFAULT_LOGO_PATH,
   supportEmail: process.env.NEXT_PUBLIC_STORE_SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL,

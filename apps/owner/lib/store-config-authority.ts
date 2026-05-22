@@ -319,9 +319,15 @@ function ensureAdminEnvTemplate(config: StoreConfig): void {
           "SUPABASE_SERVICE_ROLE_KEY=configure-in-env",
         ]
       : [
+          "ADMIN_DATABASE_MODE=light_postgres",
           "DATABASE_URL=configure-per-store-database",
           "DATABASE_DIRECT_URL=configure-per-store-admin-database",
+          `LIGHT_POSTGRES_DATABASE_NAME=${config.lightPostgres?.databaseName || config.slug}`,
+          "LIGHT_POSTGRES_DATABASE_URL=configure-per-store-database",
+          "LIGHT_POSTGRES_DATABASE_SSLMODE=require",
           "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
+          "AUTH_SETUP_STATUS=blocked_auth_setup",
+          "NEXT_PUBLIC_AUTH_SETUP_STATUS=blocked_auth_setup",
         ]),
     `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,

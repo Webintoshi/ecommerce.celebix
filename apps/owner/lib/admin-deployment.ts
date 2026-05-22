@@ -152,11 +152,29 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
   const existingEnv = readExistingAdminEnvMap(store);
 
   if (store.databaseMode === "light_postgres") {
+    const runtimeDatabaseUrl =
+      existingEnv.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
+      existingEnv.DATABASE_URL?.trim() ||
+      existingEnv.DATABASE_DIRECT_URL?.trim() ||
+      "";
+    const runtimeDatabaseName =
+      existingEnv.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
+      store.lightPostgres?.databaseName?.trim() ||
+      store.slug;
+    const runtimeSslMode =
+      existingEnv.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
+      existingEnv.DATABASE_SSLMODE?.trim() ||
+      "require";
     const envEntries: Record<string, string> = {
       CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
       STORE_SLUG: store.slug,
+      ADMIN_DATABASE_MODE: "light_postgres",
       DATABASE_MODE: "light_postgres",
+      LIGHT_POSTGRES_DATABASE_NAME: runtimeDatabaseName,
+      LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
       NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
+      AUTH_SETUP_STATUS: "blocked_auth_setup",
+      NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
       NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
       NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
       NEXT_PUBLIC_STORE_NAME: store.name,
@@ -173,10 +191,15 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       ...getSharedRedisEnvEntries(),
     };
 
+    if (runtimeDatabaseUrl) {
+      envEntries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+    }
+
     for (const key of [
       "DATABASE_URL",
       "DATABASE_DIRECT_URL",
       "DATABASE_POOL_MODE",
+      "DATABASE_SSLMODE",
       "CLOUDFLARE_ACCOUNT_ID",
       "R2_ACCESS_KEY_ID",
       "R2_SECRET_ACCESS_KEY",
@@ -191,6 +214,10 @@ async function readAdminEnvEntries(store: StoreConfig): Promise<Record<string, s
       if (value) {
         envEntries[key] = value;
       }
+    }
+
+    if (envEntries.DATABASE_SSLMODE && !envEntries.LIGHT_POSTGRES_DATABASE_SSLMODE) {
+      envEntries.LIGHT_POSTGRES_DATABASE_SSLMODE = envEntries.DATABASE_SSLMODE;
     }
 
     return envEntries;
@@ -324,26 +351,41 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
   const envEntries = await readAdminEnvEntries(store);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const deploymentConfig = store.bootstrap?.adminDeployment;
-  const hasRequiredEnv = Boolean(
-    envEntries.NEXT_PUBLIC_SUPABASE_URL &&
-      envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      envEntries.SUPABASE_SERVICE_ROLE_KEY
+  const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`;
+  const dockerImageTag = deploymentConfig?.imageTag ?? "production";
+  const useBuildServer = deploymentConfig?.useBuildServer ?? true;
+  const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
+  const hasRequiredEnv = store.databaseMode === "light_postgres"
+    ? Boolean(
+        envEntries.LIGHT_POSTGRES_DATABASE_URL &&
+          envEntries.LIGHT_POSTGRES_DATABASE_NAME &&
+          envEntries.NEXT_PUBLIC_STORE_DOMAIN &&
+          envEntries.NEXT_PUBLIC_ADMIN_DOMAIN,
+      )
+    : Boolean(
+        envEntries.NEXT_PUBLIC_SUPABASE_URL &&
+          envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+          envEntries.SUPABASE_SERVICE_ROLE_KEY,
+      );
+  const buildServerReady = Boolean(
+    dockerImage.trim() &&
+      dockerImageTag.trim() &&
+      useBuildServer &&
+      buildServer.trim(),
   );
 
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  if (store.databaseMode === "light_postgres") {
+  if (!buildServerReady) {
     status = "failed";
     runtimeMessage =
-      "Admin runtime halen Supabase env beklentisine bagli. light_postgres create default acik olsa da admin deploy guard aktif.";
-  }
-
-  if (store.databaseMode !== "light_postgres") {
+      "Admin deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
+  } else {
     const runtime = await readRuntimeConsistency(store, runtimeUrl);
     runtimeConsistent = runtime.consistent;
-    runtimeMessage = runtime.message;
+    runtimeMessage = runtime.message ?? runtimeMessage;
     status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";
   }
 
@@ -353,10 +395,10 @@ export async function getStoreAdminDeploymentBlueprint(slug: string): Promise<St
     runtimeUrl,
     resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
     deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
-    dockerImage: deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`,
-    dockerImageTag: deploymentConfig?.imageTag ?? "production",
-    useBuildServer: deploymentConfig?.useBuildServer ?? true,
-    buildServer: deploymentConfig?.buildServer ?? "celebix-build-01",
+    dockerImage,
+    dockerImageTag,
+    useBuildServer,
+    buildServer,
     watchPaths: deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"],
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",

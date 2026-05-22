@@ -9,13 +9,27 @@ import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
+  const hasBrowserSupabaseAuthEnv = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+  const authBlocked =
+    process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
+    process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
+  const authUnavailable = authBlocked || !hasBrowserSupabaseAuthEnv;
+  const supabase = useMemo(
+    () => (authUnavailable ? null : getBrowserSupabaseClient()),
+    [authUnavailable],
+  );
   const [nextPath, setNextPath] = useState("/admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (authUnavailable || !supabase) {
+      return;
+    }
+
     let mounted = true;
 
     const redirectIfAuthenticated = async () => {
@@ -41,10 +55,14 @@ export default function AdminLoginPage() {
     return () => {
       mounted = false;
     };
-  }, [router, supabase]);
+  }, [authUnavailable, router, supabase]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (authBlocked || !hasBrowserSupabaseAuthEnv || !supabase) {
+      toast.error("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -121,6 +139,17 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
+            {authUnavailable ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+                {authBlocked
+                  ? "Admin uygulamasi olustu ancak bu yeni light_postgres store icin giris kimligi henuz tamamlanmadi."
+                  : "Bu ortamda admin auth degiskenleri henuz tanimli olmadigi icin giris gecici olarak pasif."}{" "}
+                Owner provisioning bu adimi acikca
+                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">blocked_auth_setup</code>
+                olarak isaretler.
+              </div>
+            ) : null}
+
             <div>
               <label className="block text-sm font-medium text-neutral-900 mb-1.5">
                 E-posta
@@ -158,7 +187,7 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || authUnavailable}
               className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
             >
               {loading ? (

@@ -7,6 +7,8 @@ export async function GET() {
   return NextResponse.json({
     slug: runtime.slug,
     name: runtime.name,
+    databaseMode: runtime.databaseMode,
+    authSetupStatus: runtime.authSetupStatus,
     storefrontDomain: runtime.storefrontDomain,
     adminDomain: runtime.adminDomain,
     storefrontUrl: runtime.storefrontUrl,

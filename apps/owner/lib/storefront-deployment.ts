@@ -287,18 +287,38 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
   const adminEnvEntries = resolveAdminEnvEntries(store);
 
   if (store.databaseMode === "light_postgres") {
+    const runtimeDatabaseUrl =
+      adminEnvEntries.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
+      adminEnvEntries.DATABASE_URL?.trim() ||
+      adminEnvEntries.DATABASE_DIRECT_URL?.trim() ||
+      "";
+    const runtimeDatabaseName =
+      adminEnvEntries.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
+      store.lightPostgres?.databaseName?.trim() ||
+      store.slug;
+    const runtimeSslMode =
+      adminEnvEntries.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
+      adminEnvEntries.DATABASE_SSLMODE?.trim() ||
+      "require";
     const entries: Record<string, string> = {
       ...buildPublicEnvEntries(store),
       DATABASE_MODE: "light_postgres",
+      LIGHT_POSTGRES_DATABASE_NAME: runtimeDatabaseName,
+      LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
       NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
       ...getSharedRedisEnvEntries(),
       ...getSharedOptionalEnvEntries(),
     };
 
+    if (runtimeDatabaseUrl) {
+      entries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+    }
+
     for (const key of [
       "DATABASE_URL",
       "DATABASE_DIRECT_URL",
       "DATABASE_POOL_MODE",
+      "DATABASE_SSLMODE",
       "CLOUDFLARE_ACCOUNT_ID",
       "R2_ACCESS_KEY_ID",
       "R2_SECRET_ACCESS_KEY",
@@ -317,6 +337,10 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
 
     if (entries.R2_PUBLIC_URL) {
       entries.NEXT_PUBLIC_R2_PUBLIC_URL = entries.R2_PUBLIC_URL;
+    }
+
+    if (entries.DATABASE_SSLMODE && !entries.LIGHT_POSTGRES_DATABASE_SSLMODE) {
+      entries.LIGHT_POSTGRES_DATABASE_SSLMODE = entries.DATABASE_SSLMODE;
     }
 
     return entries;
@@ -388,6 +412,15 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
 }
 
 function hasRequiredEnv(envEntries: Record<string, string>): boolean {
+  if (envEntries.DATABASE_MODE === "light_postgres") {
+    return Boolean(
+      envEntries.LIGHT_POSTGRES_DATABASE_URL &&
+        envEntries.LIGHT_POSTGRES_DATABASE_NAME &&
+        envEntries.NEXT_PUBLIC_STORE_DOMAIN &&
+        envEntries.NEXT_PUBLIC_ADMIN_DOMAIN,
+    );
+  }
+
   return Boolean(
     envEntries.NEXT_PUBLIC_SUPABASE_URL &&
       envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
@@ -461,15 +494,25 @@ export async function getStorefrontDeploymentBlueprint(
   const requiredEnvReady = hasRequiredEnv(envEntries);
   const workspace = readWorkspaceName(store);
   const serverPort = readWorkspaceServerPort(store);
+  const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`;
+  const dockerImageTag = deploymentConfig?.imageTag ?? "production";
+  const useBuildServer = deploymentConfig?.useBuildServer ?? true;
+  const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
+  const buildServerReady = Boolean(
+    dockerImage.trim() &&
+      dockerImageTag.trim() &&
+      useBuildServer &&
+      buildServer.trim(),
+  );
 
   let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed";
   let runtimeConsistent = false;
   let runtimeMessage: string | null = null;
 
-  if (store.databaseMode === "light_postgres") {
+  if (!buildServerReady) {
     status = "failed";
     runtimeMessage =
-      "Storefront runtime halen Supabase env beklentisine bagli. light_postgres create default acik olsa da storefront deploy guard aktif.";
+      "Storefront deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
   } else if (!requiredEnvReady) {
     status = "pending-owner-env";
     runtimeMessage = "Storefront env authority henuz eksiksiz degil.";
@@ -492,10 +535,10 @@ export async function getStorefrontDeploymentBlueprint(
     runtimeUrl,
     resourceId: store.storefront?.resourceId ?? null,
     deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
-    dockerImage: deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`,
-    dockerImageTag: deploymentConfig?.imageTag ?? "production",
-    useBuildServer: deploymentConfig?.useBuildServer ?? true,
-    buildServer: deploymentConfig?.buildServer ?? "celebix-build-01",
+    dockerImage,
+    dockerImageTag,
+    useBuildServer,
+    buildServer,
     watchPaths:
       deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"],
     serverPort,

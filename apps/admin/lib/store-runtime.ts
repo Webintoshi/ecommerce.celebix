@@ -95,11 +95,22 @@ const adminDomain = resolvePublicDomain(
   adminUrl,
   "localhost:3200",
 );
+const databaseMode =
+  process.env.ADMIN_DATABASE_MODE ||
+  process.env.DATABASE_MODE ||
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE ||
+  "full_supabase";
+const authSetupStatus =
+  process.env.AUTH_SETUP_STATUS ||
+  process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS ||
+  "configured";
 
 export const STORE_RUNTIME = {
   slug: storeSlug,
   name: storeName,
   tagline: storeTagline,
+  databaseMode,
+  authSetupStatus,
   storefrontDomain,
   adminDomain,
   storefrontUrl: normalizeUrl(storefrontUrl, storefrontDomain),

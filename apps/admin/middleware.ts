@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import {
+  isLightPostgresRuntime,
+  resolveRuntimeAuthSetupStatus,
+} from "@celebix/platform-config/src/light-postgres-runtime";
+import {
   applySecurityHeaders,
   isMutationMethod,
   validateSameOriginRequest,
@@ -14,6 +18,33 @@ const ADMIN_LOGIN_API_PATH = "/api/auth/login";
 const ADMIN_ROLES = new Set(["super_admin", "product_manager", "content_creator", "order_manager"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+
+function isLightPostgresAuthBlocked() {
+  return (
+    isLightPostgresRuntime(process.env, {
+      mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+    }) &&
+    resolveRuntimeAuthSetupStatus(process.env, {
+      mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+      authStatus: ["AUTH_SETUP_STATUS", "NEXT_PUBLIC_AUTH_SETUP_STATUS"],
+    }) === "blocked_auth_setup"
+  );
+}
+
+function createBlockedAuthApiResponse(request: NextRequest) {
+  return applySecurityHeaders(
+    request,
+    NextResponse.json(
+      {
+        success: false,
+        code: "blocked_auth_setup",
+        error: "Bu store icin admin auth kurulumu henuz tamamlanmadi.",
+      },
+      { status: 503 },
+    ),
+    "admin",
+  );
+}
 
 function isProtectedAdminPage(pathname: string) {
   return pathname.startsWith("/admin") && pathname !== ADMIN_LOGIN_PATH;
@@ -60,6 +91,11 @@ function isProtectedApi(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedAdminPage(pathname) || isProtectedApi(request);
+  const lightPostgresAuthBlocked = isLightPostgresAuthBlocked();
+
+  if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST" && lightPostgresAuthBlocked) {
+    return createBlockedAuthApiResponse(request);
+  }
 
   if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
@@ -92,6 +128,17 @@ export async function middleware(request: NextRequest) {
 
   if (!requiresAuth) {
     return applySecurityHeaders(request, NextResponse.next(), "admin");
+  }
+
+  if (lightPostgresAuthBlocked) {
+    if (pathname.startsWith("/api/")) {
+      return createBlockedAuthApiResponse(request);
+    }
+
+    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+    loginUrl.searchParams.set("blocked_auth_setup", "1");
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
   if (pathname.startsWith("/api/") && isMutationMethod(request.method)) {

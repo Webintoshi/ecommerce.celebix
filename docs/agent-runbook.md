@@ -109,19 +109,27 @@ Generated app payload'larinda su guard'lar beklenir:
 - `use_build_server = true`
 - `docker_registry_image_name` dolu
 - `docker_registry_image_tag = production`
+- `build_server = celebix-build-01`
 - `watch_paths` authority-only `stores/**` commitlerini izlemeyecek
 - auto deploy default off
 
 ## Runtime Guard
 
-Bu branch'te admin/storefront runtime kodu halen Supabase bagimliligindan tamamen ayrismis degildir.
+Yeni light-postgres runtime modeli artik iki parcadan olusur:
 
-Bu nedenle agent sunu normal kabul etmelidir:
+- data/runtime hazirligi:
+  - `apps/storefront-base` public read path'leri light-postgres adapter ile calisir
+  - `apps/admin` settings/categories/pages/products/product_variants server path'leri ayni adapter ile calisir
+  - generated env'lerde Supabase zorunlu degildir
+- auth hazirligi:
+  - merkezi admin auth yoksa login ve korumali admin endpoint'leri `blocked_auth_setup` ile acikca bloke edilir
+  - light-postgres create auth yuzunden sessiz yarim kalmaz
 
-- light-postgres create path authority, branch ve DB modelini hazirlar
-- admin/storefront deploy blueprint'leri light-postgres store icin `failed` guard dondurur
+Agent sunu normal kabul etmelidir:
 
-Bu guard bir bug gizlemez. Tam tersine eksik runtime adaptasyonunu acikca durdurur.
+- light-postgres create path authority, branch, DB, R2 ve runtime env modelini hazirlar
+- admin/storefront runtime'i veri tarafinda acilabilir
+- auth kurulumu daha sonra tamamlanacaksa provisioning `auth_setup = blocked_auth_setup` yazar
 
 ## State Kurallari
 
@@ -129,6 +137,7 @@ Bu guard bir bug gizlemez. Tam tersine eksik runtime adaptasyonunu acikca durdur
 - Downstream step'ler `blocked` yazilmalidir.
 - `lastError` dolu olmalidir.
 - Repair akisi `failed` ve `blocked` step'leri yeniden ele alabilmelidir.
+- `analytics_setup` ve `auth_setup` step'leri de ayni reducer kurallarina uymalidir.
 
 ## Cleanup Standardi
 
@@ -163,7 +172,9 @@ Ek dry-run senaryolari:
 3. full Supabase sidecar guard eksikken preflight fail ediyor
 4. storefront exact branch `deploy/storefront/<slug>` olusuyor
 5. build-server/GHCR defaults authority'de dolu geliyor
-6. fail sonrasi kalan step'ler `blocked` yaziliyor
+6. admin/storefront generated env'leri Supabase olmadan olusuyor
+7. `auth_setup` light-postgres create icin `blocked_auth_setup` yaziyor
+8. fail sonrasi kalan step'ler `blocked` yaziliyor
 
 ## Pratik Kurallar
 
