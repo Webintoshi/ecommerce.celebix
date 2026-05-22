@@ -47,8 +47,6 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         description={uiCopy?.storesDescription}
         linkLabel={uiCopy?.storesLinkLabel}
         storesHref={storesHref}
-        heroBanners={data.heroBanners}
-        promoBanners={data.promoBanners}
       />
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
