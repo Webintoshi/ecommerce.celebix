@@ -68,7 +68,8 @@ async function getCounts(pool) {
         (select count(*) from public.orders) as orders,
         (select count(*) from public.order_items) as order_items,
         (select count(*) from public.payments) as payments,
-        (select count(*) from public.payment_events) as payment_events
+        (select count(*) from public.payment_events) as payment_events,
+        (select count(*) from public.order_status_history) as order_status_history
     `,
   );
 
@@ -142,6 +143,7 @@ async function run() {
   const orderNumber = `${prefix}-order`;
   const paymentKey = `${prefix}-payment`;
   const paymentReference = `${prefix}-ref`;
+  const paymentProviderId = `${prefix}-provider-payment`;
 
   const pool = new Pool({
     connectionString: resolveConnectionString(),
@@ -384,26 +386,7 @@ async function run() {
       ],
     );
 
-    const [updatedPayment] = await query(
-      pool,
-      `
-        update public.payments
-        set
-          status = 'authorized',
-          provider_reference_id = $2,
-          response_payload = $3::jsonb,
-          updated_at = now()
-        where id = $1::uuid
-        returning id, status, provider_reference_id
-      `,
-      [
-        insertedPayment.id,
-        paymentReference,
-        JSON.stringify({ authorizedAt: new Date().toISOString(), prefix }),
-      ],
-    );
-
-    const [updatedOrder] = await query(
+    const [processingOrder] = await query(
       pool,
       `
         update public.orders
@@ -414,6 +397,141 @@ async function run() {
         returning id, order_number, payment_status
       `,
       [insertedOrder.id],
+    );
+
+    await query(
+      pool,
+      `
+        insert into public.order_status_history (
+          order_id,
+          previous_status,
+          next_status,
+          previous_payment_status,
+          next_payment_status,
+          source,
+          metadata
+        )
+        values (
+          $1::uuid,
+          'pending',
+          'pending',
+          'pending',
+          'processing',
+          'checkout-smoke',
+          $2::jsonb
+        )
+      `,
+      [
+        insertedOrder.id,
+        JSON.stringify({ phase: "checkout-init", prefix }),
+      ],
+    );
+
+    const [updatedPayment] = await query(
+      pool,
+      `
+        update public.payments
+        set
+          status = 'captured',
+          provider_payment_id = $2,
+          provider_reference_id = $3,
+          callback_payload = $4::jsonb,
+          callback_received_at = now(),
+          completed_at = now(),
+          response_payload = $5::jsonb,
+          updated_at = now()
+        where id = $1::uuid
+        returning id, status, provider_payment_id, provider_reference_id
+      `,
+      [
+        insertedPayment.id,
+        paymentProviderId,
+        paymentReference,
+        JSON.stringify({ callbackAt: new Date().toISOString(), prefix }),
+        JSON.stringify({ capturedAt: new Date().toISOString(), prefix }),
+      ],
+    );
+
+    const [completedOrder] = await query(
+      pool,
+      `
+        update public.orders
+        set
+          payment_status = 'completed',
+          updated_at = now()
+        where id = $1::uuid
+        returning id, order_number, payment_status
+      `,
+      [insertedOrder.id],
+    );
+
+    await query(
+      pool,
+      `
+        insert into public.order_status_history (
+          order_id,
+          previous_status,
+          next_status,
+          previous_payment_status,
+          next_payment_status,
+          source,
+          metadata
+        )
+        values (
+          $1::uuid,
+          'pending',
+          'pending',
+          'processing',
+          'completed',
+          'checkout-smoke',
+          $2::jsonb
+        )
+      `,
+      [
+        insertedOrder.id,
+        JSON.stringify({ phase: "payment-captured", prefix }),
+      ],
+    );
+
+    const [confirmedOrder] = await query(
+      pool,
+      `
+        update public.orders
+        set
+          status = 'confirmed',
+          updated_at = now()
+        where id = $1::uuid
+        returning id, order_number, status, payment_status
+      `,
+      [insertedOrder.id],
+    );
+
+    await query(
+      pool,
+      `
+        insert into public.order_status_history (
+          order_id,
+          previous_status,
+          next_status,
+          previous_payment_status,
+          next_payment_status,
+          source,
+          metadata
+        )
+        values (
+          $1::uuid,
+          'pending',
+          'confirmed',
+          'completed',
+          'completed',
+          'checkout-smoke',
+          $2::jsonb
+        )
+      `,
+      [
+        insertedOrder.id,
+        JSON.stringify({ phase: "order-confirmed", prefix }),
+      ],
     );
 
     const [paymentEvent] = await query(
@@ -434,7 +552,7 @@ async function run() {
           'craftgate-default',
           $1::uuid,
           $2::uuid,
-          'authorization',
+          'callback',
           'processed',
           $3::jsonb,
           now()
@@ -482,6 +600,7 @@ async function run() {
           o.status,
           o.payment_status,
           o.total,
+          count(distinct h.id)::int as history_count,
           json_agg(
             json_build_object(
               'id', i.id,
@@ -493,6 +612,7 @@ async function run() {
           ) filter (where i.id is not null) as items
         from public.orders o
         left join public.order_items i on i.order_id = o.id
+        left join public.order_status_history h on h.order_id = o.id
         where o.id = $1::uuid
         group by o.id
       `,
@@ -528,9 +648,11 @@ async function run() {
             address: insertedAddress,
             order: insertedOrder,
             orderItem: insertedOrderItem,
+            processingOrder,
             payment: insertedPayment,
             updatedPayment,
-            updatedOrder,
+            completedOrder,
+            confirmedOrder,
             paymentEvent,
           },
           readBack: {
