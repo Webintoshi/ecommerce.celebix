@@ -1913,13 +1913,37 @@ export async function DELETE(request: NextRequest) {
         }
 
         if (useLightPostgres) {
-            return NextResponse.json(
+            const existingProduct = await getLightPostgresProductById(id);
+            if (!existingProduct) {
+                return NextResponse.json(
+                    { success: false, error: "Product not found" },
+                    { status: 404 }
+                );
+            }
+
+            const archivedProduct = await updateLightPostgresProductWithVariants(
+                id,
                 {
-                    success: false,
-                    error: "Light Postgres MVP yolunda urun silme henuz desteklenmiyor.",
+                    is_active: false,
+                    is_featured: false,
+                    is_draft: false,
+                    status: "archived",
                 },
-                { status: 409 }
             );
+
+            if (!archivedProduct) {
+                return NextResponse.json(
+                    { success: false, error: "Product not found" },
+                    { status: 404 }
+                );
+            }
+
+            return NextResponse.json({
+                success: true,
+                action: "archived",
+                message: "Product archived and hidden from storefront",
+                product: normalizeProductsPayload(archivedProduct),
+            });
         }
 
         const { createServerClient } = await import("@/lib/supabase");

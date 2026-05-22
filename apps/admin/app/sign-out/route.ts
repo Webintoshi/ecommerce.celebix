@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
-import LogtoServerClient from "@logto/next/server-actions";
+import { NextRequest, NextResponse } from "next/server";
+import EdgeLogtoClient from "@logto/next/edge";
 import { getLogtoAdminConfig } from "@/app/logto";
 import { clearAdminRoleCookie } from "@/lib/admin-role-cookie";
-import { shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
+import { readSetCookieHeaders, shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   if (!shouldUseLogtoAdminAuth()) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
@@ -16,9 +16,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  const client = new LogtoServerClient(config);
-  const url = await client.handleSignOut(`${config.baseUrl}/admin/login`);
-  const response = NextResponse.redirect(url);
+  const logtoResponse = await new EdgeLogtoClient(config).handleSignOut(`${config.baseUrl}/admin/login`)(request);
+  const response = NextResponse.redirect(logtoResponse.headers.get("location") ?? `${config.baseUrl}/admin/login`);
+  for (const value of readSetCookieHeaders(logtoResponse.headers)) {
+    response.headers.append("set-cookie", value);
+  }
   clearAdminRoleCookie(response);
   return response;
 }

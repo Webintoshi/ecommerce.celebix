@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import EdgeLogtoClient from "@logto/next/edge";
-import LogtoServerClient, { getLogtoContext, type LogtoContext } from "@logto/next/server-actions";
+import { getLogtoContext, type LogtoContext } from "@logto/next/server-actions";
 import type { UserRole } from "@/lib/permissions";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { getLogtoAdminConfig, getLogtoAdminConfigStatus } from "@/app/logto";
@@ -99,6 +99,19 @@ type BridgeRoleRow = {
   role: string;
   task_definition: string | null;
   is_active: boolean;
+};
+
+type EdgeLogtoNodeClient = {
+  getContext(config?: { fetchUserInfo?: boolean }): Promise<LogtoContext>;
+  handleSignInCallback(callbackUrl: string): Promise<void>;
+};
+
+type EdgeLogtoInternalClient = EdgeLogtoClient & {
+  navigateUrl?: string;
+  createNodeClientFromEdgeRequest(request: NextRequest): Promise<{
+    nodeClient: EdgeLogtoNodeClient;
+    headers: Headers;
+  }>;
 };
 
 const ADMIN_ROLE_PRIORITY: Record<UserRole, number> = {
@@ -328,23 +341,48 @@ export async function getLogtoAdminAuthContext(): Promise<AdminAuthContext | nul
 export async function handleLogtoAdminCallback(request: NextRequest): Promise<{
   identity: LogtoAdminIdentity | null;
   postRedirectUri: string | undefined;
+  responseHeaders: Headers;
 }> {
   const config = getLogtoAdminConfig();
   if (!config) {
-    return { identity: null, postRedirectUri: undefined };
+    return { identity: null, postRedirectUri: undefined, responseHeaders: new Headers() };
   }
 
-  const client = new LogtoServerClient(config);
+  const client = new EdgeLogtoClient(config) as EdgeLogtoInternalClient;
+  const { nodeClient, headers } = await client.createNodeClientFromEdgeRequest(request);
   // Use the public callback URL instead of the container-internal origin from the proxied request.
-  const callbackUrl = new URL(LOGTO_ADMIN_CALLBACK_PATH, `${config.baseUrl}/`);
-  callbackUrl.search = request.nextUrl.search;
-  const postRedirectUri = await client.handleSignInCallback(callbackUrl.toString());
-  const context = await client.getLogtoContext({ fetchUserInfo: true });
+  const callbackUrl = new URL(
+    `${request.nextUrl.pathname}${request.nextUrl.search}${request.nextUrl.hash}`,
+    `${config.baseUrl}/`,
+  );
+  await nodeClient.handleSignInCallback(callbackUrl.toString());
+  const context = await nodeClient.getContext({ fetchUserInfo: true });
 
   return {
     identity: coerceLogtoIdentity(context),
-    postRedirectUri,
+    postRedirectUri: client.navigateUrl,
+    responseHeaders: headers,
   };
+}
+
+export function readSetCookieHeaders(headers: Headers): string[] {
+  const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+  if (typeof getSetCookie === "function") {
+    const values = getSetCookie.call(headers).filter((value) => typeof value === "string" && value.trim().length > 0);
+    if (values.length > 0) {
+      return values;
+    }
+  }
+
+  const combined = headers.get("set-cookie");
+  if (!combined) {
+    return [];
+  }
+
+  return combined
+    .split(/,(?=[^;,=\s]+=[^;,])/g)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 export function getLogtoAdminRuntimeReadiness() {
