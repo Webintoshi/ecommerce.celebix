@@ -23,7 +23,7 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/urunler",
-    title: copy.productsTitle,
+    title: copy.breadcrumbProducts,
     description: copy.productsDescription,
     keywords: ["urunler", "koleksiyon", "kategori", "magaza"],
   });

@@ -132,7 +132,7 @@ export async function getStoreSeoContext(locale: StorefrontLocale): Promise<Stor
     titleSuffix,
     defaultTitle,
     defaultDescription,
-    keywords: dedupeKeywords(normalizeKeywordArray(seoSettings.keywords), normalizeKeywordArray(copy.siteTitle)),
+    keywords: dedupeKeywords(normalizeKeywordArray(seoSettings.keywords), normalizeKeywordArray(siteName)),
     ogImageUrl: typeof seoSettings.ogImageUrl === "string" ? seoSettings.ogImageUrl.trim() : "",
     twitterHandle: normalizeTitle(seoSettings.twitterHandle),
     robotsIndex: seoSettings.robotsIndex !== false,

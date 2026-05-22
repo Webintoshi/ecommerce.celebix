@@ -6,8 +6,9 @@ import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/l
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
-import { translateSeoStrings, translateUiStrings } from "@/lib/translation";
+import { translateUiStrings } from "@/lib/translation";
 
 const HOME_UI_COPY = {
   categoriesEyebrow: "Koleksiyonlar",
@@ -54,19 +55,11 @@ async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLoc
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const routing = await getLocaleRoutingConfig();
   const copy = getLocalizedCopy(locale);
-  const localizedHome = buildLocalizedPath("/", locale, routing);
-  const languageAlternates = buildLocaleAlternates("/", routing);
-  const [title, description] = await translateSeoStrings(
-    [copy.homeTitle, copy.homeDescription],
+  return buildStorePageMetadata({
     locale,
-    "home-seo",
-  );
-
-  return {
-    title,
-    description,
+    pathname: "/",
+    description: copy.homeDescription,
     keywords: [
       "el yapimi deri kordon",
       "apple watch deri kayis",
@@ -76,24 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "deri bileklik",
       "ozel tasarim kordon",
     ],
-    alternates: {
-      canonical: localizedHome,
-      ...(languageAlternates ? { languages: languageAlternates } : {}),
-    },
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      locale,
-      siteName: STOREFRONT_RUNTIME.name,
-      url: localizedHome,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-  };
+  });
 }
 
 export default async function Home() {
