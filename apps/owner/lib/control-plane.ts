@@ -1501,18 +1501,65 @@ function scoreAdminRuntimeAuthority(existingAuthority: OwnerStoreAuthorityFields
 
   const bootstrap = asRecord(existingAuthority.metadata?.bootstrap);
   const status = readOptionalString(bootstrap.adminDeploymentStatus);
+  const resourceId = readOptionalString(bootstrap.adminDeploymentResourceId);
+  const preparedAt = readOptionalString(bootstrap.adminDeploymentPreparedAt);
+  const deployedAt = readOptionalString(bootstrap.adminDeploymentDeployedAt);
+  const finalReadiness = asRecord(bootstrap.finalReadiness);
+  const adminRuntimeOk = finalReadiness.adminRuntimeOk === true;
 
-  if (status === "configured") {
+  if (status === "configured" || deployedAt || adminRuntimeOk) {
     return 3;
   }
 
-  if (status === "prepared") {
+  if (status === "prepared" || resourceId || preparedAt) {
     return 2;
   }
 
-  return readOptionalString(bootstrap.adminDeploymentRuntimeUrl) || readOptionalString(bootstrap.adminDeploymentResourceId)
-    ? 3
-    : 0;
+  return 0;
+}
+
+export function getStoreAuthorityStalenessIssues(
+  store: StoreConfig,
+  existingAuthority: OwnerStoreAuthorityFields | null,
+): string[] {
+  if (!existingAuthority) {
+    return [];
+  }
+
+  const issues: string[] = [];
+  const existingStorefrontMetadata = asRecord(existingAuthority.metadata?.storefront);
+
+  if (scoreSupabaseRuntimeAuthority(existingAuthority) > scoreSupabaseAuthority(store)) {
+    issues.push("Supabase authority dosya state'inden daha ileride");
+  }
+
+  if (scoreR2RuntimeAuthority(existingAuthority) > scoreR2Authority(store)) {
+    issues.push("R2 authority dosya state'inden daha ileride");
+  }
+
+  if (scoreAdminRuntimeAuthority(existingAuthority) > scoreAdminDeploymentAuthority(store)) {
+    issues.push("Admin deployment authority dosya state'inden daha ileride");
+  }
+
+  if (scoreExistingStorefrontAuthority(existingAuthority) > scoreStorefrontAuthority(store)) {
+    issues.push("Storefront authority dosya state'inden daha ileride");
+  }
+
+  if (
+    (readOptionalString(existingAuthority.storefront_app_dir) || readOptionalString(existingStorefrontMetadata.appDir)) &&
+    !store.storefront?.appDir
+  ) {
+    issues.push("storefront appDir owner authority'de var ama store.config'te yok");
+  }
+
+  if (
+    readOptionalString(existingStorefrontMetadata.deploymentBranch) &&
+    !store.storefront?.deploymentBranch
+  ) {
+    issues.push("storefront deployment branch owner authority'de var ama store.config'te yok");
+  }
+
+  return issues;
 }
 
 function scoreStorefrontAuthority(store: StoreConfig): number {
@@ -1623,42 +1670,7 @@ function assertStoreAuthorityNotStale(
   store: StoreConfig,
   existingAuthority: OwnerStoreAuthorityFields | null,
 ): void {
-  if (!existingAuthority) {
-    return;
-  }
-
-  const issues: string[] = [];
-  const existingStorefrontMetadata = asRecord(existingAuthority.metadata?.storefront);
-
-  if (scoreSupabaseRuntimeAuthority(existingAuthority) > scoreSupabaseAuthority(store)) {
-    issues.push("Supabase authority dosya state'inden daha ileride");
-  }
-
-  if (scoreR2RuntimeAuthority(existingAuthority) > scoreR2Authority(store)) {
-    issues.push("R2 authority dosya state'inden daha ileride");
-  }
-
-  if (scoreAdminRuntimeAuthority(existingAuthority) > scoreAdminDeploymentAuthority(store)) {
-    issues.push("Admin deployment authority dosya state'inden daha ileride");
-  }
-
-  if (scoreExistingStorefrontAuthority(existingAuthority) > scoreStorefrontAuthority(store)) {
-    issues.push("Storefront authority dosya state'inden daha ileride");
-  }
-
-  if (
-    (readOptionalString(existingAuthority.storefront_app_dir) || readOptionalString(existingStorefrontMetadata.appDir)) &&
-    !store.storefront?.appDir
-  ) {
-    issues.push("storefront appDir owner authority'de var ama store.config'te yok");
-  }
-
-  if (
-    readOptionalString(existingStorefrontMetadata.deploymentBranch) &&
-    !store.storefront?.deploymentBranch
-  ) {
-    issues.push("storefront deployment branch owner authority'de var ama store.config'te yok");
-  }
+  const issues = getStoreAuthorityStalenessIssues(store, existingAuthority);
 
   if (issues.length > 0) {
     throw new Error(`${store.slug} authority stale gorunuyor: ${issues.join(" / ")}`);
