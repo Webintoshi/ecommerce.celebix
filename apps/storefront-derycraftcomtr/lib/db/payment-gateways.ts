@@ -1,8 +1,14 @@
+import { maybeGetStorefrontSetting } from "@/lib/db/light-postgres-storefront-read";
 import { createServerClient } from "@/lib/supabase";
 import { normalizePaymentGateways } from "@/lib/payment-providers";
 import { PaymentGateway, PaymentGatewayConfig } from "@/types/payment";
 
 export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]> {
+    const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
+    if (lightPostgresValue !== undefined) {
+        return normalizePaymentGateways(lightPostgresValue || []);
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient

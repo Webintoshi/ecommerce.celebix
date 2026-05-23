@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { maybeGetStorefrontSetting } from "@/lib/db/light-postgres-storefront-read";
 import { createServerClient } from "@/lib/supabase";
 import {
     getPaymentGatewayRuntimeStatus,
@@ -8,6 +9,15 @@ import {
 
 export async function GET() {
     try {
+        const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
+        if (lightPostgresValue !== undefined) {
+            const activeGateways = normalizePaymentGateways(lightPostgresValue || [])
+                .filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady)
+                .map((gateway) => sanitizePublicPaymentGateway(gateway));
+
+            return NextResponse.json({ success: true, gateways: activeGateways });
+        }
+
         const supabase = createServerClient();
 
         const { data, error } = await supabase
