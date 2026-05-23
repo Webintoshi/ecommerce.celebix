@@ -9,6 +9,7 @@ interface CoolifyApplication {
   domain?: string | null;
   git_branch?: string | null;
   is_auto_deploy_enabled?: boolean | null;
+  watch_paths?: string | null;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
@@ -66,6 +67,10 @@ function hasOwnerDeploymentRepairEnv(): boolean {
       process.env.COOLIFY_API_TOKEN?.trim() &&
       process.env.COOLIFY_RESOURCE_UUID?.trim(),
   );
+}
+
+function getDesiredOwnerWatchPaths(): string {
+  return ["apps/owner/**", "packages/**"].join(",");
 }
 
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
@@ -130,6 +135,7 @@ async function patchApplicationDeploymentSettings(
   options: {
     branch: string;
     autoDeployEnabled: boolean;
+    watchPaths: string;
   },
 ): Promise<void> {
   await coolifyFetch(`/applications/${applicationUuid}`, {
@@ -137,6 +143,7 @@ async function patchApplicationDeploymentSettings(
     body: JSON.stringify({
       git_branch: options.branch,
       is_auto_deploy_enabled: options.autoDeployEnabled,
+      watch_paths: options.watchPaths,
     }),
   });
 }
@@ -165,6 +172,7 @@ export async function repairOwnerDeploymentBranch(options?: {
 }): Promise<OwnerDeploymentBranchRepairResult> {
   const resourceId = getOwnerApplicationUuid();
   const desiredBranch = getDesiredOwnerBranch();
+  const desiredWatchPaths = getDesiredOwnerWatchPaths();
   const runtimeUrl = getOwnerRuntimeUrl();
   const applications = await listApplications();
   const currentApplication =
@@ -182,19 +190,22 @@ export async function repairOwnerDeploymentBranch(options?: {
     typeof currentApplication?.is_auto_deploy_enabled === "boolean"
       ? currentApplication.is_auto_deploy_enabled
       : null;
+  const currentWatchPaths = currentApplication?.watch_paths?.trim() || null;
   const desiredAutoDeployEnabled = true;
   const branchChanged = currentBranch !== desiredBranch;
   const autoDeployChanged = currentAutoDeployEnabled !== desiredAutoDeployEnabled;
-  const shouldUpdate = branchChanged || autoDeployChanged;
+  const watchPathsChanged = currentWatchPaths !== desiredWatchPaths;
+  const shouldUpdate = branchChanged || autoDeployChanged || watchPathsChanged;
 
   if (shouldUpdate) {
     await patchApplicationDeploymentSettings(resourceId, {
       branch: desiredBranch,
       autoDeployEnabled: desiredAutoDeployEnabled,
+      watchPaths: desiredWatchPaths,
     });
   }
 
-  const triggerDeploy = options?.triggerDeploy ?? true;
+  const triggerDeploy = options?.triggerDeploy ?? false;
 
   if (triggerDeploy) {
     await startApplication(resourceId);

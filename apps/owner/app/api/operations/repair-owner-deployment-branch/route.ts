@@ -10,7 +10,7 @@ export async function POST() {
   }
 
   try {
-    const result = await repairOwnerDeploymentBranch({ triggerDeploy: true });
+    const result = await repairOwnerDeploymentBranch({ triggerDeploy: false });
 
     return NextResponse.json(
       {
