@@ -1,37 +1,13 @@
 import { NextResponse } from "next/server";
-import { maybeGetStorefrontSetting } from "@/lib/db/light-postgres-storefront-read";
-import { createServerClient } from "@/lib/supabase";
+import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
 import {
     getPaymentGatewayRuntimeStatus,
-    normalizePaymentGateways,
     sanitizePublicPaymentGateway,
 } from "@/lib/payment-providers";
 
 export async function GET() {
     try {
-        const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
-        const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
-        if (lightPostgresValue !== undefined && lightPostgresGateways.length > 0) {
-            const activeGateways = lightPostgresGateways
-                .filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady)
-                .map((gateway) => sanitizePublicPaymentGateway(gateway));
-
-            return NextResponse.json({ success: true, gateways: activeGateways });
-        }
-
-        const supabase = createServerClient();
-
-        const { data, error } = await supabase
-            .from("settings")
-            .select("value")
-            .eq("key", "payment_gateways")
-            .single();
-
-        if (error && error.code !== "PGRST116") {
-            throw error;
-        }
-
-        const activeGateways = normalizePaymentGateways(data?.value || [])
+        const activeGateways = (await getStoredPaymentGateways())
             .filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady)
             .map((gateway) => sanitizePublicPaymentGateway(gateway));
 
