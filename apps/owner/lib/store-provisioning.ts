@@ -1058,33 +1058,6 @@ export async function runStoreProvisioningWorkflow(
       },
     ],
     [
-      "admin_blueprint",
-      async () => {
-        const blueprint = await prepareStoreAdminDeployment(input.slug);
-
-        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
-          throw new Error(blueprint.runtimeMessage || "Admin blueprint hazirlanamadi.");
-        }
-
-        return "Admin blueprint hazirlandi.";
-      },
-    ],
-    [
-      "admin_deploy",
-      async () => {
-        const deployment = await runGeneratedDeploymentStep(
-          { slug: input.slug, target: "admin" },
-          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
-        );
-
-        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
-          throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
-        }
-
-        return deployment.message || "Admin runtime dogrulandi.";
-      },
-    ],
-    [
       "storefront_deploy",
       async () => {
         const blueprint = await prepareStorefrontDeployment(input.slug);
@@ -1109,6 +1082,33 @@ export async function runStoreProvisioningWorkflow(
         }
 
         return deployment.message || "Storefront runtime dogrulandi.";
+      },
+    ],
+    [
+      "admin_blueprint",
+      async () => {
+        const blueprint = await prepareStoreAdminDeployment(input.slug);
+
+        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
+          throw new Error(blueprint.runtimeMessage || "Admin blueprint hazirlanamadi.");
+        }
+
+        return "Admin blueprint hazirlandi.";
+      },
+    ],
+    [
+      "admin_deploy",
+      async () => {
+        const deployment = await runGeneratedDeploymentStep(
+          { slug: input.slug, target: "admin" },
+          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
+        );
+
+        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
+          throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
+        }
+
+        return deployment.message || "Admin runtime dogrulandi.";
       },
     ],
     [

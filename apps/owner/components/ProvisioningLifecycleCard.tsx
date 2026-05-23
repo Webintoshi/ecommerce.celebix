@@ -129,16 +129,16 @@ const ACTS: Array<{
     keys: ["supabase_provision", "starter_seed", "r2_provision"],
   },
   {
+    key: "storefront_deploy",
+    title: "Acilis",
+    caption: "Storefront ve vitrin perdesi",
+    keys: ["storefront_scaffold", "storefront_repo_sync", "storefront_blueprint", "storefront_deploy"],
+  },
+  {
     key: "admin_deploy",
     title: "Kontrol",
     caption: "Admin masasi ve arka ofis",
     keys: ["admin_blueprint", "admin_deploy", "analytics_setup", "auth_setup"],
-  },
-  {
-    key: "storefront_deploy",
-    title: "Acilis",
-    caption: "Storefront ve vitrin perdesi",
-    keys: ["storefront_scaffold", "storefront_blueprint", "storefront_repo_sync", "storefront_deploy"],
   },
 ];
 

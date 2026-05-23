@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 
 type LightPostgresCompatModule = {
@@ -25,7 +25,12 @@ function createLightPostgresServerCompatClient(): SupabaseClient {
 // Lazy browser client proxy so existing imports keep working.
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
-    const client = getBrowserSupabaseClient();
+    const client = getOptionalBrowserSupabaseClient();
+
+    if (!client) {
+      throw new Error("Admin auth client bu runtime icin hazir degil.");
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (client as any)[prop as string];
   },
