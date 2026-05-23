@@ -1,12 +1,38 @@
 import "server-only";
 
+import { createRequire } from "node:module";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
 import { createServerClient as createServiceSupabaseClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
 
+type LightPostgresCompatModule = {
+  createLightPostgresCompatClient: (options: {
+    env: NodeJS.ProcessEnv;
+    mode: "light_postgres";
+  }) => unknown;
+};
+
+function createLightPostgresSessionClient(): SupabaseClient {
+  const runtimeRequire = createRequire(import.meta.url) as (id: string) => unknown;
+  const compatModule = runtimeRequire(
+    "@celebix/platform-config/src/light-postgres-compat",
+  ) as LightPostgresCompatModule;
+
+  return compatModule.createLightPostgresCompatClient({
+    env: process.env,
+    mode: "light_postgres",
+  }) as SupabaseClient;
+}
 export async function createSessionServerClient(): Promise<SupabaseClient> {
+  if (isLightPostgresRuntime(process.env, {
+    mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+  })) {
+    return createLightPostgresSessionClient();
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
