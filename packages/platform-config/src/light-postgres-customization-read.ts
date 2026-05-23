@@ -283,7 +283,7 @@ async function loadSchemaRecord(
         updated_at,
         created_by
       from public.product_customization_schemas
-      where id = $1
+      where id::text = $1
       limit 1
     `,
     [schemaId],
@@ -317,7 +317,7 @@ async function loadSchemaSteps(
         created_at,
         updated_at
       from public.product_customization_steps
-      where schema_id = $1
+      where schema_id::text = $1
       order by sort_order asc, created_at asc
     `,
     [schemaId],
@@ -351,7 +351,7 @@ async function loadSchemaSteps(
         created_at,
         updated_at
       from public.product_customization_options
-      where step_id = any($1::text[])
+      where step_id::text = any($1::text[])
       order by sort_order asc, created_at asc
     `,
     [steps.map((step) => step.id)],
@@ -385,7 +385,7 @@ async function loadProductAssignments(
         sort_order,
         created_at
       from public.product_schema_assignments
-      where schema_id = $1
+      where schema_id::text = $1
       order by is_default desc, sort_order asc, created_at asc
     `,
     [schemaId],
@@ -405,7 +405,7 @@ async function loadCategoryAssignments(
         is_auto_apply,
         created_at
       from public.category_schema_assignments
-      where schema_id = $1
+      where schema_id::text = $1
       order by created_at asc
     `,
     [schemaId],
@@ -520,7 +520,7 @@ export async function resolveLightPostgresAssignedCustomizationSchemaId(
         sort_order,
         created_at
       from public.product_schema_assignments
-      where product_id = $1
+      where product_id::text = $1
       order by is_default desc, sort_order asc, created_at asc
     `,
     [productId],
@@ -530,7 +530,7 @@ export async function resolveLightPostgresAssignedCustomizationSchemaId(
     `
       select id, category, subcategory
       from public.products
-      where id = $1
+      where id::text = $1
       limit 1
     `,
     [productId],
@@ -562,7 +562,7 @@ export async function resolveLightPostgresAssignedCustomizationSchemaId(
       `
         select schema_id, category_id, created_at
         from public.category_schema_assignments
-        where category_id = any($1::text[])
+        where category_id::text = any($1::text[])
       `,
       [categoryRows.map((row) => row.id)],
     );
@@ -610,7 +610,7 @@ export async function resolveLightPostgresAssignedCustomizationSchemaId(
     `
       select id, is_active
       from public.product_customization_schemas
-      where id = any($1::text[])
+      where id::text = any($1::text[])
     `,
     [candidates.map((candidate) => candidate.schema_id)],
   );
