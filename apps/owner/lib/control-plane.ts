@@ -1043,6 +1043,12 @@ function normalizeProvisioningSummaryForDisplay(
       "Admin deployment basarisiz oldu.";
     markFailed("admin_deploy", adminFailureMessage);
     blockRemainingStepsAfter("admin_deploy", "Admin deployment tamamlanmadan ilerlenemez.");
+  } else if (input.adminDeploymentStatus === "pending-owner-env" && input.health.storefrontRuntimeConsistent) {
+    markFailed(
+      "admin_blueprint",
+      "Admin deployment authority eksik veya senkron disi kaldigi icin generated admin app baslatilamadi.",
+    );
+    blockRemainingStepsAfter("admin_blueprint", "Admin blueprint tamamlanmadan ilerlenemez.");
   }
 
   if (input.storefrontAppDir?.trim()) {
@@ -1059,6 +1065,15 @@ function normalizeProvisioningSummaryForDisplay(
 
   if (input.health.storefrontRuntimeConsistent) {
     markCompleted("storefront_deploy", "Storefront runtime canli durumda.");
+  } else if (
+    input.storefrontDeploymentStatus === "failed" ||
+    (input.storefrontDeploymentStatus === "configured" && Boolean(input.health.storefrontDataMessage))
+  ) {
+    const storefrontFailureMessage =
+      input.health.storefrontDataMessage ||
+      "Storefront runtime smoke kontrolleri basarisiz oldu.";
+    markFailed("storefront_deploy", storefrontFailureMessage);
+    blockRemainingStepsAfter("storefront_deploy", "Storefront deployment tamamlanmadan ilerlenemez.");
   }
 
   const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;
@@ -1142,6 +1157,10 @@ function normalizeBootstrapRecordForDisplay(
   if (health.adminDeploymentReady && health.adminRuntimeConsistent) {
     next.adminDeploymentStatus = "configured";
     next.adminDeploymentLastError = fullyReady ? null : next.adminDeploymentLastError ?? null;
+  } else if (readOptionalString(next.adminDeploymentStatus) === "configured" && !health.adminRuntimeConsistent) {
+    next.adminDeploymentStatus = "failed";
+    next.adminDeploymentLastError =
+      health.adminRuntimeMessage ?? readOptionalString(next.adminDeploymentLastError) ?? null;
   }
 
   if (fullyReady) {
@@ -1164,16 +1183,28 @@ function normalizeStorefrontRecordForDisplay(
 
   const next = { ...current };
   const fullyReady = isStoreFullyReady(health);
+  const hasDeploymentEvidence = Boolean(
+    readOptionalString(next.resourceId) ||
+      readOptionalString(next.preparedAt) ||
+      readOptionalString(next.lastDeploymentPreparedAt) ||
+      readOptionalString(next.deployedAt),
+  );
 
   if (readOptionalString(next.repoSyncStatus) === "failed" && storefrontStatus === "active") {
     next.repoSyncStatus = "synced";
     next.lastRepoSyncError = null;
   }
 
-  if (storefrontStatus === "active") {
+  if (health.storefrontRuntimeConsistent || storefrontStatus === "active") {
     next.status = "active";
     next.deploymentStatus = health.storefrontRuntimeConsistent ? "configured" : next.deploymentStatus ?? "failed";
     next.lastDeploymentError = fullyReady ? null : next.lastDeploymentError ?? null;
+  } else if (hasDeploymentEvidence && !readOptionalString(next.deploymentStatus)) {
+    next.deploymentStatus = "prepared";
+  }
+
+  if (!health.storefrontRuntimeConsistent && health.storefrontDataMessage) {
+    next.lastDeploymentError = health.storefrontDataMessage;
   }
 
   return next;
@@ -1504,12 +1535,42 @@ function readAdminDeploymentStatusValue(value: unknown): AdminDeploymentStatusVa
     : null;
 }
 
+function resolveAdminDeploymentStatusEvidence(
+  bootstrap: Record<string, unknown> | null | undefined,
+): AdminDeploymentStatusValue | null {
+  const current = asRecord(bootstrap);
+  const status = readAdminDeploymentStatusValue(current.adminDeploymentStatus);
+  const resourceId = readOptionalString(current.adminDeploymentResourceId);
+  const preparedAt = readOptionalString(current.adminDeploymentPreparedAt);
+  const deployedAt = readOptionalString(current.adminDeploymentDeployedAt);
+  const finalReadiness = asRecord(current.finalReadiness);
+  const adminRuntimeOk = finalReadiness.adminRuntimeOk === true;
+
+  if (status === "failed") {
+    return "failed";
+  }
+
+  if (status === "configured" || deployedAt || adminRuntimeOk) {
+    return "configured";
+  }
+
+  if (status === "prepared" || resourceId || preparedAt) {
+    return "prepared";
+  }
+
+  if (status === "pending-owner-env") {
+    return "pending-owner-env";
+  }
+
+  return null;
+}
+
 function resolveAdminDeploymentStatusForDisplay(
   metadataBootstrap: Record<string, unknown> | null | undefined,
   configBootstrap: Record<string, unknown> | null | undefined,
 ): AdminDeploymentStatusValue | null {
-  const metadataStatus = readAdminDeploymentStatusValue(asRecord(metadataBootstrap).adminDeploymentStatus);
-  const configStatus = readAdminDeploymentStatusValue(asRecord(configBootstrap).adminDeploymentStatus);
+  const metadataStatus = resolveAdminDeploymentStatusEvidence(metadataBootstrap);
+  const configStatus = resolveAdminDeploymentStatusEvidence(configBootstrap);
   const statuses = [configStatus, metadataStatus].filter(
     (status): status is AdminDeploymentStatusValue => status !== null,
   );
@@ -1548,12 +1609,47 @@ function resolveAdminDeploymentLastErrorForDisplay(
   return configError ?? metadataError ?? null;
 }
 
+function resolveStorefrontDeploymentStatusEvidence(
+  storefront: Record<string, unknown> | null | undefined,
+): StorefrontDeploymentStatus | null {
+  const current = asRecord(storefront);
+  const deploymentStatus = readStorefrontDeploymentStatusValue(current.deploymentStatus);
+  const resourceId = readOptionalString(current.resourceId);
+  const preparedAt =
+    readOptionalString(current.preparedAt) ??
+    readOptionalString(current.lastDeploymentPreparedAt);
+  const deployedAt = readOptionalString(current.deployedAt);
+  const storefrontStatus = readStorefrontStatusValue(current.status);
+
+  if (deploymentStatus === "failed") {
+    return "failed";
+  }
+
+  if (deploymentStatus === "configured" || deployedAt || storefrontStatus === "active") {
+    return "configured";
+  }
+
+  if (deploymentStatus === "prepared" || resourceId || preparedAt) {
+    return "prepared";
+  }
+
+  if (deploymentStatus === "pending-repo-sync") {
+    return "pending-repo-sync";
+  }
+
+  if (deploymentStatus === "pending-owner-env") {
+    return "pending-owner-env";
+  }
+
+  return null;
+}
+
 function resolveStorefrontDeploymentStatusForDisplay(
   metadataStorefront: Record<string, unknown> | null | undefined,
   configStorefront: Record<string, unknown> | null | undefined,
 ): StorefrontDeploymentStatus | null {
-  const metadataStatus = readStorefrontDeploymentStatusValue(asRecord(metadataStorefront).deploymentStatus);
-  const configStatus = readStorefrontDeploymentStatusValue(asRecord(configStorefront).deploymentStatus);
+  const metadataStatus = resolveStorefrontDeploymentStatusEvidence(metadataStorefront);
+  const configStatus = resolveStorefrontDeploymentStatusEvidence(configStorefront);
   const statuses = [configStatus, metadataStatus].filter(
     (status): status is StorefrontDeploymentStatus => status !== null,
   );

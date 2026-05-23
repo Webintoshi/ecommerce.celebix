@@ -10,9 +10,25 @@ type LightPostgresCompatModule = {
   }) => unknown;
 };
 
+function getRuntimeRequire(): (id: string) => unknown {
+  const moduleBuiltin = (
+    process as NodeJS.Process & {
+      getBuiltinModule?: (name: string) => unknown;
+    }
+  ).getBuiltinModule?.("module") as
+    | { createRequire?: (specifier: string) => (id: string) => unknown }
+    | undefined;
+  const createRequire = moduleBuiltin?.createRequire;
+
+  if (!createRequire) {
+    throw new Error("Node createRequire runtime bu ortamda kullanilamiyor.");
+  }
+
+  return createRequire(import.meta.url);
+}
+
 function createLightPostgresServerCompatClient(): SupabaseClient {
-  const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
-  const compatModule = runtimeRequire(
+  const compatModule = getRuntimeRequire()(
     "@celebix/platform-config/src/light-postgres-compat",
   ) as LightPostgresCompatModule;
 

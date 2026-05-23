@@ -18,6 +18,7 @@ import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
+import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -260,19 +261,11 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
   const adminEnvEntries = resolveAdminEnvEntries(store);
 
   if (store.databaseMode === "light_postgres") {
-    const runtimeDatabaseUrl =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
-      adminEnvEntries.DATABASE_URL?.trim() ||
-      adminEnvEntries.DATABASE_DIRECT_URL?.trim() ||
-      "";
-    const runtimeDatabaseName =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
-      store.lightPostgres?.databaseName?.trim() ||
-      store.slug;
-    const runtimeSslMode =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
-      adminEnvEntries.DATABASE_SSLMODE?.trim() ||
-      "require";
+    const {
+      runtimeDatabaseUrl,
+      runtimeDatabaseName,
+      runtimeSslMode,
+    } = resolveLightPostgresDeploymentEnv(store, adminEnvEntries);
     const entries: Record<string, string> = {
       ...buildPublicEnvEntries(store),
       DATABASE_MODE: "light_postgres",
@@ -285,6 +278,8 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
 
     if (runtimeDatabaseUrl) {
       entries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+      entries.DATABASE_URL = entries.DATABASE_URL || runtimeDatabaseUrl;
+      entries.DATABASE_DIRECT_URL = entries.DATABASE_DIRECT_URL || runtimeDatabaseUrl;
     }
 
     for (const key of [

@@ -11,6 +11,7 @@ import {
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
+import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
@@ -159,19 +160,11 @@ async function readAdminEnvEntries(
   const existingEnv = readExistingAdminEnvMap(store);
 
   if (store.databaseMode === "light_postgres") {
-    const runtimeDatabaseUrl =
-      existingEnv.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
-      existingEnv.DATABASE_URL?.trim() ||
-      existingEnv.DATABASE_DIRECT_URL?.trim() ||
-      "";
-    const runtimeDatabaseName =
-      existingEnv.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
-      store.lightPostgres?.databaseName?.trim() ||
-      store.slug;
-    const runtimeSslMode =
-      existingEnv.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
-      existingEnv.DATABASE_SSLMODE?.trim() ||
-      "require";
+    const {
+      runtimeDatabaseUrl,
+      runtimeDatabaseName,
+      runtimeSslMode,
+    } = resolveLightPostgresDeploymentEnv(store, existingEnv);
     const envEntries: Record<string, string> = {
       CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
       CELEBIX_ADMIN_DEPLOYMENT_MARKER:
@@ -204,6 +197,8 @@ async function readAdminEnvEntries(
 
     if (runtimeDatabaseUrl) {
       envEntries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+      envEntries.DATABASE_URL = envEntries.DATABASE_URL || runtimeDatabaseUrl;
+      envEntries.DATABASE_DIRECT_URL = envEntries.DATABASE_DIRECT_URL || runtimeDatabaseUrl;
     }
 
     for (const key of [

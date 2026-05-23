@@ -16,6 +16,7 @@ import {
   resolveStorefrontRepositoryBranch,
 } from "../../../packages/platform-config/src/index";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
+import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 
 interface StorefrontScaffoldResult {
   appDirectory: string;
@@ -602,6 +603,29 @@ export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontSca
     ...adminEnvEntries,
     ...buildStorefrontPublicEnv(store),
   };
+
+  if (store.databaseMode === "light_postgres") {
+    const {
+      runtimeDatabaseUrl,
+      runtimeDatabaseName,
+      runtimeSslMode,
+    } = resolveLightPostgresDeploymentEnv(store, adminEnvEntries);
+
+    envLocalEntries.ADMIN_DATABASE_MODE = "light_postgres";
+    envLocalEntries.DATABASE_MODE = "light_postgres";
+    envLocalEntries.LIGHT_POSTGRES_DATABASE_NAME = runtimeDatabaseName;
+    envLocalEntries.LIGHT_POSTGRES_DATABASE_SSLMODE = runtimeSslMode;
+    envLocalEntries.DATABASE_SSLMODE = runtimeSslMode;
+    envLocalEntries.NEXT_PUBLIC_RUNTIME_DATABASE_MODE = "light_postgres";
+    envLocalEntries.AUTH_SETUP_STATUS = "blocked_auth_setup";
+    envLocalEntries.NEXT_PUBLIC_AUTH_SETUP_STATUS = "blocked_auth_setup";
+
+    if (runtimeDatabaseUrl) {
+      envLocalEntries.DATABASE_URL = runtimeDatabaseUrl;
+      envLocalEntries.DATABASE_DIRECT_URL = runtimeDatabaseUrl;
+      envLocalEntries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+    }
+  }
 
   if (
     store.databaseMode === "full_supabase" &&
