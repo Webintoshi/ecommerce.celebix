@@ -7,6 +7,7 @@ import {
 } from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint, type StoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
+import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
 
@@ -263,6 +264,20 @@ async function listApplications(): Promise<CoolifyApplication[]> {
 }
 
 function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymentBlueprint, projectUuid: string, environmentUuid: string) {
+  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
+    target: "admin",
+    deploymentStrategy: blueprint.deploymentStrategy,
+    dockerImage: blueprint.dockerImage,
+    dockerImageTag: blueprint.dockerImageTag,
+    useBuildServer: blueprint.useBuildServer,
+    buildServer: blueprint.buildServer,
+    watchPaths: blueprint.watchPaths,
+  });
+
+  if (deploymentModelError) {
+    throw new Error(deploymentModelError);
+  }
+
   return {
     project_uuid: projectUuid,
     environment_uuid: environmentUuid,

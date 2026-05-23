@@ -1,6 +1,10 @@
 import { createClient, type User } from "@supabase/supabase-js";
-import { getSupabaseAnonKey, getSupabaseAuthStorageKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
-import { decodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
+import {
+  getOptionalSupabaseAnonKey,
+  getOptionalSupabaseAuthStorageKey,
+  getOptionalSupabaseServerUrl,
+} from "./supabase-shared";
+import { decodeSessionCookiePayload } from "./supabase-session-cookie-utils";
 
 type CookieValue = {
   name: string;
@@ -33,7 +37,13 @@ function readChunkedCookieValue(cookies: CookieValue[], cookieName: string): str
 }
 
 export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookiePayload | null {
-  const encodedValue = readChunkedCookieValue(cookies, getSupabaseAuthStorageKey());
+  const cookieName = getOptionalSupabaseAuthStorageKey();
+
+  if (!cookieName) {
+    return null;
+  }
+
+  const encodedValue = readChunkedCookieValue(cookies, cookieName);
   if (!encodedValue) {
     return null;
   }
@@ -58,12 +68,14 @@ export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User
 
 export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise<User | null> {
   const session = readSupabaseSessionCookie(cookies);
+  const serverUrl = getOptionalSupabaseServerUrl();
+  const anonKey = getOptionalSupabaseAnonKey();
 
-  if (!session?.access_token) {
+  if (!session?.access_token || !serverUrl || !anonKey) {
     return null;
   }
 
-  const supabase = createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+  const supabase = createClient(serverUrl, anonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

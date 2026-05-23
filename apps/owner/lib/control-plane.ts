@@ -1055,10 +1055,28 @@ function normalizeProvisioningSummaryForDisplay(
 
   if (hasStorefrontRepoSync) {
     markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
+  } else if (input.storefrontRepoSyncStatus === "failed") {
+    markFailed(
+      "storefront_repo_sync",
+      "Storefront repo sync basarisiz oldu; deploy zinciri hazir degil.",
+    );
+    blockRemainingStepsAfter(
+      "storefront_repo_sync",
+      "Storefront repo sync tamamlanmadan ilerlenemez.",
+    );
   }
 
   if (input.health.storefrontRuntimeConsistent) {
     markCompleted("storefront_deploy", "Storefront runtime canli durumda.");
+  } else if (input.storefrontDeploymentStatus === "failed") {
+    markFailed(
+      "storefront_deploy",
+      input.health.storefrontDataMessage || "Storefront deployment basarisiz oldu.",
+    );
+    blockRemainingStepsAfter(
+      "storefront_deploy",
+      "Storefront deployment tamamlanmadan ilerlenemez.",
+    );
   }
 
   const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;

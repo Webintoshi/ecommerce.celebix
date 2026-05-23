@@ -12,6 +12,7 @@ import {
 } from "@celebix/platform-config";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
+import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
@@ -393,10 +394,12 @@ export async function getStoreAdminDeploymentBlueprint(
   const envEntries = await readAdminEnvEntries(store, options);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const deploymentConfig = store.bootstrap?.adminDeployment;
+  const deploymentStrategy = deploymentConfig?.strategy ?? "build_server_ghcr";
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`;
   const dockerImageTag = deploymentConfig?.imageTag ?? "production";
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
+  const watchPaths = deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"];
   const deploymentMarker = envEntries.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null;
   const hasRequiredEnv = store.databaseMode === "light_postgres"
     ? Boolean(
@@ -410,21 +413,23 @@ export async function getStoreAdminDeploymentBlueprint(
           envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
           envEntries.SUPABASE_SERVICE_ROLE_KEY,
       );
-  const buildServerReady = Boolean(
-    dockerImage.trim() &&
-      dockerImageTag.trim() &&
-      useBuildServer &&
-      buildServer.trim(),
-  );
+  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
+    target: "admin",
+    deploymentStrategy,
+    dockerImage,
+    dockerImageTag,
+    useBuildServer,
+    buildServer,
+    watchPaths,
+  });
 
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  if (!buildServerReady) {
+  if (deploymentModelError) {
     status = "failed";
-    runtimeMessage =
-      "Admin deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
+    runtimeMessage = deploymentModelError;
   } else {
     const runtime = await readRuntimeConsistency(store, runtimeUrl, deploymentMarker);
     runtimeConsistent = runtime.consistent;
@@ -437,12 +442,12 @@ export async function getStoreAdminDeploymentBlueprint(
     appName: store.bootstrap?.adminDeploymentName || `${store.slug}-admin`,
     runtimeUrl,
     resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
-    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
+    deploymentStrategy,
     dockerImage,
     dockerImageTag,
     useBuildServer,
     buildServer,
-    watchPaths: deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"],
+    watchPaths,
     deploymentMarker,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",

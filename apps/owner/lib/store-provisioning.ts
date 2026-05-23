@@ -805,14 +805,24 @@ async function reconcileProvisioningSummaryWithLiveState(
   try {
     const adminBlueprint = await getStoreAdminDeploymentBlueprint(slug);
 
-    if (adminBlueprint.status !== "pending-owner-env") {
+    if (adminBlueprint.status === "prepared" || adminBlueprint.status === "configured") {
       markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
+    } else if (adminBlueprint.status === "failed") {
+      const adminBlueprintError =
+        adminBlueprint.runtimeMessage ||
+        "Admin blueprint authority deploy modelini karsilamiyor.";
+      readinessError = readinessError ?? adminBlueprintError;
+      markFailed("admin_blueprint", adminBlueprintError);
+      blockRemainingStepsAfter("admin_blueprint", "Admin blueprint tamamlanmadan ilerlenemez.");
     }
 
     if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
       adminRuntimeOk = true;
       markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
-    } else if (store.bootstrap?.adminDeploymentStatus === "failed") {
+    } else if (
+      adminBlueprint.status === "failed" ||
+      store.bootstrap?.adminDeploymentStatus === "failed"
+    ) {
       const adminFailureMessage =
         store.bootstrap?.adminDeploymentLastError ||
         adminBlueprint.runtimeMessage ||
@@ -828,17 +838,45 @@ async function reconcileProvisioningSummaryWithLiveState(
   try {
     const storefrontBlueprint = await getStorefrontDeploymentBlueprint(slug);
 
-    if (storefrontBlueprint.status !== "pending-owner-env") {
+    if (storefrontBlueprint.status === "prepared" || storefrontBlueprint.status === "configured") {
       markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
+    } else if (storefrontBlueprint.status === "failed") {
+      const storefrontBlueprintError =
+        storefrontBlueprint.runtimeMessage ||
+        "Storefront blueprint authority deploy modelini karsilamiyor.";
+      readinessError = readinessError ?? storefrontBlueprintError;
+      markFailed("storefront_blueprint", storefrontBlueprintError);
+      blockRemainingStepsAfter(
+        "storefront_blueprint",
+        "Storefront blueprint tamamlanmadan ilerlenemez.",
+      );
     }
 
-    if (storefrontBlueprint.repoSynced) {
+    if (store.storefront?.repoSyncStatus === "failed") {
+      const repoSyncError =
+        store.storefront?.lastRepoSyncError ||
+        storefrontBlueprint.runtimeMessage ||
+        "Storefront repo senkronu basarisiz oldu.";
+      readinessError = readinessError ?? repoSyncError;
+      markFailed("storefront_repo_sync", repoSyncError);
+      blockRemainingStepsAfter(
+        "storefront_repo_sync",
+        "Storefront repo sync tamamlanmadan ilerlenemez.",
+      );
+    } else if (storefrontBlueprint.repoSynced) {
       markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
     }
 
     if (storefrontBlueprint.status === "configured" && storefrontBlueprint.runtimeConsistent) {
       storefrontRuntimeOk = true;
       markCompleted("storefront_deploy", "Storefront runtime canli ve tutarli cevap veriyor.");
+    } else if (store.storefront?.deploymentStatus === "failed") {
+      const storefrontFailureMessage =
+        store.storefront?.lastDeploymentError ||
+        storefrontBlueprint.runtimeMessage ||
+        "Storefront deployment basarisiz oldu.";
+      readinessError = readinessError ?? storefrontFailureMessage;
+      markFailed("storefront_deploy", storefrontFailureMessage);
     }
   } catch {
     // Keep existing provisioning summary when storefront runtime cannot be checked.
@@ -868,6 +906,10 @@ async function reconcileProvisioningSummaryWithLiveState(
         "Storefront veri API smoke kontrolleri basarisiz oldu.";
       readinessError = readinessError ?? storefrontError;
       markFailed("storefront_deploy", `Storefront smoke basarisiz: ${storefrontError}`);
+      blockRemainingStepsAfter(
+        "storefront_deploy",
+        "Storefront deployment tamamlanmadan ilerlenemez.",
+      );
     }
   }
 

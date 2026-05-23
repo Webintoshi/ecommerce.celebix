@@ -109,13 +109,29 @@ export function getSupabaseAuthStorageKey(): string {
   return cookieName;
 }
 
+export function shouldUseSecureSupabaseCookies(): boolean {
+  const publicUrl = getOptionalSupabaseUrl();
+
+  if (publicUrl) {
+    return publicUrl.startsWith("https://");
+  }
+
+  const serverUrl = getOptionalSupabaseServerUrl();
+
+  if (serverUrl) {
+    return serverUrl.startsWith("https://");
+  }
+
+  return process.env.NODE_ENV === "production";
+}
+
 export function getSupabaseCookieOptions() {
   return {
     name: getSupabaseAuthStorageKey(),
     path: "/",
     sameSite: "lax" as const,
     httpOnly: false,
-    secure: getSupabaseUrl().startsWith("https://"),
+    secure: shouldUseSecureSupabaseCookies(),
     maxAge: 400 * 24 * 60 * 60,
   };
 }
@@ -166,6 +182,11 @@ export function getSupabaseAnonKey(): string {
   return value;
 }
 
+export function getOptionalSupabaseServiceRoleKey(): string | null {
+  const value = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return value || null;
+}
+
 export function getSupabaseServiceRoleKey(): string {
-  return requireEnvValue("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return requireEnvValue("SUPABASE_SERVICE_ROLE_KEY", getOptionalSupabaseServiceRoleKey() ?? undefined);
 }

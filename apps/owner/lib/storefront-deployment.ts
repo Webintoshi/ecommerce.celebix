@@ -18,6 +18,7 @@ import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
+import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -456,16 +457,22 @@ export async function getStorefrontDeploymentBlueprint(
   const expectedPackageName = getExpectedStorefrontPackageName(store.slug);
   const workspace = readWorkspaceName(store);
   const serverPort = readWorkspaceServerPort(store);
+  const deploymentStrategy = deploymentConfig?.strategy ?? "build_server_ghcr";
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`;
   const dockerImageTag = deploymentConfig?.imageTag ?? "production";
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
-  const buildServerReady = Boolean(
-    dockerImage.trim() &&
-      dockerImageTag.trim() &&
-      useBuildServer &&
-      buildServer.trim(),
-  );
+  const watchPaths =
+    deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"];
+  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
+    target: "storefront",
+    deploymentStrategy,
+    dockerImage,
+    dockerImageTag,
+    useBuildServer,
+    buildServer,
+    watchPaths,
+  });
 
   let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed" =
     "pending-repo-sync";
@@ -502,10 +509,9 @@ export async function getStorefrontDeploymentBlueprint(
     }
   }
 
-  if (!buildServerReady) {
+  if (deploymentModelError) {
     status = "failed";
-    runtimeMessage =
-      "Storefront deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
+    runtimeMessage = deploymentModelError;
   } else if (status === "failed") {
     // keep the earlier failure reason
   } else if (!requiredEnvReady) {
@@ -538,13 +544,12 @@ export async function getStorefrontDeploymentBlueprint(
     appName: store.storefront?.deploymentName || `${store.slug}-storefront`,
     runtimeUrl,
     resourceId: store.storefront?.resourceId ?? null,
-    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
+    deploymentStrategy,
     dockerImage,
     dockerImageTag,
     useBuildServer,
     buildServer,
-    watchPaths:
-      deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"],
+    watchPaths,
     serverPort,
     workspace,
     installCommand: "npm install --include=optional --no-audit --no-fund",
