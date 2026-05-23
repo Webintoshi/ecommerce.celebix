@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Layers3, Package, Plus, Settings2, Tags } from "lucide-react";
 import { CustomizationSchemasList } from "@/components/admin/customization/schemas-list";
+import { maybeListAdminCustomizationSchemas } from "@/lib/db/light-postgres-read";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { createServerClient } from "@/lib/supabase";
 
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 async function getCustomizationSchemas() {
+  const lightPostgresSchemas = await maybeListAdminCustomizationSchemas();
+  if (lightPostgresSchemas !== undefined) {
+    return lightPostgresSchemas;
+  }
+
   const supabase = createServerClient();
 
   const { data: schemas, error } = await supabase
