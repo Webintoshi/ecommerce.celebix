@@ -8,6 +8,7 @@ import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-pro
 import { readAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { getSessionUserFromCookies, readSessionUserSnapshotFromCookies } from "@/lib/admin-session-cookie";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { isLightPostgresAuthBlockedRuntime } from "@/lib/supabase-shared";
 
 export interface AdminProfile {
   id: string;
@@ -66,6 +67,10 @@ function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride
 }
 
 export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminProfile, "email" | "full_name" | "role"> | null> {
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const fallbackContext = buildFallbackAdminAuthContext(cookieStore.getAll());
 
@@ -81,6 +86,10 @@ export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminP
 }
 
 export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const cookieValues = cookieStore.getAll();
   const snapshotUser = readSessionUserSnapshotFromCookies(cookieValues);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Lock, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
-import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
   const authUnavailable = authBlocked || !hasBrowserSupabaseAuthEnv;
   const supabase = useMemo(
-    () => (authUnavailable ? null : getBrowserSupabaseClient()),
+    () => (authUnavailable ? null : getOptionalBrowserSupabaseClient()),
     [authUnavailable],
   );
   const [nextPath, setNextPath] = useState("/admin");

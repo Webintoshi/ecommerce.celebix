@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session, AuthError, AuthResponse } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 interface AuthContextType {
   user: User | null;
@@ -24,6 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -49,7 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const buildUnavailableAuthError = () =>
+    new AuthError("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
+
   const signIn = async (email: string, password: string, captchaToken?: string) => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      return { error: buildUnavailableAuthError() };
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -59,6 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      return {
+        error: buildUnavailableAuthError(),
+        data: null,
+      };
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -72,11 +97,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      setSession(null);
+      setUser(null);
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signOut();
     return { error };
   };
 
   const resetPassword = async (email: string) => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      return { error: buildUnavailableAuthError() };
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/sifre-yenile` : undefined,
     });
@@ -84,6 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      return { error: buildUnavailableAuthError() };
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -91,6 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSession = async () => {
+    const supabase = getOptionalBrowserSupabaseClient();
+
+    if (!supabase) {
+      setSession(null);
+      setUser(null);
+      return;
+    }
+
     try {
       const { data } = await supabase.auth.refreshSession();
       setSession(data.session);

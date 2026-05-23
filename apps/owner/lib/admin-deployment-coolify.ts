@@ -6,6 +6,7 @@ import {
   updateStoreAdminDeploymentConfig,
 } from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint, type StoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
+import { updateOwnerStoreAdminDeploymentAuthority } from "@/lib/control-plane";
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
@@ -519,6 +520,36 @@ async function waitForAdminRuntime(
   return lastBlueprint ?? getStoreAdminDeploymentBlueprint(store.slug, { deploymentMarker });
 }
 
+async function persistAdminDeploymentAuthorityState(
+  slug: string,
+  input: {
+    deploymentStatus: "pending-owner-env" | "prepared" | "configured" | "failed";
+    deploymentName: string;
+    runtimeUrl: string;
+    resourceId?: string | null;
+    deployedAt?: string;
+    lastError?: string;
+  },
+): Promise<void> {
+  updateStoreAdminDeploymentConfig(slug, {
+    deploymentStatus: input.deploymentStatus,
+    deploymentName: input.deploymentName,
+    runtimeUrl: input.runtimeUrl,
+    resourceId: input.resourceId ?? undefined,
+    deployedAt: input.deployedAt,
+    lastError: input.lastError,
+  });
+
+  await updateOwnerStoreAdminDeploymentAuthority(slug, {
+    deploymentStatus: input.deploymentStatus,
+    deploymentName: input.deploymentName,
+    runtimeUrl: input.runtimeUrl,
+    resourceId: input.resourceId ?? null,
+    deployedAt: input.deployedAt ?? null,
+    lastError: input.deploymentStatus === "configured" ? null : input.lastError ?? null,
+  });
+}
+
 async function reconcileConfiguredAdminRuntime(
   slug: string,
   options: {
@@ -533,11 +564,11 @@ async function reconcileConfiguredAdminRuntime(
     return null;
   }
 
-  updateStoreAdminDeploymentConfig(slug, {
+  await persistAdminDeploymentAuthorityState(slug, {
     deploymentStatus: "configured",
     deploymentName: currentBlueprint.appName,
     runtimeUrl: currentBlueprint.runtimeUrl,
-    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? undefined,
+    resourceId: currentBlueprint.resourceId ?? options.resourceId ?? null,
     deployedAt: new Date().toISOString(),
     lastError: currentBlueprint.runtimeMessage ?? undefined,
   });
@@ -594,12 +625,12 @@ export async function provisionAdminDeploymentForStore(
   }
 
   if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
-    updateStoreAdminDeploymentConfig(slug, {
+    await persistAdminDeploymentAuthorityState(slug, {
       deploymentStatus:
         blueprint.status === "failed" ? "failed" : "pending-owner-env",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: blueprint.resourceId ?? undefined,
+      resourceId: blueprint.resourceId ?? null,
       lastError:
         blueprint.runtimeMessage ??
         (blueprint.status === "failed"
@@ -658,7 +689,7 @@ export async function provisionAdminDeploymentForStore(
     });
 
     if (!shouldWaitForRuntime) {
-      updateStoreAdminDeploymentConfig(slug, {
+      await persistAdminDeploymentAuthorityState(slug, {
         deploymentStatus: "prepared",
         deploymentName: blueprint.appName,
         runtimeUrl: blueprint.runtimeUrl,
@@ -762,7 +793,7 @@ export async function provisionAdminDeploymentForStore(
     const deploymentStatus = "configured";
     const deployedAt = new Date().toISOString();
 
-    updateStoreAdminDeploymentConfig(slug, {
+    await persistAdminDeploymentAuthorityState(slug, {
       deploymentStatus,
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
@@ -792,7 +823,7 @@ export async function provisionAdminDeploymentForStore(
           const deploymentStatus = "configured";
           const deployedAt = new Date().toISOString();
 
-          updateStoreAdminDeploymentConfig(slug, {
+          await persistAdminDeploymentAuthorityState(slug, {
             deploymentStatus,
             deploymentName: blueprint.appName,
             runtimeUrl: blueprint.runtimeUrl,
@@ -825,12 +856,12 @@ export async function provisionAdminDeploymentForStore(
       return recoveredDeployment;
     }
 
-    updateStoreAdminDeploymentConfig(slug, {
+    await persistAdminDeploymentAuthorityState(slug, {
       deploymentStatus: "failed",
       deploymentName: blueprint.appName,
       runtimeUrl: blueprint.runtimeUrl,
-      resourceId: currentApplicationUuid ?? blueprint.resourceId ?? undefined,
-      lastError: error instanceof Error ? error.message : "Admin deployment otomasyonu basarisiz oldu."
+      resourceId: currentApplicationUuid ?? blueprint.resourceId ?? null,
+      lastError: error instanceof Error ? error.message : "Admin deployment otomasyonu basarisiz oldu.",
     });
 
     throw error;

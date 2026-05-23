@@ -1493,6 +1493,119 @@ function readStorefrontDeploymentStatusValue(value: unknown): StorefrontDeployme
     : null;
 }
 
+type AdminDeploymentStatusValue = "pending-owner-env" | "prepared" | "configured" | "failed";
+
+function readAdminDeploymentStatusValue(value: unknown): AdminDeploymentStatusValue | null {
+  return value === "pending-owner-env" ||
+    value === "prepared" ||
+    value === "configured" ||
+    value === "failed"
+    ? value
+    : null;
+}
+
+function resolveAdminDeploymentStatusForDisplay(
+  metadataBootstrap: Record<string, unknown> | null | undefined,
+  configBootstrap: Record<string, unknown> | null | undefined,
+): AdminDeploymentStatusValue | null {
+  const metadataStatus = readAdminDeploymentStatusValue(asRecord(metadataBootstrap).adminDeploymentStatus);
+  const configStatus = readAdminDeploymentStatusValue(asRecord(configBootstrap).adminDeploymentStatus);
+  const statuses = [configStatus, metadataStatus].filter(
+    (status): status is AdminDeploymentStatusValue => status !== null,
+  );
+
+  if (statuses.includes("failed")) {
+    return "failed";
+  }
+
+  if (statuses.includes("configured")) {
+    return "configured";
+  }
+
+  if (statuses.includes("prepared")) {
+    return "prepared";
+  }
+
+  if (statuses.includes("pending-owner-env")) {
+    return "pending-owner-env";
+  }
+
+  return null;
+}
+
+function resolveAdminDeploymentLastErrorForDisplay(
+  metadataBootstrap: Record<string, unknown> | null | undefined,
+  configBootstrap: Record<string, unknown> | null | undefined,
+): string | null {
+  const metadataError = readOptionalString(asRecord(metadataBootstrap).adminDeploymentLastError);
+  const configError = readOptionalString(asRecord(configBootstrap).adminDeploymentLastError);
+  const status = resolveAdminDeploymentStatusForDisplay(metadataBootstrap, configBootstrap);
+
+  if (status === "configured") {
+    return null;
+  }
+
+  return configError ?? metadataError ?? null;
+}
+
+function resolveStorefrontDeploymentStatusForDisplay(
+  metadataStorefront: Record<string, unknown> | null | undefined,
+  configStorefront: Record<string, unknown> | null | undefined,
+): StorefrontDeploymentStatus | null {
+  const metadataStatus = readStorefrontDeploymentStatusValue(asRecord(metadataStorefront).deploymentStatus);
+  const configStatus = readStorefrontDeploymentStatusValue(asRecord(configStorefront).deploymentStatus);
+  const statuses = [configStatus, metadataStatus].filter(
+    (status): status is StorefrontDeploymentStatus => status !== null,
+  );
+
+  if (statuses.includes("failed")) {
+    return "failed";
+  }
+
+  if (statuses.includes("configured")) {
+    return "configured";
+  }
+
+  if (statuses.includes("prepared")) {
+    return "prepared";
+  }
+
+  if (statuses.includes("pending-repo-sync")) {
+    return "pending-repo-sync";
+  }
+
+  if (statuses.includes("pending-owner-env")) {
+    return "pending-owner-env";
+  }
+
+  return null;
+}
+
+function resolveStorefrontRepoSyncStatusForDisplay(
+  metadataStorefront: Record<string, unknown> | null | undefined,
+  configStorefront: Record<string, unknown> | null | undefined,
+): StorefrontRepoSyncStatus | null {
+  const metadataStatus = readStorefrontRepoSyncStatusValue(asRecord(metadataStorefront).repoSyncStatus);
+  const configStatus = readStorefrontRepoSyncStatusValue(asRecord(configStorefront).repoSyncStatus);
+  const statuses = [configStatus, metadataStatus].filter(
+    (status): status is StorefrontRepoSyncStatus => status !== null,
+  );
+
+  if (statuses.includes("failed")) {
+    return "failed";
+  }
+
+  if (statuses.includes("synced")) {
+    return "synced";
+  }
+
+  if (statuses.includes("pending")) {
+    return "pending";
+  }
+
+  return null;
+}
+
 function scoreStorefrontStatusValue(value: StorefrontStatus | null | undefined): number {
   switch (value) {
     case "active":
@@ -1734,6 +1847,20 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   const bootstrap = asRecord(current.bootstrap);
   const storefront = asRecord(current.storefront);
   const supabase = asRecord(current.supabase);
+  const mergedAdminDeploymentStatus =
+    store.bootstrap?.adminDeploymentStatus === "configured"
+      ? "configured"
+      : store.bootstrap?.adminDeploymentStatus === "failed"
+        ? "failed"
+        : resolveAdminDeploymentStatusForDisplay(bootstrap, store.bootstrap as Record<string, unknown> | undefined) ??
+          store.bootstrap?.adminDeploymentStatus ??
+          readAdminDeploymentStatusValue(bootstrap.adminDeploymentStatus) ??
+          "pending-owner-env";
+  const mergedAdminDeploymentLastError =
+    mergedAdminDeploymentStatus === "configured"
+      ? null
+      : store.bootstrap?.adminDeploymentLastError ??
+        resolveAdminDeploymentLastErrorForDisplay(bootstrap, store.bootstrap as Record<string, unknown> | undefined);
 
   return {
     ...current,
@@ -1743,6 +1870,8 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
     bootstrap: {
       ...bootstrap,
       ...(store.bootstrap ?? {}),
+      adminDeploymentStatus: mergedAdminDeploymentStatus,
+      adminDeploymentLastError: mergedAdminDeploymentLastError,
     },
     r2: store.r2 ?? current.r2 ?? null,
     storefront: {
@@ -2129,6 +2258,85 @@ export async function updateOwnerStoreR2Authority(
   }
 }
 
+export async function updateOwnerStoreAdminDeploymentAuthority(
+  slug: string,
+  input: {
+    deploymentStatus: AdminDeploymentStatusValue;
+    deploymentName?: string | null;
+    runtimeUrl?: string | null;
+    resourceId?: string | null;
+    preparedAt?: string | null;
+    deployedAt?: string | null;
+    lastError?: string | null;
+  },
+): Promise<void> {
+  const serviceClient = createOwnerServiceClient();
+  const { data, error } = await serviceClient
+    .from("owner_stores")
+    .select("metadata")
+    .eq("slug", slug)
+    .maybeSingle<{ metadata: Record<string, unknown> | null }>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return;
+  }
+
+  const metadata = asRecord(data.metadata);
+  const bootstrap = asRecord(metadata.bootstrap);
+  const nextMetadata = {
+    ...metadata,
+    bootstrap: {
+      ...bootstrap,
+      adminDeploymentName:
+        input.deploymentName !== undefined
+          ? input.deploymentName
+          : readOptionalString(bootstrap.adminDeploymentName),
+      adminDeploymentRuntimeUrl:
+        input.runtimeUrl !== undefined
+          ? input.runtimeUrl
+          : readOptionalString(bootstrap.adminDeploymentRuntimeUrl),
+      adminDeploymentResourceId:
+        input.resourceId !== undefined
+          ? input.resourceId
+          : readOptionalString(bootstrap.adminDeploymentResourceId),
+      adminDeploymentStatus: input.deploymentStatus,
+      adminDeploymentPreparedAt:
+        input.preparedAt !== undefined
+          ? input.preparedAt
+          : input.deploymentStatus === "prepared" || input.deploymentStatus === "configured"
+            ? readOptionalString(bootstrap.adminDeploymentPreparedAt) ?? new Date().toISOString()
+            : readOptionalString(bootstrap.adminDeploymentPreparedAt),
+      adminDeploymentDeployedAt:
+        input.deployedAt !== undefined
+          ? input.deployedAt
+          : input.deploymentStatus === "configured"
+            ? readOptionalString(bootstrap.adminDeploymentDeployedAt) ?? new Date().toISOString()
+            : readOptionalString(bootstrap.adminDeploymentDeployedAt),
+      adminDeploymentLastError:
+        input.deploymentStatus === "configured"
+          ? null
+          : input.lastError !== undefined
+            ? input.lastError
+            : readOptionalString(bootstrap.adminDeploymentLastError),
+    },
+  };
+
+  const { error: updateError } = await serviceClient
+    .from("owner_stores")
+    .update({
+      metadata: nextMetadata,
+    })
+    .eq("slug", slug);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
 function readBooleanFlag(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
@@ -2415,7 +2623,11 @@ function buildStoreConsistency(
   const envAdminDomain = normalizeDomainInput(connectionReadiness.envAdminDomain);
   const envStorefrontUrl = normalizeDomainInput(connectionReadiness.envStorefrontUrl);
   const envAdminUrl = normalizeDomainInput(connectionReadiness.envAdminUrl);
-  const adminDeploymentStatus = storeConfig.bootstrap?.adminDeploymentStatus ?? "pending-owner-env";
+  const adminDeploymentStatus =
+    resolveAdminDeploymentStatusForDisplay(
+      asRecord(asRecord(store.metadata).bootstrap),
+      storeConfig.bootstrap as Record<string, unknown> | undefined,
+    ) ?? "pending-owner-env";
   const supabaseProvisioningStatus = storeConfig.bootstrap?.supabaseProvisioning ?? "pending-owner-env";
 
   if (configStorefrontDomain && ownerStorefrontDomain && configStorefrontDomain !== ownerStorefrontDomain) {
@@ -2668,6 +2880,7 @@ async function buildDashboardStoreSummaries(
       const storeConfig = await getAuthoritativeStoreConfig(store.slug);
       const summaryMode = mode === "summary";
       const storedBootstrap = asRecord(store.metadata?.bootstrap);
+      const storedStorefront = asRecord(store.metadata?.storefront);
       const shouldProbeAdminRuntimeInSummary =
         summaryMode &&
         store.storefront_status === "active" &&
@@ -2735,10 +2948,22 @@ async function buildDashboardStoreSummaries(
         health,
         storefrontStatus: store.storefront_status,
         storefrontAppDir: store.storefront_app_dir,
-        adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
-        adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
-        storefrontDeploymentStatus: readOptionalString(storeConfig?.storefront?.deploymentStatus),
-        storefrontRepoSyncStatus: readOptionalString(storeConfig?.storefront?.repoSyncStatus),
+        adminDeploymentStatus: resolveAdminDeploymentStatusForDisplay(
+          storedBootstrap,
+          (storeConfig?.bootstrap as Record<string, unknown> | undefined) ?? null,
+        ),
+        adminDeploymentLastError: resolveAdminDeploymentLastErrorForDisplay(
+          storedBootstrap,
+          (storeConfig?.bootstrap as Record<string, unknown> | undefined) ?? null,
+        ),
+        storefrontDeploymentStatus: resolveStorefrontDeploymentStatusForDisplay(
+          storedStorefront,
+          (storeConfig?.storefront as Record<string, unknown> | undefined) ?? null,
+        ),
+        storefrontRepoSyncStatus: resolveStorefrontRepoSyncStatusForDisplay(
+          storedStorefront,
+          (storeConfig?.storefront as Record<string, unknown> | undefined) ?? null,
+        ),
         metrics: {
           productCount: metricsRow?.product_count ?? 0,
           orderCount: metricsRow?.order_count ?? 0,
@@ -3474,6 +3699,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     storeConfig?.storefront
       ? (storeConfig.storefront as unknown as Record<string, unknown>)
       : null;
+  const metadataStorefront = asRecord(metadata.storefront);
   const detailBootstrap =
     Object.keys(metadataBootstrap).length > 0 || !configBootstrap
       ? metadataBootstrap
@@ -3512,10 +3738,16 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     health,
     storefrontStatus: current.storefrontStatus,
     storefrontAppDir: current.storefrontAppDir,
-    adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
-    adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
-    storefrontDeploymentStatus: readOptionalString(storefrontConfig?.deploymentStatus),
-    storefrontRepoSyncStatus: readOptionalString(storefrontConfig?.repoSyncStatus),
+    adminDeploymentStatus: resolveAdminDeploymentStatusForDisplay(detailBootstrap, configBootstrap),
+    adminDeploymentLastError: resolveAdminDeploymentLastErrorForDisplay(detailBootstrap, configBootstrap),
+    storefrontDeploymentStatus: resolveStorefrontDeploymentStatusForDisplay(
+      metadataStorefront,
+      storefrontConfig,
+    ),
+    storefrontRepoSyncStatus: resolveStorefrontRepoSyncStatusForDisplay(
+      metadataStorefront,
+      storefrontConfig,
+    ),
     metrics: {
       productCount: resolvedMetrics?.productCount ?? current.productCount,
       orderCount: resolvedMetrics?.orderCount ?? current.orderCount,
