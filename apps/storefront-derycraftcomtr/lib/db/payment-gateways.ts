@@ -5,8 +5,9 @@ import { PaymentGateway, PaymentGatewayConfig } from "@/types/payment";
 
 export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]> {
     const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
-    if (lightPostgresValue !== undefined) {
-        return normalizePaymentGateways(lightPostgresValue || []);
+    const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
+    if (lightPostgresValue !== undefined && lightPostgresGateways.length > 0) {
+        return lightPostgresGateways;
     }
 
     const serverClient = createServerClient();

@@ -10,8 +10,9 @@ import {
 export async function GET() {
     try {
         const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
-        if (lightPostgresValue !== undefined) {
-            const activeGateways = normalizePaymentGateways(lightPostgresValue || [])
+        const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
+        if (lightPostgresValue !== undefined && lightPostgresGateways.length > 0) {
+            const activeGateways = lightPostgresGateways
                 .filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady)
                 .map((gateway) => sanitizePublicPaymentGateway(gateway));
 
