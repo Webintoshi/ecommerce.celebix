@@ -6,6 +6,7 @@ interface CoolifyApplication {
   fqdn?: string | null;
   domain?: string | null;
   git_branch?: string | null;
+  watch_paths?: string | null;
 }
 
 const COOLIFY_API_PREFIX = "/api/v1";
@@ -60,6 +61,10 @@ function getDesiredOwnerBranch(): string {
     process.env.CELEBIX_GIT_BRANCH?.trim() ||
     "deploy/owner"
   );
+}
+
+function getDesiredOwnerWatchPaths(): string {
+  return ["apps/owner/**", "packages/**"].join(",");
 }
 
 async function coolifyFetch<T>(pathname: string, init: RequestInit = {}): Promise<T> {
@@ -119,11 +124,16 @@ async function listApplications(): Promise<CoolifyApplication[]> {
   return normalizeArrayPayload<CoolifyApplication>(payload);
 }
 
-async function patchApplicationBranch(applicationUuid: string, branch: string): Promise<void> {
+async function patchApplicationBranch(
+  applicationUuid: string,
+  branch: string,
+  watchPaths: string,
+): Promise<void> {
   await coolifyFetch(`/applications/${applicationUuid}`, {
     method: "PATCH",
     body: JSON.stringify({
       git_branch: branch,
+      watch_paths: watchPaths,
     }),
   });
 }
@@ -148,6 +158,7 @@ export async function repairOwnerDeploymentBranch(options?: {
 }): Promise<OwnerDeploymentBranchRepairResult> {
   const resourceId = getOwnerApplicationUuid();
   const desiredBranch = getDesiredOwnerBranch();
+  const desiredWatchPaths = getDesiredOwnerWatchPaths();
   const runtimeUrl = getOwnerRuntimeUrl();
   const applications = await listApplications();
   const currentApplication =
@@ -161,13 +172,14 @@ export async function repairOwnerDeploymentBranch(options?: {
 
   const currentBranch =
     currentApplication?.git_branch?.trim() || process.env.COOLIFY_BRANCH?.trim() || null;
-  const shouldUpdate = currentBranch !== desiredBranch;
+  const currentWatchPaths = currentApplication?.watch_paths?.trim() || null;
+  const shouldUpdate = currentBranch !== desiredBranch || currentWatchPaths !== desiredWatchPaths;
 
   if (shouldUpdate) {
-    await patchApplicationBranch(resourceId, desiredBranch);
+    await patchApplicationBranch(resourceId, desiredBranch, desiredWatchPaths);
   }
 
-  const triggerDeploy = options?.triggerDeploy ?? true;
+  const triggerDeploy = options?.triggerDeploy ?? false;
 
   if (triggerDeploy) {
     await startApplication(resourceId);

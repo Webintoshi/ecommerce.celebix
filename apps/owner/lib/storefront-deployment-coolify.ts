@@ -265,6 +265,11 @@ function isGeneratedAutoDeployEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
+function getStorefrontWatchPaths(store: StoreConfig): string {
+  const appDir = store.storefront?.appDir?.trim() || `apps/storefront-${store.slug}`;
+  return [`${appDir.replace(/^\/+/, "").replace(/\/+$/, "")}/**`, "packages/**"].join(",");
+}
+
 function buildStorefrontAppPayload(
   store: StoreConfig,
   blueprint: StorefrontDeploymentBlueprint,
@@ -285,6 +290,7 @@ function buildStorefrontAppPayload(
     domains: blueprint.runtimeUrl,
     ports_exposes: blueprint.serverPort,
     base_directory: ".",
+    watch_paths: getStorefrontWatchPaths(store),
     install_command: blueprint.installCommand,
     build_command: blueprint.buildCommand,
     start_command: blueprint.startCommand,

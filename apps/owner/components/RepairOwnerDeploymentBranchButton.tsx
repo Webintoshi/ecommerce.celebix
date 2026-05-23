@@ -34,8 +34,8 @@ export function RepairOwnerDeploymentBranchButton() {
       const desired = payload.desiredBranch || "deploy/owner";
       setNotice(
         payload.changed
-          ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi ve redeploy tetiklendi.`
-          : `Owner branch zaten ${desired}. Redeploy yeniden tetiklendi.`,
+          ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi. Deploy tetiklenmedi.`
+          : `Owner branch zaten ${desired}. Deploy tetiklenmedi.`,
       );
       router.refresh();
     });

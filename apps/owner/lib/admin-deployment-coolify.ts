@@ -251,6 +251,10 @@ function isGeneratedAutoDeployEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
+function getAdminWatchPaths(): string {
+  return ["apps/admin/**", "packages/**"].join(",");
+}
+
 function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymentBlueprint, projectUuid: string, environmentUuid: string) {
   return {
     project_uuid: projectUuid,
@@ -266,6 +270,7 @@ function buildAdminAppPayload(store: StoreConfig, blueprint: StoreAdminDeploymen
     domains: blueprint.runtimeUrl,
     ports_exposes: "3000",
     base_directory: ".",
+    watch_paths: getAdminWatchPaths(),
     install_command: blueprint.installCommand,
     build_command: blueprint.buildCommand,
     start_command: blueprint.startCommand,
