@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createRequire } from "node:module";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,7 +16,7 @@ type LightPostgresCompatModule = {
 };
 
 function createLightPostgresSessionClient(): SupabaseClient {
-  const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
+  const runtimeRequire = createRequire(import.meta.url) as (id: string) => unknown;
   const compatModule = runtimeRequire(
     "@celebix/platform-config/src/light-postgres-compat",
   ) as LightPostgresCompatModule;
