@@ -19,6 +19,7 @@ import {
 } from "@/lib/product-tags";
 import {
     getProductListingOrderPositions,
+    getStoreInfo,
 } from "@/lib/db/settings";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
@@ -813,6 +814,11 @@ export async function POST(request: NextRequest) {
             (normalizedStatus === "published" && normalizedIsDraft !== true
                 ? new Date().toISOString()
                 : null);
+        const storeInfo = await getStoreInfo().catch(() => null);
+        const defaultProductBrand =
+            toNullableString(productData.brand) ??
+            toNullableString(storeInfo?.name) ??
+            STORE_RUNTIME.defaultProductBrand;
 
         let productInsertPayload: Record<string, unknown> = {
                 name: productData.name,
@@ -838,7 +844,7 @@ export async function POST(request: NextRequest) {
                 is_draft: normalizedIsDraft,
                 published_at: normalizedPublishedAt,
                 tax_rate: normalizeTaxRate(productData.tax_rate),
-                brand: productData.brand || STORE_RUNTIME.defaultProductBrand,
+                brand: defaultProductBrand,
                 country_of_origin: productData.country_of_origin || 'Türkiye',
                 sku: productData.sku || null,
                 gtin: productData.gtin || null,

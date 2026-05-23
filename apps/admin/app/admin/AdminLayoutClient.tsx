@@ -8,13 +8,14 @@ import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
+import { StoreInfoProvider, useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 
-function getShellMeta(pathname: string) {
+function getShellMeta(pathname: string, storeName: string) {
   if (pathname.startsWith("/admin/siparisler")) {
     return {
       title: "Siparişler",
@@ -58,8 +59,8 @@ function getShellMeta(pathname: string) {
   }
 
   return {
-    title: "Yönetim paneli",
-    subtitle: "Ortak kontrol merkezi.",
+    title: `${storeName} Yönetim Paneli`,
+    subtitle: `${storeName} mağazasının operasyonlarını yönetin.`,
   };
 }
 
@@ -200,7 +201,7 @@ function MobileToshiDockButton({
   );
 }
 
-export default function AdminLayoutClient({
+function AdminLayoutShell({
   children,
   initialProfile,
 }: {
@@ -209,6 +210,7 @@ export default function AdminLayoutClient({
 }) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const { storeInfo } = useStoreInfo();
   const [isMobile, setIsMobile] = useState(false);
   const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>(null);
   const [desktopToshiOpen, setDesktopToshiOpen] = useState(false);
@@ -220,7 +222,11 @@ export default function AdminLayoutClient({
     summary: string;
   } | null>(null);
 
-  const shellMeta = useMemo(() => getShellMeta(pathname), [pathname]);
+  const resolvedStoreName = (storeInfo?.name || "Mağaza").trim() || "Mağaza";
+  const shellMeta = useMemo(
+    () => getShellMeta(pathname, resolvedStoreName),
+    [pathname, resolvedStoreName],
+  );
   const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
   const isOrdersRoute = pathname.startsWith("/admin/siparisler");
   const isProductsRoute = pathname.startsWith("/admin/urunler");
@@ -524,5 +530,16 @@ export default function AdminLayoutClient({
         />
       </AdminClientBoundary>
     </div>
+  );
+}
+
+export default function AdminLayoutClient(props: {
+  children: React.ReactNode;
+  initialProfile: InitialAdminProfile | null;
+}) {
+  return (
+    <StoreInfoProvider>
+      <AdminLayoutShell {...props} />
+    </StoreInfoProvider>
   );
 }
