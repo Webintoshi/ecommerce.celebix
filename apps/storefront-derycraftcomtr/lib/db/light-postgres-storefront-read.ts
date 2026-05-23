@@ -112,6 +112,14 @@ type PgPool = {
   ) => Promise<{ rows: Array<Record<string, unknown>> }>;
 };
 
+type PgModule = {
+  Pool: new (config: {
+    connectionString: string;
+    ssl?: { rejectUnauthorized: false };
+    max: number;
+  }) => PgPool;
+};
+
 let cachedConnectionString: string | null = null;
 let poolPromise: Promise<PgPool | null> | null = null;
 
@@ -138,7 +146,8 @@ async function getPool() {
   if (!poolPromise || cachedConnectionString !== connectionString) {
     cachedConnectionString = connectionString;
     poolPromise = (async () => {
-      const { Pool } = await import("pg");
+      const dynamicImport = new Function("return import('pg')") as () => Promise<PgModule>;
+      const { Pool } = await dynamicImport();
       return new Pool({
         connectionString,
         ssl: shouldUseSsl() ? { rejectUnauthorized: false } : undefined,

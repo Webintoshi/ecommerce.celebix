@@ -39,12 +39,30 @@ import {
     createDefaultShippingIntegrationSettings,
     normalizeShippingIntegrationSettings,
 } from "@/lib/shipping-integrations";
+import {
+    maybeGetAdminSetting,
+    maybeGetAllAdminSettings,
+} from "@/lib/db/light-postgres-read";
 
 // =====================================================
 // SETTINGS OPERATIONS
 // =====================================================
 
 export const PRIVATE_SETTING_KEY_PREFIX = "__admin_internal__";
+
+const LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS = new Set<string>([
+    "announcement_bar",
+    "code_integrations",
+    "hero_banners",
+    "homepage_curation",
+    "marquee_settings",
+    "product_listing_order",
+    "promo_banners",
+    "seo_settings",
+    "shipping_options",
+    "store_info",
+    "variant_attributes_registry",
+]);
 
 export function isPrivateSettingKey(key: string) {
     return key.startsWith(PRIVATE_SETTING_KEY_PREFIX);
@@ -54,6 +72,13 @@ export function isPrivateSettingKey(key: string) {
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
+    if (LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS.has(key)) {
+        const lightPostgresValue = await maybeGetAdminSetting(key);
+        if (lightPostgresValue !== undefined) {
+            return (lightPostgresValue as Record<string, unknown> | null) ?? null;
+        }
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -85,6 +110,16 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
         }
         settings[item.key] = item.value;
     }
+
+    const lightPostgresSettings = await maybeGetAllAdminSettings();
+    if (lightPostgresSettings !== undefined) {
+        for (const item of lightPostgresSettings) {
+            if (LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS.has(item.key)) {
+                settings[item.key] = (item.value as Record<string, unknown> | null) ?? {};
+            }
+        }
+    }
+
     return settings;
 }
 

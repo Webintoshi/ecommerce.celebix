@@ -1,6 +1,6 @@
 import "server-only";
 
-type LightPostgresRuntimeConfig = {
+type AdminLightPostgresRuntimeConfig = {
   connectionString: string;
   ssl: false | { rejectUnauthorized: false };
 };
@@ -41,7 +41,7 @@ type PgModule = {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __celebixStorefrontLightPostgresPool: PgPool | undefined;
+  var __celebixAdminLightPostgresPool: PgPool | undefined;
 }
 
 function readEnv(name: string): string | null {
@@ -54,7 +54,7 @@ function readEnv(name: string): string | null {
 }
 
 function getScopedEnv(baseName: string): string | null {
-  return readEnv(`STOREFRONT_${baseName}`) ?? readEnv(baseName);
+  return readEnv(`ADMIN_${baseName}`) ?? readEnv(baseName);
 }
 
 function buildConnectionString(rawUrl: string, databaseName: string | null): string {
@@ -77,12 +77,12 @@ function resolveSslMode(value: string | null): false | { rejectUnauthorized: fal
     : { rejectUnauthorized: false };
 }
 
-function getLightPostgresRuntimeConfig(): LightPostgresRuntimeConfig {
+function getLightPostgresRuntimeConfig(): AdminLightPostgresRuntimeConfig {
   const rawUrl = getScopedEnv("LIGHT_POSTGRES_DATABASE_URL");
 
   if (!rawUrl) {
     throw new Error(
-      "Light Postgres storefront baglantisi icin LIGHT_POSTGRES_DATABASE_URL tanimli degil.",
+      "Light Postgres admin baglantisi icin LIGHT_POSTGRES_DATABASE_URL tanimli degil.",
     );
   }
 
@@ -101,25 +101,25 @@ async function loadPgModule(): Promise<PgModule> {
 }
 
 async function getLightPostgresPool(): Promise<PgPool> {
-  if (!globalThis.__celebixStorefrontLightPostgresPool) {
+  if (!globalThis.__celebixAdminLightPostgresPool) {
     const config = getLightPostgresRuntimeConfig();
     const { Pool } = await loadPgModule();
 
-    globalThis.__celebixStorefrontLightPostgresPool = new Pool({
+    globalThis.__celebixAdminLightPostgresPool = new Pool({
       connectionString: config.connectionString,
       ssl: config.ssl,
       max: 5,
       idleTimeoutMillis: 30_000,
       statement_timeout: 15_000,
       query_timeout: 15_000,
-      application_name: "celebix-storefront-light-postgres",
+      application_name: "celebix-admin-light-postgres",
     });
   }
 
-  return globalThis.__celebixStorefrontLightPostgresPool;
+  return globalThis.__celebixAdminLightPostgresPool;
 }
 
-export async function queryLightPostgres<TRow extends QueryRow = QueryRow>(
+export async function queryAdminLightPostgres<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
 ): Promise<TRow[]> {
@@ -128,15 +128,15 @@ export async function queryLightPostgres<TRow extends QueryRow = QueryRow>(
   return result.rows;
 }
 
-export async function queryLightPostgresOne<TRow extends QueryRow = QueryRow>(
+export async function queryAdminLightPostgresOne<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
 ): Promise<TRow | null> {
-  const [row] = await queryLightPostgres<TRow>(text, params);
+  const [row] = await queryAdminLightPostgres<TRow>(text, params);
   return row ?? null;
 }
 
-export async function withLightPostgresTransaction<T>(
+export async function withAdminLightPostgresTransaction<T>(
   callback: (client: PgPoolClient) => Promise<T>,
 ): Promise<T> {
   const client = await (await getLightPostgresPool()).connect();

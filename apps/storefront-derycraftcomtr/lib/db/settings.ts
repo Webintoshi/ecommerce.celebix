@@ -45,7 +45,9 @@ const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
     "product_listing_order",
     "promo_banners",
     "seo_settings",
+    "shipping_options",
     "store_info",
+    "variant_attributes_registry",
 ]);
 
 // =====================================================
@@ -92,6 +94,17 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
     for (const item of data || []) {
         settings[item.key] = item.value;
     }
+
+    const { maybeGetAllStorefrontSettings } = await import("@/lib/db/light-postgres-storefront-read");
+    const lightPostgresSettings = await maybeGetAllStorefrontSettings();
+    if (lightPostgresSettings !== undefined) {
+        for (const item of lightPostgresSettings) {
+            if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(item.key)) {
+                settings[item.key] = (item.value as Record<string, unknown> | null) ?? {};
+            }
+        }
+    }
+
     return settings;
 }
 

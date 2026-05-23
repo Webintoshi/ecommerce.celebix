@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+  maybeGetStorefrontCustomizationSchemaById,
+  maybeGetStorefrontCustomizationSchemaForProduct,
+} from "@/lib/db/light-postgres-customization-read";
 import type {
   CustomizationOption,
   CustomizationSchema,
@@ -211,13 +215,26 @@ async function resolveAssignedSchemaId(
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = createServerClient();
-
   try {
     const { searchParams } = new URL(request.url);
     const schemaId = searchParams.get("schemaId");
     const productId = searchParams.get("productId");
 
+    if (schemaId) {
+      const lightPostgresSchema = await maybeGetStorefrontCustomizationSchemaById(schemaId);
+      if (lightPostgresSchema !== undefined) {
+        return NextResponse.json({ success: true, schema: lightPostgresSchema });
+      }
+    }
+
+    if (!schemaId && productId) {
+      const lightPostgresSchema = await maybeGetStorefrontCustomizationSchemaForProduct(productId);
+      if (lightPostgresSchema !== undefined) {
+        return NextResponse.json({ success: true, schema: lightPostgresSchema });
+      }
+    }
+
+    const supabase = createServerClient();
     let resolvedSchemaId = schemaId;
 
     if (!resolvedSchemaId && productId) {

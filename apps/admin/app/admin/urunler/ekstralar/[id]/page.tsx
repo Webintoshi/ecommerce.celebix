@@ -5,6 +5,11 @@
 
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import {
+  maybeGetAdminCustomizationSchemaById,
+  maybeListAdminAssignableCategories,
+  maybeListAdminAssignableProducts,
+} from "@/lib/db/light-postgres-read";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { createServerClient } from "@/lib/supabase";
 import { FormBuilder } from "@/components/admin/customization/form-builder";
@@ -20,6 +25,11 @@ interface EditSchemaPageProps {
 }
 
 async function getSchemaWithDetails(id: string) {
+  const lightPostgresSchema = await maybeGetAdminCustomizationSchemaById(id);
+  if (lightPostgresSchema !== undefined) {
+    return lightPostgresSchema;
+  }
+
   const supabase = createServerClient();
   
   const { data: schema, error: schemaError } = await supabase
@@ -66,6 +76,18 @@ async function getSchemaWithDetails(id: string) {
 }
 
 async function getAssignmentOptions() {
+  const [lightPostgresProducts, lightPostgresCategories] = await Promise.all([
+    maybeListAdminAssignableProducts(),
+    maybeListAdminAssignableCategories(),
+  ]);
+
+  if (lightPostgresProducts !== undefined && lightPostgresCategories !== undefined) {
+    return {
+      products: lightPostgresProducts,
+      categories: lightPostgresCategories,
+    };
+  }
+
   const supabase = createServerClient();
 
   const [{ data: products, error: productsError }, { data: categories, error: categoriesError }] =
@@ -104,6 +126,20 @@ export default async function EditSchemaPage({ params }: EditSchemaPageProps) {
 
   if (!schema) {
     notFound();
+  }
+
+  if ("product_assignments" in schema && "category_assignments" in schema) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <FormBuilder
+          initialSchema={schema}
+          initialProductAssignments={schema.product_assignments.map((assignment: { product_id: string }) => assignment.product_id)}
+          initialCategoryAssignments={schema.category_assignments.map((assignment: { category_id: string }) => assignment.category_id)}
+          availableProducts={assignmentOptions.products}
+          availableCategories={assignmentOptions.categories}
+        />
+      </div>
+    );
   }
 
   const supabase = createServerClient();

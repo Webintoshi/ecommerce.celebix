@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { PoolClient, QueryResultRow } from "pg";
 import { normalizeStoredCustomizations } from "../customization/normalize";
 import {
   queryLightPostgres,
@@ -8,7 +7,14 @@ import {
   withLightPostgresTransaction,
 } from "./light-postgres-client";
 
-type DbExecutor = Pick<PoolClient, "query">;
+type QueryRow = Record<string, unknown>;
+
+type DbExecutor = {
+  query: <TRow extends QueryRow = QueryRow>(
+    text: string,
+    params?: unknown[],
+  ) => Promise<{ rows: TRow[] }>;
+};
 
 type CustomerAddressInput = {
   type?: string;
@@ -409,7 +415,7 @@ function buildCustomerAddressRow(
   };
 }
 
-async function clientQuery<TRow extends QueryResultRow = QueryResultRow>(
+async function clientQuery<TRow extends QueryRow = QueryRow>(
   client: DbExecutor,
   text: string,
   params: readonly unknown[] = [],
@@ -418,7 +424,7 @@ async function clientQuery<TRow extends QueryResultRow = QueryResultRow>(
   return result.rows;
 }
 
-async function readRows<TRow extends QueryResultRow = QueryResultRow>(
+async function readRows<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
   client?: DbExecutor,
@@ -428,7 +434,7 @@ async function readRows<TRow extends QueryResultRow = QueryResultRow>(
     : queryLightPostgres<TRow>(text, params);
 }
 
-async function readRow<TRow extends QueryResultRow = QueryResultRow>(
+async function readRow<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
   client?: DbExecutor,

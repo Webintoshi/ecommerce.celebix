@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { PageApiResponse, PageCmsData, PageGEO, PageInput, StaticPageStatus } from "@/types/page";
+import type { PageApiResponse, PageCmsData, PageGEO, PageInput, StaticPage, StaticPageStatus } from "@/types/page";
 import { isValidPage } from "@/types/page";
 import { isManagedContentPageSlug } from "@celebix/platform-config/src/content-pages";
 import { isPolicyPageSlug } from "@celebix/platform-config/src/policy-pages";
 import { normalizeProductDescriptionHtml } from "@celebix/platform-config/src/product-description-rich-text";
 import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
+import {
+  maybeGetAdminPageById,
+  maybeGetAdminPageBySlug,
+  maybeListAdminPages,
+} from "@/lib/db/light-postgres-read";
 
 // ============================================================================
 // ERROR HANDLING
@@ -40,6 +45,15 @@ function createSuccessResponse(data: Partial<PageApiResponse>, status: number = 
     { success: true, ...data },
     { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
   );
+}
+
+function normalizeLightPostgresPageForResponse(page: {
+  icon?: string | null;
+}): StaticPage {
+  return {
+    ...(page as StaticPage),
+    icon: page.icon ?? undefined,
+  };
 }
 
 // ============================================================================
@@ -185,6 +199,35 @@ export async function GET(request: NextRequest) {
     const slug = searchParams.get("slug");
     const includeInactive = searchParams.get("include_inactive") === "1";
 
+    const lightPostgresPages = await maybeListAdminPages(includeInactive);
+    if (lightPostgresPages !== undefined) {
+      if (id) {
+        if (!validateUUID(id)) {
+          throw new APIError("Invalid page ID format", 400, "INVALID_ID");
+        }
+
+        const page = await maybeGetAdminPageById(id);
+        if (!page) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: normalizeLightPostgresPageForResponse(page) });
+      }
+
+      if (slug !== null) {
+        const page = await maybeGetAdminPageBySlug(slug, includeInactive);
+        if (!page) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: normalizeLightPostgresPageForResponse(page) });
+      }
+
+      return createSuccessResponse({
+        pages: lightPostgresPages.map((page) => normalizeLightPostgresPageForResponse(page)),
+      });
+    }
+
     const supabase = await getSupabaseClient();
 
     // Fetch single page by ID
@@ -283,6 +326,10 @@ export async function PUT(request: NextRequest) {
     }
 
     validatePageInput(updates);
+    const typedUpdates = updates as PageInput & {
+      content?: string;
+      status?: StaticPageStatus;
+    };
 
     const supabase = await getSupabaseClient();
     const { data: existingPage, error: existingPageError } = await supabase
@@ -302,40 +349,40 @@ export async function PUT(request: NextRequest) {
     // Build update object
     const updateData: PageInput = {};
 
-    if (updates.name !== undefined) updateData.name = sanitizeString(updates.name, 200);
-    if (updates.slug !== undefined) updateData.slug = sanitizeString(updates.slug, 100);
-    if (updates.schema_type !== undefined) updateData.schema_type = sanitizeString(String(updates.schema_type), 50);
-    if (updates.icon !== undefined) updateData.icon = updates.icon ? sanitizeString(String(updates.icon), 50) : undefined;
-    if (updates.is_active !== undefined) updateData.is_active = Boolean(updates.is_active);
-    if (updates.sort_order !== undefined) updateData.sort_order = typeof updates.sort_order === "number" ? updates.sort_order : parseInt(String(updates.sort_order), 10) || 0;
+    if (typedUpdates.name !== undefined) updateData.name = sanitizeString(typedUpdates.name, 200);
+    if (typedUpdates.slug !== undefined) updateData.slug = sanitizeString(typedUpdates.slug, 100);
+    if (typedUpdates.schema_type !== undefined) updateData.schema_type = sanitizeString(String(typedUpdates.schema_type), 50);
+    if (typedUpdates.icon !== undefined) updateData.icon = typedUpdates.icon ? sanitizeString(String(typedUpdates.icon), 50) : undefined;
+    if (typedUpdates.is_active !== undefined) updateData.is_active = Boolean(typedUpdates.is_active);
+    if (typedUpdates.sort_order !== undefined) updateData.sort_order = typeof typedUpdates.sort_order === "number" ? typedUpdates.sort_order : parseInt(String(typedUpdates.sort_order), 10) || 0;
 
     // SEO fields
-    if (updates.seo_title !== undefined) updateData.seo_title = updates.seo_title ? sanitizeString(updates.seo_title, 200) : null;
-    if (updates.seo_description !== undefined) updateData.seo_description = updates.seo_description ? sanitizeString(updates.seo_description, 500) : null;
-    if (updates.seo_keywords !== undefined) updateData.seo_keywords = Array.isArray(updates.seo_keywords) ? updates.seo_keywords.map(k => sanitizeString(k, 100)) : [];
+    if (typedUpdates.seo_title !== undefined) updateData.seo_title = typedUpdates.seo_title ? sanitizeString(typedUpdates.seo_title, 200) : null;
+    if (typedUpdates.seo_description !== undefined) updateData.seo_description = typedUpdates.seo_description ? sanitizeString(typedUpdates.seo_description, 500) : null;
+    if (typedUpdates.seo_keywords !== undefined) updateData.seo_keywords = Array.isArray(typedUpdates.seo_keywords) ? typedUpdates.seo_keywords.map(k => sanitizeString(k, 100)) : [];
 
     // Structured data
-    if (updates.faq !== undefined && updates.faq !== null) {
-      updateData.faq = updates.faq.map((item: { question: string; answer: string }) => ({
+    if (typedUpdates.faq !== undefined && typedUpdates.faq !== null) {
+      updateData.faq = typedUpdates.faq.map((item: { question: string; answer: string }) => ({
         question: sanitizeString(item.question, 500),
         answer: sanitizeString(item.answer, 2000)
       }));
     }
 
-    const requestedStatus = isValidPageStatus(updates.status)
-      ? updates.status
+    const requestedStatus = isValidPageStatus(typedUpdates.status)
+      ? typedUpdates.status
       : extractExistingCmsData(existingPage?.geo_data)?.status ?? undefined;
-    const requestedContent = updates.content !== undefined
-      ? sanitizeContent(updates.content, 50000)
+    const requestedContent = typedUpdates.content !== undefined
+      ? sanitizeContent(typedUpdates.content, 50000)
       : extractExistingCmsData(existingPage?.geo_data)?.content ?? undefined;
 
-    if (updates.status !== undefined) {
-      updateData.is_active = updates.status === "published";
+    if (typedUpdates.status !== undefined) {
+      updateData.is_active = typedUpdates.status === "published";
     }
 
-    if (updates.geo_data !== undefined || updates.content !== undefined || updates.status !== undefined) {
+    if (typedUpdates.geo_data !== undefined || typedUpdates.content !== undefined || typedUpdates.status !== undefined) {
       updateData.geo_data = normalizePageGeoData(
-        updates.geo_data ?? existingPage?.geo_data,
+        typedUpdates.geo_data ?? existingPage?.geo_data,
         {
           content: requestedContent,
           status: requestedStatus,
