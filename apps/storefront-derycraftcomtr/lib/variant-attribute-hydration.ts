@@ -1,4 +1,5 @@
 import { getSetting } from "@/lib/db/settings";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
@@ -313,6 +314,13 @@ function dedupeAttributes(attributes: JsonObject[]) {
 }
 
 export async function getVariantAttributeRegistry(): Promise<RegistryAttribute[]> {
+  if (shouldUseLightPostgresStorefront()) {
+    const settingsRegistry = await getSetting("variant_attributes_registry");
+    return normalizeStoredRegistryPayload(
+      (settingsRegistry as { attributes?: unknown[] } | null) ?? null,
+    );
+  }
+
   const registryFromServerClient = await readRegistryFromClient(createServerClient());
   if (registryFromServerClient && registryFromServerClient.length > 0) {
     return registryFromServerClient;

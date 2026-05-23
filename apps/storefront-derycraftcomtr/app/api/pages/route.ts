@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { PageApiResponse, PageInput } from "@/types/page";
+import type { PageApiResponse, PageInput, StaticPage } from "@/types/page";
 import { isValidPage } from "@/types/page";
+import {
+  maybeGetStorefrontPageBySlug,
+  maybeListStorefrontPages,
+} from "@/lib/db/light-postgres-storefront-read";
 
 // ============================================================================
 // ERROR HANDLING
@@ -36,6 +40,15 @@ function createSuccessResponse(data: Partial<PageApiResponse>, status: number = 
     { success: true, ...data },
     { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
   );
+}
+
+function normalizeLightPostgresPageForResponse(page: {
+  icon?: string | null;
+}): StaticPage {
+  return {
+    ...(page as StaticPage),
+    icon: page.icon ?? undefined,
+  };
 }
 
 // ============================================================================
@@ -108,6 +121,36 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
+
+    const lightPostgresPages = await maybeListStorefrontPages();
+    if (lightPostgresPages !== undefined) {
+      if (id) {
+        if (!validateUUID(id)) {
+          throw new APIError("Invalid page ID format", 400, "INVALID_ID");
+        }
+
+        const page = lightPostgresPages.find((entry) => entry.id === id) ?? null;
+        if (!page) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: normalizeLightPostgresPageForResponse(page) });
+      }
+
+      if (slug !== null) {
+        const page = await maybeGetStorefrontPageBySlug(slug);
+        if (!page) {
+          throw new APIError("Page not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({ page: normalizeLightPostgresPageForResponse(page) });
+      }
+
+      const pages = lightPostgresPages.filter((page) => page.is_active);
+      return createSuccessResponse({
+        pages: pages.map((page) => normalizeLightPostgresPageForResponse(page)),
+      });
+    }
 
     const supabase = await getSupabaseClient();
 
