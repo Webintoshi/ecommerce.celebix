@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
 import { clearAdminRoleCookie, readAdminRoleCookie } from "@/lib/admin-role-cookie";
-import { getLogtoSessionUserFromRequest, shouldUseLogtoAdminAuth } from "@/lib/logto-admin-auth";
+import {
+  isLightPostgresRuntime,
+  resolveRuntimeAuthSetupStatus,
+} from "@celebix/platform-config/src/light-postgres-runtime";
 import {
   applySecurityHeaders,
   isMutationMethod,
@@ -14,6 +17,33 @@ const ADMIN_LOGIN_API_PATH = "/api/auth/login";
 const ADMIN_ROLES = new Set(["super_admin", "product_manager", "content_creator", "order_manager"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+
+function isLightPostgresAuthBlocked() {
+  return (
+    isLightPostgresRuntime(process.env, {
+      mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+    }) &&
+    resolveRuntimeAuthSetupStatus(process.env, {
+      mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+      authStatus: ["AUTH_SETUP_STATUS", "NEXT_PUBLIC_AUTH_SETUP_STATUS"],
+    }) === "blocked_auth_setup"
+  );
+}
+
+function createBlockedAuthApiResponse(request: NextRequest) {
+  return applySecurityHeaders(
+    request,
+    NextResponse.json(
+      {
+        success: false,
+        code: "blocked_auth_setup",
+        error: "Bu store icin admin auth kurulumu henuz tamamlanmadi.",
+      },
+      { status: 503 },
+    ),
+    "admin",
+  );
+}
 
 function isProtectedAdminPage(pathname: string) {
   return pathname.startsWith("/admin") && pathname !== ADMIN_LOGIN_PATH;
@@ -82,7 +112,11 @@ function isProtectedApi(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiresAuth = isProtectedAdminPage(pathname) || isProtectedApi(request);
-  const useLogtoAdminAuth = shouldUseLogtoAdminAuth();
+  const lightPostgresAuthBlocked = isLightPostgresAuthBlocked();
+
+  if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST" && lightPostgresAuthBlocked) {
+    return createBlockedAuthApiResponse(request);
+  }
 
   if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
@@ -114,21 +148,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!requiresAuth) {
-    if (useLogtoAdminAuth && pathname === ADMIN_LOGIN_PATH) {
-      const logtoIdentity = await getLogtoSessionUserFromRequest(request);
-      const adminRole = readAdminRoleCookie(request.cookies.getAll());
+    return applySecurityHeaders(request, NextResponse.next(), "admin");
+  }
 
-      if (
-        logtoIdentity &&
-        adminRole?.provider === "logto" &&
-        adminRole.providerSubject === logtoIdentity.subject &&
-        ADMIN_ROLES.has(adminRole.role)
-      ) {
-        return applySecurityHeaders(request, NextResponse.redirect(new URL("/admin", request.url)), "admin");
-      }
+  if (lightPostgresAuthBlocked) {
+    if (pathname.startsWith("/api/")) {
+      return createBlockedAuthApiResponse(request);
     }
 
-    return applySecurityHeaders(request, NextResponse.next(), "admin");
+    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+    loginUrl.searchParams.set("blocked_auth_setup", "1");
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
   if (pathname.startsWith("/api/") && isMutationMethod(request.method)) {
@@ -147,50 +178,6 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
     },
   });
-
-  if (useLogtoAdminAuth) {
-    const logtoIdentity = await getLogtoSessionUserFromRequest(request);
-
-    if (!logtoIdentity) {
-      if (pathname.startsWith("/api/")) {
-        return applySecurityHeaders(
-          request,
-          NextResponse.json({ success: false, error: "Yetkisiz erisim." }, { status: 401 }),
-          "admin",
-        );
-      }
-
-      const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
-      loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
-      return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
-    }
-
-    const adminRole = readAdminRoleCookie(request.cookies.getAll());
-
-    if (
-      !adminRole ||
-      adminRole.provider !== "logto" ||
-      adminRole.providerSubject !== logtoIdentity.subject ||
-      !ADMIN_ROLES.has(adminRole.role)
-    ) {
-      if (pathname.startsWith("/api/")) {
-        const unauthorizedResponse = NextResponse.json(
-          { success: false, error: "Admin yetkisi bulunamadi." },
-          { status: 403 },
-        );
-        clearAdminRoleCookie(unauthorizedResponse);
-        return applySecurityHeaders(request, unauthorizedResponse, "admin");
-      }
-
-      const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
-      loginUrl.searchParams.set("error", "unauthorized");
-      const redirectResponse = NextResponse.redirect(loginUrl);
-      clearAdminRoleCookie(redirectResponse);
-      return applySecurityHeaders(request, redirectResponse, "admin");
-    }
-
-    return applySecurityHeaders(request, response, "admin");
-  }
 
   const user = await getSessionUserFromCookies(request.cookies.getAll());
 

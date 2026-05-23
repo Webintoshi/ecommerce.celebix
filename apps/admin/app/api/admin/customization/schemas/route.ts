@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+  maybeGetAdminCustomizationSchemaById,
+  maybeListAdminCustomizationSchemas,
+} from "@/lib/db/light-postgres-read";
 import type { CustomizationStep } from "@/types/product-customization";
 
 type CreateSchemaBody = {
@@ -43,12 +47,24 @@ function badRequest(message: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = createServerClient();
-
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const includeAssignments = searchParams.get("include") === "assignments";
+
+    if (id) {
+      const lightPostgresSchema = await maybeGetAdminCustomizationSchemaById(id);
+      if (lightPostgresSchema !== undefined) {
+        return NextResponse.json({ success: true, schema: lightPostgresSchema });
+      }
+    } else {
+      const lightPostgresSchemas = await maybeListAdminCustomizationSchemas();
+      if (lightPostgresSchemas !== undefined) {
+        return NextResponse.json({ success: true, schemas: lightPostgresSchemas });
+      }
+    }
+
+    const supabase = createServerClient();
 
     if (id) {
       const { data, error } = await supabase

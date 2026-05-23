@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextResponse } from "next/server";
 import type { UserRole } from "@/lib/permissions";
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import {
+  getOptionalSupabaseServiceRoleKey,
+  shouldUseSecureSupabaseCookies,
+} from "./supabase-shared";
 
 const ADMIN_ROLE_COOKIE_NAME = "celebix-admin-role";
 const ADMIN_ROLE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
@@ -14,8 +17,6 @@ type CookieValue = {
 export type AdminRoleCookiePayload = {
   userId: string;
   role: UserRole;
-  provider?: "supabase" | "logto";
-  providerSubject?: string;
 };
 
 function getAdminRoleCookieOptions() {
@@ -23,13 +24,19 @@ function getAdminRoleCookieOptions() {
     path: "/",
     sameSite: "lax" as const,
     httpOnly: true,
-    secure: getSupabaseUrl().startsWith("https://"),
+    secure: shouldUseSecureSupabaseCookies(),
     maxAge: ADMIN_ROLE_COOKIE_MAX_AGE,
   };
 }
 
-function signValue(payload: string): string {
-  return createHmac("sha256", getSupabaseServiceRoleKey())
+function signValue(payload: string): string | null {
+  const signingKey = getOptionalSupabaseServiceRoleKey();
+
+  if (!signingKey) {
+    return null;
+  }
+
+  return createHmac("sha256", signingKey)
     .update(payload)
     .digest("base64url");
 }
@@ -37,7 +44,13 @@ function signValue(payload: string): string {
 function encodePayload(payload: AdminRoleCookiePayload): string {
   const serialized = JSON.stringify(payload);
   const encoded = Buffer.from(serialized, "utf8").toString("base64url");
-  return `${encoded}.${signValue(encoded)}`;
+  const signature = signValue(encoded);
+
+  if (!signature) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
+  }
+
+  return `${encoded}.${signature}`;
 }
 
 function decodePayload(value: string): AdminRoleCookiePayload | null {
@@ -50,6 +63,10 @@ function decodePayload(value: string): AdminRoleCookiePayload | null {
   const encoded = value.slice(0, separatorIndex);
   const providedSignature = value.slice(separatorIndex + 1);
   const expectedSignature = signValue(encoded);
+
+  if (!expectedSignature) {
+    return null;
+  }
 
   try {
     const provided = Buffer.from(providedSignature, "utf8");

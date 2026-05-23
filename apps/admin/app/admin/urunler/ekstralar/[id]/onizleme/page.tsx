@@ -6,6 +6,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { maybeGetAdminCustomizationSchemaById } from "@/lib/db/light-postgres-read";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { createServerClient } from "@/lib/supabase";
 import { LivePreview } from "@/components/admin/customization/live-preview";
@@ -23,6 +24,11 @@ interface PreviewPageProps {
 }
 
 async function getSchemaWithDetails(id: string) {
+  const lightPostgresSchema = await maybeGetAdminCustomizationSchemaById(id);
+  if (lightPostgresSchema !== undefined) {
+    return lightPostgresSchema;
+  }
+
   const supabase = createServerClient();
   
   const { data: schema, error: schemaError } = await supabase
@@ -75,7 +81,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <Link href={`/admin/urunler/ekstralar/${id}`}>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="sm" className="h-10 w-10 p-0">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>

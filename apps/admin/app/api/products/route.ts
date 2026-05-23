@@ -19,20 +19,9 @@ import {
 } from "@/lib/product-tags";
 import {
     getProductListingOrderPositions,
+    getStoreInfo,
 } from "@/lib/db/settings";
 import { enqueueProductListingSync } from "@/lib/db/marketplace-sync";
-import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
-import {
-    createLightPostgresProductWithVariants,
-    findLightPostgresMatchingProductIds,
-    getLightPostgresProductById,
-    getLightPostgresProductBySlug,
-    listLightPostgresProducts,
-    updateLightPostgresProductWithVariants,
-    type LightPostgresProductMutationPayload,
-    type LightPostgresProductRecord,
-    type LightPostgresProductVariantMutationPayload,
-} from "@/lib/db/light-postgres-admin-adapter";
 import { syncVariantAttributeRegistryFromVariants } from "@/lib/variant-attribute-sync";
 import { buildGeneratedSku } from "@/lib/sku";
 import { inferLegacySubcategorySlug, withCelebixCategoryHierarchyMetadata } from "@celebix/platform-config";
@@ -493,57 +482,6 @@ async function findMatchingProductIdsForSearch(supabase: any, rawSearch: string)
     ]);
 }
 
-function toLightPostgresProductListingRecords(
-    products: LightPostgresProductRecord[],
-): Array<Record<string, unknown> & { id: string; created_at?: string | null; name?: string | null }> {
-    return products as Array<Record<string, unknown> & { id: string; created_at?: string | null; name?: string | null }>;
-}
-
-function toLightPostgresVariantPayloads(
-    variants: Record<string, unknown>[] | undefined,
-): LightPostgresProductVariantMutationPayload[] {
-    if (!Array.isArray(variants)) {
-        return [];
-    }
-
-    return variants.map((variant) => ({
-        id: typeof variant.id === "string" ? variant.id : null,
-        name: typeof variant.name === "string" ? variant.name : "",
-        weight:
-            typeof variant.weight === "string" || typeof variant.weight === "number"
-                ? variant.weight
-                : null,
-        price: typeof variant.price === "number" ? variant.price : Number(variant.price || 0),
-        original_price:
-            variant.original_price === null || variant.original_price === undefined
-                ? null
-                : Number(variant.original_price),
-        cost:
-            variant.cost === null || variant.cost === undefined
-                ? null
-                : Number(variant.cost),
-        stock: typeof variant.stock === "number" ? variant.stock : Number(variant.stock || 0),
-        sku: typeof variant.sku === "string" ? variant.sku : null,
-        barcode: typeof variant.barcode === "string" ? variant.barcode : null,
-        group_name: typeof variant.group_name === "string" ? variant.group_name : null,
-        unit: typeof variant.unit === "string" ? variant.unit : "adet",
-        max_purchase_quantity:
-            variant.max_purchase_quantity === null || variant.max_purchase_quantity === undefined
-                ? null
-                : Number(variant.max_purchase_quantity),
-        warehouse_location:
-            typeof variant.warehouse_location === "string"
-                ? variant.warehouse_location
-                : null,
-        images: Array.isArray(variant.images) ? variant.images.filter((entry): entry is string => typeof entry === "string") : [],
-        attributes: Array.isArray(variant.attributes) ? variant.attributes : [],
-        shopify_metadata:
-            variant.shopify_metadata && typeof variant.shopify_metadata === "object" && !Array.isArray(variant.shopify_metadata)
-                ? (variant.shopify_metadata as Record<string, unknown>)
-                : {},
-    }));
-}
-
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
     try {
@@ -557,124 +495,11 @@ export async function GET(request: NextRequest) {
         const fetchAll = searchParams.get("all") === "true";
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "20");
-        const productListingOrder = await getProductListingOrderPositions();
-        const useLightPostgres = shouldUseLightPostgresAdmin();
-
-        let products;
-
-        if (useLightPostgres) {
-            if (id) {
-                const data = await getLightPostgresProductById(id);
-                if (!data) {
-                    return NextResponse.json(
-                        { success: false, error: "Product not found" },
-                        { status: 404 },
-                    );
-                }
-
-                return NextResponse.json({
-                    success: true,
-                    product: normalizeProductsPayload(data),
-                });
-            } else if (slug) {
-                const data = await getLightPostgresProductBySlug(slug);
-                if (!data) {
-                    return NextResponse.json(
-                        { success: false, error: "Product not found" },
-                        { status: 404 },
-                    );
-                }
-
-                return NextResponse.json({
-                    success: true,
-                    product: normalizeProductsPayload(data),
-                });
-            } else if (featured === "true") {
-                const data = await listLightPostgresProducts({ featured: true });
-                const orderedProducts = sortProductsByListingOrder(
-                    toLightPostgresProductListingRecords(data),
-                    productListingOrder,
-                );
-                products = attachListingPositions(orderedProducts.slice(0, 10), productListingOrder);
-            } else if (bestseller === "true") {
-                const data = await listLightPostgresProducts({ bestseller: true });
-                const orderedProducts = sortProductsByListingOrder(
-                    toLightPostgresProductListingRecords(data),
-                    productListingOrder,
-                );
-                products = attachListingPositions(orderedProducts.slice(0, 10), productListingOrder);
-            } else {
-                const trimmedSearch = search?.trim() || "";
-
-                if (category || trimmedSearch) {
-                    const matchedProductIds = trimmedSearch
-                        ? await findLightPostgresMatchingProductIds(trimmedSearch)
-                        : null;
-
-                    if (trimmedSearch && matchedProductIds && matchedProductIds.length === 0) {
-                        return NextResponse.json({
-                            success: true,
-                            products: [],
-                            pagination: {
-                                page,
-                                limit,
-                                total: 0,
-                                totalPages: 0,
-                            },
-                        });
-                    }
-
-                    const data = await listLightPostgresProducts({
-                        category,
-                        matchedProductIds,
-                    });
-                    const orderedProducts = sortProductsByListingOrder(
-                        toLightPostgresProductListingRecords(data),
-                        productListingOrder,
-                    );
-                    const listedProducts = fetchAll
-                        ? orderedProducts
-                        : paginateOrderedProducts(orderedProducts, page, limit);
-                    const effectiveLimit = fetchAll ? Math.max(orderedProducts.length, 1) : limit;
-                    const effectivePage = fetchAll ? 1 : page;
-
-                    return NextResponse.json({
-                        success: true,
-                        products: normalizeProductsPayload(
-                            attachListingPositions(listedProducts, productListingOrder),
-                        ),
-                        pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
-                    });
-                }
-
-                const data = await listLightPostgresProducts();
-                const orderedProducts = sortProductsByListingOrder(
-                    toLightPostgresProductListingRecords(data),
-                    productListingOrder,
-                );
-                const listedProducts = fetchAll
-                    ? orderedProducts
-                    : paginateOrderedProducts(orderedProducts, page, limit);
-                const effectiveLimit = fetchAll ? Math.max(orderedProducts.length, 1) : limit;
-                const effectivePage = fetchAll ? 1 : page;
-
-                return NextResponse.json({
-                    success: true,
-                    products: normalizeProductsPayload(
-                        attachListingPositions(listedProducts, productListingOrder),
-                    ),
-                    pagination: buildListingPagination(effectivePage, effectiveLimit, orderedProducts.length),
-                });
-            }
-
-            return NextResponse.json({
-                success: true,
-                products: normalizeProductsPayload(products),
-            });
-        }
-
         const { createServerClient } = await import("@/lib/supabase");
         const supabase = createServerClient();
+        const productListingOrder = await getProductListingOrderPositions();
+
+        let products;
 
         if (id) {
             // Fetch single product by ID from Supabase
@@ -836,7 +661,6 @@ export async function POST(request: NextRequest) {
         const { variants, discount_rules, ...rawProductData } = body;
         const productData = normalizeProductInputFields(rawProductData);
         let preparedVariants: any[] = normalizeVariantInputRecords(Array.isArray(variants) ? variants : []) || [];
-        const useLightPostgres = shouldUseLightPostgresAdmin();
 
         console.log('POST /api/products - productData.images:', productData.images);
         console.log('POST /api/products - body images count:', body.images?.length);
@@ -876,18 +700,13 @@ export async function POST(request: NextRequest) {
 
         // 1. Slug benzersizlik kontrolü
         if (productData.slug) {
-            const existingProduct = useLightPostgres
-                ? await getLightPostgresProductBySlug(productData.slug)
-                : null;
-            const existingProducts = !useLightPostgres
-                ? await supabase
-                    .from("products")
-                    .select("id")
-                    .eq("slug", productData.slug)
-                    .limit(1)
-                : null;
+            const { data: existingProducts } = await supabase
+                .from("products")
+                .select("id")
+                .eq("slug", productData.slug)
+                .limit(1);
 
-            if (existingProduct || (existingProducts?.data?.length ?? 0) > 0) {
+            if ((existingProducts?.length ?? 0) > 0) {
                 const uniqueSlug = `${productData.slug}-${Date.now().toString(36)}`;
                 productData.slug = uniqueSlug;
                 console.log("Slug changed to:", uniqueSlug);
@@ -942,21 +761,19 @@ export async function POST(request: NextRequest) {
             tags: normalizedTags,
         });
 
-        if (!useLightPostgres) {
-            await ensureProductCategoryHierarchy(
-                supabase,
-                {
-                    ...deriveCategoryHierarchyFromProduct({
-                        category: productData.category,
-                        subcategory: resolvedSubcategory,
-                        shopifyMetadata: normalizedShopifyMetadata,
-                        shopifyMetafields: toJsonObject(productData.shopify_metafields),
-                    }),
-                    categoryImageUrl: primaryCategoryImage,
-                    subcategoryImageUrl: primaryCategoryImage,
-                }
-            );
-        }
+        await ensureProductCategoryHierarchy(
+            supabase,
+            {
+                ...deriveCategoryHierarchyFromProduct({
+                    category: productData.category,
+                    subcategory: resolvedSubcategory,
+                    shopifyMetadata: normalizedShopifyMetadata,
+                    shopifyMetafields: toJsonObject(productData.shopify_metafields),
+                }),
+                categoryImageUrl: primaryCategoryImage,
+                subcategoryImageUrl: primaryCategoryImage,
+            }
+        );
 
         const normalizedSeoTitle = normalizeProductSEOText(productData.seo_title);
         const normalizedSeoDescription = normalizeProductSEOText(productData.seo_description);
@@ -997,6 +814,11 @@ export async function POST(request: NextRequest) {
             (normalizedStatus === "published" && normalizedIsDraft !== true
                 ? new Date().toISOString()
                 : null);
+        const storeInfo = await getStoreInfo().catch(() => null);
+        const defaultProductBrand =
+            toNullableString(productData.brand) ??
+            toNullableString(storeInfo?.name) ??
+            STORE_RUNTIME.defaultProductBrand;
 
         let productInsertPayload: Record<string, unknown> = {
                 name: productData.name,
@@ -1022,7 +844,7 @@ export async function POST(request: NextRequest) {
                 is_draft: normalizedIsDraft,
                 published_at: normalizedPublishedAt,
                 tax_rate: normalizeTaxRate(productData.tax_rate),
-                brand: productData.brand || STORE_RUNTIME.defaultProductBrand,
+                brand: defaultProductBrand,
                 country_of_origin: productData.country_of_origin || 'Türkiye',
                 sku: productData.sku || null,
                 gtin: productData.gtin || null,
@@ -1057,19 +879,6 @@ export async function POST(request: NextRequest) {
                 shopify_metadata: normalizedShopifyMetadata,
                 shopify_metafields: toJsonObject(productData.shopify_metafields),
         }
-
-        if (useLightPostgres) {
-            const fullProduct = await createLightPostgresProductWithVariants(
-                productInsertPayload as LightPostgresProductMutationPayload,
-                toLightPostgresVariantPayloads(preparedVariants),
-            );
-
-            return NextResponse.json({
-                success: true,
-                product: normalizeProductsPayload(fullProduct),
-            });
-        }
-
         let product: ({ id: string } & Record<string, unknown>) | null = null;
 
         while (true) {
@@ -1204,7 +1013,7 @@ export async function POST(request: NextRequest) {
 
         if (normalizedTags.length > 0) {
             try {
-                await syncProductTagSuggestions(supabase as any, { added: normalizedTags });
+                await syncProductTagSuggestions(supabase, { added: normalizedTags });
             } catch (error) {
                 logTagSuggestionSyncError(error, "create");
             }
@@ -1219,19 +1028,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, product: normalizeProductsPayload(fullProduct) });
     } catch (error: unknown) {
         console.error("Error creating product:", error);
-        const errorRecord = error && typeof error === "object"
-            ? (error as Record<string, unknown>)
-            : null;
-        console.error("Error details:", errorRecord?.details, errorRecord?.message, errorRecord?.code);
+        console.error("Error details:", error?.details, error?.message, error?.code);
         return NextResponse.json(
-            {
-                success: false,
-                error:
-                    (typeof errorRecord?.message === "string" && errorRecord.message) ||
-                    (typeof errorRecord?.details === "string" && errorRecord.details) ||
-                    "Failed to create product",
-                code: typeof errorRecord?.code === "string" ? errorRecord.code : undefined,
-            },
+            { success: false, error: error?.message || error?.details || "Failed to create product", code: error?.code },
             { status: 500 }
         );
     }
@@ -1247,7 +1046,6 @@ export async function PUT(request: NextRequest) {
             Array.isArray(variants) ? variants : undefined,
         );
         let normalizedUpdatedTags: string[] | undefined;
-        const useLightPostgres = shouldUseLightPostgresAdmin();
         const normalizedDescription =
             updates.description !== undefined
                 ? normalizeStoredProductDescription(updates.description)
@@ -1278,42 +1076,25 @@ export async function PUT(request: NextRequest) {
 
         // 1. Slug benzersizlik kontrolü (güncelleme sırasında)
         if (updates.slug) {
-            const existingProductBySlug = useLightPostgres
-                ? await getLightPostgresProductBySlug(updates.slug)
-                : null;
-            const existingProducts = !useLightPostgres
-                ? await supabase
-                    .from("products")
-                    .select("id")
-                    .eq("slug", updates.slug)
-                    .neq("id", id)
-                    .limit(1)
-                : null;
+            const { data: existingProducts } = await supabase
+                .from("products")
+                .select("id")
+                .eq("slug", updates.slug)
+                .neq("id", id)
+                .limit(1);
 
-            if (
-                (existingProductBySlug && existingProductBySlug.id !== id) ||
-                (existingProducts?.data?.length ?? 0) > 0
-            ) {
+            if ((existingProducts?.length ?? 0) > 0) {
                 updates.slug = `${updates.slug}-${Date.now().toString(36)}`;
                 console.log("Slug changed to:", updates.slug);
             }
         }
 
         // 2. Mevcut ürünü al (görselleri filtrelemek için)
-        const existingProduct = useLightPostgres
-            ? await getLightPostgresProductById(id)
-            : (await supabase
-                .from("products")
-                .select("images,tags,slug,name,category,subcategory,is_featured,is_active,shopify_metadata,shopify_metafields")
-                .eq("id", id)
-                .single()).data;
-
-        if (!existingProduct) {
-            return NextResponse.json(
-                { success: false, error: "Product not found" },
-                { status: 404 }
-            );
-        }
+        const { data: existingProduct } = await supabase
+            .from("products")
+            .select("images,tags,slug,name,category,subcategory,is_featured,is_active,shopify_metadata,shopify_metafields")
+            .eq("id", id)
+            .single();
 
         // 3. Silinen görselleri R2'den de sil
         if (deleted_images && Array.isArray(deleted_images)) {
@@ -1412,23 +1193,21 @@ export async function PUT(request: NextRequest) {
             metadata: mergedShopifyMetadata,
         });
 
-        if (!useLightPostgres) {
-            await ensureProductCategoryHierarchy(
-                supabase,
-                {
-                    ...deriveCategoryHierarchyFromProduct({
-                        category: effectiveCategory,
-                        subcategory: resolvedSubcategory,
-                        shopifyMetadata: mergedShopifyMetadata,
-                        shopifyMetafields: updates.shopify_metafields !== undefined
-                            ? toJsonObject(updates.shopify_metafields)
-                            : toJsonObject(existingProduct?.shopify_metafields),
-                    }),
-                    categoryImageUrl: primaryCategoryImage,
-                    subcategoryImageUrl: primaryCategoryImage,
-                }
-            );
-        }
+        await ensureProductCategoryHierarchy(
+            supabase,
+            {
+                ...deriveCategoryHierarchyFromProduct({
+                    category: effectiveCategory,
+                    subcategory: resolvedSubcategory,
+                    shopifyMetadata: mergedShopifyMetadata,
+                    shopifyMetafields: updates.shopify_metafields !== undefined
+                        ? toJsonObject(updates.shopify_metafields)
+                        : toJsonObject(existingProduct?.shopify_metafields),
+                }),
+                categoryImageUrl: primaryCategoryImage,
+                subcategoryImageUrl: primaryCategoryImage,
+            }
+        );
 
         const normalizedSeoTitle =
             updates.seo_title !== undefined
@@ -1554,58 +1333,6 @@ export async function PUT(request: NextRequest) {
         if (updates.sodium !== undefined) updateData.sodium = updates.sodium;
 
         console.log("Update data:", updateData);
-
-        if (useLightPostgres) {
-            if (preparedVariants && Array.isArray(preparedVariants)) {
-                if (preparedVariants.length === 0) {
-                    return NextResponse.json(
-                        { success: false, error: "En az bir varyant zorunludur" },
-                        { status: 400 }
-                    );
-                }
-
-                for (const variant of preparedVariants) {
-                    if (!variant.name || !String(variant.name).trim()) {
-                        return NextResponse.json(
-                            { success: false, error: "Tüm varyantların ismi olmalıdır" },
-                            { status: 400 }
-                        );
-                    }
-                    if (variant.price === undefined || variant.price === null || Number(variant.price) < 0) {
-                        return NextResponse.json(
-                            { success: false, error: "Tüm varyantların geçerli bir fiyatı olmalıdır" },
-                            { status: 400 }
-                        );
-                    }
-                    if (variant.stock === undefined || variant.stock === null || Number(variant.stock) < 0) {
-                        return NextResponse.json(
-                            { success: false, error: "Tüm varyantların geçerli bir stok değeri olmalıdır" },
-                            { status: 400 }
-                        );
-                    }
-                }
-            }
-
-            const updatedProduct = await updateLightPostgresProductWithVariants(
-                id,
-                updateData as LightPostgresProductMutationPayload,
-                preparedVariants && Array.isArray(preparedVariants)
-                    ? toLightPostgresVariantPayloads(preparedVariants)
-                    : undefined,
-            );
-
-            if (!updatedProduct) {
-                return NextResponse.json(
-                    { success: false, error: "Product not found" },
-                    { status: 404 }
-                );
-            }
-
-            return NextResponse.json({
-                success: true,
-                product: normalizeProductsPayload(updatedProduct),
-            });
-        }
 
         // Ana ürünü güncelle
         if (Object.keys(updateData).length > 0) {
@@ -1876,7 +1603,7 @@ export async function PUT(request: NextRequest) {
             try {
                 const previousTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
                 const tagDiff = diffProductTags(previousTags, normalizedUpdatedTags);
-                await syncProductTagSuggestions(supabase as any, tagDiff);
+                await syncProductTagSuggestions(supabase, tagDiff);
             } catch (error) {
                 logTagSuggestionSyncError(error, "update");
             }
@@ -1903,47 +1630,12 @@ export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
-        const useLightPostgres = shouldUseLightPostgresAdmin();
 
         if (!id) {
             return NextResponse.json(
                 { success: false, error: "Product ID is required" },
                 { status: 400 }
             );
-        }
-
-        if (useLightPostgres) {
-            const existingProduct = await getLightPostgresProductById(id);
-            if (!existingProduct) {
-                return NextResponse.json(
-                    { success: false, error: "Product not found" },
-                    { status: 404 }
-                );
-            }
-
-            const archivedProduct = await updateLightPostgresProductWithVariants(
-                id,
-                {
-                    is_active: false,
-                    is_featured: false,
-                    is_draft: false,
-                    status: "archived",
-                },
-            );
-
-            if (!archivedProduct) {
-                return NextResponse.json(
-                    { success: false, error: "Product not found" },
-                    { status: 404 }
-                );
-            }
-
-            return NextResponse.json({
-                success: true,
-                action: "archived",
-                message: "Product archived and hidden from storefront",
-                product: normalizeProductsPayload(archivedProduct),
-            });
         }
 
         const { createServerClient } = await import("@/lib/supabase");
@@ -1959,7 +1651,7 @@ export async function DELETE(request: NextRequest) {
         try {
             const removedTags = validateAndNormalizeProductTags(existingProduct?.tags || [], { mode: "lenient" });
             if (removedTags.length > 0) {
-                await syncProductTagSuggestions(supabase as any, { removed: removedTags });
+                await syncProductTagSuggestions(supabase, { removed: removedTags });
             }
         } catch (error) {
             logTagSuggestionSyncError(error, "delete");

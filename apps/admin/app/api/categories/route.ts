@@ -4,15 +4,6 @@ import { isValidCategory } from "@/types/category";
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
 import { deleteCategoryHierarchy } from "@/lib/category-records";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
-import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
-import {
-  createLightPostgresCategory,
-  deleteLightPostgresCategoryHierarchy,
-  getLightPostgresCategoryById,
-  getLightPostgresCategoryBySlug,
-  listLightPostgresCategories,
-  updateLightPostgresCategory,
-} from "@/lib/db/light-postgres-admin-adapter";
 import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 
 // ============================================================================
@@ -304,22 +295,14 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
 
+    const supabase = await getSupabaseClient();
+
     // Fetch single category by ID
     if (id) {
       if (!validateUUID(id)) {
         throw new APIError("Invalid category ID format", 400, "INVALID_ID");
       }
 
-      if (shouldUseLightPostgresAdmin()) {
-        const data = await getLightPostgresCategoryById(id);
-        if (!data) {
-          throw new APIError("Category not found", 404, "NOT_FOUND");
-        }
-
-        return createSuccessResponse({ category: data });
-      }
-
-      const supabase = await getSupabaseClient();
       const { data, error } = await supabase
         .from("categories")
         .select("*")
@@ -346,23 +329,13 @@ export async function GET(request: NextRequest) {
         throw new APIError("Invalid slug format", 400, "INVALID_SLUG");
       }
 
-      if (shouldUseLightPostgresAdmin()) {
-        const data = await getLightPostgresCategoryBySlug(slug);
-        if (!data) {
-          throw new APIError("Category not found", 404, "NOT_FOUND");
-        }
-
-        return createSuccessResponse({ category: data });
-      }
-
-      const supabase = await getSupabaseClient();
       const { data, error } = await supabase
         .from("categories")
         .select("*")
         .eq("slug", slug)
         .eq("is_active", true)
         .single();
-      
+
       if (error) {
         if (isMissingCategoryColumn(error, "is_active")) {
           const fallback = await supabase
@@ -395,12 +368,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all active categories
-    if (shouldUseLightPostgresAdmin()) {
-      const categories = await listLightPostgresCategories();
-      return createSuccessResponse({ categories });
-    }
-
-    const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from("categories")
       .select("*")
@@ -538,6 +505,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Perform update
+    const supabase = await getSupabaseClient();
     const imageSlugFallback = updates.slug !== undefined
       ? sanitizeString(String(updates.slug).toLowerCase(), 100)
       : id;
@@ -555,30 +523,6 @@ export async function PUT(request: NextRequest) {
         imageNameFallback
       );
     }
-
-    if (shouldUseLightPostgresAdmin()) {
-      try {
-        const data = await updateLightPostgresCategory(id, updatePayload);
-
-        if (!data) {
-          throw new APIError("Category not found", 404, "NOT_FOUND");
-        }
-
-        if (!isValidCategory(data)) {
-          throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
-        }
-
-        return createSuccessResponse({ category: data }, 200, false);
-      } catch (error) {
-        if ((error as { code?: string } | undefined)?.code === "23505") {
-          throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
-        }
-
-        throw error;
-      }
-    }
-
-    const supabase = await getSupabaseClient();
 
     while (true) {
       const result = await supabase
@@ -660,6 +604,7 @@ export async function POST(request: NextRequest) {
       throw new APIError("Valid slug is required", 400, "MISSING_SLUG");
     }
 
+    const supabase = await getSupabaseClient();
     const imageSlugFallback = sanitizeString(String(data.slug).toLowerCase(), 100);
     const imageNameFallback = sanitizeString(data.name, 200);
 
@@ -682,25 +627,6 @@ export async function POST(request: NextRequest) {
         geo_data: data.geo_data || { keyTakeaways: [], entities: [] },
       };
 
-      if (shouldUseLightPostgresAdmin()) {
-        try {
-          const createdCategory = await createLightPostgresCategory(insertPayload as CategoryInput);
-
-          if (!isValidCategory(createdCategory)) {
-            throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
-          }
-
-          return createSuccessResponse({ category: createdCategory }, 201, false);
-        } catch (error) {
-          if ((error as { code?: string } | undefined)?.code === "23505") {
-            throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
-          }
-
-          throw error;
-        }
-      }
-
-      const supabase = await getSupabaseClient();
       let createdCategory: unknown = null;
 
       while (true) {
@@ -736,6 +662,43 @@ export async function POST(request: NextRequest) {
       return createSuccessResponse({ category: createdCategory }, 201, false);
     }
 
+    const { data: newCategory, error } = await supabase
+      .from("categories")
+      .insert({
+        name: sanitizeString(data.name, 200),
+        slug: sanitizeString(String(data.slug).toLowerCase(), 100),
+        description: data.description ? sanitizeString(String(data.description), 2000) : null,
+        image: data.image ? sanitizeString(String(data.image), 500) : null,
+        icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
+        sort_order: typeof data.sort_order === "number" ? data.sort_order : 0,
+        is_active: data.is_active !== false,
+        seo_title: data.seo_title ? sanitizeString(String(data.seo_title), 200) : null,
+        seo_description: data.seo_description
+          ? sanitizeString(String(data.seo_description), 500)
+          : null,
+        seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
+        faq: Array.isArray(data.faq) ? data.faq : [],
+        geo_data: data.geo_data || { keyTakeaways: [], entities: [] }
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Category creation error:", error);
+
+      if (error.code === "23505") {
+        throw new APIError("Category with this slug already exists", 409, "DUPLICATE_SLUG");
+      }
+      
+      throw new APIError("Failed to create category", 500, "CREATE_ERROR");
+    }
+
+    if (!isValidCategory(newCategory)) {
+      throw new APIError("Invalid data returned from database", 500, "INVALID_RESPONSE");
+    }
+
+    return createSuccessResponse({ category: newCategory }, 201, false);
+
   } catch (error) {
     return createErrorResponse(error);
   }
@@ -759,12 +722,9 @@ export async function DELETE(request: NextRequest) {
       throw new APIError("Invalid category ID format", 400, "INVALID_ID");
     }
 
-    if (shouldUseLightPostgresAdmin()) {
-      await deleteLightPostgresCategoryHierarchy(id);
-    } else {
-      const supabase = await getSupabaseClient();
-      await deleteCategoryHierarchy(supabase, id, true);
-    }
+    const supabase = await getSupabaseClient();
+
+    await deleteCategoryHierarchy(supabase, id, true);
 
     return createSuccessResponse({}, 200, false);
 

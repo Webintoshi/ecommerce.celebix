@@ -1,15 +1,47 @@
 import "server-only";
 
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
-
-type LightPostgresRuntimeConfig = {
+type AdminLightPostgresRuntimeConfig = {
   connectionString: string;
   ssl: false | { rejectUnauthorized: false };
 };
 
+type QueryRow = Record<string, unknown>;
+
+type PgResult<TRow extends QueryRow = QueryRow> = {
+  rows: TRow[];
+};
+
+type PgPoolClient = {
+  query: <TRow extends QueryRow = QueryRow>(
+    text: string,
+    params?: unknown[],
+  ) => Promise<PgResult<TRow>>;
+  release: () => void;
+};
+
+type PgPool = {
+  query: <TRow extends QueryRow = QueryRow>(
+    text: string,
+    params?: unknown[],
+  ) => Promise<PgResult<TRow>>;
+  connect: () => Promise<PgPoolClient>;
+};
+
+type PgModule = {
+  Pool: new (config: {
+    connectionString: string;
+    ssl: false | { rejectUnauthorized: false };
+    max: number;
+    idleTimeoutMillis: number;
+    statement_timeout: number;
+    query_timeout: number;
+    application_name: string;
+  }) => PgPool;
+};
+
 declare global {
   // eslint-disable-next-line no-var
-  var __celebixAdminLightPostgresPool: Pool | undefined;
+  var __celebixAdminLightPostgresPool: PgPool | undefined;
 }
 
 function readEnv(name: string): string | null {
@@ -22,10 +54,7 @@ function readEnv(name: string): string | null {
 }
 
 function getScopedEnv(baseName: string): string | null {
-  return (
-    readEnv(`ADMIN_${baseName}`) ??
-    readEnv(baseName)
-  );
+  return readEnv(`ADMIN_${baseName}`) ?? readEnv(baseName);
 }
 
 function buildConnectionString(rawUrl: string, databaseName: string | null): string {
@@ -38,9 +67,7 @@ function buildConnectionString(rawUrl: string, databaseName: string | null): str
   return parsed.toString();
 }
 
-function resolveSslMode(
-  value: string | null,
-): false | { rejectUnauthorized: false } {
+function resolveSslMode(value: string | null): false | { rejectUnauthorized: false } {
   if (!value) {
     return { rejectUnauthorized: false };
   }
@@ -50,7 +77,7 @@ function resolveSslMode(
     : { rejectUnauthorized: false };
 }
 
-function getLightPostgresRuntimeConfig(): LightPostgresRuntimeConfig {
+function getLightPostgresRuntimeConfig(): AdminLightPostgresRuntimeConfig {
   const rawUrl = getScopedEnv("LIGHT_POSTGRES_DATABASE_URL");
 
   if (!rawUrl) {
@@ -68,9 +95,15 @@ function getLightPostgresRuntimeConfig(): LightPostgresRuntimeConfig {
   };
 }
 
-function getLightPostgresPool(): Pool {
+async function loadPgModule(): Promise<PgModule> {
+  const dynamicImport = new Function("return import('pg')") as () => Promise<PgModule>;
+  return dynamicImport();
+}
+
+async function getLightPostgresPool(): Promise<PgPool> {
   if (!globalThis.__celebixAdminLightPostgresPool) {
     const config = getLightPostgresRuntimeConfig();
+    const { Pool } = await loadPgModule();
 
     globalThis.__celebixAdminLightPostgresPool = new Pool({
       connectionString: config.connectionString,
@@ -86,27 +119,27 @@ function getLightPostgresPool(): Pool {
   return globalThis.__celebixAdminLightPostgresPool;
 }
 
-export async function queryLightPostgres<TRow extends QueryResultRow = QueryResultRow>(
+export async function queryAdminLightPostgres<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
 ): Promise<TRow[]> {
-  const pool = getLightPostgresPool();
+  const pool = await getLightPostgresPool();
   const result = await pool.query<TRow>(text, [...params]);
   return result.rows;
 }
 
-export async function queryLightPostgresOne<TRow extends QueryResultRow = QueryResultRow>(
+export async function queryAdminLightPostgresOne<TRow extends QueryRow = QueryRow>(
   text: string,
   params: readonly unknown[] = [],
 ): Promise<TRow | null> {
-  const [row] = await queryLightPostgres<TRow>(text, params);
+  const [row] = await queryAdminLightPostgres<TRow>(text, params);
   return row ?? null;
 }
 
-export async function withLightPostgresTransaction<T>(
-  callback: (client: PoolClient) => Promise<T>,
+export async function withAdminLightPostgresTransaction<T>(
+  callback: (client: PgPoolClient) => Promise<T>,
 ): Promise<T> {
-  const client = await getLightPostgresPool().connect();
+  const client = await (await getLightPostgresPool()).connect();
 
   try {
     await client.query("BEGIN");

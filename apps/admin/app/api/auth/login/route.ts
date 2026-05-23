@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { createClient, type Session } from "@supabase/supabase-js";
-import type { UserRole } from "@/lib/permissions";
+import { createClient } from "@supabase/supabase-js";
+import {
+  isLightPostgresRuntime,
+  resolveRuntimeAuthSetupStatus,
+} from "@celebix/platform-config/src/light-postgres-runtime";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
-import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
-import { clearAdminRoleCookie, writeAdminRoleCookie } from "@/lib/admin-role-cookie";
-import { chunkSessionCookieValue, encodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
+import {
+  getOptionalSupabaseAnonKey,
+  getOptionalSupabaseUrl,
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+} from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
 type LoginBody = {
@@ -23,43 +29,12 @@ function normalizeEmail(value: string): string {
 }
 
 function createAdminLoginClient() {
-  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
-}
-
-function applyAdminSessionCookies(response: NextResponse, session: Session) {
-  const { name: cookieName, ...cookieOptions } = getSupabaseCookieOptions();
-  const encodedSession = encodeSessionCookiePayload(JSON.stringify(session));
-  const chunks = chunkSessionCookieValue(cookieName, encodedSession);
-  const staleChunkCount = Math.max(chunks.length, 8);
-
-  response.cookies.set(cookieName, "", { ...cookieOptions, maxAge: 0 });
-  for (let index = 0; index < staleChunkCount; index += 1) {
-    response.cookies.set(`${cookieName}.${index}`, "", { ...cookieOptions, maxAge: 0 });
-  }
-
-  for (const chunk of chunks) {
-    response.cookies.set(chunk.name, chunk.value, cookieOptions);
-  }
-}
-
-async function readAdminRole(userId: string): Promise<string | null> {
-  const serviceClient = createAdminServiceClient();
-  const { data, error } = await serviceClient
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle<{ role: string }>();
-
-  if (error || !data?.role) {
-    return null;
-  }
-
-  return data.role;
 }
 
 async function listAdminUsers(): Promise<UserRecord[]> {
@@ -112,16 +87,41 @@ function readAuthErrorMessage(error: unknown): string {
 }
 
 function isCredentialFailure(message: string): boolean {
-const normalized = message.toLowerCase();
+  const normalized = message.toLowerCase();
   return normalized.includes("invalid login credentials") || normalized.includes("invalid credentials");
-}
-
-function isKnownAdminRole(role: string): role is UserRole {
-  return ["super_admin", "product_manager", "content_creator", "order_manager"].includes(role);
 }
 
 export async function POST(request: Request) {
   try {
+    const lightPostgresBlocked =
+      isLightPostgresRuntime(process.env, {
+        mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+      }) &&
+      resolveRuntimeAuthSetupStatus(process.env, {
+        mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+        authStatus: ["AUTH_SETUP_STATUS", "NEXT_PUBLIC_AUTH_SETUP_STATUS"],
+      }) === "blocked_auth_setup";
+
+    if (lightPostgresBlocked) {
+      return NextResponse.json(
+        {
+          code: "blocked_auth_setup",
+          error: "Bu store icin admin auth kurulumu henuz tamamlanmadi.",
+        },
+        { status: 503 },
+      );
+    }
+
+    if (!getOptionalSupabaseUrl() || !getOptionalSupabaseAnonKey()) {
+      return NextResponse.json(
+        {
+          code: "auth_env_missing",
+          error: "Bu store icin Supabase auth authority henuz tamamlanmadi.",
+        },
+        { status: 503 },
+      );
+    }
+
     const { email, password }: LoginBody = await request.json();
 
     if (!email || !password) {
@@ -129,23 +129,21 @@ export async function POST(request: Request) {
     }
 
     let repaired = false;
-    let loginClient = createAdminLoginClient();
-    let { data, error } = await loginClient.auth.signInWithPassword({
+    let publicClient = createAdminLoginClient();
+    let { data, error } = await publicClient.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
-    const initialErrorMessage = readAuthErrorMessage(error);
-
-    if (isCredentialFailure(initialErrorMessage)) {
+    if (readAuthErrorMessage(error).includes("Invalid login credentials")) {
       const legacyVerified = await verifyLegacyAdminPassword(email, password);
 
       if (legacyVerified) {
         const repairResult = await repairSelfHostedPassword(email, password);
         repaired = repairResult.repaired;
 
-        loginClient = createAdminLoginClient();
-        ({ data, error } = await loginClient.auth.signInWithPassword({
+        publicClient = createAdminLoginClient();
+        ({ data, error } = await publicClient.auth.signInWithPassword({
           email: email.trim(),
           password,
         }));
@@ -161,7 +159,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         session: data.session,
         user: data.user,
@@ -169,20 +167,6 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
-
-    applyAdminSessionCookies(response, data.session);
-    const adminRole = await readAdminRole(data.user.id);
-    if (adminRole && isKnownAdminRole(adminRole)) {
-      writeAdminRoleCookie(response, {
-        userId: data.user.id,
-        role: adminRole,
-        provider: "supabase",
-      });
-    } else {
-      clearAdminRoleCookie(response);
-    }
-
-    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Giris yapilamadi.";
     return NextResponse.json({ error: message }, { status: 500 });

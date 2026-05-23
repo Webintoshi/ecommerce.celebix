@@ -1,3 +1,19 @@
+import {
+  isLightPostgresRuntime,
+  resolveRuntimeAuthSetupStatus,
+} from "@celebix/platform-config/src/light-postgres-runtime";
+
+const ADMIN_RUNTIME_MODE_KEYS = [
+  "ADMIN_DATABASE_MODE",
+  "DATABASE_MODE",
+  "NEXT_PUBLIC_RUNTIME_DATABASE_MODE",
+] as const;
+
+const ADMIN_RUNTIME_AUTH_STATUS_KEYS = [
+  "AUTH_SETUP_STATUS",
+  "NEXT_PUBLIC_AUTH_SETUP_STATUS",
+] as const;
+
 function requireEnvValue(name: string, value: string | undefined): string {
   const normalized = value?.trim().replace(/^["']|["']$/g, "");
 
@@ -33,15 +49,80 @@ function shouldPreferPublicSupabaseUrl(serverUrl: string, publicUrl: string): bo
   }
 }
 
-export function getSupabaseUrl(): string {
-  return normalizeUrl(
-    "NEXT_PUBLIC_SUPABASE_URL",
-    requireEnvValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL)
+function readNormalizedUrl(value: string | undefined): string | null {
+  const normalized = value?.trim().replace(/^["']|["']$/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    return normalizeUrl("SUPABASE_URL", normalized);
+  } catch {
+    return null;
+  }
+}
+
+export function isLightPostgresAuthBlockedRuntime(): boolean {
+  return (
+    isLightPostgresRuntime(process.env, {
+      mode: [...ADMIN_RUNTIME_MODE_KEYS],
+    }) &&
+    resolveRuntimeAuthSetupStatus(process.env, {
+      mode: [...ADMIN_RUNTIME_MODE_KEYS],
+      authStatus: [...ADMIN_RUNTIME_AUTH_STATUS_KEYS],
+    }) === "blocked_auth_setup"
   );
 }
 
+export function getOptionalSupabaseUrl(): string | null {
+  return readNormalizedUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+}
+
+export function getSupabaseUrl(): string {
+  const value = getOptionalSupabaseUrl();
+
+  if (!value) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
+  }
+
+  return value;
+}
+
+export function getOptionalSupabaseAuthStorageKey(): string | null {
+  const supabaseUrl = getOptionalSupabaseUrl();
+
+  if (!supabaseUrl) {
+    return null;
+  }
+
+  return `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
+}
+
 export function getSupabaseAuthStorageKey(): string {
-  return `sb-${new URL(getSupabaseUrl()).hostname.split(".")[0]}-auth-token`;
+  const cookieName = getOptionalSupabaseAuthStorageKey();
+
+  if (!cookieName) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
+  }
+
+  return cookieName;
+}
+
+export function shouldUseSecureSupabaseCookies(): boolean {
+  const publicUrl = getOptionalSupabaseUrl();
+
+  if (publicUrl) {
+    return publicUrl.startsWith("https://");
+  }
+
+  const serverUrl = getOptionalSupabaseServerUrl();
+
+  if (serverUrl) {
+    return serverUrl.startsWith("https://");
+  }
+
+  return process.env.NODE_ENV === "production";
 }
 
 export function getSupabaseCookieOptions() {
@@ -50,41 +131,62 @@ export function getSupabaseCookieOptions() {
     path: "/",
     sameSite: "lax" as const,
     httpOnly: false,
-    secure: getSupabaseUrl().startsWith("https://"),
+    secure: shouldUseSecureSupabaseCookies(),
     maxAge: 400 * 24 * 60 * 60,
   };
 }
 
-export function getSupabaseServerUrl(): string {
-  const publicUrl = getSupabaseUrl();
-  const serverUrl =
+export function getOptionalSupabaseServerUrl(): string | null {
+  const publicUrl = getOptionalSupabaseUrl();
+  const rawServerUrl =
     process.env.SUPABASE_SERVER_URL ??
     process.env.SUPABASE_INTERNAL_URL ??
     process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const normalizedServerUrl = readNormalizedUrl(rawServerUrl);
 
-  const normalized = normalizeUrl(
-    process.env.SUPABASE_SERVER_URL?.trim()
-      ? "SUPABASE_SERVER_URL"
-      : process.env.SUPABASE_INTERNAL_URL?.trim()
-        ? "SUPABASE_INTERNAL_URL"
-        : "NEXT_PUBLIC_SUPABASE_URL",
-    requireEnvValue(
-      process.env.SUPABASE_SERVER_URL?.trim()
-        ? "SUPABASE_SERVER_URL"
-        : process.env.SUPABASE_INTERNAL_URL?.trim()
-          ? "SUPABASE_INTERNAL_URL"
-        : "NEXT_PUBLIC_SUPABASE_URL",
-      serverUrl
-    )
-  );
+  if (!normalizedServerUrl) {
+    return publicUrl;
+  }
 
-  return shouldPreferPublicSupabaseUrl(normalized, publicUrl) ? publicUrl : normalized;
+  if (!publicUrl) {
+    return normalizedServerUrl;
+  }
+
+  return shouldPreferPublicSupabaseUrl(normalizedServerUrl, publicUrl)
+    ? publicUrl
+    : normalizedServerUrl;
+}
+
+export function getSupabaseServerUrl(): string {
+  const value = getOptionalSupabaseServerUrl();
+
+  if (!value) {
+    throw new Error("SUPABASE_SERVER_URL is not configured");
+  }
+
+  return value;
+}
+
+export function getOptionalSupabaseAnonKey(): string | null {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  return value || null;
 }
 
 export function getSupabaseAnonKey(): string {
-  return requireEnvValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const value = getOptionalSupabaseAnonKey();
+
+  if (!value) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured");
+  }
+
+  return value;
+}
+
+export function getOptionalSupabaseServiceRoleKey(): string | null {
+  const value = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return value || null;
 }
 
 export function getSupabaseServiceRoleKey(): string {
-  return requireEnvValue("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return requireEnvValue("SUPABASE_SERVICE_ROLE_KEY", getOptionalSupabaseServiceRoleKey() ?? undefined);
 }

@@ -1,11 +1,26 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
-import {
-  getSupabaseAnonKey,
-  getSupabaseServerUrl,
-  getSupabaseServiceRoleKey,
-  getSupabaseUrl
-} from "@/lib/supabase-shared";
+import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
+
+type LightPostgresCompatModule = {
+  createLightPostgresCompatClient: (options: {
+    env: NodeJS.ProcessEnv;
+    mode: "light_postgres";
+  }) => unknown;
+};
+
+function createLightPostgresServerCompatClient(): SupabaseClient {
+  const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
+  const compatModule = runtimeRequire(
+    "@celebix/platform-config/src/light-postgres-compat",
+  ) as LightPostgresCompatModule;
+
+  return compatModule.createLightPostgresCompatClient({
+    env: process.env,
+    mode: "light_postgres",
+  }) as SupabaseClient;
+}
 
 // Lazy browser client proxy so existing imports keep working.
 export const supabase = new Proxy({} as SupabaseClient, {
@@ -18,7 +33,13 @@ export const supabase = new Proxy({} as SupabaseClient, {
 
 // Service role client for trusted server-side admin/database operations.
 export function createServerClient() {
-  return createClient(getSupabaseServerUrl(), getSupabaseServiceRoleKey(), {
+  if (isLightPostgresRuntime(process.env, {
+    mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+  })) {
+    return createLightPostgresServerCompatClient();
+  }
+
+  return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -28,7 +49,13 @@ export function createServerClient() {
 
 // Fallback anon server client for rare cases where service role is not desired.
 export function createAnonServerClient() {
-  return createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+  if (isLightPostgresRuntime(process.env, {
+    mode: ["ADMIN_DATABASE_MODE", "DATABASE_MODE", "NEXT_PUBLIC_RUNTIME_DATABASE_MODE"],
+  })) {
+    return createLightPostgresServerCompatClient();
+  }
+
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
