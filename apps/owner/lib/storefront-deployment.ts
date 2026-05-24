@@ -14,6 +14,7 @@ import {
   getExpectedStorefrontAppDir,
   getExpectedStorefrontPackageName,
 } from "../../../packages/platform-config/src/index";
+import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readiness";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
@@ -390,11 +391,45 @@ function hasRequiredEnv(envEntries: Record<string, string>): boolean {
   );
 }
 
-async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): Promise<{
+async function readRuntimeConsistency(
+  store: StoreConfig,
+  runtimeUrl: string,
+  resourceId?: string | null,
+): Promise<{
   configured: boolean;
   consistent: boolean;
   message: string | null;
 }> {
+  const buildFallbackResult = async (
+    responseStatus?: number | null,
+    errorMessage?: string | null,
+  ): Promise<{
+    configured: boolean;
+    consistent: boolean;
+    message: string | null;
+  }> => {
+    const diagnosis = await diagnoseGeneratedRuntimeFailure({
+      runtimeUrl,
+      resourceId,
+      responseStatus,
+      errorMessage,
+    });
+
+    if (diagnosis?.internalHealthy) {
+      return {
+        configured: true,
+        consistent: true,
+        message: diagnosis.message,
+      };
+    }
+
+    return {
+      configured: false,
+      consistent: false,
+      message: diagnosis?.message ?? errorMessage ?? "Storefront runtime erisilemiyor.",
+    };
+  };
+
   try {
     const response = await fetch(`${runtimeUrl.replace(/\/+$/, "")}/api/public/runtime`, {
       cache: "no-store",
@@ -402,11 +437,7 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
     });
 
     if (!response.ok) {
-      return {
-        configured: false,
-        consistent: false,
-        message: `Storefront runtime okunamadi (${response.status})`,
-      };
+      return buildFallbackResult(response.status, `Storefront runtime okunamadi (${response.status})`);
     }
 
     const payload = (await response.json()) as RuntimePayload;
@@ -434,11 +465,10 @@ async function readRuntimeConsistency(store: StoreConfig, runtimeUrl: string): P
       message: mismatches.length > 0 ? `Runtime drift: ${mismatches.join(" / ")}` : null,
     };
   } catch (error) {
-    return {
-      configured: false,
-      consistent: false,
-      message: error instanceof Error ? error.message : "Storefront runtime erisilemiyor.",
-    };
+    return buildFallbackResult(
+      null,
+      error instanceof Error ? error.message : "Storefront runtime erisilemiyor.",
+    );
   }
 }
 
@@ -531,7 +561,7 @@ export async function getStorefrontDeploymentBlueprint(
         "Storefront deploy branch'i hedef package ve authority dosyalarini henuz icermiyor.";
     } else {
       status = "prepared";
-      const runtime = await readRuntimeConsistency(store, runtimeUrl);
+      const runtime = await readRuntimeConsistency(store, runtimeUrl, store.storefront?.resourceId ?? null);
       runtimeConfigured = runtime.configured;
       runtimeConsistent = runtime.consistent;
       runtimeMessage = runtime.message;

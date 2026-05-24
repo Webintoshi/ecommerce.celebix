@@ -35,6 +35,7 @@ import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
   createDefaultProvisioningSteps,
+  deriveProvisioningState,
   getProvisioningBlockers,
   persistProvisioningSummary,
   PROVISIONING_STEP_KEYS,
@@ -45,6 +46,7 @@ import {
   upsertProvisioningStep,
   hasUnresolvedCleanupRun,
 } from "@/lib/store-lifecycle";
+import { readGeneratedRuntimeIssueCode } from "@/lib/generated-runtime-readiness";
 import {
   getStorefrontDeploymentBlueprint,
   prepareStorefrontDeployment,
@@ -406,15 +408,14 @@ class ProvisioningTracker {
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
     this.summary = await reconcileProvisioningSummaryWithLiveState(this.slug, this.summary);
     const blockers = getProvisioningBlockers(this.summary);
-    const hasRunning = this.summary.steps.some((step) => step.status === "running");
-    const state: ProvisioningState = blockers.length > 0
-      ? "pending_repair"
-      : hasRunning
-        ? "running"
-        : "ready";
+    const derivedIssueMessage =
+      this.summary.steps.find((step) => readGeneratedRuntimeIssueCode(step.message))?.message ??
+      this.summary.lastError;
+    const lastError = blockers[0]?.message ?? derivedIssueMessage ?? this.summary.lastError;
+    const state = deriveProvisioningState(this.summary.steps, lastError);
     this.summary = await persistProvisioningSummary(this.slug, {
       state,
-      lastError: blockers.length > 0 ? blockers[0]?.message ?? this.summary.lastError : null,
+      lastError: state === "ready" ? null : lastError,
       lastRunAt: this.lastRunAt,
       steps: this.summary.steps,
     });
@@ -818,11 +819,14 @@ async function reconcileProvisioningSummaryWithLiveState(
 
     if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
       adminRuntimeOk = true;
-      markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
-    } else if (
-      adminBlueprint.status === "failed" ||
-      store.bootstrap?.adminDeploymentStatus === "failed"
-    ) {
+      markCompleted(
+        "admin_deploy",
+        adminBlueprint.runtimeMessage || "Admin runtime canli ve tutarli cevap veriyor.",
+      );
+      if (readGeneratedRuntimeIssueCode(adminBlueprint.runtimeMessage) === "pending_dns") {
+        readinessError = readinessError ?? adminBlueprint.runtimeMessage;
+      }
+    } else if (store.bootstrap?.adminDeploymentStatus === "failed") {
       const adminFailureMessage =
         store.bootstrap?.adminDeploymentLastError ||
         adminBlueprint.runtimeMessage ||
@@ -869,7 +873,13 @@ async function reconcileProvisioningSummaryWithLiveState(
 
     if (storefrontBlueprint.status === "configured" && storefrontBlueprint.runtimeConsistent) {
       storefrontRuntimeOk = true;
-      markCompleted("storefront_deploy", "Storefront runtime canli ve tutarli cevap veriyor.");
+      markCompleted(
+        "storefront_deploy",
+        storefrontBlueprint.runtimeMessage || "Storefront runtime canli ve tutarli cevap veriyor.",
+      );
+      if (readGeneratedRuntimeIssueCode(storefrontBlueprint.runtimeMessage) === "pending_dns") {
+        readinessError = readinessError ?? storefrontBlueprint.runtimeMessage;
+      }
     } else if (store.storefront?.deploymentStatus === "failed") {
       const storefrontFailureMessage =
         store.storefront?.lastDeploymentError ||
@@ -883,13 +893,16 @@ async function reconcileProvisioningSummaryWithLiveState(
   }
 
   if (storefrontRuntimeOk) {
-    const storefrontReadiness = await readStorefrontRuntimeReadiness(store.domains.storefront).catch((error) => ({
+    const storefrontReadiness = await readStorefrontRuntimeReadiness(store.domains.storefront, {
+      resourceId: store.storefront?.resourceId ?? null,
+    }).catch((error) => ({
       checkedAt: now,
       storefrontRuntimeOk: false,
       homepageOk: false,
       categoriesOk: false,
       productsOk: false,
       dataApisOk: false,
+      probeState: "runtime_unreachable" as const,
       lastError: error instanceof Error ? error.message : "Storefront smoke kontrolu yapilamadi.",
     }));
 
@@ -900,6 +913,16 @@ async function reconcileProvisioningSummaryWithLiveState(
 
     if (storefrontReadiness.storefrontRuntimeOk && storefrontReadiness.dataApisOk) {
       markCompleted("storefront_deploy", "Storefront runtime ve veri API smoke kontrolleri saglikli.");
+    } else if (
+      storefrontReadiness.probeState === "pending_dns" ||
+      storefrontReadiness.probeState === "proxy_not_ready"
+    ) {
+      storefrontRuntimeOk = true;
+      readinessError = readinessError ?? storefrontReadiness.lastError;
+      markCompleted(
+        "storefront_deploy",
+        storefrontReadiness.lastError || "Storefront runtime icerden healthy; public erisim hazirlaniyor.",
+      );
     } else {
       const storefrontError =
         storefrontReadiness.lastError ||

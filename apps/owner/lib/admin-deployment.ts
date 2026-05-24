@@ -11,6 +11,8 @@ import {
   updateStoreAdminDeploymentConfig
 } from "@celebix/platform-config";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
+import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readiness";
+import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
@@ -327,11 +329,42 @@ async function readRuntimeConsistency(
   store: StoreConfig,
   runtimeUrl: string,
   expectedDeploymentMarker?: string | null,
+  resourceId?: string | null,
 ): Promise<{
   configured: boolean;
   consistent: boolean;
   message: string | null;
 }> {
+  const buildFallbackResult = async (
+    responseStatus?: number | null,
+    errorMessage?: string | null,
+  ): Promise<{
+    configured: boolean;
+    consistent: boolean;
+    message: string | null;
+  }> => {
+    const diagnosis = await diagnoseGeneratedRuntimeFailure({
+      runtimeUrl,
+      resourceId,
+      responseStatus,
+      errorMessage,
+    });
+
+    if (diagnosis?.internalHealthy) {
+      return {
+        configured: true,
+        consistent: true,
+        message: diagnosis.message,
+      };
+    }
+
+    return {
+      configured: false,
+      consistent: false,
+      message: diagnosis?.message ?? errorMessage ?? "Admin runtime erisilemiyor.",
+    };
+  };
+
   try {
     const response = await fetch(`${runtimeUrl.replace(/\/+$/, "")}/api/public/runtime`, {
       cache: "no-store",
@@ -339,11 +372,7 @@ async function readRuntimeConsistency(
     });
 
     if (!response.ok) {
-      return {
-        configured: false,
-        consistent: false,
-        message: `Admin runtime okunamadi (${response.status})`
-      };
+      return buildFallbackResult(response.status, `Admin runtime okunamadi (${response.status})`);
     }
 
     const payload = (await response.json()) as RuntimePayload;
@@ -378,11 +407,10 @@ async function readRuntimeConsistency(
       message: mismatches.length > 0 ? `Runtime drift: ${mismatches.join(" / ")}` : null
     };
   } catch (error) {
-    return {
-      configured: false,
-      consistent: false,
-      message: error instanceof Error ? error.message : "Admin runtime erisilemiyor."
-    };
+    return buildFallbackResult(
+      null,
+      error instanceof Error ? error.message : "Admin runtime erisilemiyor.",
+    );
   }
 }
 
@@ -431,7 +459,12 @@ export async function getStoreAdminDeploymentBlueprint(
     status = "failed";
     runtimeMessage = deploymentModelError;
   } else {
-    const runtime = await readRuntimeConsistency(store, runtimeUrl, deploymentMarker);
+    const runtime = await readRuntimeConsistency(
+      store,
+      runtimeUrl,
+      deploymentMarker,
+      store.bootstrap?.adminDeploymentResourceId ?? null,
+    );
     runtimeConsistent = runtime.consistent;
     runtimeMessage = runtime.message ?? runtimeMessage;
     status = runtime.configured && runtime.consistent ? "configured" : hasRequiredEnv ? "prepared" : "pending-owner-env";

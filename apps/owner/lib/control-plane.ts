@@ -26,6 +26,7 @@ import type {
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import {
   createDefaultProvisioningSteps,
+  deriveProvisioningState,
   listCleanupRuns,
   listUnresolvedCleanupSlugs,
   readDomainMigrationSummary,
@@ -35,6 +36,7 @@ import {
   type ProvisioningState,
   type ProvisioningStepSummary,
 } from "@/lib/store-lifecycle";
+import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readiness";
 
 type OwnerStoreStatus = "draft" | "active" | "paused";
 type StoreLifecycleStage = "onboarding" | "building" | "launch_ready" | "live" | "growth";
@@ -776,10 +778,27 @@ async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntim
     });
 
     if (!response.ok) {
+      const diagnosis = await diagnoseGeneratedRuntimeFailure({
+        runtimeUrl: adminRuntimeUrl,
+        resourceId:
+          readOptionalString(asRecord(store.metadata?.bootstrap).adminDeploymentResourceId) ?? null,
+        responseStatus: response.status,
+        errorMessage: `Admin runtime okunamadi (${response.status})`,
+      });
+
+      if (diagnosis?.internalHealthy) {
+        return {
+          adminDeploymentReady: true,
+          adminRuntimeConsistent: true,
+          adminRuntimeMessage: diagnosis.message,
+          adminRuntimeUrl,
+        };
+      }
+
       return {
         adminDeploymentReady: false,
         adminRuntimeConsistent: false,
-        adminRuntimeMessage: `Admin runtime okunamadi (${response.status})`,
+        adminRuntimeMessage: diagnosis?.message ?? `Admin runtime okunamadi (${response.status})`,
         adminRuntimeUrl
       };
     }
@@ -811,10 +830,28 @@ async function readAdminRuntimeHealth(store: OwnerStoreRow): Promise<AdminRuntim
       adminRuntimeUrl
     };
   } catch (error) {
+    const diagnosis = await diagnoseGeneratedRuntimeFailure({
+      runtimeUrl: adminRuntimeUrl,
+      resourceId:
+        readOptionalString(asRecord(store.metadata?.bootstrap).adminDeploymentResourceId) ?? null,
+      errorMessage: error instanceof Error ? error.message : "Admin runtime erisilemiyor.",
+    });
+
+    if (diagnosis?.internalHealthy) {
+      return {
+        adminDeploymentReady: true,
+        adminRuntimeConsistent: true,
+        adminRuntimeMessage: diagnosis.message,
+        adminRuntimeUrl,
+      };
+    }
+
     return {
       adminDeploymentReady: false,
       adminRuntimeConsistent: false,
-      adminRuntimeMessage: error instanceof Error ? error.message : "Admin runtime erisilemiyor.",
+      adminRuntimeMessage:
+        diagnosis?.message ??
+        (error instanceof Error ? error.message : "Admin runtime erisilemiyor."),
       adminRuntimeUrl
     };
   }
@@ -1035,7 +1072,10 @@ function normalizeProvisioningSummaryForDisplay(
   }
 
   if (input.health.adminDeploymentReady && input.health.adminRuntimeConsistent) {
-    markCompleted("admin_deploy", "Admin runtime canli ve tutarli cevap veriyor.");
+    markCompleted(
+      "admin_deploy",
+      input.health.adminRuntimeMessage || "Admin runtime canli ve tutarli cevap veriyor.",
+    );
   } else if (input.adminDeploymentStatus === "failed") {
     const adminFailureMessage =
       input.adminDeploymentLastError ||
@@ -1043,6 +1083,12 @@ function normalizeProvisioningSummaryForDisplay(
       "Admin deployment basarisiz oldu.";
     markFailed("admin_deploy", adminFailureMessage);
     blockRemainingStepsAfter("admin_deploy", "Admin deployment tamamlanmadan ilerlenemez.");
+  } else if (input.adminDeploymentStatus === "pending-owner-env" && input.health.storefrontRuntimeConsistent) {
+    markFailed(
+      "admin_blueprint",
+      "Admin deployment authority eksik veya senkron disi kaldigi icin generated admin app baslatilamadi.",
+    );
+    blockRemainingStepsAfter("admin_blueprint", "Admin blueprint tamamlanmadan ilerlenemez.");
   }
 
   if (input.storefrontAppDir?.trim()) {
@@ -1067,38 +1113,40 @@ function normalizeProvisioningSummaryForDisplay(
   }
 
   if (input.health.storefrontRuntimeConsistent) {
-    markCompleted("storefront_deploy", "Storefront runtime canli durumda.");
-  } else if (input.storefrontDeploymentStatus === "failed") {
-    markFailed(
+    markCompleted(
       "storefront_deploy",
-      input.health.storefrontDataMessage || "Storefront deployment basarisiz oldu.",
+      input.health.storefrontDataMessage || "Storefront runtime canli durumda.",
     );
-    blockRemainingStepsAfter(
-      "storefront_deploy",
-      "Storefront deployment tamamlanmadan ilerlenemez.",
-    );
+  } else if (
+    input.storefrontDeploymentStatus === "failed" ||
+    (input.storefrontDeploymentStatus === "configured" && Boolean(input.health.storefrontDataMessage))
+  ) {
+    const storefrontFailureMessage =
+      input.health.storefrontDataMessage ||
+      "Storefront runtime smoke kontrolleri basarisiz oldu.";
+    markFailed("storefront_deploy", storefrontFailureMessage);
+    blockRemainingStepsAfter("storefront_deploy", "Storefront deployment tamamlanmadan ilerlenemez.");
   }
 
-  const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;
-  const blockingStepCount = nextSteps.filter(
-    (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
-  ).length;
-  const pendingStepCount = nextSteps.filter(
-    (step) => step.status === "pending" || step.status === "running",
-  ).length;
   const blockers = nextSteps.filter(
     (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
   );
+  const failedStepCount = nextSteps.filter((step) => step.status === "failed").length;
+  const blockingStepCount = blockers.length;
+  const pendingStepCount = nextSteps.filter(
+    (step) => step.status === "pending" || step.status === "running",
+  ).length;
+  const derivedLastError =
+    blockers[0]?.message ??
+    input.health.storefrontDataMessage ??
+    input.health.adminRuntimeMessage ??
+    summary.lastError;
   const nextState = fullyLiveReady
     ? "ready"
-    : blockers.length > 0
-      ? "pending_repair"
-      : pendingStepCount > 0
-        ? "running"
-        : summary.state;
+    : deriveProvisioningState(nextSteps, derivedLastError);
   const nextLastError = fullyLiveReady
     ? null
-    : blockers[0]?.message ?? summary.lastError;
+    : derivedLastError;
 
   return {
     ...summary,
