@@ -515,7 +515,7 @@ async function getCategoryRows(pool: PoolLike): Promise<CategoryRow[]> {
       sort_order,
       seo_title,
       seo_description,
-      coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
+      coalesce(seo_keywords, array[]::text[]) as seo_keywords,
       null::text as icon,
       true as is_active,
       '[]'::jsonb as faq,
