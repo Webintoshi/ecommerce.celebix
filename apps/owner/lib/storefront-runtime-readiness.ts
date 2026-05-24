@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  diagnoseGeneratedRuntimeFailure,
+  type GeneratedRuntimeIssueCode,
+} from "@/lib/generated-runtime-readiness";
+
 export interface StorefrontRuntimeReadiness {
   checkedAt: string;
   storefrontRuntimeOk: boolean;
@@ -7,6 +12,7 @@ export interface StorefrontRuntimeReadiness {
   categoriesOk: boolean;
   productsOk: boolean;
   dataApisOk: boolean;
+  probeState: "ok" | GeneratedRuntimeIssueCode;
   lastError: string | null;
 }
 
@@ -33,7 +39,7 @@ function resolveBaseUrl(domainOrUrl: string | null | undefined): string | null {
 async function probeRoute(
   baseUrl: string,
   pathname: string,
-): Promise<{ ok: boolean; error: string | null }> {
+): Promise<{ ok: boolean; error: string | null; statusCode: number | null }> {
   try {
     const response = await fetch(`${baseUrl}${pathname}`, {
       cache: "no-store",
@@ -41,24 +47,27 @@ async function probeRoute(
     });
 
     if (response.ok) {
-      return { ok: true, error: null };
+      return { ok: true, error: null, statusCode: response.status };
     }
 
     const responseText = trimErrorText(await response.text().catch(() => response.statusText));
     return {
       ok: false,
       error: `${pathname} -> HTTP ${response.status}: ${responseText || response.statusText}`,
+      statusCode: response.status,
     };
   } catch (error) {
     return {
       ok: false,
       error: `${pathname} -> ${error instanceof Error ? trimErrorText(error.message) : "bilinmeyen fetch hatasi"}`,
+      statusCode: null,
     };
   }
 }
 
 export async function readStorefrontRuntimeReadiness(
   domainOrUrl: string | null | undefined,
+  options: { resourceId?: string | null } = {},
 ): Promise<StorefrontRuntimeReadiness> {
   const checkedAt = new Date().toISOString();
   const baseUrl = resolveBaseUrl(domainOrUrl);
@@ -71,6 +80,7 @@ export async function readStorefrontRuntimeReadiness(
       categoriesOk: false,
       productsOk: false,
       dataApisOk: false,
+      probeState: "runtime_unreachable",
       lastError: "Storefront domain authority eksik.",
     };
   }
@@ -78,6 +88,26 @@ export async function readStorefrontRuntimeReadiness(
   const runtime = await probeRoute(baseUrl, "/api/public/runtime");
 
   if (!runtime.ok) {
+    const diagnosis = await diagnoseGeneratedRuntimeFailure({
+      runtimeUrl: baseUrl,
+      resourceId: options.resourceId ?? null,
+      responseStatus: runtime.statusCode,
+      errorMessage: runtime.error,
+    });
+
+    if (diagnosis?.internalHealthy) {
+      return {
+        checkedAt,
+        storefrontRuntimeOk: true,
+        homepageOk: false,
+        categoriesOk: false,
+        productsOk: false,
+        dataApisOk: false,
+        probeState: diagnosis.code,
+        lastError: diagnosis.message,
+      };
+    }
+
     return {
       checkedAt,
       storefrontRuntimeOk: false,
@@ -85,7 +115,8 @@ export async function readStorefrontRuntimeReadiness(
       categoriesOk: false,
       productsOk: false,
       dataApisOk: false,
-      lastError: runtime.error,
+      probeState: diagnosis?.code ?? "runtime_unreachable",
+      lastError: diagnosis?.message ?? runtime.error,
     };
   }
 
@@ -106,6 +137,7 @@ export async function readStorefrontRuntimeReadiness(
     categoriesOk: categories.ok,
     productsOk: products.ok,
     dataApisOk: homepage.ok && categories.ok && products.ok,
+    probeState: "ok",
     lastError: errors[0] ?? null,
   };
 }

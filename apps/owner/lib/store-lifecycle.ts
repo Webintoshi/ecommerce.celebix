@@ -1,8 +1,9 @@
 import "server-only";
 
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import { readGeneratedRuntimeIssueCode } from "@/lib/generated-runtime-readiness";
 
-export type ProvisioningState = "ready" | "running" | "pending_repair";
+export type ProvisioningState = "ready" | "running" | "pending_dns" | "pending_repair";
 export type ProvisioningStepStatus =
   | "pending"
   | "running"
@@ -132,7 +133,7 @@ function readBoolean(value: unknown, fallback: boolean): boolean {
 }
 
 function normalizeProvisioningState(value: unknown): ProvisioningState {
-  return value === "ready" || value === "running" || value === "pending_repair"
+  return value === "ready" || value === "running" || value === "pending_dns" || value === "pending_repair"
     ? value
     : "ready";
 }
@@ -466,6 +467,37 @@ export function getProvisioningBlockers(summary: ProvisioningSummary): Provision
   return summary.steps.filter(
     (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
   );
+}
+
+export function deriveProvisioningState(
+  steps: ProvisioningStepSummary[],
+  lastError: string | null | undefined,
+): ProvisioningState {
+  const blockers = steps.filter(
+    (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
+  );
+
+  if (blockers.length > 0) {
+    return "pending_repair";
+  }
+
+  if (steps.some((step) => step.status === "pending" || step.status === "running")) {
+    return "running";
+  }
+
+  const issueCodes = [lastError, ...steps.map((step) => step.message)]
+    .map((message) => readGeneratedRuntimeIssueCode(message))
+    .filter((code): code is NonNullable<typeof code> => Boolean(code));
+
+  if (issueCodes.includes("pending_dns")) {
+    return "pending_dns";
+  }
+
+  if (issueCodes.includes("proxy_not_ready") || issueCodes.includes("runtime_unreachable")) {
+    return "pending_repair";
+  }
+
+  return "ready";
 }
 
 export async function upsertProvisioningStep(

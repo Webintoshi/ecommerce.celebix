@@ -215,6 +215,16 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
+  if (state === "pending_dns") {
+    return {
+      eyebrow: "DNS beklemede",
+      title: "Uygulamalar ayakta, public rota henuz yayinlanmadi",
+      body: currentStepLabel
+        ? `${currentStepLabel} ic runtime tarafinda hazir. Owner panel public DNS veya proxy rotasinin tamamlanmasini bekliyor.`
+        : "Generated runtime iceride saglikli, ancak public domain authority henuz tam acilmadi. Owner panel bu bekleme durumunu onarimdan ayri tutuyor.",
+    };
+  }
+
   return {
     eyebrow: "Acilis seremonisi",
     title: currentStepLabel ? `${currentStepLabel} hazirlaniyor` : "Magaza kuruluyor",

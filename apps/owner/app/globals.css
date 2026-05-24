@@ -52,6 +52,7 @@ body{background:radial-gradient(900px 360px at 18% -12%,rgba(254,97,0,.1),transp
 .provisioning-stage-body{margin-top:10px;max-width:720px;font-size:13px;line-height:1.7;color:var(--text-secondary)}
 .provisioning-stage-actions{display:flex;justify-content:flex-end;align-self:start}
 .provisioning-tone-ready{color:var(--success);border-color:rgba(25,155,99,.45);background:var(--success-soft)}
+.provisioning-tone-pending_dns{color:#0b5cab;border-color:rgba(11,92,171,.32);background:rgba(11,92,171,.08)}
 .provisioning-tone-running,.provisioning-tone-pending_repair{color:var(--brand);border-color:rgba(254,97,0,.45);background:var(--brand-soft)}
 .provisioning-stage-progress{display:grid;gap:10px;padding:0 2px}
 .provisioning-stage-progress-bar{height:10px;border-radius:999px;border:1px solid var(--border-default);background:color-mix(in srgb,var(--surface-3) 75%,var(--brand-soft));overflow:hidden}
