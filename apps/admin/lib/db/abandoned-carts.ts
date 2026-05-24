@@ -58,6 +58,8 @@ function toErrorMessage(error: unknown): string {
 function isIgnorableSchemaError(error: unknown): boolean {
     const message = toErrorMessage(error).toLowerCase();
     return (
+        message.includes("desteklenmiyor") ||
+        message.includes("unsupported") ||
         message.includes("column") ||
         message.includes("schema cache") ||
         message.includes("could not find") ||
