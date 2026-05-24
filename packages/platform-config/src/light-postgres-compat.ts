@@ -511,15 +511,15 @@ async function getCategoryRows(pool: PoolLike): Promise<CategoryRow[]> {
       slug,
       description,
       image,
-      icon,
       parent_id,
       sort_order,
-      is_active,
       seo_title,
       seo_description,
       coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
-      coalesce(faq, '[]'::jsonb) as faq,
-      geo_data,
+      null::text as icon,
+      true as is_active,
+      '[]'::jsonb as faq,
+      null::jsonb as geo_data,
       created_at,
       updated_at
     from public.categories
@@ -584,7 +584,28 @@ async function getPageRows(pool: PoolLike): Promise<PageRow[]> {
 }
 
 async function getProductVariantRows(pool: PoolLike): Promise<ProductVariantRow[]> {
-  const result = await pool.query(`select ${PRODUCT_VARIANT_COLUMNS} from public.product_variants`);
+  const result = await pool.query(`
+    select
+      id,
+      product_id,
+      name,
+      sku,
+      price,
+      original_price,
+      cost,
+      stock,
+      weight,
+      barcode,
+      group_name,
+      images,
+      attributes,
+      unit,
+      max_purchase_quantity,
+      warehouse_location,
+      created_at,
+      null::timestamptz as updated_at
+    from public.product_variants
+  `);
 
     return result.rows.map((row) => ({
       id: String(row.id),
