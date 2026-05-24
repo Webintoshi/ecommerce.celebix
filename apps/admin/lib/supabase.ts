@@ -9,10 +9,7 @@ import {
 } from "@/lib/supabase-shared";
 
 type LightPostgresCompatModule = {
-  createLightPostgresCompatClient: (options: {
-    env: NodeJS.ProcessEnv;
-    mode: "light_postgres";
-  }) => unknown;
+  createAdminLightPostgresCompatClient: () => unknown;
 };
 
 function createRuntimeRequire(): (id: string) => unknown {
@@ -37,14 +34,9 @@ function createRuntimeRequire(): (id: string) => unknown {
 
 function createLightPostgresServerCompatClient(): SupabaseClient {
   const runtimeRequire = createRuntimeRequire();
-  const compatModule = runtimeRequire(
-    "@celebix/platform-config/src/light-postgres-compat",
-  ) as LightPostgresCompatModule;
+  const compatModule = runtimeRequire("./light-postgres-compat-runtime") as LightPostgresCompatModule;
 
-  return compatModule.createLightPostgresCompatClient({
-    env: process.env,
-    mode: "light_postgres",
-  }) as SupabaseClient;
+  return compatModule.createAdminLightPostgresCompatClient() as SupabaseClient;
 }
 
 // Lazy browser client proxy so existing imports keep working.

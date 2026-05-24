@@ -8,10 +8,7 @@ import { createServerClient as createServiceSupabaseClient } from "@/lib/supabas
 import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
 
 type LightPostgresCompatModule = {
-  createLightPostgresCompatClient: (options: {
-    env: NodeJS.ProcessEnv;
-    mode: "light_postgres";
-  }) => unknown;
+  createAdminLightPostgresCompatClient: () => unknown;
 };
 
 function createRuntimeRequire(): (id: string) => unknown {
@@ -36,14 +33,9 @@ function createRuntimeRequire(): (id: string) => unknown {
 
 function createLightPostgresSessionClient(): SupabaseClient {
   const runtimeRequire = createRuntimeRequire();
-  const compatModule = runtimeRequire(
-    "@celebix/platform-config/src/light-postgres-compat",
-  ) as LightPostgresCompatModule;
+  const compatModule = runtimeRequire("./light-postgres-compat-runtime") as LightPostgresCompatModule;
 
-  return compatModule.createLightPostgresCompatClient({
-    env: process.env,
-    mode: "light_postgres",
-  }) as SupabaseClient;
+  return compatModule.createAdminLightPostgresCompatClient() as SupabaseClient;
 }
 export async function createSessionServerClient(): Promise<SupabaseClient> {
   if (isLightPostgresRuntime(process.env, {
