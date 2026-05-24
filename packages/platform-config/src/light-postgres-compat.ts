@@ -22,6 +22,11 @@ type Filter =
   | { type: "neq"; column: string; value: unknown }
   | { type: "in"; column: string; value: unknown[] }
   | { type: "is"; column: string; value: unknown }
+  | { type: "gt"; column: string; value: unknown }
+  | { type: "gte"; column: string; value: unknown }
+  | { type: "lt"; column: string; value: unknown }
+  | { type: "lte"; column: string; value: unknown }
+  | { type: "not"; column: string; operator: string; value: unknown }
   | { type: "ilike"; column: string; value: string }
   | { type: "or"; raw: string };
 
@@ -44,6 +49,28 @@ type SettingsRow = {
   key: string;
   value: Record<string, unknown>;
   updated_at: string;
+};
+
+type VariantAttributeValueRow = {
+  id: string;
+  attribute_id: string;
+  value: string;
+  color_code: string | null;
+  image_url: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type VariantAttributeRow = {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  values: VariantAttributeValueRow[];
 };
 
 type CategoryRow = {
@@ -161,6 +188,52 @@ type PageRow = {
   geo_data: Record<string, unknown> | null;
   is_active: boolean;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type OrderCompatRow = {
+  id: string;
+  order_number: string;
+  customer_id: string | null;
+  status: string;
+  subtotal: number | string | null;
+  shipping_cost: number | string | null;
+  discount: number | string | null;
+  total: number | string | null;
+  shipping_address: Record<string, unknown> | null;
+  billing_address: Record<string, unknown> | null;
+  payment_method: string | null;
+  payment_status: string;
+  notes: string | null;
+  source_type: string | null;
+  source_ref_id: string | null;
+  shipping_carrier: string | null;
+  tracking_number: string | null;
+  estimated_delivery: string | null;
+  internal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CustomerCompatRow = {
+  id: string;
+  email: string;
+  user_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  status: string | null;
+  total_orders: number | string | null;
+  total_spent: number | string | null;
+  last_order_at: string | null;
+  notes: string | null;
+  tags: string[];
+  external_customer_id: string | null;
+  accepts_email_marketing: boolean | null;
+  accepts_sms_marketing: boolean | null;
+  tax_exempt: boolean | null;
+  is_active: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -407,6 +480,38 @@ function matchesFilter(row: Record<string, unknown>, filter: Filter): boolean {
     return row[filter.column] === filter.value;
   }
 
+  if (filter.type === "gt") {
+    return compareValues(row[filter.column], filter.value) > 0;
+  }
+
+  if (filter.type === "gte") {
+    return compareValues(row[filter.column], filter.value) >= 0;
+  }
+
+  if (filter.type === "lt") {
+    return compareValues(row[filter.column], filter.value) < 0;
+  }
+
+  if (filter.type === "lte") {
+    return compareValues(row[filter.column], filter.value) <= 0;
+  }
+
+  if (filter.type === "not") {
+    if (filter.operator === "is" && filter.value === null) {
+      return row[filter.column] !== null && row[filter.column] !== undefined;
+    }
+
+    if (filter.operator === "eq") {
+      return row[filter.column] !== filter.value;
+    }
+
+    if (filter.operator === "ilike" && typeof filter.value === "string") {
+      return !matchesLikePattern(row[filter.column], filter.value);
+    }
+
+    return true;
+  }
+
   if (filter.type === "ilike") {
     return matchesLikePattern(row[filter.column], filter.value);
   }
@@ -501,6 +606,53 @@ async function getSettingsRows(pool: PoolLike): Promise<SettingsRow[]> {
     value: asObject(row.value),
     updated_at: String(row.updated_at),
   }));
+}
+
+async function getVariantAttributeRows(pool: PoolLike): Promise<VariantAttributeRow[]> {
+  const settings = await getSettingsRows(pool);
+  const registry = settings.find((row) => row.key === "variant_attributes_registry")?.value;
+  const attributes = Array.isArray(registry?.attributes) ? registry.attributes : [];
+
+  return attributes
+    .filter((attribute): attribute is Record<string, unknown> => Boolean(attribute && typeof attribute === "object"))
+    .map((attribute) => {
+      const attributeId = typeof attribute.id === "string" && attribute.id ? attribute.id : crypto.randomUUID();
+      const values = Array.isArray(attribute.values) ? attribute.values : [];
+
+      return {
+        id: attributeId,
+        name: typeof attribute.name === "string" && attribute.name ? attribute.name : "Yeni Nitelik",
+        slug: typeof attribute.slug === "string" && attribute.slug ? attribute.slug : "nitelik",
+        is_active: attribute.is_active !== false,
+        created_at:
+          typeof attribute.created_at === "string" ? attribute.created_at : new Date().toISOString(),
+        updated_at:
+          typeof attribute.updated_at === "string" ? attribute.updated_at : new Date().toISOString(),
+        values: values
+          .filter((value): value is Record<string, unknown> => Boolean(value && typeof value === "object"))
+          .map((value, index) => ({
+            id: typeof value.id === "string" && value.id ? value.id : crypto.randomUUID(),
+            attribute_id:
+              typeof value.attribute_id === "string" && value.attribute_id
+                ? value.attribute_id
+                : attributeId,
+            value: typeof value.value === "string" ? value.value : "",
+            color_code: typeof value.color_code === "string" ? value.color_code : null,
+            image_url: typeof value.image_url === "string" ? value.image_url : null,
+            display_order: typeof value.display_order === "number" ? value.display_order : index,
+            is_active: value.is_active !== false,
+            created_at:
+              typeof value.created_at === "string" ? value.created_at : new Date().toISOString(),
+            updated_at:
+              typeof value.updated_at === "string" ? value.updated_at : new Date().toISOString(),
+          })),
+      };
+    });
+}
+
+async function getVariantAttributeValueRows(pool: PoolLike): Promise<VariantAttributeValueRow[]> {
+  const attributes = await getVariantAttributeRows(pool);
+  return attributes.flatMap((attribute) => attribute.values);
 }
 
 async function getCategoryRows(pool: PoolLike): Promise<CategoryRow[]> {
@@ -713,6 +865,108 @@ async function getProductRows(pool: PoolLike): Promise<ProductRow[]> {
   }));
 }
 
+async function getOrderRows(pool: PoolLike): Promise<OrderCompatRow[]> {
+  const result = await pool.query(`
+    select
+      id,
+      order_number,
+      customer_id,
+      status,
+      subtotal,
+      shipping_cost,
+      discount,
+      total,
+      shipping_address,
+      billing_address,
+      payment_method,
+      payment_status,
+      notes,
+      source_type,
+      source_ref_id,
+      shipping_carrier,
+      tracking_number,
+      estimated_delivery,
+      internal_notes,
+      created_at,
+      updated_at
+    from public.orders
+  `);
+
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    order_number: String(row.order_number),
+    customer_id: typeof row.customer_id === "string" ? row.customer_id : null,
+    status: String(row.status || "pending"),
+    subtotal: asNumericValue(row.subtotal, 0),
+    shipping_cost: asNumericValue(row.shipping_cost, 0),
+    discount: asNumericValue(row.discount, 0),
+    total: asNumericValue(row.total, 0),
+    shipping_address: row.shipping_address && typeof row.shipping_address === "object" ? asObject(row.shipping_address) : null,
+    billing_address: row.billing_address && typeof row.billing_address === "object" ? asObject(row.billing_address) : null,
+    payment_method: typeof row.payment_method === "string" ? row.payment_method : null,
+    payment_status: String(row.payment_status || "pending"),
+    notes: typeof row.notes === "string" ? row.notes : null,
+    source_type: typeof row.source_type === "string" ? row.source_type : null,
+    source_ref_id: typeof row.source_ref_id === "string" ? row.source_ref_id : null,
+    shipping_carrier: typeof row.shipping_carrier === "string" ? row.shipping_carrier : null,
+    tracking_number: typeof row.tracking_number === "string" ? row.tracking_number : null,
+    estimated_delivery: typeof row.estimated_delivery === "string" ? row.estimated_delivery : null,
+    internal_notes: typeof row.internal_notes === "string" ? row.internal_notes : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  }));
+}
+
+async function getCustomerRows(pool: PoolLike): Promise<CustomerCompatRow[]> {
+  const result = await pool.query(`
+    select
+      id,
+      email,
+      user_id,
+      first_name,
+      last_name,
+      phone,
+      status,
+      total_orders,
+      total_spent,
+      last_order_at,
+      notes,
+      tags,
+      external_customer_id,
+      accepts_email_marketing,
+      accepts_sms_marketing,
+      tax_exempt,
+      is_active,
+      created_at,
+      updated_at
+    from public.customers
+  `);
+
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    email: String(row.email || ""),
+    user_id: typeof row.user_id === "string" ? row.user_id : null,
+    first_name: typeof row.first_name === "string" ? row.first_name : null,
+    last_name: typeof row.last_name === "string" ? row.last_name : null,
+    phone: typeof row.phone === "string" ? row.phone : null,
+    status: typeof row.status === "string" ? row.status : null,
+    total_orders: asNumericValue(row.total_orders, 0),
+    total_spent: asNumericValue(row.total_spent, 0),
+    last_order_at: typeof row.last_order_at === "string" ? row.last_order_at : null,
+    notes: typeof row.notes === "string" ? row.notes : null,
+    tags: asStringArray(row.tags),
+    external_customer_id: typeof row.external_customer_id === "string" ? row.external_customer_id : null,
+    accepts_email_marketing:
+      typeof row.accepts_email_marketing === "boolean" ? row.accepts_email_marketing : null,
+    accepts_sms_marketing:
+      typeof row.accepts_sms_marketing === "boolean" ? row.accepts_sms_marketing : null,
+    tax_exempt: typeof row.tax_exempt === "boolean" ? row.tax_exempt : null,
+    is_active: typeof row.is_active === "boolean" ? row.is_active : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  }));
+}
+
 function buildUpdateAssignments(
   payload: Record<string, unknown>,
   startingIndex = 1,
@@ -802,6 +1056,31 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
     return this;
   }
 
+  gt(column: string, value: unknown) {
+    this.filters.push({ type: "gt", column, value });
+    return this;
+  }
+
+  gte(column: string, value: unknown) {
+    this.filters.push({ type: "gte", column, value });
+    return this;
+  }
+
+  lt(column: string, value: unknown) {
+    this.filters.push({ type: "lt", column, value });
+    return this;
+  }
+
+  lte(column: string, value: unknown) {
+    this.filters.push({ type: "lte", column, value });
+    return this;
+  }
+
+  not(column: string, operator: string, value: unknown) {
+    this.filters.push({ type: "not", column, operator, value });
+    return this;
+  }
+
   or(raw: string) {
     this.filters.push({ type: "or", raw });
     return this;
@@ -848,11 +1127,15 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       return createCompatError(UNSUPPORTED_PRODUCT_TABLE_ERROR, "42P01");
     }
 
-    if (
-      this.tableName === "variant_attributes" ||
-      this.tableName === "variant_attribute_values" ||
-      this.tableName === "product_variant_attributes"
-    ) {
+    if (this.tableName === "variant_attributes") {
+      return getVariantAttributeRows(pool);
+    }
+
+    if (this.tableName === "variant_attribute_values") {
+      return getVariantAttributeValueRows(pool);
+    }
+
+    if (this.tableName === "product_variant_attributes") {
       return [];
     }
 
@@ -875,7 +1158,33 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
     if (this.tableName === "product_variants") {
       const rows = await getProductVariantRows(pool);
+      if (this.selectSpec?.includes("product:products")) {
+        const products = await getProductRows(pool);
+        const productById = new Map(
+          products.map((product) => [
+            product.id,
+            {
+              id: product.id,
+              name: product.name,
+              images: Array.isArray(product.images) ? product.images : [],
+            },
+          ]),
+        );
+
+        return rows.map((row) => ({
+          ...row,
+          product: productById.get(row.product_id) ?? null,
+        }));
+      }
       return rows.map((row) => aliasProductVariantRow(row, this.selectSpec));
+    }
+
+    if (this.tableName === "orders") {
+      return getOrderRows(pool);
+    }
+
+    if (this.tableName === "customers") {
+      return getCustomerRows(pool);
     }
 
     if (
