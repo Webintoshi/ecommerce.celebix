@@ -3,6 +3,7 @@ import type { CategoryApiResponse, CategoryInput } from "@/types/category";
 import { isValidCategory } from "@/types/category";
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
 import { deleteCategoryHierarchy } from "@/lib/category-records";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
 import { normalizeVisibleText, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 
@@ -186,6 +187,19 @@ function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
 
   const nextPayload = { ...payload };
   delete nextPayload[missingColumn];
+  return nextPayload;
+}
+
+function pruneUnsupportedLightPostgresCategoryFields<T extends Record<string, unknown>>(payload: T): T {
+  if (!shouldUseLightPostgresAdmin()) {
+    return payload;
+  }
+
+  const nextPayload = { ...payload };
+  delete nextPayload.icon;
+  delete nextPayload.is_active;
+  delete nextPayload.faq;
+  delete nextPayload.geo_data;
   return nextPayload;
 }
 
@@ -515,7 +529,7 @@ export async function PUT(request: NextRequest) {
       : id;
 
     let data;
-    let updatePayload: Record<string, unknown> = { ...updateData };
+    let updatePayload: Record<string, unknown> = pruneUnsupportedLightPostgresCategoryFields({ ...updateData });
 
     if (updates.image !== undefined) {
       updatePayload.image = await mirrorCategoryImageIfNeeded(
@@ -610,7 +624,7 @@ export async function POST(request: NextRequest) {
     const imageNameFallback = sanitizeString(data.name, 200);
 
     {
-      let insertPayload: Record<string, unknown> = {
+      let insertPayload: Record<string, unknown> = pruneUnsupportedLightPostgresCategoryFields({
         name: sanitizeString(data.name, 200),
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
         description: data.description ? sanitizeContent(String(data.description), 2000) : null,
@@ -626,7 +640,7 @@ export async function POST(request: NextRequest) {
         seo_keywords: Array.isArray(data.seo_keywords) ? data.seo_keywords : [],
         faq: Array.isArray(data.faq) ? data.faq : [],
         geo_data: data.geo_data || { keyTakeaways: [], entities: [] },
-      };
+      });
 
       let createdCategory: unknown = null;
 
@@ -725,7 +739,7 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = await getSupabaseClient();
 
-    await deleteCategoryHierarchy(supabase, id, true);
+    await deleteCategoryHierarchy(supabase, id, !shouldUseLightPostgresAdmin());
 
     return createSuccessResponse({}, 200, false);
 
