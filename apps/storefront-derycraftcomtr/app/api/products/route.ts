@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/db/products";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
+import {
+    maybeGetStorefrontProductBySlug,
+    maybeListStorefrontCategories,
+    maybeListStorefrontProducts,
+} from "@/lib/db/light-postgres-storefront-read";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
     getVariantAttributeRegistry,
@@ -22,6 +27,9 @@ import {
 } from "@/lib/translation";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function toNullableString(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -50,6 +58,23 @@ function logTagSuggestionSyncError(error: unknown, context: string) {
 
 function logMarketplaceQueueError(error: unknown, context: string) {
     console.error(`Marketplace queue sync failed (${context}):`, error);
+}
+
+function matchesProductSearch(product: Record<string, unknown>, search: string) {
+    const normalizedSearch = search.trim().toLocaleLowerCase("tr");
+    if (!normalizedSearch) {
+        return true;
+    }
+
+    const haystacks = [
+        typeof product.name === "string" ? product.name : "",
+        typeof product.description === "string" ? product.description : "",
+        typeof product.short_description === "string" ? product.short_description : "",
+    ];
+
+    return haystacks.some((value) =>
+        value.toLocaleLowerCase("tr").includes(normalizedSearch),
+    );
 }
 
 function hydrateListingProducts(
@@ -180,6 +205,33 @@ async function getCategoryLabelMap(
         return new Map<string, string>();
     }
 
+    const lightPostgresCategories = await maybeListStorefrontCategories();
+    if (lightPostgresCategories !== undefined) {
+        const translatedCategories = await translateCategoryCollection(
+            lightPostgresCategories
+                .filter((category) => categorySlugs.includes(category.slug))
+                .map((category) => ({
+                    slug: category.slug,
+                    name: category.name,
+                    description: category.description,
+                    seo_title: category.seo_title,
+                    seo_description: category.seo_description,
+                })),
+            locale,
+        );
+
+        return new Map(
+            translatedCategories.map((category) => [
+                typeof category.slug === "string" ? category.slug : "",
+                typeof category.name === "string" && category.name.trim().length > 0
+                    ? category.name
+                    : typeof category.slug === "string"
+                        ? category.slug
+                        : "",
+            ]),
+        );
+    }
+
     const { data, error } = await supabase
         .from("categories")
         .select("slug, name, description, seo_title, seo_description")
@@ -260,8 +312,107 @@ export async function GET(request: NextRequest) {
         const { createServerClient } = await import("@/lib/supabase");
         const supabase = createServerClient();
         const productListingOrder = await getProductListingOrderPositions();
+        const lightPostgresProducts = await maybeListStorefrontProducts();
 
         let products;
+
+        if (lightPostgresProducts !== undefined) {
+            const orderedProducts = sortProductsByListingOrder(
+                lightPostgresProducts as unknown as Array<{ id: string; created_at?: string | null; name?: string | null } & Record<string, unknown>>,
+                productListingOrder,
+            );
+
+            if (id) {
+                const product = orderedProducts.find((entry) => String(entry.id) === id) || null;
+                const rulesMap = await getProductDiscountRulesMap(supabase, product ? [id] : []);
+                return NextResponse.json({
+                    success: true,
+                    product: (
+                        await localizeProducts(
+                            supabase,
+                            product ? [product as Record<string, unknown>] : [],
+                            await attributeRegistryPromise,
+                            rulesMap,
+                            locale,
+                        )
+                    )[0] || null,
+                });
+            }
+
+            if (slug) {
+                const product = await maybeGetStorefrontProductBySlug(slug);
+                if (!product) {
+                    return NextResponse.json(
+                        { success: false, error: "Product not found" },
+                        { status: 404 },
+                    );
+                }
+
+                const rulesMap = await getProductDiscountRulesMap(supabase, [String(product.id)]);
+                return NextResponse.json({
+                    success: true,
+                    product: (
+                        await localizeProducts(
+                            supabase,
+                            [product as unknown as Record<string, unknown>],
+                            await attributeRegistryPromise,
+                            rulesMap,
+                            locale,
+                        )
+                    )[0] || null,
+                });
+            }
+
+            let filteredProducts = orderedProducts;
+
+            if (featured === "true") {
+                filteredProducts = filteredProducts.filter((product) => product.is_featured === true).slice(0, 10);
+            } else if (bestseller === "true") {
+                filteredProducts = filteredProducts.filter((product) => product.is_bestseller === true).slice(0, 10);
+            } else if (category) {
+                filteredProducts = filteredProducts.filter((product) => product.category === category);
+            } else if (search) {
+                filteredProducts = filteredProducts.filter((product) => matchesProductSearch(product, search));
+
+                if (filteredProducts.length === 0) {
+                    const translatedSearch = await translateSearchQueryToSourceLocale(search, locale);
+                    if (translatedSearch && translatedSearch !== search) {
+                        filteredProducts = orderedProducts.filter((product) =>
+                            matchesProductSearch(product, translatedSearch),
+                        );
+                    }
+                }
+
+                filteredProducts = filteredProducts.slice(0, 20);
+            }
+
+            const paginatedProducts =
+                featured === "true" || bestseller === "true" || search
+                    ? filteredProducts
+                    : paginateOrderedProducts(filteredProducts, page, limit);
+
+            const rulesMap = await getProductDiscountRulesMap(
+                supabase,
+                paginatedProducts.map((product) => String(product.id)),
+            );
+
+            const response: Record<string, unknown> = {
+                success: true,
+                products: await localizeProducts(
+                    supabase,
+                    paginatedProducts as Record<string, unknown>[],
+                    await attributeRegistryPromise,
+                    rulesMap,
+                    locale,
+                ),
+            };
+
+            if (!(featured === "true" || bestseller === "true" || search)) {
+                response.pagination = buildListingPagination(page, limit, filteredProducts.length);
+            }
+
+            return NextResponse.json(response);
+        }
 
         if (id) {
             // Fetch single product by ID from Supabase

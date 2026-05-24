@@ -1,6 +1,10 @@
 import { Product } from "@/types/product";
 import { getStoredProducts, addStoredProduct, addStoredProducts, deleteStoredProduct, updateStoredProduct, initializeProducts } from "./product-storage";
 import { parseShopifyCSV, importProductsFromCSV } from "./csv-import";
+import {
+  maybeGetStorefrontProductBySlug,
+  maybeListStorefrontProducts,
+} from "@/lib/db/light-postgres-storefront-read";
 import { runProductsQuery } from "@/lib/products-query-compat";
 
 export type { Product } from "@/types/product";
@@ -597,6 +601,11 @@ if (typeof window !== "undefined") {
 
 // Get all products - Fetch from Supabase
 export async function getAllProducts(): Promise<Product[]> {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    return lightPostgresProducts as unknown as Product[];
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -621,6 +630,11 @@ export async function getAllProducts(): Promise<Product[]> {
 
 // Get limited products for homepage (optimized)
 export async function getLimitedProducts(limit: number = 8): Promise<Product[]> {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    return (lightPostgresProducts.slice(0, limit) as unknown) as Product[];
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -648,6 +662,11 @@ export async function getLimitedProducts(limit: number = 8): Promise<Product[]> 
 export const PRODUCTS: Product[] = [];
 
 export async function getProductSlug(): Promise<string[]> {
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  if (lightPostgresProducts !== undefined) {
+    return lightPostgresProducts.map((product) => product.slug);
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -670,6 +689,11 @@ export async function getProductSlug(): Promise<string[]> {
 
 // Yardımcı Fonksiyonlar - Şimdi Supabase'den çekiyor
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+  const lightPostgresProduct = await maybeGetStorefrontProductBySlug(slug);
+  if (lightPostgresProduct !== undefined) {
+    return (lightPostgresProduct as unknown as Product) || undefined;
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -788,52 +812,98 @@ export async function getProductGroupsForProduct(
 
   const relatedProductIds = [...new Set(relevantItems.map((item) => item.product_id).filter(Boolean))];
 
-  const { data: products, error: productsError } = await runProductsQuery((includeIsActiveFilter) => {
-    let query = supabase
-      .from("products")
-      .select("id, name, slug, images, images_v2, status, is_active, is_draft")
-      .in("id", relatedProductIds);
+  const lightPostgresProducts = await maybeListStorefrontProducts();
+  const visibleProducts =
+    lightPostgresProducts !== undefined
+      ? lightPostgresProducts
+          .filter((product) => relatedProductIds.includes(product.id))
+          .map((product) => ({
+            id: product.id,
+            name: product.name,
+            slug: product.slug,
+            images: product.images,
+            images_v2: product.images_v2,
+            status: product.status,
+            is_active: product.is_active,
+            is_draft: product.is_draft,
+            variants: product.variants,
+          }))
+      : null;
 
-    if (includeIsActiveFilter) {
-      query = query.eq("is_active", true);
+  let fallbackProducts: Array<Record<string, unknown>> | null = null;
+
+  if (visibleProducts === null) {
+    const { data: products, error: productsError } = await runProductsQuery((includeIsActiveFilter) => {
+      let query = supabase
+        .from("products")
+        .select("id, name, slug, images, images_v2, status, is_active, is_draft")
+        .in("id", relatedProductIds);
+
+      if (includeIsActiveFilter) {
+        query = query.eq("is_active", true);
+      }
+
+      return query.or("status.eq.published,status.is.null");
+    });
+
+    if (productsError) {
+      throw productsError;
     }
 
-    return query.or("status.eq.published,status.is.null");
-  });
+    if (!products || products.length === 0) {
+      return [];
+    }
 
-  if (productsError) {
-    throw productsError;
+    fallbackProducts = products as Array<Record<string, unknown>>;
   }
 
-  if (!products || products.length === 0) {
-    return [];
-  }
-
-  const visibleProducts = products as Array<Record<string, unknown>>;
-  const visibleProductIds = visibleProducts
+  const effectiveVisibleProducts = (visibleProducts ?? fallbackProducts) as Array<Record<string, unknown>>;
+  const visibleProductIds = effectiveVisibleProducts
     .map((product) => (typeof product.id === "string" ? product.id : ""))
     .filter(Boolean);
 
-  const { data: variants, error: variantsError } = await supabase
-    .from("product_variants")
-    .select("product_id, price, stock, created_at")
-    .in("product_id", visibleProductIds)
-    .order("created_at", { ascending: true });
+  let variants:
+    | Array<{
+        product_id: string;
+        price: number | string | null;
+        stock: number | string | null;
+      }>
+    | null = null;
 
-  if (variantsError) {
-    throw variantsError;
+  if (visibleProducts !== null) {
+    variants = visibleProducts.flatMap((product) =>
+      Array.isArray(product.variants)
+        ? product.variants.map((variant) => ({
+            product_id: product.id,
+            price: typeof variant.price === "number" || typeof variant.price === "string" ? variant.price : null,
+            stock: typeof variant.stock === "number" || typeof variant.stock === "string" ? variant.stock : null,
+          }))
+        : [],
+    );
+  } else {
+    const variantsResponse = await supabase
+      .from("product_variants")
+      .select("product_id, price, stock, created_at")
+      .in("product_id", visibleProductIds)
+      .order("created_at", { ascending: true });
+
+    if (variantsResponse.error) {
+      throw variantsResponse.error;
+    }
+
+    variants = (variantsResponse.data || []) as Array<{
+      product_id: string;
+      price: number | string | null;
+      stock: number | string | null;
+    }>;
   }
 
   const productMap = new Map(
-    visibleProducts.map((product) => [String(product.id), product]),
+    effectiveVisibleProducts.map((product) => [String(product.id), product]),
   );
 
   const primaryVariantMap = new Map<string, { price: number | null; stock: number | null }>();
-  ((variants || []) as Array<{
-    product_id: string;
-    price: number | string | null;
-    stock: number | string | null;
-  }>).forEach((variant) => {
+  (variants || []).forEach((variant) => {
     if (!primaryVariantMap.has(variant.product_id)) {
       primaryVariantMap.set(variant.product_id, {
         price:
