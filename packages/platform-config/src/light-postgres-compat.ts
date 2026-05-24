@@ -1393,13 +1393,13 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
     const pool = await this.poolPromise;
     const identifierFilter = this.filters.find(
       (filter): filter is Extract<Filter, { type: "eq"; column: string }> =>
-        filter.type === "eq" && (filter.column === "id" || filter.column === "key"),
+        filter.type === "eq" && (filter.column === "id" || filter.column === "key" || filter.column === "product_id"),
     );
 
     if (!identifierFilter) {
       return {
         data: null,
-        error: createCompatError("Delete icin id veya key filtresi gerektirir.", "PGRST204"),
+        error: createCompatError("Delete icin id, key veya product_id filtresi gerektirir.", "PGRST204"),
       };
     }
 
