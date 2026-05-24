@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuthContext } from "@/lib/admin-auth";
-import { createServerClient } from "@/lib/supabase";
+import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
 import { normalizePaymentGateways } from "@/lib/payment-providers";
+import { createServerClient } from "@/lib/supabase";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -10,16 +11,9 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
     }
 
-    const supabase = createServerClient();
-    const { data, error } = await supabase.from("settings").select("value").eq("key", "payment_gateways").single();
-
-    if (error && error.code !== "PGRST116") {
-      throw error;
-    }
-
     return NextResponse.json({
       success: true,
-      gateways: normalizePaymentGateways(data?.value || []),
+      gateways: await getStoredPaymentGateways(),
     });
   } catch (error) {
     return NextResponse.json(
