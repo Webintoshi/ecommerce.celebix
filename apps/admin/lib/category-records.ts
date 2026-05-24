@@ -1,4 +1,5 @@
 import { mirrorCategoryImageToR2 } from "@/lib/category-media-import";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import {
   readCelebixCategoryHierarchyMetadata,
   type CelebixCategoryPathSegment,
@@ -84,6 +85,19 @@ function stripUnsupportedCategoryColumn<T extends Record<string, unknown>>(
 
   const nextPayload = { ...payload };
   delete nextPayload[missingColumn];
+  return nextPayload;
+}
+
+function pruneUnsupportedLightPostgresCategoryFields<T extends Record<string, unknown>>(payload: T): T {
+  if (!shouldUseLightPostgresAdmin()) {
+    return payload;
+  }
+
+  const nextPayload = { ...payload };
+  delete nextPayload.icon;
+  delete nextPayload.is_active;
+  delete nextPayload.faq;
+  delete nextPayload.geo_data;
   return nextPayload;
 }
 
@@ -324,7 +338,7 @@ async function createCategoryRecord(
   supabase: any,
   payload: Record<string, unknown>
 ): Promise<{ id: string; slug: string; name: string | null; parent_id: string | null; image: string | null }> {
-  let insertPayload = { ...payload };
+  let insertPayload = pruneUnsupportedLightPostgresCategoryFields({ ...payload });
 
   while (true) {
     const { data, error } = await supabase
@@ -355,7 +369,7 @@ async function createCategoryRecord(
 async function updateCategoryRecord(supabase: any, id: string, payload: Record<string, unknown>) {
   if (Object.keys(payload).length === 0) return;
 
-  let updatePayload = { ...payload };
+  let updatePayload = pruneUnsupportedLightPostgresCategoryFields({ ...payload });
   while (true) {
     const { error } = await supabase
       .from("categories")
