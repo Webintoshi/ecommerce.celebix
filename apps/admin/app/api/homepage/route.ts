@@ -70,8 +70,7 @@ async function getLightPostgresHomepagePayload() {
             `
                 select id, name, slug, description, image
                 from public.categories
-                where coalesce(is_active, true) = true
-                  and parent_id is null
+                where parent_id is null
                 order by sort_order asc, name asc
                 limit 6
             `,
@@ -122,7 +121,7 @@ async function getLightPostgresHomepagePayload() {
                     images,
                     attributes,
                     created_at,
-                    updated_at
+                    null::timestamptz as updated_at
                 from public.product_variants
                 where product_id::text = any($1::text[])
                 order by created_at asc nulls last, id asc
