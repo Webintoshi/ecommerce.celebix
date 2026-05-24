@@ -42,6 +42,8 @@ import {
 import {
     maybeGetAdminSetting,
     maybeGetAllAdminSettings,
+    maybeSetAdminSetting,
+    maybeDeleteAdminSetting,
 } from "@/lib/db/light-postgres-read";
 
 // =====================================================
@@ -72,11 +74,9 @@ export function isPrivateSettingKey(key: string) {
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
-    if (LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS.has(key)) {
-        const lightPostgresValue = await maybeGetAdminSetting(key);
-        if (lightPostgresValue !== undefined) {
-            return (lightPostgresValue as Record<string, unknown> | null) ?? null;
-        }
+    const lightPostgresValue = await maybeGetAdminSetting(key);
+    if (lightPostgresValue !== undefined) {
+        return (lightPostgresValue as Record<string, unknown> | null) ?? null;
     }
 
     const serverClient = createServerClient();
@@ -127,6 +127,11 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
  * Set setting (upsert)
  */
 export async function setSetting(key: string, value: Record<string, unknown>) {
+    const lightPostgresSetting = await maybeSetAdminSetting(key, value);
+    if (lightPostgresSetting !== undefined) {
+        return lightPostgresSetting;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -143,6 +148,11 @@ export async function setSetting(key: string, value: Record<string, unknown>) {
  * Delete setting
  */
 export async function deleteSetting(key: string) {
+    const deletedFromLightPostgres = await maybeDeleteAdminSetting(key);
+    if (deletedFromLightPostgres !== undefined) {
+        return true;
+    }
+
     const serverClient = createServerClient();
 
     const { error } = await serverClient
