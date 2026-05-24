@@ -1027,7 +1027,6 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
   ) {}
 
   select(spec = "*", options?: { count?: "exact"; head?: boolean }) {
-    this.operation = "select";
     this.selectSpec = spec;
     this.countMode = options?.count ?? null;
     this.headOnly = options?.head === true;
