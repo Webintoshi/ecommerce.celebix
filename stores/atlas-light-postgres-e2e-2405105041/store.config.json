@@ -1,0 +1,102 @@
+{
+  "name": "Atlas Light Postgres E2E Test",
+  "slug": "atlas-light-postgres-e2e-2405105041",
+  "status": "draft",
+  "databaseMode": "light_postgres",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "Disposable E2E test store",
+    "supportEmail": "support+2405105041@example.test",
+    "supportPhone": "+90 532 000 00 00",
+    "senderEmail": "noreply@atlas-light-postgres-e2e-2405105041.celebix.site",
+    "smsSenderTitle": "ATLASLIGHTP",
+    "defaultProductBrand": "Atlas Light Postgres E2E Test"
+  },
+  "domains": {
+    "storefront": "atlas-light-postgres-e2e-2405105041.celebix.site",
+    "admin": "admin.atlas-light-postgres-e2e-2405105041.celebix.site",
+    "demo": "atlas-light-postgres-e2e-2405105041.demo.celebix.co"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu."
+  },
+  "lightPostgres": {
+    "cluster": "celebix-light-postgres",
+    "databaseName": "atlas-light-postgres-e2e-2405105041",
+    "schemaProfile": "storefront_core",
+    "provisioning": "pending-owner-env",
+    "umamiReady": true
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "disabled-by-database-mode"
+  },
+  "r2": {
+    "provisioning": "pending-owner-env"
+  },
+  "bootstrap": {
+    "createdAt": "2026-05-24T10:50:49.849Z",
+    "envTemplatePath": "stores/atlas-light-postgres-e2e-2405105041/admin.env.example",
+    "authorityBranch": "stores/authority",
+    "coolifyProjectName": "Atlas Light Postgres E2E Test",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "Atlas Light Postgres E2E Test admin",
+    "adminDeploymentBranch": "deploy/owner",
+    "adminDeploymentRuntimeUrl": "https://admin.atlas-light-postgres-e2e-2405105041.celebix.site",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "configured",
+    "adminDeployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/atlas-light-postgres-e2e-2405105041-admin",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/admin/**",
+        "packages/**"
+      ]
+    }
+  },
+  "storefront": {
+    "appDir": "apps/storefront-atlas-light-postgres-e2e-2405105041",
+    "packageName": "@celebix/storefront-atlas-light-postgres-e2e-2405105041",
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "Atlas Light Postgres E2E Test websitesi",
+    "deploymentBranch": "deploy/storefront/atlas-light-postgres-e2e-2405105041",
+    "runtimeUrl": "https://atlas-light-postgres-e2e-2405105041.celebix.site",
+    "deploymentStatus": "pending-owner-env",
+    "deployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/atlas-light-postgres-e2e-2405105041-storefront",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/storefront-atlas-light-postgres-e2e-2405105041/**",
+        "packages/**"
+      ]
+    }
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
