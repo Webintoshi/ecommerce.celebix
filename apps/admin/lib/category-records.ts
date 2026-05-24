@@ -370,6 +370,10 @@ async function updateCategoryRecord(supabase: any, id: string, payload: Record<s
   if (Object.keys(payload).length === 0) return;
 
   let updatePayload = pruneUnsupportedLightPostgresCategoryFields({ ...payload });
+  if (Object.keys(updatePayload).length === 0) {
+    return;
+  }
+
   while (true) {
     const { error } = await supabase
       .from("categories")
@@ -385,6 +389,9 @@ async function updateCategoryRecord(supabase: any, id: string, payload: Record<s
       throw error;
     }
     updatePayload = nextPayload;
+    if (Object.keys(updatePayload).length === 0) {
+      return;
+    }
   }
 }
 
