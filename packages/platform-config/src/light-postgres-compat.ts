@@ -1413,9 +1413,10 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
+    const inFilterCast = identifierFilter.column === "key" ? "text[]" : "uuid[]";
     const sql =
       identifierFilter.type === "in"
-        ? `delete from public.${this.tableName} where "${identifierFilter.column}" = any($1::text[]) returning *`
+        ? `delete from public.${this.tableName} where "${identifierFilter.column}" = any($1::${inFilterCast}) returning *`
         : `delete from public.${this.tableName} where "${identifierFilter.column}" = $1 returning *`;
 
     const values =
