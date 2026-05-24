@@ -1,4 +1,6 @@
 import { createServerClient, type Address } from "@/lib/supabase";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import { queryAdminLightPostgres, queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
 
 export interface CustomerAddressInput {
   type?: string;
@@ -40,6 +42,61 @@ export interface CustomerUpsertInput {
   taxExempt?: boolean;
 }
 
+type LightPostgresCustomerRow = Record<string, unknown> & {
+  id: string;
+  email: string;
+  user_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  status: string | null;
+  total_orders: number | string | null;
+  total_spent: number | string | null;
+  last_order_at: string | null;
+  notes: string | null;
+  tags: unknown;
+  external_customer_id: string | null;
+  accepts_email_marketing: boolean | null;
+  accepts_sms_marketing: boolean | null;
+  tax_exempt: boolean | null;
+  is_active: boolean | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type LightPostgresCustomerAddressRow = Record<string, unknown> & {
+  id: string;
+  customer_id: string;
+  type: string | null;
+  title: string | null;
+  company: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+  is_default: boolean | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type LightPostgresCustomerOrderRow = Record<string, unknown> & {
+  id: string;
+  customer_id: string | null;
+  order_number: string;
+  status: string;
+  total: number | string;
+  payment_status: string;
+  created_at: string;
+  updated_at: string;
+};
+
 function normalizeTags(tags?: string[]) {
   if (!Array.isArray(tags)) {
     return [];
@@ -52,6 +109,131 @@ function normalizeTags(tags?: string[]) {
         .filter(Boolean),
     ),
   );
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "t", "1", "yes", "y"].includes(normalized)) return true;
+    if (["false", "f", "0", "no", "n"].includes(normalized)) return false;
+  }
+
+  return null;
+}
+
+function normalizeNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeTagList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+}
+
+async function hydrateLightPostgresCustomers(rows: LightPostgresCustomerRow[]) {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const customerIds = rows.map((row) => row.id);
+  const [addresses, orders] = await Promise.all([
+    queryAdminLightPostgres<LightPostgresCustomerAddressRow>(
+      `
+        select
+          id,
+          customer_id,
+          type,
+          title,
+          company,
+          first_name,
+          last_name,
+          phone,
+          address,
+          address_line1,
+          address_line2,
+          city,
+          district,
+          state,
+          postal_code,
+          country,
+          is_default,
+          created_at,
+          updated_at
+        from public.customer_addresses
+        where customer_id = any($1::uuid[])
+        order by is_default desc, created_at asc
+      `,
+      [customerIds],
+    ),
+    queryAdminLightPostgres<LightPostgresCustomerOrderRow>(
+      `
+        select
+          id,
+          customer_id,
+          order_number,
+          status,
+          total,
+          payment_status,
+          created_at,
+          updated_at
+        from public.orders
+        where customer_id = any($1::uuid[])
+        order by created_at desc
+      `,
+      [customerIds],
+    ),
+  ]);
+
+  const addressesByCustomer = new Map<string, LightPostgresCustomerAddressRow[]>();
+  for (const address of addresses) {
+    const bucket = addressesByCustomer.get(address.customer_id) ?? [];
+    bucket.push(address);
+    addressesByCustomer.set(address.customer_id, bucket);
+  }
+
+  const ordersByCustomer = new Map<string, LightPostgresCustomerOrderRow[]>();
+  for (const order of orders) {
+    if (!order.customer_id) continue;
+    const bucket = ordersByCustomer.get(order.customer_id) ?? [];
+    bucket.push({
+      ...order,
+      total: normalizeNumber(order.total),
+    });
+    ordersByCustomer.set(order.customer_id, bucket);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    total_orders: normalizeNumber(row.total_orders),
+    total_spent: normalizeNumber(row.total_spent),
+    accepts_email_marketing: normalizeBoolean(row.accepts_email_marketing),
+    accepts_sms_marketing: normalizeBoolean(row.accepts_sms_marketing),
+    tax_exempt: normalizeBoolean(row.tax_exempt),
+    is_active: normalizeBoolean(row.is_active),
+    tags: normalizeTagList(row.tags),
+    addresses: addressesByCustomer.get(row.id) ?? [],
+    orders: ordersByCustomer.get(row.id) ?? [],
+  }));
 }
 
 function buildCustomerUpdatePayload(input: Partial<CustomerUpsertInput>) {
@@ -157,6 +339,59 @@ export async function getCustomers(options?: {
   offset?: number;
   search?: string;
 }) {
+  if (shouldUseLightPostgresAdmin()) {
+    const params: unknown[] = [];
+    const whereClauses: string[] = [];
+
+    if (options?.search) {
+      params.push(`%${options.search}%`);
+      whereClauses.push(`(email ilike $${params.length} or first_name ilike $${params.length} or last_name ilike $${params.length})`);
+    }
+
+    let sql = `
+      select
+        id,
+        email,
+        user_id,
+        first_name,
+        last_name,
+        phone,
+        status,
+        total_orders,
+        total_spent,
+        last_order_at,
+        notes,
+        tags,
+        external_customer_id,
+        accepts_email_marketing,
+        accepts_sms_marketing,
+        tax_exempt,
+        is_active,
+        created_at,
+        updated_at
+      from public.customers
+    `;
+
+    if (whereClauses.length > 0) {
+      sql += ` where ${whereClauses.join(" and ")}`;
+    }
+
+    sql += " order by created_at desc";
+
+    if (options?.limit) {
+      params.push(options.limit);
+      sql += ` limit $${params.length}`;
+    }
+
+    if (options?.offset) {
+      params.push(options.offset);
+      sql += ` offset $${params.length}`;
+    }
+
+    const rows = await queryAdminLightPostgres<LightPostgresCustomerRow>(sql, params);
+    return hydrateLightPostgresCustomers(rows);
+  }
+
   const serverClient = createServerClient();
 
   let query = serverClient
@@ -191,6 +426,44 @@ export async function getCustomers(options?: {
  * Get customer by ID (admin)
  */
 export async function getCustomerById(id: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    const row = await queryAdminLightPostgresOne<LightPostgresCustomerRow>(
+      `
+        select
+          id,
+          email,
+          user_id,
+          first_name,
+          last_name,
+          phone,
+          status,
+          total_orders,
+          total_spent,
+          last_order_at,
+          notes,
+          tags,
+          external_customer_id,
+          accepts_email_marketing,
+          accepts_sms_marketing,
+          tax_exempt,
+          is_active,
+          created_at,
+          updated_at
+        from public.customers
+        where id = $1
+        limit 1
+      `,
+      [id],
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    const [customer] = await hydrateLightPostgresCustomers([row]);
+    return customer ?? null;
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
@@ -211,6 +484,44 @@ export async function getCustomerById(id: string) {
  * Get customer by email
  */
 export async function getCustomerByEmail(email: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    const row = await queryAdminLightPostgresOne<LightPostgresCustomerRow>(
+      `
+        select
+          id,
+          email,
+          user_id,
+          first_name,
+          last_name,
+          phone,
+          status,
+          total_orders,
+          total_spent,
+          last_order_at,
+          notes,
+          tags,
+          external_customer_id,
+          accepts_email_marketing,
+          accepts_sms_marketing,
+          tax_exempt,
+          is_active,
+          created_at,
+          updated_at
+        from public.customers
+        where lower(email) = lower($1)
+        limit 1
+      `,
+      [email],
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    const [customer] = await hydrateLightPostgresCustomers([row]);
+    return customer ?? null;
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
@@ -468,6 +779,30 @@ export async function deleteAddress(id: string) {
  * Get customer statistics (admin)
  */
 export async function getCustomerStats() {
+  if (shouldUseLightPostgresAdmin()) {
+    const customers = await queryAdminLightPostgres<
+      Pick<LightPostgresCustomerRow, "total_orders" | "total_spent" | "created_at">
+    >(
+      `
+        select total_orders, total_spent, created_at
+        from public.customers
+      `,
+    );
+
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newCustomers = customers.filter((customer) => new Date(customer.created_at) >= thisMonth);
+    const totalRevenue = customers.reduce((sum, customer) => sum + normalizeNumber(customer.total_spent), 0);
+    const totalOrders = customers.reduce((sum, customer) => sum + normalizeNumber(customer.total_orders), 0);
+
+    return {
+      totalCustomers: customers.length,
+      newCustomersThisMonth: newCustomers.length,
+      totalRevenue,
+      averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+    };
+  }
+
   const serverClient = createServerClient();
 
   const { data: customers, error } = await serverClient

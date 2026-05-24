@@ -8,6 +8,8 @@ import { attemptOrderShippingDispatch } from "./shipping-automation";
 import { emitAdminNotificationEvent } from "@/lib/admin-notification-center";
 import { CartCustomizationPayload, OrderItemCustomization } from "@/types/product-customization";
 import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import { queryAdminLightPostgres, queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
 
 type ShippingAddressInput = {
     firstName?: string;
@@ -26,6 +28,190 @@ type OrderItemWithCustomizations = {
 type OrderWithItems = {
     items?: OrderItemWithCustomizations[];
 } & Record<string, unknown>;
+
+type LightPostgresOrderRow = Record<string, unknown> & {
+    id: string;
+    order_number: string;
+    customer_id: string | null;
+    status: string;
+    subtotal: number | string;
+    shipping_cost: number | string;
+    discount: number | string;
+    total: number | string;
+    shipping_address: unknown;
+    billing_address: unknown;
+    payment_method: string | null;
+    payment_status: string;
+    notes: string | null;
+    source_type: string | null;
+    source_ref_id: string | null;
+    shipping_carrier: string | null;
+    tracking_number: string | null;
+    estimated_delivery: string | null;
+    internal_notes: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+type LightPostgresOrderItemRow = Record<string, unknown> & {
+    id: string;
+    order_id: string;
+    product_id: string | null;
+    variant_id: string | null;
+    product_name: string;
+    variant_name: string | null;
+    product_image: string | null;
+    price: number | string;
+    quantity: number | string;
+    total: number | string;
+    created_at: string;
+};
+
+type LightPostgresOrderItemCustomizationRow = Record<string, unknown> & {
+    order_item_id: string;
+};
+
+function toNumber(value: unknown, fallback = 0): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function listLightPostgresOrders(options?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+}) {
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (options?.status) {
+        params.push(options.status);
+        whereClauses.push(`status = $${params.length}`);
+    }
+
+    let sql = `
+        select
+          id,
+          order_number,
+          customer_id,
+          status,
+          subtotal,
+          shipping_cost,
+          discount,
+          total,
+          shipping_address,
+          billing_address,
+          payment_method,
+          payment_status,
+          notes,
+          source_type,
+          source_ref_id,
+          shipping_carrier,
+          tracking_number,
+          estimated_delivery,
+          internal_notes,
+          created_at,
+          updated_at
+        from public.orders
+    `;
+
+    if (whereClauses.length > 0) {
+        sql += ` where ${whereClauses.join(" and ")}`;
+    }
+
+    sql += " order by created_at desc";
+
+    if (options?.limit) {
+        params.push(options.limit);
+        sql += ` limit $${params.length}`;
+    }
+
+    if (options?.offset) {
+        params.push(options.offset);
+        sql += ` offset $${params.length}`;
+    }
+
+    const orders = await queryAdminLightPostgres<LightPostgresOrderRow>(sql, params);
+    return hydrateLightPostgresOrders(orders);
+}
+
+async function hydrateLightPostgresOrders(orders: LightPostgresOrderRow[]) {
+    if (orders.length === 0) {
+        return [];
+    }
+
+    const orderIds = orders.map((order) => order.id);
+    const items = await queryAdminLightPostgres<LightPostgresOrderItemRow>(
+        `
+          select
+            id,
+            order_id,
+            product_id,
+            variant_id,
+            product_name,
+            variant_name,
+            product_image,
+            price,
+            quantity,
+            total,
+            created_at
+          from public.order_items
+          where order_id = any($1::uuid[])
+          order by created_at asc
+        `,
+        [orderIds],
+    );
+
+    const itemIds = items.map((item) => item.id);
+    const customizations = itemIds.length > 0
+        ? await queryAdminLightPostgres<LightPostgresOrderItemCustomizationRow>(
+            `
+              select *
+              from public.order_item_customizations
+              where order_item_id = any($1::uuid[])
+              order by created_at asc
+            `,
+            [itemIds],
+        )
+        : [];
+
+    const customizationsByItem = new Map<string, LightPostgresOrderItemCustomizationRow[]>();
+    for (const customization of customizations) {
+        const bucket = customizationsByItem.get(customization.order_item_id) ?? [];
+        bucket.push(customization);
+        customizationsByItem.set(customization.order_item_id, bucket);
+    }
+
+    const itemsByOrder = new Map<string, OrderItemWithCustomizations[]>();
+    for (const item of items) {
+        const mappedItem: OrderItemWithCustomizations = {
+            ...item,
+            price: toNumber(item.price),
+            quantity: toNumber(item.quantity),
+            total: toNumber(item.total),
+            customizations: customizationsByItem.get(item.id) ?? [],
+        };
+        const bucket = itemsByOrder.get(item.order_id) ?? [];
+        bucket.push(mappedItem);
+        itemsByOrder.set(item.order_id, bucket);
+    }
+
+    return orders.map((order) => ({
+        ...order,
+        subtotal: toNumber(order.subtotal),
+        shipping_cost: toNumber(order.shipping_cost),
+        discount: toNumber(order.discount),
+        total: toNumber(order.total),
+        items: (itemsByOrder.get(order.id) ?? []).map((item) => ({
+            ...item,
+            customizations: normalizeStoredCustomizations(item.customizations),
+        })),
+    }));
+}
 
 // =====================================================
 // ORDER MUTATIONS (Server-side only - all order operations require admin)
@@ -361,6 +547,10 @@ export async function getOrders(options?: {
     limit?: number;
     offset?: number;
 }) {
+    if (shouldUseLightPostgresAdmin()) {
+        return listLightPostgresOrders(options);
+    }
+
     const serverClient = createServerClient();
 
     let query = serverClient
@@ -408,6 +598,46 @@ export async function getOrders(options?: {
  * Get order by ID (admin)
  */
 export async function getOrderById(id: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        const row = await queryAdminLightPostgresOne<LightPostgresOrderRow>(
+            `
+              select
+                id,
+                order_number,
+                customer_id,
+                status,
+                subtotal,
+                shipping_cost,
+                discount,
+                total,
+                shipping_address,
+                billing_address,
+                payment_method,
+                payment_status,
+                notes,
+                source_type,
+                source_ref_id,
+                shipping_carrier,
+                tracking_number,
+                estimated_delivery,
+                internal_notes,
+                created_at,
+                updated_at
+              from public.orders
+              where id = $1
+              limit 1
+            `,
+            [id],
+        );
+
+        if (!row) {
+            return null;
+        }
+
+        const [order] = await hydrateLightPostgresOrders([row]);
+        return order ?? null;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -440,6 +670,46 @@ export async function getOrderById(id: string) {
  * Get order by order number
  */
 export async function getOrderByNumber(orderNumber: string) {
+    if (shouldUseLightPostgresAdmin()) {
+        const row = await queryAdminLightPostgresOne<LightPostgresOrderRow>(
+            `
+              select
+                id,
+                order_number,
+                customer_id,
+                status,
+                subtotal,
+                shipping_cost,
+                discount,
+                total,
+                shipping_address,
+                billing_address,
+                payment_method,
+                payment_status,
+                notes,
+                source_type,
+                source_ref_id,
+                shipping_carrier,
+                tracking_number,
+                estimated_delivery,
+                internal_notes,
+                created_at,
+                updated_at
+              from public.orders
+              where order_number = $1
+              limit 1
+            `,
+            [orderNumber],
+        );
+
+        if (!row) {
+            return null;
+        }
+
+        const [order] = await hydrateLightPostgresOrders([row]);
+        return order ?? null;
+    }
+
     const serverClient = createServerClient();
 
     const { data, error } = await serverClient
@@ -631,6 +901,32 @@ export async function deleteOrder(id: string) {
  * Get order statistics (admin)
  */
 export async function getOrderStats() {
+    if (shouldUseLightPostgresAdmin()) {
+        const orders = await queryAdminLightPostgres<Pick<LightPostgresOrderRow, "total" | "status" | "created_at">>(
+            `
+              select total, status, created_at
+              from public.orders
+            `,
+        );
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const todayOrders = orders.filter((order) => new Date(order.created_at) >= today);
+        const monthOrders = orders.filter((order) => new Date(order.created_at) >= thisMonth);
+        const pendingOrders = orders.filter((order) => order.status === "pending");
+
+        return {
+            totalOrders: orders.length,
+            totalRevenue: orders.reduce((sum, order) => sum + toNumber(order.total), 0),
+            todayOrders: todayOrders.length,
+            todayRevenue: todayOrders.reduce((sum, order) => sum + toNumber(order.total), 0),
+            monthOrders: monthOrders.length,
+            monthRevenue: monthOrders.reduce((sum, order) => sum + toNumber(order.total), 0),
+            pendingOrders: pendingOrders.length,
+        };
+    }
+
     const serverClient = createServerClient();
 
     const { data: orders, error } = await serverClient
