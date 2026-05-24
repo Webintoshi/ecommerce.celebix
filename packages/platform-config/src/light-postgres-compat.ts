@@ -1392,8 +1392,11 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
   private async deleteRows(): Promise<QueryExecutionResult<unknown>> {
     const pool = await this.poolPromise;
     const identifierFilter = this.filters.find(
-      (filter): filter is Extract<Filter, { type: "eq"; column: string }> =>
-        filter.type === "eq" && (filter.column === "id" || filter.column === "key" || filter.column === "product_id"),
+      (
+        filter,
+      ): filter is Extract<Filter, { type: "eq"; column: string }> | Extract<Filter, { type: "in"; column: string }> =>
+        (filter.type === "eq" || filter.type === "in") &&
+        (filter.column === "id" || filter.column === "key" || filter.column === "product_id"),
     );
 
     if (!identifierFilter) {
@@ -1410,10 +1413,15 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    const result = await pool.query(
-      `delete from public.${this.tableName} where "${identifierFilter.column}" = $1 returning *`,
-      [identifierFilter.value],
-    );
+    const sql =
+      identifierFilter.type === "in"
+        ? `delete from public.${this.tableName} where "${identifierFilter.column}" = any($1::text[]) returning *`
+        : `delete from public.${this.tableName} where "${identifierFilter.column}" = $1 returning *`;
+
+    const values =
+      identifierFilter.type === "in" ? [identifierFilter.value.map((entry) => String(entry))] : [identifierFilter.value];
+
+    const result = await pool.query(sql, values);
 
     return this.shapeSelectResult(result.rows);
   }
