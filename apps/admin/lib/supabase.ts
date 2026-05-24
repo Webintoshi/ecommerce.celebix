@@ -29,7 +29,7 @@ function createRuntimeRequire(): (id: string) => unknown {
 
 function createLightPostgresServerCompatClient(): SupabaseClient {
   const runtimeRequire = createRuntimeRequire();
-  const compatModule = runtimeRequire("./light-postgres-compat-runtime") as LightPostgresCompatModule;
+  const compatModule = runtimeRequire("./light-postgres-compat-runtime.cjs") as LightPostgresCompatModule;
 
   return compatModule.createAdminLightPostgresCompatClient() as SupabaseClient;
 }
