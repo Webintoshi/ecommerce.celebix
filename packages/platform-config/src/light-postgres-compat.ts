@@ -969,19 +969,45 @@ async function getCustomerRows(pool: PoolLike): Promise<CustomerCompatRow[]> {
 
 function buildUpdateAssignments(
   payload: Record<string, unknown>,
+  tableName: string,
   startingIndex = 1,
 ): { sql: string; values: unknown[] } {
   const entries = Object.entries(payload);
   const values: unknown[] = [];
   const sql = entries
-    .map(([column], index) => `"${column}" = $${startingIndex + index}`)
+    .map(([column], index) => {
+      const placeholder = `$${startingIndex + index}`;
+      return `"${column}" = ${
+        isJsonColumn(tableName, column) ? `${placeholder}::jsonb` : placeholder
+      }`;
+    })
     .join(", ");
 
-  for (const [, value] of entries) {
-    values.push(value);
+  for (const [column, value] of entries) {
+    values.push(prepareWriteValue(tableName, column, value));
   }
 
   return { sql, values };
+}
+
+const JSON_COLUMN_MAP: Record<string, Set<string>> = {
+  settings: new Set(["value"]),
+  products: new Set(["images_v2", "dimensions", "vitamins", "shopify_metadata", "shopify_metafields"]),
+  product_variants: new Set(["attributes", "shopify_metadata"]),
+  categories: new Set(["faq", "geo_data"]),
+  pages: new Set(["faq", "geo_data"]),
+};
+
+function isJsonColumn(tableName: string, column: string) {
+  return JSON_COLUMN_MAP[tableName]?.has(column) ?? false;
+}
+
+function prepareWriteValue(tableName: string, column: string, value: unknown) {
+  if (!isJsonColumn(tableName, column)) {
+    return value;
+  }
+
+  return JSON.stringify(value ?? null);
 }
 
 class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResult<unknown>> {
@@ -1277,8 +1303,13 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
     for (const entry of this.payload) {
       const record = { ...entry };
       const columns = Object.keys(record);
-      const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
-      const values = columns.map((column) => record[column]);
+      const placeholders = columns
+        .map((column, index) => {
+          const placeholder = `$${index + 1}`;
+          return isJsonColumn(this.tableName, column) ? `${placeholder}::jsonb` : placeholder;
+        })
+        .join(", ");
+      const values = columns.map((column) => prepareWriteValue(this.tableName, column, record[column]));
       const result = await pool.query(
         `insert into public.${this.tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
         values,
@@ -1347,7 +1378,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    const assignment = buildUpdateAssignments(payload);
+    const assignment = buildUpdateAssignments(payload, this.tableName);
     const result = await pool.query(
       `update public.${this.tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${
         assignment.values.length + 1
