@@ -209,6 +209,42 @@ export async function maybeGetAdminSetting(key: string) {
   return row ? mapSettingRow(row).value : null;
 }
 
+export async function maybeSetAdminSetting(key: string, value: JsonValue | Record<string, unknown> | null) {
+  if (!shouldUseLightPostgresAdmin()) {
+    return undefined;
+  }
+
+  const row = await queryAdminLightPostgresOne<SettingRow>(
+    `
+      insert into public.settings (key, value, updated_at)
+      values ($1, $2::jsonb, now())
+      on conflict (key) do update
+      set value = excluded.value,
+          updated_at = now()
+      returning key, value, updated_at
+    `,
+    [key, JSON.stringify(normalizeJsonValue(value))],
+  );
+
+  return row ? mapSettingRow(row) : null;
+}
+
+export async function maybeDeleteAdminSetting(key: string) {
+  if (!shouldUseLightPostgresAdmin()) {
+    return undefined;
+  }
+
+  await executeLightPostgres(
+    `
+      delete from public.settings
+      where key = $1
+    `,
+    [key],
+  );
+
+  return true;
+}
+
 export async function maybeGetAllAdminSettings() {
   if (!shouldUseLightPostgresAdmin()) {
     return undefined;
