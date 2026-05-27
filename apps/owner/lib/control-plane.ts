@@ -971,6 +971,8 @@ function normalizeProvisioningSummaryForDisplay(
   summary: StoreProvisioningSummary,
   input: {
     health: StoreHealthSummary;
+    adminDeploymentStatus: string | null;
+    adminDeploymentLastError: string | null;
     storefrontStatus: StorefrontStatus;
     storefrontAppDir: string | null;
     adminDeploymentStatus: string | null;
@@ -2799,6 +2801,8 @@ async function buildDashboardStoreSummaries(
       );
       const provisioning = normalizeProvisioningSummaryForDisplay(buildProvisioningSummary(store.metadata), {
         health,
+        adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
+        adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
         storefrontStatus: store.storefront_status,
         storefrontAppDir: store.storefront_app_dir,
         adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
@@ -3576,6 +3580,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
       : current.health;
   const provisioning = normalizeProvisioningSummaryForDisplay(current.provisioning, {
     health,
+    adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
+    adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
     storefrontStatus: current.storefrontStatus,
     storefrontAppDir: current.storefrontAppDir,
     adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
