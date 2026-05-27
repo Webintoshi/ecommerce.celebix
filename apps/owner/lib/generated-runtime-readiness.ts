@@ -96,6 +96,55 @@ async function readCoolifyApplicationStatus(resourceId: string): Promise<string 
   }
 }
 
+interface CoolifyApplicationRecord {
+  uuid?: string | null;
+  fqdn?: string | null;
+  domain?: string | null;
+  status?: string | null;
+}
+
+function normalizeApplicationListPayload(payload: unknown): CoolifyApplicationRecord[] {
+  if (Array.isArray(payload)) {
+    return payload as CoolifyApplicationRecord[];
+  }
+
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+
+    for (const key of ["data", "applications", "result"] as const) {
+      if (Array.isArray(record[key])) {
+        return record[key] as CoolifyApplicationRecord[];
+      }
+    }
+  }
+
+  return [];
+}
+
+function matchesGeneratedHostname(
+  application: CoolifyApplicationRecord,
+  hostname: string,
+): boolean {
+  const candidates = [
+    readOptionalString(application.fqdn),
+    readOptionalString(application.domain),
+  ].filter(Boolean) as string[];
+
+  return candidates.some((candidate) => normalizeHostname(candidate) === hostname);
+}
+
+async function readCoolifyApplicationStatusForHostname(hostname: string): Promise<string | null> {
+  try {
+    const payload = await coolifyFetch<unknown>("/applications");
+    const application = normalizeApplicationListPayload(payload).find((candidate) =>
+      matchesGeneratedHostname(candidate, hostname),
+    );
+    return readOptionalString(application?.status);
+  } catch {
+    return null;
+  }
+}
+
 export function isGeneratedManagedHostname(hostname: string | null | undefined): boolean {
   if (!hostname?.trim()) {
     return false;
@@ -150,7 +199,9 @@ export async function diagnoseGeneratedRuntimeFailure(input: {
   const publicDnsReady = generatedHostname ? await isHostnameResolvable(hostname) : true;
   const applicationStatus = input.resourceId?.trim()
     ? await readCoolifyApplicationStatus(input.resourceId.trim())
-    : null;
+    : generatedHostname
+      ? await readCoolifyApplicationStatusForHostname(hostname)
+      : null;
   const internalHealthy = applicationStatus?.toLocaleLowerCase("tr") === "running:healthy";
   const statusSuffix = input.responseStatus ? ` (HTTP ${input.responseStatus})` : "";
   const detailSuffix = input.errorMessage?.trim() ? `: ${input.errorMessage.trim()}` : "";
