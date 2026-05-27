@@ -1,7 +1,18 @@
 import { createServerClient } from "@/lib/supabase";
 import { NextResponse } from "next/server";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 export async function POST(request: Request) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        error: "Musteri hesabi baglama gecici olarak devre disi.",
+        code: "temporarily_disabled",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, first_name, last_name, phone, user_id } = await request.json();
 

@@ -13,6 +13,10 @@ import {
 import { formatPrice } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
+const CUSTOMER_AUTH_DISABLED =
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE?.trim().toLowerCase() === "light_postgres" &&
+  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() === "derycraftcomtr";
+
 interface Order {
   id: string;
   order_number: string;
@@ -71,6 +75,11 @@ export default function AccountPage() {
 
   // Fetch customer data and orders
   useEffect(() => {
+    if (CUSTOMER_AUTH_DISABLED) {
+      setLoading(false);
+      return;
+    }
+
     if (!user) {
       if (!authLoading) {
         router.push("/giris");
@@ -202,6 +211,43 @@ export default function AccountPage() {
         <div className="flex items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="text-gray-600 font-medium">Yükleniyor...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (CUSTOMER_AUTH_DISABLED) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-16">
+        <div className="w-full max-w-2xl rounded-3xl border border-amber-200 bg-white p-8 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <User className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Musteri Hesabi Gecici Olarak Kapali</h1>
+              <p className="mt-1 text-sm text-gray-500">DeryCraft rehearsal surecinde hesap ve siparis gecmisi yuzeyi devre disi.</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-7 text-amber-900">
+            Misafir checkout kullanimi acik. Siparis onay sayfasi ve e-posta bildirimleri siparis takibi icin kullanilabilir.
+          </div>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/urunler"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-[#7B1113]"
+            >
+              Alisverise Don
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-gray-300 px-6 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+            >
+              Ana Sayfaya Don
+            </Link>
+          </div>
         </div>
       </div>
     );

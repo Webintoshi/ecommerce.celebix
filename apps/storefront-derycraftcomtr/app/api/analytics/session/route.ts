@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
 import { upsertActivePresence } from "@/lib/analytics-presence";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 // POST /api/analytics/session - Create or update session
 export async function POST(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, disabled: true });
+    }
+
     try {
         const body = await request.json();
         const { sessionId, userAgent, referrer, deviceType, browser, os, utm_source, utm_medium, utm_campaign, path } = body;

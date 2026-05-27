@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createPublicServerClient, createServerClient } from "@/lib/supabase";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 type LoginBody = {
   email?: string;
@@ -21,6 +22,16 @@ async function findUserByEmail(email: string) {
 }
 
 export async function POST(request: Request) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        error: "Musteri girisi gecici olarak devre disi. Siparislerinizi misafir olarak tamamlayabilirsiniz.",
+        code: "temporarily_disabled",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, password }: LoginBody = await request.json();
 

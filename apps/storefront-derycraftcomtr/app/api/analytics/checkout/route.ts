@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 // POST /api/analytics/checkout - Track checkout progress
 export async function POST(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, disabled: true });
+    }
+
     try {
         const body = await request.json();
         const { sessionId, step, cartItems, cartTotal, email, phone } = body;
@@ -68,6 +73,10 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/analytics/checkout - Complete checkout
 export async function PUT(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, disabled: true });
+    }
+
     try {
         const body = await request.json();
         const { sessionId, orderId } = body;

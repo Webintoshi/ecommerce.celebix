@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
 import { updateActivePresencePath } from "@/lib/analytics-presence";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 function isAdminPath(path: string): boolean {
     if (!path) return false;
@@ -13,6 +14,10 @@ function isAdminPath(path: string): boolean {
 
 // POST /api/analytics/pageview - Track page view
 export async function POST(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, disabled: true });
+    }
+
     try {
         let body: { sessionId?: string; pageUrl?: string; pageTitle?: string } = {};
         

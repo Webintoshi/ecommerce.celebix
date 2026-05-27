@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 // POST /api/analytics/event - Track custom event
 export async function POST(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, disabled: true });
+    }
+
     try {
         const body = await request.json();
         const { sessionId, eventType, eventData, pageUrl } = body;

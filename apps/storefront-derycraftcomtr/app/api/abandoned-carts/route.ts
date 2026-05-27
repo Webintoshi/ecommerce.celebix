@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 import {
   deleteLatestOpenAbandonedCartForSession,
   findAbandonedCartByLookup,
@@ -49,6 +50,15 @@ function applyFilters(
 }
 
 export async function GET(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json({
+      success: true,
+      carts: [],
+      pagination: { page: 1, limit: 20, total: 0, pages: 0 },
+      disabled: true,
+    });
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
@@ -101,6 +111,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json({ success: true, cart: null, disabled: true });
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -133,6 +147,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json({ success: true, cart: null, disabled: true });
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -234,6 +252,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json({ success: true, disabled: true });
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);

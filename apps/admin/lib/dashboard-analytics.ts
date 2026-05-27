@@ -6,6 +6,7 @@ import { fetchPlausibleAggregate } from "@/lib/analytics/plausible";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
 import type { DashboardAnalysisSummary, DashboardAnalysisSummaryItem } from "@/lib/admin-data-types";
 import type { AnalyticsStats, TimeRange, TrendData } from "@/types/analytics";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 
 type OrderRow = {
   id: string;
@@ -389,6 +390,49 @@ export async function getDashboardAnalyticsPayload(
   const cacheKey = `analytics:dashboard:v2:${timeRange}`;
 
   return getOrSetCachedValue(cacheKey, 60_000, async () => {
+    if (shouldUseLightPostgresAdmin()) {
+      const labels = getPeriodLabels(timeRange);
+      return {
+        success: true,
+        stats: {
+          revenue: 0,
+          orders: 0,
+          customers: 0,
+          conversionRate: 0,
+          avgOrderValue: 0,
+          revenueChange: 0,
+          ordersChange: 0,
+          customersChange: 0,
+          conversionChange: 0,
+        },
+        trendData: [],
+        comparisonTrendData: [],
+        abandonedCartStats: {
+          totalValue: 0,
+          recoveryRate: 0,
+          recoveredCount: 0,
+          totalCount: 0,
+        },
+        analysisSummary: buildAnalysisSummary({
+          visitors: 0,
+          previousVisitors: 0,
+          pageViews: 0,
+          previousPageViews: 0,
+          addToCart: 0,
+          previousAddToCart: 0,
+          purchases: 0,
+          previousPurchases: 0,
+        }),
+        traffic: {
+          visitors: 0,
+          pageViews: 0,
+          addToCart: 0,
+          purchases: 0,
+        },
+        labels,
+      };
+    }
+
     const supabase = createServerClient();
     const { startDate, endDate } = getDateRange(timeRange);
     const { startDate: prevStartDate, endDate: prevEndDate } = getPreviousDateRange(timeRange);

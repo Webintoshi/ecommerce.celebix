@@ -58,13 +58,17 @@ export async function PATCH(
     if (paymentStatus === "completed" && order.status === "pending") {
       try {
         await updateOrderStatus(id, "confirmed");
-        await supabase.from("order_activity_log").insert({
-          order_id: id,
-          action: "status_changed",
-          old_value: order.status,
-          new_value: "confirmed",
-          admin_name: adminName,
-        });
+        try {
+          await supabase.from("order_activity_log").insert({
+            order_id: id,
+            action: "status_changed",
+            old_value: order.status,
+            new_value: "confirmed",
+            admin_name: adminName,
+          });
+        } catch (logError) {
+          console.error("Error creating confirmation activity log:", logError);
+        }
       } catch (statusError) {
         console.error("Error confirming order after completed payment:", statusError);
       }

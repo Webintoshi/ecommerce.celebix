@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue, getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { getActivePresenceSnapshot, isAnalyticsAdminPath, isAnalyticsBot, upsertActivePresence } from "@/lib/analytics-presence";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 function isAdminPath(path: string): boolean {
     return isAnalyticsAdminPath(path);
@@ -21,6 +22,10 @@ async function getDatabaseVisitorCount() {
 }
 
 export async function POST(request: NextRequest) {
+    if (isDerycraftLightPostgresRuntime()) {
+        return NextResponse.json({ success: true, updated: false, disabled: true });
+    }
+
     try {
         let body = { sessionId: '', path: '', userAgent: '', deviceType: '' };
         
@@ -99,6 +104,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+    if (isDerycraftLightPostgresRuntime()) {
+        const snapshot = await getActivePresenceSnapshot();
+        return NextResponse.json({
+            success: true,
+            visitors: snapshot?.liveVisitors ?? 0,
+            disabled: true,
+        });
+    }
+
     try {
         const visitors = await getOrSetCachedValue("analytics:heartbeat:visitors", 3_000, async () => {
             const presenceSnapshot = await getActivePresenceSnapshot();
