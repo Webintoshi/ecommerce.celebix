@@ -21,6 +21,13 @@
     "status": "draft"
   },
   {
+    "slug": "atlas-light-postgres-e2e-2705215302",
+    "name": "Atlas Light Postgres E2E Test",
+    "domain": "atlas-light-postgres-e2e-2705215302.celebix.site",
+    "theme": "atelier",
+    "status": "draft"
+  },
+  {
     "slug": "butik-waya",
     "name": "Butik Waya",
     "domain": "celebix.site",
