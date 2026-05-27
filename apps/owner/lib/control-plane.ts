@@ -975,8 +975,6 @@ function normalizeProvisioningSummaryForDisplay(
     adminDeploymentLastError: string | null;
     storefrontStatus: StorefrontStatus;
     storefrontAppDir: string | null;
-    adminDeploymentStatus: string | null;
-    adminDeploymentLastError: string | null;
     storefrontDeploymentStatus: string | null;
     storefrontRepoSyncStatus: string | null;
     metrics: {
@@ -2805,8 +2803,6 @@ async function buildDashboardStoreSummaries(
         adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
         storefrontStatus: store.storefront_status,
         storefrontAppDir: store.storefront_app_dir,
-        adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
-        adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
         storefrontDeploymentStatus: readOptionalString(storeConfig?.storefront?.deploymentStatus),
         storefrontRepoSyncStatus: readOptionalString(storeConfig?.storefront?.repoSyncStatus),
         metrics: {
@@ -3584,8 +3580,6 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
     storefrontStatus: current.storefrontStatus,
     storefrontAppDir: current.storefrontAppDir,
-    adminDeploymentStatus: readOptionalString(storeConfig?.bootstrap?.adminDeploymentStatus),
-    adminDeploymentLastError: readOptionalString(storeConfig?.bootstrap?.adminDeploymentLastError),
     storefrontDeploymentStatus: readOptionalString(storefrontConfig?.deploymentStatus),
     storefrontRepoSyncStatus: readOptionalString(storefrontConfig?.repoSyncStatus),
     metrics: {
