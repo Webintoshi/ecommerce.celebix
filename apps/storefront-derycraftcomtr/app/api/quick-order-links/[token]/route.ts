@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
 import { getQuickOrderLinkByToken, markQuickOrderLinkOpened } from "@/lib/db/quick-order-links";
 import { getPaymentGatewayRuntimeStatus, sanitizePublicPaymentGateway } from "@/lib/payment-providers";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 function isManualGateway(gateway: { gateway: string }) {
   return gateway.gateway === "bank_transfer" || gateway.gateway === "cod";
@@ -11,6 +12,17 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: "temporarily_disabled",
+        error: "Hizli siparis baglanti odemesi gecici olarak devre disi.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { token } = await params;
     let link = await getQuickOrderLinkByToken(token);
