@@ -1,12 +1,15 @@
 import { maybeGetStorefrontSetting } from "@/lib/db/light-postgres-storefront-read";
 import { createServerClient } from "@/lib/supabase";
 import { getPaymentGatewayRuntimeStatus, normalizePaymentGateways } from "@/lib/payment-providers";
+import { shouldUseLightPostgresStorefront } from "./storefront-database-mode";
 import { PaymentGateway, PaymentGatewayConfig } from "@/types/payment";
 
 const DERYCRAFT_SOURCE_PUBLIC_PAYMENTS_URL = "https://derycraft.com/api/public/payments";
 
 function getReadyActiveGateways(gateways: PaymentGatewayConfig[]) {
-    return gateways.filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady);
+  return gateways.filter(
+    (gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady,
+  );
 }
 
 async function getOperationalFallbackGateways(localSeeds: PaymentGatewayConfig[]): Promise<PaymentGatewayConfig[]> {
@@ -50,25 +53,35 @@ async function getOperationalFallbackGateways(localSeeds: PaymentGatewayConfig[]
 
     if (codSeed) {
         return normalizePaymentGateways([{ ...codSeed, status: "active", updatedAt: now }])
-            .filter((gateway) => getPaymentGatewayRuntimeStatus(gateway).isReady);
+            .filter((gateway: PaymentGatewayConfig) => getPaymentGatewayRuntimeStatus(gateway).isReady);
     }
 
     if (bankTransferSeed) {
         return normalizePaymentGateways([{ ...bankTransferSeed, status: "active", updatedAt: now }])
-            .filter((gateway) => getPaymentGatewayRuntimeStatus(gateway).isReady);
+            .filter((gateway: PaymentGatewayConfig) => getPaymentGatewayRuntimeStatus(gateway).isReady);
     }
 
     return [];
 }
 
 export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]> {
-    const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
-    const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
-    if (getReadyActiveGateways(lightPostgresGateways).length > 0) {
-        return lightPostgresGateways;
+  const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
+  const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
+  if (getReadyActiveGateways(lightPostgresGateways).length > 0) {
+    return lightPostgresGateways;
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    const operationalFallback = await getOperationalFallbackGateways(lightPostgresGateways);
+
+    if (operationalFallback.length > 0) {
+      return operationalFallback;
     }
 
-    const serverClient = createServerClient();
+    return lightPostgresGateways;
+  }
+
+  const serverClient = createServerClient();
 
     const { data, error } = await serverClient
         .from("settings")

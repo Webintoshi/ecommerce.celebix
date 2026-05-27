@@ -9,6 +9,10 @@ import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Shield, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
+const CUSTOMER_AUTH_DISABLED =
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE?.trim().toLowerCase() === "light_postgres" &&
+  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() === "derycraftcomtr";
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +64,52 @@ export default function LoginPage() {
       router.push("/hesap");
     }
   };
+
+  if (CUSTOMER_AUTH_DISABLED) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">
+        <div className="w-full max-w-md">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+            <Link href="/" className="inline-block">
+              {showLogoImage ? (
+                <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+              ) : (
+                <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">{SITE_NAME}</span>
+              )}
+            </Link>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-2xl shadow-xl p-8"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <Shield className="w-5 h-5 text-amber-700" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Musteri Girisi Gecici Olarak Kapali</h2>
+            </div>
+            <p className="text-gray-600 leading-7">
+              DeryCraft hesabim yuzeyi rehearsal surecinde devre disi. Siparislerinizi misafir olarak guvenle
+              tamamlayabilirsiniz.
+            </p>
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Siparis takibi icin siparis onay sayfasini ve e-posta bildirimlerini kullanabilirsiniz.
+            </div>
+            <Link
+              href="/odeme"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-white transition-colors hover:bg-[#7B1113]"
+            >
+              Misafir Olarak Devam Et
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">

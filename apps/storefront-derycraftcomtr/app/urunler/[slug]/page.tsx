@@ -204,15 +204,20 @@ export default async function ProductDetailPage({
       const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
 
-      const { data: allAttributeValues } = await supabase
-        .from("variant_attribute_values")
-        .select(`
-          id,
-          value,
-          color_code,
-          image_url,
-          attribute:variant_attributes(id, name)
-        `);
+      const allAttributeValues =
+        lightPostgresProduct !== undefined
+          ? []
+          : (
+              await supabase
+                .from("variant_attribute_values")
+                .select(`
+                  id,
+                  value,
+                  color_code,
+                  image_url,
+                  attribute:variant_attributes(id, name)
+                `)
+            ).data;
 
       let images: string[] = [];
       if (

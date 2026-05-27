@@ -35,6 +35,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const CUSTOMER_AUTH_DISABLED =
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE?.trim().toLowerCase() === "light_postgres" &&
+  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() === "derycraftcomtr";
+
 type AppliedCoupon = {
   code: string;
   type: "percentage" | "fixed";
@@ -122,6 +126,11 @@ export default function CheckoutPage() {
   // Load user data if logged in
   useEffect(() => {
     if (user) {
+      if (CUSTOMER_AUTH_DISABLED) {
+        setContactEmail(user.email || "");
+        return;
+      }
+
       // User is logged in, fetch customer data
       const loadUserData = async () => {
         const { data: customer } = await supabase
@@ -262,7 +271,7 @@ export default function CheckoutPage() {
     }
 
     // Validate account creation fields if checked
-    if (!user && createAccount) {
+    if (!user && !CUSTOMER_AUTH_DISABLED && createAccount) {
       if (!accountPassword || accountPassword.length < 6) {
         toast.error("Şifre en az 6 karakter olmalıdır.");
         return;
@@ -280,7 +289,7 @@ export default function CheckoutPage() {
       let userId = user?.id || null;
 
       // Create account if requested and not logged in
-      if (!user && createAccount) {
+      if (!user && !CUSTOMER_AUTH_DISABLED && createAccount) {
         const registerResponse = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -330,7 +339,7 @@ export default function CheckoutPage() {
             customerId = customerData.id;
           }
         }
-      } else if (user) {
+      } else if (user && !CUSTOMER_AUTH_DISABLED) {
         // Get existing customer ID for logged-in user
         const { data: customer } = await supabase
           .from("customers")
@@ -363,10 +372,10 @@ export default function CheckoutPage() {
         shippingCost: resolvedShippingCost,
         discount: discountAmount,
         couponCode: appliedCoupon?.code || null,
-        notes: createAccount ? "Hesap oluşturuldu" : "",
+        notes: !CUSTOMER_AUTH_DISABLED && createAccount ? "Hesap oluşturuldu" : "",
         contactEmail,
         receiveUpdates: true,
-        createAccount: !user && createAccount,
+        createAccount: !CUSTOMER_AUTH_DISABLED && !user && createAccount,
         shippingMethod: selectedShippingRate ? {
           id: selectedShippingRate.id,
           name: selectedShippingRate.name,
@@ -394,7 +403,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      toast.success(createAccount 
+      toast.success(!CUSTOMER_AUTH_DISABLED && createAccount
         ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu." 
         : "Siparişiniz başarıyla alındı!"
       );
@@ -540,7 +549,13 @@ export default function CheckoutPage() {
                     </div>
 
                     {/* Account Creation - Only for non-logged in users */}
-                    {!user && (
+                    {!user && CUSTOMER_AUTH_DISABLED && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        Musteri hesabi ve siparis gecmisi ozellikleri gecici olarak devre disi. Checkout misafir olarak devam eder.
+                      </div>
+                    )}
+
+                    {!user && !CUSTOMER_AUTH_DISABLED && (
                       <div className="space-y-4">
                         <label className="flex items-start gap-3 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 cursor-pointer hover:bg-emerald-50 transition-colors">
                           <input

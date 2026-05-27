@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuthContext } from "@/lib/admin-auth";
 import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
+import { setSetting } from "@/lib/db/settings";
 import { normalizePaymentGateways } from "@/lib/payment-providers";
-import { createServerClient } from "@/lib/supabase";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
     }
 
-    const supabase = createServerClient();
     const body = await request.json();
 
     if (!Array.isArray(body.gateways)) {
@@ -38,18 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const gateways = normalizePaymentGateways(body.gateways);
-    const { error } = await supabase.from("settings").upsert(
-      {
-        key: "payment_gateways",
-        value: gateways,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "key" }
-    );
-
-    if (error) {
-      throw error;
-    }
+    await setSetting("payment_gateways", gateways as unknown as Record<string, unknown>);
 
     return NextResponse.json({ success: true, message: "Ödeme ayarları kaydedildi.", gateways });
   } catch (error) {

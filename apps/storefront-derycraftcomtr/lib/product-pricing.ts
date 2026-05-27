@@ -1,4 +1,5 @@
 import type { ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 
 function isMissingProductDiscountRulesTable(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -21,6 +22,10 @@ export async function getProductDiscountRulesMap(
   supabase: any,
   productIds: string[],
 ): Promise<Record<string, ProductDiscountRule[]>> {
+  if (shouldUseLightPostgresStorefront()) {
+    return {};
+  }
+
   if (!Array.isArray(productIds) || productIds.length === 0) {
     return {};
   }

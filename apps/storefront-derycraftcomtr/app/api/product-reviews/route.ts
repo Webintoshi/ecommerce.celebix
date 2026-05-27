@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_PRODUCT_REVIEW_IMAGES } from "@celebix/platform-config/src/product-reviews";
 import { createServerClient } from "@/lib/supabase";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 function normalizeImageUrls(value: unknown) {
   return Array.isArray(value)
@@ -27,6 +28,10 @@ function isMissingProductReviewsTableError(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json({ success: true, reviews: [] });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
@@ -73,6 +78,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Yorum sistemi gecici olarak devre disi.",
+        code: "temporarily_disabled",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       productId?: string;

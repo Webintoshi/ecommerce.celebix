@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
+import { isLightPostgresRuntime } from "../../../packages/platform-config/src/light-postgres-runtime";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import {
   getSupabaseAnonKey,

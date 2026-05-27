@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { fetchPlausibleAggregate } from "@/lib/analytics/plausible";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 
 type OrderRow = {
   id: string;
@@ -190,6 +191,30 @@ async function getAbandonedCartStats(
 
 export async function GET(request: NextRequest) {
   try {
+    if (shouldUseLightPostgresStorefront()) {
+      return NextResponse.json({
+        success: true,
+        stats: {
+          revenue: 0,
+          orders: 0,
+          customers: 0,
+          conversionRate: 0,
+          avgOrderValue: 0,
+          revenueChange: 0,
+          ordersChange: 0,
+          customersChange: 0,
+          conversionChange: 0,
+        },
+        trendData: [],
+        abandonedCartStats: {
+          totalValue: 0,
+          recoveryRate: 0,
+          recoveredCount: 0,
+          totalCount: 0,
+        },
+      });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const timeRange = searchParams.get("timeRange") || "week";
     const cacheKey = `analytics:dashboard:${timeRange}`;

@@ -14,6 +14,10 @@ import {
 import OrderSuccessToast from "@/components/order-success-toast";
 import { normalizeStoredCustomizations } from "@/lib/customization/normalize";
 import { getOrderAccountingSnapshot } from "@/lib/db/accounting";
+import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
+import { maybeListStorefrontProducts } from "@/lib/db/light-postgres-storefront-read";
+import { getOrderById } from "@/lib/db/orders";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { createServerClient } from "@/lib/supabase";
 import { formatPrice } from "@/lib/utils";
@@ -38,11 +42,13 @@ type PaymentGateway = {
 
 interface OrderItem {
   id: string;
+  product_id?: string | null;
   product_name: string;
   variant_name: string;
   price: number;
   quantity: number;
   total: number;
+  product_image?: string | null;
   product?: {
     images: string[];
     category: string;
@@ -130,18 +136,82 @@ export default async function OrderSuccessPage({
 }) {
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
-  const supabase = createServerClient();
+  let order: Order | null = null;
+  let paymentGateways: PaymentGateway[] = [];
+  let items: OrderItem[] = [];
 
-  const [orderResponse, settingsResponse] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", id).single(),
-    supabase.from("settings").select("value").eq("key", "payment_gateways").single(),
-  ]);
+  if (shouldUseLightPostgresStorefront()) {
+    const [lightPostgresOrder, gatewayConfigs, lightPostgresProducts] = await Promise.all([
+      getOrderById(id),
+      getStoredPaymentGateways(),
+      maybeListStorefrontProducts(),
+    ]);
 
-  const order: Order | null = orderResponse.data;
-  const orderError = orderResponse.error;
-  const paymentGateways = (settingsResponse.data?.value || []) as PaymentGateway[];
+    order = lightPostgresOrder as Order | null;
+    paymentGateways = gatewayConfigs as PaymentGateway[];
 
-  if (orderError || !order) {
+    const productsById = new Map(
+      (lightPostgresProducts ?? []).map((product) => [product.id, product]),
+    );
+
+    items = ((lightPostgresOrder?.items || []) as Array<Record<string, unknown>>).map((item) => {
+      const productId = typeof item.product_id === "string" ? item.product_id : null;
+      const product = productId ? productsById.get(productId) : null;
+      const productImage =
+        typeof item.product_image === "string" && item.product_image.trim().length > 0
+          ? item.product_image
+          : product?.images?.[0] || null;
+
+      return {
+        id: String(item.id || ""),
+        product_id: productId,
+        product_name: String(item.product_name || ""),
+        variant_name: String(item.variant_name || ""),
+        price: Number(item.price || 0),
+        quantity: Number(item.quantity || 0),
+        total: Number(item.total || 0),
+        product_image: productImage,
+        product: product
+          ? {
+              images: productImage ? [productImage, ...product.images.filter((image) => image !== productImage)] : product.images,
+              category: product.category || "",
+            }
+          : undefined,
+        customizations: normalizeStoredCustomizations(item.customizations),
+      };
+    });
+  } else {
+    const supabase = createServerClient();
+    const [orderResponse, settingsResponse] = await Promise.all([
+      supabase.from("orders").select("*").eq("id", id).single(),
+      supabase.from("settings").select("value").eq("key", "payment_gateways").single(),
+    ]);
+
+    order = orderResponse.data as Order | null;
+    paymentGateways = (settingsResponse.data?.value || []) as PaymentGateway[];
+
+    if (orderResponse.data) {
+      const { data: orderItems, error: itemsError } = await supabase
+        .from("order_items")
+        .select(`
+          *,
+          product:products(images, category),
+          customizations:order_item_customizations(*)
+        `)
+        .eq("order_id", id);
+
+      if (itemsError) {
+        console.error("Error fetching items:", itemsError);
+      }
+
+      items = (orderItems || []).map((item) => ({
+        ...(item as Record<string, unknown>),
+        customizations: normalizeStoredCustomizations((item as Record<string, unknown>).customizations),
+      })) as OrderItem[];
+    }
+  }
+
+  if (!order) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAFAFA] px-4 py-16 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Sipariş bulunamadı</h1>
@@ -158,29 +228,13 @@ export default async function OrderSuccessPage({
     );
   }
 
-  const { data: orderItems, error: itemsError } = await supabase
-    .from("order_items")
-    .select(`
-      *,
-      product:products(images, category),
-      customizations:order_item_customizations(*)
-    `)
-    .eq("order_id", id);
-
-  if (itemsError) {
-    console.error("Error fetching items:", itemsError);
-  }
-
-  const items: OrderItem[] = (orderItems || []).map((item) => ({
-    ...item,
-    customizations: normalizeStoredCustomizations(item.customizations),
-  }));
-
   let accountingSnapshot = null;
-  try {
-    accountingSnapshot = await getOrderAccountingSnapshot(id);
-  } catch (accountingError) {
-    console.error("Public order accounting snapshot error:", accountingError);
+  if (!shouldUseLightPostgresStorefront()) {
+    try {
+      accountingSnapshot = await getOrderAccountingSnapshot(id);
+    } catch (accountingError) {
+      console.error("Public order accounting snapshot error:", accountingError);
+    }
   }
 
   const paymentMeta = getPaymentMeta(order, paymentGateways);

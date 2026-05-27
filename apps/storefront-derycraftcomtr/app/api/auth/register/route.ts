@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 type RegisterBody = {
   email?: string;
@@ -8,6 +9,16 @@ type RegisterBody = {
 };
 
 export async function POST(request: Request) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        error: "Musteri hesabi olusturma gecici olarak devre disi. Siparislerinizi misafir olarak tamamlayabilirsiniz.",
+        code: "temporarily_disabled",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, password, metadata }: RegisterBody = await request.json();
 

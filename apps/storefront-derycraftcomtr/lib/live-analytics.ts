@@ -8,6 +8,7 @@ import {
   isAnalyticsBot,
 } from "@/lib/analytics-presence";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 
 const LIVE_CACHE_KEY = "analytics:live:v1";
 const LIVE_WINDOW_MS = 5 * 60 * 1000;
@@ -47,6 +48,27 @@ type PageViewRow = {
 
 export async function getLiveAnalyticsSnapshot(): Promise<LiveAnalyticsPayload> {
   return getOrSetCachedValue(LIVE_CACHE_KEY, 5_000, async () => {
+    if (shouldUseLightPostgresStorefront()) {
+      const presenceSnapshot = await getActivePresenceSnapshot();
+
+      return {
+        success: true,
+        data: {
+          liveVisitors: presenceSnapshot?.liveVisitors ?? 0,
+          devices: presenceSnapshot?.devices ?? { mobile: 0, desktop: 0, tablet: 0 },
+          topPages: presenceSnapshot?.topPages ?? [],
+          abandonedCarts: {
+            count: 0,
+            total: 0,
+          },
+          today: {
+            addToCart: 0,
+            purchases: 0,
+          },
+        },
+      };
+    }
+
     const supabase = createServerClient();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 

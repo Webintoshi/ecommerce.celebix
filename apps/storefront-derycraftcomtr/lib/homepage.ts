@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import {
   getHomepageCurationSettings,
   getProductListingOrderPositions,
@@ -560,6 +561,10 @@ async function translateHeroBanners(
 }
 
 async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServerClient>) {
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("product_reviews")
     .select("id, reviewer_name, rating, body, title, image_urls")

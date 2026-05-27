@@ -5,6 +5,11 @@ import { User, Session, AuthError, AuthResponse } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 type AuthResultError = AuthError | Error | null;
+const DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED =
+  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE?.trim().toLowerCase() === "light_postgres" &&
+  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() === "derycraftcomtr";
+const CUSTOMER_AUTH_DISABLED_MESSAGE =
+  "Musteri hesabi ozellikleri gecici olarak devre disi. Siparislerinizi misafir olarak tamamlayabilirsiniz.";
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -52,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      return {
+        error: new Error(CUSTOMER_AUTH_DISABLED_MESSAGE),
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -88,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      return {
+        error: new Error(CUSTOMER_AUTH_DISABLED_MESSAGE),
+        data: null,
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -125,11 +150,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      setSession(null);
+      setUser(null);
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signOut();
     return { error };
   };
 
   const resetPassword = async (email: string) => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      return { error: new Error(CUSTOMER_AUTH_DISABLED_MESSAGE) };
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/sifre-yenile` : undefined,
     });
@@ -137,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      return { error: new Error(CUSTOMER_AUTH_DISABLED_MESSAGE) };
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -144,6 +183,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSession = async () => {
+    if (DERYCRAFT_LIGHT_POSTGRES_CUSTOMER_AUTH_DISABLED) {
+      setSession(null);
+      setUser(null);
+      return;
+    }
+
     try {
       const { data } = await supabase.auth.refreshSession();
       setSession(data.session);

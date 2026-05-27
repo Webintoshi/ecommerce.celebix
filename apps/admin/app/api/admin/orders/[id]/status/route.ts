@@ -35,13 +35,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const order = await updateOrderStatus(id, status);
 
     // Create activity log
-    await serverClient.from("order_activity_log").insert({
-      order_id: id,
-      action: "status_changed",
-      old_value: oldStatus,
-      new_value: status,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await serverClient.from("order_activity_log").insert({
+        order_id: id,
+        action: "status_changed",
+        old_value: oldStatus,
+        new_value: status,
+        created_at: new Date().toISOString(),
+      });
+    } catch (logError) {
+      console.error("Error creating order activity log:", logError);
+    }
 
     // TODO: Send customer notification if requested
     if (notifyCustomer) {
