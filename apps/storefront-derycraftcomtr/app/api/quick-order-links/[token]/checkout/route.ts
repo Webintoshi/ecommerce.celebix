@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getActivePaymentGatewayById } from "@/lib/db/payment-gateways";
 import { getQuickOrderLinkByToken, markQuickOrderLinkOpened, validateQuickOrderStock } from "@/lib/db/quick-order-links";
 import { initializePayment } from "@/lib/payment-runtime";
+import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,17 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  if (isDerycraftLightPostgresRuntime()) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: "temporarily_disabled",
+        error: "Hizli siparis baglanti odemesi gecici olarak devre disi.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { token } = await params;
     const body = await request.json().catch(() => null);

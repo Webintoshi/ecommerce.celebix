@@ -46,6 +46,14 @@ function buildRemotePatterns(): NonNullable<NextConfig["images"]>["remotePattern
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: inferredImageTransformationUrl,
+    NEXT_PUBLIC_RUNTIME_DATABASE_MODE:
+      process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE ??
+      process.env.DATABASE_MODE ??
+      "",
+    NEXT_PUBLIC_STORE_SLUG:
+      process.env.NEXT_PUBLIC_STORE_SLUG ??
+      process.env.STORE_SLUG ??
+      "",
   },
   serverExternalPackages: ["iyzipay"],
   typescript: {
