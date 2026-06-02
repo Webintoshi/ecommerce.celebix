@@ -70,6 +70,11 @@ export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]
   }
 
   if (shouldUseLightPostgresStorefront()) {
+    const operationalFallback = await getOperationalFallbackGateways(lightPostgresGateways);
+    if (operationalFallback.length > 0) {
+      return operationalFallback;
+    }
+
     return lightPostgresGateways;
   }
 
